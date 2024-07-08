@@ -106,6 +106,7 @@ impl<'v> Dependency<'v> {
     pub fn execution_platform(&self) -> Option<&ExecutionPlatformResolution> {
         match NoneOr::unpack_value(self.execution_platform)
             .unwrap()
+            .unwrap()
             .into_option()
         {
             Some(v) => match StarlarkExecutionPlatformResolution::from_value(v) {

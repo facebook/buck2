@@ -157,8 +157,8 @@ impl ImplStarlarkValue {
             impl<#params> starlark::values::UnpackValue<#lt> for &#lt #self_ty
             #where_clause
             {
-                fn unpack_value(value: starlark::values::Value<#lt>) -> Option<&#lt #self_ty> {
-                    starlark::values::ValueLike::downcast_ref(value)
+                fn unpack_value(value: starlark::values::Value<#lt>) -> starlark::Result<Option<&#lt #self_ty>> {
+                    starlark::Result::Ok(starlark::values::ValueLike::downcast_ref(value))
                 }
             }
         })

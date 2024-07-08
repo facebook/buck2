@@ -46,11 +46,17 @@ impl StarlarkTypeRepr for SourceArtifactUnpack {
 }
 
 impl<'v> UnpackValue<'v> for SourceArtifactUnpack {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let v = ValueAsArtifactLike::unpack_value(value)?;
-        Some(SourceArtifactUnpack {
-            artifact: v.0.get_bound_artifact().ok()?.get_source()?,
-        })
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        let Some(v) = ValueAsArtifactLike::unpack_value(value)? else {
+            return Ok(None);
+        };
+        let Some(bound_artifact) = v.0.get_bound_artifact().ok() else {
+            return Ok(None);
+        };
+        let Some(artifact) = bound_artifact.get_source() else {
+            return Ok(None);
+        };
+        Ok(Some(SourceArtifactUnpack { artifact }))
     }
 }
 

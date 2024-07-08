@@ -160,13 +160,14 @@ impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
 }
 
 impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        ListRef::from_value(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(ListRef::from_value(value))
     }
 }
 
 impl<'v> UnpackValue<'v> for &'v FrozenListRef {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        FrozenListRef::from_value(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        // TODO(nga): error if not frozen.
+        Ok(FrozenListRef::from_value(value))
     }
 }

@@ -46,6 +46,7 @@ use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
 
@@ -93,7 +94,9 @@ fn call_transition_function<'v>(
         .eval_function(transition.implementation.to_value(), &[], &args)
         .map_err(BuckStarlarkError::new)?;
     if transition.split {
-        match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms) {
+        match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)
+            .into_anyhow_result()?
+        {
             Some(dict) => {
                 let mut split = OrderedMap::new();
                 for (k, v) in dict.entries {
@@ -105,9 +108,9 @@ fn call_transition_function<'v>(
             None => Err(ApplyTransitionError::SplitTransitionMustReturnDict.into()),
         }
     } else {
-        match <&PlatformInfo>::unpack_value(new_platforms) {
-            Some(platform) => Ok(TransitionApplied::Single(platform.to_configuration()?)),
-            None => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
+        match <&PlatformInfo>::unpack_value_err(new_platforms) {
+            Ok(platform) => Ok(TransitionApplied::Single(platform.to_configuration()?)),
+            Err(_) => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
         }
     }
 }

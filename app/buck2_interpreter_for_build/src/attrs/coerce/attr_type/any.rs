@@ -22,6 +22,7 @@ use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::AttrTypeCoerce;
@@ -37,7 +38,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> anyhow::Result<Coe
         Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(CoercedAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = i64::unpack_value(value) {
+    } else if let Some(x) = i64::unpack_value(value).into_anyhow_result()? {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(CoercedAttr::Dict(

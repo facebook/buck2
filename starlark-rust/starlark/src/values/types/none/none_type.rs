@@ -125,11 +125,11 @@ impl AllocFrozenValue for NoneType {
 }
 
 impl<'v> UnpackValue<'v> for NoneType {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
         if value.is_none() {
-            Some(NoneType)
+            Ok(Some(NoneType))
         } else {
-            None
+            Ok(None)
         }
     }
 }

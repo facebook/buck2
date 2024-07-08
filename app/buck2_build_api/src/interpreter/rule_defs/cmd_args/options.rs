@@ -51,6 +51,7 @@ use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use crate::starlark::StarlarkResultExt;
 
 /// Supported ways of quoting arguments.
 #[derive(Debug, Clone, Copy, Dupe, Trace, Freeze, Serialize, Allocative)]
@@ -673,6 +674,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         };
 
         let origin = RelativeOrigin::unpack_value(value)
+            .into_anyhow_result()?
             .expect("Must be a valid RelativeOrigin as this was checked in the setter");
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {

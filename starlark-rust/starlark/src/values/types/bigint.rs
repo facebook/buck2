@@ -223,7 +223,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        let rhs = match StarlarkIntRef::unpack_value(other) {
+        let rhs = match StarlarkIntRef::unpack_value(other)? {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "&", other),
         };
@@ -231,7 +231,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        let rhs = match StarlarkIntRef::unpack_value(other) {
+        let rhs = match StarlarkIntRef::unpack_value(other)? {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "^", other),
         };
@@ -239,7 +239,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        let rhs = match StarlarkIntRef::unpack_value(other) {
+        let rhs = match StarlarkIntRef::unpack_value(other)? {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "|", other),
         };
@@ -251,14 +251,14 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     }
 
     fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack_value(other)? {
             None => ValueError::unsupported_with(self, "<<", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
     fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack_value(other)? {
             None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),
         }

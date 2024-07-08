@@ -162,7 +162,7 @@ impl<'v> StarlarkTypeRepr for DictRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for DictRef<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<DictRef<'v>> {
-        DictRef::from_value(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<DictRef<'v>>> {
+        Ok(DictRef::from_value(value))
     }
 }

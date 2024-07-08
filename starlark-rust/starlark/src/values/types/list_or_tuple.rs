@@ -51,10 +51,11 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackListOrTuple<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackListOrTuple<T> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
         match Either::<UnpackList<T>, UnpackTuple<T>>::unpack_value(value)? {
-            Either::Left(l) => Some(UnpackListOrTuple { items: l.items }),
-            Either::Right(r) => Some(UnpackListOrTuple { items: r.items }),
+            Some(Either::Left(l)) => Ok(Some(UnpackListOrTuple { items: l.items })),
+            Some(Either::Right(r)) => Ok(Some(UnpackListOrTuple { items: r.items })),
+            None => Ok(None),
         }
     }
 }
@@ -101,16 +102,32 @@ mod tests {
         let tuple_of_ints = heap.alloc((1, 2));
         assert_eq!(
             vec!["a", "b"],
-            UnpackListOrTuple::<&str>::unpack_value(list).unwrap().items
+            UnpackListOrTuple::<&str>::unpack_value(list)
+                .unwrap()
+                .unwrap()
+                .items
         );
         assert_eq!(
             vec!["a", "b"],
             UnpackListOrTuple::<&str>::unpack_value(tuple)
                 .unwrap()
+                .unwrap()
                 .items
         );
-        assert!(UnpackListOrTuple::<&str>::unpack_value(list_of_ints).is_none());
-        assert!(UnpackListOrTuple::<&str>::unpack_value(tuple_of_ints).is_none());
-        assert!(UnpackListOrTuple::<&str>::unpack_value(heap.alloc(1)).is_none());
+        assert!(
+            UnpackListOrTuple::<&str>::unpack_value(list_of_ints)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            UnpackListOrTuple::<&str>::unpack_value(tuple_of_ints)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            UnpackListOrTuple::<&str>::unpack_value(heap.alloc(1))
+                .unwrap()
+                .is_none()
+        );
     }
 }

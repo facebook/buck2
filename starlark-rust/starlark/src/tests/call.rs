@@ -295,8 +295,12 @@ G_F_PTR = g([])
     let mut a = Assert::new();
     a.globals_add(natives);
     let module = a.pass_module(program);
-    let one = usize::unpack_value(module.get("F_PTR").unwrap().value()).unwrap();
-    let two = usize::unpack_value(module.get("G_F_PTR").unwrap().value()).unwrap();
+    let one = usize::unpack_value(module.get("F_PTR").unwrap().value())
+        .unwrap()
+        .unwrap();
+    let two = usize::unpack_value(module.get("G_F_PTR").unwrap().value())
+        .unwrap()
+        .unwrap();
     assert!(
         two < one,
         "stack grows down everywhere we support starlark-rust"

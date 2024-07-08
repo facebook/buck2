@@ -52,8 +52,8 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
         .iter()
         .map(|(n, t)| {
             syn::parse_quote_spanned! { t.span() =>
-                if let Some(x) = <#t as starlark::values::UnpackValue<'v>>::unpack_value(value) {
-                    return Some(#ident::#n(x));
+                if let Some(x) = <#t as starlark::values::UnpackValue<'v>>::unpack_value(value)? {
+                    return starlark::Result::Ok(Some(#ident::#n(x)));
                 }
             }
         })
@@ -61,10 +61,10 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
 
     let trait_impl: syn::ItemImpl = syn::parse_quote_spanned! { span =>
         impl #impl_generics starlark::values::UnpackValue<'v> for #ident #type_generics #where_clause {
-            fn unpack_value(value: starlark::values::Value<'v>) -> std::option::Option<Self> {
+            fn unpack_value(value: starlark::values::Value<'v>) -> starlark::Result<std::option::Option<Self>> {
                 #(#branches)*
                 let _unused_when_enum_is_empty = value;
-                None
+                starlark::Result::Ok(None)
             }
         }
     };

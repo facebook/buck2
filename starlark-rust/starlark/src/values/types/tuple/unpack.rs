@@ -46,13 +46,19 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackTuple<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackTuple<T> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let tuple = TupleRef::from_value(value)?;
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(tuple) = TupleRef::from_value(value) else {
+            return Ok(None);
+        };
+        // TODO(nga): should not allocate if the first element is of the wrong type.
         let mut items = Vec::with_capacity(tuple.len());
         for v in tuple.iter() {
-            items.push(T::unpack_value(v)?);
+            let Some(v) = T::unpack_value(v)? else {
+                return Ok(None);
+            };
+            items.push(v);
         }
-        Some(UnpackTuple { items })
+        Ok(Some(UnpackTuple { items }))
     }
 }
 
@@ -95,9 +101,13 @@ mod tests {
         let v = heap.alloc(("a", "b"));
         assert_eq!(
             vec!["a", "b"],
-            UnpackTuple::<&str>::unpack_value(v).unwrap().items
+            UnpackTuple::<&str>::unpack_value(v).unwrap().unwrap().items
         );
-        assert!(UnpackTuple::<u32>::unpack_value(v).is_none());
-        assert!(UnpackTuple::<&str>::unpack_value(heap.alloc(1)).is_none());
+        assert!(UnpackTuple::<u32>::unpack_value(v).unwrap().is_none());
+        assert!(
+            UnpackTuple::<&str>::unpack_value(heap.alloc(1))
+                .unwrap()
+                .is_none()
+        );
     }
 }

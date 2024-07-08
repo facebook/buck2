@@ -18,6 +18,7 @@ use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
@@ -52,6 +53,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         value: Value,
     ) -> anyhow::Result<CoercedAttr> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
+            .into_anyhow_result()?
             .ok_or_else(|| {
                 anyhow::anyhow!(CoercionError::type_error(
                     "Tuple must be a pair of two strings",

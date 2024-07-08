@@ -234,13 +234,26 @@ mod tests {
 
     #[test]
     fn test_from_value() {
-        assert!(NumRef::unpack_value(Value::new_bool(true)).is_none());
-        assert!(NumRef::unpack_value(Value::new_bool(false)).is_none());
-        assert!(NumRef::unpack_value(Value::new_empty_string()).is_none());
-        assert!(NumRef::unpack_value(Value::new_none()).is_none());
+        assert!(
+            NumRef::unpack_value(Value::new_bool(true))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            NumRef::unpack_value(Value::new_bool(false))
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            NumRef::unpack_value(Value::new_empty_string())
+                .unwrap()
+                .is_none()
+        );
+        assert!(NumRef::unpack_value(Value::new_none()).unwrap().is_none());
 
         assert_eq!(
             NumRef::unpack_value(Value::testing_new_int(0))
+                .unwrap()
                 .unwrap()
                 .as_int(),
             Some(0)
@@ -248,11 +261,13 @@ mod tests {
         assert_eq!(
             NumRef::unpack_value(Value::testing_new_int(42))
                 .unwrap()
+                .unwrap()
                 .as_int(),
             Some(42)
         );
         assert_eq!(
             NumRef::unpack_value(Value::testing_new_int(-42))
+                .unwrap()
                 .unwrap()
                 .as_int(),
             Some(-42)

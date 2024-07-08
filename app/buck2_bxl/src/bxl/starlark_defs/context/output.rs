@@ -61,6 +61,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
+use starlark::StarlarkResultExt;
 
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactArg;
@@ -185,7 +186,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         };
 
         for arg in args {
-            if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg) {
+            if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg).into_anyhow_result()? {
                 let path = get_artifact_path_display(
                     ensured.get_artifact_path(),
                     ensured.abs(),
@@ -193,7 +194,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     &this.artifact_fs,
                 )?;
                 write(&path)?;
-            } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg) {
+            } else if let Some(ensured) =
+                <&EnsuredArtifactGroup>::unpack_value(arg).into_anyhow_result()?
+            {
                 this.async_ctx.borrow_mut().via(|dice| {
                     ensured
                         .visit_artifact_path_without_associated_deduped(
@@ -264,7 +267,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             where
                 S: Serializer,
             {
-                if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value) {
+                if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value)
+                    .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
+                {
                     let path = get_artifact_path_display(
                         ensured.get_artifact_path(),
                         ensured.abs(),
@@ -273,7 +278,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     )
                     .map_err(|err| serde::ser::Error::custom(format!("{:#}", err)))?;
                     serializer.serialize_str(&path)
-                } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value) {
+                } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value)
+                    .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
+                {
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx

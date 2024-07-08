@@ -27,6 +27,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -151,13 +152,19 @@ fn verify_variables_type(field_key: &str, variables: Value) -> anyhow::Result<()
         .into()),
         Some(dict) => {
             for (key, value) in dict.iter() {
-                if ValueAsCommandLineLike::unpack_value(value).is_some() {
+                if ValueAsCommandLineLike::unpack_value(value)
+                    .into_anyhow_result()?
+                    .is_some()
+                {
                     continue;
                 }
 
                 if let Some(dict) = DictRef::from_value(value) {
                     for (inner_key, value) in dict.iter() {
-                        if ValueAsCommandLineLike::unpack_value(value).is_none() {
+                        if ValueAsCommandLineLike::unpack_value(value)
+                            .into_anyhow_result()?
+                            .is_none()
+                        {
                             return Err(
                                 TemplatePlaceholderInfoError::InnerValueNotCommandLineLike {
                                     field_key: field_key.to_owned(),

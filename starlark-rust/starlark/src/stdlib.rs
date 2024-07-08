@@ -199,8 +199,8 @@ mod tests {
         }
 
         impl<'v> UnpackValue<'v> for Bool2 {
-            fn unpack_value(value: Value<'v>) -> Option<Self> {
-                Some(*value.downcast_ref::<Bool2>().unwrap())
+            fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+                Ok(Some(*value.downcast_ref::<Bool2>().unwrap()))
             }
         }
 

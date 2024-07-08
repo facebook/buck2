@@ -62,8 +62,8 @@ impl<'v> StarlarkTypeRepr for StructRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StructRef<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        StructRef::from_value(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(StructRef::from_value(value))
     }
 }
 

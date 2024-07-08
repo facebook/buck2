@@ -41,7 +41,7 @@ pub(crate) struct ConstraintValueInfoGen<V: ValueLifetimeless> {
 
 impl<'v, V: ValueLike<'v>> ConstraintValueInfoGen<V> {
     pub(crate) fn setting(&self) -> ValueOf<'v, &'v ConstraintSettingInfo<'v>> {
-        ValueOf::unpack_value(self.setting.to_value()).expect("validated at construction")
+        ValueOf::unpack_value_err(self.setting.to_value()).expect("validated at construction")
     }
 
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {

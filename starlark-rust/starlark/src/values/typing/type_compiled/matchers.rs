@@ -32,7 +32,6 @@ use crate::values::tuple::value::Tuple;
 use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
-use crate::values::UnpackValue;
 use crate::values::Value;
 
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
@@ -222,7 +221,7 @@ pub(crate) struct IsInt;
 
 impl TypeMatcher for IsInt {
     fn matches(&self, value: Value) -> bool {
-        StarlarkIntRef::unpack_value(value).is_some()
+        StarlarkIntRef::unpack(value).is_some()
     }
 }
 

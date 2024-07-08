@@ -115,8 +115,8 @@ where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
 {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Self::new(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(Self::new(value))
     }
 }
 

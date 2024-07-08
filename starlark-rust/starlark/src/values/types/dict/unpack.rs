@@ -39,12 +39,20 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for UnpackDictEn
 }
 
 impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> UnpackValue<'v> for UnpackDictEntries<K, V> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = DictRef::unpack_value(value)?;
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(dict) = DictRef::unpack_value(value)? else {
+            return Ok(None);
+        };
         let mut entries = Vec::with_capacity(dict.len());
         for (k, v) in dict.iter() {
-            entries.push((K::unpack_value(k)?, V::unpack_value(v)?));
+            let Some(k) = K::unpack_value(k)? else {
+                return Ok(None);
+            };
+            let Some(v) = V::unpack_value(v)? else {
+                return Ok(None);
+            };
+            entries.push((k, v));
         }
-        Some(UnpackDictEntries { entries })
+        Ok(Some(UnpackDictEntries { entries }))
     }
 }

@@ -21,7 +21,6 @@ use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::StarlarkValue;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::provider::user::UserProvider;
@@ -32,7 +31,7 @@ struct ProviderMatcher;
 
 impl TypeMatcher for ProviderMatcher {
     fn matches(&self, value: Value) -> bool {
-        ValueAsProviderLike::unpack_value(value).is_some()
+        ValueAsProviderLike::unpack(value).is_some()
     }
 }
 

@@ -528,7 +528,11 @@ where
     }
 
     fn mul(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
-        let l = i32::unpack_value(other)?;
+        let l = match i32::unpack_value(other) {
+            Ok(Some(l)) => l,
+            Ok(None) => return None,
+            Err(e) => return Some(Err(e)),
+        };
         let mut result = Vec::with_capacity(self.0.content().len() * cmp::max(0, l) as usize);
         for _ in 0..l {
             result.extend(self.0.content().iter());

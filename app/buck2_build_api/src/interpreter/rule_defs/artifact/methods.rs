@@ -42,11 +42,12 @@ impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike {
 }
 
 impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
         match EitherArtifactRef::unpack_value(value)? {
-            EitherArtifactRef::Artifact(artifact) => Some(artifact),
-            EitherArtifactRef::DeclaredArtifact(artifact) => Some(artifact),
-            EitherArtifactRef::PromiseArtifact(artifact) => Some(artifact),
+            Some(EitherArtifactRef::Artifact(artifact)) => Ok(Some(artifact)),
+            Some(EitherArtifactRef::DeclaredArtifact(artifact)) => Ok(Some(artifact)),
+            Some(EitherArtifactRef::PromiseArtifact(artifact)) => Ok(Some(artifact)),
+            None => Ok(None),
         }
     }
 }

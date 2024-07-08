@@ -21,6 +21,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 
 fn artifact_fs() -> ArtifactFs {
     let cell_info = cells(None).unwrap();
@@ -40,7 +41,7 @@ fn get_command_line(value: Value) -> anyhow::Result<Vec<String>> {
     let mut cli = Vec::<String>::new();
     let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
-    match ValueAsCommandLineLike::unpack_value(value) {
+    match ValueAsCommandLineLike::unpack_value(value).into_anyhow_result()? {
         Some(v) => v.0.add_to_command_line(&mut cli, &mut ctx),
         None => ValueAsCommandLineLike::unpack_value_err(value)?
             .0

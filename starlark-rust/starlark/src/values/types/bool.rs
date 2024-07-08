@@ -96,8 +96,8 @@ impl StarlarkTypeRepr for bool {
 }
 
 impl UnpackValue<'_> for bool {
-    fn unpack_value(value: Value) -> Option<Self> {
-        value.unpack_bool()
+    fn unpack_value(value: Value) -> crate::Result<Option<Self>> {
+        Ok(value.unpack_bool())
     }
 }
 

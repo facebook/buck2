@@ -401,15 +401,15 @@ fn try_run_error_handler(
                     );
 
                     let data = match error_handler_result {
-                        Ok(result) => match ActionSubErrorResult::unpack_value(result) {
-                            Some(result) => Data::SubErrors(ActionSubErrors {
+                        Ok(result) => match ActionSubErrorResult::unpack_value_err(result) {
+                            Ok(result) => Data::SubErrors(ActionSubErrors {
                                 sub_errors: result
                                     .items
                                     .into_iter()
                                     .map(|s| s.to_proto())
                                     .collect(),
                             }),
-                            None => Data::HandlerInvocationError(format!(
+                            Err(_) => Data::HandlerInvocationError(format!(
                                 "{}",
                                 ActionErrorHandlerError::TypeError(
                                     ActionSubErrorResult::starlark_type_repr(),

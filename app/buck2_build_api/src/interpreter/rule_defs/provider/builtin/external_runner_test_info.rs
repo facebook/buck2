@@ -33,6 +33,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -132,12 +133,14 @@ impl FrozenExternalRunnerTestInfo {
     pub fn use_project_relative_paths(&self) -> bool {
         NoneOr::<bool>::unpack_value(self.use_project_relative_paths.to_value())
             .unwrap()
+            .unwrap()
             .into_option()
             .unwrap_or_else(buck2_core::is_open_source)
     }
 
     pub fn run_from_project_root(&self) -> bool {
         NoneOr::<bool>::unpack_value(self.run_from_project_root.to_value())
+            .unwrap()
             .unwrap()
             .into_option()
             .unwrap_or(true)
@@ -440,8 +443,10 @@ where
     check_all(iter_executor_overrides(info.executor_overrides.to_value()))?;
     check_all(iter_local_resources(info.local_resources.to_value()))?;
     NoneOr::<bool>::unpack_value(info.use_project_relative_paths.to_value())
+        .into_anyhow_result()?
         .context("`use_project_relative_paths` must be a bool if provided")?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
+        .into_anyhow_result()?
         .context("`run_from_project_root` must be a bool if provided")?;
     unpack_opt_executor(info.default_executor.to_value()).context("Invalid `default_executor`")?;
     unpack_opt_worker(info.worker.to_value()).context("Invalid `worker`")?;

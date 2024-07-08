@@ -56,10 +56,10 @@ impl<'v> StarlarkValue<'v> for StarlarkAction {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkAction {
-    fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
-        value
+    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+        Ok(value
             .downcast_ref::<Self>()
-            .map(|value| Self(value.0.dupe()))
+            .map(|value| Self(value.0.dupe())))
     }
 }
 
@@ -101,10 +101,10 @@ impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkActionQueryNode {
-    fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
-        value
+    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+        Ok(value
             .downcast_ref::<Self>()
-            .map(|value| Self(value.0.dupe()))
+            .map(|value| Self(value.0.dupe())))
     }
 }
 

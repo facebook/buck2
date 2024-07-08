@@ -59,8 +59,8 @@ macro_rules! starlark_complex_value {
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
                 #[inline]
-                fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x<'v>> {
-                    $x::from_value(x)
+                fn unpack_value(x: $crate::values::Value<'v>) -> $crate::Result<Option<&'v $x<'v>>> {
+                    Ok($x::from_value(x))
                 }
             }
         }
@@ -208,8 +208,8 @@ macro_rules! starlark_simple_value {
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x {
                 #[inline]
-                fn unpack_value(x: $crate::values::Value<'v>) -> Option<&'v $x> {
-                    $x::from_value(x)
+                fn unpack_value(x: $crate::values::Value<'v>) -> $crate::Result<Option<&'v $x>> {
+                    Ok($x::from_value(x))
                 }
             }
         }

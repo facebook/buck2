@@ -70,7 +70,7 @@ pub trait StarlarkArtifactLike: Display {
     fn fingerprint(&self) -> ArtifactFingerprint<'_>;
 
     fn equals<'v>(&self, other: Value<'v>) -> starlark::Result<bool> {
-        Ok(ValueAsArtifactLike::unpack_value(other)
+        Ok(ValueAsArtifactLike::unpack_value(other)?
             .map_or(false, |other| self.fingerprint() == other.0.fingerprint()))
     }
 
@@ -138,17 +138,18 @@ impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
 }
 
 impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
         match ValueAsArtifactLikeUnpack::unpack_value(value)? {
-            ValueAsArtifactLikeUnpack::Artifact(a) => {
-                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            Some(ValueAsArtifactLikeUnpack::Artifact(a)) => {
+                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
             }
-            ValueAsArtifactLikeUnpack::DeclaredArtifact(a) => {
-                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            Some(ValueAsArtifactLikeUnpack::DeclaredArtifact(a)) => {
+                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
             }
-            ValueAsArtifactLikeUnpack::PromiseArtifact(a) => {
-                Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike))
+            Some(ValueAsArtifactLikeUnpack::PromiseArtifact(a)) => {
+                Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
             }
+            None => Ok(None),
         }
     }
 }

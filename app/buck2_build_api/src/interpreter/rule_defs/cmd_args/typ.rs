@@ -615,11 +615,11 @@ impl<'v> StarlarkTypeRepr for StarlarkCommandLineMut<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkCommandLineMut<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value.downcast_ref::<StarlarkCmdArgs>().map(|v| Self {
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        Ok(value.downcast_ref::<StarlarkCmdArgs>().map(|v| Self {
             value,
             borrow: v.0.borrow_mut(),
-        })
+        }))
     }
 }
 

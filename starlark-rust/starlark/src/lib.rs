@@ -408,6 +408,7 @@
 #![allow(clippy::float_cmp)]
 #![allow(clippy::if_same_then_else)]
 #![allow(clippy::len_without_is_empty)]
+#![allow(clippy::manual_map)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::match_like_matches_macro)]
 #![allow(clippy::missing_safety_doc)]

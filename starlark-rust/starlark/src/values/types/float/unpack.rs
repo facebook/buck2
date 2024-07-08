@@ -34,8 +34,11 @@ impl StarlarkTypeRepr for UnpackFloat {
 }
 
 impl<'v> UnpackValue<'v> for UnpackFloat {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(UnpackFloat(NumRef::unpack_value(value)?.as_float()))
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(num) = NumRef::unpack_value(value)? else {
+            return Ok(None);
+        };
+        Ok(Some(UnpackFloat(num.as_float())))
     }
 }
 
@@ -53,8 +56,15 @@ mod tests {
             1.0,
             UnpackFloat::unpack_value(Value::testing_new_int(1))
                 .unwrap()
+                .unwrap()
                 .0
         );
-        assert_eq!(1.0, UnpackFloat::unpack_value(heap.alloc(1.0)).unwrap().0);
+        assert_eq!(
+            1.0,
+            UnpackFloat::unpack_value(heap.alloc(1.0))
+                .unwrap()
+                .unwrap()
+                .0
+        );
     }
 }

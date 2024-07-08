@@ -853,6 +853,7 @@ impl Heap {
     {
         let value = self.alloc(x);
         ValueOf::unpack_value(value)
+            .unwrap()
             .expect("just allocate value must be unpackable to the type of value")
     }
 

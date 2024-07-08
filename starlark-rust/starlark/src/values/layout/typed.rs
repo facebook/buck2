@@ -365,14 +365,18 @@ impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        ValueTyped::new(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(ValueTyped::new(value))
     }
 }
 
 impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        FrozenValueTyped::new(value.unpack_frozen()?)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(value) = value.unpack_frozen() else {
+            // TODO(nga): return error.
+            return Ok(None);
+        };
+        Ok(FrozenValueTyped::new(value))
     }
 }
 

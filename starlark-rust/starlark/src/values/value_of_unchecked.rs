@@ -160,8 +160,8 @@ impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUnchecked<'v, T> {
 
 impl<'v, T: StarlarkTypeRepr> UnpackValue<'v> for ValueOfUnchecked<'v, T> {
     #[inline]
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(Self::new(value))
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(Some(Self::new(value)))
     }
 }
 

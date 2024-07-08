@@ -130,6 +130,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     pub(crate) fn inner(&self) -> &Vec<ArtifactGroup> {
         &<&EnsuredArtifactGroupInner>::unpack_value(self.inner)
             .unwrap()
+            .unwrap()
             .ags
     }
 

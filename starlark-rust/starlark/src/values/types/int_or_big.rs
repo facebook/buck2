@@ -143,6 +143,17 @@ impl StarlarkInt {
 }
 
 impl<'v> StarlarkIntRef<'v> {
+    #[inline]
+    pub(crate) fn unpack(value: Value<'v>) -> Option<StarlarkIntRef<'v>> {
+        if let Some(int) = value.unpack_inline_int() {
+            Some(StarlarkIntRef::Small(int))
+        } else if let Some(int) = value.downcast_ref() {
+            Some(StarlarkIntRef::Big(int))
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn to_owned(self) -> StarlarkInt {
         match self {
             StarlarkIntRef::Small(i) => StarlarkInt::Small(i),
@@ -401,12 +412,8 @@ impl<'v> StarlarkTypeRepr for StarlarkIntRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkIntRef<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(i) = InlineInt::unpack_value(value) {
-            Some(StarlarkIntRef::Small(i))
-        } else {
-            value.downcast_ref().map(StarlarkIntRef::Big)
-        }
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(StarlarkIntRef::unpack(value))
     }
 }
 

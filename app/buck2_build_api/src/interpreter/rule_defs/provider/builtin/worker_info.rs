@@ -80,7 +80,7 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
     }
 
     pub fn concurrency(&self) -> Option<usize> {
-        NoneOr::<usize>::unpack_value(self.concurrency.to_value())
+        NoneOr::<usize>::unpack_value_err(self.concurrency.to_value())
             .expect("validated at construction")
             .into_option()
     }

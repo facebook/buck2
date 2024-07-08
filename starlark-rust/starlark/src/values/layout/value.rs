@@ -331,18 +331,28 @@ impl<'v> Value<'v> {
 
     /// Obtain the underlying numerical value, if it is one.
     pub(crate) fn unpack_num(self) -> Option<NumRef<'v>> {
-        NumRef::unpack_value(self)
+        if let Some(int) = StarlarkIntRef::unpack(self) {
+            Some(NumRef::Int(int))
+        } else if let Some(float) = self.downcast_ref() {
+            Some(NumRef::Float(*float))
+        } else {
+            None
+        }
     }
 
-    pub(crate) fn unpack_integer<I>(self) -> Option<I>
+    pub(crate) fn unpack_integer<I>(self) -> crate::Result<Option<I>>
     where
         I: TryFrom<i32>,
         I: TryFrom<&'v BigInt>,
     {
-        match StarlarkIntRef::unpack_value(self)? {
+        let Some(num) = StarlarkIntRef::unpack_value(self)? else {
+            return Ok(None);
+        };
+        // TODO(nga): return error if too large
+        Ok(match num {
             StarlarkIntRef::Small(x) => I::try_from(x.to_i32()).ok(),
             StarlarkIntRef::Big(x) => x.unpack_integer(),
-        }
+        })
     }
 
     /// Obtain the underlying `bool` if it is a boolean.
@@ -361,7 +371,11 @@ impl<'v> Value<'v> {
     /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
     #[inline]
     pub fn unpack_i32(self) -> Option<i32> {
-        i32::unpack_value(self)
+        if InlineInt::smaller_than_i32() {
+            StarlarkIntRef::unpack(self)?.to_i32()
+        } else {
+            self.unpack_inline_int().map(|i| i.to_i32())
+        }
     }
 
     #[inline]
@@ -1039,7 +1053,7 @@ impl FrozenValue {
         self.is_none()
             || self.is_str()
             || self.unpack_bool().is_some()
-            || NumRef::unpack_value(self.to_value()).is_some()
+            || NumRef::unpack_value(self.to_value()).is_ok_and(|n| n.is_some())
             || FrozenListData::from_frozen_value(&self).is_some()
             || FrozenDictRef::from_frozen_value(self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
@@ -1387,7 +1401,10 @@ mod tests {
         let heap = Heap::new();
         let value = heap.alloc(BigInt::from(i64::MAX));
         assert_eq!(None, value.unpack_i32());
-        assert_eq!(Some(BigInt::from(i64::MAX)), BigInt::unpack_value(value));
+        assert_eq!(
+            Some(BigInt::from(i64::MAX)),
+            BigInt::unpack_value(value).unwrap()
+        );
     }
 
     #[test]

@@ -26,6 +26,7 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -84,12 +85,12 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
                 .ok_or_else(|| InstallInfoProviderErrors::ExpectedStringKey(k.to_string()))?;
             Ok((
                 k,
-                ValueAsArtifactLike::unpack_value(v).ok_or_else(|| {
-                    InstallInfoProviderErrors::ExpectedArtifact {
+                ValueAsArtifactLike::unpack_value(v)
+                    .into_anyhow_result()?
+                    .ok_or_else(|| InstallInfoProviderErrors::ExpectedArtifact {
                         key: k.to_owned(),
                         got: v.get_type().to_owned(),
-                    }
-                })?,
+                    })?,
             ))
         })
     }

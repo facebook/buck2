@@ -112,8 +112,14 @@ impl<'v> StarlarkTypeRepr for ValueAsProviderLike<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for ValueAsProviderLike<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+impl<'v> ValueAsProviderLike<'v> {
+    pub(crate) fn unpack(value: Value<'v>) -> Option<Self> {
         Some(ValueAsProviderLike(value.request_value()?))
+    }
+}
+
+impl<'v> UnpackValue<'v> for ValueAsProviderLike<'v> {
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        Ok(ValueAsProviderLike::unpack(value))
     }
 }

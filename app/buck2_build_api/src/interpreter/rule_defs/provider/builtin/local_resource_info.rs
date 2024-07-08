@@ -146,6 +146,7 @@ impl FrozenLocalResourceInfo {
     pub fn setup_timeout(&self) -> Option<Duration> {
         NoneOr::<UnpackFloat>::unpack_value(self.setup_timeout_seconds.to_value())
             .unwrap()
+            .unwrap()
             .into_option()
             .map(|f| Duration::from_secs_f64(f.0))
     }

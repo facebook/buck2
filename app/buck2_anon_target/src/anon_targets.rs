@@ -81,6 +81,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 
@@ -438,7 +439,7 @@ impl AnonTargetKey {
             let promise_id =
                 PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);
 
-            match ValueAsArtifactLike::unpack_value(artifact) {
+            match ValueAsArtifactLike::unpack_value(artifact).into_anyhow_result()? {
                 Some(artifact) => {
                     fulfilled_artifact_mappings
                         .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);

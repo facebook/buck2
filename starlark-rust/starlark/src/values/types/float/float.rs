@@ -244,8 +244,11 @@ impl AllocFrozenValue for f64 {
 
 /// Allows only a float - an int will not be accepted.
 impl<'v> UnpackValue<'v> for StarlarkFloat {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(*value.downcast_ref::<StarlarkFloat>()?)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(value) = value.downcast_ref::<StarlarkFloat>() else {
+            return Ok(None);
+        };
+        Ok(Some(*value))
     }
 }
 

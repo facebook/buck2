@@ -38,6 +38,7 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::StarlarkResultExt;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -212,6 +213,7 @@ impl FrozenDefaultInfo {
                 } else {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
                     let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())
+                        .into_anyhow_result()?
                         .context("Should be list of artifacts")?;
                     artifact_like.0.get_bound_starlark_artifact()?
                 },
@@ -268,8 +270,7 @@ impl FrozenDefaultInfo {
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
             processor(
-                ValueAsArtifactLike::unpack_value(value)
-                    .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+                ValueAsArtifactLike::unpack_value_err(value)?
                     .0
                     .get_bound_artifact()?,
             );
@@ -282,8 +283,7 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> anyhow::Result<()> {
         self.for_each_in_list(self.default_outputs, |value| {
-            let others = ValueAsArtifactLike::unpack_value(value)
-                .ok_or_else(|| anyhow::anyhow!("not an artifact"))?
+            let others = ValueAsArtifactLike::unpack_value_err(value)?
                 .0
                 .get_associated_artifacts();
             others
@@ -309,9 +309,7 @@ impl FrozenDefaultInfo {
         }
 
         self.for_each_in_list(self.other_outputs, |value| {
-            let arg_like = ValueAsCommandLineLike::unpack_value(value)
-                .with_context(|| format!("Expected command line like, got: {:?}", value))?
-                .0;
+            let arg_like = ValueAsCommandLineLike::unpack_value_err(value)?.0;
             arg_like.visit_artifacts(&mut Visitor(processor))?;
             Ok(())
         })
@@ -374,7 +372,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 
                     if list
                         .iter()
-                        .all(|v| ValueAsArtifactLike::unpack_value(v).is_some())
+                        .all(|v| ValueAsArtifactLike::unpack_value(v).unwrap().is_some())
                     {
                         default_outputs
                     } else {
@@ -394,7 +392,10 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             // `default_output`.
             if default_output.is_none() {
                 eval.heap().alloc(AllocList::EMPTY)
-            } else if ValueAsArtifactLike::unpack_value(default_output).is_some() {
+            } else if ValueAsArtifactLike::unpack_value(default_output)
+                .into_anyhow_result()?
+                .is_some()
+            {
                 eval.heap().alloc(AllocList([default_output]))
             } else {
                 return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
@@ -407,7 +408,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             Some(list) => {
                 if list
                     .iter()
-                    .all(|v| ValueAsCommandLineLike::unpack_value(v).is_some())
+                    .all(|v| ValueAsCommandLineLike::unpack_value(v).unwrap().is_some())
                 {
                     Ok(other_outputs)
                 } else {

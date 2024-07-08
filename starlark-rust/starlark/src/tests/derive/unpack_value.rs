@@ -68,25 +68,25 @@ fn test_starlark_type_repr() {
 fn test_unpack_value() {
     assert_eq!(
         Some(JustInt::Int(17)),
-        JustInt::unpack_value(Value::testing_new_int(17)),
+        JustInt::unpack_value(Value::testing_new_int(17)).unwrap(),
     );
 
     assert_eq!(
         Some(IntOrStr::Int(19)),
-        IntOrStr::unpack_value(Value::testing_new_int(19)),
+        IntOrStr::unpack_value(Value::testing_new_int(19)).unwrap(),
     );
     assert_eq!(
         Some(IntOrStr::Str("abc".to_owned())),
-        IntOrStr::unpack_value(const_frozen_string!("abc").to_value()),
+        IntOrStr::unpack_value(const_frozen_string!("abc").to_value()).unwrap(),
     );
 
     assert_eq!(
         Some(WithLifetime::Int(23)),
-        WithLifetime::unpack_value(Value::testing_new_int(23)),
+        WithLifetime::unpack_value(Value::testing_new_int(23)).unwrap(),
     );
 
     assert_eq!(
         Some(WithLifetime::Str("def")),
-        WithLifetime::unpack_value(const_frozen_string!("def").to_value()),
+        WithLifetime::unpack_value(const_frozen_string!("def").to_value()).unwrap(),
     );
 }

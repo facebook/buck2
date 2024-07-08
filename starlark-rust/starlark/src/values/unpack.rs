@@ -18,6 +18,7 @@
 //! Parameter conversion utilities for `starlark_module` macros.
 
 use either::Either;
+use starlark_syntax::StarlarkResultExt;
 
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -66,18 +67,24 @@ use crate::values::Value;
 /// }
 ///
 /// impl<'v> UnpackValue<'v> for BoolOrInt {
-///     fn unpack_value(value: Value<'v>) -> Option<Self> {
+///     fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
 ///         if let Some(x) = value.unpack_bool() {
-///             Some(BoolOrInt(x as i32))
+///             Ok(Some(BoolOrInt(x as i32)))
 ///         } else {
-///             value.unpack_i32().map(BoolOrInt)
+///             Ok(value.unpack_i32().map(BoolOrInt))
 ///         }
 ///     }
 /// }
 /// ```
 pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
-    /// Given a [`Value`], try and unpack it into the given type, which may involve some element of conversion.
-    fn unpack_value(value: Value<'v>) -> Option<Self>;
+    /// Given a [`Value`], try and unpack it into the given type,
+    /// which may involve some element of conversion.
+    ///
+    /// Return `None` if the value is not of expected type (as described by [`StarlarkTypeRepr`],
+    /// and return `Err` if the value is of expected type, but conversion cannot be performed.
+    /// For example, when unpacking an integer to `String`, return `None`,
+    /// and when unpacking a large integer to `i32`, return `Err`.
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>>;
 
     /// Unpack a value, but return error instead of `None` if unpacking fails.
     #[inline]
@@ -95,7 +102,9 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             .into_anyhow()
         }
 
-        Self::unpack_value(value).ok_or_else(|| error::<Self>(value))
+        Self::unpack_value(value)
+            .into_anyhow_result()?
+            .ok_or_else(|| error::<Self>(value))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
@@ -114,7 +123,9 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             .into_anyhow()
         }
 
-        Self::unpack_value(value).ok_or_else(|| error::<Self>(value))
+        Self::unpack_value(value)
+            .into_anyhow_result()?
+            .ok_or_else(|| error::<Self>(value))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect named argument type.
@@ -134,13 +145,15 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             .into_anyhow()
         }
 
-        Self::unpack_value(value).ok_or_else(|| error::<Self>(value, param_name))
+        Self::unpack_value(value)
+            .into_anyhow_result()?
+            .ok_or_else(|| error::<Self>(value, param_name))
     }
 }
 
 impl<'v> UnpackValue<'v> for Value<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(Some(value))
     }
 }
 
@@ -148,11 +161,11 @@ impl<'v, TLeft: UnpackValue<'v>, TRight: UnpackValue<'v>> UnpackValue<'v>
     for Either<TLeft, TRight>
 {
     // Only implemented for types that implement [`UnpackValue`]. Nonsensical for other types.
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        if let Some(left) = TLeft::unpack_value(value) {
-            Some(Self::Left(left))
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        if let Some(left) = TLeft::unpack_value(value)? {
+            Ok(Some(Self::Left(left)))
         } else {
-            TRight::unpack_value(value).map(Self::Right)
+            Ok(TRight::unpack_value(value)?.map(Self::Right))
         }
     }
 }

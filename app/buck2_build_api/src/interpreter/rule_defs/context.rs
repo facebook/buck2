@@ -156,10 +156,11 @@ impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {
 }
 
 impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(RefAnalysisAction(
-            value.downcast_ref::<AnalysisActions>().unwrap(),
-        ))
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        let Some(analysis_actions) = value.downcast_ref::<AnalysisActions>() else {
+            return Ok(None);
+        };
+        Ok(Some(RefAnalysisAction(analysis_actions)))
     }
 }
 
@@ -272,10 +273,11 @@ impl<'v> StarlarkTypeRepr for RefAnalysisContext<'v> {
 }
 
 impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        Some(RefAnalysisContext(
-            value.downcast_ref::<AnalysisContext>().unwrap(),
-        ))
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        let Some(analysis_context) = value.downcast_ref::<AnalysisContext>() else {
+            return Ok(None);
+        };
+        Ok(Some(RefAnalysisContext(analysis_context)))
     }
 }
 

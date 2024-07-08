@@ -161,41 +161,44 @@ impl AllocFrozenValue for BigInt {
 }
 
 impl<'v> UnpackValue<'v> for u32 {
-    fn unpack_value(value: Value<'v>) -> Option<u32> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<u32>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for u64 {
-    fn unpack_value(value: Value<'v>) -> Option<u64> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<u64>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for i64 {
-    fn unpack_value(value: Value<'v>) -> Option<i64> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<i64>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for usize {
-    fn unpack_value(value: Value<'v>) -> Option<usize> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<usize>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for isize {
-    fn unpack_value(value: Value<'v>) -> Option<isize> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<isize>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for BigInt {
-    fn unpack_value(value: Value<'v>) -> Option<BigInt> {
-        match StarlarkIntRef::unpack_value(value)? {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<BigInt>> {
+        let Some(int) = StarlarkIntRef::unpack_value(value)? else {
+            return Ok(None);
+        };
+        Ok(match int {
             StarlarkIntRef::Small(x) => Some(BigInt::from(x.to_i32())),
             StarlarkIntRef::Big(x) => Some(x.get().to_owned()),
-        }
+        })
     }
 }
 

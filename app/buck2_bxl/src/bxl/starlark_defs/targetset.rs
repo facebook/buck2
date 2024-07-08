@@ -70,8 +70,8 @@ impl<'v, Node: NodeLike> StarlarkTypeRepr for &'v StarlarkTargetSet<Node> {
 }
 
 impl<'v, Node: NodeLike> UnpackValue<'v> for &'v StarlarkTargetSet<Node> {
-    fn unpack_value(x: Value<'v>) -> Option<Self> {
-        StarlarkTargetSet::from_value(x)
+    fn unpack_value(x: Value<'v>) -> starlark::Result<Option<Self>> {
+        Ok(StarlarkTargetSet::from_value(x))
     }
 }
 

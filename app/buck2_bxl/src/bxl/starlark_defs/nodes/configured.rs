@@ -93,10 +93,10 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
-    fn unpack_value(value: starlark::values::Value<'a>) -> Option<Self> {
-        value
+    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+        Ok(value
             .downcast_ref::<Self>()
-            .map(|value| Self(value.0.dupe()))
+            .map(|value| Self(value.0.dupe())))
     }
 }
 

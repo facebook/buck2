@@ -40,6 +40,7 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
+use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
 enum WriteActionValidationError {
@@ -101,7 +102,10 @@ impl WriteAction {
             return Err(WriteActionValidationError::TooManyInputs.into());
         }
 
-        if ValueAsCommandLineLike::unpack_value(contents.value()).is_none() {
+        if ValueAsCommandLineLike::unpack_value(contents.value())
+            .into_anyhow_result()?
+            .is_none()
+        {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(
                 contents.value().to_repr(),
             )

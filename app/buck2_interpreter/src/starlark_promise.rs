@@ -293,8 +293,8 @@ impl<'v> StarlarkTypeRepr for &'v StarlarkPromise<'v> {
 }
 
 impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
-    fn unpack_value(x: Value<'v>) -> Option<Self> {
-        StarlarkPromise::from_value(x)
+    fn unpack_value(x: Value<'v>) -> starlark::Result<Option<Self>> {
+        Ok(StarlarkPromise::from_value(x))
     }
 }
 

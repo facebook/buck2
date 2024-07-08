@@ -43,6 +43,7 @@ use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
+use starlark::StarlarkResultExt;
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
@@ -106,7 +107,10 @@ impl WriteMacrosToFileAction {
             Err(anyhow::anyhow!(
                 WriteMacrosActionValidationError::NoOutputsSpecified
             ))
-        } else if ValueAsCommandLineLike::unpack_value(contents.value()).is_none() {
+        } else if ValueAsCommandLineLike::unpack_value(contents.value())
+            .into_anyhow_result()?
+            .is_none()
+        {
             Err(anyhow::anyhow!(
                 WriteMacrosActionValidationError::ContentsNotCommandLineValue(
                     contents.value().to_repr()

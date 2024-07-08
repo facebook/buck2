@@ -348,8 +348,8 @@ impl StarlarkTypeRepr for InlineInt {
 }
 
 impl<'v> UnpackValue<'v> for InlineInt {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value.0.unpack_int()
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(value.0.unpack_int())
     }
 }
 

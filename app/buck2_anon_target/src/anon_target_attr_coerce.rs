@@ -42,6 +42,7 @@ use starlark::values::string::STRING_TYPE;
 use starlark::values::tuple::TupleRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::AnonAttrCtx;
@@ -61,7 +62,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     "bool", value
                 ))),
             },
-            AttrTypeInner::Int(_) => match i64::unpack_value(value) {
+            AttrTypeInner::Int(_) => match i64::unpack_value(value).into_anyhow_result()? {
                 Some(x) => Ok(AnonTargetAttr::Int(x)),
                 None => Err(anyhow::anyhow!(AnonTargetCoercionError::type_error(
                     "int", value
@@ -138,7 +139,9 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                         id: promise_artifact.artifact.id.as_ref().clone(),
                         short_path: promise_artifact.short_path.clone(),
                     }))
-                } else if let Some(artifact_like) = ValueAsArtifactLike::unpack_value(value) {
+                } else if let Some(artifact_like) =
+                    ValueAsArtifactLike::unpack_value(value).into_anyhow_result()?
+                {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
                 } else {
@@ -230,7 +233,7 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> anyhow::Result<AnonTar
         Ok(AnonTargetAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(AnonTargetAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = i64::unpack_value(value) {
+    } else if let Some(x) = i64::unpack_value(value).into_anyhow_result()? {
         Ok(AnonTargetAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(AnonTargetAttr::Dict(

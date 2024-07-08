@@ -56,9 +56,11 @@ impl<'v, T: UnpackValue<'v>> StarlarkTypeRepr for ValueOf<'v, T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let typed = T::unpack_value(value)?;
-        Some(Self { value, typed })
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(typed) = T::unpack_value(value)? else {
+            return Ok(None);
+        };
+        Ok(Some(Self { value, typed }))
     }
 }
 

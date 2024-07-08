@@ -119,7 +119,7 @@ fn declare_output_declares_outputs() -> anyhow::Result<()> {
     );
 
     run_ctx_test(content, |ret| {
-        let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap();
+        let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap().unwrap();
         assert_eq!("bar.cpp", a.0);
         assert_eq!("foo/bar.cpp", a.1);
         Ok(())
@@ -137,7 +137,7 @@ fn declare_output_with_prefix() -> anyhow::Result<()> {
     );
 
     run_ctx_test(content, |ret| {
-        let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap();
+        let a = <(&str, &str)>::unpack_value(ret.unwrap()).unwrap().unwrap();
         assert_eq!("bar.cpp", a.0);
         assert_eq!("foo/bar.cpp", a.1);
         Ok(())

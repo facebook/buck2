@@ -92,7 +92,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
     }
 
     fn contains_arg_attr(&self) -> bool {
-        ValueAsCommandLineLike::unpack_value(self.inner.value().to_value())
+        ValueAsCommandLineLike::unpack(self.inner.value().to_value())
             .map_or(false, |inner| inner.0.contains_arg_attr())
     }
 

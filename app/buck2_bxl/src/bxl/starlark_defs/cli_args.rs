@@ -54,6 +54,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
+use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 
@@ -388,11 +389,16 @@ impl CliArgType {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
-            CliArgType::Int => CliArgValue::Int(BigInt::unpack_value(value).ok_or_else(|| {
-                CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
-            })?),
+            CliArgType::Int => CliArgValue::Int(
+                BigInt::unpack_value(value)
+                    .into_anyhow_result()?
+                    .ok_or_else(|| {
+                        CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
+                    })?,
+            ),
             CliArgType::Float => CliArgValue::Float(
                 StarlarkFloat::unpack_value(value)
+                    .into_anyhow_result()?
                     .ok_or_else(|| {
                         CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
                     })?

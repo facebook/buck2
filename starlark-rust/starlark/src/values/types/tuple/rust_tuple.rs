@@ -110,30 +110,44 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkT
 }
 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let t = Tuple::from_value(value)?;
-        if t.len() != 2 {
-            return None;
-        }
-        Some((
-            T1::unpack_value(t.content()[0])?,
-            T2::unpack_value(t.content()[1])?,
-        ))
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(t) = Tuple::from_value(value) else {
+            return Ok(None);
+        };
+        let [a, b] = t.content() else {
+            return Ok(None);
+        };
+        let [a, b] = [*a, *b];
+        let Some(a) = T1::unpack_value(a)? else {
+            return Ok(None);
+        };
+        let Some(b) = T2::unpack_value(b)? else {
+            return Ok(None);
+        };
+        Ok(Some((a, b)))
     }
 }
 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>, T3: UnpackValue<'v>> UnpackValue<'v>
     for (T1, T2, T3)
 {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let t = Tuple::from_value(value)?;
-        if t.len() != 3 {
-            return None;
-        }
-        Some((
-            T1::unpack_value(t.content()[0])?,
-            T2::unpack_value(t.content()[1])?,
-            T3::unpack_value(t.content()[2])?,
-        ))
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(t) = Tuple::from_value(value) else {
+            return Ok(None);
+        };
+        let [a, b, c] = t.content() else {
+            return Ok(None);
+        };
+        let [a, b, c] = [*a, *b, *c];
+        let Some(a) = T1::unpack_value(a)? else {
+            return Ok(None);
+        };
+        let Some(b) = T2::unpack_value(b)? else {
+            return Ok(None);
+        };
+        let Some(c) = T3::unpack_value(c)? else {
+            return Ok(None);
+        };
+        Ok(Some((a, b, c)))
     }
 }

@@ -61,7 +61,7 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
 
 impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
     pub fn worker(&self) -> ValueOf<'v, &'v WorkerInfo<'v>> {
-        ValueOf::unpack_value(self.worker.to_value()).expect("validated at construction")
+        ValueOf::unpack_value_err(self.worker.to_value()).expect("validated at construction")
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {

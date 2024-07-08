@@ -84,14 +84,23 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for SmallMap<K, V> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = DictRef::from_value(value)?;
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(dict) = DictRef::from_value(value) else {
+            return Ok(None);
+        };
         let it = dict.iter();
         let mut r = SmallMap::with_capacity(it.len());
         for (k, v) in it {
-            r.insert(K::unpack_value(k)?, V::unpack_value(v)?);
+            let Some(k) = K::unpack_value(k)? else {
+                return Ok(None);
+            };
+            let Some(v) = V::unpack_value(v)? else {
+                return Ok(None);
+            };
+            // TODO(nga): return error if keys are not unique.
+            r.insert(k, v);
         }
-        Some(r)
+        Ok(Some(r))
     }
 }
 
@@ -147,12 +156,21 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Ord, V: UnpackValue<'v>> UnpackValue<'v> for BTreeMap<K, V> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        let dict = DictRef::from_value(value)?;
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(dict) = DictRef::from_value(value) else {
+            return Ok(None);
+        };
         let mut r = BTreeMap::new();
         for (k, v) in dict.iter() {
-            r.insert(K::unpack_value(k)?, V::unpack_value(v)?);
+            let Some(k) = K::unpack_value(k)? else {
+                return Ok(None);
+            };
+            let Some(v) = V::unpack_value(v)? else {
+                return Ok(None);
+            };
+            // TODO(nga): return error if keys are not unique.
+            r.insert(k, v);
         }
-        Some(r)
+        Ok(Some(r))
     }
 }

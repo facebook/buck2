@@ -291,10 +291,15 @@ fn test_radd() {
     starlark_simple_value!(Select);
 
     impl<'v> UnpackValue<'v> for Select {
-        fn unpack_value(value: Value<'v>) -> Option<Self> {
+        fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
             match Select::from_value(value) {
-                Some(x) => Some(x.clone()),
-                None => Some(Select(UnpackListOrTuple::unpack_value(value)?.items)),
+                Some(x) => Ok(Some(x.clone())),
+                None => {
+                    let Some(list_or_tuple) = UnpackListOrTuple::unpack_value(value)? else {
+                        return Ok(None);
+                    };
+                    Ok(Some(Select(list_or_tuple.items)))
+                }
             }
         }
     }
@@ -309,11 +314,11 @@ fn test_radd() {
     #[starlark_value(type = "select")]
     impl<'v> StarlarkValue<'v> for Select {
         fn radd(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
-            let lhs: Select = UnpackValue::unpack_value(lhs).unwrap();
+            let lhs: Select = Select::unpack_value(lhs).unwrap().unwrap();
             Some(Ok(heap.alloc(lhs.add(self))))
         }
         fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
-            let rhs: Select = UnpackValue::unpack_value(rhs).unwrap();
+            let rhs: Select = UnpackValue::unpack_value(rhs).unwrap().unwrap();
             Some(Ok(heap.alloc(self.clone().add(&rhs))))
         }
         fn collect_repr(&self, collector: &mut String) {

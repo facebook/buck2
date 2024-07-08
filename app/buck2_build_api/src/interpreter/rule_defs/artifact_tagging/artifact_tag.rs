@@ -30,6 +30,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
@@ -113,11 +114,16 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::new(inner, this.dupe());
 
-        Ok(if ValueAsCommandLineLike::unpack_value(inner).is_some() {
-            Either::Right(TaggedCommandLine::new(value))
-        } else {
-            Either::Left(value)
-        })
+        Ok(
+            if ValueAsCommandLineLike::unpack_value(inner)
+                .into_anyhow_result()?
+                .is_some()
+            {
+                Either::Right(TaggedCommandLine::new(value))
+            } else {
+                Either::Left(value)
+            },
+        )
     }
 
     fn tag_inputs<'v>(
@@ -126,11 +132,16 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::inputs_only(inner, this.dupe());
 
-        Ok(if ValueAsCommandLineLike::unpack_value(inner).is_some() {
-            Either::Right(TaggedCommandLine::new(value))
-        } else {
-            Either::Left(value)
-        })
+        Ok(
+            if ValueAsCommandLineLike::unpack_value(inner)
+                .into_anyhow_result()?
+                .is_some()
+            {
+                Either::Right(TaggedCommandLine::new(value))
+            } else {
+                Either::Left(value)
+            },
+        )
     }
 }
 

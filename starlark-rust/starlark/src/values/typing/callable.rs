@@ -192,11 +192,11 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
     for StarlarkCallable<'v, P, R>
 {
     #[inline]
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
         if value.vtable().starlark_value.HAS_invoke {
-            Some(StarlarkCallable::unchecked_new(value))
+            Ok(Some(StarlarkCallable::unchecked_new(value)))
         } else {
-            None
+            Ok(None)
         }
     }
 }

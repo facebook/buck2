@@ -120,13 +120,17 @@ impl<'a> StarlarkTypeRepr for &'a FrozenTupleRef {
 }
 
 impl<'v> UnpackValue<'v> for &'v TupleRef<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        TupleRef::from_value(value)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        Ok(TupleRef::from_value(value))
     }
 }
 
 impl<'v> UnpackValue<'v> for &'v FrozenTupleRef {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        FrozenTupleRef::from_frozen_value(value.unpack_frozen()?)
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        let Some(value) = value.unpack_frozen() else {
+            // TODO(nga): return error.
+            return Ok(None);
+        };
+        Ok(FrozenTupleRef::from_frozen_value(value))
     }
 }

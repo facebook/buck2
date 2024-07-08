@@ -34,8 +34,8 @@ impl<'v> StarlarkTypeRepr for ValueAsCommandLineLike<'v> {
     }
 }
 
-impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
+impl<'v> ValueAsCommandLineLike<'v> {
+    pub(crate) fn unpack(value: Value<'v>) -> Option<Self> {
         if let Some(x) = value.unpack_starlark_str() {
             return Some(ValueAsCommandLineLike(x as &dyn CommandLineArgLike));
         }
@@ -63,5 +63,11 @@ impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
         check!(StarlarkProjectRoot);
 
         Some(ValueAsCommandLineLike(value.request_value()?))
+    }
+}
+
+impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
+    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+        Ok(Self::unpack(value))
     }
 }

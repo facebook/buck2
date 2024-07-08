@@ -339,7 +339,11 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
     }
 
     fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
-        let l = i32::unpack_value(other)?;
+        let l = match i32::unpack_value(other) {
+            Ok(Some(l)) => l,
+            Ok(None) => return None,
+            Err(e) => return Some(Err(e)),
+        };
         let mut result = String::with_capacity(self.len() * cmp::max(0, l) as usize);
         for _i in 0..l {
             result.push_str(self)

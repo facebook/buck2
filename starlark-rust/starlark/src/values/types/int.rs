@@ -94,12 +94,9 @@ impl StarlarkTypeRepr for i32 {
 }
 
 impl UnpackValue<'_> for i32 {
-    fn unpack_value(value: Value) -> Option<Self> {
-        if InlineInt::smaller_than_i32() {
-            StarlarkIntRef::unpack_value(value)?.to_i32()
-        } else {
-            Some(InlineInt::unpack_value(value)?.to_i32())
-        }
+    fn unpack_value(value: Value) -> crate::Result<Option<Self>> {
+        // TODO(nga): return error if larger than `i32`.
+        Ok(value.unpack_i32())
     }
 }
 
@@ -257,7 +254,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn bit_and(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack(other) {
             None => ValueError::unsupported_with(self, "&", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() & i)),
             Some(StarlarkIntRef::Big(b)) => {
@@ -267,7 +264,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn bit_or(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack(other) {
             None => ValueError::unsupported_with(self, "|", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() | i)),
             Some(StarlarkIntRef::Big(b)) => {
@@ -277,7 +274,7 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn bit_xor(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack(other) {
             None => ValueError::unsupported_with(self, "^", other),
             Some(StarlarkIntRef::Small(i)) => Ok(Value::new_int(self.get() ^ i)),
             Some(StarlarkIntRef::Big(b)) => {
@@ -291,14 +288,14 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
     }
 
     fn left_shift(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack(other) {
             None => ValueError::unsupported_with(self, "<<", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).left_shift(other)?)),
         }
     }
 
     fn right_shift(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        match StarlarkIntRef::unpack_value(other) {
+        match StarlarkIntRef::unpack(other) {
             None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Small(self.get()).right_shift(other)?)),
         }
