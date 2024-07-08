@@ -159,6 +159,7 @@ pub(crate) struct InvocationRecorder<'a> {
     target_rule_type_names: Vec<String>,
     new_configs_used: bool,
     re_download_speeds: Vec<SlidingWindow>,
+    re_upload_speeds: Vec<SlidingWindow>,
     peak_process_memory_bytes: Option<u64>,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
@@ -261,6 +262,11 @@ impl<'a> InvocationRecorder<'a> {
             target_rule_type_names: Vec::new(),
             new_configs_used: false,
             re_download_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
+            re_upload_speeds: vec![
                 SlidingWindow::new(Duration::from_secs(1)),
                 SlidingWindow::new(Duration::from_secs(5)),
                 SlidingWindow::new(Duration::from_secs(10)),
@@ -496,6 +502,11 @@ impl<'a> InvocationRecorder<'a> {
             new_configs_used: Some(self.new_configs_used),
             re_max_download_speed: self
                 .re_download_speeds
+                .iter()
+                .map(|w| w.max_per_second().unwrap_or_default())
+                .max(),
+            re_max_upload_speed: self
+                .re_upload_speeds
                 .iter()
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
@@ -934,6 +945,11 @@ impl<'a> InvocationRecorder<'a> {
         for s in self.re_download_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_download_bytes);
         }
+
+        for s in self.re_upload_speeds.iter_mut() {
+            s.update(event.timestamp(), update.re_upload_bytes);
+        }
+
         self.peak_process_memory_bytes =
             match (self.peak_process_memory_bytes, process_memory(update)) {
                 (Some(peak_process_memory), Some(update_memory)) => {
@@ -1171,8 +1187,8 @@ impl<'a> InvocationRecorder<'a> {
 
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
     let best_tag = best_tag(error.tags.iter().filter_map(|tag|
-        // This should never fail, but it is safer to just ignore incorrect integers.
-        ErrorTag::from_i32(*tag)))
+    // This should never fail, but it is safer to just ignore incorrect integers.
+    ErrorTag::from_i32(*tag)))
     .map(|t| t.as_str_name())
     .unwrap_or(ERROR_TAG_UNCLASSIFIED);
     buck2_data::ProcessedErrorReport {

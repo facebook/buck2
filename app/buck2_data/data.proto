@@ -1913,6 +1913,8 @@ message InvocationRecord {
   optional bool new_configs_used = 84;
   // Max sustained RE download speed
   optional uint64 re_max_download_speed = 85;
+  // Max sustained RE upload speed
+  optional uint64 re_max_upload_speed = 91;
   // Optional - for install commands, the time elapsed between the last
   // materialization event and the last install event.
   google.protobuf.Duration install_duration = 86;
