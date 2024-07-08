@@ -164,6 +164,7 @@ pub(crate) struct InvocationRecorder<'a> {
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
     total_disk_space_bytes: Option<u64>,
+    peak_used_disk_space_bytes: Option<u64>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -276,6 +277,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
             total_disk_space_bytes: None,
+            peak_used_disk_space_bytes: None,
         }
     }
 
@@ -518,6 +520,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.total_disk_space_bytes.take(),
+            peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
         };
 
         let event = BuckEvent::new(
@@ -954,12 +957,10 @@ impl<'a> InvocationRecorder<'a> {
         }
 
         self.peak_process_memory_bytes =
-            match (self.peak_process_memory_bytes, process_memory(update)) {
-                (Some(peak_process_memory), Some(update_memory)) => {
-                    Some(max(peak_process_memory, update_memory))
-                }
-                (None, other) | (other, None) => other,
-            };
+            max(self.peak_process_memory_bytes, process_memory(update));
+        self.peak_used_disk_space_bytes =
+            max(self.peak_process_memory_bytes, update.used_disk_space_bytes);
+
         Ok(())
     }
 
