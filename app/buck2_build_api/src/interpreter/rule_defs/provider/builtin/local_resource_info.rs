@@ -94,9 +94,6 @@ where
         ));
     }
 
-    NoneOr::<UnpackFloat>::unpack_value(info.setup_timeout_seconds.to_value())
-        .context("`setup_timeout_seconds` must be a number if provided")?;
-
     Ok(())
 }
 
@@ -110,7 +107,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
             UnpackDictEntries<&'v str, &'v str>,
         >,
         #[starlark(require = named, default = NoneOr::None)] setup_timeout_seconds: NoneOr<
-            Value<'v>,
+            ValueOf<'v, UnpackFloat>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<LocalResourceInfo<'v>> {

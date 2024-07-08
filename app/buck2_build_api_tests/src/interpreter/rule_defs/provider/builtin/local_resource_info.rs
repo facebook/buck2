@@ -184,7 +184,7 @@ fn test_validation_7() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "`setup_timeout_seconds` must be a number if provided",
+        "Expected type `None | float | int`",
     );
 }
 
