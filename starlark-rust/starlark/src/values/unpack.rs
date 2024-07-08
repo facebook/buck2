@@ -109,7 +109,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
 
             crate::Error::new_value(IncorrectParameterTypeWithExpected(
                 U::starlark_type_repr(),
-                value.get_type().to_owned(),
+                value.display_for_type_error().to_string(),
             ))
             .into_anyhow()
         }
@@ -129,7 +129,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             crate::Error::new_value(IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
                 U::starlark_type_repr(),
-                value.get_type().to_owned(),
+                value.display_for_type_error().to_string(),
             ))
             .into_anyhow()
         }

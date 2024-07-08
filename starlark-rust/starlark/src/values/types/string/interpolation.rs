@@ -522,15 +522,15 @@ mod tests {
 
         assert::fail(
             "'%e' % (True,)",
-            "Type of parameters mismatch, expected `float | int`, actual `bool`",
+            "Type of parameters mismatch, expected `float | int`, actual `bool (repr: True)`",
         );
         assert::fail(
             "'%e' % ('abc',)",
-            "Type of parameters mismatch, expected `float | int`, actual `string`",
+            "Type of parameters mismatch, expected `float | int`, actual `string (repr:",
         );
         assert::fail(
             "'%e' % ([],)",
-            "Type of parameters mismatch, expected `float | int`, actual `list`",
+            "Type of parameters mismatch, expected `float | int`, actual `list (repr",
         );
     }
 

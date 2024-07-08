@@ -226,11 +226,11 @@ mod tests {
         // TODO(nga): error is correct, but error message is not helpful.
         a.fail(
             "takes_i32(1 << 100)",
-            "Type of parameter `_i` doesn't match, expected `int`, actual `int`",
+            "Type of parameter `_i` doesn't match, expected `int`, actual `int (repr:",
         );
         a.fail(
             "takes_i64(1 << 100)",
-            "Type of parameter `_i` doesn't match, expected `int`, actual `int`",
+            "Type of parameter `_i` doesn't match, expected `int`, actual `int (repr:",
         );
     }
 }
