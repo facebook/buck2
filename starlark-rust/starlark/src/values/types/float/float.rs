@@ -249,14 +249,6 @@ impl<'v> UnpackValue<'v> for StarlarkFloat {
     }
 }
 
-/// Allows either a float or an int. If the int is not in the range of a float, it will lose precision.
-// TODO(nga): remove this implementation because it is inconsistent with `StarlarkTypeRepr`.
-impl<'v> UnpackValue<'v> for f64 {
-    fn unpack_value(value: Value<'v>) -> Option<Self> {
-        value.unpack_num().map(|x| x.as_float())
-    }
-}
-
 impl Display for StarlarkFloat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write_compact(f, self.0, 'e')
