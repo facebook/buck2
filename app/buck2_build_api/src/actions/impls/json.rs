@@ -17,6 +17,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
+use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::dict::DictRef;
@@ -27,16 +28,14 @@ use starlark::values::record::Record;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::FrozenValueTyped;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -115,18 +114,17 @@ where
 #[derive(UnpackValue, StarlarkTypeRepr)]
 pub enum JsonArtifact<'v> {
     ValueAsArtifactLike(ValueAsArtifactLike<'v>),
-    StarlarkOutputArtifact(ValueTyped<'v, StarlarkOutputArtifact<'v>>),
-    FrozenStarlarkOutputArtifact(FrozenValueTyped<'v, FrozenStarlarkOutputArtifact>),
+    StarlarkOutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
 }
 
 impl<'v> JsonArtifact<'v> {
     fn artifact(&self) -> anyhow::Result<Artifact> {
         match self {
             JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
-            JsonArtifact::StarlarkOutputArtifact(x) => {
-                Ok((*x.inner()).get_bound_artifact()?.dupe())
-            }
-            JsonArtifact::FrozenStarlarkOutputArtifact(x) => Ok(x.inner().artifact()),
+            JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
+                Either::Left(x) => Ok((*x.inner()).get_bound_artifact()?.dupe()),
+                Either::Right(x) => Ok(x.inner().artifact()),
+            },
         }
     }
 }
