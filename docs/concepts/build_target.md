@@ -5,13 +5,13 @@ title: Build Target
 
 # Build Target
 
-A _build target_ is a string that identifies a build rule in your project. Build
-targets are used as arguments to Buck2 commands, such as
+A _build target_ is a string that identifies a build target in your project.
+Build targets are used as arguments to Buck2 commands, such as
 [`buck2 build`](../../users/commands/build) and
 [`buck2 run`](../../users/commands/run). Build targets are also used as
-arguments to [build rules](build_rule.md) to enable one build rule to reference
+arguments to [build rules](build_rule.md) to enable one target to reference
 another. For example, a build rule might use a build target to reference another
-rule in order to specify that rule as a _dependency_.
+target in order to specify that target as a _dependency_.
 
 #### Fully-qualified build targets
 
@@ -29,8 +29,8 @@ A fully-qualified build target has three components:
 2. The `java/com/facebook/share` between the `//` prefix and the colon (`:`)
    indicates that the [build file](build_file.md) (usually named `BUCK`) is
    located in the directory `java/com/facebook/share`.
-3. The `ui` after the colon (`:`) indicates the name of the build rule within
-   the build file. Build rule names must be unique within a build file. By
+3. The `ui` after the colon (`:`) indicates the name of the build target within
+   the build file. Build target names must be unique within a build file. By
    _name_ we mean, more formally, the value of the `name` argument to the build
    rule.
 
@@ -42,7 +42,7 @@ fully-qualified build target is as follows:
 
 ```
 [A-Za-z0-9._-]*//[A-Za-z0-9/._-]*:[A-Za-z0-9_/.=,@~+-]+
-|- cell name -|  | package path | |--- rule name ----|
+|- cell name -|  | package path | |--- target name ----|
 ```
 
 In Buck2, a _cell_ defines a directory tree of one or more Buck2 packages. For
@@ -59,14 +59,14 @@ more details.
 
 #### Relative build targets
 
-A _relative_ build target can be used to reference a [build rule](build_rule.md)
-_within the same _[_build file_](build_file.md). A relative build target starts
-with a colon (`:`) and is followed by only the third component (or _short name_)
-of the fully-qualified build target. The following snippet from a build file
-shows an example of using a relative path.
+A _relative_ build target can be used to reference a build target _within the
+same _[_build file_](build_file.md). A relative build target starts with a colon
+(`:`) and is followed by only the third component (or _short name_) of the
+fully-qualified build target. The following snippet from a build file shows an
+example of using a relative path.
 
 ```
-## Assume this rule is in //java/com/facebook/share/BUCK#
+## Assume this target is in //java/com/facebook/share/BUCK#
 java_binary(
   name = 'ui_jar',
   deps = [## The following target path##   //java/com/facebook/share:ui## is the same as using the following relative path.#':ui',],)
@@ -114,7 +114,7 @@ buck2 build java/com/facebook/share/
 ```
 
 which makes the build target even easier to tab-complete. For this reason, the
-name of the build rule for the primary deliverable in a build file is often
+name of the build target for the primary deliverable in a build file is often
 named the same as the parent directory. That way, it can be built from the
 command-line with less typing.
 
