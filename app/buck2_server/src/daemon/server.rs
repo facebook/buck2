@@ -66,6 +66,7 @@ use buck2_server_starlark_debug::run::run_dap_server_command;
 use buck2_test::executor_launcher::get_all_test_executors;
 use buck2_util::system_stats::disk_space_stats;
 use buck2_util::system_stats::system_memory_stats;
+use buck2_util::system_stats::DiskSpaceStats;
 use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
@@ -426,7 +427,8 @@ impl BuckdServer {
             system_total_memory_bytes: Some(system_memory_stats()),
             memory_pressure_threshold_percent: system_warning_config
                 .memory_pressure_threshold_percent,
-            total_disk_space_bytes: disk_space_stats(),
+            total_disk_space_bytes: disk_space_stats()
+                .map(|DiskSpaceStats { total_space, .. }| total_space),
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here

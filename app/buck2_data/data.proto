@@ -597,6 +597,8 @@ message Snapshot {
   optional uint64 malloc_bytes_active = 8;
   // (stats.allocated) Total number of bytes allocated by the application
   optional uint64 malloc_bytes_allocated = 9;
+  //  Total number of bytes of used disk space on machine
+  optional uint64 used_disk_space_bytes = 10;
 
   uint64 dice_key_count = 101;
   // the number of keys actively present in the per transaction cache

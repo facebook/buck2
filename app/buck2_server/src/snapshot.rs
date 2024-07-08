@@ -15,6 +15,8 @@ use buck2_core::io_counters::IoCounterKey;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
+use buck2_util::system_stats::disk_space_stats;
+use buck2_util::system_stats::DiskSpaceStats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
 
@@ -215,6 +217,14 @@ impl SnapshotCollector {
         if let Some(alloc_stats) = allocator_stats {
             snapshot.malloc_bytes_active = alloc_stats.bytes_active;
             snapshot.malloc_bytes_allocated = alloc_stats.bytes_allocated;
+        }
+
+        if let Some(DiskSpaceStats {
+            total_space,
+            available_space,
+        }) = disk_space_stats()
+        {
+            snapshot.used_disk_space_bytes = Some(total_space - available_space);
         }
 
         if let Some(UnixSystemStats {
