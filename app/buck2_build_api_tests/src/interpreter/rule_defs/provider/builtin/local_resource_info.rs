@@ -68,109 +68,124 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_validation() -> anyhow::Result<()> {
+fn test_validation_1() {
     let mut tester = new_tester();
 
-    {
-        let test = indoc!(
-            r#"
-            def test():
-                target = label("//:foobar")
-                wrong_setup = {5:6}
-                LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
-            "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Value for `setup` field is not a command line",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    let test = indoc!(
+        r#"
+        def test():
+            target = label("//:foobar")
+            wrong_setup = {5:6}
+            LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
+        "#
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Value for `setup` field is not a command line",
+    );
+}
+
+#[test]
+fn test_validation_2() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_setup = []
                 LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Value for `setup` field is an empty command line",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Value for `setup` field is an empty command line",
+    );
+}
+
+#[test]
+fn test_validation_3() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_env_vars = "baz"
                 LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Value for `resource_env_vars` field is not a dictionary",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Value for `resource_env_vars` field is not a dictionary",
+    );
+}
+
+#[test]
+fn test_validation_4() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_env_vars = {}
                 LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Value for `resource_env_vars` field is an empty dictionary",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Value for `resource_env_vars` field is an empty dictionary",
+    );
+}
+
+#[test]
+fn test_validation_5() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_env_vars = {1:"one"}
                 LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Invalid key in `resource_env_vars`: Expected a str, got",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Invalid key in `resource_env_vars`: Expected a str, got",
+    );
+}
+
+#[test]
+fn test_validation_6() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_env_vars = {"one":1}
                 LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars)
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "Invalid value in `resource_env_vars`: Expected a str, got",
-        );
-    }
-    {
-        let test = indoc!(
-            r#"
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "Invalid value in `resource_env_vars`: Expected a str, got",
+    );
+}
+
+#[test]
+fn test_validation_7() {
+    let mut tester = new_tester();
+    let test = indoc!(
+        r#"
             def test():
                 wrong_env_vars = {"one":"1"}
                 LocalResourceInfo(setup=["/foo", "--resource"], resource_env_vars=wrong_env_vars, setup_timeout_seconds="42")
             "#
-        );
-        expect_error(
-            tester.run_starlark_bzl_test(test),
-            test,
-            "`setup_timeout_seconds` must be a number if provided",
-        );
-    }
-    Ok(())
+    );
+    expect_error(
+        tester.run_starlark_bzl_test(test),
+        test,
+        "`setup_timeout_seconds` must be a number if provided",
+    );
 }
 
 #[test]
