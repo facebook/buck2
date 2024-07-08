@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use sysinfo::Disks;
+
 pub struct UnixSystemStats {
     pub load1: f64,
     pub load5: f64,
@@ -34,6 +36,15 @@ impl UnixSystemStats {
     }
 }
 
+pub fn disk_space_stats() -> Option<u64> {
+    let disks = Disks::new_with_refreshed_list();
+    let root = if cfg!(windows) { "C:\\" } else { "/" };
+    disks
+        .iter()
+        .find(|d| d.mount_point().as_os_str() == root)
+        .map(|disk| disk.total_space())
+}
+
 pub fn system_memory_stats() -> u64 {
     use sysinfo::MemoryRefreshKind;
     use sysinfo::RefreshKind;
@@ -47,6 +58,7 @@ pub fn system_memory_stats() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use crate::system_stats::disk_space_stats;
     use crate::system_stats::system_memory_stats;
 
     #[test]
@@ -54,5 +66,12 @@ mod tests {
         let total_mem = system_memory_stats();
         // sysinfo returns zero when fails to retrieve data
         assert!(total_mem > 0);
+    }
+
+    #[test]
+    fn get_disk_space_stats() {
+        if let Some(total_space) = disk_space_stats() {
+            assert!(total_space > 0);
+        };
     }
 }

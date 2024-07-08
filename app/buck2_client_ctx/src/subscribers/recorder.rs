@@ -163,6 +163,7 @@ pub(crate) struct InvocationRecorder<'a> {
     peak_process_memory_bytes: Option<u64>,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
+    total_disk_space_bytes: Option<u64>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -274,6 +275,7 @@ impl<'a> InvocationRecorder<'a> {
             peak_process_memory_bytes: None,
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
+            total_disk_space_bytes: None,
         }
     }
 
@@ -515,6 +517,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
+            total_disk_space_bytes: self.total_disk_space_bytes.take(),
         };
 
         let event = BuckEvent::new(
