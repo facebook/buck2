@@ -1927,8 +1927,8 @@ message InvocationRecord {
   // Approximate config change size in bytes: key + old value + new value
   optional uint64 buckconfig_diff_size = 89;
   optional uint64 event_log_manifold_ttl_s = 90;
-  optional uint64 total_disk_space_bytes = 91;
   optional uint64 peak_used_disk_space_bytes = 92;
+  optional uint64 total_disk_space_bytes = 93;
 }
 
 // Record event sent directly to scribe.
