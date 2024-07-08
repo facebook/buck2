@@ -293,18 +293,18 @@ async fn build_configured_label_inner<'a>(
         // A couple of these objects aren't Send and so scope them here so async transform doesn't get concerned.
         let providers = match ctx.get().get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
-                if opts.skippable {
+                return if opts.skippable {
                     console_message(reason.skipping_message(providers_label.target()));
-                    return Ok(futures::stream::once(futures::future::ready(
-                        ConfiguredBuildEvent {
+                    Ok(
+                        futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
                             label: providers_label.dupe(),
                             variant: ConfiguredBuildEventVariant::SkippedIncompatible,
-                        },
-                    ))
-                    .boxed());
+                        }))
+                        .boxed(),
+                    )
                 } else {
-                    return Err(reason.to_err());
-                }
+                    Err(reason.to_err())
+                };
             }
             MaybeCompatible::Compatible(v) => v,
         };
