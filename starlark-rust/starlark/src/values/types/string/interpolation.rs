@@ -24,7 +24,7 @@ use dupe::Dupe;
 use num_traits::Signed;
 use thiserror::Error;
 
-use crate::values::float;
+use crate::values::float::float;
 use crate::values::float::StarlarkFloat;
 use crate::values::num::value::NumRef;
 use crate::values::string::dot_format::format_one;
