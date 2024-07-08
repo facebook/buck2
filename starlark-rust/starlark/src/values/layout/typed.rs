@@ -45,6 +45,7 @@ use crate::values::int::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
@@ -390,6 +391,30 @@ impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
     }
 }
 
+impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
+    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        if let Some(value) = value.unpack_frozen() {
+            if let Some(value) = FrozenValueTyped::new(value) {
+                return Ok(Some(value));
+            }
+        } else if StarlarkTypeId::of::<T>() == value.vtable().starlark_type_id {
+            #[derive(thiserror::Error, Debug)]
+            #[error("Expected frozen value of type `{expected}`, got unfrozen: `{value}`")]
+            struct NotFrozenError {
+                expected: Ty,
+                value: String,
+            }
+
+            return Err(crate::Error::new_value(NotFrozenError {
+                expected: T::starlark_type_repr(),
+                value: value.display_for_type_error().to_string(),
+            }));
+        }
+
+        Ok(None)
+    }
+}
+
 impl<'v, 'f, T: StarlarkValue<'f>> AllocValue<'v> for FrozenValueTyped<'f, T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
         self.0.to_value()
@@ -416,13 +441,50 @@ impl AllocFrozenStringValue for FrozenStringValue {
 
 #[cfg(test)]
 mod tests {
+    use starlark_derive::starlark_module;
+
+    use crate as starlark;
+    use crate::assert::Assert;
+    use crate::environment::GlobalsBuilder;
+    use crate::tests::util::TestComplexValue;
     use crate::values::int::PointerI32;
+    use crate::values::none::NoneType;
     use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
+    use crate::values::Value;
 
     #[test]
     fn int() {
         let v = FrozenValueTyped::<PointerI32>::new(FrozenValue::testing_new_int(17)).unwrap();
         assert_eq!(17, v.as_ref().get().to_i32());
+    }
+
+    #[test]
+    fn test_unpack_value_for_frozen_value_typed() {
+        #[starlark_module]
+        fn module(globals: &mut GlobalsBuilder) {
+            fn mutable<'v>() -> anyhow::Result<TestComplexValue<Value<'v>>> {
+                Ok(TestComplexValue(Value::new_none()))
+            }
+
+            const FROZEN: TestComplexValue<FrozenValue> = TestComplexValue(FrozenValue::new_none());
+
+            fn takes_frozen_value_typed<'v>(
+                value: FrozenValueTyped<'v, TestComplexValue<FrozenValue>>,
+            ) -> anyhow::Result<NoneType> {
+                let _ = value;
+                Ok(NoneType)
+            }
+        }
+
+        let mut a = Assert::new();
+        a.globals_add(module);
+
+        a.pass("takes_frozen_value_typed(FROZEN)");
+        a.fail("takes_frozen_value_typed(1)", "Type of parameter `value` doesn't match, expected `TestComplexValue`, actual `int (repr: 1)`");
+        a.fail(
+            "takes_frozen_value_typed(mutable())",
+            "Expected frozen value",
+        );
     }
 }
