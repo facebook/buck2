@@ -166,46 +166,22 @@ where
 
 #[cfg(test)]
 mod tests {
-    use allocative::Allocative;
     use anyhow::Context;
     use either::Either;
     use starlark_derive::starlark_module;
-    use starlark_derive::Freeze;
-    use starlark_derive::NoSerialize;
-    use starlark_derive::Trace;
 
     use crate as starlark;
-    use crate::any::ProvidesStaticType;
     use crate::assert::Assert;
     use crate::const_frozen_string;
     use crate::environment::GlobalsBuilder;
+    use crate::tests::util::TestComplexValue;
     use crate::values::layout::complex::ValueTypedComplex;
-    use crate::values::starlark_value;
-    use crate::values::StarlarkValue;
     use crate::values::Value;
-    use crate::values::ValueLike;
-
-    #[derive(
-        Trace,
-        Freeze,
-        Debug,
-        derive_more::Display,
-        Allocative,
-        ProvidesStaticType,
-        NoSerialize
-    )]
-    struct TestValueOfComplex<V>(V);
-
-    #[starlark_value(type = "test_value_of_complex")]
-    impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestValueOfComplex<V> where
-        Self: ProvidesStaticType<'v>
-    {
-    }
 
     #[starlark_module]
     fn test_module(globals: &mut GlobalsBuilder) {
         fn test_unpack<'v>(
-            v: ValueTypedComplex<'v, TestValueOfComplex<Value<'v>>>,
+            v: ValueTypedComplex<'v, TestComplexValue<Value<'v>>>,
         ) -> anyhow::Result<&'v str> {
             Ok(match v.unpack() {
                 Either::Left(v) => v.0.unpack_str().context("not a string")?,
@@ -220,8 +196,8 @@ mod tests {
         a.globals_add(test_module);
         a.setup_eval(|eval| {
             let s = eval.heap().alloc("test1");
-            let x = eval.heap().alloc_complex(TestValueOfComplex(s));
-            let y = eval.frozen_heap().alloc_simple(TestValueOfComplex(
+            let x = eval.heap().alloc(TestComplexValue(s));
+            let y = eval.frozen_heap().alloc(TestComplexValue(
                 const_frozen_string!("test2").to_frozen_value(),
             ));
             eval.module().set("x", x);
