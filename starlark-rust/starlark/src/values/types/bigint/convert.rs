@@ -226,14 +226,19 @@ mod tests {
 
         let mut a = Assert::new();
         a.globals_add(module);
-        // TODO(nga): parameter name is not included in error message.
-        a.fail(
+        a.fails(
             "takes_i32(1 << 100)",
-            "Integer value is too big to fit in i32: 1267650600228229401496703205376",
+            &[
+                "Integer value is too big to fit in i32: 1267650600228229401496703205376",
+                "Error unpacking value for parameter `_i`",
+            ],
         );
-        a.fail(
+        a.fails(
             "takes_i64(1 << 100)",
-            "Integer value is too big to fit in i64: 1267650600228229401496703205376",
+            &[
+                "Integer value is too big to fit in i64: 1267650600228229401496703205376",
+                "Error unpacking value for parameter `_i`",
+            ],
         );
     }
 }

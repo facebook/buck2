@@ -17,6 +17,7 @@
 
 //! Parameter conversion utilities for `starlark_module` macros.
 
+use anyhow::Context;
 use either::Either;
 use starlark_syntax::StarlarkResultExt;
 
@@ -146,7 +147,14 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
         }
 
         Self::unpack_value(value)
-            .into_anyhow_result()?
+            .into_anyhow_result()
+            .with_context(|| {
+                format!(
+                    "Error unpacking value for parameter `{}` of type `{}",
+                    param_name,
+                    Self::starlark_type_repr()
+                )
+            })?
             .ok_or_else(|| error::<Self>(value, param_name))
     }
 }
