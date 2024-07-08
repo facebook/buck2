@@ -429,10 +429,10 @@ async fn build_configured_label_inner<'a>(
             |(index, (output, provider_type))| {
                 let materialization_context = materialization_context.dupe();
                 async move {
-                    let res = match materialize_artifact_group_owned(
+                    let res = match materialize_artifact_group(
                         &mut ctx.get(),
-                        output,
-                        materialization_context,
+                        &output,
+                        &materialization_context,
                     )
                     .await
                     {
@@ -483,13 +483,6 @@ async fn build_configured_label_inner<'a>(
     } else {
         Ok(stream.boxed())
     }
-}
-pub async fn materialize_artifact_group_owned(
-    ctx: &mut DiceComputations<'_>,
-    artifact_group: ArtifactGroup,
-    materialization_context: MaterializationContext,
-) -> anyhow::Result<ArtifactGroupValues> {
-    materialize_artifact_group(ctx, &artifact_group, &materialization_context).await
 }
 
 #[derive(Clone, Allocative)]
