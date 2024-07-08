@@ -29,7 +29,7 @@ enum CompatibilityErrors {
 
 /// MaybeCompatible is used to gracefully deal with things that are incompatible
 /// with the target platform. The main place this comes up is that targets provided on the
-/// cli may be incompatible with the default or requested platform and we want to skip
+/// cli may be incompatible with the default or requested platform, and we want to skip
 /// building those rather than have it be an error.
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
 pub enum MaybeCompatible<T> {
@@ -40,7 +40,7 @@ pub enum MaybeCompatible<T> {
 impl<T> MaybeCompatible<T> {
     /// Converts to a result. Incompatible values get converted to an error.
     ///
-    /// This is just a convencience for treating incompatibility as an error.
+    /// This is just a convenience for treating incompatibility as an error.
     pub fn require_compatible(self) -> anyhow::Result<T> {
         match self {
             MaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
