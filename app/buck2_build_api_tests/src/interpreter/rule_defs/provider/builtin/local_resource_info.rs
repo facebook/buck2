@@ -116,7 +116,7 @@ fn test_validation_3() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "Value for `resource_env_vars` field is not a dictionary",
+        "Expected type `dict[str, str]`",
     );
 }
 
@@ -150,7 +150,7 @@ fn test_validation_5() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "Invalid key in `resource_env_vars`: Expected a str, got",
+        "Expected type `dict[str, str]`",
     );
 }
 
@@ -167,7 +167,7 @@ fn test_validation_6() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "Invalid value in `resource_env_vars`: Expected a str, got",
+        "Expected type `dict[str, str]`",
     );
 }
 

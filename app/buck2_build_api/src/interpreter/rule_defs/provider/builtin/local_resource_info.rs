@@ -17,6 +17,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
@@ -24,6 +25,7 @@ use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueOf;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -68,6 +70,16 @@ fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow
 where
     V: ValueLike<'v>,
 {
+    let env_vars =
+        UnpackDictEntries::<&str, &str>::unpack_value_err(info.resource_env_vars.to_value())
+            .context("Validating `resource_env_vars`")?;
+    if env_vars.entries.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Value for `resource_env_vars` field is an empty dictionary: `{}`",
+            info.resource_env_vars
+        ));
+    }
+
     let setup = StarlarkCmdArgs::try_from_value(info.setup.to_value()).with_context(|| {
         format!(
             "Value for `setup` field is not a command line: `{}`",
@@ -81,42 +93,6 @@ where
         ));
     }
 
-    let env_vars = DictRef::from_value(info.resource_env_vars.to_value()).with_context(|| {
-        format!(
-            "Value for `resource_env_vars` field is not a dictionary: `{}`",
-            info.resource_env_vars
-        )
-    })?;
-
-    if env_vars.iter().count() == 0 {
-        return Err(anyhow::anyhow!(
-            "Value for `resource_env_vars` field is an empty dictionary: `{}`",
-            info.resource_env_vars
-        ));
-    }
-
-    let validation_iter = env_vars.iter().map(|(key, value)| {
-        _ = key.unpack_str().with_context(|| {
-            format!(
-                "Invalid key in `resource_env_vars`: Expected a str, got: `{}`",
-                key
-            )
-        })?;
-
-        _ = value.unpack_str().with_context(|| {
-            format!(
-                "Invalid value in `resource_env_vars`: Expected a str, got: `{}`",
-                value
-            )
-        })?;
-
-        Ok::<(), anyhow::Error>(())
-    });
-
-    for validation_item in validation_iter {
-        validation_item?;
-    }
-
     NoneOr::<f64>::unpack_value(info.setup_timeout_seconds.to_value())
         .context("`setup_timeout_seconds` must be a number if provided")?;
 
@@ -128,7 +104,10 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenLocalResourceInfo)]
     fn LocalResourceInfo<'v>(
         #[starlark(require = named)] setup: Value<'v>,
-        #[starlark(require = named)] resource_env_vars: Value<'v>,
+        #[starlark(require = named)] resource_env_vars: ValueOf<
+            'v,
+            UnpackDictEntries<&'v str, &'v str>,
+        >,
         #[starlark(require = named, default = NoneOr::None)] setup_timeout_seconds: NoneOr<
             Value<'v>,
         >,
@@ -136,7 +115,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
         let result = LocalResourceInfo {
             setup,
-            resource_env_vars,
+            resource_env_vars: resource_env_vars.value,
             setup_timeout_seconds: eval.heap().alloc(setup_timeout_seconds),
         };
         validate_local_resource_info(&result)?;
