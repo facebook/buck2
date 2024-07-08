@@ -18,6 +18,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
+use starlark::values::float::UnpackFloat;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
@@ -93,7 +94,7 @@ where
         ));
     }
 
-    NoneOr::<f64>::unpack_value(info.setup_timeout_seconds.to_value())
+    NoneOr::<UnpackFloat>::unpack_value(info.setup_timeout_seconds.to_value())
         .context("`setup_timeout_seconds` must be a number if provided")?;
 
     Ok(())
@@ -146,9 +147,9 @@ impl FrozenLocalResourceInfo {
     }
 
     pub fn setup_timeout(&self) -> Option<Duration> {
-        NoneOr::<f64>::unpack_value(self.setup_timeout_seconds.to_value())
+        NoneOr::<UnpackFloat>::unpack_value(self.setup_timeout_seconds.to_value())
             .unwrap()
             .into_option()
-            .map(Duration::from_secs_f64)
+            .map(|f| Duration::from_secs_f64(f.0))
     }
 }

@@ -23,6 +23,7 @@ use buck2_data::StarlarkUserMetadataDictValue;
 use buck2_data::StarlarkUserMetadataListValue;
 use buck2_data::StarlarkUserMetadataValue;
 use starlark::values::dict::DictRef;
+use starlark::values::float::UnpackFloat;
 use starlark::values::list::ListRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -107,9 +108,9 @@ impl<'v> StarlarkUserEventParser<'v> {
                 value: Some(IntValue(v)),
             })
         // Let's also accept floats since `instant()` methods return floats, but cast them to ints
-        } else if let Some(v) = f64::unpack_value(v) {
+        } else if let Some(v) = UnpackFloat::unpack_value(v) {
             Ok(StarlarkUserMetadataValue {
-                value: Some(IntValue(v as i32)),
+                value: Some(IntValue(v.0 as i32)),
             })
         } else if let Some(v) = <&EnsuredArtifact>::unpack_value(v) {
             let path = get_artifact_path_display(
