@@ -57,7 +57,8 @@ pub(crate) enum NumRef<'v> {
     AllocValue,
     AllocFrozenValue
 )]
-pub(crate) enum Num {
+#[doc(hidden)]
+pub enum Num {
     Int(StarlarkInt),
     Float(f64),
 }
