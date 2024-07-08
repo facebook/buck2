@@ -243,8 +243,10 @@ extra_attributes = {
     "prebuilt_apple_framework": {
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
+        "stripped": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.default_only(attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo])),
+        "_stripped_default": attrs.bool(default = False),
     },
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),

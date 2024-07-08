@@ -17,6 +17,7 @@ xcframework_sanitizer.py --input original/Foo.framework \
 """
 
 import argparse
+import os
 import re
 import shutil
 
@@ -42,8 +43,9 @@ def main() -> None:
         description="Prepare a framework for distribution by removing unnecessary files."
     )
 
-    parser.add_argument("--input")
-    parser.add_argument("--output")
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--replacement-binary")
     args = parser.parse_args()
 
     out_path = Path(args.output)
@@ -55,6 +57,15 @@ def main() -> None:
         dirs_exist_ok=False,
         ignore=_should_ignore(args.input),
     )
+
+    if args.replacement_binary:
+        framework_name = os.path.splitext(os.path.basename(out_path))[0]
+        # Use realpath() because for macOS versioned bundles
+        # we may need to follow a symlink:
+        framework_binary_path = os.path.realpath(out_path / framework_name)
+        os.chmod(framework_binary_path, 644)
+
+        shutil.copy(args.replacement_binary, framework_binary_path)
 
 
 if __name__ == "__main__":

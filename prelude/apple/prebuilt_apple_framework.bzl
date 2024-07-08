@@ -41,10 +41,12 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
+load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_frameworks.bzl", "to_framework_name")
-load(":apple_toolchain_types.bzl", "AppleToolsInfo")
+load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback")
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
@@ -134,6 +136,12 @@ def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_dir
         "--output",
         bundle_for_app_distribution.as_output(),
     ])
+
+    if get_apple_stripped_attr_value_with_default_fallback(ctx):
+        strip_args = cmd_args("-x")
+        stripped = strip_object(ctx, ctx.attrs._apple_toolchain[AppleToolchainInfo].cxx_toolchain_info, framework_directory_artifact.project(framework_name), strip_args, "framework_distribution")
+        framework_sanitize_command.add("--replacement-binary", stripped)
+
     ctx.actions.run(framework_sanitize_command, category = "sanitize_prebuilt_apple_framework")
     providers = [DefaultInfo(default_output = bundle_for_app_distribution)]
     providers.append(AppleBundleInfo(
