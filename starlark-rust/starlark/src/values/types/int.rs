@@ -21,6 +21,7 @@
 //! special values. If the value doesn't fit in the special representation,
 //! we use [`BigInt`].
 
+use std::any;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -49,6 +50,7 @@ use crate::typing::TypingBinOp;
 use crate::values::error::ValueError;
 use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::pointer::RawPointer;
+use crate::values::layout::value::IntegerTooBigError;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
@@ -95,8 +97,22 @@ impl StarlarkTypeRepr for i32 {
 
 impl UnpackValue<'_> for i32 {
     fn unpack_value(value: Value) -> crate::Result<Option<Self>> {
-        // TODO(nga): return error if larger than `i32`.
-        Ok(value.unpack_i32())
+        // Note this does not use `Value::unpack_integer()`
+        // because we unlike other call sites,
+        // we know that `i32` is `InlineInt` on 64-bit platforms and never `BigInt`,
+        // so this is faster.
+        if let Some(v) = value.unpack_i32() {
+            Ok(Some(v))
+        } else {
+            if let Some(int) = StarlarkIntRef::unpack(value) {
+                Err(crate::Error::new_value(IntegerTooBigError {
+                    value: int.to_string(),
+                    integer_type: any::type_name::<Self>(),
+                }))
+            } else {
+                Ok(None)
+            }
+        }
     }
 }
 

@@ -29,6 +29,7 @@
 // our val_ref requires a pointer to the value. We need to put that pointer
 // somewhere. The solution is to have a separate value storage vs vtable.
 
+use std::any;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
@@ -235,6 +236,13 @@ pub struct FrozenValue(
 unsafe impl Send for FrozenValue {}
 unsafe impl Sync for FrozenValue {}
 
+#[derive(thiserror::Error, Debug)]
+#[error("Integer value is too big to fit in {integer_type}: {value}")]
+pub(crate) struct IntegerTooBigError {
+    pub(crate) integer_type: &'static str,
+    pub(crate) value: String,
+}
+
 impl<'v> Value<'v> {
     #[inline]
     pub(crate) fn new_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
@@ -348,11 +356,17 @@ impl<'v> Value<'v> {
         let Some(num) = StarlarkIntRef::unpack_value(self)? else {
             return Ok(None);
         };
-        // TODO(nga): return error if too large
-        Ok(match num {
+        let option = match num {
             StarlarkIntRef::Small(x) => I::try_from(x.to_i32()).ok(),
             StarlarkIntRef::Big(x) => x.unpack_integer(),
-        })
+        };
+        match option {
+            Some(i) => Ok(Some(i)),
+            None => Err(crate::Error::new_value(IntegerTooBigError {
+                integer_type: any::type_name::<I>(),
+                value: num.to_string(),
+            })),
+        }
     }
 
     /// Obtain the underlying `bool` if it is a boolean.

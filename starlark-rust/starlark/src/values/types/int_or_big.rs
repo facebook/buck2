@@ -87,7 +87,7 @@ impl StarlarkTypeRepr for StarlarkInt {
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, derive_more::Display)]
 pub(crate) enum StarlarkIntRef<'v> {
     Small(InlineInt),
     Big(&'v StarlarkBigInt),

@@ -424,7 +424,7 @@ fn test_parent_n() -> anyhow::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(bad_count),
         bad_count,
-        "Type of parameter `parent` doesn't match",
+        "Integer value is too big to fit in u32",
     );
 
     Ok(())

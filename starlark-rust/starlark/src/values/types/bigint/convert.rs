@@ -226,14 +226,14 @@ mod tests {
 
         let mut a = Assert::new();
         a.globals_add(module);
-        // TODO(nga): error is correct, but error message is not helpful.
+        // TODO(nga): parameter name is not included in error message.
         a.fail(
             "takes_i32(1 << 100)",
-            "Type of parameter `_i` doesn't match, expected `int`, actual `int (repr:",
+            "Integer value is too big to fit in i32: 1267650600228229401496703205376",
         );
         a.fail(
             "takes_i64(1 << 100)",
-            "Type of parameter `_i` doesn't match, expected `int`, actual `int (repr:",
+            "Integer value is too big to fit in i64: 1267650600228229401496703205376",
         );
     }
 }
