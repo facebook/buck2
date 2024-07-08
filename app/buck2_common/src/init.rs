@@ -132,6 +132,10 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.memory_pressure_threshold_percent`.
     pub memory_pressure_threshold_percent: Option<u64>,
+    /// A threshold that is used to determine remaining disk space buck2 uses to display disk space warnings.
+    /// If None, we don't warn the user.
+    /// The corresponding buckconfig is `buck2_system_warning.remaining_disk_space_threshold`.
+    pub remaining_disk_space_threshold_gb: Option<u64>,
 }
 
 impl SystemWarningConfig {
@@ -140,8 +144,13 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "memory_pressure_threshold_percent",
         })?;
+        let remaining_disk_space_threshold_gb = config.parse(BuckconfigKeyRef {
+            section: "buck2_system_warning",
+            property: "remaining_disk_space_threshold_gb",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
+            remaining_disk_space_threshold_gb,
         })
     }
 

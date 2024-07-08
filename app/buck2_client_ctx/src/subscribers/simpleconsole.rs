@@ -42,7 +42,10 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::check_memory_pressure;
+use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
+
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
@@ -571,6 +574,12 @@ where
                         &self.observer().system_info(),
                     ) {
                         echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
+                    }
+                    if let Some(low_disk_space) = check_remaining_disk_space(
+                        &self.observer().two_snapshots().last,
+                        &self.observer().system_info(),
+                    ) {
+                        echo!("{}", low_disk_space_msg(&low_disk_space))?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }

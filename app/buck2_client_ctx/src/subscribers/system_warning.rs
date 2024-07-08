@@ -12,11 +12,20 @@ use buck2_event_observer::humanized::HumanizedBytes;
 
 use crate::subscribers::recorder::process_memory;
 
+const BYTES_PER_GIGABYTE: u64 = 1000000000;
+
 pub(crate) struct MemoryPressureHigh {
     pub(crate) system_total_memory: u64,
     pub(crate) process_memory: u64,
 }
+
+pub(crate) struct LowDiskSpace {
+    pub(crate) total_disk_space: u64,
+    pub(crate) used_disk_space: u64,
+}
+
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
+pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -27,6 +36,19 @@ pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -
             ""
         } else {
             SYSTEM_MEMORY_REMEDIATION_LINK
+        }
+    )
+}
+
+pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
+    format!(
+        "Low disk space: only {} remaining out of {}{}",
+        HumanizedBytes::new(low_disk_space.used_disk_space),
+        HumanizedBytes::new(low_disk_space.total_disk_space),
+        if is_open_source() {
+            ""
+        } else {
+            DISK_REMEDIATION_LINK
         }
     )
 }
@@ -59,4 +81,24 @@ pub(crate) fn check_memory_pressure<T>(
                 })
         })
     })
+}
+
+pub(crate) fn check_remaining_disk_space<T>(
+    snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
+    system_info: &buck2_data::SystemInfo,
+) -> Option<LowDiskSpace> {
+    let (_, snapshot) = snapshot_tuple.as_ref()?;
+    let used_disk_space = snapshot.used_disk_space_bytes?;
+    let total_disk_space = system_info.total_disk_space_bytes?;
+    let remaining_disk_space_threshold =
+        system_info.remaining_disk_space_threshold_gb? * BYTES_PER_GIGABYTE;
+
+    if total_disk_space - used_disk_space <= remaining_disk_space_threshold {
+        Some(LowDiskSpace {
+            total_disk_space,
+            used_disk_space,
+        })
+    } else {
+        None
+    }
 }

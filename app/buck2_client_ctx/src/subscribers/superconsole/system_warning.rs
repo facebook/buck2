@@ -16,6 +16,8 @@ use superconsole::Lines;
 use superconsole::Span;
 
 use crate::subscribers::system_warning::check_memory_pressure;
+use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
@@ -41,7 +43,11 @@ impl<'a, T> Component for SystemWarningComponent<'a, T> {
                 &memory_pressure,
             ))?);
         }
-
+        if let Some(low_disk_space) =
+            check_remaining_disk_space(self.last_snapshot_tuple, self.system_info)
+        {
+            lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
+        }
         Ok(Lines(lines))
     }
 }

@@ -429,6 +429,8 @@ impl BuckdServer {
                 .memory_pressure_threshold_percent,
             total_disk_space_bytes: disk_space_stats()
                 .map(|DiskSpaceStats { total_space, .. }| total_space),
+            remaining_disk_space_threshold_gb: system_warning_config
+                .remaining_disk_space_threshold_gb,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here

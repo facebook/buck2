@@ -2223,6 +2223,7 @@ message SystemInfo {
   optional uint64 system_total_memory_bytes = 1;
   optional uint64 memory_pressure_threshold_percent = 2;
   optional uint64 total_disk_space_bytes = 3;
+  optional uint64 remaining_disk_space_threshold_gb = 4;
 }
 
 message CpuCounter {
