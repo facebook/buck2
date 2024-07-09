@@ -57,30 +57,22 @@ pub(crate) fn check_memory_pressure<T>(
     snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
     system_info: &buck2_data::SystemInfo,
 ) -> Option<MemoryPressureHigh> {
-    snapshot_tuple.as_ref().and_then(|(_, snapshot)| {
-        process_memory(snapshot).and_then(|process_memory| {
-            system_info
-                .system_total_memory_bytes
-                .and_then(|system_total_memory| {
-                    // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
-                    system_info.memory_pressure_threshold_percent.and_then(
-                        |memory_pressure_threshold_percent| {
-                            if (process_memory * 100)
-                                .checked_div(system_total_memory)
-                                .is_some_and(|res| res >= memory_pressure_threshold_percent)
-                            {
-                                Some(MemoryPressureHigh {
-                                    system_total_memory,
-                                    process_memory,
-                                })
-                            } else {
-                                None
-                            }
-                        },
-                    )
-                })
+    let (_, snapshot) = snapshot_tuple.as_ref()?;
+    let process_memory = process_memory(snapshot)?;
+    let system_total_memory = system_info.system_total_memory_bytes?;
+    let memory_pressure_threshold_percent = system_info.memory_pressure_threshold_percent?;
+    // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
+    if (process_memory * 100)
+        .checked_div(system_total_memory)
+        .is_some_and(|res| res >= memory_pressure_threshold_percent)
+    {
+        Some(MemoryPressureHigh {
+            system_total_memory,
+            process_memory,
         })
-    })
+    } else {
+        None
+    }
 }
 
 pub(crate) fn check_remaining_disk_space<T>(
