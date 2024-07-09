@@ -132,6 +132,12 @@ pub(crate) fn to_json_project(
         }
 
         let mut env: FxHashMap<String, String> = FxHashMap::default();
+
+        // Populate the environment variables the target configuration's environment variables,
+        // but ignore OUT_DIR as we handle that later.
+        env.extend(info.env.clone().into_iter().filter(|(k, _)| k != "OUT_DIR"));
+
+        // If $CARGO_MANIFEST_DIR is set, resolve it to an absolute path.
         if let Some(rel_cargo_manifest_dir) = info.env.get("CARGO_MANIFEST_DIR") {
             let cargo_manifest_dir = info.source_folder.join(rel_cargo_manifest_dir);
             env.insert(
