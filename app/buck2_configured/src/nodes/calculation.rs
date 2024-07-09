@@ -1233,7 +1233,9 @@ async fn compute_configured_forward_target_node(
     }
 
     let target_label_before_transition = &key.0;
-    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
+    let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref())
+        .boxed()
+        .await?;
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_label_before_transition.cfg(),
@@ -1255,6 +1257,7 @@ async fn compute_configured_forward_target_node(
         &platform_cfgs,
         ctx,
     )
+    .boxed()
     .await?;
 
     let cfg = TRANSITION_CALCULATION
@@ -1277,6 +1280,7 @@ async fn compute_configured_forward_target_node(
             target_node.dupe(),
             ctx,
         )
+        .boxed()
         .await
     } else {
         let configured_target_node = ctx
@@ -1284,6 +1288,7 @@ async fn compute_configured_forward_target_node(
                 forward: target_label_before_transition.dupe(),
                 transitioned: target_label_after_transition,
             })
+            .boxed()
             .await??;
 
         if let MaybeCompatible::Compatible(configured_target_node) = &configured_target_node {
@@ -1446,5 +1451,20 @@ fn _assert_compute_configured_target_node_no_transition_size() {
     const _: () = assert!(
         sz(&compute_configured_target_node_no_transition) <= 700,
         "compute_configured_target_node_no_transition size is larger than 700 bytes",
+    );
+}
+
+#[allow(unused)]
+fn _assert_compute_configured_forward_target_node_size() {
+    const fn sz<F, T1, T2, T3, T4, R>(_: &F) -> usize
+    where
+        F: FnOnce(T1, T2, T3, T4) -> R,
+    {
+        std::mem::size_of::<R>()
+    }
+
+    const _: () = assert!(
+        sz(&compute_configured_forward_target_node) <= 700,
+        "compute_configured_forward_target_node size is larger than 700 bytes",
     );
 }
