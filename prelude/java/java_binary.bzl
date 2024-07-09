@@ -49,7 +49,6 @@ def _create_fat_jar(
         ctx.actions.write("jars_file", jars),
     ]
 
-    local_only = False
     if native_libs:
         expect(
             java_toolchain.is_bootstrap_toolchain == False,
@@ -74,10 +73,6 @@ def _create_fat_jar(
                 "--fat_jar_native_libs_directory_name",
                 "nativelibs",
             ]
-
-        # TODO(T151045001) native deps are not compressed (for performance), but that can result in
-        # really large binaries. Large outputs can cause issues on RE, so we run locally instead.
-        local_only = "run_locally_if_has_native_deps" in ctx.attrs.labels
 
     main_class = ctx.attrs.main_class
     if main_class:
@@ -115,7 +110,7 @@ def _create_fat_jar(
 
     ctx.actions.run(
         fat_jar_cmd,
-        local_only = local_only,
+        local_only = False,
         category = "fat_jar",
         allow_cache_upload = True,
     )
