@@ -77,11 +77,11 @@ impl EdenConnectionManager {
         root: &AbsNormPath,
         semaphore: Semaphore,
     ) -> anyhow::Result<Option<Self>> {
-        let eden_root = root.as_abs_path().join(".eden");
-        if !eden_root.exists() {
+        let dot_eden_dir = root.as_abs_path().join(".eden");
+        if !dot_eden_dir.exists() {
             return Ok(None);
         }
-        let connector = Self::get_eden_connector(fb, &eden_root)?;
+        let connector = Self::get_eden_connector(fb, &dot_eden_dir)?;
 
         // The rest of the EdenIO code assumes that the root is the same as the mount point, so
         // verify that
@@ -101,19 +101,22 @@ impl EdenConnectionManager {
         }))
     }
 
-    fn get_eden_connector(fb: FacebookInit, eden_root: &AbsPath) -> anyhow::Result<EdenConnector> {
+    fn get_eden_connector(
+        fb: FacebookInit,
+        dot_eden_dir: &AbsPath,
+    ) -> anyhow::Result<EdenConnector> {
         // Based off of how watchman picks up the config: fbcode/watchman/watcher/eden.cpp:138
         if cfg!(windows) {
-            let config_path = eden_root.join("config");
+            let config_path = dot_eden_dir.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
             let config: EdenConfig = toml::from_str(&config_contents)?;
             let root = Arc::new(AbsPathBuf::new(config.config.root)?);
             let socket = PathBuf::from(config.config.socket);
             Ok(EdenConnector { fb, root, socket })
         } else {
-            let root = fs_util::read_link(eden_root.join("root"))?;
+            let root = fs_util::read_link(dot_eden_dir.join("root"))?;
             let root = Arc::new(AbsPathBuf::new(root)?);
-            let socket = fs_util::read_link(eden_root.join("socket"))?;
+            let socket = fs_util::read_link(dot_eden_dir.join("socket"))?;
             Ok(EdenConnector { fb, root, socket })
         }
     }
