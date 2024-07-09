@@ -975,6 +975,7 @@ async fn compute_configured_target_node_no_transition(
         &platform_cfgs,
         ctx,
     )
+    .boxed()
     .await?;
     for (_dep, tr) in target_node.transition_deps() {
         let resolved_cfg = TRANSITION_CALCULATION
@@ -1001,9 +1002,12 @@ async fn compute_configured_target_node_no_transition(
         &attr_cfg_ctx,
         ctx,
     )
+    .boxed()
     .await?;
 
-    check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists).await?;
+    check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists)
+        .boxed()
+        .await?;
 
     let execution_platform_resolution = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
@@ -1034,6 +1038,7 @@ async fn compute_configured_target_node_no_transition(
             &gathered_deps,
             &attr_cfg_ctx,
         )
+        .boxed()
         .await?
     };
     let execution_platform = execution_platform_resolution.cfg();
@@ -1088,8 +1093,10 @@ async fn compute_configured_target_node_no_transition(
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
         CycleGuard::<ConfiguredGraphCycleDescriptor>::new(&ctx)?
             .guard_this(ctx.compute2(get_toolchain_deps, get_exec_deps))
+            .boxed()
             .await
             .into_result(ctx)
+            .boxed()
             .await??;
 
     let mut deps = gathered_deps.deps;
@@ -1425,4 +1432,19 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
             .await?
             .map_err(anyhow::Error::from)
     }
+}
+
+#[allow(unused)]
+fn _assert_compute_configured_target_node_no_transition_size() {
+    const fn sz<F, T1, T2, T3, R>(_: &F) -> usize
+    where
+        F: FnOnce(T1, T2, T3) -> R,
+    {
+        std::mem::size_of::<R>()
+    }
+
+    const _: () = assert!(
+        sz(&compute_configured_target_node_no_transition) <= 700,
+        "compute_configured_target_node_no_transition size is larger than 700 bytes",
+    );
 }
