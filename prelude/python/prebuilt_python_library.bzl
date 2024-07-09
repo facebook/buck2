@@ -22,7 +22,7 @@ load(
 )
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(":compile.bzl", "compile_manifests")
-load(":manifest.bzl", "create_manifest_for_source_dir")
+load(":manifest.bzl", "ManifestInfo", "create_manifest_for_source_dir")
 load(
     ":python_library.bzl",
     "create_python_library_info",
@@ -35,12 +35,18 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Extract prebuilt wheel and wrap in python library provider.
     # TODO(nmj): Make sure all attrs are used if necessary, esp compile
+    entry_points = ctx.actions.declare_output("entry_points.manifest")
+    entry_points_dir = ctx.actions.declare_output("__entry_points__", dir = True)
     extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True)
     cmd = cmd_args(
         ctx.attrs._extract[RunInfo],
         ctx.attrs.binary_src,
         "--output",
         extracted_src.as_output(),
+        "--entry-points-manifest",
+        entry_points.as_output(),
+        "--entry-points",
+        entry_points_dir.as_output(),
     )
     if ctx.attrs.strip_soabi_tags:
         cmd.add("--strip-soabi-tags")
@@ -58,6 +64,11 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         shared_libraries = shared_deps,
     )
     providers.append(library_info)
+
+    entry_points_manifest = ManifestInfo(
+        manifest = entry_points,
+        artifacts = [(entry_points_dir, "")],
+    )
 
     # Create, augment and provide the linkable graph.
     linkable_graph = create_linkable_graph(
@@ -87,6 +98,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             env = UnixEnv(
                 label = ctx.label,
                 python_libs = [library_info],
+                binaries = [entry_points_manifest],
             ),
             deps = ctx.attrs.deps,
         ),

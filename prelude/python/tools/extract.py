@@ -15,7 +15,9 @@ extract.py my_zip_file.zip --output=output_directory
 """
 
 import argparse
+import configparser
 import glob
+import json
 import os
 import shutil
 import stat
@@ -101,6 +103,10 @@ def main() -> None:
         "--output", type=Path, required=True, help="The directory to write to"
     )
     parser.add_argument("--strip-soabi-tags", action="store_true")
+    parser.add_argument("--entry-points", type=Path, help="The directory to write to")
+    parser.add_argument(
+        "--entry-points-manifest", type=Path, help="The directory to write to"
+    )
     parser.add_argument("src", type=Path, help="The archive to extract to --output")
     args = parser.parse_args()
 
@@ -111,6 +117,44 @@ def main() -> None:
         dst_dir=args.output,
         strip_soabi_tags=args.strip_soabi_tags,
     )
+
+    # Extract any "entry points" from the wheel, and generate scripts from them
+    # (just like `pip install` would do).
+    if args.entry_points is not None:
+        entry_points = glob.glob(
+            os.path.join(args.output, "*.dist-info", "entry_points.txt")
+        )
+        os.makedirs(args.entry_points, exist_ok=True)
+        manifest = []
+        if entry_points:
+            (entry_points,) = entry_points
+            config = configparser.ConfigParser()
+            config.read(entry_points)
+            if config.has_section("console_scripts"):
+                for name, entry_point in config.items("console_scripts"):
+                    mod, func = entry_point.split(":")
+                    path = os.path.join(args.entry_points, name)
+                    manifest.append(
+                        (name, path, os.path.relpath(entry_points, args.output))
+                    )
+                    with open(path, mode="w") as bf:
+                        bf.write(
+                            """\
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import re
+import sys
+from {mod} import {func}
+if __name__ == '__main__':
+    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])
+    sys.exit({func}())
+""".format(
+                                mod=mod, func=func
+                            )
+                        )
+                    os.chmod(path, 0o777)
+        with open(args.entry_points_manifest, mode="w") as f:
+            json.dump(manifest, f)
 
 
 if __name__ == "__main__":
