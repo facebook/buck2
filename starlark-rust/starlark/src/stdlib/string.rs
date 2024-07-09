@@ -627,8 +627,8 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
-        fn as_str<'v>(x: Value<'v>) -> anyhow::Result<&'v str> {
-            <&str>::unpack_named_param(x, "to_join")
+        fn as_str<'v>(x: Value<'v>) -> anyhow::Result<StringValue<'v>> {
+            StringValue::unpack_named_param(x, "to_join")
         }
 
         let mut it = to_join.get().iterate(heap)?;
@@ -637,13 +637,12 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
             Some(x1) => {
                 match it.next() {
                     None => {
-                        as_str(x1)?;
                         // If there is a singleton we can avoid reallocation
-                        Ok(ValueOfUnchecked::new(x1))
+                        Ok(as_str(x1)?.to_value_of_unchecked().cast())
                     }
                     Some(x2) => {
-                        let s1 = as_str(x1)?;
-                        let s2 = as_str(x2)?;
+                        let s1 = as_str(x1)?.as_str();
+                        let s2 = as_str(x2)?.as_str();
                         // guess towards the upper bound, since we throw away over-allocations quickly
                         // include a buffer (20 bytes)
                         let n = it.size_hint().0 + 2;
@@ -655,9 +654,9 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                         r.push_str(s2);
                         for x in it {
                             r.push_str(this);
-                            r.push_str(as_str(x)?);
+                            r.push_str(as_str(x)?.as_str());
                         }
-                        Ok(ValueOfUnchecked::new(heap.alloc(r)))
+                        Ok(heap.alloc_typed_unchecked(r))
                     }
                 }
             }
