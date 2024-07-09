@@ -27,7 +27,7 @@ ResourceGroupInfo = provider(
         # NOTE(agallagher): We do this to maintain existing behavior w/ the
         # standalone `resource_group_map()` rule, but it's not clear if it's
         # actually desirable behavior.
-        "implicit_deps": provider_field(list[Dependency]),
+        "resource_group_to_implicit_deps_mapping": provider_field(dict[str, list[Dependency]]),
     },
 )
 

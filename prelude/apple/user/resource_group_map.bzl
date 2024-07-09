@@ -31,16 +31,16 @@ load("@prelude//utils:utils.bzl", "flatten")
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     resource_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
 
-    resource_groups_deps = flatten([
-        get_roots_from_mapping(mapping)
-        for entry in ctx.attrs.map
-        for mapping in entry[1]
-    ])
+    resource_group_to_implicit_deps_mapping = {
+        group: flatten([get_roots_from_mapping(mapping) for mapping in mappings])
+        for group, mappings in ctx.attrs.map
+    }
+    flattend_resource_group_deps = flatten(resource_group_to_implicit_deps_mapping.values())
 
     resource_graph = create_resource_graph(
         ctx = ctx,
         labels = [],
-        deps = resource_groups_deps,
+        deps = flattend_resource_group_deps,
         exported_deps = [],
     )
     resource_graph_node_map = get_resource_graph_node_map_func(resource_graph)()
@@ -73,7 +73,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             # referenced in our roots, so propagate them here.
             # NOTE(agallagher): We do this to maintain existing behavior here
             # but it's not clear if it's actually desirable behavior.
-            implicit_deps = resource_groups_deps,
+            resource_group_to_implicit_deps_mapping = resource_group_to_implicit_deps_mapping,
         ),
     ]
 

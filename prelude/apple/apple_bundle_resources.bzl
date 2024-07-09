@@ -163,7 +163,7 @@ def _copy_privacy_manifest_if_needed(ctx: AnalysisContext) -> list[AppleBundlePa
 def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec])):
     resource_group_info = get_resource_group_info(ctx)
     if resource_group_info:
-        resource_groups_deps = resource_group_info.implicit_deps
+        resource_groups_deps = resource_group_info.resource_group_to_implicit_deps_mapping.get(ctx.attrs.resource_group, []) if ctx.attrs.resource_group else []
         resource_group_mappings = resource_group_info.mappings
     else:
         resource_groups_deps = []
