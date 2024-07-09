@@ -17,6 +17,8 @@
 
 //! Bindings to/from Rust tuple types.
 
+use either::Either;
+
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
@@ -110,7 +112,9 @@ impl<T1: StarlarkTypeRepr, T2: StarlarkTypeRepr, T3: StarlarkTypeRepr> StarlarkT
 }
 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Either<T1::Error, T2::Error>;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(t) = Tuple::from_value(value) else {
             return Ok(None);
         };
@@ -118,10 +122,10 @@ impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) 
             return Ok(None);
         };
         let [a, b] = [*a, *b];
-        let Some(a) = T1::unpack_value(a)? else {
+        let Some(a) = T1::unpack_value_impl(a).map_err(Either::Left)? else {
             return Ok(None);
         };
-        let Some(b) = T2::unpack_value(b)? else {
+        let Some(b) = T2::unpack_value_impl(b).map_err(Either::Right)? else {
             return Ok(None);
         };
         Ok(Some((a, b)))
@@ -131,7 +135,9 @@ impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>> UnpackValue<'v> for (T1, T2) 
 impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>, T3: UnpackValue<'v>> UnpackValue<'v>
     for (T1, T2, T3)
 {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Either<T1::Error, Either<T2::Error, T3::Error>>;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(t) = Tuple::from_value(value) else {
             return Ok(None);
         };
@@ -139,13 +145,19 @@ impl<'v, T1: UnpackValue<'v>, T2: UnpackValue<'v>, T3: UnpackValue<'v>> UnpackVa
             return Ok(None);
         };
         let [a, b, c] = [*a, *b, *c];
-        let Some(a) = T1::unpack_value(a)? else {
+        let Some(a) = T1::unpack_value_impl(a).map_err(Either::Left)? else {
             return Ok(None);
         };
-        let Some(b) = T2::unpack_value(b)? else {
+        let Some(b) = T2::unpack_value_impl(b)
+            .map_err(Either::Left)
+            .map_err(Either::Right)?
+        else {
             return Ok(None);
         };
-        let Some(c) = T3::unpack_value(c)? else {
+        let Some(c) = T3::unpack_value_impl(c)
+            .map_err(Either::Right)
+            .map_err(Either::Right)?
+        else {
             return Ok(None);
         };
         Ok(Some((a, b, c)))

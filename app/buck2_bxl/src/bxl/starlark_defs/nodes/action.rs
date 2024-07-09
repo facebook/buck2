@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -56,7 +57,9 @@ impl<'v> StarlarkValue<'v> for StarlarkAction {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkAction {
-    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'a>) -> Result<Option<Self>, Self::Error> {
         Ok(value
             .downcast_ref::<Self>()
             .map(|value| Self(value.0.dupe())))
@@ -101,7 +104,9 @@ impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkActionQueryNode {
-    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'a>) -> Result<Option<Self>, Self::Error> {
         Ok(value
             .downcast_ref::<Self>()
             .map(|value| Self(value.0.dupe())))

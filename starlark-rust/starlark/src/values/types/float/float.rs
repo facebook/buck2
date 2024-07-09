@@ -16,6 +16,7 @@
  */
 
 use std::cmp::Ordering;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Write;
@@ -244,7 +245,9 @@ impl AllocFrozenValue for f64 {
 
 /// Allows only a float - an int will not be accepted.
 impl<'v> UnpackValue<'v> for StarlarkFloat {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(value) = value.downcast_ref::<StarlarkFloat>() else {
             return Ok(None);
         };

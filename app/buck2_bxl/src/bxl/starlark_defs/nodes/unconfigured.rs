@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
+
 use allocative::Allocative;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -51,7 +53,9 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkTargetNode {
-    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'a>) -> Result<Option<Self>, Self::Error> {
         Ok(value
             .downcast_ref::<Self>()
             .map(|value| Self(value.0.dupe())))

@@ -161,38 +161,50 @@ impl AllocFrozenValue for BigInt {
 }
 
 impl<'v> UnpackValue<'v> for u32 {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<u32>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<u32>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for u64 {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<u64>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<u64>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for i64 {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<i64>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<i64>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for usize {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<usize>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<usize>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for isize {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<isize>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<isize>> {
         value.unpack_integer()
     }
 }
 
 impl<'v> UnpackValue<'v> for BigInt {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<BigInt>> {
-        let Some(int) = StarlarkIntRef::unpack_value(value)? else {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<BigInt>> {
+        let Some(int) = StarlarkIntRef::unpack_value_opt(value) else {
             return Ok(None);
         };
         Ok(match int {

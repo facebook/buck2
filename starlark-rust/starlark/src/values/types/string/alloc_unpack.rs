@@ -17,6 +17,8 @@
 
 //! Implementations of alloc and unpack traits for string.
 
+use std::convert::Infallible;
+
 use crate::typing::Ty;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
@@ -120,13 +122,17 @@ impl<'v> AllocStringValue<'v> for &'_ str {
 }
 
 impl<'v> UnpackValue<'v> for &'v str {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(value.unpack_str())
     }
 }
 
 impl<'v> UnpackValue<'v> for String {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(value.unpack_str().map(ToOwned::to_owned))
     }
 }

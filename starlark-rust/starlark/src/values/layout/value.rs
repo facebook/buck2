@@ -353,7 +353,7 @@ impl<'v> Value<'v> {
         I: TryFrom<i32>,
         I: TryFrom<&'v BigInt>,
     {
-        let Some(num) = StarlarkIntRef::unpack_value(self)? else {
+        let Some(num) = StarlarkIntRef::unpack_value_opt(self) else {
             return Ok(None);
         };
         let option = match num {

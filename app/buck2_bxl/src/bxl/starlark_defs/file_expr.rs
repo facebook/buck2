@@ -8,6 +8,7 @@
  */
 
 use std::borrow::Cow;
+use std::convert::Infallible;
 use std::path::Path;
 
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
@@ -46,8 +47,10 @@ impl StarlarkTypeRepr for SourceArtifactUnpack {
 }
 
 impl<'v> UnpackValue<'v> for SourceArtifactUnpack {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
-        let Some(v) = ValueAsArtifactLike::unpack_value(value)? else {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(v) = ValueAsArtifactLike::unpack_value_opt(value) else {
             return Ok(None);
         };
         let Some(bound_artifact) = v.0.get_bound_artifact().ok() else {

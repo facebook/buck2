@@ -18,6 +18,8 @@
 use std::collections::BTreeMap;
 use std::hash::Hash;
 
+use either::Either;
+
 use crate::collections::SmallMap;
 use crate::typing::Ty;
 use crate::values::dict::AllocDict;
@@ -84,17 +86,19 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for SmallMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for SmallMap<K, V> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Either<K::Error, V::Error>;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(dict) = DictRef::from_value(value) else {
             return Ok(None);
         };
         let it = dict.iter();
         let mut r = SmallMap::with_capacity(it.len());
         for (k, v) in it {
-            let Some(k) = K::unpack_value(k)? else {
+            let Some(k) = K::unpack_value_impl(k).map_err(Either::Left)? else {
                 return Ok(None);
             };
-            let Some(v) = V::unpack_value(v)? else {
+            let Some(v) = V::unpack_value_impl(v).map_err(Either::Right)? else {
                 return Ok(None);
             };
             // TODO(nga): return error if keys are not unique.
@@ -156,16 +160,18 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for BTreeMap<K, 
 }
 
 impl<'v, K: UnpackValue<'v> + Ord, V: UnpackValue<'v>> UnpackValue<'v> for BTreeMap<K, V> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Either<K::Error, V::Error>;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(dict) = DictRef::from_value(value) else {
             return Ok(None);
         };
         let mut r = BTreeMap::new();
         for (k, v) in dict.iter() {
-            let Some(k) = K::unpack_value(k)? else {
+            let Some(k) = K::unpack_value_impl(k).map_err(Either::Left)? else {
                 return Ok(None);
             };
-            let Some(v) = V::unpack_value(v)? else {
+            let Some(v) = V::unpack_value_impl(v).map_err(Either::Right)? else {
                 return Ok(None);
             };
             // TODO(nga): return error if keys are not unique.

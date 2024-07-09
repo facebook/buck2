@@ -17,6 +17,7 @@
 
 pub(crate) mod string;
 
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -366,7 +367,9 @@ impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(ValueTyped::new(value))
     }
 }
@@ -392,7 +395,9 @@ impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for FrozenValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
         if let Some(value) = value.unpack_frozen() {
             if let Some(value) = FrozenValueTyped::new(value) {
                 return Ok(Some(value));

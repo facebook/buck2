@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -138,8 +139,10 @@ impl<'v> StarlarkTypeRepr for ValueAsArtifactLike<'v> {
 }
 
 impl<'v> UnpackValue<'v> for ValueAsArtifactLike<'v> {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
-        match ValueAsArtifactLikeUnpack::unpack_value(value)? {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        match ValueAsArtifactLikeUnpack::unpack_value_opt(value) {
             Some(ValueAsArtifactLikeUnpack::Artifact(a)) => {
                 Ok(Some(ValueAsArtifactLike(a as &dyn StarlarkArtifactLike)))
             }

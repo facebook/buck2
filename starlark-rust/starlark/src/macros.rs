@@ -58,8 +58,10 @@ macro_rules! starlark_complex_value {
             }
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
+                type Error = std::convert::Infallible;
+
                 #[inline]
-                fn unpack_value(x: $crate::values::Value<'v>) -> $crate::Result<Option<&'v $x<'v>>> {
+                fn unpack_value_impl(x: $crate::values::Value<'v>) -> Result<Option<&'v $x<'v>>, Self::Error> {
                     Ok($x::from_value(x))
                 }
             }
@@ -207,9 +209,11 @@ macro_rules! starlark_simple_value {
             }
 
             impl<'v> $crate::values::UnpackValue<'v> for &'v $x {
+                type Error = std::convert::Infallible;
+
                 #[inline]
-                fn unpack_value(x: $crate::values::Value<'v>) -> $crate::Result<Option<&'v $x>> {
-                    Ok($x::from_value(x))
+                fn unpack_value_impl(x: $crate::values::Value<'v>) -> std::result::Result<Option<&'v $x>, Self::Error> {
+                    std::result::Result::Ok($x::from_value(x))
                 }
             }
         }

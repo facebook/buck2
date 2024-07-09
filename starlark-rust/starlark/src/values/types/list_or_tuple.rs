@@ -51,8 +51,12 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackListOrTuple<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackListOrTuple<T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
-        match Either::<UnpackList<T>, UnpackTuple<T>>::unpack_value(value)? {
+    type Error = <T as UnpackValue<'v>>::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        match Either::<UnpackList<T>, UnpackTuple<T>>::unpack_value_impl(value)
+            .map_err(|e| e.into_inner())?
+        {
             Some(Either::Left(l)) => Ok(Some(UnpackListOrTuple { items: l.items })),
             Some(Either::Right(r)) => Ok(Some(UnpackListOrTuple { items: r.items })),
             None => Ok(None),

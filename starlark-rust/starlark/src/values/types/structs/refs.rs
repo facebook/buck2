@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
+
 use dupe::Dupe;
 
 use crate::typing::Ty;
@@ -62,7 +64,9 @@ impl<'v> StarlarkTypeRepr for StructRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StructRef<'v> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(StructRef::from_value(value))
     }
 }

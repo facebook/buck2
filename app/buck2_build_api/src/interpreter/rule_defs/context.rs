@@ -9,6 +9,7 @@
 
 use std::cell::RefCell;
 use std::cell::RefMut;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -156,7 +157,9 @@ impl<'v> StarlarkTypeRepr for RefAnalysisAction<'v> {
 }
 
 impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(analysis_actions) = value.downcast_ref::<AnalysisActions>() else {
             return Ok(None);
         };
@@ -273,7 +276,9 @@ impl<'v> StarlarkTypeRepr for RefAnalysisContext<'v> {
 }
 
 impl<'v> UnpackValue<'v> for RefAnalysisContext<'v> {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(analysis_context) = value.downcast_ref::<AnalysisContext>() else {
             return Ok(None);
         };

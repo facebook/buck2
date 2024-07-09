@@ -65,11 +65,13 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for NoneOr<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for NoneOr<T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = <T as UnpackValue<'v>>::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         if value.is_none() {
             Ok(Some(NoneOr::None))
         } else {
-            Ok(T::unpack_value(value)?.map(NoneOr::Other))
+            Ok(T::unpack_value_impl(value)?.map(NoneOr::Other))
         }
     }
 }

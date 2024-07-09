@@ -96,7 +96,9 @@ impl StarlarkTypeRepr for i32 {
 }
 
 impl UnpackValue<'_> for i32 {
-    fn unpack_value(value: Value) -> crate::Result<Option<Self>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value) -> crate::Result<Option<Self>> {
         // Note this does not use `Value::unpack_integer()`
         // because we unlike other call sites,
         // we know that `i32` is `InlineInt` on 64-bit platforms and never `BigInt`,

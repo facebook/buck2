@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
+
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
@@ -42,8 +44,10 @@ impl<'v> StarlarkTypeRepr for &'v dyn StarlarkArtifactLike {
 }
 
 impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
-        match EitherArtifactRef::unpack_value(value)? {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        match EitherArtifactRef::unpack_value_opt(value) {
             Some(EitherArtifactRef::Artifact(artifact)) => Ok(Some(artifact)),
             Some(EitherArtifactRef::DeclaredArtifact(artifact)) => Ok(Some(artifact)),
             Some(EitherArtifactRef::PromiseArtifact(artifact)) => Ok(Some(artifact)),

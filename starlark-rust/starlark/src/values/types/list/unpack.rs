@@ -46,14 +46,16 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackList<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackList<T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
-        let Some(list) = <&ListRef>::unpack_value(value)? else {
+    type Error = <T as UnpackValue<'v>>::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(list) = <&ListRef>::unpack_value_opt(value) else {
             return Ok(None);
         };
         // TODO(nga): should not allocate if the first element is of the wrong type.
         let mut items = Vec::with_capacity(list.len());
         for v in list.iter() {
-            let Some(v) = T::unpack_value(v)? else {
+            let Some(v) = T::unpack_value_impl(v)? else {
                 return Ok(None);
             };
             items.push(v);

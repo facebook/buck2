@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use either::Either;
+
 use crate::values::dict::DictRef;
 use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -39,16 +41,18 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for UnpackDictEn
 }
 
 impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> UnpackValue<'v> for UnpackDictEntries<K, V> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
-        let Some(dict) = DictRef::unpack_value(value)? else {
+    type Error = Either<K::Error, V::Error>;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(dict) = DictRef::unpack_value_opt(value) else {
             return Ok(None);
         };
         let mut entries = Vec::with_capacity(dict.len());
         for (k, v) in dict.iter() {
-            let Some(k) = K::unpack_value(k)? else {
+            let Some(k) = K::unpack_value_impl(k).map_err(Either::Left)? else {
                 return Ok(None);
             };
-            let Some(v) = V::unpack_value(v)? else {
+            let Some(v) = V::unpack_value_impl(v).map_err(Either::Right)? else {
                 return Ok(None);
             };
             entries.push((k, v));

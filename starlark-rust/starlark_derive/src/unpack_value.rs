@@ -50,21 +50,38 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
     let branches: Vec<syn::ExprIf> = input
         .enum_variants
         .iter()
-        .map(|(n, t)| {
+        .enumerate()
+        .map(|(i, (n, t))| {
+            let mut map_err: syn::Expr = syn::parse_quote_spanned! { t.span() => starlark::__macro_refs::Either::Left(e) };
+            for _ in 0..i {
+                map_err = syn::parse_quote_spanned! { t.span() => starlark::__macro_refs::Either::Right(#map_err) };
+            }
             syn::parse_quote_spanned! { t.span() =>
-                if let Some(x) = <#t as starlark::values::UnpackValue<'v>>::unpack_value(value)? {
-                    return starlark::Result::Ok(Some(#ident::#n(x)));
+                if let Some(x) = <#t as starlark::values::UnpackValue<'v>>::unpack_value_impl(value).map_err(|e| #map_err)? {
+                    return std::result::Result::Ok(Some(#ident::#n(x)));
                 }
             }
         })
         .collect::<Vec<_>>();
 
+    // `Either<A::Error, Either<B::Error, Either<C::Error, Infallible>>>`
+    let mut error: syn::Type = syn::parse_quote_spanned! { span => std::convert::Infallible };
+    for variant in input.enum_variants.iter().rev() {
+        let t = &variant.1;
+        error = syn::parse_quote_spanned! { variant.1.span() =>
+            starlark::__macro_refs::Either<<#t as starlark::values::UnpackValue<'v>>::Error, #error>
+        };
+    }
+
     let trait_impl: syn::ItemImpl = syn::parse_quote_spanned! { span =>
+        #[allow(clippy::all)]
         impl #impl_generics starlark::values::UnpackValue<'v> for #ident #type_generics #where_clause {
-            fn unpack_value(value: starlark::values::Value<'v>) -> starlark::Result<std::option::Option<Self>> {
+            type Error = #error;
+
+            fn unpack_value_impl(value: starlark::values::Value<'v>) -> std::result::Result<std::option::Option<Self>, Self::Error> {
                 #(#branches)*
                 let _unused_when_enum_is_empty = value;
-                starlark::Result::Ok(None)
+                std::result::Result::Ok(None)
             }
         }
     };

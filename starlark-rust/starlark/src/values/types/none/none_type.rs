@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
 use std::hash::Hasher;
 
 use allocative::Allocative;
@@ -125,7 +126,9 @@ impl AllocFrozenValue for NoneType {
 }
 
 impl<'v> UnpackValue<'v> for NoneType {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         if value.is_none() {
             Ok(Some(NoneType))
         } else {

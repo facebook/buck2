@@ -16,6 +16,7 @@
  */
 
 use std::cmp::Ordering;
+use std::convert::Infallible;
 use std::ops::Add;
 use std::ops::BitAnd;
 use std::ops::BitOr;
@@ -88,7 +89,8 @@ impl StarlarkTypeRepr for StarlarkInt {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, derive_more::Display)]
-pub(crate) enum StarlarkIntRef<'v> {
+#[doc(hidden)]
+pub enum StarlarkIntRef<'v> {
     Small(InlineInt),
     Big(&'v StarlarkBigInt),
 }
@@ -412,7 +414,9 @@ impl<'v> StarlarkTypeRepr for StarlarkIntRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for StarlarkIntRef<'v> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(StarlarkIntRef::unpack(value))
     }
 }

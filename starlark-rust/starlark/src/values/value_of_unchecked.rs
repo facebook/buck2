@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
@@ -159,8 +160,10 @@ impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUnchecked<'v, T> {
 }
 
 impl<'v, T: StarlarkTypeRepr> UnpackValue<'v> for ValueOfUnchecked<'v, T> {
+    type Error = Infallible;
+
     #[inline]
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(Some(Self::new(value)))
     }
 }

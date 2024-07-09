@@ -10,6 +10,7 @@
 //! A type [`StarlarkPromise`] which provides basic promise-like functionality.
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::convert::Infallible;
 use std::mem;
 
 use allocative::Allocative;
@@ -293,7 +294,9 @@ impl<'v> StarlarkTypeRepr for &'v StarlarkPromise<'v> {
 }
 
 impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
-    fn unpack_value(x: Value<'v>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(x: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(StarlarkPromise::from_value(x))
     }
 }

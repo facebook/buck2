@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
@@ -93,7 +94,9 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
 }
 
 impl<'a> UnpackValue<'a> for StarlarkConfiguredTargetNode {
-    fn unpack_value(value: Value<'a>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'a>) -> Result<Option<Self>, Self::Error> {
         Ok(value
             .downcast_ref::<Self>()
             .map(|value| Self(value.0.dupe())))

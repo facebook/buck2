@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
+
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 
@@ -120,13 +122,17 @@ impl<'a> StarlarkTypeRepr for &'a FrozenTupleRef {
 }
 
 impl<'v> UnpackValue<'v> for &'v TupleRef<'v> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(TupleRef::from_value(value))
     }
 }
 
 impl<'v> UnpackValue<'v> for &'v FrozenTupleRef {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
         let Some(value) = value.unpack_frozen() else {
             // TODO(nga): return error.
             return Ok(None);

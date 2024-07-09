@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fmt::Display;
 
 use allocative::Allocative;
@@ -71,8 +72,10 @@ impl<'v> StarlarkTypeRepr for CommandLineArg<'v> {
 }
 
 impl<'v> UnpackValue<'v> for CommandLineArg<'v> {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
-        if ValueAsCommandLineLike::unpack_value(value)?.is_some() {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        if ValueAsCommandLineLike::unpack_value_opt(value).is_some() {
             Ok(Some(CommandLineArg(value)))
         } else {
             Ok(None)

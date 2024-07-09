@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
@@ -160,13 +161,17 @@ impl<'v> StarlarkTypeRepr for &'v FrozenListRef {
 }
 
 impl<'v> UnpackValue<'v> for &'v ListRef<'v> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(ListRef::from_value(value))
     }
 }
 
 impl<'v> UnpackValue<'v> for &'v FrozenListRef {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
         // TODO(nga): error if not frozen.
         Ok(FrozenListRef::from_value(value))
     }

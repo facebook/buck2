@@ -291,7 +291,9 @@ fn test_radd() {
     starlark_simple_value!(Select);
 
     impl<'v> UnpackValue<'v> for Select {
-        fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+        type Error = crate::Error;
+
+        fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
             match Select::from_value(value) {
                 Some(x) => Ok(Some(x.clone())),
                 None => {

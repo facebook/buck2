@@ -348,7 +348,10 @@ impl StarlarkTypeRepr for InlineInt {
 }
 
 impl<'v> UnpackValue<'v> for InlineInt {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
+        // TODO(nga): return error on too big integer.
         Ok(value.0.unpack_int())
     }
 }

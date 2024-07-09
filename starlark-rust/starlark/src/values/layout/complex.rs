@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -115,7 +116,9 @@ where
     T: ComplexValue<'v>,
     T::Frozen: StarlarkValue<'static>,
 {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(Self::new(value))
     }
 }

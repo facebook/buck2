@@ -18,6 +18,7 @@
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::cell::RefMut;
+use std::convert::Infallible;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
@@ -162,7 +163,9 @@ impl<'v> StarlarkTypeRepr for DictRef<'v> {
 }
 
 impl<'v> UnpackValue<'v> for DictRef<'v> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<DictRef<'v>>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<DictRef<'v>>, Infallible> {
         Ok(DictRef::from_value(value))
     }
 }

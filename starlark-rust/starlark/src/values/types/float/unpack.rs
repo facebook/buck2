@@ -34,8 +34,10 @@ impl StarlarkTypeRepr for UnpackFloat {
 }
 
 impl<'v> UnpackValue<'v> for UnpackFloat {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
-        let Some(num) = NumRef::unpack_value(value)? else {
+    type Error = <NumRef<'v> as UnpackValue<'v>>::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(num) = NumRef::unpack_value_impl(value)? else {
             return Ok(None);
         };
         Ok(Some(UnpackFloat(num.as_float())))

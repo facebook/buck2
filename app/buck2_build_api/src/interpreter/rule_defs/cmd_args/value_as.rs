@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
+
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -67,7 +69,9 @@ impl<'v> ValueAsCommandLineLike<'v> {
 }
 
 impl<'v> UnpackValue<'v> for ValueAsCommandLineLike<'v> {
-    fn unpack_value(value: Value<'v>) -> starlark::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(Self::unpack(value))
     }
 }

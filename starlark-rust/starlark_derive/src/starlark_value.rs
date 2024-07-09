@@ -157,8 +157,10 @@ impl ImplStarlarkValue {
             impl<#params> starlark::values::UnpackValue<#lt> for &#lt #self_ty
             #where_clause
             {
-                fn unpack_value(value: starlark::values::Value<#lt>) -> starlark::Result<Option<&#lt #self_ty>> {
-                    starlark::Result::Ok(starlark::values::ValueLike::downcast_ref(value))
+                type Error = std::convert::Infallible;
+
+                fn unpack_value_impl(value: starlark::values::Value<#lt>) -> Result<Option<&#lt #self_ty>, Self::Error> {
+                    std::result::Result::Ok(starlark::values::ValueLike::downcast_ref(value))
                 }
             }
         })

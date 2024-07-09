@@ -44,7 +44,8 @@ enum NumError {
 /// numerical types and helps in implementation of arithmetical operations
 /// between them.
 #[derive(Clone, Debug, Dupe, Copy, StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum NumRef<'v> {
+#[doc(hidden)]
+pub enum NumRef<'v> {
     Int(StarlarkIntRef<'v>),
     // `StarlarkFloat` not `f64` here because `f64` unpacks from `int` too.
     Float(StarlarkFloat),

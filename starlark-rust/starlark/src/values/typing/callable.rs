@@ -17,6 +17,7 @@
 
 pub(crate) mod param;
 
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -191,8 +192,10 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
     for StarlarkCallable<'v, P, R>
 {
+    type Error = Infallible;
+
     #[inline]
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         if value.vtable().starlark_value.HAS_invoke {
             Ok(Some(StarlarkCallable::unchecked_new(value)))
         } else {

@@ -46,14 +46,16 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for UnpackTuple<T> {
 }
 
 impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for UnpackTuple<T> {
-    fn unpack_value(value: Value<'v>) -> crate::Result<Option<Self>> {
+    type Error = <T as UnpackValue<'v>>::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(tuple) = TupleRef::from_value(value) else {
             return Ok(None);
         };
         // TODO(nga): should not allocate if the first element is of the wrong type.
         let mut items = Vec::with_capacity(tuple.len());
         for v in tuple.iter() {
-            let Some(v) = T::unpack_value(v)? else {
+            let Some(v) = T::unpack_value_impl(v)? else {
                 return Ok(None);
             };
             items.push(v);

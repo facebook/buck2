@@ -21,6 +21,7 @@
 //! Unlike most Starlark values, these aren't actually represented on the [`Heap`], but as special values.
 
 use std::cmp::Ordering;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hasher;
@@ -96,7 +97,9 @@ impl StarlarkTypeRepr for bool {
 }
 
 impl UnpackValue<'_> for bool {
-    fn unpack_value(value: Value) -> crate::Result<Option<Self>> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value) -> Result<Option<Self>, Self::Error> {
         Ok(value.unpack_bool())
     }
 }
