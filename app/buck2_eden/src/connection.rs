@@ -12,7 +12,6 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -111,12 +110,12 @@ impl EdenConnectionManager {
             let config_contents = fs_util::read_to_string(config_path)?;
             let config: EdenConfig = toml::from_str(&config_contents)?;
             let root = Arc::new(AbsPathBuf::new(config.config.root)?);
-            let socket = PathBuf::from(config.config.socket);
+            let socket = AbsPathBuf::new(PathBuf::from(config.config.socket))?;
             Ok(EdenConnector { fb, root, socket })
         } else {
             let root = fs_util::read_link(dot_eden_dir.join("root"))?;
             let root = Arc::new(AbsPathBuf::new(root)?);
-            let socket = fs_util::read_link(dot_eden_dir.join("socket"))?;
+            let socket = AbsPathBuf::new(fs_util::read_link(dot_eden_dir.join("socket"))?)?;
             Ok(EdenConnector { fb, root, socket })
         }
     }
@@ -234,21 +233,23 @@ struct EdenConnector {
     #[allocative(skip)]
     fb: FacebookInit,
     root: Arc<AbsPathBuf>,
-    socket: PathBuf,
+    socket: AbsPathBuf,
 }
 
-fn thrift_builder<P: AsRef<Path>>(
+fn thrift_builder(
     fb: FacebookInit,
-    socket: P,
+    socket: &AbsPathBuf,
 ) -> anyhow::Result<::thriftclient::ThriftChannelBuilder> {
     // NOTE: This timeout is absurdly high, but bear in mind that what we're
     // "comparing" to is a FS call that has no timeouts at all.
     const THRIFT_TIMEOUT_MS: u32 = 120_000;
 
-    Ok(::thriftclient::ThriftChannelBuilder::from_path(fb, socket)?
-        .with_conn_timeout(THRIFT_TIMEOUT_MS)
-        .with_recv_timeout(THRIFT_TIMEOUT_MS)
-        .with_secure(false))
+    Ok(
+        ::thriftclient::ThriftChannelBuilder::from_path(fb, socket.as_path())?
+            .with_conn_timeout(THRIFT_TIMEOUT_MS)
+            .with_recv_timeout(THRIFT_TIMEOUT_MS)
+            .with_secure(false),
+    )
 }
 
 impl EdenConnector {
@@ -259,7 +260,7 @@ impl EdenConnector {
 
         tokio::task::spawn(async move {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
-            let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, socket)?
+            let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, &socket)?
                 .build_client(::edenfs_clients::make_EdenService)
                 .context("Error constructing Eden client")?;
 
