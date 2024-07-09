@@ -34,6 +34,7 @@ use crate::values::function::SpecialBuiltinFunction;
 use crate::values::int::PointerI32;
 use crate::values::list::AllocList;
 use crate::values::none::NoneType;
+use crate::values::num::value::Num;
 use crate::values::num::value::NumRef;
 use crate::values::range::Range;
 use crate::values::string::repr::string_repr;
@@ -43,7 +44,6 @@ use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
 use crate::values::tuple::UnpackTuple;
 use crate::values::types::int_or_big::StarlarkInt;
-use crate::values::types::int_or_big::StarlarkIntRef;
 use crate::values::typing::never::StarlarkNever;
 use crate::values::typing::ty::AbstractType;
 use crate::values::typing::StarlarkIter;
@@ -100,11 +100,15 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// abs(0)   == 0
     /// abs(-10) == 10
     /// abs(10)  == 10
+    /// abs(10.0) == 10.0
+    /// abs(-12.34) == 12.34
     /// # "#);
     /// ```
-    fn abs(#[starlark(require = pos)] x: StarlarkIntRef) -> anyhow::Result<StarlarkInt> {
-        // TODO(nga): does not handle float.
-        Ok(x.abs())
+    fn abs(#[starlark(require = pos)] x: NumRef) -> anyhow::Result<Num> {
+        match x {
+            NumRef::Int(a) => Ok(Num::Int(a.abs())),
+            NumRef::Float(a) => Ok(Num::Float(a.0.abs())),
+        }
     }
 
     /// [any](
@@ -890,6 +894,9 @@ mod tests {
         assert::eq("2147483648", "abs(-2147483648)");
         assert::eq("2147483648000", "abs(2147483648000)");
         assert::eq("2147483648000", "abs(-2147483648000)");
+        assert::eq("1.23", "abs(-1.23)");
+        assert::eq("2.3", "abs(2.3)");
+        assert::is_true("isinstance(abs(1), int)");
     }
 
     #[test]
