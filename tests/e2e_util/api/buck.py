@@ -63,7 +63,7 @@ class Buck(Executable):
         if rel_cwd is None:
             return self.cwd
         abs_cwd = self.cwd / rel_cwd
-        assert abs_cwd.exists()
+        assert abs_cwd.exists(), f"{abs_cwd} doesn't exist"
         return abs_cwd
 
     def build(
