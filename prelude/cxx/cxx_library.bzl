@@ -93,6 +93,7 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
@@ -649,6 +650,16 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             filter(None, [x.get(SharedLibraryInfo) for x in non_exported_deps]) +
             filter(None, [x.get(SharedLibraryInfo) for x in exported_deps]),
         ))
+        providers.append(
+            create_unix_env_info(
+                actions = ctx.actions,
+                env = UnixEnv(
+                    label = ctx.label,
+                    native_libs = [shared_libs],
+                ),
+                deps = exported_deps + non_exported_deps,
+            ),
+        )
 
     propagated_preprocessor_merge_list = inherited_exported_preprocessor_infos
     if _attr_reexport_all_header_dependencies(ctx):

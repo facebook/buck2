@@ -62,6 +62,7 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
@@ -267,14 +268,15 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
     )
     deps, shared_deps = gather_dep_libraries(raw_deps)
-    providers.append(create_python_library_info(
+    library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         extensions = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension}),
         deps = deps,
         shared_libraries = shared_deps,
         src_types = src_type_manifest,
-    ))
+    )
+    providers.append(library_info)
 
     # Omnibus providers
 
@@ -297,4 +299,16 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = raw_deps,
     )
     providers.append(linkable_graph)
+
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                python_libs = [library_info],
+            ),
+            deps = raw_deps,
+        ),
+    )
+
     return providers

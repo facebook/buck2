@@ -67,10 +67,12 @@ load(
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
@@ -270,6 +272,28 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [output.link_command_debug_output]))
     if output.sanitizer_runtime_files:
         extra_providers.append(CxxSanitizerRuntimeInfo(runtime_files = output.sanitizer_runtime_files))
+
+    # Unix env provider.
+    extra_providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                binaries = [
+                    create_manifest_for_entries(
+                        ctx = ctx,
+                        name = "unix_env",
+                        entries = [
+                            (ctx.label.name, output.binary, ""),
+                        ],
+                    ),
+                ],
+            ),
+            # TODO(agallagher): We only want to traverse deps when dynamically
+            # linking.
+            #deps = ctx.attrs.deps,
+        ),
+    )
 
     # When an executable is the output of a build, also materialize all the
     # unpacked external debuginfo that goes with it. This makes `buck2 build
@@ -593,6 +617,17 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         shared_libs,
         filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
     ))
+
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                native_libs = [shared_libs],
+            ),
+            deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        ),
+    )
 
     # Omnibus root provider.
     if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str():

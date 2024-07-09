@@ -35,6 +35,7 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten", "from_named_set")
@@ -305,6 +306,17 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         shared_libraries = shared_libraries,
     )
     providers.append(library_info)
+
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                python_libs = [library_info],
+            ),
+            deps = ctx.attrs.deps,
+        ),
+    )
 
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 

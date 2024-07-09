@@ -20,6 +20,7 @@ load(
     "create_linkable_graph",
     "create_linkable_graph_node",
 )
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(":compile.bzl", "compile_manifests")
 load(":manifest.bzl", "create_manifest_for_source_dir")
 load(
@@ -78,5 +79,17 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         label = ctx.label,
         deps = ctx.attrs.deps,
     )))
+
+    # Unix env provider.
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                python_libs = [library_info],
+            ),
+            deps = ctx.attrs.deps,
+        ),
+    )
 
     return providers

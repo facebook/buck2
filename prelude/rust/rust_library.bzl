@@ -60,6 +60,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
     ":build.bzl",
     "compile_context",
@@ -876,6 +877,19 @@ def _native_link_providers(
     # cannot act as link group libs, especially given that they only support
     # auto link groups anyway
     providers.append(merge_link_group_lib_info(children = inherited_link_group_lib_infos(ctx, compile_ctx.dep_ctx)))
+
+    providers.append(
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                native_libs = [shared_libs],
+            ),
+            #deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
+            #deps = deps,
+            deps = inherited_exported_deps,
+        ),
+    )
 
     return providers
 
