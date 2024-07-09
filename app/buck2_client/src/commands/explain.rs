@@ -56,6 +56,10 @@ impl StreamingCommand for ExplainCommand {
         matches: &ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        if cfg!(windows) {
+            return ExitResult::bail("Not implemented for windows");
+        }
+
         let output = self.output.clone().map(|o| o.resolve(&ctx.working_dir));
 
         let manifold_path = if self.upload {
@@ -65,34 +69,30 @@ impl StreamingCommand for ExplainCommand {
             None
         };
 
-        if !cfg!(windows) {
-            let context = ctx.client_context(matches, &self)?;
-            buckd
-                .with_flushing()
-                .new_generic(
-                    context,
-                    NewGenericRequest::Explain(ExplainRequest {
-                        output,
-                        target: self.target,
-                        fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
-                        allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
-                        manifold_path: manifold_path.clone(),
-                    }),
-                    None,
-                )
-                .await??;
+        let context = ctx.client_context(matches, &self)?;
+        buckd
+            .with_flushing()
+            .new_generic(
+                context,
+                NewGenericRequest::Explain(ExplainRequest {
+                    output,
+                    target: self.target,
+                    fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
+                    allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
+                    manifold_path: manifold_path.clone(),
+                }),
+                None,
+            )
+            .await??;
 
-            if let Some(p) = manifold_path {
-                buck2_client_ctx::eprintln!(
-                    "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{}\n",
-                    p
-                )?;
-            }
-
-            ExitResult::success()
-        } else {
-            ExitResult::bail("Not implemented for windows")
+        if let Some(p) = manifold_path {
+            buck2_client_ctx::eprintln!(
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{}\n",
+                p
+            )?;
         }
+
+        ExitResult::success()
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
