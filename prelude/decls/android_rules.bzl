@@ -650,6 +650,7 @@ android_instrumentation_test = prelude_rule(
             "collect_tombstones": attrs.bool(default = False, doc = """
                 Checks whether the test generated any tombstones, and downloads them from the emulator if true.
             """),
+            "record_video": attrs.bool(default = False, doc = "Record video of test run and collect it as TRA"),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
             "licenses": attrs.list(attrs.source(), default = []),
         }

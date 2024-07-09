@@ -116,6 +116,8 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     if ctx.attrs.collect_tombstones:
         cmd.append("--collect-tombstones")
+    if ctx.attrs.record_video:
+        cmd.append("--record-video")
 
     cmd.extend(
         [
