@@ -27,11 +27,11 @@ load(
     "@prelude//cxx:dwp.bzl",
     "run_dwp_action",
 )
+load("@prelude//cxx:link_types.bzl", "LinkOptions")
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
     "FrameworksLinkable",  # @unused Used as a type
-    "LinkArgs",
     "LinkInfo",
     "LinkedObject",
     "ObjectsLinkable",
@@ -42,6 +42,7 @@ load(
     "map_to_link_infos",
     "unpack_external_debug_info",
 )
+load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
 
@@ -84,15 +85,10 @@ _PrePostFlags = record(
 
 def cxx_dist_link(
         ctx: AnalysisContext,
-        links: list[LinkArgs],
         # The destination for the link output.
         output: Artifact,
+        opts: LinkOptions,
         linker_map: Artifact | None = None,
-        # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None] = None,
-        # An identifier that will uniquely name this link action in the context of a category. Useful for
-        # differentiating multiple link actions in the same rule.
-        identifier: [str, None] = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
         generate_dwp: bool = True,
         executable_link: bool = True) -> LinkedObject:
@@ -110,6 +106,15 @@ def cxx_dist_link(
     For the first, we need to post-process the linker index output to get it into a form
     that is easy for us to consume from within bzl.
     """
+
+    links = opts.links
+
+    # A category suffix that will be added to the category of the link action that is generated.
+    category_suffix = opts.category_suffix
+
+    # An identifier that will uniquely name this link action in the context of a category. Useful for
+    # differentiating multiple link actions in the same rule.
+    identifier = opts.identifier
 
     def make_cat(c: str) -> str:
         """ Used to make sure categories for our actions include the provided suffix """
@@ -654,9 +659,14 @@ def cxx_dist_link(
             local_only = True,
         )
 
+    unstripped_output = final_output
+    if opts.strip:
+        strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
+        final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix)
+
     return LinkedObject(
         output = final_output,
-        unstripped_output = final_output,
+        unstripped_output = unstripped_output,
         prebolt_output = output,
         dwp = dwp_output,
         external_debug_info = external_debug_info,

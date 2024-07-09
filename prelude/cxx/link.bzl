@@ -141,11 +141,9 @@ def cxx_link_into(
             fail("Cannot use distributed thinlto with sanitizer runtime")
         exe = cxx_dist_link(
             ctx,
-            opts.links,
             output,
+            opts,
             linker_map,
-            opts.category_suffix,
-            opts.identifier,
             should_generate_dwp,
             is_result_executable,
         )
