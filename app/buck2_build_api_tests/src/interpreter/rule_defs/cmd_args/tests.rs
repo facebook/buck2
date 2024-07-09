@@ -395,6 +395,13 @@ fn test_parent_n() -> anyhow::Result<()> {
     );
     tester.run_starlark_bzl_test(contents)?;
 
+    Ok(())
+}
+
+#[test]
+fn test_parent_n_too_many_parents() -> anyhow::Result<()> {
+    let mut tester = tester()?;
+
     let too_many_parent_calls = indoc!(
         r#"
         def test():
@@ -410,6 +417,13 @@ fn test_parent_n() -> anyhow::Result<()> {
         too_many_parent_calls,
         "too many .parent() calls",
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_parent_n_parent_type() -> anyhow::Result<()> {
+    let mut tester = tester()?;
 
     let bad_count = indoc!(
         r#"
