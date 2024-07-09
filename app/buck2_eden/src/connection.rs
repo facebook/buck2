@@ -20,9 +20,9 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::project::ProjectRoot;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
@@ -73,10 +73,10 @@ struct EdenConfig {
 impl EdenConnectionManager {
     pub fn new(
         fb: FacebookInit,
-        root: &AbsNormPath,
+        project_root: &ProjectRoot,
         semaphore: Semaphore,
     ) -> anyhow::Result<Option<Self>> {
-        let dot_eden_dir = root.as_abs_path().join(".eden");
+        let dot_eden_dir = project_root.root().as_abs_path().join(".eden");
         if !dot_eden_dir.exists() {
             return Ok(None);
         }
@@ -84,7 +84,7 @@ impl EdenConnectionManager {
 
         // The rest of the EdenIO code assumes that the root is the same as the mount point, so
         // verify that
-        if root.canonicalize()? != connector.root.canonicalize()? {
+        if project_root.root().canonicalize()? != connector.root.canonicalize()? {
             return Ok(None);
         }
 
