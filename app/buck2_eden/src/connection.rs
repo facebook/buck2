@@ -87,7 +87,8 @@ impl EdenConnectionManager {
 
         // The rest of the EdenIO code assumes that the root is the same as the mount point, so
         // verify that
-        if project_root.root().canonicalize()? != connector.mount.0.canonicalize()? {
+        if fs_util::canonicalize(project_root.root())? != fs_util::canonicalize(&connector.mount.0)?
+        {
             return Ok(None);
         }
 
