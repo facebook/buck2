@@ -106,9 +106,6 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
                 // Used by Nullsafe for (android|java)_libraries
                 ["nullsafex-json"] => "nullsafex-json".to_owned(),
 
-                // This is for js_bundle. We strip it and let the configuration handle it instead.
-                ["android"] => return Ok(ProvidersName::Default),
-
                 // Java/Kotlin sub-targets
                 ["class-abi"] => "class-abi".to_owned(),
                 ["source-abi"] => "source-abi".to_owned(),
@@ -118,15 +115,14 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
 
                 // For js_bundle rules. The platform and optimization ("release") flavors are stripped
                 // and handled by the configuration. The other flavors are mapped to named outputs.
-                ["android", "dependencies"] => "dependencies".to_owned(),
-                ["android", "misc"] => "misc".to_owned(),
-                ["android", "source_map"] => "source_map".to_owned(),
-                ["android", "release"] => return Ok(ProvidersName::Default),
-
-                ["android", "dependencies", "release"] => "dependencies".to_owned(),
-                ["android", "misc", "release"] => "misc".to_owned(),
-                ["android", "release", "source_map"] => "source_map".to_owned(),
-
+                ["android"] | ["android", "release"] => return Ok(ProvidersName::Default),
+                ["android", "dependencies"] | ["android", "dependencies", "release"] => {
+                    "dependencies".to_owned()
+                }
+                ["android", "misc"] | ["android", "misc", "release"] => "misc".to_owned(),
+                ["android", "source_map"] | ["android", "release", "source_map"] => {
+                    "source_map".to_owned()
+                }
                 ["android", "misc", "rambundle-indexed", "release"] => {
                     "rambundle-indexed-misc".to_owned()
                 }
