@@ -48,18 +48,14 @@ impl Error {
 
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Other`]
     #[cold]
-    pub fn new_other(e: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self(WithDiagnostic::new_empty(ErrorKind::Other(
-            anyhow::Error::new(e),
-        )))
+    pub fn new_other(e: impl Into<anyhow::Error>) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::Other(e.into())))
     }
 
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Value`]
     #[cold]
-    pub fn new_value(e: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self(WithDiagnostic::new_empty(ErrorKind::Value(
-            anyhow::Error::new(e),
-        )))
+    pub fn new_value(e: impl Into<anyhow::Error>) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::Value(e.into())))
     }
 
     /// The kind of this error
