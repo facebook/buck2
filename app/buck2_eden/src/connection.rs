@@ -23,6 +23,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
@@ -132,6 +133,17 @@ impl EdenConnectionManager {
             .as_os_str()
             .as_encoded_bytes()
             .to_vec()
+    }
+
+    /// Converts project relative paths to values that are suitable for passing to Eden requests
+    pub fn project_paths_as_eden_paths<'a>(
+        &self,
+        paths: impl IntoIterator<Item = &'a ProjectRelativePath>,
+    ) -> Vec<Vec<u8>> {
+        paths
+            .into_iter()
+            .map(|p| p.to_string().into_bytes())
+            .collect()
     }
 
     /// Returns a string like "20220102-030405", assuming this is a release version. This is

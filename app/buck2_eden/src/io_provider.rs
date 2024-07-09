@@ -135,7 +135,7 @@ impl IoProvider for EdenIoProvider {
 
         let params = GetAttributesFromFilesParams {
             mountPoint: self.manager.get_mount_point(),
-            paths: vec![path.to_string().into_bytes()],
+            paths: self.manager.project_paths_as_eden_paths([path.as_ref()]),
             requestedAttributes: requested_attributes,
             sync: no_sync(),
             ..Default::default()
@@ -273,7 +273,7 @@ impl IoProvider for EdenIoProvider {
 
         let params = ReaddirParams {
             mountPoint: self.manager.get_mount_point(),
-            directoryPaths: vec![path.to_string().into_bytes()],
+            directoryPaths: self.manager.project_paths_as_eden_paths([path.as_ref()]),
             requestedAttributes: requested_attributes,
             sync: no_sync(),
             ..Default::default()
