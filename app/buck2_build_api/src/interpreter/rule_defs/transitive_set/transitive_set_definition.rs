@@ -44,7 +44,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
@@ -370,18 +369,6 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
             exported,
             operations,
         })
-    }
-}
-
-pub(crate) fn transitive_set_definition_from_value<'v>(
-    x: Value<'v>,
-) -> Option<&dyn TransitiveSetDefinitionLike<'v>> {
-    if let Some(x) = x.downcast_ref::<TransitiveSetDefinition>() {
-        Some(x as &dyn TransitiveSetDefinitionLike<'v>)
-    } else if let Some(x) = x.downcast_ref::<FrozenTransitiveSetDefinition>() {
-        Some(x as &dyn TransitiveSetDefinitionLike<'v>)
-    } else {
-        None
     }
 }
 

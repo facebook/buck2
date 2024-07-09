@@ -41,6 +41,7 @@ use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
@@ -49,7 +50,6 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
 use crate::actions::registry::ActionsRegistry;
@@ -70,8 +70,8 @@ use crate::dynamic::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
@@ -242,7 +242,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn create_transitive_set(
         &mut self,
-        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,

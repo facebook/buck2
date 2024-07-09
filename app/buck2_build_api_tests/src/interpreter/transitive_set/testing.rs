@@ -16,8 +16,8 @@ use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
-use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
@@ -27,16 +27,17 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
-use starlark::values::ValueTypedComplex;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
 #[starlark_module]
 pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     fn make_tset<'v>(
-        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_, '_>,
@@ -73,13 +74,25 @@ pub(crate) fn new_transitive_set(
         .with(artifactory)
         .build();
 
-    let val = buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
+    buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
 
-    env.set("", val);
     let frozen = env.freeze().context("Freeze failed")?;
 
-    let value = frozen.get("").context("Frozen tset was not found!")?;
-    value.downcast_anyhow()
+    let make = frozen.get("make").context("`make` was not found")?;
+
+    let env2 = Module::new();
+    let ret = Evaluator::new(&env2)
+        .eval_function(make.owned_value(&env2.frozen_heap()), &[], &[])
+        .into_anyhow_result()?;
+
+    env2.set_extra_value(ret);
+
+    let frozen = env2.freeze()?;
+
+    frozen
+        .owned_extra_value()
+        .context("Frozen value must be in extra value")?
+        .downcast_anyhow()
 }
 
 #[test]
@@ -87,8 +100,10 @@ fn test_new_transitive_set() -> anyhow::Result<()> {
     let set = new_transitive_set(indoc!(
         r#"
         FooSet = transitive_set()
-        s1 = make_tset(FooSet, value = "foo")
-        make_tset(FooSet, value = "bar", children = [s1])
+
+        def make():
+            s1 = make_tset(FooSet, value = "foo")
+            return make_tset(FooSet, value = "bar", children = [s1])
         "#
     ))?;
 

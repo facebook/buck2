@@ -190,27 +190,6 @@ fn test_transitive_set_display() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_transitive_sets_validation() -> anyhow::Result<()> {
-    let mut tester = transitive_set_tester();
-
-    let contents = indoc!(
-        r#"
-        def test():
-            FooSet = transitive_set()
-            make_tset(FooSet, value = None)
-        "#
-    );
-
-    expect_error(
-        tester.run_starlark_bzl_test(contents),
-        contents,
-        "used before being assigned",
-    );
-
-    Ok(())
-}
-
-#[test]
 fn test_transitive_sets_projection() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 

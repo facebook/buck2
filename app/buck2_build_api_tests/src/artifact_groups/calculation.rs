@@ -77,8 +77,9 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
             foo = source_artifact("foo", "foo")
             bar = source_artifact("bar", "bar")
 
-            s1 = make_tset(TestSet, value = foo)
-            make_tset(TestSet, value = bar, children = [s1])
+            def make():
+                s1 = make_tset(TestSet, value = foo)
+                return make_tset(TestSet, value = bar, children = [s1])
             "#
     ))?;
 

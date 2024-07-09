@@ -36,6 +36,7 @@ use starlark::values::typing::TypeMatcher;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -52,12 +53,12 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::transitive_set_definition_from_value;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetDefinitionLike;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::PostorderTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TopologicalTransitiveSetIteratorGen;
@@ -102,7 +103,7 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
-    pub(crate) definition: V,
+    pub(crate) definition: FrozenValueTyped<'static, FrozenTransitiveSetDefinition>,
 
     /// The immediate value of this node. If None, then this node will not yield anything when
     /// iterated over (but we'll still traverse to its children).
@@ -179,14 +180,13 @@ impl<'v> NodeGen<Value<'v>> {
 impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
     fn matches_definition(
         &self,
-        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
     ) -> bool {
         definition.to_value().ptr_eq(self.definition.to_value())
     }
 
     pub fn projection_name(&'v self, projection: usize) -> anyhow::Result<&'v str> {
-        let def = transitive_set_definition_from_value(self.definition.to_value())
-            .context("Invalid definition")?;
+        let def = self.definition.as_ref();
 
         Ok(def
             .operations()
@@ -375,15 +375,12 @@ impl<'v> Freeze for TransitiveSet<'v> {
 impl<'v> TransitiveSet<'v> {
     pub fn new(
         key: TransitiveSetKey,
-        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: impl IntoIterator<Item = Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Self> {
-        let def: &dyn TransitiveSetDefinitionLike = match definition.unpack() {
-            Either::Left(def) => def,
-            Either::Right(def) => def,
-        };
+        let def: &dyn TransitiveSetDefinitionLike = &*definition;
         if !def.has_id() {
             return Err(TransitiveSetError::TransitiveSetUsedBeforeAssignment.into());
         }
@@ -392,15 +389,12 @@ impl<'v> TransitiveSet<'v> {
         let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
             Some(set) if set.matches_definition(definition) => Ok(set),
             Some(set) => {
-                fn format_def(def: Value<'_>) -> String {
-                    match transitive_set_definition_from_value(def) {
-                        Some(def) => format!("{:?}", def.as_debug()),
-                        None => "<invalid>".to_owned(),
-                    }
+                fn format_def(def: &FrozenTransitiveSetDefinition) -> String {
+                    format!("{:?}", def.as_debug())
                 }
                 Err(TransitiveSetError::TransitiveValueIsOfWrongType {
-                    expected: format_def(definition.to_value()),
-                    got: format_def(set.definition),
+                    expected: format_def(&definition),
+                    got: format_def(&set.definition),
                 })
             }
             None => {
@@ -464,7 +458,9 @@ impl<'v> TransitiveSet<'v> {
 
         Ok(Self {
             key,
-            definition: definition.to_value(),
+            definition:
+            // Cast lifetime from 'v to 'static
+            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).context("internal error")?,
             node,
             reductions,
             children,
@@ -473,7 +469,7 @@ impl<'v> TransitiveSet<'v> {
 
     pub fn new_from_values(
         key: TransitiveSetKey,
-        definition: ValueTypedComplex<'v, TransitiveSetDefinition<'v>>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -495,8 +491,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
     ) -> anyhow::Result<TransitiveSetJsonProjection<'v>> {
-        let def = transitive_set_definition_from_value(this.typed.definition)
-            .context("Invalid this.definition")?;
+        let def = this.typed.definition;
 
         let index = def
             .operations()
@@ -514,8 +509,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
     ) -> anyhow::Result<TransitiveSetArgsProjection<'v>> {
-        let def = transitive_set_definition_from_value(this.typed.definition)
-            .context("Invalid this.definition")?;
+        let def = this.typed.definition;
 
         let index = def
             .operations()
@@ -532,8 +526,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         reduction: &str,
     ) -> anyhow::Result<Value<'v>> {
-        let def = transitive_set_definition_from_value(this.typed.definition)
-            .context("Invalid this.definition")?;
+        let def = this.typed.definition;
 
         let index = match def.operations().reductions.get_index_of(reduction) {
             Some(index) => index,
