@@ -44,7 +44,6 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 LocalResourceInfo(resource_env_vars={})
             "#
         );
@@ -54,7 +53,6 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
         let test = indoc!(
             r#"
             def test():
-                target = label("//:foobar")
                 LocalResourceInfo(setup=cmd_args())
             "#
         );
@@ -74,7 +72,6 @@ fn test_validation_1() {
     let test = indoc!(
         r#"
         def test():
-            target = label("//:foobar")
             wrong_setup = {5:6}
             LocalResourceInfo(setup=wrong_setup, resource_env_vars={"RESOURCE_ENV_VAR": "json_key"})
         "#
