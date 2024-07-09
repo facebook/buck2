@@ -116,9 +116,7 @@ class TopSymbolsVisitor(ast.NodeVisitor):
         try:
             return super().visit(node)
         except AttributeError as exc:
-            logger.error(
-                "Got %r when parsing %s from %s", exc, ast.dump(node), self.path
-            )
+            logger.error(f"Got {exc} when parsing {ast.dump(node)} from {self.path}")
 
     def visit_Module(self, node: ast.Module) -> None:
         self._top_level = set(node.body)
