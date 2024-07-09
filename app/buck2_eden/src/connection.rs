@@ -70,6 +70,9 @@ struct EdenConfig {
     config: Config,
 }
 
+#[derive(Allocative)]
+struct EdenMountPoint(AbsPathBuf);
+
 impl EdenConnectionManager {
     pub fn new(
         fb: FacebookInit,
@@ -84,7 +87,7 @@ impl EdenConnectionManager {
 
         // The rest of the EdenIO code assumes that the root is the same as the mount point, so
         // verify that
-        if project_root.root().canonicalize()? != connector.root.canonicalize()? {
+        if project_root.root().canonicalize()? != connector.mount.0.canonicalize()? {
             return Ok(None);
         }
 
@@ -109,20 +112,21 @@ impl EdenConnectionManager {
             let config_path = dot_eden_dir.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
             let config: EdenConfig = toml::from_str(&config_contents)?;
-            let root = Arc::new(AbsPathBuf::new(config.config.root)?);
+            let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(config.config.root)?));
             let socket = AbsPathBuf::new(PathBuf::from(config.config.socket))?;
-            Ok(EdenConnector { fb, root, socket })
+            Ok(EdenConnector { fb, mount, socket })
         } else {
-            let root = fs_util::read_link(dot_eden_dir.join("root"))?;
-            let root = Arc::new(AbsPathBuf::new(root)?);
+            let mount = fs_util::read_link(dot_eden_dir.join("root"))?;
+            let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(mount)?));
             let socket = AbsPathBuf::new(fs_util::read_link(dot_eden_dir.join("socket"))?)?;
-            Ok(EdenConnector { fb, root, socket })
+            Ok(EdenConnector { fb, mount, socket })
         }
     }
 
     pub fn get_mount_point(&self) -> Vec<u8> {
         self.connector
-            .root
+            .mount
+            .0
             .as_path()
             .as_os_str()
             .as_encoded_bytes()
@@ -232,7 +236,7 @@ struct EdenConnection {
 struct EdenConnector {
     #[allocative(skip)]
     fb: FacebookInit,
-    root: Arc<AbsPathBuf>,
+    mount: Arc<EdenMountPoint>,
     socket: AbsPathBuf,
 }
 
@@ -256,7 +260,7 @@ impl EdenConnector {
     fn connect(&self) -> EdenClientFuture {
         let socket = self.socket.clone();
         let fb = self.fb;
-        let root = self.root.dupe();
+        let mount = self.mount.dupe();
 
         tokio::task::spawn(async move {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
@@ -264,7 +268,7 @@ impl EdenConnector {
                 .build_client(::edenfs_clients::make_EdenService)
                 .context("Error constructing Eden client")?;
 
-            wait_until_mount_is_ready(eden.as_ref(), &root).await?;
+            wait_until_mount_is_ready(eden.as_ref(), &mount).await?;
 
             Ok(eden)
         })
@@ -284,20 +288,20 @@ impl EdenConnector {
 #[derive(buck2_error::Error, Debug)]
 #[error("Mount never became ready: `{}`", self.mount)]
 struct MountNeverBecameReady {
-    mount: Arc<AbsPathBuf>,
+    mount: AbsPathBuf,
 }
 
 /// Delay until a mount becomes ready (up to 10 seconds).
 async fn wait_until_mount_is_ready(
     eden: &(dyn EdenService + Send + Sync),
-    root: &Arc<AbsPathBuf>,
+    mount: &EdenMountPoint,
 ) -> anyhow::Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     for _ in 0..10 {
         interval.tick().await;
-        match is_mount_ready(eden, root).await {
+        match is_mount_ready(eden, mount).await {
             Ok(true) => return Ok(()),
             Ok(false) => {
                 // Fallthrough to keep going
@@ -309,13 +313,16 @@ async fn wait_until_mount_is_ready(
         }
     }
 
-    Err(MountNeverBecameReady { mount: root.dupe() }.into())
+    Err(MountNeverBecameReady {
+        mount: mount.0.clone(),
+    }
+    .into())
 }
 
 #[derive(buck2_error::Error, Debug)]
 pub enum IsMountReadyError {
     #[error("Mount does not exist in Eden: `{}`", .mount)]
-    MountDoesNotExist { mount: Arc<AbsPathBuf> },
+    MountDoesNotExist { mount: AbsPathBuf },
     #[error(transparent)]
     RequestError(ListMountsError),
 }
@@ -323,20 +330,22 @@ pub enum IsMountReadyError {
 /// Check if a given mount is ready.
 async fn is_mount_ready(
     eden: &(dyn EdenService + Send + Sync),
-    root: &Arc<AbsPathBuf>,
+    mount: &EdenMountPoint,
 ) -> Result<bool, IsMountReadyError> {
     let mounts = eden
         .listMounts()
         .await
         .map_err(IsMountReadyError::RequestError)?;
 
-    for mount in mounts {
-        if mount.mountPoint == root.as_path().as_os_str().as_encoded_bytes() {
-            return Ok(mount.state == MountState::RUNNING);
+    for candidate in mounts {
+        if candidate.mountPoint == mount.0.as_path().as_os_str().as_encoded_bytes() {
+            return Ok(candidate.state == MountState::RUNNING);
         }
     }
 
-    Err(IsMountReadyError::MountDoesNotExist { mount: root.dupe() })
+    Err(IsMountReadyError::MountDoesNotExist {
+        mount: mount.0.clone(),
+    })
 }
 
 #[derive(buck2_error::Error, Debug)]
