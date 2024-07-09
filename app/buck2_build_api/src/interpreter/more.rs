@@ -46,8 +46,6 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_artifact_value(globals);
     register_output_artifact(globals);
     register_action_error_types(globals);
-    // TODO(JakobDegen): Remove after bump
-    register_action_error_handler_for_testing(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {
