@@ -10,7 +10,6 @@
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -31,25 +30,11 @@ pub(crate) async fn explain_command(
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
-    run_server_command(
-        ExplainServerCommand {
-            output: req.output,
-            target: req.target,
-            fbs_dump: req.fbs_dump,
-            allow_vpnless: req.allow_vpnless,
-            manifold_path: req.manifold_path,
-        },
-        ctx,
-        partial_result_dispatcher,
-    )
-    .await
+    run_server_command(ExplainServerCommand { req }, ctx, partial_result_dispatcher).await
 }
+
 struct ExplainServerCommand {
-    output: Option<AbsPathBuf>,
-    fbs_dump: Option<AbsPathBuf>,
-    target: String,
-    allow_vpnless: bool,
-    manifold_path: Option<String>,
+    req: ExplainRequest,
 }
 
 #[async_trait]
@@ -61,20 +46,11 @@ impl ServerCommandTemplate for ExplainServerCommand {
 
     async fn command(
         &self,
-        server_ctx: &dyn ServerCommandContextTrait,
+        _server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        explain(
-            server_ctx,
-            ctx,
-            self.output.as_ref(),
-            &self.target,
-            self.fbs_dump.as_ref(),
-            self.allow_vpnless,
-            self.manifold_path.clone(),
-        )
-        .await
+        explain(ctx, &self.req).await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -88,13 +64,8 @@ impl ServerCommandTemplate for ExplainServerCommand {
 }
 
 pub(crate) async fn explain(
-    _server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
-    destination_path: Option<&AbsPathBuf>,
-    target: &str,
-    fbs_dump: Option<&AbsPathBuf>,
-    allow_vpnless: bool,
-    manifold_path: Option<String>,
+    req: &ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -102,7 +73,7 @@ pub(crate) async fn explain(
             .get_cell_alias_resolver(cell_resolver.root_cell())
             .await?;
         let target_label = TargetLabel::parse(
-            target,
+            &req.target,
             cell_resolver.root_cell(),
             &cell_resolver,
             &cell_alias_resolver,
@@ -130,21 +101,17 @@ pub(crate) async fn explain(
     {
         buck2_explain::main(
             all_deps,
-            destination_path,
-            fbs_dump,
-            allow_vpnless,
-            manifold_path,
+            req.output.as_ref(),
+            req.fbs_dump.as_ref(),
+            req.allow_vpnless,
+            req.manifold_path.as_deref(),
         )
         .await?;
     }
     #[cfg(not(fbcode_build))]
     {
         // just "using" unused variables
-        let _destination_path = destination_path;
         let _all_deps = all_deps;
-        let _fbs_dump = fbs_dump;
-        let _allow_vpnless = allow_vpnless;
-        let _manifold_path = manifold_path;
     }
 
     Ok(ExplainResponse {})

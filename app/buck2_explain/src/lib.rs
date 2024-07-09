@@ -28,7 +28,7 @@ pub async fn main(
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     allow_vpnless: bool,
-    manifold_path: Option<String>,
+    manifold_path: Option<&str>,
 ) -> anyhow::Result<()> {
     let fbs = flatbuffers::gen_fbs(data)?;
 
