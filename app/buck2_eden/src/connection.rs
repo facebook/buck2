@@ -22,6 +22,7 @@ use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
@@ -57,6 +58,8 @@ pub struct EdenConnectionManager {
     /// to run or not.
     #[allocative(skip)]
     semaphore: Semaphore,
+    /// The project root, relative to the eden mount point
+    project_root: ForwardRelativePathBuf,
 }
 
 #[derive(Deserialize, Debug)]
@@ -86,12 +89,17 @@ impl EdenConnectionManager {
         }
         let connector = Self::get_eden_connector(fb, &dot_eden_dir)?;
 
-        // The rest of the EdenIO code assumes that the root is the same as the mount point, so
-        // verify that
-        if fs_util::canonicalize(project_root.root())? != fs_util::canonicalize(&connector.mount.0)?
-        {
-            return Ok(None);
-        }
+        let canon_project_root = fs_util::canonicalize(project_root.root())?;
+        let canon_eden_mount = fs_util::canonicalize(&connector.mount.0)?;
+
+        let rel_project_root = canon_project_root
+            .strip_prefix(&canon_eden_mount)
+            .with_context(|| {
+                format!(
+                    "Eden root {} was not a prefix of the project root {}",
+                    canon_eden_mount, canon_project_root
+                )
+            })?;
 
         let connection = Mutex::new(EdenConnection {
             epoch: 0,
@@ -102,6 +110,7 @@ impl EdenConnectionManager {
             connector,
             connection,
             semaphore,
+            project_root: rel_project_root.into_owned(),
         }))
     }
 
@@ -142,7 +151,7 @@ impl EdenConnectionManager {
     ) -> Vec<Vec<u8>> {
         paths
             .into_iter()
-            .map(|p| p.to_string().into_bytes())
+            .map(|p| self.project_root.join(p).to_string().into_bytes())
             .collect()
     }
 
