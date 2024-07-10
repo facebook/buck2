@@ -19,6 +19,7 @@ pub mod future;
 pub mod hash;
 pub mod indent;
 pub mod late_binding;
+pub mod network_speed_average;
 pub mod per_thread_instruction_counter;
 pub mod process;
 pub mod process_stats;
