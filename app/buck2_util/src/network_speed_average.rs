@@ -18,6 +18,7 @@ struct Snapshot {
     value: u64,
 }
 
+#[derive(Default)]
 pub struct NetworkSpeedAverage {
     total_duration: Duration,
     total_value: u64,
@@ -28,14 +29,6 @@ pub struct NetworkSpeedAverage {
 /// The reason is If we take all bytes downloaded over a build time it won't show a correct number.
 /// We need to calculate a number of bytes over time an artefacts has been downloaded.
 impl NetworkSpeedAverage {
-    pub fn new() -> Self {
-        Self {
-            total_duration: Default::default(),
-            total_value: 0,
-            last_snapshot: None,
-        }
-    }
-
     /// Report the value at a new timestamp
     ///
     /// Each update value must be greater than or equal to the previous one.
@@ -87,7 +80,7 @@ mod tests {
     fn test_network_speed_average() {
         let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
 
-        let mut avg = NetworkSpeedAverage::new();
+        let mut avg = NetworkSpeedAverage::default();
         assert_eq!(None, avg.avg_per_second());
 
         avg.update(t0, 100);
