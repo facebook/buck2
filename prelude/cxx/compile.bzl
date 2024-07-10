@@ -340,12 +340,14 @@ def create_compile_cmds(
             src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
 
         ext = get_source_extension(src, extension_for_plain_headers)
+        cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
 
         if src.is_header:
-            language_mode = get_header_language_mode(ext)
-            src_args.extend(["-x", language_mode] if language_mode else [])
-
-        cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
+            if cxx_compile_cmd.compiler_type in ["clang", "clang_windows", "gcc"]:
+                language_mode = get_header_language_mode(ext)
+                src_args.extend(["-x", language_mode] if language_mode else [])
+            elif cxx_compile_cmd.compiler_type in ["clang_cl", "windows", "windows_ml64"] and ext == CxxExtension(".cpp"):
+                src_args.append("/TP")
 
         if cxx_compile_cmd.compiler_type != "nasm":
             src_args.append("-c")
