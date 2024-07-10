@@ -30,6 +30,8 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
             # The validation default changes depending on build mode, so
             # explicitly set validation as disabled to unify behavior.
             "--verify-dwarf=none",
+            # Reproducers are not useful, we can reproduce from the action digest.
+            "--reproducer=Off",
         ] + ctx.attrs._dsymutil_extra_flags + [
             "-o",
             output.as_output(),
