@@ -307,7 +307,11 @@ message ConfigOverride {
   // `override` is reserved keyword in Rust
   string config_override = 1;
   enum ConfigType {
+    // The value for the override is a string in the standard form for a `-c`
+    // argument
     VALUE = 0;
+    // The value for the override is either the absolute path to a file, or a
+    // cell path containing a `//`
     FILE = 1;
   }
   ConfigType config_type = 2;
