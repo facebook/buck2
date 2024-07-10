@@ -238,14 +238,21 @@ impl ProjectRoot {
         // * not symlink found inside the project that point outside of it
         // * not even symlinks found in the project unless we need to to resolve ".."
 
-        let mut current_prefix = PathBuf::new();
+        // There's no empty `AbsPathBuf`, so we need to write this somewhat weird
+        let mut current_prefix: Option<AbsPathBuf> = None;
 
         let mut components = path.components();
         while let Some(comp) = components.next() {
-            current_prefix.push(comp);
+            let current_prefix = match &mut current_prefix {
+                Some(path) => {
+                    path.push(comp);
+                    path
+                }
+                None => current_prefix.insert(AbsPathBuf::new(comp)?),
+            };
 
             // This is not very efficient, but efficient cross-platform implementation is not easy.
-            let canonicalized_current_prefix = fs_util::canonicalize(&current_prefix)?;
+            let canonicalized_current_prefix = fs_util::canonicalize(current_prefix)?;
 
             if let Ok(rem) = canonicalized_current_prefix
                 .as_path()
