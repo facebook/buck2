@@ -10,6 +10,7 @@
 use std::cmp::max;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -18,6 +19,8 @@ use buck2_data::ActionExecutionKind;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_event_observer::humanized::HumanizedBytesPerSecond;
+use buck2_util::network_speed_average::NetworkSpeedAverage;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -34,6 +37,7 @@ struct Stats {
     total_other_actions: u64,
     total_targets_analysed: u64,
     peak_process_memory_bytes: Option<u64>,
+    re_avg_download_speed: NetworkSpeedAverage,
     duration: Option<prost_types::Duration>,
 }
 
@@ -69,6 +73,10 @@ impl Stats {
                     Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
                         self.peak_process_memory_bytes =
                             max(self.peak_process_memory_bytes, process_memory(snapshot));
+                        if let Some(ts) = get_event_timestamp(event) {
+                            self.re_avg_download_speed
+                                .update(ts, snapshot.re_download_bytes);
+                        }
                     }
                     _ => {}
                 }
@@ -77,6 +85,10 @@ impl Stats {
             _ => {}
         }
     }
+}
+
+fn get_event_timestamp(event: &buck2_data::BuckEvent) -> Option<SystemTime> {
+    SystemTime::try_from(event.timestamp.clone()?).ok()
 }
 
 impl Display for Stats {
@@ -101,6 +113,13 @@ impl Display for Stats {
                 f,
                 "peak process memory: {}",
                 HumanizedBytes::fixed_width(peak_process_memory_bytes)
+            )?;
+        }
+        if let Some(re_avg_download_speed) = self.re_avg_download_speed.avg_per_second() {
+            writeln!(
+                f,
+                "average download speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_avg_download_speed)
             )?;
         }
         if let Some(duration) = &self.duration {
