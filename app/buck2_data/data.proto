@@ -1929,6 +1929,8 @@ message InvocationRecord {
   optional uint64 event_log_manifold_ttl_s = 90;
   optional uint64 peak_used_disk_space_bytes = 92;
   optional uint64 total_disk_space_bytes = 93;
+  // Average RE download speed
+  optional uint64 re_avg_download_speed = 94;
 }
 
 // Record event sent directly to scribe.

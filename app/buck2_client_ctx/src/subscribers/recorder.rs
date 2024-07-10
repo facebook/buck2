@@ -39,6 +39,7 @@ use buck2_events::errors::create_error_report;
 use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
+use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -160,6 +161,7 @@ pub(crate) struct InvocationRecorder<'a> {
     new_configs_used: bool,
     re_max_download_speeds: Vec<SlidingWindow>,
     re_max_upload_speeds: Vec<SlidingWindow>,
+    re_avg_download_speed: NetworkSpeedAverage,
     peak_process_memory_bytes: Option<u64>,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
@@ -273,6 +275,7 @@ impl<'a> InvocationRecorder<'a> {
                 SlidingWindow::new(Duration::from_secs(5)),
                 SlidingWindow::new(Duration::from_secs(10)),
             ],
+            re_avg_download_speed: NetworkSpeedAverage::new(),
             peak_process_memory_bytes: None,
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
@@ -514,6 +517,7 @@ impl<'a> InvocationRecorder<'a> {
                 .iter()
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
+            re_avg_download_speed: self.re_avg_download_speed.avg_per_second(),
             install_duration: self.install_duration.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
@@ -955,6 +959,9 @@ impl<'a> InvocationRecorder<'a> {
         for s in self.re_max_upload_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_upload_bytes);
         }
+
+        self.re_avg_download_speed
+            .update(event.timestamp(), update.re_download_bytes);
 
         self.peak_process_memory_bytes =
             max(self.peak_process_memory_bytes, process_memory(update));
