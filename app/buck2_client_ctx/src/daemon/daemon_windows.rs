@@ -35,12 +35,12 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     use std::ffi::c_void;
     use std::ffi::OsString;
     use std::io;
-    use std::iter;
     use std::mem;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
 
     use anyhow::Context;
+    use buck2_util::win::os_str_to_wide_null_term;
     use winapi::shared::minwindef::DWORD;
     use winapi::shared::minwindef::FALSE;
     use winapi::um::handleapi::CloseHandle;
@@ -54,10 +54,6 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     // We have to call CreateProcessW manually because std::process::Command
     // doesn't allow to set 'bInheritHandles' to false. Without this waiting on
     // parent process will also wait on inherited handles of daemon process.
-
-    fn to_nullterm(s: &OsStr) -> Vec<u16> {
-        s.encode_wide().chain(iter::once(0)).collect()
-    }
 
     // Translated from ArgvQuote at http://tinyurl.com/zmgtnls
     fn append_quoted(arg: &OsStr, cmdline: &mut Vec<u16>) {
@@ -181,14 +177,14 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
 
     let status = unsafe {
         CreateProcessW(
-            to_nullterm(program).as_ptr(), // lpApplicationName
-            cmd.as_mut_ptr(),              // lpCommandLine
-            ptr::null_mut(),               // lpProcessAttributes
-            ptr::null_mut(),               // lpThreadAttributes
-            FALSE,                         // bInheritHandles
-            creation_flags,                // dwCreationFlags
-            envp,                          // lpEnvironment
-            to_nullterm(cwd).as_ptr(),     // lpCurrentDirectory
+            os_str_to_wide_null_term(program).as_ptr(), // lpApplicationName
+            cmd.as_mut_ptr(),                           // lpCommandLine
+            ptr::null_mut(),                            // lpProcessAttributes
+            ptr::null_mut(),                            // lpThreadAttributes
+            FALSE,                                      // bInheritHandles
+            creation_flags,                             // dwCreationFlags
+            envp,                                       // lpEnvironment
+            os_str_to_wide_null_term(cwd).as_ptr(),     // lpCurrentDirectory
             &mut sinfo,
             &mut pinfo,
         )
