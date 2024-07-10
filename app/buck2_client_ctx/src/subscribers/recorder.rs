@@ -158,8 +158,8 @@ pub(crate) struct InvocationRecorder<'a> {
     server_stderr: String,
     target_rule_type_names: Vec<String>,
     new_configs_used: bool,
-    re_download_speeds: Vec<SlidingWindow>,
-    re_upload_speeds: Vec<SlidingWindow>,
+    re_max_download_speeds: Vec<SlidingWindow>,
+    re_max_upload_speeds: Vec<SlidingWindow>,
     peak_process_memory_bytes: Option<u64>,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
@@ -263,12 +263,12 @@ impl<'a> InvocationRecorder<'a> {
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
             new_configs_used: false,
-            re_download_speeds: vec![
+            re_max_download_speeds: vec![
                 SlidingWindow::new(Duration::from_secs(1)),
                 SlidingWindow::new(Duration::from_secs(5)),
                 SlidingWindow::new(Duration::from_secs(10)),
             ],
-            re_upload_speeds: vec![
+            re_max_upload_speeds: vec![
                 SlidingWindow::new(Duration::from_secs(1)),
                 SlidingWindow::new(Duration::from_secs(5)),
                 SlidingWindow::new(Duration::from_secs(10)),
@@ -505,12 +505,12 @@ impl<'a> InvocationRecorder<'a> {
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(self.new_configs_used),
             re_max_download_speed: self
-                .re_download_speeds
+                .re_max_download_speeds
                 .iter()
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
             re_max_upload_speed: self
-                .re_upload_speeds
+                .re_max_upload_speeds
                 .iter()
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
@@ -948,11 +948,11 @@ impl<'a> InvocationRecorder<'a> {
             self.initial_re_download_bytes = Some(update.re_download_bytes);
         }
 
-        for s in self.re_download_speeds.iter_mut() {
+        for s in self.re_max_download_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_download_bytes);
         }
 
-        for s in self.re_upload_speeds.iter_mut() {
+        for s in self.re_max_upload_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_upload_bytes);
         }
 
