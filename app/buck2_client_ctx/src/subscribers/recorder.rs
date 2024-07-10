@@ -162,6 +162,7 @@ pub(crate) struct InvocationRecorder<'a> {
     re_max_download_speeds: Vec<SlidingWindow>,
     re_max_upload_speeds: Vec<SlidingWindow>,
     re_avg_download_speed: NetworkSpeedAverage,
+    re_avg_upload_speed: NetworkSpeedAverage,
     peak_process_memory_bytes: Option<u64>,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
@@ -276,6 +277,7 @@ impl<'a> InvocationRecorder<'a> {
                 SlidingWindow::new(Duration::from_secs(10)),
             ],
             re_avg_download_speed: NetworkSpeedAverage::new(),
+            re_avg_upload_speed: NetworkSpeedAverage::new(),
             peak_process_memory_bytes: None,
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
@@ -518,6 +520,7 @@ impl<'a> InvocationRecorder<'a> {
                 .map(|w| w.max_per_second().unwrap_or_default())
                 .max(),
             re_avg_download_speed: self.re_avg_download_speed.avg_per_second(),
+            re_avg_upload_speed: self.re_avg_upload_speed.avg_per_second(),
             install_duration: self.install_duration.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
@@ -962,6 +965,9 @@ impl<'a> InvocationRecorder<'a> {
 
         self.re_avg_download_speed
             .update(event.timestamp(), update.re_download_bytes);
+
+        self.re_avg_upload_speed
+            .update(event.timestamp(), update.re_upload_bytes);
 
         self.peak_process_memory_bytes =
             max(self.peak_process_memory_bytes, process_memory(update));

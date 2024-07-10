@@ -1931,6 +1931,8 @@ message InvocationRecord {
   optional uint64 total_disk_space_bytes = 93;
   // Average RE download speed
   optional uint64 re_avg_download_speed = 94;
+  // Average RE upload speed
+  optional uint64 re_avg_upload_speed = 95;
 }
 
 // Record event sent directly to scribe.
