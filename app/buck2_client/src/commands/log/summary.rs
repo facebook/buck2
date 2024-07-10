@@ -38,6 +38,7 @@ struct Stats {
     total_targets_analysed: u64,
     peak_process_memory_bytes: Option<u64>,
     re_avg_download_speed: NetworkSpeedAverage,
+    re_avg_upload_speed: NetworkSpeedAverage,
     duration: Option<prost_types::Duration>,
 }
 
@@ -76,6 +77,8 @@ impl Stats {
                         if let Some(ts) = get_event_timestamp(event) {
                             self.re_avg_download_speed
                                 .update(ts, snapshot.re_download_bytes);
+                            self.re_avg_upload_speed
+                                .update(ts, snapshot.re_upload_bytes);
                         }
                     }
                     _ => {}
@@ -120,6 +123,13 @@ impl Display for Stats {
                 f,
                 "average download speed: {}",
                 HumanizedBytesPerSecond::fixed_width(re_avg_download_speed)
+            )?;
+        }
+        if let Some(re_avg_upload_speed) = self.re_avg_upload_speed.avg_per_second() {
+            writeln!(
+                f,
+                "average upload speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_avg_upload_speed)
             )?;
         }
         if let Some(duration) = &self.duration {
