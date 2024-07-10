@@ -18,8 +18,12 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_event_log::file_names::get_local_logs;
 use clap::ArgMatches;
+use clap::Parser as _;
 use tonic::async_trait;
+
+use crate::commands::build::BuildCommand;
 
 /// Buck2 Explain
 ///
@@ -33,10 +37,6 @@ pub struct ExplainCommand {
     /// File will be created if it does not exist, and overwritten if it does.
     #[clap(long, short = 'o', group = "out")]
     output: Option<PathArg>,
-    // TODO iguridi: pass target for now, eventually read it from the logs for an actual build
-    /// Target to get information from
-    #[clap(long, short = 't')]
-    target: String,
     /// Whether to upload the output to Manifold
     #[clap(long, group = "out")]
     upload: bool,
@@ -62,9 +62,46 @@ impl StreamingCommand for ExplainCommand {
 
         let output = self.output.clone().map(|o| o.resolve(&ctx.working_dir));
 
+        // Get the most recent log
+        let paths = ctx.paths()?;
+        let mut logs = get_local_logs(&paths.log_dir())?; // oldest first
+        let build_log = match logs.pop() {
+            Some(log) => log,
+            None => return ExitResult::bail("No build logs found"),
+        };
+
+        // Check things are the same as last build
+        let (invocation, _) = build_log.unpack_stream().await?;
+        if invocation.working_dir != ctx.working_dir.to_string() {
+            return ExitResult::bail(format!(
+                "working dir mismatch {} and {}",
+                invocation.working_dir, ctx.working_dir,
+            ));
+        }
+
+        let uuid = invocation.trace_id;
+
+        // We are interested in the args passed only to a build command
+        let command = invocation.expanded_command_line_args;
+        let build_index = command.iter().position(|word| word == "build");
+        let index = match build_index {
+            Some(index) => index,
+            None => return ExitResult::bail("Only build command is supported"),
+        };
+        let command = &command[index..];
+
+        // Parse retrived args
+        let build_args = BuildCommand::parse_from(command);
+
+        // TODO iguridi: get things like configs and target universe too
+        let patterns = build_args.patterns();
+        if patterns.len() != 1 {
+            return ExitResult::bail("Only one target pattern is supported");
+        }
+        let target = patterns[0].to_owned();
+
         let manifold_path = if self.upload {
-            // TODO iguridi: eventually use associated build uuid
-            Some(format!("flat/{}-explain.html", ctx.trace_id))
+            Some(format!("flat/{}-explain.html", uuid))
         } else {
             None
         };
@@ -76,7 +113,7 @@ impl StreamingCommand for ExplainCommand {
                 context,
                 NewGenericRequest::Explain(ExplainRequest {
                     output,
-                    target: self.target,
+                    target,
                     fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
                     allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
                     manifold_path: manifold_path.clone(),

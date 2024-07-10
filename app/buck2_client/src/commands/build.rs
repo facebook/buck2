@@ -152,6 +152,10 @@ impl BuildCommand {
         }
         build_providers::Action::Skip
     }
+
+    pub(crate) fn patterns(&self) -> &Vec<String> {
+        &self.patterns
+    }
 }
 
 #[derive(Debug, Clone, Dupe, clap::ValueEnum)]
