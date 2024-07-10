@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::cmp;
 use std::cmp::max;
+use std::cmp::min;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
@@ -926,8 +926,8 @@ impl<'a> InvocationRecorder<'a> {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         self.max_malloc_bytes_active =
-            cmp::max(self.max_malloc_bytes_active, update.malloc_bytes_active);
-        self.max_malloc_bytes_allocated = cmp::max(
+            max(self.max_malloc_bytes_active, update.malloc_bytes_active);
+        self.max_malloc_bytes_allocated = max(
             self.max_malloc_bytes_allocated,
             update.malloc_bytes_allocated,
         );
@@ -945,8 +945,7 @@ impl<'a> InvocationRecorder<'a> {
         if self.initial_sink_dropped_count.is_none() {
             self.initial_sink_dropped_count = update.sink_dropped;
         }
-        self.sink_max_buffer_depth =
-            cmp::max(self.sink_max_buffer_depth, update.sink_buffer_depth());
+        self.sink_max_buffer_depth = max(self.sink_max_buffer_depth, update.sink_buffer_depth());
 
         if self.initial_re_upload_bytes.is_none() {
             self.initial_re_upload_bytes = Some(update.re_upload_bytes);
@@ -1077,10 +1076,8 @@ impl<'a> InvocationRecorder<'a> {
         // TODO(nga): query now once in `EventsCtx`.
         let now = SystemTime::now();
         if let Ok(delay) = now.duration_since(event.timestamp()) {
-            self.max_event_client_delay = Some(cmp::max(
-                self.max_event_client_delay.unwrap_or_default(),
-                delay,
-            ));
+            self.max_event_client_delay =
+                Some(max(self.max_event_client_delay.unwrap_or_default(), delay));
         }
         self.event_count += 1;
 
@@ -1347,7 +1344,7 @@ impl<'a> ErrorObserver for InvocationRecorder<'a> {
 
 fn calculate_diff_if_some(a: &Option<u64>, b: &Option<u64>) -> Option<u64> {
     match (a, b) {
-        (Some(av), Some(bv)) => Some(std::cmp::max(av, bv) - std::cmp::min(av, bv)),
+        (Some(av), Some(bv)) => Some(max(av, bv) - min(av, bv)),
         _ => None,
     }
 }
