@@ -88,8 +88,7 @@ def buck_e2e_test(
     if data:
         env["TEST_REPO_DATA"] = "$(location {})".format(data)
 
-    if data_dir:
-        env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
+    env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
     if type(deps) == "tuple":
         deps = list(deps)
