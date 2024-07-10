@@ -68,12 +68,7 @@ impl Stats {
                 match instant_event.data.as_ref() {
                     Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
                         self.peak_process_memory_bytes =
-                            match (self.peak_process_memory_bytes, process_memory(snapshot)) {
-                                (Some(peak_process_memory), Some(update_memory)) => {
-                                    Some(max(peak_process_memory, update_memory))
-                                }
-                                (None, other) | (other, None) => other,
-                            };
+                            max(self.peak_process_memory_bytes, process_memory(snapshot));
                     }
                     _ => {}
                 }
