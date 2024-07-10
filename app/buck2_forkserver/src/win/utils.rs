@@ -9,7 +9,6 @@
 
 use std::io::Error;
 
-use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use winapi::shared::minwindef::BOOL;
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::FALSE;
@@ -32,13 +31,5 @@ pub(crate) fn result_dword(ret: DWORD) -> anyhow::Result<()> {
         Err(anyhow::anyhow!(Error::last_os_error()))
     } else {
         Ok(())
-    }
-}
-
-pub(crate) fn result_handle(handle: WinapiHandle) -> anyhow::Result<WinapiHandle> {
-    if handle.handle().is_null() {
-        Err(anyhow::anyhow!(Error::last_os_error()))
-    } else {
-        Ok(handle)
     }
 }

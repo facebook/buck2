@@ -26,22 +26,14 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
     use winapi::um::winnt::TOKEN_ELEVATION;
     use winapi::um::winnt::TOKEN_QUERY;
 
-    #[derive(Debug, buck2_error::Error)]
-    enum CheckUserAllowedError {
-        #[error("OpenProcessToken returned null token handle (unreachable)")]
-        NullTokenHandle,
-    }
-
     let mut handle = ptr::null_mut();
     let token_ok = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle) };
     if token_ok == 0 {
         return Err(io::Error::last_os_error()).context("OpenProcessToken failed");
     }
-    if handle.is_null() {
-        return Err(CheckUserAllowedError::NullTokenHandle.into());
-    }
 
-    let handle = unsafe { WinapiHandle::new(handle) };
+    let handle =
+        unsafe { WinapiHandle::new_check_last_os_error(handle).context("OpenProcessToken")? };
     let size = mem::size_of::<TOKEN_ELEVATION>();
     let elevation: MaybeUninit<TOKEN_ELEVATION> = MaybeUninit::zeroed();
     let mut ret_size = 0;

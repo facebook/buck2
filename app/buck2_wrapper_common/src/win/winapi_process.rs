@@ -44,12 +44,11 @@ impl WinapiProcessHandle {
 
     fn open_impl(pid: Pid, desired_access: u32) -> Option<WinapiProcessHandle> {
         let proc_handle = unsafe { OpenProcess(desired_access, 0, pid.to_u32()) };
-        if proc_handle.is_null() {
+        let Some(handle) = (unsafe { WinapiHandle::new(proc_handle) }) else {
             // If proc_handle is null, process died already, or other error like access denied.
             // TODO(nga): handle error properly.
             return None;
-        }
-        let handle = unsafe { WinapiHandle::new(proc_handle) };
+        };
         Some(WinapiProcessHandle { handle, pid })
     }
 

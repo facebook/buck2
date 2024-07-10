@@ -12,6 +12,7 @@
 use std::mem;
 use std::ptr;
 
+use anyhow::Context;
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use winapi::shared::basetsd::ULONG_PTR;
 use winapi::shared::minwindef::DWORD;
@@ -31,7 +32,6 @@ use winapi::um::winnt::JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 use winapi::um::winnt::JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO;
 
 use crate::win::utils::result_bool;
-use crate::win::utils::result_handle;
 use crate::win::utils::UnownedHandle;
 
 pub(crate) struct JobObject {
@@ -41,18 +41,23 @@ pub(crate) struct JobObject {
 
 impl JobObject {
     pub(crate) fn new() -> anyhow::Result<Self> {
-        let job_handle = result_handle(unsafe {
-            WinapiHandle::new(jobapi2::CreateJobObjectW(ptr::null_mut(), ptr::null_mut()))
-        })?;
+        let job_handle = unsafe {
+            WinapiHandle::new_check_last_os_error(jobapi2::CreateJobObjectW(
+                ptr::null_mut(),
+                ptr::null_mut(),
+            ))
+            .context("CreateJobObject")?
+        };
 
-        let completion_handle = result_handle(unsafe {
-            WinapiHandle::new(ioapiset::CreateIoCompletionPort(
+        let completion_handle = unsafe {
+            WinapiHandle::new_check_last_os_error(ioapiset::CreateIoCompletionPort(
                 handleapi::INVALID_HANDLE_VALUE, // FileHandle
                 ptr::null_mut(),                 // ExistingCompletionPort
                 0,                               // CompletionKey
                 1,                               // NumberOfConcurrentThreads
             ))
-        })?;
+            .context("CreateIoCompletionPort")?
+        };
 
         associate_job_with_completion_port(&job_handle, &completion_handle)?;
         set_job_limits(&job_handle)?;

@@ -9,6 +9,8 @@
 
 #![cfg(windows)]
 
+use std::io;
+
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::winnt::HANDLE;
 
@@ -22,8 +24,21 @@ unsafe impl Sync for WinapiHandle {}
 
 impl WinapiHandle {
     /// Unsafe because it closes the handle on drop.
-    pub unsafe fn new(handle: HANDLE) -> WinapiHandle {
-        WinapiHandle { handle }
+    pub unsafe fn new(handle: HANDLE) -> Option<WinapiHandle> {
+        if handle.is_null() {
+            None
+        } else {
+            Some(WinapiHandle { handle })
+        }
+    }
+
+    /// Wrap a handle, call `last_os_error` if it's null.
+    pub unsafe fn new_check_last_os_error(handle: HANDLE) -> anyhow::Result<WinapiHandle> {
+        if let Some(handle) = WinapiHandle::new(handle) {
+            Ok(handle)
+        } else {
+            Err(io::Error::last_os_error().into())
+        }
     }
 
     pub fn handle(&self) -> HANDLE {
@@ -34,10 +49,8 @@ impl WinapiHandle {
 impl Drop for WinapiHandle {
     fn drop(&mut self) {
         unsafe {
-            if !self.handle.is_null() {
-                let res = CloseHandle(self.handle);
-                assert!(res != 0, "CloseHandle failed");
-            }
+            let res = CloseHandle(self.handle);
+            assert!(res != 0, "CloseHandle failed");
         };
     }
 }
