@@ -24,6 +24,9 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
+
+    /// TODO(minglunli): Modifies action digest, remove after confirming bvb works fine
+    pub unique_scratch_path: bool,
 }
 
 pub trait HasRunActionKnobs {

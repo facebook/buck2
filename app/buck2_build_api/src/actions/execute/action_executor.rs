@@ -317,7 +317,8 @@ struct BuckActionExecutionContext<'a> {
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
-        ActionExecutionTarget::new(self.action)
+        let unique_scratch_path = self.run_action_knobs().unique_scratch_path;
+        ActionExecutionTarget::new(self.action, unique_scratch_path)
     }
 
     fn fs(&self) -> &ArtifactFs {

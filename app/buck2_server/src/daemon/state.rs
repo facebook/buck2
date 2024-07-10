@@ -180,6 +180,9 @@ pub struct DaemonStateData {
 
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
+
+    /// TODO(minglunli): Modifies action digest, remove after confirming bvb works fine
+    pub unique_scratch_path: bool,
 }
 
 impl DaemonStateData {
@@ -578,6 +581,14 @@ impl DaemonState {
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
+            // TODO(minglunli): Modifies action digest, remove after confirming bvb works fine
+            let unique_scratch_path = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "unique_scratch_path",
+                })?
+                .unwrap_or(false);
+
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
             Ok(Arc::new(DaemonStateData {
@@ -590,6 +601,7 @@ impl DaemonState {
                 forkserver,
                 scribe_sink,
                 hash_all_commands,
+                unique_scratch_path,
                 use_network_action_output_cache,
                 disk_state_options,
                 start_time: std::time::Instant::now(),
