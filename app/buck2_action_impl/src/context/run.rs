@@ -34,10 +34,12 @@ use host_sharing::WeightPercentage;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::UnpackAndDiscard;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
@@ -133,7 +135,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] arguments: StarlarkCommandLineValueUnpack<'v>,
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
-        #[starlark(require = named)] env: Option<ValueOf<'v, SmallMap<&'v str, Value<'v>>>>,
+        #[starlark(require = named)] env: Option<
+            ValueOf<'v, UnpackDictEntries<UnpackAndDiscard<&'v str>, Value<'v>>>,
+        >,
         #[starlark(require = named, default = false)] local_only: bool,
         #[starlark(require = named, default = false)] prefer_local: bool,
         #[starlark(require = named, default = false)] prefer_remote: bool,
@@ -250,8 +254,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_env = match env {
             None => Value::new_none(),
             Some(env) => {
-                for v in env.typed.values() {
-                    ValueAsCommandLineLike::unpack_value_err(*v)?
+                for (_k, v) in env.typed.entries {
+                    ValueAsCommandLineLike::unpack_value_err(v)?
                         .0
                         .visit_artifacts(&mut artifact_visitor)?;
                 }
