@@ -315,7 +315,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         }
         let heap = eval.heap();
 
-        let starlark_values = heap.alloc(StarlarkRunActionValues {
+        let starlark_values = heap.alloc_complex(StarlarkRunActionValues {
             exe: heap.alloc(starlark_exe),
             args: heap.alloc(starlark_args),
             env: starlark_env,

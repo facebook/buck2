@@ -65,12 +65,12 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
-use starlark::coerce::Coerce;
-use starlark::starlark_complex_value;
 use starlark::values::dict::DictRef;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
@@ -78,8 +78,7 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
+use starlark::values::Value;
 use starlark::values::ValueOf;
 
 use self::dep_files::DepFileBundle;
@@ -183,36 +182,54 @@ impl UnregisteredAction for UnregisteredRunAction {
     }
 }
 
-#[derive(
-    Debug,
-    Display,
-    Trace,
-    ProvidesStaticType,
-    NoSerialize,
-    Allocative,
-    Freeze,
-    Coerce
-)]
+#[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
 #[display(fmt = "run_action_values")]
-#[repr(C)]
-pub(crate) struct StarlarkRunActionValuesGen<V: ValueLifetimeless> {
-    pub(crate) exe: V,
-    pub(crate) args: V,
-    pub(crate) env: V,
+pub(crate) struct StarlarkRunActionValues<'v> {
+    pub(crate) exe: Value<'v>,
+    pub(crate) args: Value<'v>,
+    pub(crate) env: Value<'v>,
     /// `WorkerInfo` or `None`.
-    pub(crate) worker: V,
+    pub(crate) worker: Value<'v>,
+}
+
+#[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
+#[display(fmt = "run_action_values")]
+pub(crate) struct FrozenStarlarkRunActionValues {
+    pub(crate) exe: FrozenValue,
+    pub(crate) args: FrozenValue,
+    pub(crate) env: FrozenValue,
+    /// `WorkerInfo` or `None`.
+    pub(crate) worker: FrozenValue,
 }
 
 #[starlark_value(type = "run_action_values")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkRunActionValuesGen<V> where
-    Self: ProvidesStaticType<'v>
-{
+impl<'v> StarlarkValue<'v> for StarlarkRunActionValues<'v> {}
+
+#[starlark_value(type = "run_action_values")]
+impl<'v> StarlarkValue<'v> for FrozenStarlarkRunActionValues {
+    type Canonical = StarlarkRunActionValues<'v>;
 }
 
-starlark_complex_value!(pub(crate) StarlarkRunActionValues);
+impl<'v> Freeze for StarlarkRunActionValues<'v> {
+    type Frozen = FrozenStarlarkRunActionValues;
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        let StarlarkRunActionValues {
+            exe,
+            args,
+            env,
+            worker,
+        } = self;
+        Ok(FrozenStarlarkRunActionValues {
+            exe: exe.freeze(freezer)?,
+            args: args.freeze(freezer)?,
+            env: env.freeze(freezer)?,
+            worker: worker.freeze(freezer)?,
+        })
+    }
+}
 
-impl<'v, V: ValueLike<'v>> StarlarkRunActionValuesGen<V> {
-    pub(crate) fn worker(&self) -> anyhow::Result<ValueOf<'v, NoneOr<&'v WorkerInfo<'v>>>> {
+impl FrozenStarlarkRunActionValues {
+    pub(crate) fn worker<'v>(&'v self) -> anyhow::Result<ValueOf<'v, NoneOr<&'v WorkerInfo<'v>>>> {
         ValueOf::unpack_value_err(self.worker.to_value())
     }
 }
