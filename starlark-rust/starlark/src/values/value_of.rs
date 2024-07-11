@@ -25,6 +25,7 @@ use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueOfUnchecked;
 
 /// A wrapper that keeps the original value on the heap for use elsewhere,
 /// and also, when unpacked, unpacks the value to validate it is of
@@ -37,6 +38,13 @@ pub struct ValueOf<'v, T: UnpackValue<'v>> {
     pub value: Value<'v>,
     /// The value that was unpacked.
     pub typed: T,
+}
+
+impl<'v, T: UnpackValue<'v>> ValueOf<'v, T> {
+    /// Convert to `ValueOfUnchecked`.
+    pub fn as_unchecked(&self) -> ValueOfUnchecked<'v, T> {
+        ValueOfUnchecked::new(self.value)
+    }
 }
 
 impl<'v, T: UnpackValue<'v>> Deref for ValueOf<'v, T> {
