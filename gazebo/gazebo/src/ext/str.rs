@@ -13,8 +13,8 @@ use std::str::pattern::*;
 /// Extension traits on [`str`].
 ///
 /// Set the configuration option `str_pattern_extensions` to enable the associated methods.
-/// The setting `str_pattern_extensions` requires the unstable features
-/// `pattern` and `associated_type_bounds`, so only works with Rust nightly.
+/// The setting `str_pattern_extensions` requires the unstable feature `pattern`,
+/// so only works with Rust nightly.
 pub trait StrExt {
     /// Like `split`, but only separates off the first element. For example:
     ///

@@ -308,20 +308,32 @@ mod tests {
             unimplemented!()
         }
 
-        fn exec_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
-            unimplemented!()
+        fn exec_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+            let _iterator: Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a>;
+            unimplemented!();
+            #[allow(unreachable_code)]
+            _iterator
         }
 
-        fn target_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
-            unimplemented!()
+        fn target_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+            let _iterator: Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a>;
+            unimplemented!();
+            #[allow(unreachable_code)]
+            _iterator
         }
 
-        fn configuration_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
-            unimplemented!()
+        fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+            let _iterator: Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a>;
+            unimplemented!();
+            #[allow(unreachable_code)]
+            _iterator
         }
 
-        fn toolchain_deps<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a> {
-            unimplemented!()
+        fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
+            let _iterator: Box<dyn Iterator<Item = &'a Self::Key> + Send + 'a>;
+            unimplemented!();
+            #[allow(unreachable_code)]
+            _iterator
         }
     }
 

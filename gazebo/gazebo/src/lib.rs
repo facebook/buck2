@@ -8,7 +8,6 @@
  */
 
 #![cfg_attr(feature = "str_pattern_extensions", feature(pattern))]
-#![cfg_attr(feature = "str_pattern_extensions", feature(associated_type_bounds))]
 
 //! A collection of well-tested primitives that have been useful. Most modules stand alone.
 
