@@ -41,7 +41,8 @@ def buck_e2e_test(
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True):
+        serialize_test_cases = True,
+        require_nano_prelude = None):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -88,7 +89,11 @@ def buck_e2e_test(
     if data:
         env["TEST_REPO_DATA"] = "$(location {})".format(data)
 
-    env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
+    # Add nano_prelude unconditionally for isolated tests
+    if require_nano_prelude == None:
+        require_nano_prelude = data_dir != None
+    if require_nano_prelude:
+        env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
     if type(deps) == "tuple":
         deps = list(deps)
@@ -150,7 +155,8 @@ def buck2_e2e_test(
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True):
+        serialize_test_cases = True,
+        require_nano_prelude = None):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -198,6 +204,7 @@ def buck2_e2e_test(
             pytest_expr = pytest_expr,
             pytest_confcutdir = pytest_confcutdir,
             serialize_test_cases = serialize_test_cases,
+            require_nano_prelude = require_nano_prelude,
         )
         if test_with_resource_control:
             compiled_rc_env, compiled_rc_skip_for_os = _resource_control_test_config(compiled_env, skip_for_os)
@@ -222,6 +229,7 @@ def buck2_e2e_test(
                 pytest_expr = pytest_expr,
                 pytest_confcutdir = pytest_confcutdir,
                 serialize_test_cases = serialize_test_cases,
+                require_nano_prelude = require_nano_prelude,
             )
 
     # soft errors should always be allowed on tests with deployed buck2, or with reverted buck
@@ -255,6 +263,7 @@ def buck2_e2e_test(
             pytest_expr = pytest_expr,
             pytest_confcutdir = pytest_confcutdir,
             serialize_test_cases = serialize_test_cases,
+            require_nano_prelude = require_nano_prelude,
         )
 
     # TODO(T176595052): reenable `with_reverted_buck2` tests
@@ -282,4 +291,5 @@ def buck2_e2e_test(
     #         pytest_expr = pytest_expr,
     #         pytest_confcutdir = pytest_confcutdir,
     #         serialize_test_cases = serialize_test_cases,
+    #         require_nano_prelude = require_nano_prelude,
     #     )
