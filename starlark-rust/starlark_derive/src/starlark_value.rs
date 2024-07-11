@@ -139,6 +139,8 @@ impl ImplStarlarkValue {
 
         let lt = &self.lifetime_param;
         let params = &self.input.generics.params;
+        // TODO(nga): where clause is incorrect:
+        //   if there's something `Self: Xxx` constraint, it should be `*Self: Xxx`.
         let where_clause = &self.input.generics.where_clause;
         let self_ty = &self.input.self_ty;
         Ok(quote_spanned! {
