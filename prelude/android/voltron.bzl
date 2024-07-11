@@ -153,7 +153,7 @@ def _get_base_cmd_and_output(
         android_toolchain: AndroidToolchainInfo,
         application_module_configs: dict[str, list[Dependency]],
         application_module_dependencies: [dict[str, list[str]], None],
-        application_module_blocklist: [list[list[Dependency]], None]) -> (cmd_args, Artifact):
+        application_module_blocklist: [list[Dependency], None]) -> (cmd_args, Artifact):
     deps_map = {}
     primary_apk_deps = set()
     for android_packageable_info in android_packageable_infos:
@@ -195,7 +195,7 @@ def _get_base_cmd_and_output(
     if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or primary_apk_deps.size() > 0:
         all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + primary_apk_deps.list()
         if application_module_blocklist:
-            all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in flatten(application_module_blocklist)])
+            all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in application_module_blocklist])
 
         application_module_blocklist_file = actions.write(
             "application_module_blocklist.txt",
