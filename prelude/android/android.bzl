@@ -83,6 +83,7 @@ extra_attributes = {
     },
     "android_binary": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "constraint_overrides": attrs.list(attrs.string(), default = []),
@@ -115,6 +116,7 @@ extra_attributes = {
     },
     "android_bundle": {
         "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
+        "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
