@@ -24,7 +24,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
@@ -39,6 +39,7 @@ use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::StringValue;
 use starlark::values::UnpackAndDiscard;
 use starlark::values::ValueOf;
 use starlark::values::ValueTypedComplex;
@@ -132,8 +133,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: StarlarkCommandLineValueUnpack<'v>,
-        #[starlark(require = named)] category: String,
-        #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
+        #[starlark(require = named)] category: StringValue<'v>,
+        #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<StringValue<'v>>,
         #[starlark(require = named)] env: Option<
             ValueOf<'v, UnpackDictEntries<UnpackAndDiscard<&'v str>, ValueAsCommandLineLike<'v>>>,
         >,
@@ -296,9 +297,6 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         }
 
-        let category = Category::new(category)?;
-        let identifier = identifier.into_option();
-
         let metadata_param = match (metadata_env_var, metadata_path) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
@@ -320,6 +318,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             args: heap.alloc_typed(starlark_args),
             env: starlark_env,
             worker: starlark_worker,
+            category: {
+                CategoryRef::new(category.as_str())?;
+                category
+            },
+            identifier: identifier.into_option(),
         });
 
         let re_dependencies = remote_execution_dependencies
@@ -328,8 +331,6 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
 
         let action = UnregisteredRunAction {
-            category,
-            identifier,
             executor_preference,
             always_print_stderr,
             weight,

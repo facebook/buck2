@@ -38,7 +38,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
-use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -74,6 +73,7 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
@@ -81,6 +81,7 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueOf;
@@ -159,8 +160,6 @@ pub(crate) fn new_executor_preference(
 
 #[derive(Debug, Allocative)]
 pub(crate) struct UnregisteredRunAction {
-    pub(crate) category: Category,
-    pub(crate) identifier: Option<String>,
     pub(crate) executor_preference: ExecutorPreference,
     pub(crate) always_print_stderr: bool,
     pub(crate) weight: WeightClass,
@@ -196,6 +195,8 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
+    pub(crate) category: StringValue<'v>,
+    pub(crate) identifier: Option<StringValue<'v>>,
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
@@ -206,6 +207,8 @@ pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) env:
         Option<FrozenValueOfUnchecked<'static, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
+    pub(crate) category: FrozenStringValue,
+    pub(crate) identifier: Option<FrozenStringValue>,
 }
 
 #[starlark_value(type = "run_action_values")]
@@ -224,12 +227,16 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             args,
             env,
             worker,
+            category,
+            identifier,
         } = self;
         Ok(FrozenStarlarkRunActionValues {
             exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)?,
             args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)?,
             env: env.freeze(freezer)?,
             worker: worker.freeze(freezer)?,
+            category: category.freeze(freezer)?,
+            identifier: identifier.freeze(freezer)?,
         })
     }
 }
@@ -589,11 +596,11 @@ impl Action for RunAction {
     }
 
     fn category(&self) -> CategoryRef {
-        self.inner.category.as_ref()
+        CategoryRef::unchecked_new(self.starlark_values.category.as_str())
     }
 
     fn identifier(&self) -> Option<&str> {
-        self.inner.identifier.as_deref()
+        self.starlark_values.identifier.map(|x| x.as_str())
     }
 
     fn always_print_stderr(&self) -> bool {
