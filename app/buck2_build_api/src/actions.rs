@@ -37,6 +37,7 @@ use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::io::IoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -128,7 +129,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// A category provides a namespace for identifiers within the rule that produced this action. Examples of
     /// categories would be things such as `cxx_compile`, `cxx_link`, and so on. Categories are user-specified in the
     /// rule implementation; however, buck2 enforces some restrictions on category names.
-    fn category(&self) -> &Category;
+    fn category(&self) -> CategoryRef;
 
     /// A machine-readable identifier for this action. Required (but as of now, not yet enforced) to be unique within
     /// a category within a single invocation of a rule. Like categories, identifiers are also user-specified and buck2
@@ -367,7 +368,7 @@ impl RegisteredAction {
         &self.executor_config
     }
 
-    pub fn category(&self) -> &Category {
+    pub fn category(&self) -> CategoryRef {
         self.action.category()
     }
 

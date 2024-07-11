@@ -13,7 +13,7 @@ use buck2_audit::dep_files::AuditDepFilesCommand;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
 use buck2_cli_proto::ClientContext;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -55,7 +55,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
                     .get_configured_target_post_transition(&label, &global_cfg_options)
                     .await?;
 
-                let category = Category::try_from(self.category.as_str())?;
+                let category = CategoryRef::new(self.category.as_str())?.to_owned();
 
                 (AUDIT_DEP_FILES.get()?)(
                     &ctx,

@@ -25,7 +25,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -154,7 +154,11 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             &mut deferred,
             IndexSet::new(),
             outputs,
-            SimpleUnregisteredAction::new(vec![], Category::try_from("fake_action").unwrap(), None),
+            SimpleUnregisteredAction::new(
+                vec![],
+                CategoryRef::new("fake_action").unwrap().to_owned(),
+                None,
+            ),
         )?;
         Ok(StarlarkDeclaredArtifact::new(
             None,
@@ -222,7 +226,11 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             &mut deferred,
             IndexSet::new(),
             indexset![output_artifact],
-            SimpleUnregisteredAction::new(vec![], Category::try_from("fake_action").unwrap(), None),
+            SimpleUnregisteredAction::new(
+                vec![],
+                CategoryRef::new("fake_action").unwrap().to_owned(),
+                None,
+            ),
         )?;
 
         let value = declaration

@@ -29,7 +29,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -40,7 +40,6 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_http::HttpClient;
 use dupe::Dupe;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 
 use crate::actions::impls::offline;
@@ -240,11 +239,8 @@ impl Action for DownloadFileAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static DOWNLOAD_FILE_CATEGORY: Lazy<Category> =
-            Lazy::new(|| Category::try_from("download_file").unwrap());
-
-        &DOWNLOAD_FILE_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("download_file")
     }
 
     fn identifier(&self) -> Option<&str> {

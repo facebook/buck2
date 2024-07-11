@@ -29,7 +29,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
@@ -44,7 +44,6 @@ use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 
@@ -181,10 +180,8 @@ impl Action for CasArtifactAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static CAS_ARTIFACT_CATEGORY: Lazy<Category> =
-            Lazy::new(|| Category::try_from("cas_artifact").unwrap());
-        &CAS_ARTIFACT_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("cas_artifact")
     }
 
     fn identifier(&self) -> Option<&str> {

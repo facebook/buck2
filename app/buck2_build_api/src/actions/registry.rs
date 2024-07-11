@@ -220,12 +220,12 @@ impl ActionsRegistry {
             match (action.category(), action.identifier()) {
                 (category, Some(identifier)) => {
                     let existing_identifiers = observed_names
-                        .entry(category.clone())
+                        .entry(category.to_owned())
                         .or_insert_with(HashSet::<String>::new);
                     // false -> identifier was already present in the set
                     if !existing_identifiers.insert(identifier.to_owned()) {
                         return Err(ActionErrors::ActionCategoryIdentifierNotUnique(
-                            category.clone(),
+                            category.to_owned(),
                             identifier.to_owned(),
                         )
                         .into());
@@ -233,11 +233,11 @@ impl ActionsRegistry {
                 }
                 (category, None) => {
                     if observed_names
-                        .insert(category.clone(), HashSet::new())
+                        .insert(category.to_owned(), HashSet::new())
                         .is_some()
                     {
                         return Err(ActionErrors::ActionCategoryDuplicateSingleton(
-                            category.clone(),
+                            category.to_owned(),
                         )
                         .into());
                     };

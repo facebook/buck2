@@ -29,7 +29,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -37,7 +37,6 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::StarlarkResultExt;
@@ -164,10 +163,8 @@ impl Action for WriteAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static WRITE_CATEGORY: Lazy<Category> = Lazy::new(|| Category::try_from("write").unwrap());
-
-        &WRITE_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("write")
     }
 
     fn identifier(&self) -> Option<&str> {

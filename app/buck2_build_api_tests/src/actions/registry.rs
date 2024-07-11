@@ -21,6 +21,7 @@ use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
@@ -155,8 +156,11 @@ fn register_actions() -> anyhow::Result<()> {
     )];
     let outputs = indexset![declared.as_output()];
 
-    let unregistered_action =
-        SimpleUnregisteredAction::new(vec![], Category::try_from("fake_action").unwrap(), None);
+    let unregistered_action = SimpleUnregisteredAction::new(
+        vec![],
+        CategoryRef::new("fake_action").unwrap().to_owned(),
+        None,
+    );
     assert_eq!(
         actions
             .register(&mut deferreds, inputs, outputs, unregistered_action)
@@ -207,8 +211,11 @@ fn finalizing_actions() -> anyhow::Result<()> {
     )];
     let outputs = indexset![declared.as_output()];
 
-    let unregistered_action =
-        SimpleUnregisteredAction::new(vec![], Category::try_from("fake_action").unwrap(), None);
+    let unregistered_action = SimpleUnregisteredAction::new(
+        vec![],
+        CategoryRef::new("fake_action").unwrap().to_owned(),
+        None,
+    );
     actions.register(&mut deferreds, inputs, outputs, unregistered_action)?;
 
     let result = actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default());
@@ -279,7 +286,7 @@ fn category_identifier_test(
     for (category, identifier) in action_names {
         let unregistered_action = SimpleUnregisteredAction::new(
             vec![],
-            Category::try_from(category.to_owned()).unwrap(),
+            Category::new((*category).to_owned()).unwrap(),
             identifier.map(|i| i.to_owned()),
         );
 

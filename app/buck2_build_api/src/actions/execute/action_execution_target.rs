@@ -10,7 +10,7 @@
 use std::fmt::Write;
 
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
 use buck2_execute::execute::target::CommandExecutionTarget;
@@ -39,7 +39,7 @@ impl<'a> ActionExecutionTarget<'a> {
         self.action.owner()
     }
 
-    pub fn category(&self) -> &'a Category {
+    pub fn category(&self) -> CategoryRef<'a> {
         self.action.category()
     }
 

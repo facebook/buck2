@@ -662,7 +662,7 @@ mod tests {
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::category::Category;
+    use buck2_core::category::CategoryRef;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::paths::CellRelativePath;
@@ -705,7 +705,6 @@ mod tests {
     use buck2_http::HttpClientBuilder;
     use dupe::Dupe;
     use indexmap::indexset;
-    use once_cell::sync::Lazy;
     use sorted_vector_map::SortedVectorMap;
 
     use crate::actions::box_slice_set::BoxSliceSet;
@@ -798,11 +797,8 @@ mod tests {
                 ActionExecutable::Pristine(self)
             }
 
-            fn category(&self) -> &Category {
-                static TEST_CATEGORY: Lazy<Category> =
-                    Lazy::new(|| Category::try_from("testing").unwrap());
-
-                &TEST_CATEGORY
+            fn category(&self) -> CategoryRef {
+                CategoryRef::new("testing").unwrap()
             }
 
             fn identifier(&self) -> Option<&str> {

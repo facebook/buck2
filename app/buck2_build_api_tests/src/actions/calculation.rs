@@ -43,7 +43,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
@@ -243,7 +243,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
             indexset![],
             indexset![build_artifact.dupe()],
             vec![],
-            Category::try_from("fake_action").unwrap(),
+            CategoryRef::new("fake_action").unwrap().to_owned(),
             None,
         )),
     );
@@ -279,7 +279,7 @@ async fn test_build_action() -> anyhow::Result<()> {
             indexset![],
             indexset![build_artifact.dupe()],
             vec!["foo".to_owned(), "cmd".to_owned()],
-            Category::try_from("fake_action").unwrap(),
+            CategoryRef::new("fake_action").unwrap().to_owned(),
             None,
         )),
     );
@@ -329,7 +329,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
             indexset![],
             indexset![build_artifact.dupe()],
             vec!["bar".to_owned(), "cmd".to_owned()],
-            Category::try_from("fake_action").unwrap(),
+            CategoryRef::new("fake_action").unwrap().to_owned(),
             None,
         )),
     );
@@ -376,7 +376,7 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
             indexset![],
             indexset![build_artifact.dupe()],
             vec!["ensure".to_owned(), "cmd".to_owned()],
-            Category::try_from("fake_action").unwrap(),
+            CategoryRef::new("fake_action").unwrap().to_owned(),
             None,
         )),
     );

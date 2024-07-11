@@ -24,7 +24,7 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -32,7 +32,6 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
@@ -142,10 +141,8 @@ impl Action for CopyAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static COPY_CATEGORY: Lazy<Category> = Lazy::new(|| Category::try_from("copy").unwrap());
-
-        &COPY_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("copy")
     }
 
     fn identifier(&self) -> Option<&str> {

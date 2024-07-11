@@ -31,7 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
@@ -40,7 +40,6 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
 use dupe::Dupe;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::StarlarkResultExt;
@@ -144,11 +143,8 @@ impl Action for WriteMacrosToFileAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static WRITE_MACROS_CATEGORY: Lazy<Category> =
-            Lazy::new(|| Category::try_from("write_macros_to_file").unwrap());
-
-        &WRITE_MACROS_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("write_macros_to_file")
     }
 
     fn identifier(&self) -> Option<&str> {

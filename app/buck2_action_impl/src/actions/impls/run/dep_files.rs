@@ -126,7 +126,7 @@ impl DepFilesKey {
     pub(crate) fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
         Self {
             owner: target.owner().dupe(),
-            category: target.category().clone(),
+            category: target.category().to_owned(),
             identifier: target.identifier().map(|t| t.to_owned()),
         }
     }

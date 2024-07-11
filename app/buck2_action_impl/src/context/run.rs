@@ -296,7 +296,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         }
 
-        let category = Category::try_from(category)?;
+        let category = Category::new(category)?;
         let identifier = identifier.into_option();
 
         let metadata_param = match (metadata_env_var, metadata_path) {

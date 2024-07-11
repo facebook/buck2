@@ -26,7 +26,7 @@ use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -37,7 +37,6 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
@@ -209,11 +208,8 @@ impl Action for SymlinkedDirAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static SYMLINKED_DIR_CATEGORY: Lazy<Category> =
-            Lazy::new(|| Category::try_from("symlinked_dir").unwrap());
-
-        &SYMLINKED_DIR_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("symlinked_dir")
     }
 
     fn identifier(&self) -> Option<&str> {

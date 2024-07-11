@@ -39,6 +39,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -587,8 +588,8 @@ impl Action for RunAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        &self.inner.category
+    fn category(&self) -> CategoryRef {
+        self.inner.category.as_ref()
     }
 
     fn identifier(&self) -> Option<&str> {

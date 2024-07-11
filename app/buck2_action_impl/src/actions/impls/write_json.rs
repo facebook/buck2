@@ -36,7 +36,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -44,7 +44,6 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
@@ -172,11 +171,8 @@ impl Action for WriteJsonAction {
         ActionExecutable::Incremental(self)
     }
 
-    fn category(&self) -> &Category {
-        static WRITE_CATEGORY: Lazy<Category> =
-            Lazy::new(|| Category::try_from("write_json").unwrap());
-
-        &WRITE_CATEGORY
+    fn category(&self) -> CategoryRef {
+        CategoryRef::unchecked_new("write_json")
     }
 
     fn identifier(&self) -> Option<&str> {

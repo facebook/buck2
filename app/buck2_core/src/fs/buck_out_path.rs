@@ -17,7 +17,7 @@ use derive_more::Display;
 use dupe::Dupe;
 
 use crate::base_deferred_key::BaseDeferredKey;
-use crate::category::Category;
+use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -101,7 +101,7 @@ impl BuckOutScratchPath {
     /// really hard to normalise anything the user supplies.
     pub fn new(
         owner: BaseDeferredKey,
-        category: &Category,
+        category: CategoryRef,
         identifier: Option<&str>,
         action_key: String,
         unique_scratch_path: bool,
@@ -305,7 +305,7 @@ mod tests {
     use regex::Regex;
 
     use crate::base_deferred_key::BaseDeferredKey;
-    use crate::category::Category;
+    use crate::category::CategoryRef;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
@@ -416,7 +416,7 @@ mod tests {
         let resolved_scratch_path = path_resolver.resolve_scratch(
             &BuckOutScratchPath::new(
                 owner,
-                &Category::try_from("category").unwrap(),
+                CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
                 "1_2".to_owned(),
                 true,
@@ -482,7 +482,7 @@ mod tests {
         let resolved_scratch_path = path_resolver.resolve_scratch(
             &BuckOutScratchPath::new(
                 owner,
-                &Category::try_from("category").unwrap(),
+                CategoryRef::new("category").unwrap(),
                 Some(&String::from(
                     "xxx_some_crazy_long_file_name_that_causes_it_to_be_hashed_xxx.txt",
                 )),
@@ -512,12 +512,12 @@ mod tests {
         );
         let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
         let cfg_target = target.configure(ConfigurationData::testing_new());
-        let category = Category::try_from("category").unwrap();
+        let category = CategoryRef::new("category").unwrap();
 
         // We expect these all to be valid paths, avoiding weird things we throw in
         BuckOutScratchPath::new(
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
-            &category,
+            category,
             None,
             "1_2".to_owned(),
             true,
@@ -527,7 +527,7 @@ mod tests {
         let mk = move |s| {
             BuckOutScratchPath::new(
                 BaseDeferredKey::TargetLabel(cfg_target.dupe()),
-                &category,
+                category,
                 Some(s),
                 "3_4".to_owned(),
                 true,
@@ -571,7 +571,7 @@ mod tests {
                 .resolve_scratch(
                     &BuckOutScratchPath::new(
                         BaseDeferredKey::TargetLabel(cfg_target.dupe()),
-                        &Category::try_from("category").unwrap(),
+                        CategoryRef::new("category").unwrap(),
                         Some(id),
                         s.to_owned(),
                         true,

@@ -14,54 +14,61 @@
 //! category of all actions that invoke a C++ compiler, of which there are potentially many in a single C++ rule
 //! implementation.
 
-use std::fmt;
-
 use allocative::Allocative;
+use dupe::Dupe;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// A category, representing a family of actions.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
 pub struct Category(String);
 
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, derive_more::Display)]
+pub struct CategoryRef<'a>(&'a str);
+
 impl Category {
+    pub fn new(s: String) -> anyhow::Result<Self> {
+        CategoryRef::new(&s)?;
+        Ok(Category(s))
+    }
+
     /// Returns a string representation of this category.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
+
+    pub fn as_ref(&self) -> CategoryRef<'_> {
+        CategoryRef(self.0.as_str())
+    }
 }
 
-impl TryFrom<String> for Category {
-    type Error = CategoryParseError;
+impl<'a> CategoryRef<'a> {
+    pub fn unchecked_new(s: &'static str) -> Self {
+        CategoryRef(s)
+    }
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
+    pub fn as_str(self) -> &'a str {
+        self.0
+    }
+
+    pub fn new(s: &'a str) -> anyhow::Result<Self> {
         static CATEGORY_REGEX: Lazy<Regex> =
             Lazy::new(|| Regex::new("^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$").unwrap());
 
-        if !CATEGORY_REGEX.is_match(&value) {
-            Err(CategoryParseError::NotSnakeCase(value))
+        if !CATEGORY_REGEX.is_match(s) {
+            Err(CategoryParseError::NotSnakeCase(s.to_owned()).into())
         } else {
-            Ok(Category(value))
+            Ok(CategoryRef(s))
         }
     }
-}
 
-impl TryFrom<&str> for Category {
-    type Error = CategoryParseError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Category::try_from(value.to_owned())
-    }
-}
-
-impl fmt::Display for Category {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+    pub fn to_owned(self) -> Category {
+        Category(self.0.to_owned())
     }
 }
 
 #[derive(Debug, buck2_error::Error)]
-pub enum CategoryParseError {
+enum CategoryParseError {
     #[error(
         "Invalid category `{0}`. Must be a snake_cased identifier consisting of lowercase alphanumeric characters, e.g. `cxx_compile`. Each section of the snake_cased identifier must begin with a lowercase letter (not a number)."
     )]
@@ -70,21 +77,21 @@ pub enum CategoryParseError {
 
 #[cfg(test)]
 mod tests {
-    use super::Category;
+    use super::CategoryRef;
 
     #[test]
     fn valid_categories() {
-        Category::try_from("valid_category").unwrap();
-        Category::try_from("valid_category_with_numbers10").unwrap();
-        Category::try_from("singleword").unwrap();
+        CategoryRef::new("valid_category").unwrap();
+        CategoryRef::new("valid_category_with_numbers10").unwrap();
+        CategoryRef::new("singleword").unwrap();
     }
 
     #[test]
     fn invalid_categories() {
-        Category::try_from("_leading_underscore").unwrap_err();
-        Category::try_from("NotSnakeCase").unwrap_err();
-        Category::try_from("Not_Snake_Case").unwrap_err();
-        Category::try_from("contains_4_number").unwrap_err();
-        Category::try_from("trailing_underscore_").unwrap_err();
+        CategoryRef::new("_leading_underscore").unwrap_err();
+        CategoryRef::new("NotSnakeCase").unwrap_err();
+        CategoryRef::new("Not_Snake_Case").unwrap_err();
+        CategoryRef::new("contains_4_number").unwrap_err();
+        CategoryRef::new("trailing_underscore_").unwrap_err();
     }
 }

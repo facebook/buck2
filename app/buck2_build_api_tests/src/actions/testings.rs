@@ -23,6 +23,7 @@ use buck2_build_api::actions::PristineActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::Category;
+use buck2_core::category::CategoryRef;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -120,8 +121,8 @@ impl Action for SimpleAction {
         ActionExecutable::Pristine(self)
     }
 
-    fn category(&self) -> &Category {
-        &self.category
+    fn category(&self) -> CategoryRef {
+        self.category.as_ref()
     }
 
     fn identifier(&self) -> Option<&str> {
