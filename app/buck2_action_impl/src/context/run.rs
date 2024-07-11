@@ -40,8 +40,8 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::UnpackAndDiscard;
-use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::ValueTypedComplex;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
@@ -218,19 +218,19 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let (starlark_exe, starlark_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker: ValueOf<&WorkerInfo> = worker_run.typed.worker();
+                let worker: ValueTypedComplex<WorkerInfo> = worker_run.typed.worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, NoneOr::Other(worker))
+                (starlark_exe, Some(worker))
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, NoneOr::None)
+                (starlark_exe, None)
             }
-            None => (StarlarkCmdArgs::default(), NoneOr::None),
+            None => (StarlarkCmdArgs::default(), None),
         };
 
         let weight = match (weight, weight_percentage) {
@@ -250,13 +250,13 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
         };
 
-        let starlark_env = match env {
-            None => Value::new_none(),
+        let starlark_env = match &env {
+            None => None,
             Some(env) => {
-                for (_k, v) in env.typed.entries {
+                for (_k, v) in &env.typed.entries {
                     v.0.visit_artifacts(&mut artifact_visitor)?;
                 }
-                env.value
+                Some(env.as_unchecked().cast())
             }
         };
 
@@ -316,10 +316,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let heap = eval.heap();
 
         let starlark_values = heap.alloc_complex(StarlarkRunActionValues {
-            exe: heap.alloc(starlark_exe),
-            args: heap.alloc(starlark_args),
+            exe: heap.alloc_typed(starlark_exe),
+            args: heap.alloc_typed(starlark_args),
             env: starlark_env,
-            worker: heap.alloc(starlark_worker),
+            worker: starlark_worker,
         });
 
         let re_dependencies = remote_execution_dependencies

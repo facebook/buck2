@@ -33,7 +33,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::Category;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -66,11 +69,12 @@ use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::dict::DictRef;
-use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
+use starlark::values::FrozenValueOfUnchecked;
+use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
@@ -78,8 +82,10 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use self::dep_files::DepFileBundle;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
@@ -185,21 +191,20 @@ impl UnregisteredAction for UnregisteredRunAction {
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
 #[display(fmt = "run_action_values")]
 pub(crate) struct StarlarkRunActionValues<'v> {
-    pub(crate) exe: Value<'v>,
-    pub(crate) args: Value<'v>,
-    pub(crate) env: Value<'v>,
-    /// `WorkerInfo` or `None`.
-    pub(crate) worker: Value<'v>,
+    pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
+    pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
+    pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
+    pub(crate) worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
 #[display(fmt = "run_action_values")]
 pub(crate) struct FrozenStarlarkRunActionValues {
-    pub(crate) exe: FrozenValue,
-    pub(crate) args: FrozenValue,
-    pub(crate) env: FrozenValue,
-    /// `WorkerInfo` or `None`.
-    pub(crate) worker: FrozenValue,
+    pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
+    pub(crate) args: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
+    pub(crate) env:
+        Option<FrozenValueOfUnchecked<'static, DictType<String, ValueAsCommandLineLike<'static>>>>,
+    pub(crate) worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
 }
 
 #[starlark_value(type = "run_action_values")]
@@ -220,8 +225,8 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             worker,
         } = self;
         Ok(FrozenStarlarkRunActionValues {
-            exe: exe.freeze(freezer)?,
-            args: args.freeze(freezer)?,
+            exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)?,
+            args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)?,
             env: env.freeze(freezer)?,
             worker: worker.freeze(freezer)?,
         })
@@ -229,8 +234,11 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
 }
 
 impl FrozenStarlarkRunActionValues {
-    pub(crate) fn worker<'v>(&'v self) -> anyhow::Result<ValueOf<'v, NoneOr<&'v WorkerInfo<'v>>>> {
-        ValueOf::unpack_value_err(self.worker.to_value())
+    pub(crate) fn worker<'v>(&'v self) -> anyhow::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
+        let Some(worker) = self.worker else {
+            return Ok(None);
+        };
+        ValueOf::unpack_value_err(worker.to_value()).map(Some)
     }
 }
 
@@ -259,24 +267,25 @@ impl RunAction {
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> anyhow::Result<UnpackedRunActionValues> {
-        let exe = ValueAsCommandLineLike::unpack_value_err(values.exe.to_value())?.0;
-        let args = ValueAsCommandLineLike::unpack_value_err(values.args.to_value())?.0;
-        let env = if values.env.is_none() {
-            Vec::new()
-        } else {
-            let d = DictRef::from_value(values.env.to_value()).context("expecting dict")?;
-            let mut res = Vec::with_capacity(d.len());
-            for (k, v) in d.iter() {
-                res.push((
-                    k.unpack_str().context("expecting string")?,
-                    ValueAsCommandLineLike::unpack_value_err(v)?.0,
-                ));
+        let exe: &dyn CommandLineArgLike = &*values.exe;
+        let args: &dyn CommandLineArgLike = &*values.args;
+        let env = match values.env {
+            None => Vec::new(),
+            Some(env) => {
+                let d = DictRef::from_value(env.to_value().get()).context("expecting dict")?;
+                let mut res = Vec::with_capacity(d.len());
+                for (k, v) in d.iter() {
+                    res.push((
+                        k.unpack_str().context("expecting string")?,
+                        ValueAsCommandLineLike::unpack_value_err(v)?.0,
+                    ));
+                }
+                res
             }
-            res
         };
-        let worker: NoneOr<&WorkerInfo> = values.worker()?.typed;
+        let worker: Option<&WorkerInfo> = values.worker()?.map(|v| v.typed);
 
-        let worker = worker.into_option().map(|worker| UnpackedWorkerValues {
+        let worker = worker.map(|worker| UnpackedWorkerValues {
             exe: worker.exe_command_line(),
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),

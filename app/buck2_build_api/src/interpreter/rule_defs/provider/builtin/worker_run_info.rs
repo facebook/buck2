@@ -18,12 +18,12 @@ use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::Freeze;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
@@ -60,8 +60,8 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
-    pub fn worker(&self) -> ValueOf<'v, &'v WorkerInfo<'v>> {
-        ValueOf::unpack_value_err(self.worker.to_value()).expect("validated at construction")
+    pub fn worker(&self) -> ValueTypedComplex<'v, WorkerInfo<'v>> {
+        ValueTypedComplex::new(self.worker.to_value()).expect("validated at construction")
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {
