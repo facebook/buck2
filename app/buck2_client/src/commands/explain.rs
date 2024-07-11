@@ -99,6 +99,8 @@ impl StreamingCommand for ExplainCommand {
             return ExitResult::bail("Only one target pattern is supported");
         }
         let target = patterns[0].to_owned();
+        let target_universe = build_args.target_universe().clone();
+        let target_cfg = build_args.target_cfg();
 
         let manifold_path = if self.upload {
             Some(format!("flat/{}-explain.html", uuid))
@@ -117,6 +119,8 @@ impl StreamingCommand for ExplainCommand {
                     fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
                     allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
                     manifold_path: manifold_path.clone(),
+                    target_universe,
+                    target_cfg,
                 }),
                 None,
             )

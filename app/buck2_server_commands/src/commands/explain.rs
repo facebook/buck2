@@ -13,11 +13,11 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceTransaction;
@@ -46,11 +46,11 @@ impl ServerCommandTemplate for ExplainServerCommand {
 
     async fn command(
         &self,
-        _server_ctx: &dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
-        explain(ctx, &self.req).await
+        explain(server_ctx, ctx, &self.req).await
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {
@@ -64,6 +64,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
 }
 
 pub(crate) async fn explain(
+    server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     req: &ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
@@ -79,8 +80,24 @@ pub(crate) async fn explain(
             &cell_alias_resolver,
         )?;
 
-        let configured_target = ctx.get_default_configured_target(&target_label).await?;
-        ctx.get_configured_target_node(&configured_target)
+        let target_resolution_config = TargetResolutionConfig::from_args(
+            &mut ctx,
+            &req.target_cfg,
+            server_ctx,
+            &req.target_universe,
+        )
+        .await?;
+
+        let configured_targets = target_resolution_config
+            .get_configured_target(&mut ctx, &target_label)
+            .await?;
+        if configured_targets.len() != 1 {
+            return Err(anyhow::anyhow!(
+                "Expected exactly one target, got {}",
+                configured_targets.len()
+            ));
+        }
+        ctx.get_configured_target_node(&configured_targets[0])
             .await?
             .require_compatible()? // TODO iguridi: not sure about this, make things simpler for now
     };

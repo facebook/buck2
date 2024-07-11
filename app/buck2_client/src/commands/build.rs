@@ -17,6 +17,7 @@ use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::ResponseOptions;
 use buck2_cli_proto::BuildRequest;
 use buck2_cli_proto::BuildTarget;
+use buck2_cli_proto::TargetCfg;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
@@ -155,6 +156,14 @@ impl BuildCommand {
 
     pub(crate) fn patterns(&self) -> &Vec<String> {
         &self.patterns
+    }
+
+    pub(crate) fn target_universe(&self) -> &Vec<String> {
+        &self.target_cfg.target_universe
+    }
+
+    pub(crate) fn target_cfg(&self) -> TargetCfg {
+        self.target_cfg.target_cfg.target_cfg().clone()
     }
 }
 

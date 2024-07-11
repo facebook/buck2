@@ -11,6 +11,8 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::TargetCfg;
+
 #[derive(Serialize, Deserialize)]
 pub enum NewGenericRequest {
     Materialize(MaterializeRequest),
@@ -51,6 +53,9 @@ pub struct ExplainRequest {
     pub fbs_dump: Option<AbsPathBuf>,
     pub allow_vpnless: bool,
     pub manifold_path: Option<String>,
+    // build options
+    pub target_universe: Vec<String>,
+    pub target_cfg: TargetCfg,
 }
 
 #[derive(Serialize, Deserialize)]
