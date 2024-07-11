@@ -35,6 +35,13 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_root",
+    "prefix_from_label",
+    "project_from_label",
+)
+load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
@@ -293,13 +300,14 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     raw_deps.extend(flatten(
         get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
     ))
+    resource_manifest = py_resources(ctx, resources) if resources else None
     deps, shared_libraries = gather_dep_libraries(raw_deps)
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
         src_types = src_type_manifest,
-        resources = py_resources(ctx, resources) if resources else None,
+        resources = resource_manifest,
         bytecode = bytecode,
         dep_manifest = dep_manifest,
         deps = deps,
@@ -314,7 +322,39 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 label = ctx.label,
                 python_libs = [library_info],
             ),
-            deps = ctx.attrs.deps,
+            deps = raw_deps,
+        ),
+    )
+
+    # Allow third-party-build rules to depend on Python rules.
+    tp_project = project_from_label(ctx.label)
+    tp_prefix = prefix_from_label(ctx.label)
+    providers.append(
+        third_party_build_info(
+            actions = ctx.actions,
+            build = ThirdPartyBuild(
+                # TODO(agallagher): Figure out a way to get a unique name?
+                project = tp_project,
+                prefix = tp_prefix,
+                root = create_third_party_build_root(
+                    ctx = ctx,
+                    # TODO(agallagher): use constraints to get py version.
+                    manifests = (
+                        [("lib/python", src_manifest)] if src_manifest != None else []
+                    ) + (
+                        [("lib/python", resource_manifest[0])] if resource_manifest != None else []
+                    ),
+                ),
+                manifest = ctx.actions.write_json(
+                    "third_party_build_manifest.json",
+                    dict(
+                        project = tp_project,
+                        prefix = tp_prefix,
+                        py_lib_paths = ["lib/python"],
+                    ),
+                ),
+            ),
+            deps = raw_deps,
         ),
     )
 

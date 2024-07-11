@@ -568,6 +568,7 @@ inlined_extra_attributes = {
     #python
     "prebuilt_python_library": {
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
         "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
         "_python_toolchain": toolchains_common.python(),
     },
@@ -595,6 +596,7 @@ inlined_extra_attributes = {
     "python_library": {
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
+        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_python_toolchain": toolchains_common.python(),
     },
