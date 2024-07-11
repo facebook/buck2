@@ -96,3 +96,23 @@ config_setting = rule(
         "values": attrs.dict(attrs.string(), attrs.string(), default = {}),
     },
 )
+
+def _execution_platform(ctx):
+    return [
+        DefaultInfo(),
+        ExecutionPlatformInfo(
+            label = ctx.label.raw_target(),
+            configuration = ctx.attrs.platform[PlatformInfo].configuration,
+            executor_config = CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+            ),
+        ),
+    ]
+
+execution_platform = rule(
+    impl = _execution_platform,
+    attrs = {
+        "platform": attrs.dep(providers = [PlatformInfo]),
+    },
+)

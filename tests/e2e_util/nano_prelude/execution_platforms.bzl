@@ -6,16 +6,23 @@
 # of this source tree.
 
 def _execution_platforms(ctx):
+    platforms = [
+        p[ExecutionPlatformInfo]
+        for p in ctx.attrs.platforms
+    ] if ctx.attrs.platforms else [ExecutionPlatformInfo(
+        label = ctx.label.raw_target(),
+        configuration = ConfigurationInfo(constraints = {}, values = {}),
+        executor_config = CommandExecutorConfig(local_enabled = True, remote_enabled = False),
+    )]
+
     return [
         DefaultInfo(),
-        ExecutionPlatformRegistrationInfo(platforms = [ExecutionPlatformInfo(
-            label = ctx.label.raw_target(),
-            configuration = ConfigurationInfo(constraints = {}, values = {}),
-            executor_config = CommandExecutorConfig(local_enabled = True, remote_enabled = False),
-        )]),
+        ExecutionPlatformRegistrationInfo(platforms = platforms),
     ]
 
 execution_platforms = rule(
     impl = _execution_platforms,
-    attrs = {},
+    attrs = {
+        "platforms": attrs.option(attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])), default = None),
+    },
 )
