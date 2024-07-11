@@ -11,9 +11,11 @@
 
 use std::mem;
 use std::ptr;
+use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
+use dupe::Dupe;
 use winapi::shared::basetsd::ULONG_PTR;
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::FALSE;
@@ -32,11 +34,10 @@ use winapi::um::winnt::JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 use winapi::um::winnt::JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO;
 
 use crate::win::utils::result_bool;
-use crate::win::utils::UnownedHandle;
 
 pub(crate) struct JobObject {
-    job_handle: WinapiHandle,
-    completion_handle: WinapiHandle,
+    job_handle: Arc<WinapiHandle>,
+    completion_handle: Arc<WinapiHandle>,
 }
 
 impl JobObject {
@@ -63,8 +64,8 @@ impl JobObject {
         set_job_limits(&job_handle)?;
 
         Ok(Self {
-            job_handle,
-            completion_handle,
+            job_handle: Arc::new(job_handle),
+            completion_handle: Arc::new(completion_handle),
         })
     }
 
@@ -81,8 +82,8 @@ impl JobObject {
     // https://devblogs.microsoft.com/oldnewthing/20130405-00/?p=4743
     async fn wait(&self) -> anyhow::Result<()> {
         const MAX_RETRY_ATTEMPT: usize = 10;
-        let job = UnownedHandle(self.job_handle.handle());
-        let completion_port = UnownedHandle(self.completion_handle.handle());
+        let job = self.job_handle.dupe();
+        let completion_port = self.completion_handle.dupe();
 
         // try to wait all the processes exit before spawn a blocking task
         for _ in 0..MAX_RETRY_ATTEMPT {
@@ -92,6 +93,7 @@ impl JobObject {
         }
 
         tokio::task::spawn_blocking(move || {
+            let completion_port = completion_port;
             while has_active_processes(&job, &completion_port, INFINITE)? {}
             Ok(())
         })
@@ -100,8 +102,8 @@ impl JobObject {
 }
 
 fn has_active_processes(
-    job: &UnownedHandle,
-    completion_port: &UnownedHandle,
+    job: &WinapiHandle,
+    completion_port: &WinapiHandle,
     timeout: DWORD,
 ) -> anyhow::Result<bool> {
     let mut completion_code: DWORD = 0;
@@ -111,7 +113,7 @@ fn has_active_processes(
 
     let result = unsafe {
         ioapiset::GetQueuedCompletionStatus(
-            completion_port.0,
+            completion_port.handle(),
             &mut completion_code,
             &mut completion_key,
             &mut lp_overlapped,
@@ -129,7 +131,8 @@ fn has_active_processes(
 
     // we are interested only in the specific event from the job object
     // ignore the rest in case some other I/O gets queued to our completion port
-    if completion_key != job.0 as ULONG_PTR || completion_code != JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO
+    if completion_key != job.handle() as ULONG_PTR
+        || completion_code != JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO
     {
         return Ok(true);
     }
