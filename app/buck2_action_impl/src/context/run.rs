@@ -40,7 +40,6 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::UnpackAndDiscard;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark_map::small_map;
@@ -136,7 +135,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named)] category: String,
         #[starlark(require = named, default = NoneOr::None)] identifier: NoneOr<String>,
         #[starlark(require = named)] env: Option<
-            ValueOf<'v, UnpackDictEntries<UnpackAndDiscard<&'v str>, Value<'v>>>,
+            ValueOf<'v, UnpackDictEntries<UnpackAndDiscard<&'v str>, ValueAsCommandLineLike<'v>>>,
         >,
         #[starlark(require = named, default = false)] local_only: bool,
         #[starlark(require = named, default = false)] prefer_local: bool,
@@ -255,9 +254,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             None => Value::new_none(),
             Some(env) => {
                 for (_k, v) in env.typed.entries {
-                    ValueAsCommandLineLike::unpack_value_err(v)?
-                        .0
-                        .visit_artifacts(&mut artifact_visitor)?;
+                    v.0.visit_artifacts(&mut artifact_visitor)?;
                 }
                 env.value
             }
