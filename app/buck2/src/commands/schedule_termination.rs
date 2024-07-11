@@ -32,28 +32,31 @@ pub(crate) fn maybe_schedule_termination() -> anyhow::Result<()> {
     if let Some(duration) = buck2_env!("BUCK2_TERMINATE_AFTER", type=u64, applicability=testing)? {
         thread_spawn("buck2-terminate-after", move || {
             const MEASURE_CPU_TIME_FOR: u64 = 10;
-            let (sleep_before, sleep_after) = match duration.checked_sub(MEASURE_CPU_TIME_FOR) {
-                Some(sleep_before) => (sleep_before, MEASURE_CPU_TIME_FOR),
-                None => (0, duration),
-            };
 
-            thread::sleep(Duration::from_secs(sleep_before));
+            thread::sleep(Duration::from_secs(duration));
+
             let process_cpu_time_us_before = process_cpu_time_us();
-            thread::sleep(Duration::from_secs(sleep_after));
+            
+            thread::sleep(Duration::from_secs(MEASURE_CPU_TIME_FOR));
+            
             let process_cpu_time_us_after = process_cpu_time_us();
 
             let elapsed_cpu_time_avg_in_percents = elapsed_cpu_time_as_percents(
                 process_cpu_time_us_before,
                 process_cpu_time_us_after,
-                sleep_after,
+                duration,
             );
-            if let Some(elapsed_cpu_time_avg_in_percents) = elapsed_cpu_time_avg_in_percents {
-                panic!(
-                    "Buck is exiting after {}s elapsed; avg process CPU in the last {}s is {}%",
-                    duration, sleep_after, elapsed_cpu_time_avg_in_percents
-                );
-            } else {
-                panic!("Buck is exiting after {}s elapsed", duration);
+
+            match elapsed_cpu_time_avg_in_percents {
+                Some(elapsed_cpu_time_avg_in_percents) => {
+                    panic!(
+                        "Buck is exiting after {}s elapsed; avg process CPU in the last {}s is {}%",
+                        duration, MEASURE_CPU_TIME_FOR, elapsed_cpu_time_avg_in_percents
+                    );
+                }
+                None => {
+                    panic!("Buck is exiting after {}s elapsed", duration);
+                }
             }
         })?;
     }
