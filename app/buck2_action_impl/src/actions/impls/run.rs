@@ -93,12 +93,6 @@ pub(crate) mod audit_dep_files;
 pub(crate) mod dep_files;
 mod metadata;
 
-#[derive(Debug, buck2_error::Error)]
-enum RunActionValidationError {
-    #[error("Expected command line value, got {0}")]
-    ContentsNotCommandLineValue(String),
-}
-
 #[derive(Debug, Allocative)]
 pub(crate) struct MetadataParameter {
     /// Name of the environment variable which is set to contain
@@ -346,15 +340,9 @@ impl RunAction {
         outputs: IndexSet<BuildArtifact>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Self> {
-        let starlark_values = match starlark_values.downcast() {
-            Ok(starlark_values) => starlark_values,
-            Err(starlark_values) => {
-                return Err(RunActionValidationError::ContentsNotCommandLineValue(
-                    starlark_values.value().to_repr(),
-                )
-                .into());
-            }
-        };
+        let starlark_values = starlark_values
+            .downcast_anyhow()
+            .internal_error("Must be `run_action_values`")?;
 
         Self::unpack(&starlark_values)?;
 
