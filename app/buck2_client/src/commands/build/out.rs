@@ -517,7 +517,6 @@ mod tests {
     mod unix {
 
         use assert_matches::assert_matches;
-        use tokio::process::Command;
 
         use super::super::*;
 
@@ -526,7 +525,7 @@ mod tests {
             let dir = tempfile::tempdir()?;
             let out = dir.path().join("sleep");
 
-            let res = Command::new("cp")
+            let res = buck2_util::process::async_background_command("cp")
                 .arg(Path::new("/bin/sleep"))
                 .arg(&out)
                 .spawn()?
@@ -535,7 +534,7 @@ mod tests {
 
             assert!(res.success());
 
-            let mut proc = Command::new(&out)
+            let mut proc = buck2_util::process::async_background_command(&out)
                 .arg("10000")
                 .kill_on_drop(true)
                 .spawn()
