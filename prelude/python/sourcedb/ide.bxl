@@ -20,6 +20,8 @@ def _build_entry_point(ctx: bxl.Context) -> None:
     for source in ctx.cli_args.source:
         owning_targets = query.owner(source)
         targets_configured = do_query(ctx, query, actions, owning_targets)
+        targets_configured += [target.label for target in ctx.configured_targets(ctx.cli_args.extra_source_targets)]
+
         sourcedbs = do_build_ensured(ctx, targets_configured)
 
         output[source] = {"db": sourcedbs, "owning_targets": [target.label for target in owning_targets]}
@@ -34,6 +36,12 @@ build = bxl_main(
     """,
     impl = _build_entry_point,
     cli_args = {
+        "extra-source-targets": cli_args.list(
+            cli_args.string(
+                doc = "fully qualified targets to include in the sourcedb",
+            ),
+            [],  # default value
+        ),
         "source": cli_args.list(
             cli_args.string(
                 doc = "File to build a source db for (relative to source root)",
