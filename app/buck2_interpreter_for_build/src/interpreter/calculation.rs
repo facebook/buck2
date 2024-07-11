@@ -64,6 +64,38 @@ pub(crate) fn init_target_graph_calculation_impl() {
 }
 
 #[async_trait]
+impl Key for InterpreterResultsKey {
+    type Value = buck2_error::Result<Arc<EvaluationResult>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let now = Instant::now();
+
+        let (result, spans) =
+            async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe())).await;
+
+        ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
+            duration: now.elapsed(),
+            result: result.dupe(),
+            spans,
+        })?;
+
+        result
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        // TODO consider if we want to impl eq for this
+        false
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+}
+
+#[async_trait]
 impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     async fn get_interpreter_results_uncached(
         &self,
@@ -84,39 +116,6 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         ctx: &'a mut DiceComputations,
         package: PackageLabel,
     ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
-        #[async_trait]
-        impl Key for InterpreterResultsKey {
-            type Value = buck2_error::Result<Arc<EvaluationResult>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let now = Instant::now();
-
-                let (result, spans) =
-                    async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe()))
-                        .await;
-
-                ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
-                    duration: now.elapsed(),
-                    result: result.dupe(),
-                    spans,
-                })?;
-
-                result
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // TODO consider if we want to impl eq for this
-                false
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-        }
-
         ctx.compute(&InterpreterResultsKey(package.dupe()))
             .map(|v| v?.map_err(anyhow::Error::from))
             .boxed()
@@ -132,45 +131,42 @@ pub(crate) fn init_interpreter_calculation_impl() {
 }
 
 #[async_trait]
+impl Key for EvalImportKey {
+    type Value = buck2_error::Result<LoadedModule>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let starlark_path = self.0.borrow();
+        // We cannot just use the inner default delegate's eval_import
+        // because that wouldn't delegate back to us for inner eval_import calls.
+        Ok(ctx
+            .get_interpreter_calculator(starlark_path.cell(), starlark_path.build_file_cell())
+            .await?
+            .eval_module_uncached(starlark_path)
+            .await?)
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        // While it is technically possible to compare the modules
+        // at least for simple modules (like modules defining only string constants),
+        // practically it is too hard to make it work correctly for every case.
+        false
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+}
+
+#[async_trait]
 impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
         &self,
         ctx: &mut DiceComputations<'_>,
         starlark_path: StarlarkModulePath<'_>,
     ) -> anyhow::Result<LoadedModule> {
-        #[async_trait]
-        impl Key for EvalImportKey {
-            type Value = buck2_error::Result<LoadedModule>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let starlark_path = self.0.borrow();
-                // We cannot just use the inner default delegate's eval_import
-                // because that wouldn't delegate back to us for inner eval_import calls.
-                Ok(ctx
-                    .get_interpreter_calculator(
-                        starlark_path.cell(),
-                        starlark_path.build_file_cell(),
-                    )
-                    .await?
-                    .eval_module_uncached(starlark_path)
-                    .await?)
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // While it is technically possible to compare the modules
-                // at least for simple modules (like modules defining only string constants),
-                // practically it is too hard to make it work correctly for every case.
-                false
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-        }
-
         ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
             .map_err(anyhow::Error::from)

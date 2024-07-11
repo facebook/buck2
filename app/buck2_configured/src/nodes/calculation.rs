@@ -1203,35 +1203,35 @@ async fn compute_configured_target_node(
     }
 }
 
+#[async_trait]
+impl Key for ConfiguredTransitionedNodeKey {
+    type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
+        compute_configured_target_node_with_transition(self, ctx)
+            .await
+            .map_err(buck2_error::Error::from)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        if let (Ok(x), Ok(y)) = (x, y) {
+            x == y
+        } else {
+            false
+        }
+    }
+}
+
 async fn compute_configured_forward_target_node(
     key: &ConfiguredTargetNodeKey,
     target_node: &TargetNode,
     transition_id: &TransitionId,
     ctx: &mut DiceComputations<'_>,
 ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-    #[async_trait]
-    impl Key for ConfiguredTransitionedNodeKey {
-        type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
-
-        async fn compute(
-            &self,
-            ctx: &mut DiceComputations,
-            _cancellation: &CancellationContext,
-        ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
-            compute_configured_target_node_with_transition(self, ctx)
-                .await
-                .map_err(buck2_error::Error::from)
-        }
-
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            if let (Ok(x), Ok(y)) = (x, y) {
-                x == y
-            } else {
-                false
-            }
-        }
-    }
-
     let target_label_before_transition = &key.0;
     let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref())
         .boxed()
@@ -1404,35 +1404,35 @@ impl std::fmt::Display for LookingUpConfiguredNodeContext {
 }
 
 #[async_trait]
+impl Key for ConfiguredTargetNodeKey {
+    type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let res = compute_configured_target_node(self, ctx).await;
+        Ok(LookingUpConfiguredNodeContext::add_context(
+            res,
+            self.0.dupe(),
+        )?)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[async_trait]
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
     async fn get_configured_target_node(
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        #[async_trait]
-        impl Key for ConfiguredTargetNodeKey {
-            type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let res = compute_configured_target_node(self, ctx).await;
-                Ok(LookingUpConfiguredNodeContext::add_context(
-                    res,
-                    self.0.dupe(),
-                )?)
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
-
         ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)

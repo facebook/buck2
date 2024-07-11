@@ -77,32 +77,32 @@ pub(crate) fn init_rule_analysis_calculation() {
 }
 
 #[async_trait]
+impl Key for AnalysisKey {
+    type Value = buck2_error::Result<MaybeCompatible<AnalysisResult>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        Ok(get_analysis_result(ctx, &self.0)
+            .await
+            .with_context(|| format!("Error running analysis for `{}`", &self.0))?)
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        // analysis result is not comparable
+        // TODO consider if we want analysis result to be eq
+        false
+    }
+}
+
+#[async_trait]
 impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
     async fn get_analysis_result(
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
-        #[async_trait]
-        impl Key for AnalysisKey {
-            type Value = buck2_error::Result<MaybeCompatible<AnalysisResult>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                Ok(get_analysis_result(ctx, &self.0)
-                    .await
-                    .with_context(|| format!("Error running analysis for `{}`", &self.0))?)
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // analysis result is not comparable
-                // TODO consider if we want analysis result to be eq
-                false
-            }
-        }
-
         ctx.compute(&AnalysisKey(target.dupe()))
             .await?
             .map_err(anyhow::Error::from)

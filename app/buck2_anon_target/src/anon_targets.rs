@@ -125,6 +125,23 @@ pub enum AnonTargetsError {
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
 pub(crate) struct AnonTargetKey(pub(crate) Arc<AnonTarget>);
 
+#[async_trait]
+impl Key for AnonTargetKey {
+    type Value = buck2_error::Result<AnalysisResult>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        Ok(self.run_analysis(ctx).await?)
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        false
+    }
+}
+
 impl AnonTargetKey {
     fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> anyhow::Result<Self> {
         Ok(AnonTargetKey(
@@ -256,23 +273,6 @@ impl AnonTargetKey {
         &self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnalysisResult> {
-        #[async_trait]
-        impl Key for AnonTargetKey {
-            type Value = buck2_error::Result<AnalysisResult>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                Ok(self.run_analysis(ctx).await?)
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                false
-            }
-        }
-
         Ok(dice.compute(self).await??)
     }
 

@@ -452,6 +452,88 @@ async fn compute_platform_configuration(
 }
 
 #[async_trait]
+impl Key for ResolvedConfigurationKey {
+    type Value = buck2_error::Result<ResolvedConfiguration>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let config_nodes = ctx
+            .compute_join(self.configuration_deps.iter(), |ctx, d| {
+                async move {
+                    (
+                        d.dupe(),
+                        ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
+                            .await,
+                    )
+                }
+                .boxed()
+            })
+            .await;
+
+        let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
+        for (label, node) in config_nodes {
+            let node = node?;
+            resolved_settings.insert(label, node);
+        }
+        let resolved_settings = ResolvedConfigurationSettings::new(resolved_settings);
+        Ok(ResolvedConfiguration::new(
+            ConfigurationNoExec::new(self.target_cfg.dupe()),
+            resolved_settings,
+        ))
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        false
+    }
+}
+
+#[async_trait]
+impl Key for ConfigurationNodeKey {
+    type Value = buck2_error::Result<ConfigurationNode>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let analysis_result = ctx
+            .get_configuration_analysis_result(&self.cfg_target.0)
+            .await?;
+        let providers = analysis_result.providers();
+
+        // capture the result so the temporaries get dropped before analysis_result
+        let result = match providers
+            .provider_collection()
+            .builtin_provider::<FrozenConfigurationInfo>()
+        {
+            Some(configuration_info) => configuration_info,
+            None => {
+                return Err::<_, buck2_error::Error>(
+                    ConfigurationError::MissingConfigurationInfoProvider(self.cfg_target.dupe().0)
+                        .into(),
+                );
+            }
+        }
+        .to_config_setting_data();
+
+        let matches =
+            configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;
+
+        Ok(ConfigurationNode::new(Some(result).filter(|_| matches)))
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
+#[async_trait]
 impl ConfigurationCalculation for DiceComputations<'_> {
     async fn get_platform_configuration(
         &mut self,
@@ -511,45 +593,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         target_cell: CellName,
         configuration_deps: T,
     ) -> buck2_error::Result<ResolvedConfiguration> {
-        #[async_trait]
-        impl Key for ResolvedConfigurationKey {
-            type Value = buck2_error::Result<ResolvedConfiguration>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let config_nodes = ctx
-                    .compute_join(self.configuration_deps.iter(), |ctx, d| {
-                        async move {
-                            (
-                                d.dupe(),
-                                ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
-                                    .await,
-                            )
-                        }
-                        .boxed()
-                    })
-                    .await;
-
-                let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
-                for (label, node) in config_nodes {
-                    let node = node?;
-                    resolved_settings.insert(label, node);
-                }
-                let resolved_settings = ResolvedConfigurationSettings::new(resolved_settings);
-                Ok(ResolvedConfiguration::new(
-                    ConfigurationNoExec::new(self.target_cfg.dupe()),
-                    resolved_settings,
-                ))
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                false
-            }
-        }
-
         let configuration_deps: Vec<ConfigurationSettingKey> =
             configuration_deps.into_iter().map(|t| t.dupe()).collect();
         self.compute(&ResolvedConfigurationKey {
@@ -566,51 +609,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         target_cell: CellName,
         cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode> {
-        #[async_trait]
-        impl Key for ConfigurationNodeKey {
-            type Value = buck2_error::Result<ConfigurationNode>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let analysis_result = ctx
-                    .get_configuration_analysis_result(&self.cfg_target.0)
-                    .await?;
-                let providers = analysis_result.providers();
-
-                // capture the result so the temporaries get dropped before analysis_result
-                let result = match providers
-                    .provider_collection()
-                    .builtin_provider::<FrozenConfigurationInfo>()
-                {
-                    Some(configuration_info) => configuration_info,
-                    None => {
-                        return Err::<_, buck2_error::Error>(
-                            ConfigurationError::MissingConfigurationInfoProvider(
-                                self.cfg_target.dupe().0,
-                            )
-                            .into(),
-                        );
-                    }
-                }
-                .to_config_setting_data();
-
-                let matches =
-                    configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;
-
-                Ok(ConfigurationNode::new(Some(result).filter(|_| matches)))
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
-
         self.compute(&ConfigurationNodeKey {
             target_cfg: target_cfg.dupe(),
             target_cell,
@@ -681,28 +679,28 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 struct GetExecutionPlatformsInstance;
 
 #[async_trait]
+impl Key for ExecutionPlatformsKey {
+    type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        compute_execution_platforms(ctx).await
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        // TODO(cjhopman) should these be comparable for caching
+        false
+    }
+}
+
+#[async_trait]
 impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
     async fn get_execution_platforms_impl(
         &self,
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-        #[async_trait]
-        impl Key for ExecutionPlatformsKey {
-            type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                compute_execution_platforms(ctx).await
-            }
-
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // TODO(cjhopman) should these be comparable for caching
-                false
-            }
-        }
-
         ctx.compute(&ExecutionPlatformsKey).await?
     }
 }

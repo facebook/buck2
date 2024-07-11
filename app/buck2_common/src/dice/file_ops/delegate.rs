@@ -161,57 +161,57 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
+#[async_trait]
+impl Key for FileOpsKey {
+    type Value = buck2_error::Result<FileOpsValue>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let cells = ctx.get_cell_resolver().await?;
+        let ignores = if self.check_ignores == CheckIgnores::Yes {
+            Some(ctx.new_cell_ignores(self.cell).await?)
+        } else {
+            None
+        };
+
+        let out = if let Some(origin) = cells.get(self.cell)?.external() {
+            let delegate = EXTERNAL_CELLS_IMPL
+                .get()?
+                .get_file_ops_delegate(ctx, self.cell, origin.dupe())
+                .await?;
+            FileOpsDelegateWithIgnores::new(ignores, delegate)
+        } else {
+            let io = ctx.global_data().get_io_provider();
+            let delegate = IoFileOpsDelegate {
+                io,
+                cells,
+                cell: self.cell,
+            };
+            FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
+        };
+
+        Ok(FileOpsValue(out))
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x.0 == y.0,
+            _ => false,
+        }
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+}
+
 pub(crate) async fn get_delegated_file_ops(
     dice: &mut DiceComputations<'_>,
     cell: CellName,
     check_ignores: CheckIgnores,
 ) -> buck2_error::Result<FileOpsDelegateWithIgnores> {
-    #[async_trait]
-    impl Key for FileOpsKey {
-        type Value = buck2_error::Result<FileOpsValue>;
-        async fn compute(
-            &self,
-            ctx: &mut DiceComputations,
-            _cancellations: &CancellationContext,
-        ) -> Self::Value {
-            let cells = ctx.get_cell_resolver().await?;
-            let ignores = if self.check_ignores == CheckIgnores::Yes {
-                Some(ctx.new_cell_ignores(self.cell).await?)
-            } else {
-                None
-            };
-
-            let out = if let Some(origin) = cells.get(self.cell)?.external() {
-                let delegate = EXTERNAL_CELLS_IMPL
-                    .get()?
-                    .get_file_ops_delegate(ctx, self.cell, origin.dupe())
-                    .await?;
-                FileOpsDelegateWithIgnores::new(ignores, delegate)
-            } else {
-                let io = ctx.global_data().get_io_provider();
-                let delegate = IoFileOpsDelegate {
-                    io,
-                    cells,
-                    cell: self.cell,
-                };
-                FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
-            };
-
-            Ok(FileOpsValue(out))
-        }
-
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
-                (Ok(x), Ok(y)) => x.0 == y.0,
-                _ => false,
-            }
-        }
-
-        fn validity(x: &Self::Value) -> bool {
-            x.is_ok()
-        }
-    }
-
     Ok(dice
         .compute(&FileOpsKey {
             cell,
