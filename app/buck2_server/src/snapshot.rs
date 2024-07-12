@@ -11,12 +11,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_core::fs::fs_util::disk_space_stats;
+use buck2_core::fs::fs_util::DiskSpaceStats;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
-use buck2_util::system_stats::disk_space_stats;
-use buck2_util::system_stats::DiskSpaceStats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
 
@@ -29,13 +30,15 @@ use crate::net_io::SystemNetworkIoCollector;
 pub struct SnapshotCollector {
     daemon: Arc<DaemonStateData>,
     net_io_collector: SystemNetworkIoCollector,
+    buck_out_path: Arc<AbsNormPathBuf>,
 }
 
 impl SnapshotCollector {
-    pub fn new(daemon: Arc<DaemonStateData>) -> SnapshotCollector {
+    pub fn new(daemon: Arc<DaemonStateData>, buck_out_path: AbsNormPathBuf) -> SnapshotCollector {
         SnapshotCollector {
             daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
+            buck_out_path: buck_out_path.into(),
         }
     }
 
@@ -219,12 +222,12 @@ impl SnapshotCollector {
             snapshot.malloc_bytes_allocated = alloc_stats.bytes_allocated;
         }
 
-        if let Some(DiskSpaceStats {
+        if let Ok(DiskSpaceStats {
             total_space,
-            available_space,
-        }) = disk_space_stats()
+            free_space,
+        }) = disk_space_stats(&*self.buck_out_path)
         {
-            snapshot.used_disk_space_bytes = Some(total_space - available_space);
+            snapshot.used_disk_space_bytes = Some(total_space - free_space);
         }
 
         if let Some(UnixSystemStats {

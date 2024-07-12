@@ -40,6 +40,8 @@ use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::disk_space_stats;
+use buck2_core::fs::fs_util::DiskSpaceStats;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -67,9 +69,7 @@ use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_server_starlark_debug::run::run_dap_server_command;
 use buck2_test::executor_launcher::get_all_test_executors;
-use buck2_util::system_stats::disk_space_stats;
 use buck2_util::system_stats::system_memory_stats;
-use buck2_util::system_stats::DiskSpaceStats;
 use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
@@ -430,7 +430,8 @@ impl BuckdServer {
             system_total_memory_bytes: Some(system_memory_stats()),
             memory_pressure_threshold_percent: system_warning_config
                 .memory_pressure_threshold_percent,
-            total_disk_space_bytes: disk_space_stats()
+            total_disk_space_bytes: disk_space_stats(daemon_state.paths.buck_out_path())
+                .ok()
                 .map(|DiskSpaceStats { total_space, .. }| total_space),
             remaining_disk_space_threshold_gb: system_warning_config
                 .remaining_disk_space_threshold_gb,
@@ -438,7 +439,8 @@ impl BuckdServer {
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
         // as a baseline.
-        let snapshot_collector = SnapshotCollector::new(data.dupe());
+        let snapshot_collector =
+            SnapshotCollector::new(data.dupe(), daemon_state.paths.buck_out_path());
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
 
         let resp = streaming(
@@ -838,7 +840,13 @@ impl DaemonApi for BuckdServer {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
                 let data = daemon_state.data()?;
-                Some(snapshot::SnapshotCollector::new(data.dupe()).create_snapshot())
+                Some(
+                    snapshot::SnapshotCollector::new(
+                        data.dupe(),
+                        daemon_state.paths.buck_out_path(),
+                    )
+                    .create_snapshot(),
+                )
             } else {
                 None
             };

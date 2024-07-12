@@ -7,17 +7,10 @@
  * of this source tree.
  */
 
-use sysinfo::Disks;
-
 pub struct UnixSystemStats {
     pub load1: f64,
     pub load5: f64,
     pub load15: f64,
-}
-
-pub struct DiskSpaceStats {
-    pub total_space: u64,
-    pub available_space: u64,
 }
 
 impl UnixSystemStats {
@@ -41,18 +34,6 @@ impl UnixSystemStats {
     }
 }
 
-pub fn disk_space_stats() -> Option<DiskSpaceStats> {
-    let disks = Disks::new_with_refreshed_list();
-    let root = if cfg!(windows) { "C:\\" } else { "/" };
-    disks
-        .iter()
-        .find(|d| d.mount_point().as_os_str() == root)
-        .map(|disk| DiskSpaceStats {
-            total_space: disk.total_space(),
-            available_space: disk.available_space(),
-        })
-}
-
 pub fn system_memory_stats() -> u64 {
     use sysinfo::MemoryRefreshKind;
     use sysinfo::RefreshKind;
@@ -66,25 +47,12 @@ pub fn system_memory_stats() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::disk_space_stats;
     use super::system_memory_stats;
-    use super::DiskSpaceStats;
 
     #[test]
     fn get_system_memory_stats() {
         let total_mem = system_memory_stats();
         // sysinfo returns zero when fails to retrieve data
         assert!(total_mem > 0);
-    }
-
-    #[test]
-    fn get_disk_space_stats() {
-        if let Some(DiskSpaceStats {
-            total_space,
-            available_space,
-        }) = disk_space_stats()
-        {
-            assert!(total_space > 0 && available_space > 0);
-        };
     }
 }
