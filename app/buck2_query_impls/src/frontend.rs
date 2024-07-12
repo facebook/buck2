@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QueryFrontend;
@@ -48,6 +50,11 @@ impl QueryFrontend for QueryFrontendImpl {
         .await
     }
 
+    /// Evaluate a cquery query.
+    ///
+    /// Long with query results, the function returns all the universes
+    /// that was used to resolve query literals in non-deterministic order.
+    /// Universes are used in Starlark profiler.
     async fn eval_cquery(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -56,7 +63,10 @@ impl QueryFrontend for QueryFrontendImpl {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
-    ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
+    ) -> anyhow::Result<(
+        QueryEvaluationResult<ConfiguredTargetNode>,
+        Vec<Arc<CqueryUniverse>>,
+    )> {
         ctx.with_linear_recompute(|ctx| async move {
             let dice_query_delegate =
                 get_dice_query_delegate(&ctx, working_dir, global_cfg_options).await?;

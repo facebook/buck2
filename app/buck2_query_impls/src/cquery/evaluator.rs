@@ -38,7 +38,10 @@ pub(crate) async fn eval_cquery(
     query: &str,
     query_args: &[String],
     target_universe: Option<&[String]>,
-) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>> {
+) -> anyhow::Result<(
+    QueryEvaluationResult<ConfiguredTargetNode>,
+    Vec<Arc<CqueryUniverse>>,
+)> {
     let dispatcher = dice_query_delegate
         .ctx()
         .per_transaction_data()
@@ -127,8 +130,7 @@ pub(crate) async fn eval_cquery(
 
     drop(universes_tx_value);
 
-    // TODO(nga): used in D59088676.
-    let _universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
+    let universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
     match universes_rx.try_recv() {
         Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
         Err(std::sync::mpsc::TryRecvError::Empty) => {
@@ -137,7 +139,7 @@ pub(crate) async fn eval_cquery(
         Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
     }
 
-    Ok(result)
+    Ok((result, universes))
 }
 
 pub(crate) async fn preresolve_literals_and_build_universe(

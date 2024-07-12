@@ -186,7 +186,8 @@ async fn cquery(
             global_cfg_options,
             target_universe,
         )
-        .await?;
+        .await?
+        .0;
 
     ctx.with_linear_recompute(|ctx| async move {
         let should_print_providers = if *show_providers {

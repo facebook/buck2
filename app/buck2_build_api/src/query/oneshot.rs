@@ -7,9 +7,12 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
@@ -36,7 +39,10 @@ pub trait QueryFrontend: Send + Sync + 'static {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
-    ) -> anyhow::Result<QueryEvaluationResult<ConfiguredTargetNode>>;
+    ) -> anyhow::Result<(
+        QueryEvaluationResult<ConfiguredTargetNode>,
+        Vec<Arc<CqueryUniverse>>,
+    )>;
 
     async fn eval_aquery(
         &self,
