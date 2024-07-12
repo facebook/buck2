@@ -546,11 +546,16 @@ pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     )
 }
 
-/// Free disk space on given path. Path does not have to be disk root.
+pub struct DiskSpaceStats {
+    pub free_space: u64,
+    pub total_space: u64,
+}
+
+/// Free and total disk space on given path. Path does not have to be disk root.
 /// When the path does not exist, the behavior is not specified.
-pub fn free_disk_space<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<u64> {
+pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceStats> {
     #[cfg(not(windows))]
-    fn free_disk_space_impl(path: &Path) -> anyhow::Result<u64> {
+    fn disk_space_stats_impl(path: &Path) -> anyhow::Result<DiskSpaceStats> {
         use std::ffi::CString;
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
@@ -569,18 +574,32 @@ pub fn free_disk_space<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<u64> {
                 .into());
             }
         }
-        u64::from(statvfs.f_bavail)
-            .checked_mul(u64::from(statvfs.f_frsize))
+        let fr_size = u64::from(statvfs.f_frsize);
+        let free_space = u64::from(statvfs.f_bavail)
+            .checked_mul(fr_size)
             .with_context(|| {
                 format!(
-                    "Multiplication overflow for statvfs for `{}`",
+                    "Multiplication overflow for statvfs free space for `{}`",
                     path.display()
                 )
-            })
+            })?;
+
+        let total_space = u64::from(statvfs.f_blocks)
+            .checked_mul(fr_size)
+            .with_context(|| {
+                format!(
+                    "Multiplication overflow for statvfs total space for `{}`",
+                    path.display()
+                )
+            })?;
+        Ok(DiskSpaceStats {
+            free_space,
+            total_space,
+        })
     }
 
     #[cfg(windows)]
-    fn free_disk_space_impl(path: &Path) -> anyhow::Result<u64> {
+    fn disk_space_stats_impl(path: &Path) -> anyhow::Result<DiskSpaceStats> {
         use std::mem::MaybeUninit;
         use std::ptr;
 
@@ -591,11 +610,13 @@ pub fn free_disk_space<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<u64> {
         unsafe {
             let mut free_bytes =
                 MaybeUninit::<winapi::shared::ntdef::ULARGE_INTEGER>::zeroed().assume_init();
+            let mut total_bytes =
+                MaybeUninit::<winapi::shared::ntdef::ULARGE_INTEGER>::zeroed().assume_init();
             let r = winapi::um::fileapi::GetDiskFreeSpaceExW(
                 path_c.as_ptr(),
-                &mut free_bytes as *mut _, // lpFreeBytesAvailableToCaller
-                ptr::null_mut(),           // lpTotalNumberOfBytes
-                ptr::null_mut(),           // lpTotalNumberOfFreeBytes
+                &mut free_bytes as *mut _,  // lpFreeBytesAvailableToCaller
+                &mut total_bytes as *mut _, // lpTotalNumberOfBytes
+                ptr::null_mut(),            // lpTotalNumberOfFreeBytes
             );
             if r == 0 {
                 let e = io::Error::last_os_error();
@@ -605,12 +626,15 @@ pub fn free_disk_space<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<u64> {
                 }
                 .into());
             }
-            Ok(*free_bytes.QuadPart())
+            Ok(DiskSpaceStats {
+                free_space: *free_bytes.QuadPart(),
+                total_space: *total_bytes.QuadPart(),
+            })
         }
     }
 
     let _guard = IoCounterKey::Stat.guard();
-    free_disk_space_impl(path.as_ref())
+    disk_space_stats_impl(path.as_ref())
 }
 
 pub struct FileWriteGuard {
@@ -1240,11 +1264,11 @@ mod tests {
     }
 
     #[test]
-    fn test_free_disk_space() -> anyhow::Result<()> {
+    fn test_disk_space_stats() -> anyhow::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
-        let free_space = fs_util::free_disk_space(&root)?;
-        assert!(free_space > 0);
+        let disk_space = fs_util::disk_space_stats(&root)?;
+        assert!(disk_space.total_space > disk_space.free_space);
         Ok(())
     }
 }
