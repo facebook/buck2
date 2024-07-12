@@ -227,8 +227,7 @@ the rule is changed to write the command to a shell script first:
 
 ```python
 sh = ctx.actions.write("test.sh", ["cp", input, output])
-cmd = cmd_args(["sh",sh])
-cmd.hidden([input, output.as_output()])
+cmd = cmd_args(["sh",sh],hidden=[input, output.as_output()])
 ctx.actions.run(cmd)
 ```
 
