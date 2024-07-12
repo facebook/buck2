@@ -10,8 +10,6 @@
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
 
-//! `buck2 audit` command implementation, both client and server.
-
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
