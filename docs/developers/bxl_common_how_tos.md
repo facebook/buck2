@@ -132,15 +132,17 @@ def _impl_example(ctx):
     ctx.output.print(subtarget)
 ```
 
-## Building a subtarget
+## Building a target/subtarget wihtout blocking
 
-You can use `analysis()` to get a specific subtarget from an analysis, or you
-can pass in the subtarget literal directly into `ctx.build()`:
+`ctx.build` is synchronous and should only be used when the result of the build
+is needed inline during the bxl execution. To execute builds without blocking
+the script, retrieve the `DefaultInfo` from the target's providers and use the
+`ctx.output.ensure_multiple` api.
+
+Example:
 
 ```python
-def _impl_example(ctx):
-    outputs = ctx.build("cell//path/to/my:target[my_subtarget]")
-    ctx.output.ensure_multiple(outputs)
+ctx.output.ensure_multiple(ctx.analysis(label).providers()[DefaultInfo])
 ```
 
 ## Getting attributes or resolved attributes efficiently on a configured target node
