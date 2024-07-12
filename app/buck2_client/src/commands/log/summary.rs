@@ -40,6 +40,8 @@ struct Stats {
     re_avg_download_speed: NetworkSpeedAverage,
     re_avg_upload_speed: NetworkSpeedAverage,
     duration: Option<prost_types::Duration>,
+    peak_used_disk_space_bytes: Option<u64>,
+    total_disk_space_bytes: Option<u64>,
 }
 
 impl Stats {
@@ -74,12 +76,20 @@ impl Stats {
                     Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
                         self.peak_process_memory_bytes =
                             max(self.peak_process_memory_bytes, process_memory(snapshot));
+                        self.peak_used_disk_space_bytes = max(
+                            self.peak_used_disk_space_bytes,
+                            snapshot.used_disk_space_bytes,
+                        );
+
                         if let Some(ts) = get_event_timestamp(event) {
                             self.re_avg_download_speed
                                 .update(ts, snapshot.re_download_bytes);
                             self.re_avg_upload_speed
                                 .update(ts, snapshot.re_upload_bytes);
                         }
+                    }
+                    Some(buck2_data::instant_event::Data::SystemInfo(system_info)) => {
+                        self.total_disk_space_bytes = system_info.total_disk_space_bytes;
                     }
                     _ => {}
                 }
@@ -116,6 +126,16 @@ impl Display for Stats {
                 f,
                 "peak process memory: {}",
                 HumanizedBytes::fixed_width(peak_process_memory_bytes)
+            )?;
+        }
+        if let (Some(peak_used_disk_space_bytes), Some(total_disk_space_bytes)) =
+            (self.peak_used_disk_space_bytes, self.total_disk_space_bytes)
+        {
+            writeln!(
+                f,
+                "peak used disk space: {} out of {}",
+                HumanizedBytes::fixed_width(peak_used_disk_space_bytes),
+                HumanizedBytes::fixed_width(total_disk_space_bytes)
             )?;
         }
         if let Some(re_avg_download_speed) = self.re_avg_download_speed.avg_per_second() {
