@@ -9,8 +9,11 @@
 
 //! Implementation of the cli and query_* attr query language.
 
+use std::iter;
+
 use buck2_query_parser::spanned::Spanned;
 use gazebo::variants::VariantName;
+use itertools::Either;
 
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::error::QueryError;
@@ -21,6 +24,16 @@ use crate::query::syntax::simple::eval::set::TargetSet;
 pub enum QueryEvaluationResult<T: QueryTarget> {
     Single(QueryEvaluationValue<T>),
     Multiple(MultiQueryResult<T>),
+}
+
+impl<T: QueryTarget> QueryEvaluationResult<T> {
+    /// All the targets from all query results.
+    pub fn targets(&self) -> impl Iterator<Item = buck2_error::Result<&T>> {
+        match self {
+            QueryEvaluationResult::Single(v) => Either::Left(v.targets()),
+            QueryEvaluationResult::Multiple(v) => Either::Right(v.targets()),
+        }
+    }
 }
 
 /// Used as a value in query evaluation, may appear in arguments to functions, results of functions etc.
@@ -57,6 +70,17 @@ impl<T: QueryTarget> QueryEvaluationValue<T> {
                 actual: v.variant_name(),
             }
             .into()),
+        }
+    }
+
+    pub(crate) fn targets(&self) -> impl Iterator<Item = buck2_error::Result<&T>> {
+        match self {
+            QueryEvaluationValue::TargetSet(targets) => Either::Left(targets.iter().map(Ok)),
+            v => Either::Right(iter::once(Err(QueryError::InvalidType {
+                expected: "targets",
+                actual: v.variant_name(),
+            }
+            .into()))),
         }
     }
 }

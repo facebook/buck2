@@ -43,6 +43,8 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
 use buck2_events::source::ChannelEventSource;
@@ -54,6 +56,7 @@ use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
+use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -738,6 +741,38 @@ where
     }))
 }
 
+struct QueryCommandOptions {
+    /// `buck2_cli_proto::ProfileMode`.
+    profile_mode: Option<i32>,
+}
+
+impl OneshotCommandOptions for QueryCommandOptions {
+    fn pre_run(&self, _server: &BuckdServer) -> Result<(), Status> {
+        Ok(())
+    }
+}
+
+impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
+    fn starlark_profiler_instrumentation_override(
+        &self,
+        _req: &Req,
+    ) -> anyhow::Result<StarlarkProfilerConfiguration> {
+        match self.profile_mode {
+            None => Ok(StarlarkProfilerConfiguration::None),
+            Some(mode) => {
+                let mode = buck2_cli_proto::ProfileMode::from_i32(mode)
+                    .internal_error("invalid profile mode enum value")?;
+                Ok(StarlarkProfilerConfiguration::ProfileLoading(
+                    proto_to_profile_mode(mode),
+                    // We enable profiling for everything,
+                    // but collect results only for subset of packages.
+                    UnparsedPatternPredicate::Any,
+                ))
+            }
+        }
+    }
+}
+
 type ResponseStream =
     Pin<Box<dyn Stream<Item = Result<MultiCommandProgress, Status>> + Send + Sync>>;
 #[async_trait]
@@ -975,9 +1010,10 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<CqueryRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
+        let profile_mode = req.get_ref().profile_mode;
         self.run_streaming(
             req,
-            DefaultCommandOptions,
+            QueryCommandOptions { profile_mode },
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
                     OTHER_SERVER_COMMANDS

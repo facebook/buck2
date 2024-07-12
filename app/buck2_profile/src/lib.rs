@@ -25,14 +25,8 @@ use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
 use starlark::StarlarkResultExt;
 
-pub fn starlark_profiler_configuration_from_request(
-    req: &buck2_cli_proto::ProfileRequest,
-    project_root: &ProjectRoot,
-) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    let profiler_proto =
-        buck2_cli_proto::ProfileMode::from_i32(req.profile_mode).context("Invalid profiler")?;
-
-    let profile_mode = match profiler_proto {
+pub fn proto_to_profile_mode(proto: buck2_cli_proto::ProfileMode) -> ProfileMode {
+    match proto {
         buck2_cli_proto::ProfileMode::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
         buck2_cli_proto::ProfileMode::HeapFlameRetained => ProfileMode::HeapFlameRetained,
         buck2_cli_proto::ProfileMode::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
@@ -43,7 +37,17 @@ pub fn starlark_profiler_configuration_from_request(
         buck2_cli_proto::ProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
         buck2_cli_proto::ProfileMode::Typecheck => ProfileMode::Typecheck,
         buck2_cli_proto::ProfileMode::Coverage => ProfileMode::Coverage,
-    };
+    }
+}
+
+pub fn starlark_profiler_configuration_from_request(
+    req: &buck2_cli_proto::ProfileRequest,
+    project_root: &ProjectRoot,
+) -> anyhow::Result<StarlarkProfilerConfiguration> {
+    let profiler_proto =
+        buck2_cli_proto::ProfileMode::from_i32(req.profile_mode).context("Invalid profiler")?;
+
+    let profile_mode = proto_to_profile_mode(profiler_proto);
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {
         ProfileOpts::TargetProfile(opts) => {
@@ -90,10 +94,10 @@ pub fn starlark_profiler_configuration_from_request(
 }
 
 #[allow(clippy::format_collect)]
-pub fn get_profile_response(
-    profile_data: Arc<StarlarkProfileDataAndStats>,
+pub fn write_starlark_profile(
+    profile_data: &StarlarkProfileDataAndStats,
     output: &AbsPath,
-) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+) -> anyhow::Result<()> {
     fs_util::create_dir_if_not_exists(output)?;
 
     fs_util::write(
@@ -133,6 +137,14 @@ pub fn get_profile_response(
                 .context("Failed to write profile")?;
         }
     };
+    Ok(())
+}
+
+pub fn get_profile_response(
+    profile_data: Arc<StarlarkProfileDataAndStats>,
+    output: &AbsPath,
+) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+    write_starlark_profile(profile_data.as_ref(), output)?;
 
     Ok(buck2_cli_proto::ProfileResponse {
         elapsed: Some(profile_data.elapsed().try_into()?),

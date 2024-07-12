@@ -19,6 +19,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -41,6 +42,7 @@ use crate::commands::query::printer::ProviderLookUp;
 use crate::commands::query::printer::QueryResultPrinter;
 use crate::commands::query::printer::ShouldPrintProviders;
 use crate::commands::query::query_target_ext::QueryCommandTarget;
+use crate::commands::query::starlark_profile::maybe_write_query_profile_for_targets;
 
 impl QueryCommandTarget for ConfiguredTargetNode {
     fn call_stack(&self) -> Option<String> {
@@ -176,7 +178,7 @@ async fn cquery(
     )
     .await?;
 
-    let query_result = QUERY_FRONTEND
+    let (query_result, universes) = QUERY_FRONTEND
         .get()?
         .eval_cquery(
             &mut ctx,
@@ -186,8 +188,30 @@ async fn cquery(
             global_cfg_options,
             target_universe,
         )
-        .await?
-        .0;
+        .await?;
+
+    if universes.is_empty() {
+        // Sanity check.
+        return Err(internal_error!("No universes"));
+    }
+
+    maybe_write_query_profile_for_targets(
+        &mut ctx,
+        request
+            .profile_mode
+            .map(|i| {
+                buck2_cli_proto::ProfileMode::from_i32(i).internal_error("Invalid profile mode")
+            })
+            .transpose()?,
+        request.profile_output.as_deref(),
+        universes.iter().flat_map(|u| {
+            u.iter()
+                .map(|t| t.label().unconfigured().pkg())
+                // `collect` should not be needed, but I was defected by the compiler.
+                .collect::<Vec<_>>()
+        }),
+    )
+    .await?;
 
     ctx.with_linear_recompute(|ctx| async move {
         let should_print_providers = if *show_providers {

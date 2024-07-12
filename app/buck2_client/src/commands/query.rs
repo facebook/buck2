@@ -10,4 +10,5 @@
 pub mod aquery;
 pub(crate) mod common;
 pub mod cquery;
+pub(crate) mod profile;
 pub mod uquery;

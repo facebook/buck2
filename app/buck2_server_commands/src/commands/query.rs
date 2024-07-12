@@ -11,6 +11,7 @@ pub mod aquery;
 pub mod cquery;
 pub mod printer;
 pub(crate) mod query_target_ext;
+pub(crate) mod starlark_profile;
 pub mod uquery;
 
 #[derive(Debug, buck2_error::Error)]

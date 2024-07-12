@@ -412,6 +412,13 @@ impl ConfiguredTargetNode {
         self.0.label.as_ref()
     }
 
+    pub fn target_node(&self) -> &TargetNode {
+        match &self.0.target_node {
+            TargetNodeOrForward::TargetNode(n) => n,
+            TargetNodeOrForward::Forward(_, n) => n.target_node(),
+        }
+    }
+
     pub fn rule_type(&self) -> &RuleType {
         self.0.target_node.rule_type()
     }

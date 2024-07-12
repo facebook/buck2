@@ -9,7 +9,11 @@
 
 //! Implementation of the cli and query_* attr query language.
 
+use std::iter;
+
+use dupe::Dupe;
 use indexmap::IndexMap;
+use itertools::Either;
 
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::set::TargetSet;
@@ -46,5 +50,12 @@ impl<T: QueryTarget> MultiQueryResult<T> {
             }
         }
         Ok(results)
+    }
+
+    pub(crate) fn targets(&self) -> impl Iterator<Item = buck2_error::Result<&T>> {
+        self.0.values().flat_map(|r| match r {
+            Ok(v) => Either::Left(v.targets()),
+            Err(e) => Either::Right(iter::once(Err(e.dupe()))),
+        })
     }
 }

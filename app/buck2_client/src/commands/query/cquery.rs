@@ -24,6 +24,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::if_else_opensource;
 
 use crate::commands::query::common::CommonQueryOptions;
+use crate::commands::query::profile::QueryProfileOptions;
 
 fn help() -> &'static str {
     concat!(
@@ -88,6 +89,9 @@ pub struct CqueryCommand {
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
+
+    #[clap(flatten)]
+    profile_options: QueryProfileOptions,
 }
 
 #[async_trait]
@@ -117,6 +121,13 @@ impl StreamingCommand for CqueryCommand {
                     target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     show_providers: self.show_providers,
                     unstable_output_format,
+                    profile_mode: self.profile_options.profile_mode_proto().map(|m| m as i32),
+                    profile_output: self
+                        .profile_options
+                        .profile_output
+                        .as_ref()
+                        .map(|p| anyhow::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned()))
+                        .transpose()?,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
