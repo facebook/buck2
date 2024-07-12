@@ -43,6 +43,13 @@ def main():
         "-debug-prefix-map",
         f"{os.getcwd()}/=",
     ]
+    # Apply a coverage prefix map for the current directory
+    # to make file path metadata relocatable stripping
+    # the current directory from it.
+    command += [
+        "-coverage-prefix-map",
+        f"{os.getcwd()}=.",
+    ]
 
     result = subprocess.run(
         command,
