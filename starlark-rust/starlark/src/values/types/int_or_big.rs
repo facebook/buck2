@@ -276,7 +276,7 @@ impl<'v> StarlarkIntRef<'v> {
             .into());
         }
         // In Rust `i32::min_value() % -1` is overflow, but we should eval it to zero.
-        if a == i32::min_value() && b == -1 {
+        if a == i32::MIN && b == -1 {
             return Ok(InlineInt::ZERO);
         }
         let r = a % b;

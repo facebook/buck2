@@ -307,11 +307,8 @@ mod tests {
     fn length_start_stop() {
         assert_eq!(Some(20), range_start_stop(10, 30).length().ok());
         assert_eq!(Some(0), range_start_stop(10, -30).length().ok());
-        assert_eq!(
-            Some(i32::max_value()),
-            range_start_stop(0, i32::max_value()).length().ok()
-        );
-        assert!(range_start_stop(-1, i32::max_value()).length().is_err());
+        assert_eq!(Some(i32::MAX), range_start_stop(0, i32::MAX).length().ok());
+        assert!(range_start_stop(-1, i32::MAX).length().is_err());
     }
 
     #[test]

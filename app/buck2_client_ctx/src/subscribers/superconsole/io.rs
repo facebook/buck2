@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_words_to_lines() {
-        assert_eq!(vec![String::new(); 0], words_to_lines(vec![], 5));
+        assert_eq!(Vec::<String>::new(), words_to_lines(vec![], 5));
         assert_eq!(
             vec!["ab".to_owned()],
             words_to_lines(vec!["ab".to_owned()], 5)

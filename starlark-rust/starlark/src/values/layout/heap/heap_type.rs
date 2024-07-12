@@ -33,7 +33,6 @@ use std::ops::Deref;
 use std::ptr;
 use std::slice;
 use std::sync::Arc;
-use std::usize;
 
 use allocative::Allocative;
 use bumpalo::Bump;

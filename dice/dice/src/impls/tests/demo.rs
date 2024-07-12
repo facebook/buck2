@@ -85,34 +85,34 @@ struct Filesystem<'c, 'd>(&'c mut DiceComputations<'d>);
 #[display(fmt = "File({})", "_0.display()")]
 struct File(PathBuf);
 
+#[async_trait]
+impl Key for File {
+    type Value = Result<Arc<String>, Arc<anyhow::Error>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let encoding = ctx.encodings().get().await?;
+
+        let s = fs::read_to_string(&self.0).unwrap();
+
+        Ok(Arc::new(match encoding {
+            Encoding::Utf8 => s,
+            Encoding::Ascii => s.replace(":-)", "smile"),
+        }))
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
 impl<'c, 'd> Filesystem<'c, 'd> {
     async fn read_file(&mut self, file: &Path) -> Result<Arc<String>, Arc<anyhow::Error>> {
-        #[async_trait]
-        impl Key for File {
-            type Value = Result<Arc<String>, Arc<anyhow::Error>>;
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
-            ) -> Self::Value {
-                let encoding = ctx.encodings().get().await?;
-
-                let s = fs::read_to_string(&self.0).unwrap();
-
-                Ok(Arc::new(match encoding {
-                    Encoding::Utf8 => s,
-                    Encoding::Ascii => s.replace(":-)", "smile"),
-                }))
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
-
         self.0
             .compute(&File(file.to_path_buf()))
             .await

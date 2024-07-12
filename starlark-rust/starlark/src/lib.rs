@@ -423,6 +423,7 @@
 #![allow(clippy::wrong_self_convention)]
 // FIXME: Temporary
 #![allow(clippy::useless_transmute)] // Seems to be a clippy bug, but we should be using less transmute anyway
+#![allow(clippy::zero_repeat_side_effects)]
 #![deny(missing_docs)]
 
 mod macros;
