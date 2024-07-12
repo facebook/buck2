@@ -58,6 +58,7 @@ nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 common-path = { workspace = true }
+winapi = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

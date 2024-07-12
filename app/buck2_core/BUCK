@@ -37,6 +37,7 @@ rust_library(
             "windows",
             [
                 "fbsource//third-party/rust:common-path",
+                "fbsource//third-party/rust:winapi",
             ],
         ),
     ],

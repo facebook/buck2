@@ -546,6 +546,73 @@ pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     )
 }
 
+/// Free disk space on given path. Path does not have to be disk root.
+/// When the path does not exist, the behavior is not specified.
+pub fn free_disk_space<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<u64> {
+    #[cfg(not(windows))]
+    fn free_disk_space_impl(path: &Path) -> anyhow::Result<u64> {
+        use std::ffi::CString;
+        use std::mem::MaybeUninit;
+        use std::os::unix::ffi::OsStrExt;
+
+        let path_c = CString::new(path.as_os_str().as_bytes())
+            .with_context(|| format!("Failed to convert path to CString: {:?}", path))?;
+        let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
+        unsafe {
+            let r = libc::statvfs(path_c.as_ptr(), &mut statvfs);
+            if r != 0 {
+                let e = io::Error::last_os_error();
+                return Err(IoError {
+                    op: format!("statvfs({})", path.display()),
+                    e,
+                }
+                .into());
+            }
+        }
+        u64::from(statvfs.f_bavail)
+            .checked_mul(u64::from(statvfs.f_frsize))
+            .with_context(|| {
+                format!(
+                    "Multiplication overflow for statvfs for `{}`",
+                    path.display()
+                )
+            })
+    }
+
+    #[cfg(windows)]
+    fn free_disk_space_impl(path: &Path) -> anyhow::Result<u64> {
+        use std::mem::MaybeUninit;
+        use std::ptr;
+
+        use buck2_util::win::os_str_to_wide_null_term;
+
+        let path_c = os_str_to_wide_null_term(path.as_os_str());
+
+        unsafe {
+            let mut free_bytes =
+                MaybeUninit::<winapi::shared::ntdef::ULARGE_INTEGER>::zeroed().assume_init();
+            let r = winapi::um::fileapi::GetDiskFreeSpaceExW(
+                path_c.as_ptr(),
+                &mut free_bytes as *mut _, // lpFreeBytesAvailableToCaller
+                ptr::null_mut(),           // lpTotalNumberOfBytes
+                ptr::null_mut(),           // lpTotalNumberOfFreeBytes
+            );
+            if r == 0 {
+                let e = io::Error::last_os_error();
+                return Err(IoError {
+                    op: format!("GetDiskFreeSpaceExW({})", path.display()),
+                    e,
+                }
+                .into());
+            }
+            Ok(*free_bytes.QuadPart())
+        }
+    }
+
+    let _guard = IoCounterKey::Stat.guard();
+    free_disk_space_impl(path.as_ref())
+}
+
 pub struct FileWriteGuard {
     file: File,
     _guard: IoCounterGuard,
@@ -1169,6 +1236,15 @@ mod tests {
         let path = root.join("foo.txt");
         let _file = fs_util::create_file_if_not_exists(&path)?.unwrap();
         assert!(fs_util::create_file_if_not_exists(path)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_free_disk_space() -> anyhow::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let free_space = fs_util::free_disk_space(&root)?;
+        assert!(free_space > 0);
         Ok(())
     }
 }
