@@ -12,6 +12,8 @@
 use std::sync::Arc;
 
 use buck2_common::events::HasEvents;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -57,9 +59,23 @@ pub(crate) async fn eval_cquery(
         )),
     };
 
+    // Here we use queue to pass universes from `eval_query` callback to this function.
+    // This is ugly, but I (Stiopa) cannot figure out how to do it in a better way,
+    // without introducing a lot of complexity (generics, downcasting)
+    // through query evaluation stack.
+    let (universes_tx_value, universes_rx) = std::sync::mpsc::channel();
+
+    if let Some(target_universe) = &target_universe {
+        universes_tx_value
+            .send(target_universe.dupe())
+            .internal_error("Must be open")?;
+    }
+
+    let universes_tx = &universes_tx_value;
+
     let target_universe = &target_universe;
 
-    eval_query(
+    let result = eval_query(
         dispatcher,
         &functions,
         query,
@@ -69,7 +85,7 @@ pub(crate) async fn eval_cquery(
                 None => {
                     if literals.is_empty() {
                         console_message(
-                        "Query has no target literals and `--target-universe` is not specified.\n\
+                            "Query has no target literals and `--target-universe` is not specified.\n\
                         Such query is correct, but the result is always empty.\n\
                         Consider specifying `--target-universe` for this query\n\
                         or using `uquery` instead of `cquery`".to_owned());
@@ -82,12 +98,16 @@ pub(crate) async fn eval_cquery(
                         dice_query_delegate.query_data(),
                         &mut dice_query_delegate.ctx(),
                     )
-                    .await?;
+                        .await?;
+
+                    let universe = Arc::new(universe);
+
+                    universes_tx.send(universe.dupe()).internal_error("Must be open")?;
 
                     (
                         resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
                             .await?,
-                        Arc::new(universe),
+                        universe,
                     )
                 }
                 Some(universe) => (
@@ -103,7 +123,21 @@ pub(crate) async fn eval_cquery(
             ))
         },
     )
-    .await
+        .await?;
+
+    drop(universes_tx_value);
+
+    // TODO(nga): used in D59088676.
+    let _universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
+    match universes_rx.try_recv() {
+        Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
+        Err(std::sync::mpsc::TryRecvError::Empty) => {
+            return Err(internal_error!("tx must be closed at this moment"));
+        }
+        Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
+    }
+
+    Ok(result)
 }
 
 pub(crate) async fn preresolve_literals_and_build_universe(
