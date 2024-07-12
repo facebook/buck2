@@ -42,6 +42,7 @@ struct Stats {
     duration: Option<prost_types::Duration>,
     peak_used_disk_space_bytes: Option<u64>,
     total_disk_space_bytes: Option<u64>,
+    system_total_memory_bytes: Option<u64>,
 }
 
 impl Stats {
@@ -90,6 +91,7 @@ impl Stats {
                     }
                     Some(buck2_data::instant_event::Data::SystemInfo(system_info)) => {
                         self.total_disk_space_bytes = system_info.total_disk_space_bytes;
+                        self.system_total_memory_bytes = system_info.system_total_memory_bytes;
                     }
                     _ => {}
                 }
@@ -121,11 +123,15 @@ impl Display for Stats {
         writeln!(f, "remote actions: {}", self.total_remote_actions)?;
         writeln!(f, "other actions: {}", self.total_other_actions)?;
         writeln!(f, "targets analysed: {}", self.total_targets_analysed)?;
-        if let Some(peak_process_memory_bytes) = self.peak_process_memory_bytes {
+        if let (Some(peak_process_memory_bytes), Some(system_total_memory_bytes)) = (
+            self.peak_process_memory_bytes,
+            self.system_total_memory_bytes,
+        ) {
             writeln!(
                 f,
-                "peak process memory: {}",
-                HumanizedBytes::fixed_width(peak_process_memory_bytes)
+                "peak process memory: {} out of {}",
+                HumanizedBytes::fixed_width(peak_process_memory_bytes),
+                HumanizedBytes::fixed_width(system_total_memory_bytes)
             )?;
         }
         if let (Some(peak_used_disk_space_bytes), Some(total_disk_space_bytes)) =
