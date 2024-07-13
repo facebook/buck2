@@ -113,6 +113,7 @@ use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
+use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::ValueError;
 use crate::values::ValueIdentity;
@@ -1179,7 +1180,7 @@ impl StarlarkTypeRepr for FrozenValue {
 /// For details about each function, see the documentation for [`Value`],
 /// which provides the same functions (and more).
 pub trait ValueLike<'v>:
-    ValueLifetimeless + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
+    ValueLifetimeless + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
 {
     /// `StringValue` or `FrozenStringValue`.
     type String: StringValueLike<'v>;

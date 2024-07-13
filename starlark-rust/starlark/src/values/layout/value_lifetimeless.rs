@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use dupe::Dupe;
 use serde::Serialize;
 
 use crate::sealed::Sealed;
@@ -30,6 +31,7 @@ pub trait ValueLifetimeless:
     Sealed
     + Eq
     + Copy
+    + Dupe
     + Debug
     + Default
     + Display

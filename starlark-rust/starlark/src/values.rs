@@ -101,6 +101,7 @@ pub use crate::values::unpack_and_discard::UnpackAndDiscard;
 pub use crate::values::value_of::ValueOf;
 pub use crate::values::value_of_unchecked::FrozenValueOfUnchecked;
 pub use crate::values::value_of_unchecked::ValueOfUnchecked;
+pub use crate::values::value_of_unchecked::ValueOfUncheckedGeneric;
 
 mod alloc_value;
 mod comparison;
