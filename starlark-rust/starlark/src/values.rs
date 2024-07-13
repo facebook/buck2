@@ -30,6 +30,7 @@
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
+pub use layout::alloc_static_simple::AllocStaticSimple;
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::starlark_value;
 pub use starlark_derive::AllocFrozenValue;
