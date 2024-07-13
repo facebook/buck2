@@ -17,13 +17,14 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::FrozenValue;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
@@ -112,21 +113,18 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn as_dependency<'v>(
         this: &'v StarlarkAnalysisResult,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ValueTyped<'v, Dependency<'v>>> {
-        unsafe {
-            // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
-            // which is kept alive for 'v
-            Ok(heap.alloc_typed(Dependency::new(
-                heap,
-                this.label.clone(),
-                this.analysis
-                    .lookup_inner(&this.label)?
-                    .value()
-                    .to_frozen_value()
-                    .to_value(),
-                None,
-            )))
-        }
+        Ok(eval.heap().alloc_typed(Dependency::new(
+            eval.heap(),
+            this.label.clone(),
+            this.analysis
+                .lookup_inner(&this.label)?
+                .value()
+                .owned_frozen_value(eval.frozen_heap())
+                .to_value()
+                .to_value(),
+            None,
+        )))
     }
 }
