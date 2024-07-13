@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -25,18 +26,24 @@ use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
+use starlark::coerce::coerce;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::AllocFrozenValue;
+use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -112,13 +119,53 @@ pub struct ProviderCollectionGen<V: ValueLifetimeless> {
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,
 }
 
+pub type ProviderCollection<'v> = ProviderCollectionGen<Value<'v>>;
+pub type FrozenProviderCollection = ProviderCollectionGen<FrozenValue>;
+
 // Can't derive this since no instance for Arc
 unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
     Coerce<ProviderCollectionGen<To>> for ProviderCollectionGen<From>
 {
 }
 
-starlark_complex_value!(pub ProviderCollection);
+impl<'v> AllocValue<'v> for ProviderCollectionGen<Value<'v>> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex(self)
+    }
+}
+
+impl AllocFrozenValue for ProviderCollectionGen<FrozenValue> {
+    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+        heap.alloc_simple(self)
+    }
+}
+
+impl<'v> ProviderCollection<'v> {
+    #[inline]
+    pub fn from_value(x: Value<'v>) -> Option<&'v Self> {
+        if let Some(x) = x.unpack_frozen() {
+            ValueLike::downcast_ref::<FrozenProviderCollection>(x).map(coerce)
+        } else {
+            ValueLike::downcast_ref::<ProviderCollection<'v>>(x)
+        }
+    }
+}
+
+impl<'v> StarlarkTypeRepr for &'v ProviderCollection<'v> {
+    type Canonical = <ProviderCollection<'v> as StarlarkValue<'v>>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self::Canonical as StarlarkValue>::get_type_starlark_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for &'v ProviderCollection<'v> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        Ok(ProviderCollection::from_value(value))
+    }
+}
 
 impl<V: ValueLifetimeless> Display for ProviderCollectionGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
