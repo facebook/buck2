@@ -412,7 +412,7 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
 
             return Err(crate::Error::new_value(NotFrozenError {
                 expected: T::starlark_type_repr(),
-                value: value.display_for_type_error().to_string(),
+                value: value.to_string_for_type_error(),
             }));
         }
 

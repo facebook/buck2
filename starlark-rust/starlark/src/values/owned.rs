@@ -146,7 +146,7 @@ impl OwnedFrozenValue {
             Ok(v) => Ok(v),
             Err(this) => Err(OwnedError::WrongType(
                 T::TYPE,
-                this.value.to_value().display_for_type_error().to_string(),
+                this.value.to_value().to_string_for_type_error(),
             )
             .into()),
         }

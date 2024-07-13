@@ -198,7 +198,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
 
             crate::Error::new_value(IncorrectType(
                 U::starlark_type_repr(),
-                value.display_for_type_error().to_string(),
+                value.to_string_for_type_error(),
             ))
             .into_anyhow()
         }
@@ -219,7 +219,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
 
             crate::Error::new_value(IncorrectParameterTypeWithExpected(
                 U::starlark_type_repr(),
-                value.display_for_type_error().to_string(),
+                value.to_string_for_type_error(),
             ))
             .into_anyhow()
         }
@@ -241,7 +241,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             crate::Error::new_value(IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
                 U::starlark_type_repr(),
-                value.display_for_type_error().to_string(),
+                value.to_string_for_type_error(),
             ))
             .into_anyhow()
         }

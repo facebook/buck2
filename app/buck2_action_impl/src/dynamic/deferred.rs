@@ -180,7 +180,7 @@ impl DynamicLambda {
 
         if !return_value.is_none() {
             return Err(DynamicLambdaError::LambdaMustReturnNone(
-                return_value.display_for_type_error().to_string(),
+                return_value.to_string_for_type_error(),
             )
             .into());
         }

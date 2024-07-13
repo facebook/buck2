@@ -905,10 +905,8 @@ impl<'v> Value<'v> {
         request_value_impl(self)
     }
 
-    /// Return a string usable for error messages.
-    ///
-    /// If the value is too large, it may be truncated.
-    pub fn display_for_type_error(self) -> impl Display + 'v {
+    #[cold]
+    fn display_for_type_error(self) -> impl Display + 'v {
         fn split_at_safe(s: &str, index: usize) -> (&str, &str) {
             for index in index..s.len() {
                 if s.is_char_boundary(index) {
@@ -947,6 +945,14 @@ impl<'v> Value<'v> {
         }
 
         DisplayWithTypeImpl(self)
+    }
+
+    /// Return a string usable for error messages.
+    ///
+    /// If the value is too large, it may be truncated.
+    #[cold]
+    pub fn to_string_for_type_error(self) -> String {
+        self.display_for_type_error().to_string()
     }
 }
 
@@ -1237,7 +1243,7 @@ pub trait ValueLike<'v>:
             Some(v) => Ok(v),
             None => Err(ValueValueError::WrongType(
                 T::TYPE,
-                self.to_value().display_for_type_error().to_string(),
+                self.to_value().to_string_for_type_error(),
             )
             .into()),
         }
@@ -1434,14 +1440,14 @@ mod tests {
     fn test_display_for_type_error() {
         assert_eq!(
             "NoneType (repr: None)",
-            Value::new_none().display_for_type_error().to_string()
+            Value::new_none().to_string_for_type_error(),
         );
 
         let heap = Heap::new();
         let list = heap.alloc(AllocList(0..12345));
         assert_eq!(
             "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
-            list.display_for_type_error().to_string()
+            list.to_string_for_type_error(),
         );
     }
 }
