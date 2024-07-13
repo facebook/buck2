@@ -56,12 +56,6 @@ impl<T> AsRef<T> for Hashed<T> {
     }
 }
 
-impl<T> AsMut<T> for Hashed<T> {
-    fn as_mut(&mut self) -> &mut T {
-        &mut self.value
-    }
-}
-
 impl<T: Hash> From<T> for Hashed<T> {
     fn from(value: T) -> Self {
         Self::new(value)
