@@ -266,12 +266,17 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
         self.value.as_ref()
     }
 
+    /// Extract a [`FrozenValueTyped`] by passing the [`FrozenHeap`] which will keep it alive.
+    pub fn owned_frozen_value_typed(&self, heap: &FrozenHeap) -> FrozenValueTyped<'static, T> {
+        heap.add_reference(&self.owner);
+        self.value
+    }
+
     /// Extract a [`FrozenValue`] by passing the [`FrozenHeap`] which will keep it alive.
     ///
     /// See [`OwnedFrozenValue::owned_frozen_value`].
     pub fn owned_frozen_value(&self, heap: &FrozenHeap) -> FrozenValue {
-        heap.add_reference(&self.owner);
-        self.value.to_frozen_value()
+        self.owned_frozen_value_typed(heap).to_frozen_value()
     }
 
     /// Extract a [`Value`] by passing the [`FrozenHeap`] which will promise to keep it alive.
