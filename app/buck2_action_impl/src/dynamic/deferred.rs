@@ -260,7 +260,7 @@ impl Deferred for DynamicLambda {
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
         let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
-            eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await
+            eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await?
         } else {
             let proto_rule = "dynamic_lambda".to_owned();
 
@@ -330,7 +330,7 @@ impl Deferred for DynamicLambda {
                     declared_outputs
                         .into_iter()
                         .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-                        .collect::<anyhow::Result<Vec<_>>>()
+                        .collect::<anyhow::Result<Vec<_>>>()?
                 };
 
                 (
@@ -349,7 +349,7 @@ impl Deferred for DynamicLambda {
             .await?
         };
         Ok(DeferredValue::Ready(DynamicLambdaOutput {
-            output: output?.into_boxed_slice(),
+            output: output.into_boxed_slice(),
         }))
     }
 
