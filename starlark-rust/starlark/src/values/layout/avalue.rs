@@ -210,6 +210,8 @@ fn clear_lsb(x: usize) -> usize {
     x & !1
 }
 
+/// For types which are only allocated statically (never in heap).
+/// Technically we can use `AValueSimple` for these, but this is more explicit and safe.
 pub(crate) struct AValueBasic<T>(PhantomData<T>);
 
 impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
@@ -218,11 +220,11 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
     type ExtraElem = ();
 
     fn extra_len(_value: &T) -> usize {
-        0
+        unreachable!("Basic types don't appear in the heap")
     }
 
     fn offset_of_extra() -> usize {
-        mem::size_of::<Self>()
+        unreachable!("Basic types don't appear in the heap")
     }
 
     unsafe fn heap_freeze(
