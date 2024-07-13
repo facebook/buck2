@@ -40,12 +40,14 @@ use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocFrozenValue;
+use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
@@ -128,15 +130,32 @@ unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
 {
 }
 
+fn empty_provider_collection_value() -> FrozenValueTyped<'static, FrozenProviderCollection> {
+    static EMPTY: AllocStaticSimple<FrozenProviderCollection> =
+        AllocStaticSimple::alloc(FrozenProviderCollection {
+            providers: SmallMap::new(),
+        });
+    EMPTY.unpack()
+}
+
 impl<'v> AllocValue<'v> for ProviderCollectionGen<Value<'v>> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
+        if self.providers.is_empty() {
+            // Provider collection is immutable, so it's OK to return frozen value here.
+            empty_provider_collection_value().to_value()
+        } else {
+            heap.alloc_complex(self)
+        }
     }
 }
 
 impl AllocFrozenValue for ProviderCollectionGen<FrozenValue> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        heap.alloc_simple(self)
+        if self.providers.is_empty() {
+            empty_provider_collection_value().to_frozen_value()
+        } else {
+            heap.alloc_simple(self)
+        }
     }
 }
 
