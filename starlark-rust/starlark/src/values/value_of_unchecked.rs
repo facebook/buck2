@@ -18,6 +18,7 @@
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
@@ -87,6 +88,12 @@ impl<V: ValueLifetimeless, T: StarlarkTypeRepr> Debug for ValueOfUncheckedGeneri
         f.debug_tuple("ValueOfUnchecked")
             .field(&self.get())
             .finish()
+    }
+}
+
+impl<V: ValueLifetimeless, T: StarlarkTypeRepr> Display for ValueOfUncheckedGeneric<V, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.get(), f)
     }
 }
 
