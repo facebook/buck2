@@ -11,6 +11,7 @@ use std::process::Stdio;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::path_arg::PathArg;
+use buck2_common::init::LogDownloadMethod;
 use buck2_common::temp_path::TempPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -30,8 +31,8 @@ use rand::Rng;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum EventLogOptionsError {
-    #[error("Manifold failed; stderr:\n{}", indent("  ", _0))]
-    ManifoldFailed(String),
+    #[error("{0} failed; stderr:\n{}", indent("  ", _1))]
+    DownloadFailed(String, String),
     #[error("Log not found locally by trace id `{0}`")]
     LogNotFoundLocally(TraceId),
 }
@@ -97,7 +98,7 @@ impl EventLogOptions {
         trace_id: &TraceId,
         ctx: &ClientCommandContext<'_>,
     ) -> buck2_error::Result<AbsPathBuf> {
-        let manifold_file_name = FileNameBuf::try_from(format!(
+        let log_file_name = FileNameBuf::try_from(format!(
             "{}{}",
             trace_id,
             // TODO(nga): hardcoded default, should at least use the same default buck2 uses,
@@ -108,7 +109,7 @@ impl EventLogOptions {
         let log_path = ctx
             .paths()?
             .log_dir()
-            .join(FileName::new(&format!("dl-{}", manifold_file_name))?);
+            .join(FileName::new(&format!("dl-{}", log_file_name))?);
 
         if fs_util::try_exists(&log_path)? {
             return Ok(log_path.into_abs_path_buf());
@@ -118,34 +119,69 @@ impl EventLogOptions {
         fs_util::create_dir_all(&tmp_dir)?;
         let temp_path = tmp_dir.join(FileName::new(&format!(
             "dl.{}.{}.tmp",
-            manifold_file_name,
+            log_file_name,
             Self::random_string()
         ))?);
 
         // Delete the file on failure.
         let temp_path = TempPath::new_path(temp_path);
+        let (command_name, command) = match ctx.log_download_method() {
+            LogDownloadMethod::Manifold => {
+                let args = [
+                    "get",
+                    &format!("buck2_logs/flat/{}", log_file_name),
+                    temp_path
+                        .path()
+                        .as_os_str()
+                        .to_str()
+                        .buck_error_context("temp_path is not valid UTF-8")?,
+                ];
+                buck2_client_ctx::eprintln!("Spawning: manifold {}", args.join(" "))?;
+                (
+                    "Manifold",
+                    async_background_command("manifold")
+                        .args(args)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::piped())
+                        .spawn()?,
+                )
+            }
+            LogDownloadMethod::Curl(log_url) => {
+                let log_url = log_url.trim_end_matches('/');
 
-        let args = [
-            "get",
-            &format!("buck2_logs/flat/{}", manifold_file_name),
-            temp_path
-                .path()
-                .as_os_str()
-                .to_str()
-                .buck_error_context("temp_path is not valid UTF-8")?,
-        ];
-        buck2_client_ctx::eprintln!("Spawning: manifold {}", args.join(" "))?;
-        let command = async_background_command("manifold")
-            .args(args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()?;
+                let args = [
+                    "--fail",
+                    "-L",
+                    &format!("{}/v1/logs/get/{}", log_url, trace_id),
+                    "-o",
+                    temp_path
+                        .path()
+                        .as_os_str()
+                        .to_str()
+                        .buck_error_context("temp_path is not valid UTF-8")?,
+                ];
+                buck2_client_ctx::eprintln!("Spawning: curl {}", args.join(" "))?;
+                (
+                    "Curl",
+                    async_background_command("curl")
+                        .args(&args)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::piped())
+                        .spawn()?,
+                )
+            }
+            LogDownloadMethod::None => {
+                return Err(EventLogOptionsError::LogNotFoundLocally(trace_id.dupe()).into());
+            }
+        };
 
         // No timeout here, just press Ctrl-C if you want it to cancel.
         let result = command.wait_with_output().await?;
         if !result.status.success() {
-            return Err(EventLogOptionsError::ManifoldFailed(
+            return Err(EventLogOptionsError::DownloadFailed(
+                command_name.to_owned(),
                 String::from_utf8_lossy(&result.stderr).into_owned(),
             )
             .into());
