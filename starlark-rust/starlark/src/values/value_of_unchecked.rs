@@ -171,10 +171,10 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     }
 }
 
-impl<'f, T: StarlarkTypeRepr> FrozenValueOfUnchecked<'f, T> {
+impl<'v, V: ValueLike<'v>, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
     /// Convert to a value.
     #[inline]
-    pub fn to_value(self) -> ValueOfUnchecked<'f, T> {
+    pub fn to_value(self) -> ValueOfUnchecked<'v, T> {
         ValueOfUnchecked::new(self.0.to_value())
     }
 }
