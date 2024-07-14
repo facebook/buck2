@@ -21,6 +21,7 @@ use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigParserFileOps;
+use crate::legacy_configs::configs::ConfigSectionAndKey;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, allocative::Allocative)]
@@ -46,16 +47,21 @@ pub(crate) struct ResolvedConfigFlag {
 
 impl LegacyConfigCmdArgFlag {
     pub fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFlag> {
-        let (cell, val) = match val.split_once("//") {
+        let (cell, raw_arg) = match val.split_once("//") {
             Some((cell, val)) if !cell.contains('=') => (Some(cell.to_owned()), val),
             _ => (None, val),
         };
 
-        let ParsedConfigArg {
-            section,
-            key,
-            value,
-        } = parse_config_arg(val)?;
+        let (raw_section_and_key, raw_value) = raw_arg
+            .split_once('=')
+            .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
+        let ConfigSectionAndKey { section, key } =
+            parse_config_section_and_key(raw_section_and_key, Some(raw_arg))?;
+
+        let value = match raw_value {
+            "" => None, // An empty string unsets this config.
+            v => Some(v.to_owned()),
+        };
 
         Ok(LegacyConfigCmdArgFlag {
             cell,
@@ -92,31 +98,6 @@ pub struct LegacyConfigCmdArgFlag {
 pub struct LegacyConfigCmdArgFile {
     cell: Option<String>,
     path: String,
-}
-
-struct ParsedConfigArg {
-    section: String,
-    key: String,
-    value: Option<String>,
-}
-
-/// Parses key-value pairs in the format `section.key=value` or `section.key=`.
-fn parse_config_arg(raw_arg: &str) -> anyhow::Result<ParsedConfigArg> {
-    let (raw_section_and_key, raw_value) = raw_arg
-        .split_once('=')
-        .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
-    let config_section_and_key = parse_config_section_and_key(raw_section_and_key, Some(raw_arg))?;
-
-    let value = match raw_value {
-        "" => None, // An empty string unsets this config.
-        v => Some(v.to_owned()),
-    };
-
-    Ok(ParsedConfigArg {
-        section: config_section_and_key.section,
-        key: config_section_and_key.key,
-        value,
-    })
 }
 
 /// State required to perform resolution of cell-relative paths.
@@ -227,19 +208,19 @@ pub(crate) fn resolve_config_args(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_config_arg;
+    use super::LegacyConfigCmdArgFlag;
 
     #[test]
     fn test_argument_pair() -> anyhow::Result<()> {
         // Valid Formats
 
-        let normal_pair = parse_config_arg("apple.key=value")?;
+        let normal_pair = LegacyConfigCmdArgFlag::new("apple.key=value")?;
 
         assert_eq!("apple", normal_pair.section);
         assert_eq!("key", normal_pair.key);
         assert_eq!(Some("value".to_owned()), normal_pair.value);
 
-        let unset_pair = parse_config_arg("apple.key=")?;
+        let unset_pair = LegacyConfigCmdArgFlag::new("apple.key=")?;
 
         assert_eq!("apple", unset_pair.section);
         assert_eq!("key", unset_pair.key);
@@ -247,15 +228,16 @@ mod tests {
 
         // Whitespace
 
-        let section_leading_whitespace = parse_config_arg("  apple.key=value")?;
+        let section_leading_whitespace = LegacyConfigCmdArgFlag::new("  apple.key=value")?;
         assert_eq!("apple", section_leading_whitespace.section);
         assert_eq!("key", section_leading_whitespace.key);
         assert_eq!(Some("value".to_owned()), section_leading_whitespace.value);
 
-        let pair_with_whitespace_in_key = parse_config_arg("apple. key=value");
+        let pair_with_whitespace_in_key = LegacyConfigCmdArgFlag::new("apple. key=value");
         assert!(pair_with_whitespace_in_key.is_err());
 
-        let pair_with_whitespace_in_value = parse_config_arg("apple.key= value with whitespace  ")?;
+        let pair_with_whitespace_in_value =
+            LegacyConfigCmdArgFlag::new("apple.key= value with whitespace  ")?;
         assert_eq!("apple", pair_with_whitespace_in_value.section);
         assert_eq!("key", pair_with_whitespace_in_value.key);
         assert_eq!(
@@ -265,13 +247,13 @@ mod tests {
 
         // Invalid Formats
 
-        let pair_without_section = parse_config_arg("key=value");
+        let pair_without_section = LegacyConfigCmdArgFlag::new("key=value");
         assert!(pair_without_section.is_err());
 
-        let pair_without_equals = parse_config_arg("apple.keyvalue");
+        let pair_without_equals = LegacyConfigCmdArgFlag::new("apple.keyvalue");
         assert!(pair_without_equals.is_err());
 
-        let pair_without_section_or_equals = parse_config_arg("applekeyvalue");
+        let pair_without_section_or_equals = LegacyConfigCmdArgFlag::new("applekeyvalue");
         assert!(pair_without_section_or_equals.is_err());
 
         Ok(())
