@@ -46,7 +46,7 @@ pub(crate) struct ResolvedConfigFlag {
 }
 
 impl LegacyConfigCmdArgFlag {
-    pub fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFlag> {
+    fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFlag> {
         let (cell, raw_arg) = match val.split_once("//") {
             Some((cell, val)) if !cell.contains('=') => (Some(cell.to_owned()), val),
             _ => (None, val),
@@ -73,7 +73,7 @@ impl LegacyConfigCmdArgFlag {
 }
 
 impl LegacyConfigCmdArgFile {
-    pub fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFile> {
+    fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFile> {
         let (cell, val) = match val.split_once("//") {
             Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
             _ => (None, val),
@@ -87,7 +87,7 @@ impl LegacyConfigCmdArgFile {
 }
 
 #[derive(Debug)]
-pub struct LegacyConfigCmdArgFlag {
+struct LegacyConfigCmdArgFlag {
     cell: Option<String>,
     section: String,
     key: String,
@@ -95,7 +95,7 @@ pub struct LegacyConfigCmdArgFlag {
 }
 
 #[derive(Debug)]
-pub struct LegacyConfigCmdArgFile {
+struct LegacyConfigCmdArgFile {
     cell: Option<String>,
     path: String,
 }
