@@ -64,8 +64,7 @@ fn default_info_is_available() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn default_info_validates_types() -> buck2_error::Result<()> {
-    // TODO(nmj): More complex types
+fn default_info_validates_types_1() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
     tester.run_starlark_bzl_test_expecting_error(
@@ -80,6 +79,13 @@ fn default_info_validates_types() -> buck2_error::Result<()> {
         "Type of parameter",
     );
 
+    Ok(())
+}
+
+#[test]
+fn default_info_validates_types_2() -> buck2_error::Result<()> {
+    let mut tester = Tester::new().unwrap();
+    tester.additional_globals(register_rule_defs);
     tester.run_starlark_bzl_test_expecting_error(
         indoc!(
             r#"
@@ -89,7 +95,7 @@ fn default_info_validates_types() -> buck2_error::Result<()> {
                 DefaultInfo(sub_targets=hide_type([]), default_outputs=["foo"])
             "#
         ),
-        "Type of parameter",
+        "Expected type",
     );
 
     Ok(())

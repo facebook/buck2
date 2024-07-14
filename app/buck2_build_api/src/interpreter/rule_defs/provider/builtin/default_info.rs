@@ -40,7 +40,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueError;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
@@ -373,8 +372,12 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenDefaultInfo)]
     fn DefaultInfo<'v>(
         // TODO(nga): parameters must be named only.
-        #[starlark(default = NoneOr::None)] default_output: NoneOr<Value<'v>>,
-        #[starlark(default = NoneOr::None)] default_outputs: NoneOr<Value<'v>>,
+        #[starlark(default = NoneOr::None)] default_output: NoneOr<
+            ValueOf<'v, ValueAsArtifactLike<'v>>,
+        >,
+        #[starlark(default = NoneOr::None)] default_outputs: NoneOr<
+            ValueOf<'v, UnpackList<UnpackAndDiscard<ValueAsArtifactLike<'v>>>>,
+        >,
         #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
         other_outputs: ValueOf<
             'v,
@@ -391,38 +394,11 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         // support both list and singular options for now until we migrate all the rules.
         let valid_default_outputs =
             match (default_outputs.into_option(), default_output.into_option()) {
-                (Some(default_outputs), None) => match ListRef::from_value(default_outputs) {
-                    Some(list) => {
-                        if list
-                            .iter()
-                            .all(|v| ValueAsArtifactLike::unpack_value(v).unwrap().is_some())
-                        {
-                            default_outputs
-                        } else {
-                            return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
-                                "default_outputs".to_owned()
-                            )));
-                        }
-                    }
-                    None => {
-                        return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
-                            "default_outputs".to_owned()
-                        )));
-                    }
-                },
+                (Some(list), None) => list.value,
                 (None, Some(default_output)) => {
                     // handle where we didn't specify `default_outputs`, which means we should use the new
                     // `default_output`.
-                    if ValueAsArtifactLike::unpack_value(default_output)
-                        .into_anyhow_result()?
-                        .is_some()
-                    {
-                        eval.heap().alloc(AllocList([default_output]))
-                    } else {
-                        return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
-                            "default_output".to_owned()
-                        )));
-                    }
+                    eval.heap().alloc(AllocList([default_output.value]))
                 }
                 (None, None) => eval.heap().alloc(AllocList::EMPTY),
                 (Some(_), Some(_)) => {
