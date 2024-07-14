@@ -27,7 +27,7 @@ use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
-use starlark::values::none::NoneType;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::FrozenHeap;
@@ -373,8 +373,8 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenDefaultInfo)]
     fn DefaultInfo<'v>(
         // TODO(nga): parameters must be named only.
-        #[starlark(default = NoneType)] default_output: Value<'v>,
-        #[starlark(default = NoneType)] default_outputs: Value<'v>,
+        #[starlark(default = NoneOr::None)] default_output: NoneOr<Value<'v>>,
+        #[starlark(default = NoneOr::None)] default_outputs: NoneOr<Value<'v>>,
         #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
         other_outputs: ValueOf<
             'v,
@@ -389,46 +389,46 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs = if !default_outputs.is_none() {
-            match ListRef::from_value(default_outputs) {
-                Some(list) => {
-                    if !default_output.is_none() {
-                        return Err(anyhow::anyhow!(DefaultOutputError::ConflictingArguments));
+        let valid_default_outputs =
+            match (default_outputs.into_option(), default_output.into_option()) {
+                (Some(default_outputs), None) => match ListRef::from_value(default_outputs) {
+                    Some(list) => {
+                        if list
+                            .iter()
+                            .all(|v| ValueAsArtifactLike::unpack_value(v).unwrap().is_some())
+                        {
+                            default_outputs
+                        } else {
+                            return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
+                                "default_outputs".to_owned()
+                            )));
+                        }
                     }
-
-                    if list
-                        .iter()
-                        .all(|v| ValueAsArtifactLike::unpack_value(v).unwrap().is_some())
-                    {
-                        default_outputs
-                    } else {
+                    None => {
                         return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
                             "default_outputs".to_owned()
                         )));
                     }
+                },
+                (None, Some(default_output)) => {
+                    // handle where we didn't specify `default_outputs`, which means we should use the new
+                    // `default_output`.
+                    if ValueAsArtifactLike::unpack_value(default_output)
+                        .into_anyhow_result()?
+                        .is_some()
+                    {
+                        eval.heap().alloc(AllocList([default_output]))
+                    } else {
+                        return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
+                            "default_output".to_owned()
+                        )));
+                    }
                 }
-                None => {
-                    return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
-                        "default_outputs".to_owned()
-                    )));
+                (None, None) => eval.heap().alloc(AllocList::EMPTY),
+                (Some(_), Some(_)) => {
+                    return Err(DefaultOutputError::ConflictingArguments.into());
                 }
-            }
-        } else {
-            // handle where we didn't specify `default_outputs`, which means we should use the new
-            // `default_output`.
-            if default_output.is_none() {
-                eval.heap().alloc(AllocList::EMPTY)
-            } else if ValueAsArtifactLike::unpack_value(default_output)
-                .into_anyhow_result()?
-                .is_some()
-            {
-                eval.heap().alloc(AllocList([default_output]))
-            } else {
-                return Err(anyhow::anyhow!(ValueError::IncorrectParameterTypeNamed(
-                    "default_output".to_owned()
-                )));
-            }
-        };
+            };
 
         let valid_sub_targets = sub_targets
             .entries
