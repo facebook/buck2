@@ -28,6 +28,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -56,7 +57,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 )]
 #[repr(C)]
 pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
-    pub(super) declared_artifact: V,
+    pub(super) declared_artifact: ValueOfUncheckedGeneric<V, StarlarkDeclaredArtifact>,
 }
 
 starlark_complex_value!(pub StarlarkOutputArtifact);
@@ -84,12 +85,12 @@ impl Display for FrozenStarlarkOutputArtifact {
 impl<'v> StarlarkOutputArtifact<'v> {
     pub fn new(v: ValueTyped<'v, StarlarkDeclaredArtifact>) -> Self {
         Self {
-            declared_artifact: v.to_value(),
+            declared_artifact: v.to_value_of_unchecked(),
         }
     }
 
     pub(crate) fn inner(&self) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
-        ValueTyped::new_err(self.declared_artifact).unwrap()
+        ValueTyped::new_err(self.declared_artifact.get()).unwrap()
     }
 
     pub fn artifact(&self) -> OutputArtifact {
@@ -99,7 +100,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
 
 impl FrozenStarlarkOutputArtifact {
     pub(crate) fn inner(&self) -> FrozenValueTyped<StarlarkArtifact> {
-        FrozenValueTyped::new_err(self.declared_artifact).unwrap()
+        FrozenValueTyped::new_err(self.declared_artifact.get()).unwrap()
     }
 
     pub fn artifact(&self) -> OutputArtifact {
