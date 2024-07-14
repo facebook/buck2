@@ -22,8 +22,8 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
-use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDictRef;
+use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
@@ -34,6 +34,7 @@ use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -368,10 +369,14 @@ enum DefaultOutputError {
 fn default_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenDefaultInfo)]
     fn DefaultInfo<'v>(
+        // TODO(nga): parameters must be named only.
         #[starlark(default = NoneType)] default_output: Value<'v>,
         #[starlark(default = NoneType)] default_outputs: Value<'v>,
         #[starlark(default = AllocList::EMPTY)] other_outputs: Value<'v>,
-        #[starlark(default = SmallMap::new())] sub_targets: SmallMap<String, Value<'v>>,
+        #[starlark(default = UnpackDictEntries::default())] sub_targets: UnpackDictEntries<
+            StringValue<'v>,
+            Value<'v>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
@@ -434,20 +439,18 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         .map_err(|_| ValueError::IncorrectParameterTypeNamed("other_outputs".to_owned()))?;
 
         let valid_sub_targets = sub_targets
+            .entries
             .into_iter()
             .map(|(k, v)| {
                 let as_provider_collection = ProviderCollection::try_from_value_subtarget(v, heap)?;
-                Ok((
-                    heap.alloc_str(&k).get_hashed_value(),
-                    heap.alloc(as_provider_collection),
-                ))
+                Ok((k, heap.alloc(as_provider_collection)))
             })
-            .collect::<anyhow::Result<SmallMap<Value<'v>, Value<'v>>>>()?;
+            .collect::<anyhow::Result<Vec<(StringValue<'v>, Value<'v>)>>>()?;
 
         Ok(DefaultInfo {
             default_outputs: valid_default_outputs,
             other_outputs: valid_other_outputs,
-            sub_targets: heap.alloc(Dict::new(valid_sub_targets)),
+            sub_targets: heap.alloc(AllocDict(valid_sub_targets)),
         })
     }
 }
