@@ -22,7 +22,6 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::legacy_configs::configs::ConfigArgumentPair;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigData;
 use crate::legacy_configs::configs::ConfigFileLocation;
@@ -32,6 +31,7 @@ use crate::legacy_configs::configs::ConfigValue;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::Location;
+use crate::legacy_configs::configs::ResolvedConfigFlag;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
 
 mod resolver;
@@ -170,7 +170,7 @@ impl LegacyConfigParser {
 
     pub(crate) fn apply_config_arg(
         &mut self,
-        config_pair: &ConfigArgumentPair,
+        config_pair: &ResolvedConfigFlag,
         current_cell_path: AbsNormPathBuf,
     ) -> anyhow::Result<()> {
         for banned_section in ["repositories", "cells"] {

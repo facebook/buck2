@@ -105,7 +105,7 @@ impl Location {
 }
 
 #[derive(Clone, Debug, PartialEq, allocative::Allocative)]
-pub(crate) struct ConfigArgumentPair {
+pub(crate) struct ResolvedConfigFlag {
     pub(crate) section: String,
     pub(crate) key: String,
     // None value means this config is unset.
@@ -179,7 +179,7 @@ pub struct LegacyConfigCmdArgFile {
 #[allow(private_interfaces)] // contents are not meant to be publicly inspectable
 pub enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
-    Flag(ConfigArgumentPair),
+    Flag(ResolvedConfigFlag),
     /// A file containing additional config values (in `.buckconfig` format).
     File(AbsNormPathBuf),
 }
@@ -464,7 +464,7 @@ impl LegacyBuckConfig {
         flag_arg: &LegacyConfigCmdArgFlag,
         cell_resolution: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<ConfigArgumentPair> {
+    ) -> anyhow::Result<ResolvedConfigFlag> {
         let cell_path = flag_arg
             .cell
             .as_ref()
@@ -480,7 +480,7 @@ impl LegacyBuckConfig {
             })
             .transpose()?;
 
-        Ok(ConfigArgumentPair {
+        Ok(ResolvedConfigFlag {
             section: flag_arg.section.clone(),
             key: flag_arg.key.clone(),
             value: flag_arg.value.clone(),
@@ -528,7 +528,7 @@ impl LegacyBuckConfig {
         AbsNormPathBuf::try_from(file_arg.path.to_owned())
     }
 
-    pub(crate) fn process_config_args(
+    pub(crate) fn resolve_config_args(
         args: &[ConfigOverride],
         cell_resolution: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
@@ -687,7 +687,7 @@ pub mod testing {
             cell_resolver: OnceCell::new(),
         };
         let processed_config_args =
-            LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
+            LegacyBuckConfig::resolve_config_args(config_args, &cell_resolution, &mut file_ops)?;
         futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
             &[MainConfigFile {
                 path: path.to_buf(),
