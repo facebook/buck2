@@ -23,9 +23,12 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
+use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::FrozenConstraintSettingInfo;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_value()` target.
@@ -33,19 +36,17 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::C
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct ConstraintValueInfoGen<V: ValueLifetimeless> {
-    #[provider(field_type = ConstraintSettingInfo<'v>)]
-    setting: V,
-    #[provider(field_type = StarlarkTargetLabel)]
-    label: V,
+    setting: ValueOfUncheckedGeneric<V, FrozenConstraintSettingInfo>,
+    label: ValueOfUncheckedGeneric<V, StarlarkTargetLabel>,
 }
 
 impl<'v, V: ValueLike<'v>> ConstraintValueInfoGen<V> {
     pub(crate) fn setting(&self) -> ValueOf<'v, &'v ConstraintSettingInfo<'v>> {
-        ValueOf::unpack_value_err(self.setting.to_value()).expect("validated at construction")
+        ValueOf::unpack_value_err(self.setting.get().to_value()).expect("validated at construction")
     }
 
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {
-        ValueTyped::new_err(self.label.to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.label.get().to_value()).expect("validated at construction")
     }
 }
 
@@ -55,8 +56,8 @@ impl<'v> ConstraintValueInfo<'v> {
         label: ValueOf<'v, &'v StarlarkTargetLabel>,
     ) -> ConstraintValueInfo<'v> {
         ConstraintValueInfoGen {
-            setting: setting.value,
-            label: label.value,
+            setting: ValueOfUnchecked::new(setting.value),
+            label: label.as_unchecked().cast(),
         }
     }
 }
@@ -69,8 +70,8 @@ fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
     ) -> anyhow::Result<ConstraintValueInfo<'v>> {
         Ok(ConstraintValueInfo {
-            setting: *setting,
-            label: *label,
+            setting: ValueOfUnchecked::new(setting.value),
+            label: label.as_unchecked().cast(),
         })
     }
 }

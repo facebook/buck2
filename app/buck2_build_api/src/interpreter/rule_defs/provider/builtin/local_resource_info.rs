@@ -10,7 +10,6 @@
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::BuckErrorContext;
 use either::Either;
@@ -26,12 +25,17 @@ use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use crate::starlark::values::UnpackValue;
@@ -59,24 +63,23 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
     /// name resolved using mapping in `resource_env_vars` field and `"socket_address"` key will be added to
     /// execution command.
-    #[provider(field_type = StarlarkCmdArgs<'v>)]
-    setup: V,
+    setup: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
     /// Mapping from environment variable (appended to an execution command which is dependent on this local resource)
     /// to keys in setup command JSON output.
-    #[provider(field_type = DictType<String, String>)]
-    resource_env_vars: V,
+    resource_env_vars: ValueOfUncheckedGeneric<V, DictType<String, String>>,
     /// Timeout in seconds for `setup` command.
-    #[provider(field_type = NoneOr<f64>)]
-    setup_timeout_seconds: V,
+    setup_timeout_seconds: ValueOfUncheckedGeneric<V, NoneOr<UnpackFloat>>,
 }
 
 fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let env_vars =
-        UnpackDictEntries::<&str, &str>::unpack_value_err(info.resource_env_vars.to_value())
-            .context("Validating `resource_env_vars`")?;
+    let env_vars = info
+        .resource_env_vars
+        .cast::<UnpackDictEntries<&str, &str>>()
+        .unpack()
+        .into_anyhow_result()?;
     if env_vars.entries.is_empty() {
         return Err(anyhow::anyhow!(
             "Value for `resource_env_vars` field is an empty dictionary: `{}`",
@@ -84,7 +87,7 @@ where
         ));
     }
 
-    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.to_value())
+    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get().to_value())
         .internal_error("Validated in constructor")?;
     let setup_is_empty = match setup.unpack() {
         Either::Left(a) => a.is_empty(),
@@ -116,9 +119,12 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
         let setup = StarlarkCmdArgs::try_from_value_typed(setup)?;
         let result = LocalResourceInfo {
-            setup: eval.heap().alloc(setup),
-            resource_env_vars: resource_env_vars.value,
-            setup_timeout_seconds: eval.heap().alloc(setup_timeout_seconds),
+            setup: ValueOfUnchecked::<FrozenStarlarkCmdArgs>::new(eval.heap().alloc(setup)),
+            resource_env_vars: resource_env_vars.as_unchecked().cast(),
+            setup_timeout_seconds: match setup_timeout_seconds {
+                NoneOr::None => ValueOfUnchecked::new(Value::new_none()),
+                NoneOr::Other(s) => ValueOfUnchecked::new(s.value),
+            },
         };
         validate_local_resource_info(&result)?;
         Ok(result)
@@ -129,7 +135,7 @@ impl FrozenLocalResourceInfo {
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
     pub fn env_var_mapping(&self) -> IndexMap<String, String> {
-        let env_vars = DictRef::from_value(self.resource_env_vars.to_value()).unwrap();
+        let env_vars = DictRef::from_value(self.resource_env_vars.to_value().get()).unwrap();
         env_vars
             .iter()
             .map(|(k, v)| {
@@ -142,14 +148,14 @@ impl FrozenLocalResourceInfo {
     }
 
     pub fn setup_command_line(&self) -> &dyn CommandLineArgLike {
-        ValueAsCommandLineLike::unpack_value_err(self.setup.to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.setup.to_value().get())
             .unwrap()
             .0
     }
 
     pub fn setup_timeout(&self) -> Option<Duration> {
-        NoneOr::<UnpackFloat>::unpack_value(self.setup_timeout_seconds.to_value())
-            .unwrap()
+        self.setup_timeout_seconds
+            .unpack()
             .unwrap()
             .into_option()
             .map(|f| Duration::from_secs_f64(f.0))

@@ -22,10 +22,14 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 
+use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 
 /// Provider that signals that a rule can run using a worker
@@ -34,12 +38,10 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[repr(C)]
 pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
     // Configuration needed to spawn a new worker
-    #[provider(field_type = WorkerInfo<'v>)]
-    worker: V,
+    worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
-    #[provider(field_type = StarlarkCmdArgs<'v>)]
-    exe: V,
+    exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
 }
 
 #[starlark_module]
@@ -53,18 +55,18 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
         Ok(WorkerRunInfo {
-            worker: *worker,
-            exe: heap.alloc(valid_exe),
+            worker: ValueOfUnchecked::new(worker.to_value()),
+            exe: ValueOfUnchecked::new(heap.alloc(valid_exe)),
         })
     }
 }
 
 impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
     pub fn worker(&self) -> ValueTypedComplex<'v, WorkerInfo<'v>> {
-        ValueTypedComplex::new(self.worker.to_value()).expect("validated at construction")
+        ValueTypedComplex::new(self.worker.get().to_value()).expect("validated at construction")
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {
-        ValueTyped::new_err(self.exe.to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.exe.get().to_value()).expect("validated at construction")
     }
 }

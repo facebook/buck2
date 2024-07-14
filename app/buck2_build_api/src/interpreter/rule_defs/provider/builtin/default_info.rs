@@ -8,6 +8,7 @@
  */
 
 use std::fmt::Debug;
+use std::iter;
 use std::ptr;
 
 use allocative::Allocative;
@@ -33,6 +34,7 @@ use starlark::values::Freeze;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::StringValue;
@@ -43,6 +45,8 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::StarlarkResultExt;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -129,23 +133,20 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// `ProviderCollection`, this collection must include at least a `DefaultInfo` provider. The
     /// subtargets can have their own subtargets as well, which can be accessed by chaining them,
     /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
-    #[provider(field_type = DictType<String, ProviderCollection<'v>>)]
-    sub_targets: V,
+    sub_targets: ValueOfUncheckedGeneric<V, DictType<String, FrozenProviderCollection>>,
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly, or depended on as as a "source".
-    #[provider(field_type = Vec<StarlarkArtifact>)]
-    default_outputs: V,
+    default_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsArtifactLike<'static>>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
     /// be built by default if this rule is requested, but _not_ when it's depended
     /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
     /// itself), or `cmd_args`, which expand to all their inputs.
-    #[provider(field_type = Vec<ValueAsCommandLineLike<'v>>)]
-    other_outputs: V,
+    other_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsCommandLineLike<'static>>>,
 }
 
 fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
     // Check length of default outputs
-    let default_output_list = ListRef::from_value(info.default_outputs.to_value())
+    let default_output_list = ListRef::from_value(info.default_outputs.get().to_value())
         .expect("should be a list from constructor");
     if default_output_list.len() > 1 {
         tracing::info!("DefaultInfo.default_output should only have a maximum of 1 item.");
@@ -169,9 +170,9 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
 
 impl<'v> DefaultInfo<'v> {
     pub fn empty(heap: &'v Heap) -> Self {
-        let sub_targets = heap.alloc(AllocDict::EMPTY);
-        let default_outputs = heap.alloc(AllocList::EMPTY);
-        let other_outputs = heap.alloc(AllocList::EMPTY);
+        let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(heap.alloc(AllocDict::EMPTY));
+        let default_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
         DefaultInfo {
             sub_targets,
             default_outputs,
@@ -182,9 +183,13 @@ impl<'v> DefaultInfo<'v> {
 
 impl FrozenDefaultInfo {
     pub(crate) fn testing_empty(heap: &FrozenHeap) -> FrozenValueTyped<'static, FrozenDefaultInfo> {
-        let sub_targets = heap.alloc(AllocDict::EMPTY);
-        let default_outputs = heap.alloc(AllocList::EMPTY);
-        let other_outputs = heap.alloc(AllocList::EMPTY);
+        let sub_targets = heap
+            .alloc_typed_unchecked(AllocDict(
+                iter::empty::<(String, FrozenProviderCollection)>(),
+            ))
+            .cast();
+        let default_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
         FrozenValueTyped::new_err(heap.alloc(FrozenDefaultInfo {
             sub_targets,
             default_outputs,
@@ -197,7 +202,7 @@ impl FrozenDefaultInfo {
         &self,
         name: &str,
     ) -> anyhow::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
-        FrozenDictRef::from_frozen_value(self.sub_targets)
+        FrozenDictRef::from_frozen_value(self.sub_targets.get())
             .context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
@@ -218,7 +223,7 @@ impl FrozenDefaultInfo {
     fn default_outputs_impl(
         &self,
     ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<StarlarkArtifact>> + '_> {
-        let list = ListRef::from_frozen_value(self.default_outputs)
+        let list = ListRef::from_frozen_value(self.default_outputs.get())
             .context("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
@@ -246,7 +251,7 @@ impl FrozenDefaultInfo {
     }
 
     pub fn default_outputs_raw(&self) -> FrozenValue {
-        self.default_outputs
+        self.default_outputs.get()
     }
 
     fn sub_targets_impl(
@@ -254,7 +259,7 @@ impl FrozenDefaultInfo {
     ) -> anyhow::Result<
         impl Iterator<Item = anyhow::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>> + '_,
     > {
-        let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets)
+        let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets.get())
             .context("sub_targets should be a dict-like object")?;
 
         Ok(sub_targets.iter().map(|(k, v)| {
@@ -278,14 +283,14 @@ impl FrozenDefaultInfo {
     }
 
     pub fn sub_targets_raw(&self) -> FrozenValue {
-        self.sub_targets
+        self.sub_targets.get()
     }
 
     pub fn for_each_default_output_artifact_only(
         &self,
         processor: &mut dyn FnMut(Artifact),
     ) -> anyhow::Result<()> {
-        self.for_each_in_list(self.default_outputs, |value| {
+        self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
                 ValueAsArtifactLike::unpack_value_err(value)?
                     .0
@@ -299,7 +304,7 @@ impl FrozenDefaultInfo {
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> anyhow::Result<()> {
-        self.for_each_in_list(self.default_outputs, |value| {
+        self.for_each_in_list(self.default_outputs.get(), |value| {
             let others = ValueAsArtifactLike::unpack_value_err(value)?
                 .0
                 .get_associated_artifacts();
@@ -325,7 +330,7 @@ impl FrozenDefaultInfo {
             fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
         }
 
-        self.for_each_in_list(self.other_outputs, |value| {
+        self.for_each_in_list(self.other_outputs.get(), |value| {
             let arg_like = ValueAsCommandLineLike::unpack_value_err(value)?.0;
             arg_like.visit_artifacts(&mut Visitor(processor))?;
             Ok(())
@@ -392,15 +397,19 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs =
+        let valid_default_outputs: ValueOfUnchecked<Vec<ValueAsArtifactLike>> =
             match (default_outputs.into_option(), default_output.into_option()) {
-                (Some(list), None) => list.value,
+                (Some(list), None) => list.as_unchecked().cast(),
                 (None, Some(default_output)) => {
                     // handle where we didn't specify `default_outputs`, which means we should use the new
                     // `default_output`.
-                    eval.heap().alloc(AllocList([default_output.value]))
+                    eval.heap()
+                        .alloc_typed_unchecked(AllocList([default_output.as_unchecked()]))
+                        .cast()
                 }
-                (None, None) => eval.heap().alloc(AllocList::EMPTY),
+                (None, None) => {
+                    ValueOfUnchecked::<Vec<_>>::new(eval.heap().alloc(AllocList::EMPTY))
+                }
                 (Some(_), Some(_)) => {
                     return Err(DefaultOutputError::ConflictingArguments.into());
                 }
@@ -411,14 +420,21 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             .into_iter()
             .map(|(k, v)| {
                 let as_provider_collection = ProviderCollection::try_from_value_subtarget(v, heap)?;
-                Ok((k, heap.alloc(as_provider_collection)))
+                Ok((
+                    k,
+                    ValueOfUnchecked::<FrozenProviderCollection>::new(
+                        heap.alloc(as_provider_collection),
+                    ),
+                ))
             })
-            .collect::<anyhow::Result<Vec<(StringValue<'v>, Value<'v>)>>>()?;
+            .collect::<anyhow::Result<Vec<(StringValue<'v>, _)>>>()?;
 
         Ok(DefaultInfo {
             default_outputs: valid_default_outputs,
-            other_outputs: other_outputs.value,
-            sub_targets: heap.alloc(AllocDict(valid_sub_targets)),
+            other_outputs: other_outputs.as_unchecked().cast(),
+            sub_targets: heap
+                .alloc_typed_unchecked(AllocDict(valid_sub_targets))
+                .cast(),
         })
     }
 }

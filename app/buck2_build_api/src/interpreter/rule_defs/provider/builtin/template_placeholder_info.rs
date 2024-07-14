@@ -27,6 +27,8 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -83,15 +85,16 @@ enum TemplatePlaceholderInfoError {
 pub struct TemplatePlaceholderInfoGen<V: ValueLifetimeless> {
     // `Value` in both fields is command line arg.
     // TODO(nga): specify type more precisely.
-    #[provider(field_type = DictType<String, Value<'v>>)]
-    unkeyed_variables: V,
-    #[provider(field_type = DictType<String, Either<Value<'v>, DictType<String, Value<'v>>>>)]
-    keyed_variables: V,
+    unkeyed_variables: ValueOfUncheckedGeneric<V, DictType<String, FrozenValue>>,
+    keyed_variables: ValueOfUncheckedGeneric<
+        V,
+        DictType<String, Either<FrozenValue, DictType<String, FrozenValue>>>,
+    >,
 }
 
 impl FrozenTemplatePlaceholderInfo {
     pub fn unkeyed_variables(&self) -> SmallMap<FrozenRef<'static, str>, FrozenCommandLineArg> {
-        FrozenDictRef::from_frozen_value(self.unkeyed_variables)
+        FrozenDictRef::from_frozen_value(self.unkeyed_variables.get())
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
@@ -109,7 +112,7 @@ impl FrozenTemplatePlaceholderInfo {
         FrozenRef<'static, str>,
         Either<FrozenCommandLineArg, SmallMap<FrozenRef<'static, str>, FrozenCommandLineArg>>,
     > {
-        FrozenDictRef::from_frozen_value(self.keyed_variables)
+        FrozenDictRef::from_frozen_value(self.keyed_variables.get())
             .expect("should be a dict-like object")
             .iter()
             .map(|(k, v)| {
@@ -197,8 +200,8 @@ impl<'v> TemplatePlaceholderInfo<'v> {
         verify_variables_type("unkeyed_variables", unkeyed_variables)?;
         verify_variables_type("keyed_variables", keyed_variables)?;
         Ok(Self {
-            unkeyed_variables,
-            keyed_variables,
+            unkeyed_variables: ValueOfUnchecked::new(unkeyed_variables),
+            keyed_variables: ValueOfUnchecked::new(keyed_variables),
         })
     }
 }
@@ -207,6 +210,7 @@ impl<'v> TemplatePlaceholderInfo<'v> {
 fn template_placeholder_info_creator(builder: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenTemplatePlaceholderInfo)]
     fn TemplatePlaceholderInfo<'v>(
+        // TODO(nga): specify parameter types.
         #[starlark(default = AllocDict::EMPTY)] unkeyed_variables: Value<'v>,
         #[starlark(default = AllocDict::EMPTY)] keyed_variables: Value<'v>,
     ) -> anyhow::Result<TemplatePlaceholderInfo<'v>> {

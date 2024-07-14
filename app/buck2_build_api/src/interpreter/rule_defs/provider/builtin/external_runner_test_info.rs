@@ -33,6 +33,8 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -41,6 +43,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
+use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
@@ -52,86 +55,78 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 #[repr(C)]
 pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// A Starlark value representing the type of this test.
-    #[provider(field_type = String)]
-    test_type: V,
+    test_type: ValueOfUncheckedGeneric<V, String>,
 
     /// A Starlark value representing the command for this test. The external test runner is what
     /// gives meaning to this command.
-    /// This is of type `list[str | ArgLike]`.
-    #[provider(field_type = Vec<Either<String, FrozenValue>>)]
-    command: V,
+    command: ValueOfUncheckedGeneric<V, Vec<Either<String, FrozenValue>>>,
 
     /// A Starlark value representing the environment for this test. Here again, the external test
     /// runner is what will this meaning.
     /// This is of type `dict[str, ArgLike]`.
-    #[provider(field_type = DictType<String, FrozenValue>)]
-    env: V,
+    env: ValueOfUncheckedGeneric<V, DictType<String, FrozenValue>>,
 
     /// A starlark value representing the labels for this test.
-    #[provider(field_type = Vec<String>)]
-    labels: V,
+    labels: ValueOfUncheckedGeneric<V, Vec<String>>,
 
     /// A starlark value representing the contacts for this test. This is largely expected to be an
     /// oncall, though it's not validated in any way.
-    #[provider(field_type = Vec<String>)]
-    contacts: V,
+    contacts: ValueOfUncheckedGeneric<V, Vec<String>>,
 
     /// Whether this test should use relative paths
-    #[provider(field_type = bool)]
-    use_project_relative_paths: V,
+    use_project_relative_paths: ValueOfUncheckedGeneric<V, bool>,
 
     /// Whether this test should run from the project root, as opposed to the cell root
     ///
     /// Defaults to `True`.
-    #[provider(field_type = bool)]
-    run_from_project_root: V,
+    run_from_project_root: ValueOfUncheckedGeneric<V, bool>,
 
     /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
-    #[provider(field_type = StarlarkCommandExecutorConfig)]
-    default_executor: V,
+    default_executor: ValueOfUncheckedGeneric<V, StarlarkCommandExecutorConfig>,
 
     /// Executors that Tpx can use to override the default executor.
-    #[provider(field_type = DictType<String, StarlarkCommandExecutorConfig>)]
-    executor_overrides: V,
+    executor_overrides: ValueOfUncheckedGeneric<V, DictType<String, StarlarkCommandExecutorConfig>>,
 
     /// Mapping from a local resource type to a target with a corresponding provider.
     /// Required types are passed from test runner.
     /// If the value for a corresponding type is omitted it means local resource
     /// should be ignored when executing tests even if those are passed as required from test runner.
-    #[provider(field_type = DictType<String, Option<StarlarkConfiguredProvidersLabel>>)]
-    local_resources: V,
+    local_resources:
+        ValueOfUncheckedGeneric<V, DictType<String, Option<StarlarkConfiguredProvidersLabel>>>,
 
     /// Configuration needed to spawn a new worker. This worker will be used to run every single
     /// command related to test execution, including listing.
-    #[provider(field_type = WorkerInfo<'v>)]
-    worker: V,
+    worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
 impl FrozenExternalRunnerTestInfo {
     pub fn test_type(&self) -> &str {
-        self.test_type.to_value().unpack_str().unwrap()
+        self.test_type.to_value().get().unpack_str().unwrap()
     }
 
     pub fn command(&self) -> impl Iterator<Item = TestCommandMember<'_>> {
-        unwrap_all(iter_test_command(self.command.to_value()))
+        unwrap_all(iter_test_command(self.command.get().to_value()))
     }
 
     pub fn env(&self) -> impl Iterator<Item = (&str, &dyn CommandLineArgLike)> {
-        unwrap_all(iter_test_env(self.env.to_value()))
+        unwrap_all(iter_test_env(self.env.get().to_value()))
     }
 
     pub fn labels(&self) -> impl Iterator<Item = &str> {
-        unwrap_all(iter_opt_str_list(self.labels.to_value(), "labels"))
+        unwrap_all(iter_opt_str_list(self.labels.get().to_value(), "labels"))
     }
 
     pub fn contacts(&self) -> impl Iterator<Item = &str> {
-        unwrap_all(iter_opt_str_list(self.contacts.to_value(), "contacts"))
+        unwrap_all(iter_opt_str_list(
+            self.contacts.get().to_value(),
+            "contacts",
+        ))
     }
 
     pub fn use_project_relative_paths(&self) -> bool {
-        NoneOr::<bool>::unpack_value(self.use_project_relative_paths.to_value())
+        NoneOr::<bool>::unpack_value(self.use_project_relative_paths.get().to_value())
             .unwrap()
             .unwrap()
             .into_option()
@@ -139,7 +134,7 @@ impl FrozenExternalRunnerTestInfo {
     }
 
     pub fn run_from_project_root(&self) -> bool {
-        NoneOr::<bool>::unpack_value(self.run_from_project_root.to_value())
+        NoneOr::<bool>::unpack_value(self.run_from_project_root.get().to_value())
             .unwrap()
             .unwrap()
             .into_option()
@@ -147,23 +142,24 @@ impl FrozenExternalRunnerTestInfo {
     }
 
     pub fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
-        unpack_opt_executor(self.default_executor.to_value()).unwrap()
+        unpack_opt_executor(self.default_executor.get().to_value()).unwrap()
     }
 
     /// Access a specific executor override.
     pub fn executor_override(&self, key: &str) -> Option<&StarlarkCommandExecutorConfig> {
-        let executor_overrides = DictRef::from_value(self.executor_overrides.to_value()).unwrap();
+        let executor_overrides =
+            DictRef::from_value(self.executor_overrides.get().to_value()).unwrap();
         executor_overrides
             .get_str(key)
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
     pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
-        unwrap_all(iter_local_resources(self.local_resources.to_value())).collect()
+        unwrap_all(iter_local_resources(self.local_resources.get().to_value())).collect()
     }
 
     pub fn worker(&self) -> Option<&WorkerInfo> {
-        unpack_opt_worker(self.worker.to_value()).unwrap()
+        unpack_opt_worker(self.worker.get().to_value()).unwrap()
     }
 
     pub fn visit_artifacts(
@@ -436,21 +432,28 @@ fn validate_external_runner_test_info<'v, V>(
 where
     V: ValueLike<'v>,
 {
-    check_all(iter_test_command(info.command.to_value()))?;
-    check_all(iter_test_env(info.env.to_value()))?;
-    check_all(iter_opt_str_list(info.labels.to_value(), "labels"))?;
-    check_all(iter_opt_str_list(info.contacts.to_value(), "contacts"))?;
-    check_all(iter_executor_overrides(info.executor_overrides.to_value()))?;
-    check_all(iter_local_resources(info.local_resources.to_value()))?;
-    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.to_value())
+    check_all(iter_test_command(info.command.get().to_value()))?;
+    check_all(iter_test_env(info.env.get().to_value()))?;
+    check_all(iter_opt_str_list(info.labels.get().to_value(), "labels"))?;
+    check_all(iter_opt_str_list(
+        info.contacts.get().to_value(),
+        "contacts",
+    ))?;
+    check_all(iter_executor_overrides(
+        info.executor_overrides.get().to_value(),
+    ))?;
+    check_all(iter_local_resources(info.local_resources.get().to_value()))?;
+    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get().to_value())
         .into_anyhow_result()?
         .context("`use_project_relative_paths` must be a bool if provided")?;
-    NoneOr::<bool>::unpack_value(info.run_from_project_root.to_value())
+    NoneOr::<bool>::unpack_value(info.run_from_project_root.get().to_value())
         .into_anyhow_result()?
         .context("`run_from_project_root` must be a bool if provided")?;
-    unpack_opt_executor(info.default_executor.to_value()).context("Invalid `default_executor`")?;
-    unpack_opt_worker(info.worker.to_value()).context("Invalid `worker`")?;
+    unpack_opt_executor(info.default_executor.get().to_value())
+        .context("Invalid `default_executor`")?;
+    unpack_opt_worker(info.worker.get().to_value()).context("Invalid `worker`")?;
     info.test_type
+        .get()
         .to_value()
         .unpack_str()
         .context("`type` must be a str")?;
@@ -462,6 +465,8 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenExternalRunnerTestInfo)]
     fn ExternalRunnerTestInfo<'v>(
         r#type: Value<'v>,
+        // TODO(nga): these need types.
+        // TODO(nga): parameters should be either named or positional, not both.
         #[starlark(default = NoneType)] command: Value<'v>,
         #[starlark(default = NoneType)] env: Value<'v>,
         #[starlark(default = NoneType)] labels: Value<'v>,
@@ -474,17 +479,17 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] worker: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
-            test_type: r#type,
-            command,
-            env,
-            labels,
-            contacts,
-            use_project_relative_paths,
-            run_from_project_root,
-            default_executor,
-            executor_overrides,
-            local_resources,
-            worker,
+            test_type: ValueOfUnchecked::new(r#type),
+            command: ValueOfUnchecked::new(command),
+            env: ValueOfUnchecked::new(env),
+            labels: ValueOfUnchecked::new(labels),
+            contacts: ValueOfUnchecked::new(contacts),
+            use_project_relative_paths: ValueOfUnchecked::new(use_project_relative_paths),
+            run_from_project_root: ValueOfUnchecked::new(run_from_project_root),
+            default_executor: ValueOfUnchecked::new(default_executor),
+            executor_overrides: ValueOfUnchecked::new(executor_overrides),
+            local_resources: ValueOfUnchecked::new(local_resources),
+            worker: ValueOfUnchecked::new(worker),
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)

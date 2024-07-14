@@ -25,6 +25,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
@@ -49,20 +50,18 @@ enum InstallInfoProviderErrors {
 #[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
 pub struct InstallInfoGen<V: ValueLifetimeless> {
     // Label for the installer
-    #[provider(field_type = StarlarkConfiguredProvidersLabel)]
-    installer: V,
+    installer: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
     // list of files that need to be installed
-    #[provider(field_type = DictType<String, ValueAsArtifactLike<'static>>)]
-    files: V,
+    files: ValueOfUncheckedGeneric<V, DictType<String, ValueAsArtifactLike<'static>>>,
 }
 
 impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
     pub fn get_installer(&self) -> anyhow::Result<ConfiguredProvidersLabel> {
-        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.to_value())
+        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.get().to_value())
             .ok_or_else(|| {
                 InstallInfoProviderErrors::ExpectedLabel(
-                    self.installer.to_value().to_repr(),
-                    self.installer.to_value().get_type().to_owned(),
+                    self.installer.get().to_value().to_repr(),
+                    self.installer.get().to_value().get_type().to_owned(),
                 )
             })?
             .label()
@@ -71,7 +70,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
     }
 
     fn get_files_dict(&self) -> DictRef<'v> {
-        DictRef::from_value(self.files.to_value()).expect("Value is a Dict")
+        DictRef::from_value(self.files.get().to_value()).expect("Value is a Dict")
     }
 
     fn get_files_iter<'a>(
@@ -114,8 +113,8 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
         files: ValueOf<'v, DictType<&'v str, ValueAsArtifactLike<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
         let info = InstallInfo {
-            installer: *installer,
-            files: files.value,
+            installer: installer.as_unchecked().cast(),
+            files: files.as_unchecked().cast(),
         };
         validate_install_info(&info)?;
         Ok(info)

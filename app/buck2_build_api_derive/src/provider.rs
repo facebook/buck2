@@ -7,20 +7,14 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
-
 use convert_case::Case;
 use convert_case::Casing;
 use gazebo::prelude::*;
 use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
-use syn::parse::ParseStream;
-use syn::Attribute;
 use syn::Fields;
 use syn::TypeParamBound;
-
-const PROVIDER_IDENT: &str = "provider";
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
@@ -58,7 +52,6 @@ struct ProviderCodegen {
     span: proc_macro2::Span,
     input: syn::ItemStruct,
     args: InternalProviderArgs,
-    field_attr_providers: HashMap<syn::Ident, Attribute>,
 }
 
 impl ProviderCodegen {
@@ -67,33 +60,15 @@ impl ProviderCodegen {
     /// This modifies the original input and removes any instances of `#[provider()]` macros
     /// on fields of the provided structs, and saves them into `field_attr_providers`.
     fn new(mut input: syn::ItemStruct, args: InternalProviderArgs) -> syn::Result<Self> {
-        let mut provider_attrs = HashMap::new();
         if let Fields::Named(fields_named) = &mut input.fields {
             for field in fields_named.named.iter_mut() {
-                let (attrs, mut provider_attr): (Vec<syn::Attribute>, Vec<syn::Attribute>) = field
-                    .attrs
-                    .clone()
-                    .into_iter()
-                    .partition(|a| !a.path().is_ident(PROVIDER_IDENT));
-                field.attrs = attrs;
-                if provider_attr.len() > 1 {
-                    return Err(syn::Error::new_spanned(
-                        field.to_token_stream(),
-                        format!("{} attribute can only be specified once", PROVIDER_IDENT),
-                    ));
-                } else if !provider_attr.is_empty() {
-                    provider_attrs.insert(
-                        field.ident.as_ref().unwrap().to_owned(),
-                        provider_attr.remove(0),
-                    );
-                }
+                field.attrs = field.attrs.clone();
             }
         };
         Ok(Self {
             span: input.ident.span(),
             input,
             args,
-            field_attr_providers: provider_attrs,
         })
     }
 
@@ -181,36 +156,54 @@ impl ProviderCodegen {
             ));
         }
 
-        syn::custom_keyword!(field_type);
+        let error = "Field type must be `ValueOfUncheckedGeneric<V, SomeType>`";
+
+        let syn::Type::Path(ty) = &field.ty else {
+            return Err(syn::Error::new_spanned(field, error));
+        };
+        let syn::TypePath {
+            qself: None,
+            path:
+                syn::Path {
+                    leading_colon: None,
+                    segments,
+                },
+        } = ty
+        else {
+            return Err(syn::Error::new_spanned(field, error));
+        };
+        let [
+            syn::PathSegment {
+                ident,
+                arguments: syn::PathArguments::AngleBracketed(args),
+            },
+        ] = Vec::from_iter(segments).as_slice()
+        else {
+            return Err(syn::Error::new_spanned(field, error));
+        };
+        if ident != "ValueOfUncheckedGeneric" {
+            return Err(syn::Error::new_spanned(field, error));
+        }
+        let [
+            syn::GenericArgument::Type(v),
+            syn::GenericArgument::Type(field_type),
+        ] = Vec::from_iter(&args.args).as_slice()
+        else {
+            return Err(syn::Error::new_spanned(field, error));
+        };
+        let expected_v: syn::Type = syn::parse_quote!(V);
+        if v != &expected_v {
+            return Err(syn::Error::new_spanned(field, error));
+        }
 
         let name = field.ident.as_ref().unwrap().to_owned();
-
-        let Some(field_type_attr) = self.field_attr_providers.get(&name) else {
-            return Err(syn::Error::new_spanned(
-                field,
-                "field should have a `#[provider(field_type = SomeType)]` attribute",
-            ));
-        };
-
-        let field_type: syn::Type =
-            field_type_attr.parse_args_with(|input: ParseStream| -> syn::Result<syn::Type> {
-                if input.parse::<field_type>().is_ok() {
-                    input.parse::<syn::Token![=]>()?;
-                    input.parse::<syn::Type>()
-                } else {
-                    Err(syn::Error::new_spanned(
-                        field_type_attr,
-                        "expected `field_type = SomeType`",
-                    ))
-                }
-            })?;
 
         let docstring = self.get_docstring_impl(&field.attrs);
 
         Ok(Field {
             name,
             docstring,
-            field_type,
+            field_type: field_type.clone(),
         })
     }
 
@@ -308,7 +301,7 @@ impl ProviderCodegen {
                         ")",
                         "=",
                         [
-                            #((stringify!(#field_names), &self.#field_names)),*
+                            #((stringify!(#field_names), &self.#field_names.get())),*
                         ]
                     )
                 }
@@ -356,7 +349,7 @@ impl ProviderCodegen {
                         };
 
                         #(
-                            if !this.#field_names.equals(other.#field_names)? {
+                            if !this.#field_names.to_value().get().equals(other.#field_names.to_value().get())? {
                                 return Ok(false);
                             }
                         )*
@@ -388,7 +381,7 @@ impl ProviderCodegen {
                     #(
                         s.serialize_entry(
                             stringify!(#field_names),
-                            &self.#field_names
+                            &self.#field_names.get().to_value()
                         )?;
                     )*
                     s.end()
@@ -412,14 +405,14 @@ impl ProviderCodegen {
 
                 fn get_field(&self, name: &str) -> Option<starlark::values::Value<'v>> {
                     match name {
-                        #(stringify!(#field_names) => Some(self.#field_names.to_value()),)*
+                        #(stringify!(#field_names) => Some(self.#field_names.get().to_value()),)*
                         _ => None,
                     }
                 }
 
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
                     vec![
-                        #((stringify!(#field_names), self.#field_names.to_value())),*
+                        #((stringify!(#field_names), self.#field_names.get().to_value())),*
                     ]
                 }
             }
@@ -588,7 +581,7 @@ impl ProviderCodegen {
                         fn #field_names<'v>(this: & #name)
                                 -> anyhow::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
                         {
-                            Ok(starlark::values::ValueOfUnchecked::new(this.#field_names))
+                            Ok(this.#field_names.to_value())
                         }
                     )*
                 }

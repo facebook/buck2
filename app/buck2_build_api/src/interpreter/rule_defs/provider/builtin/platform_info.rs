@@ -22,17 +22,18 @@ use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
+use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
 #[internal_provider(platform_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct PlatformInfoGen<V: ValueLifetimeless> {
-    #[provider(field_type = String)]
-    label: V,
-    #[provider(field_type = ConfigurationInfo<'v>)]
-    configuration: V,
+    label: ValueOfUncheckedGeneric<V, String>,
+    configuration: ValueOfUncheckedGeneric<V, FrozenConfigurationInfo>,
 }
 
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
@@ -40,10 +41,11 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
         ConfigurationData::from_platform(
             self.label
                 .to_value()
+                .get()
                 .unpack_str()
                 .expect("type checked during construction")
                 .to_owned(),
-            ConfigurationInfo::from_value(self.configuration.to_value())
+            ConfigurationInfo::from_value(self.configuration.get().to_value())
                 .expect("type checked during construction")
                 .to_configuration_data()?,
         )
@@ -55,14 +57,14 @@ impl<'v> PlatformInfo<'v> {
         cfg: &ConfigurationData,
         heap: &'v Heap,
     ) -> anyhow::Result<PlatformInfo<'v>> {
-        let label = heap.alloc_str(cfg.label()?).to_value();
+        let label = heap.alloc_str(cfg.label()?);
         let configuration = heap.alloc(ConfigurationInfo::from_configuration_data(
             cfg.data()?,
             heap,
         ));
         Ok(PlatformInfoGen {
-            label,
-            configuration,
+            label: label.to_value_of_unchecked().cast(),
+            configuration: ValueOfUnchecked::<FrozenConfigurationInfo>::new(configuration),
         })
     }
 }
@@ -75,8 +77,8 @@ fn platform_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] configuration: ValueOf<'v, &'v ConfigurationInfo<'v>>,
     ) -> anyhow::Result<PlatformInfo<'v>> {
         Ok(PlatformInfo {
-            label: label.to_value(),
-            configuration: *configuration,
+            label: label.to_value_of_unchecked().cast(),
+            configuration: ValueOfUnchecked::<FrozenConfigurationInfo>::new(configuration.value),
         })
     }
 }

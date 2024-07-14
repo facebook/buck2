@@ -25,19 +25,22 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
-use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::Trace;
+use starlark::values::UnpackAndDiscard;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
+use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
 
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
@@ -46,16 +49,15 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Con
 #[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ConfigurationInfoGen<V: ValueLifetimeless> {
-    #[provider(field_type = DictType<StarlarkTargetLabel, ConstraintValueInfo<'v>>)]
-    constraints: V,
-    #[provider(field_type = DictType<String, String>)]
-    values: V,
+    constraints:
+        ValueOfUncheckedGeneric<V, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+    values: ValueOfUncheckedGeneric<V, DictType<String, String>>,
 }
 
 impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
     pub fn to_config_setting_data(&self) -> ConfigSettingData {
-        let constraints =
-            DictRef::from_value(self.constraints.to_value()).expect("type checked on construction");
+        let constraints = DictRef::from_value(self.constraints.get().to_value())
+            .expect("type checked on construction");
         let mut converted_constraints = BTreeMap::new();
         for (k, v) in constraints.iter() {
             let key_target = StarlarkTargetLabel::from_value(k.to_value())
@@ -68,8 +70,8 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
             );
         }
 
-        let values =
-            DictRef::from_value(self.values.to_value()).expect("type checked on construction");
+        let values = DictRef::from_value(self.values.get().to_value())
+            .expect("type checked on construction");
         let mut converted_values = BTreeMap::new();
         for (k, v) in values.iter() {
             let key_config = k.to_value().to_str();
@@ -117,8 +119,8 @@ impl<'v> ConfigurationInfo<'v> {
         }
 
         ConfigurationInfoGen {
-            constraints: heap.alloc(Dict::new(constraints)),
-            values: heap.alloc(AllocDict::EMPTY),
+            constraints: ValueOfUnchecked::new(heap.alloc(constraints)),
+            values: heap.alloc_typed_unchecked(AllocDict([("", ""); 0])).cast(),
         }
     }
 }
@@ -139,7 +141,10 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, &'v StarlarkTargetLabel>,
             ValueOf<'v, &'v ConstraintValueInfo<'v>>,
         >,
-        #[starlark(require = named)] values: ValueOf<'v, UnpackDictEntries<&'v str, &'v str>>,
+        #[starlark(require = named)] values: ValueOf<
+            'v,
+            UnpackDictEntries<&'v str, UnpackAndDiscard<&'v str>>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
@@ -161,13 +166,13 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
                 new_constraints.insert_hashed(constraint_setting_hashed, constraint_value.value);
             assert!(prev.is_none());
         }
-        for (k, _) in values.typed.entries {
+        for (k, _) in &values.typed.entries {
             // Validate the config section and key can be parsed correctly
             parse_config_section_and_key(k, None)?;
         }
         Ok(ConfigurationInfo {
-            constraints: eval.heap().alloc(Dict::new(new_constraints)),
-            values: values.value,
+            constraints: ValueOfUnchecked::new(eval.heap().alloc(new_constraints)),
+            values: values.as_unchecked().cast(),
         })
     }
 }

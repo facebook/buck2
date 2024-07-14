@@ -26,9 +26,13 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueOfUncheckedGeneric;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 
 /// Provider that signals that a rule is a worker tool
@@ -38,11 +42,9 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 #[repr(C)]
 pub struct WorkerInfoGen<V: ValueLifetimeless> {
     // Command to spawn a new worker
-    #[provider(field_type = StarlarkCmdArgs<'v>)]
-    pub exe: V,
+    pub exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
-    #[provider(field_type = NoneOr<usize>)]
-    pub concurrency: V,
+    pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
 
     pub id: u64,
 }
@@ -57,30 +59,34 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenWorkerInfo)]
     fn WorkerInfo<'v>(
         #[starlark(default = AllocList::EMPTY)] exe: Value<'v>,
-        #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<usize>,
+        #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<
+            ValueOf<'v, usize>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
-        let exe = heap.alloc(valid_exe);
+        let exe = ValueOfUnchecked::new(heap.alloc(valid_exe));
         let id = next_id();
         Ok(WorkerInfo {
             exe,
             id,
-            concurrency: heap.alloc(concurrency),
+            concurrency: heap.alloc_typed_unchecked(concurrency).cast(),
         })
     }
 }
 
 impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
     pub fn exe_command_line(&self) -> &'v dyn CommandLineArgLike {
-        ValueAsCommandLineLike::unpack_value_err(self.exe.to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.exe.get().to_value())
             .expect("validated at construction")
             .0
     }
 
     pub fn concurrency(&self) -> Option<usize> {
-        NoneOr::<usize>::unpack_value_err(self.concurrency.to_value())
+        self.concurrency
+            .to_value()
+            .unpack()
             .expect("validated at construction")
             .into_option()
     }
@@ -90,7 +96,7 @@ fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> anyhow::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let exe = StarlarkCmdArgs::try_from_value(info.exe.to_value()).with_context(|| {
+    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_context(|| {
         format!(
             "Value for `exe` field is not a command line: `{}`",
             info.exe

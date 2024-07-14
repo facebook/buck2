@@ -26,6 +26,7 @@ use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
@@ -34,19 +35,20 @@ use starlark::values::ValueTyped;
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
 pub(crate) struct ConstraintSettingInfoGen<V: ValueLifetimeless> {
-    #[provider(field_type = StarlarkTargetLabel)]
-    label: V,
+    label: ValueOfUncheckedGeneric<V, StarlarkTargetLabel>,
 }
 
 impl<'v, V: ValueLike<'v>> ConstraintSettingInfoGen<V> {
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {
-        ValueTyped::new_err(self.label.to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.label.get().to_value()).expect("validated at construction")
     }
 }
 
 impl<'v> ConstraintSettingInfo<'v> {
     pub(crate) fn new(label: ValueOf<'v, &'v StarlarkTargetLabel>) -> ConstraintSettingInfo<'v> {
-        ConstraintSettingInfoGen { label: label.value }
+        ConstraintSettingInfoGen {
+            label: label.as_unchecked().cast(),
+        }
     }
 }
 
@@ -56,6 +58,8 @@ fn constraint_info_creator(globals: &mut GlobalsBuilder) {
     fn ConstraintSettingInfo<'v>(
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
     ) -> anyhow::Result<ConstraintSettingInfo<'v>> {
-        Ok(ConstraintSettingInfo { label: *label })
+        Ok(ConstraintSettingInfo {
+            label: label.as_unchecked().cast(),
+        })
     }
 }
