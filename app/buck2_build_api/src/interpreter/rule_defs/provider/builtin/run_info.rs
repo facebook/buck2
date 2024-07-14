@@ -15,12 +15,11 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::list::AllocList;
+use starlark::values::list::ListRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
@@ -31,6 +30,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 /// Provider that signals that a rule is runnable
@@ -47,11 +47,13 @@ pub struct RunInfoGen<V: ValueLifetimeless> {
 fn run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenRunInfo)]
     fn RunInfo<'v>(
-        #[starlark(default = AllocList::EMPTY)] args: Value<'v>,
+        // TODO(nga): make the argument either named or positional.
+        #[starlark(default = StarlarkCommandLineValueUnpack::List(ListRef::empty()))]
+        args: StarlarkCommandLineValueUnpack<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RunInfo<'v>> {
         let heap = eval.heap();
-        let valid_args = StarlarkCmdArgs::try_from_value(args)?;
+        let valid_args = StarlarkCmdArgs::try_from_value_typed(args)?;
         Ok(RunInfo {
             args: heap.alloc(valid_args),
         })
