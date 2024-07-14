@@ -166,9 +166,9 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
 
 impl<'v> DefaultInfo<'v> {
     pub fn empty(heap: &'v Heap) -> Self {
+        let sub_targets = heap.alloc(AllocDict::EMPTY);
         let default_outputs = heap.alloc(AllocList::EMPTY);
         let other_outputs = heap.alloc(AllocList::EMPTY);
-        let sub_targets = heap.alloc(Dict::default());
         DefaultInfo {
             sub_targets,
             default_outputs,
@@ -179,9 +179,9 @@ impl<'v> DefaultInfo<'v> {
 
 impl FrozenDefaultInfo {
     pub(crate) fn testing_empty(heap: &FrozenHeap) -> FrozenValueTyped<'static, FrozenDefaultInfo> {
+        let sub_targets = heap.alloc(AllocDict::EMPTY);
         let default_outputs = heap.alloc(AllocList::EMPTY);
         let other_outputs = heap.alloc(AllocList::EMPTY);
-        let sub_targets = heap.alloc(AllocDict::EMPTY);
         FrozenValueTyped::new_err(heap.alloc(FrozenDefaultInfo {
             sub_targets,
             default_outputs,
