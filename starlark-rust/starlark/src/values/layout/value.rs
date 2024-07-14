@@ -88,6 +88,7 @@ use crate::values::layout::value_lifetimeless::ValueLifetimeless;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
+use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::none::none_type::VALUE_NONE;
 use crate::values::num::value::NumRef;
 use crate::values::range::Range;
@@ -1014,6 +1015,11 @@ impl FrozenValue {
     #[inline]
     pub(crate) fn new_empty_tuple() -> Self {
         FrozenValue::new_repr(&VALUE_EMPTY_TUPLE)
+    }
+
+    /// Create a new empty list.
+    pub(crate) fn new_empty_list() -> Self {
+        FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST)
     }
 
     #[inline]

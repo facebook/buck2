@@ -42,7 +42,6 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::ListGen;
-use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
@@ -422,7 +421,7 @@ impl<'v> AValue<'v> for AValueList {
         let content = (*me).payload.0.content();
 
         if content.is_empty() {
-            let fv = FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+            let fv = FrozenValue::new_empty_list();
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
                 ForwardPtr::new(fv.0.raw().ptr_value()),
