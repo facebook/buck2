@@ -69,6 +69,7 @@ rust_library(
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",

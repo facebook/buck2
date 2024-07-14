@@ -48,6 +48,7 @@ dupe = { workspace = true }
 gazebo = { workspace = true }
 starlark_map = { workspace = true }
 
+buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }

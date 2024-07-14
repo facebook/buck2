@@ -34,6 +34,7 @@ use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
@@ -46,7 +47,6 @@ use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::ConfigDiffMetrics;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::configs::LegacyConfigCmdArg;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -119,7 +119,6 @@ use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::configs;
-use crate::configs::get_legacy_config_args;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
@@ -297,13 +296,11 @@ impl<'a> ServerCommandContext<'a> {
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
-        let config_overrides = get_legacy_config_args(&client_context.config_overrides)?;
-
         let cell_configs_loader = Arc::new(CellConfigLoader {
             project_root: base_context.project_root.clone(),
             working_dir: working_dir_project_relative.dupe(),
             reuse_current_config: client_context.reuse_current_config,
-            config_overrides,
+            config_overrides: client_context.config_overrides.clone(),
             loaded_cell_configs: AsyncOnceCell::new(),
         });
 
@@ -469,7 +466,7 @@ struct CellConfigLoader {
     working_dir: ArcS<ProjectRelativePath>,
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
-    config_overrides: Vec<LegacyConfigCmdArg>,
+    config_overrides: Vec<buck2_cli_proto::ConfigOverride>,
     loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCellsStatus>>,
 }
 
@@ -497,9 +494,16 @@ impl CellConfigLoader {
                         && dice_ctx.is_injected_legacy_config_override_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
+                            let config_type_str = |c| match ConfigType::from_i32(c) {
+                                Some(ConfigType::Value) => "--config",
+                                Some(ConfigType::File) => "--config-file",
+                                None => "",
+                            };
                             warn!(
                                 "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
-                                truncate_container(self.config_overrides.iter().map(|o| o.to_string()), 200),
+                                truncate_container(self.config_overrides.iter().map(|o| {
+                                    format!("{} {}", config_type_str(o.config_type), o.config_override)
+                                }), 200),
                             );
                         }
                         return buck2_error::Ok(BuckConfigBasedCellsStatus {

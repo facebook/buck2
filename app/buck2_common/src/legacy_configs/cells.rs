@@ -40,6 +40,7 @@ use crate::dice::file_ops::DiceFileComputations;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
+use crate::legacy_configs::args::get_legacy_config_args;
 use crate::legacy_configs::configs::push_all_files_from_a_directory;
 use crate::legacy_configs::configs::BuckConfigParseOptions;
 use crate::legacy_configs::configs::CellResolutionState;
@@ -48,7 +49,6 @@ use crate::legacy_configs::configs::ConfigParserFileOps;
 use crate::legacy_configs::configs::DefaultConfigParserFileOps;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigs;
-use crate::legacy_configs::configs::LegacyConfigCmdArg;
 use crate::legacy_configs::configs::MainConfigFile;
 use crate::legacy_configs::configs::ResolvedLegacyConfigArg;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
@@ -113,7 +113,7 @@ impl BuckConfigBasedCells {
 
     pub fn parse_with_config_args(
         project_fs: &ProjectRoot,
-        config_args: &[LegacyConfigCmdArg],
+        config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
@@ -127,7 +127,7 @@ impl BuckConfigBasedCells {
     pub fn parse_with_file_ops(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
-        config_args: &[LegacyConfigCmdArg],
+        config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
         let opts = BuckConfigParseOptions {
@@ -152,7 +152,7 @@ impl BuckConfigBasedCells {
     fn parse_with_file_ops_and_options(
         project_root: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
-        config_args: &[LegacyConfigCmdArg],
+        config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
         options: BuckConfigParseOptions,
     ) -> anyhow::Result<Self> {
@@ -169,7 +169,7 @@ impl BuckConfigBasedCells {
     fn parse_with_file_ops_and_options_inner(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
-        config_args: &[LegacyConfigCmdArg],
+        config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
         options: BuckConfigParseOptions,
     ) -> anyhow::Result<Self> {
@@ -221,9 +221,13 @@ impl BuckConfigBasedCells {
             cell_resolver: OnceCell::new(),
             cwd,
         };
+        let parsed_config_args = get_legacy_config_args(config_args)?;
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args =
-            LegacyBuckConfig::process_config_args(config_args, &cell_resolution, &mut file_ops)?;
+        let processed_config_args = LegacyBuckConfig::process_config_args(
+            &parsed_config_args,
+            &cell_resolution,
+            &mut file_ops,
+        )?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {
@@ -602,6 +606,8 @@ pub(crate) fn create_project_filesystem() -> ProjectRoot {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_cli_proto::config_override::ConfigType;
+    use buck2_cli_proto::ConfigOverride;
     use buck2_core::cells::cell_root_path::CellRootPath;
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::external::GitCellSetup;
@@ -617,7 +623,6 @@ mod tests {
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;
-    use crate::legacy_configs::configs::LegacyConfigCmdArg;
     use crate::legacy_configs::key::BuckconfigKeyRef;
 
     #[test]
@@ -753,7 +758,10 @@ mod tests {
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
-            &[LegacyConfigCmdArg::file(file_arg)?],
+            &[ConfigOverride {
+                config_override: file_arg.to_owned(),
+                config_type: ConfigType::File.into(),
+            }],
             ProjectRelativePath::empty(),
         )?;
 
@@ -884,8 +892,14 @@ mod tests {
             &project_fs,
             &mut file_ops,
             &[
-                LegacyConfigCmdArg::file("other//app-conf")?,
-                LegacyConfigCmdArg::file("//global-conf")?,
+                ConfigOverride {
+                    config_override: "other//app-conf".to_owned(),
+                    config_type: ConfigType::File.into(),
+                },
+                ConfigOverride {
+                    config_override: "//global-conf".to_owned(),
+                    config_type: ConfigType::File.into(),
+                },
             ],
             ProjectRelativePath::empty(),
         )?;
@@ -1067,7 +1081,10 @@ mod tests {
         let configs = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
-            &[LegacyConfigCmdArg::flag("some_section.key=value1")?],
+            &[ConfigOverride {
+                config_override: "some_section.key=value1".to_owned(),
+                config_type: ConfigType::Value.into(),
+            }],
             ProjectRelativePath::empty(),
         )?
         .configs_by_name;
