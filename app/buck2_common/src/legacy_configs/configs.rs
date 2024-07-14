@@ -17,6 +17,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -122,19 +124,8 @@ pub struct ConfigSectionAndKey {
     pub key: String,
 }
 
-/// Represents a configuration argument that can be passed
-/// on the command line. For example, `--config foo.bar=val`
-/// or `--config-file foo.bcfg`.
-#[derive(Debug)]
-pub enum LegacyConfigCmdArg {
-    /// A single config key-value pair (in `a.b=c` format).
-    Flag(LegacyConfigCmdArgFlag),
-    /// A file containing additional config values (in `.buckconfig` format).
-    File(LegacyConfigCmdArgFile),
-}
-
-impl LegacyConfigCmdArg {
-    pub fn flag(val: &str) -> anyhow::Result<Self> {
+impl LegacyConfigCmdArgFlag {
+    pub fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFlag> {
         let (cell, val) = match val.split_once("//") {
             Some((cell, val)) if !cell.contains('=') => (Some(cell.to_owned()), val),
             _ => (None, val),
@@ -146,24 +137,26 @@ impl LegacyConfigCmdArg {
             value,
         } = parse_config_arg(val)?;
 
-        Ok(Self::Flag(LegacyConfigCmdArgFlag {
+        Ok(LegacyConfigCmdArgFlag {
             cell,
             section,
             key,
             value,
-        }))
+        })
     }
+}
 
-    pub fn file(val: &str) -> anyhow::Result<Self> {
+impl LegacyConfigCmdArgFile {
+    pub fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFile> {
         let (cell, val) = match val.split_once("//") {
             Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
             _ => (None, val),
         };
 
-        Ok(LegacyConfigCmdArg::File(LegacyConfigCmdArgFile {
+        Ok(LegacyConfigCmdArgFile {
             cell,
             path: val.to_owned(),
-        }))
+        })
     }
 }
 
@@ -536,19 +529,30 @@ impl LegacyBuckConfig {
     }
 
     pub(crate) fn process_config_args(
-        args: &[LegacyConfigCmdArg],
+        args: &[ConfigOverride],
         cell_resolution: &CellResolutionState,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
-        let resolved_args = args.map(|unprocessed_arg| match unprocessed_arg {
-            LegacyConfigCmdArg::Flag(value) => {
-                let resolved_flag =
-                    Self::resolve_config_flag_arg(value, cell_resolution, file_ops)?;
-                Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
-            }
-            LegacyConfigCmdArg::File(file) => {
-                let resolved_path = Self::resolve_config_file_arg(file, cell_resolution, file_ops)?;
-                Ok(ResolvedLegacyConfigArg::File(resolved_path))
+        let resolved_args = args.map(|u| {
+            let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
+                format!(
+                    "Unknown ConfigType enum value `{}` when trying to deserialize",
+                    u.config_type
+                )
+            })?;
+            match config_type {
+                ConfigType::Value => {
+                    let parsed_flag = LegacyConfigCmdArgFlag::new(&u.config_override)?;
+                    let resolved_flag =
+                        Self::resolve_config_flag_arg(&parsed_flag, cell_resolution, file_ops)?;
+                    Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
+                }
+                ConfigType::File => {
+                    let parsed_file = LegacyConfigCmdArgFile::new(&u.config_override)?;
+                    let resolved_path =
+                        Self::resolve_config_file_arg(&parsed_file, cell_resolution, file_ops)?;
+                    Ok(ResolvedLegacyConfigArg::File(resolved_path))
+                }
             }
         });
 
@@ -667,7 +671,7 @@ pub mod testing {
     pub fn parse_with_config_args(
         data: &[(&str, &str)],
         path: &str,
-        config_args: &[LegacyConfigCmdArg],
+        config_args: &[ConfigOverride],
     ) -> anyhow::Result<LegacyBuckConfig> {
         let mut file_ops = TestConfigParserFileOps::new(data)?;
         #[cfg(not(windows))]
@@ -1064,8 +1068,8 @@ pub(crate) mod tests {
     #[test]
     fn test_config_args_ordering() -> anyhow::Result<()> {
         let config_args = vec![
-            LegacyConfigCmdArg::flag("apple.key=value1")?,
-            LegacyConfigCmdArg::flag("apple.key=value2")?,
+            ConfigOverride::flag("apple.key=value1"),
+            ConfigOverride::flag("apple.key=value2"),
         ];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
@@ -1076,7 +1080,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_empty() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=")?];
+        let config_args = vec![ConfigOverride::flag("apple.key=")];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
         assert_config_value_is_empty(&config, "apple", "key");
@@ -1086,7 +1090,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_overwrite_config_file() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=value2")?];
+        let config_args = vec![ConfigOverride::flag("apple.key=value2")];
         let config = parse_with_config_args(
             &[(
                 "/config",
@@ -1194,8 +1198,8 @@ pub(crate) mod tests {
         #[cfg(windows)]
         let file_arg = "C:/cli-config";
         let config_args = vec![
-            LegacyConfigCmdArg::flag("apple.key=value3")?,
-            LegacyConfigCmdArg::file(file_arg)?,
+            ConfigOverride::flag("apple.key=value3"),
+            ConfigOverride::file(file_arg),
         ];
         let config = parse_with_config_args(
             &[
@@ -1237,7 +1241,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_cell_in_value() -> anyhow::Result<()> {
-        let config_args = vec![LegacyConfigCmdArg::flag("apple.key=foo//value1")?];
+        let config_args = vec![ConfigOverride::flag("apple.key=foo//value1")];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");
@@ -1249,8 +1253,8 @@ pub(crate) mod tests {
     fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
         let cell = CellName::testing_new("root");
         let config_args = vec![
-            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
-            LegacyConfigCmdArg::flag("apple.key=value1")?,
+            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
+            ConfigOverride::flag("apple.key=value1"),
         ];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
@@ -1279,8 +1283,8 @@ pub(crate) mod tests {
         let limit_key = "config_diff_size_limit";
         let limit_value = "10000";
         let config_args = vec![
-            LegacyConfigCmdArg::flag(&format!("buck2.{limit_key}={limit_value}"))?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key}={value}"))?,
+            ConfigOverride::flag(&format!("buck2.{limit_key}={limit_value}")),
+            ConfigOverride::flag(&format!("apple.{key}={value}")),
         ];
         let config =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
@@ -1325,18 +1329,18 @@ pub(crate) mod tests {
         let value3 = "value3";
 
         let config_args1 = vec![
-            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2_1}"))?,
+            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
+            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
+            ConfigOverride::flag(&format!("apple.{key2}={value2_1}")),
         ];
         let config1 =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
 
         let config_args2 = vec![
-            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=10000")?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2_2}"))?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key3}={value3}"))?,
+            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
+            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
+            ConfigOverride::flag(&format!("apple.{key2}={value2_2}")),
+            ConfigOverride::flag(&format!("apple.{key3}={value3}")),
         ];
         let config2 =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;
@@ -1378,15 +1382,15 @@ pub(crate) mod tests {
         let value2 = "value2";
 
         let config_args1 = vec![
-            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=12")?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key1}={value1}"))?,
+            ConfigOverride::flag("buck2.config_diff_size_limit=12"),
+            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
         ];
         let config1 =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
 
         let config_args2 = vec![
-            LegacyConfigCmdArg::flag("buck2.config_diff_size_limit=12")?,
-            LegacyConfigCmdArg::flag(&format!("apple.{key2}={value2}"))?,
+            ConfigOverride::flag("buck2.config_diff_size_limit=12"),
+            ConfigOverride::flag(&format!("apple.{key2}={value2}")),
         ];
         let config2 =
             parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;

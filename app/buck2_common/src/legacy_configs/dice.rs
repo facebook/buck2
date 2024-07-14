@@ -408,12 +408,12 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
 
 #[cfg(test)]
 mod tests {
+    use buck2_cli_proto::ConfigOverride;
     use buck2_core::cells::name::CellName;
     use dice::InjectedKey;
 
     use crate::legacy_configs::configs::testing::parse_with_config_args;
     use crate::legacy_configs::configs::LegacyBuckConfigs;
-    use crate::legacy_configs::configs::LegacyConfigCmdArg;
     use crate::legacy_configs::dice::LegacyBuckConfigKey;
 
     #[test]
@@ -425,7 +425,7 @@ mod tests {
                 parse_with_config_args(
                     &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &[LegacyConfigCmdArg::flag("sec1.a=c")?],
+                    &[ConfigOverride::flag("sec1.a=c")],
                 )?
             },
             CellName::testing_new("cell2")
@@ -444,7 +444,7 @@ mod tests {
                 parse_with_config_args(
                     &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &[LegacyConfigCmdArg::flag("sec1.a=c")?],
+                    &[ConfigOverride::flag("sec1.a=c")],
                 )?
             },
         ]));
@@ -466,7 +466,7 @@ mod tests {
                 parse_with_config_args(
                     &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
-                    &[LegacyConfigCmdArg::flag("sec1.d=e")?],
+                    &[ConfigOverride::flag("sec1.d=e")],
                 )?
             },
         ]));
