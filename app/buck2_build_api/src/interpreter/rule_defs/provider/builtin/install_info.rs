@@ -22,13 +22,11 @@ use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::StarlarkResultExt;
 
-use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
 // Provider that signals a rule is installable (ex. android_binary)
@@ -54,7 +52,7 @@ pub struct InstallInfoGen<V: ValueLifetimeless> {
     #[provider(field_type = StarlarkConfiguredProvidersLabel)]
     installer: V,
     // list of files that need to be installed
-    #[provider(field_type = DictType<String, StarlarkArtifact>)]
+    #[provider(field_type = DictType<String, ValueAsArtifactLike<'static>>)]
     files: V,
 }
 
@@ -113,7 +111,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
         installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
-        files: ValueOf<'v, SmallMap<&'v str, Value<'v>>>,
+        files: ValueOf<'v, DictType<&'v str, ValueAsArtifactLike<'v>>>,
     ) -> anyhow::Result<InstallInfo<'v>> {
         let info = InstallInfo {
             installer: *installer,
