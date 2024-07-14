@@ -24,7 +24,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -126,7 +125,7 @@ pub struct ConfigSectionAndKey {
 /// Represents a configuration argument that can be passed
 /// on the command line. For example, `--config foo.bar=val`
 /// or `--config-file foo.bcfg`.
-#[derive(Debug, Display)]
+#[derive(Debug)]
 pub enum LegacyConfigCmdArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(LegacyConfigCmdArgFlag),
@@ -176,32 +175,10 @@ pub struct LegacyConfigCmdArgFlag {
     value: Option<String>,
 }
 
-impl fmt::Display for LegacyConfigCmdArgFlag {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(cell) = &self.cell {
-            write!(f, "{}//", cell)?;
-        }
-        write!(f, "{}.{}=", self.section, self.key)?;
-        if let Some(value) = &self.value {
-            write!(f, "{}", value)?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 pub struct LegacyConfigCmdArgFile {
     cell: Option<String>,
     path: String,
-}
-
-impl fmt::Display for LegacyConfigCmdArgFile {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(cell) = &self.cell {
-            write!(f, "{}//", cell)?;
-        }
-        write!(f, "{}", self.path)
-    }
 }
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
@@ -1570,23 +1547,5 @@ pub(crate) mod tests {
 
             Ok(())
         }
-    }
-
-    #[test]
-    fn test_arg_display() -> anyhow::Result<()> {
-        assert_eq!(
-            LegacyConfigCmdArg::flag("foo.bar=baz")?.to_string(),
-            "foo.bar=baz"
-        );
-        assert_eq!(
-            LegacyConfigCmdArg::flag("foo//bar.baz=")?.to_string(),
-            "foo//bar.baz="
-        );
-        assert_eq!(LegacyConfigCmdArg::file("foo")?.to_string(), "foo");
-        assert_eq!(
-            LegacyConfigCmdArg::file("foo//bar")?.to_string(),
-            "foo//bar"
-        );
-        Ok(())
     }
 }
