@@ -21,9 +21,10 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::Trace;
-use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
@@ -91,14 +92,14 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
 #[starlark_module]
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformInfo<'v>(
-        #[starlark(require = named)] label: Value<'v>,
-        #[starlark(require = named)] configuration: Value<'v>,
-        #[starlark(require = named)] executor_config: Value<'v>,
+        #[starlark(require = named)] label: ValueTyped<'v, StarlarkTargetLabel>,
+        #[starlark(require = named)] configuration: ValueTypedComplex<'v, ConfigurationInfo<'v>>,
+        #[starlark(require = named)] executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
     ) -> anyhow::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {
-            label,
-            configuration,
-            executor_config,
+            label: label.to_value(),
+            configuration: configuration.to_value(),
+            executor_config: executor_config.to_value(),
         };
         // This checks that the values are valid.
         info.to_execution_platform()?;
