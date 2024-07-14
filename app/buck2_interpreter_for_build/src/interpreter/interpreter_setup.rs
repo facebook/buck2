@@ -10,8 +10,8 @@
 use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
+use buck2_common::legacy_configs::args::ResolvedLegacyConfigArg;
 use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
-use buck2_common::legacy_configs::configs::ResolvedLegacyConfigArg;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;

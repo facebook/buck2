@@ -28,10 +28,10 @@ use dice::ProjectionKey;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
+use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigs;
-use crate::legacy_configs::configs::ResolvedLegacyConfigArg;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
