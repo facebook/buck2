@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
@@ -41,7 +40,6 @@ use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
 use crate::legacy_configs::args::resolve_config_args;
-use crate::legacy_configs::args::CellResolutionState;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::push_all_files_from_a_directory;
 use crate::legacy_configs::configs::BuckConfigParseOptions;
@@ -214,16 +212,9 @@ impl BuckConfigBasedCells {
         let mut cells_aggregator = CellsAggregator::new();
         let mut root_aliases = HashMap::new();
 
-        // By definition, cell resolution should be happening against the cell mapping defined
-        // by the .buckconfig of the project root.
-        let cell_resolution = CellResolutionState {
-            project_filesystem: project_fs,
-            cell_resolver: OnceCell::new(),
-            cwd,
-        };
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
-            resolve_config_args(&config_args, &cell_resolution, &mut file_ops)?;
+            resolve_config_args(&config_args, project_fs, cwd, &mut file_ops)?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {

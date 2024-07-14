@@ -101,10 +101,10 @@ struct LegacyConfigCmdArgFile {
 }
 
 /// State required to perform resolution of cell-relative paths.
-pub(crate) struct CellResolutionState<'a> {
-    pub(crate) project_filesystem: &'a ProjectRoot,
-    pub(crate) cwd: &'a ProjectRelativePath,
-    pub(crate) cell_resolver: OnceCell<CellResolver>,
+struct CellResolutionState<'a> {
+    project_filesystem: &'a ProjectRoot,
+    cwd: &'a ProjectRelativePath,
+    cell_resolver: OnceCell<CellResolver>,
 }
 
 fn resolve_config_flag_arg(
@@ -177,9 +177,16 @@ fn resolve_config_file_arg(
 
 pub(crate) fn resolve_config_args(
     args: &[ConfigOverride],
-    cell_resolution: &CellResolutionState,
+    project_fs: &ProjectRoot,
+    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
+    let cell_resolution = CellResolutionState {
+        project_filesystem: project_fs,
+        cwd,
+        cell_resolver: OnceCell::new(),
+    };
+
     let resolved_args = args.iter().map(|u| {
         let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
             format!(
@@ -191,13 +198,13 @@ pub(crate) fn resolve_config_args(
             ConfigType::Value => {
                 let parsed_flag = LegacyConfigCmdArgFlag::new(&u.config_override)?;
                 let resolved_flag =
-                    resolve_config_flag_arg(&parsed_flag, cell_resolution, file_ops)?;
+                    resolve_config_flag_arg(&parsed_flag, &cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
             }
             ConfigType::File => {
                 let parsed_file = LegacyConfigCmdArgFile::new(&u.config_override)?;
                 let resolved_path =
-                    resolve_config_file_arg(&parsed_file, cell_resolution, file_ops)?;
+                    resolve_config_file_arg(&parsed_file, &cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::File(resolved_path))
             }
         }

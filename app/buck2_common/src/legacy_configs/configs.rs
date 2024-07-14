@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -456,7 +455,6 @@ pub mod testing {
 
     use super::*;
     use crate::legacy_configs::args::resolve_config_args;
-    use crate::legacy_configs::args::CellResolutionState;
     use crate::legacy_configs::cells::create_project_filesystem;
 
     pub fn parse(data: &[(&str, &str)], path: &str) -> anyhow::Result<LegacyBuckConfig> {
@@ -476,13 +474,12 @@ pub mod testing {
         let path = &AbsNormPathBuf::from(format!("C:{}", path))?;
         let project_fs = create_project_filesystem();
         // As long as people don't pass config files, making up values here is ok
-        let cell_resolution = CellResolutionState {
-            project_filesystem: &project_fs,
-            cwd: ProjectRelativePath::empty(),
-            cell_resolver: OnceCell::new(),
-        };
-        let processed_config_args =
-            resolve_config_args(config_args, &cell_resolution, &mut file_ops)?;
+        let processed_config_args = resolve_config_args(
+            config_args,
+            &project_fs,
+            &ProjectRelativePath::empty(),
+            &mut file_ops,
+        )?;
         futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
             &[MainConfigFile {
                 path: path.to_buf(),
