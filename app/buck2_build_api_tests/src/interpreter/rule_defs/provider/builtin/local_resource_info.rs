@@ -79,7 +79,7 @@ fn test_validation_1() {
     expect_error(
         tester.run_starlark_bzl_test(test),
         test,
-        "Value for `setup` field is not a command line",
+        "Expected type `artifact | cell_root",
     );
 }
 

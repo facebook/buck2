@@ -419,6 +419,10 @@ impl FrozenStarlarkCmdArgs {
     pub(crate) fn is_concat(&self) -> bool {
         FieldsRef(self, PhantomData).is_concat()
     }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
 }
 
 impl<'v> StarlarkCmdArgs<'v> {

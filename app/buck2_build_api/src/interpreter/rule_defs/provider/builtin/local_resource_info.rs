@@ -12,6 +12,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::BuckErrorContext;
+use either::Either;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -24,13 +26,14 @@ use starlark::values::type_repr::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
-use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
+use starlark::values::ValueTypedComplex;
 
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use crate::starlark::values::UnpackValue;
 use crate::starlark::values::ValueLike;
 
@@ -81,13 +84,13 @@ where
         ));
     }
 
-    let setup = StarlarkCmdArgs::try_from_value(info.setup.to_value()).with_context(|| {
-        format!(
-            "Value for `setup` field is not a command line: `{}`",
-            info.setup
-        )
-    })?;
-    if setup.is_empty() {
+    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.to_value())
+        .internal_error("Validated in constructor")?;
+    let setup_is_empty = match setup.unpack() {
+        Either::Left(a) => a.is_empty(),
+        Either::Right(b) => b.is_empty(),
+    };
+    if setup_is_empty {
         return Err(anyhow::anyhow!(
             "Value for `setup` field is an empty command line: `{}`",
             info.setup
@@ -101,7 +104,7 @@ where
 fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenLocalResourceInfo)]
     fn LocalResourceInfo<'v>(
-        #[starlark(require = named)] setup: Value<'v>,
+        #[starlark(require = named)] setup: StarlarkCommandLineValueUnpack<'v>,
         #[starlark(require = named)] resource_env_vars: ValueOf<
             'v,
             UnpackDictEntries<&'v str, &'v str>,
@@ -111,8 +114,9 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<LocalResourceInfo<'v>> {
+        let setup = StarlarkCmdArgs::try_from_value_typed(setup)?;
         let result = LocalResourceInfo {
-            setup,
+            setup: eval.heap().alloc(setup),
             resource_env_vars: resource_env_vars.value,
             setup_timeout_seconds: eval.heap().alloc(setup_timeout_seconds),
         };
