@@ -26,6 +26,7 @@ use starlark::values::dict::FrozenDictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
@@ -36,11 +37,13 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::Trace;
+use starlark::values::UnpackAndDiscard;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 use starlark::StarlarkResultExt;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -372,7 +375,11 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         // TODO(nga): parameters must be named only.
         #[starlark(default = NoneType)] default_output: Value<'v>,
         #[starlark(default = NoneType)] default_outputs: Value<'v>,
-        #[starlark(default = AllocList::EMPTY)] other_outputs: Value<'v>,
+        #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
+        other_outputs: ValueOf<
+            'v,
+            UnpackList<UnpackAndDiscard<ValueAsCommandLineLike<'v>>>,
+        >,
         #[starlark(default = UnpackDictEntries::default())] sub_targets: UnpackDictEntries<
             StringValue<'v>,
             Value<'v>,
@@ -423,21 +430,6 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             }
         };
 
-        let valid_other_outputs = match ListRef::from_value(other_outputs) {
-            Some(list) => {
-                if list
-                    .iter()
-                    .all(|v| ValueAsCommandLineLike::unpack_value(v).unwrap().is_some())
-                {
-                    Ok(other_outputs)
-                } else {
-                    Err(())
-                }
-            }
-            None => Err(()),
-        }
-        .map_err(|_| ValueError::IncorrectParameterTypeNamed("other_outputs".to_owned()))?;
-
         let valid_sub_targets = sub_targets
             .entries
             .into_iter()
@@ -449,7 +441,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
 
         Ok(DefaultInfo {
             default_outputs: valid_default_outputs,
-            other_outputs: valid_other_outputs,
+            other_outputs: other_outputs.value,
             sub_targets: heap.alloc(AllocDict(valid_sub_targets)),
         })
     }
