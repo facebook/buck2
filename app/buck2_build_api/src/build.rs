@@ -320,18 +320,18 @@ async fn build_configured_label_inner<'a>(
 
         if providers_to_build.default {
             collection
-                .default_info()
+                .default_info()?
                 .for_each_default_output_artifact_only(&mut |o| {
                     outputs.push((ArtifactGroup::Artifact(o), BuildProviderType::Default))
                 })?;
         }
         if providers_to_build.default_other {
             collection
-                .default_info()
+                .default_info()?
                 .for_each_default_output_other_artifacts_only(&mut |o| {
                     outputs.push((o, BuildProviderType::DefaultOther))
                 })?;
-            collection.default_info().for_each_other_output(&mut |o| {
+            collection.default_info()?.for_each_other_output(&mut |o| {
                 outputs.push((o, BuildProviderType::DefaultOther))
             })?;
         }

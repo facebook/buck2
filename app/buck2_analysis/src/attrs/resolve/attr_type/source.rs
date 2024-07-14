@@ -36,7 +36,7 @@ pub(crate) trait SourceAttrTypeExt {
         let dep = ctx.get_dep(label)?;
         let default_outputs = dep
             .provider_collection()
-            .default_info()
+            .default_info()?
             .default_outputs_raw();
         let res = ListRef::from_frozen_value(default_outputs)
             .unwrap()

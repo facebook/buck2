@@ -18,6 +18,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use display_container::fmt_container;
@@ -415,9 +416,10 @@ impl<'v> Freeze for ProviderCollection<'v> {
 }
 
 impl FrozenProviderCollection {
-    pub fn default_info(&self) -> FrozenRef<'static, FrozenDefaultInfo> {
-        self.builtin_provider()
-            .expect("DefaultInfo should always be set")
+    pub fn default_info(&self) -> anyhow::Result<FrozenRef<'static, FrozenDefaultInfo>> {
+        self.builtin_provider().internal_error(
+            "DefaultInfo should always be set for providers returned from rule function",
+        )
     }
 
     pub fn contains_provider(&self, provider_id: &ProviderId) -> bool {
@@ -490,7 +492,7 @@ impl FrozenProviderCollectionValue {
 
                         for provider_name in &**provider_names {
                             let maybe_di = collection_value
-                                .default_info()
+                                .default_info()?
                                 .get_sub_target_providers(provider_name.as_str());
 
                             match maybe_di {
@@ -504,7 +506,7 @@ impl FrozenProviderCollectionValue {
                                             provider_name.clone(),
                                             label.clone(),
                                             collection_value
-                                                .default_info()
+                                                .default_info()?
                                                 .sub_targets()
                                                 .keys()
                                                 .map(|s| (*s).to_owned())
@@ -554,7 +556,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| anyhow::anyhow!("{:?} was not a FrozenProviderCollection", value))?;
 
-            let ret = collection.default_info().default_outputs_raw().to_value();
+            let ret = collection.default_info()?.default_outputs_raw().to_value();
             Ok(ret)
         }
 
@@ -566,7 +568,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| anyhow::anyhow!("{:?} was not a FrozenProviderCollection", value))?;
 
-            let ret = collection.default_info().sub_targets_raw().to_value();
+            let ret = collection.default_info()?.sub_targets_raw().to_value();
             Ok(ret)
         }
 

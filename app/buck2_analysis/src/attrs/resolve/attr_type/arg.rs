@@ -116,7 +116,7 @@ fn resolve_configured_macro(
         ConfiguredMacro::Location(target) => {
             let providers_value = ctx.get_dep(target)?;
             let providers = providers_value.provider_collection();
-            Ok(ResolvedMacro::Location(providers.default_info()))
+            Ok(ResolvedMacro::Location(providers.default_info()?))
         }
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.

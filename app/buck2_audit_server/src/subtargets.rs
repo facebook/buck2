@@ -95,23 +95,23 @@ async fn server_execute_with_dice(
                     if json_format {
                         fn serialize_nested_subtargets(
                             providers: &FrozenProviderCollection,
-                        ) -> serde_json::Value {
+                        ) -> anyhow::Result<serde_json::Value> {
                             let mut entries = serde_json::Map::new();
                             for (subtarget, providers) in
-                                providers.default_info().sub_targets().iter()
+                                providers.default_info()?.sub_targets().iter()
                             {
                                 entries.insert(
                                     subtarget.to_string(),
-                                    serialize_nested_subtargets(providers),
+                                    serialize_nested_subtargets(providers)?,
                                 );
                             }
-                            serde_json::Value::Object(entries)
+                            Ok(serde_json::Value::Object(entries))
                         }
                         subtargets_map.insert(
                             target.to_string(),
                             serialize_nested_subtargets(
                                 v.require_compatible()?.provider_collection(),
-                            ),
+                            )?,
                         );
                     } else {
                         fn recursive_iterate(
@@ -120,7 +120,7 @@ async fn server_execute_with_dice(
                             label: &mut Subtarget,
                         ) -> anyhow::Result<()> {
                             for (subtarget, providers) in
-                                providers.default_info().sub_targets().iter()
+                                providers.default_info()?.sub_targets().iter()
                             {
                                 label.push(subtarget.to_string());
                                 writeln!(stdout, "{}", label)?;
@@ -140,7 +140,7 @@ async fn server_execute_with_dice(
                     for sub in v
                         .require_compatible()?
                         .provider_collection()
-                        .default_info()
+                        .default_info()?
                         .sub_targets()
                         .keys()
                     {

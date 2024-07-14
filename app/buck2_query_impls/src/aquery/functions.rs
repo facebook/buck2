@@ -86,7 +86,7 @@ impl<'a> AqueryFunctions<'a> {
                 analysis
                     .providers()?
                     .provider_collection()
-                    .default_info()
+                    .default_info()?
                     .for_each_output(&mut |output| outputs.push(output))?;
             }
         }

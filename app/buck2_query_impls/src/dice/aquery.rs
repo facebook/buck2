@@ -354,7 +354,7 @@ async fn get_target_set_from_analysis_inner(
 
     for output in providers
         .provider_collection()
-        .default_info()
+        .default_info()?
         .default_outputs()
     {
         if let Some(action_key) = output.artifact().action_key() {

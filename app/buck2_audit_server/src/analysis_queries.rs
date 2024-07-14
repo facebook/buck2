@@ -71,7 +71,7 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                             if self.include_outputs {
                                                 let outputs = providers
                                                     .provider_collection()
-                                                    .default_info()
+                                                    .default_info()?
                                                     .default_outputs_raw();
                                                 writeln!(stdout, "        {}", outputs)?;
                                             }
