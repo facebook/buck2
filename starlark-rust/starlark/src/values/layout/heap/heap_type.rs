@@ -87,6 +87,7 @@ use crate::values::AllocValue;
 use crate::values::ComplexValue;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
+use crate::values::FrozenValueOfUnchecked;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -482,6 +483,14 @@ impl FrozenHeap {
     /// Allocate a new value on a [`FrozenHeap`].
     pub fn alloc<T: AllocFrozenValue>(&self, val: T) -> FrozenValue {
         val.alloc_frozen_value(self)
+    }
+
+    /// Allocate a value and return [`ValueOfUnchecked`] of it.
+    pub fn alloc_typed_unchecked<T: AllocFrozenValue>(
+        &self,
+        val: T,
+    ) -> FrozenValueOfUnchecked<'static, T> {
+        FrozenValueOfUnchecked::new(val.alloc_frozen_value(self))
     }
 
     /// Number of bytes allocated on this heap, not including any memory
