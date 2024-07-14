@@ -81,6 +81,15 @@ impl<V: ValueLifetimeless, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
     pub fn get(self) -> V {
         self.0
     }
+
+    /// Unpack the value.
+    pub fn unpack<'v>(self) -> crate::Result<T>
+    where
+        V: ValueLike<'v>,
+        T: UnpackValue<'v>,
+    {
+        Ok(T::unpack_value_err(self.get().to_value())?)
+    }
 }
 
 impl<V: ValueLifetimeless, T: StarlarkTypeRepr> Debug for ValueOfUncheckedGeneric<V, T> {
