@@ -16,11 +16,16 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::list::ListRef;
+use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::Trace;
+use starlark::values::UnpackAndDiscard;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueOf;
+use starlark::values::ValueTypedComplex;
 
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
@@ -104,12 +109,18 @@ impl FrozenExecutionPlatformRegistrationInfo {
 #[starlark_module]
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformRegistrationInfo<'v>(
-        #[starlark(require = named)] platforms: Value<'v>,
-        #[starlark(require = named)] fallback: Option<Value<'v>>,
+        #[starlark(require = named)] platforms: ValueOf<
+            'v,
+            UnpackList<UnpackAndDiscard<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>>,
+        >,
+        #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
     ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {
         Ok(ExecutionPlatformRegistrationInfo {
-            platforms,
-            fallback: fallback.unwrap_or_else(Value::new_none),
+            platforms: platforms.value,
+            fallback: match fallback {
+                NoneOr::None => Value::new_none(),
+                NoneOr::Other(v) => v,
+            },
         })
     }
 }
