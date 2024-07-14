@@ -455,6 +455,7 @@ pub mod testing {
     use std::cmp::min;
 
     use super::*;
+    use crate::legacy_configs::args::resolve_config_args;
     use crate::legacy_configs::args::CellResolutionState;
     use crate::legacy_configs::cells::create_project_filesystem;
 
@@ -481,7 +482,7 @@ pub mod testing {
             cell_resolver: OnceCell::new(),
         };
         let processed_config_args =
-            LegacyBuckConfig::resolve_config_args(config_args, &cell_resolution, &mut file_ops)?;
+            resolve_config_args(config_args, &cell_resolution, &mut file_ops)?;
         futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
             &[MainConfigFile {
                 path: path.to_buf(),

@@ -40,6 +40,7 @@ use crate::dice::file_ops::DiceFileComputations;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
+use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::CellResolutionState;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::push_all_files_from_a_directory;
@@ -222,7 +223,7 @@ impl BuckConfigBasedCells {
         };
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
-            LegacyBuckConfig::resolve_config_args(&config_args, &cell_resolution, &mut file_ops)?;
+            resolve_config_args(&config_args, &cell_resolution, &mut file_ops)?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {

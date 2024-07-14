@@ -21,7 +21,6 @@ use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigParserFileOps;
-use crate::legacy_configs::configs::LegacyBuckConfig;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, allocative::Allocative)]
@@ -127,105 +126,103 @@ pub(crate) struct CellResolutionState<'a> {
     pub(crate) cell_resolver: OnceCell<CellResolver>,
 }
 
-impl LegacyBuckConfig {
-    fn resolve_config_flag_arg(
-        flag_arg: &LegacyConfigCmdArgFlag,
-        cell_resolution: &CellResolutionState,
-        file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<ResolvedConfigFlag> {
-        let cell_path = flag_arg
-            .cell
-            .as_ref()
-            .map(|cell| {
-                Self::resolve_config_file_arg(
-                    &LegacyConfigCmdArgFile {
-                        cell: Some(cell.clone()),
-                        path: "".to_owned(),
-                    },
-                    cell_resolution,
-                    file_ops,
-                )
-            })
-            .transpose()?;
-
-        Ok(ResolvedConfigFlag {
-            section: flag_arg.section.clone(),
-            key: flag_arg.key.clone(),
-            value: flag_arg.value.clone(),
-            cell_path,
+fn resolve_config_flag_arg(
+    flag_arg: &LegacyConfigCmdArgFlag,
+    cell_resolution: &CellResolutionState,
+    file_ops: &mut dyn ConfigParserFileOps,
+) -> anyhow::Result<ResolvedConfigFlag> {
+    let cell_path = flag_arg
+        .cell
+        .as_ref()
+        .map(|cell| {
+            resolve_config_file_arg(
+                &LegacyConfigCmdArgFile {
+                    cell: Some(cell.clone()),
+                    path: "".to_owned(),
+                },
+                cell_resolution,
+                file_ops,
+            )
         })
+        .transpose()?;
+
+    Ok(ResolvedConfigFlag {
+        section: flag_arg.section.clone(),
+        key: flag_arg.key.clone(),
+        value: flag_arg.value.clone(),
+        cell_path,
+    })
+}
+
+fn resolve_config_file_arg(
+    file_arg: &LegacyConfigCmdArgFile,
+    cell_resolution_state: &CellResolutionState,
+    file_ops: &mut dyn ConfigParserFileOps,
+) -> anyhow::Result<AbsNormPathBuf> {
+    if let Some(cell_alias) = &file_arg.cell {
+        if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
+            let proj_path = cell_resolver.resolve_cell_relative_path(
+                cell_alias,
+                &file_arg.path,
+                cell_resolution_state.cwd,
+            )?;
+            return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
+        } else {
+            // Reading an immediate cell mapping is extremely fast as we just read a single
+            // config file (which would already be in memory). There is another alternative,
+            // we can take advantage of the fact that config files argument resolution happens
+            // _after_ initial parsing of root. But this requires quite a bit more work to
+            // access the unresolved parts and making further assumptions. The saving would
+            // be < 1ms, so we take this approach here. It can easily be changed later.
+            let cell_resolver = BuckConfigBasedCells::parse_cell_resolver(
+                cell_resolution_state.project_filesystem,
+                file_ops,
+            )?;
+            let proj_path = cell_resolver.resolve_cell_relative_path(
+                cell_alias,
+                &file_arg.path,
+                cell_resolution_state.cwd,
+            )?;
+            let resolved_path = cell_resolution_state.project_filesystem.resolve(&proj_path);
+            let set_result = cell_resolution_state.cell_resolver.set(cell_resolver);
+            assert!(set_result.is_ok());
+            return Ok(resolved_path);
+        }
     }
 
-    fn resolve_config_file_arg(
-        file_arg: &LegacyConfigCmdArgFile,
-        cell_resolution_state: &CellResolutionState,
-        file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<AbsNormPathBuf> {
-        if let Some(cell_alias) = &file_arg.cell {
-            if let Some(cell_resolver) = cell_resolution_state.cell_resolver.get() {
-                let proj_path = cell_resolver.resolve_cell_relative_path(
-                    cell_alias,
-                    &file_arg.path,
-                    cell_resolution_state.cwd,
-                )?;
-                return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
-            } else {
-                // Reading an immediate cell mapping is extremely fast as we just read a single
-                // config file (which would already be in memory). There is another alternative,
-                // we can take advantage of the fact that config files argument resolution happens
-                // _after_ initial parsing of root. But this requires quite a bit more work to
-                // access the unresolved parts and making further assumptions. The saving would
-                // be < 1ms, so we take this approach here. It can easily be changed later.
-                let cell_resolver = BuckConfigBasedCells::parse_cell_resolver(
-                    cell_resolution_state.project_filesystem,
-                    file_ops,
-                )?;
-                let proj_path = cell_resolver.resolve_cell_relative_path(
-                    cell_alias,
-                    &file_arg.path,
-                    cell_resolution_state.cwd,
-                )?;
-                let resolved_path = cell_resolution_state.project_filesystem.resolve(&proj_path);
-                let set_result = cell_resolution_state.cell_resolver.set(cell_resolver);
-                assert!(set_result.is_ok());
-                return Ok(resolved_path);
+    // Cargo relative file paths are expanded before they make it into the daemon
+    AbsNormPathBuf::try_from(file_arg.path.to_owned())
+}
+
+pub(crate) fn resolve_config_args(
+    args: &[ConfigOverride],
+    cell_resolution: &CellResolutionState,
+    file_ops: &mut dyn ConfigParserFileOps,
+) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
+    let resolved_args = args.iter().map(|u| {
+        let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
+            format!(
+                "Unknown ConfigType enum value `{}` when trying to deserialize",
+                u.config_type
+            )
+        })?;
+        match config_type {
+            ConfigType::Value => {
+                let parsed_flag = LegacyConfigCmdArgFlag::new(&u.config_override)?;
+                let resolved_flag =
+                    resolve_config_flag_arg(&parsed_flag, cell_resolution, file_ops)?;
+                Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
+            }
+            ConfigType::File => {
+                let parsed_file = LegacyConfigCmdArgFile::new(&u.config_override)?;
+                let resolved_path =
+                    resolve_config_file_arg(&parsed_file, cell_resolution, file_ops)?;
+                Ok(ResolvedLegacyConfigArg::File(resolved_path))
             }
         }
+    });
 
-        // Cargo relative file paths are expanded before they make it into the daemon
-        AbsNormPathBuf::try_from(file_arg.path.to_owned())
-    }
-
-    pub(crate) fn resolve_config_args(
-        args: &[ConfigOverride],
-        cell_resolution: &CellResolutionState,
-        file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
-        let resolved_args = args.iter().map(|u| {
-            let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
-                format!(
-                    "Unknown ConfigType enum value `{}` when trying to deserialize",
-                    u.config_type
-                )
-            })?;
-            match config_type {
-                ConfigType::Value => {
-                    let parsed_flag = LegacyConfigCmdArgFlag::new(&u.config_override)?;
-                    let resolved_flag =
-                        Self::resolve_config_flag_arg(&parsed_flag, cell_resolution, file_ops)?;
-                    Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
-                }
-                ConfigType::File => {
-                    let parsed_file = LegacyConfigCmdArgFile::new(&u.config_override)?;
-                    let resolved_path =
-                        Self::resolve_config_file_arg(&parsed_file, cell_resolution, file_ops)?;
-                    Ok(ResolvedLegacyConfigArg::File(resolved_path))
-                }
-            }
-        });
-
-        resolved_args.collect()
-    }
+    resolved_args.collect()
 }
 
 #[cfg(test)]
