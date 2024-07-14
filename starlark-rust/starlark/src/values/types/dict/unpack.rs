@@ -32,6 +32,14 @@ pub struct UnpackDictEntries<K, V> {
     pub entries: Vec<(K, V)>,
 }
 
+impl<K, V> Default for UnpackDictEntries<K, V> {
+    fn default() -> Self {
+        UnpackDictEntries {
+            entries: Vec::new(),
+        }
+    }
+}
+
 impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for UnpackDictEntries<K, V> {
     type Canonical = <DictType<K, V> as StarlarkTypeRepr>::Canonical;
 
