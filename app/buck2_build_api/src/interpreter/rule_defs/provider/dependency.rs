@@ -34,17 +34,16 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueTyped;
+use starlark::values::ValueOfUncheckedGeneric;
+use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
-use crate::interpreter::rule_defs::provider::ProviderCollection;
 
 #[derive(Debug, buck2_error::Error)]
 enum DependencyError {
@@ -68,9 +67,10 @@ enum DependencyError {
 )]
 #[repr(C)]
 pub struct DependencyGen<V: ValueLifetimeless> {
-    label: V,
-    providers_collection: V,
-    execution_platform: V,
+    label: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
+    provider_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
+    // This could be `Option<...>`, but that breaks `Coerce`.
+    execution_platform: ValueOfUncheckedGeneric<V, NoneOr<StarlarkExecutionPlatformResolution>>,
 }
 
 starlark_complex_value!(pub Dependency);
@@ -87,41 +87,34 @@ impl<'v> Dependency<'v> {
     pub fn new(
         heap: &'v Heap,
         label: ConfiguredProvidersLabel,
-        providers_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
+        provider_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
         execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
-        let execution_platform = match execution_platform {
-            Some(e) => NoneOr::Other(StarlarkExecutionPlatformResolution(e.clone())),
-            None => NoneOr::None,
-        };
+        let execution_platform: ValueOfUnchecked<NoneOr<StarlarkExecutionPlatformResolution>> =
+            match execution_platform {
+                Some(e) => ValueOfUnchecked::new(
+                    heap.alloc(StarlarkExecutionPlatformResolution(e.clone())),
+                ),
+                None => ValueOfUnchecked::new(Value::new_none()),
+            };
         Dependency {
-            label: heap.alloc(StarlarkConfiguredProvidersLabel::new(label)),
-            providers_collection: providers_collection.to_value(),
-            execution_platform: heap.alloc(execution_platform),
+            label: heap.alloc_typed_unchecked(StarlarkConfiguredProvidersLabel::new(label)),
+            provider_collection,
+            execution_platform,
         }
     }
 
     pub fn label(&self) -> &StarlarkConfiguredProvidersLabel {
-        StarlarkConfiguredProvidersLabel::from_value(self.label).unwrap()
+        StarlarkConfiguredProvidersLabel::from_value(self.label.get()).unwrap()
     }
 
-    pub fn execution_platform(&self) -> Option<&ExecutionPlatformResolution> {
-        match NoneOr::unpack_value(self.execution_platform)
-            .unwrap()
-            .unwrap()
-            .into_option()
-        {
-            Some(v) => match StarlarkExecutionPlatformResolution::from_value(v) {
-                Some(starlark_execution_platform) => Some(&starlark_execution_platform.0),
-                None => None,
-            },
-            None => None,
+    pub fn execution_platform(&self) -> anyhow::Result<Option<&ExecutionPlatformResolution>> {
+        let execution_platform: ValueOfUnchecked<NoneOr<&StarlarkExecutionPlatformResolution>> =
+            self.execution_platform.cast();
+        match execution_platform.unpack().into_anyhow_result()? {
+            NoneOr::None => Ok(None),
+            NoneOr::Other(e) => Ok(Some(&e.0)),
         }
-    }
-
-    fn provider_collection(&self) -> anyhow::Result<&ProviderCollection<'v>> {
-        ProviderCollection::from_value(self.providers_collection)
-            .ok_or_else(|| anyhow::anyhow!("internal error: not a ProviderCollection"))
     }
 }
 
@@ -140,7 +133,7 @@ where
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
-        self.providers_collection
+        self.provider_collection
             .to_value()
             .at(index, heap)
             .map_err(BuckStarlarkError::new)
@@ -149,7 +142,7 @@ where
     }
 
     fn is_in(&self, other: Value<'v>) -> starlark::Result<bool> {
-        self.providers_collection.to_value().is_in(other)
+        self.provider_collection.to_value().is_in(other)
     }
 }
 
@@ -159,15 +152,15 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
         this: &Dependency,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkConfiguredProvidersLabel>> {
-        Ok(ValueTyped::new_err(this.label).unwrap())
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
+        Ok(this.label)
     }
 
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
-    fn providers<'v>(this: &Dependency) -> anyhow::Result<Vec<Value<'v>>> {
+    fn providers<'v>(this: &Dependency) -> anyhow::Result<Vec<FrozenValue>> {
         Ok(this
-            .provider_collection()?
+            .provider_collection
             .providers
             .values()
             .copied()
@@ -183,11 +176,11 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] subtarget: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<Dependency<'v>> {
-        let di = this.provider_collection()?.default_info();
+        let di = this.provider_collection.default_info();
         let providers = di
             .get_sub_target_providers(subtarget)
             .ok_or_else(|| DependencyError::UnknownSubtarget(subtarget.to_owned()))?;
-        let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label)
+        let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label.get())
             .unwrap()
             .inner();
         let lbl = ConfiguredProvidersLabel::new(
@@ -209,7 +202,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         this: &Dependency<'v>,
         index: Value<'v>,
     ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
-        this.provider_collection()?
+        this.provider_collection
             .get(index)
             .with_context(|| format!("Error accessing dependencies of `{}`", this.label))
     }
