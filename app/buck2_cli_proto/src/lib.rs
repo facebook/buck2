@@ -31,6 +31,22 @@ fn wrong_request_type(request_type: &'static str) -> anyhow::Error {
     internal_error!("wrong gRPC request message type, expecting {request_type}")
 }
 
+impl ConfigOverride {
+    pub fn flag(s: &str) -> Self {
+        Self {
+            config_override: s.to_owned(),
+            config_type: crate::config_override::ConfigType::Value.into(),
+        }
+    }
+
+    pub fn file(p: &str) -> Self {
+        Self {
+            config_override: p.to_owned(),
+            config_type: crate::config_override::ConfigType::File.into(),
+        }
+    }
+}
+
 pub trait HasClientContext {
     fn client_context(&self) -> anyhow::Result<&ClientContext>;
 }
