@@ -1018,7 +1018,7 @@ impl FrozenValue {
     }
 
     /// Create a new empty list.
-    pub(crate) fn new_empty_list() -> Self {
+    pub fn new_empty_list() -> Self {
         FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST)
     }
 
