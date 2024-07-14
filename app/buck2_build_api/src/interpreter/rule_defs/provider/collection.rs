@@ -331,6 +331,20 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     }
 }
 
+impl FrozenProviderCollection {
+    pub fn testing_new_default(
+        heap: &FrozenHeap,
+    ) -> FrozenValueTyped<'static, FrozenProviderCollection> {
+        FrozenValueTyped::new_err(heap.alloc(FrozenProviderCollection {
+            providers: SmallMap::from_iter([(
+                DefaultInfoCallable::provider_id().dupe(),
+                FrozenDefaultInfo::testing_empty(heap).to_frozen_value(),
+            )]),
+        }))
+        .unwrap()
+    }
+}
+
 /// Holds a collection of `UserProvider`s. These can be accessed in Starlark by indexing on
 /// a `ProviderCallable` object.
 ///

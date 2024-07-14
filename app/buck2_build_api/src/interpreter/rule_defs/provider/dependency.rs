@@ -29,6 +29,7 @@ use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -40,6 +41,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
@@ -85,7 +87,7 @@ impl<'v> Dependency<'v> {
     pub fn new(
         heap: &'v Heap,
         label: ConfiguredProvidersLabel,
-        providers_collection: Value<'v>,
+        providers_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
         execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
         let execution_platform = match execution_platform {
@@ -94,7 +96,7 @@ impl<'v> Dependency<'v> {
         };
         Dependency {
             label: heap.alloc(StarlarkConfiguredProvidersLabel::new(label)),
-            providers_collection,
+            providers_collection: providers_collection.to_value(),
             execution_platform: heap.alloc(execution_platform),
         }
     }
@@ -192,7 +194,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
             lbl.target().clone(),
             lbl.name().push(ProviderName::new(subtarget.to_owned())?),
         );
-        Ok(Dependency::new(heap, lbl, providers.to_value(), None))
+        Ok(Dependency::new(heap, lbl, providers, None))
     }
 
     /// Gets a provider by indexing on a `ProviderCallable` object.

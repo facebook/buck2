@@ -229,7 +229,7 @@ async fn alloc_deps<'v, 'c>(
             let dependency = Dependency::new(
                 eval.heap(),
                 configured,
-                v.value().owned_value(eval.frozen_heap()),
+                v.value().owned_frozen_value_typed(eval.frozen_heap()),
                 None,
             );
 

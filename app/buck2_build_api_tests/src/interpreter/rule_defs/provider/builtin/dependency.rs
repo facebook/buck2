@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -18,13 +18,11 @@ use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::Value;
 
 #[starlark_module]
 fn dependency_creator(builder: &mut GlobalsBuilder) {
     fn create_collection<'v>(
         s: &str,
-        providers: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Dependency<'v>> {
         let c = BuildContext::from_context(eval)?;
@@ -42,9 +40,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
                 panic!();
             }
         };
-        let collection = eval
-            .heap()
-            .alloc(ProviderCollection::try_from_value(providers)?);
+        let collection = FrozenProviderCollection::testing_new_default(eval.frozen_heap());
 
         Ok(Dependency::new(eval.heap(), label, collection, None))
     }
@@ -57,9 +53,9 @@ fn dependency_works() -> buck2_error::Result<()> {
     tester.additional_globals(dependency_creator);
     tester.run_starlark_bzl_test(indoc!(
         r#"
-        frozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])
+        frozen = create_collection("root//foo:bar[baz]")
         def test():
-            notfrozen = create_collection("root//foo:bar[baz]", [DefaultInfo()])
+            notfrozen = create_collection("root//foo:bar[baz]")
             expect = "<dependency root//foo:bar[baz] (<testing>#<HASH>)>"
 
             assert_eq_ignore_hash(expect, repr(notfrozen))

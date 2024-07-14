@@ -21,6 +21,7 @@ use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::values::dict::AllocDict;
 use starlark::values::dict::Dict;
 use starlark::values::dict::FrozenDictRef;
 use starlark::values::list::AllocList;
@@ -28,6 +29,7 @@ use starlark::values::list::ListRef;
 use starlark::values::none::NoneType;
 use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
+use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -176,6 +178,18 @@ impl<'v> DefaultInfo<'v> {
 }
 
 impl FrozenDefaultInfo {
+    pub(crate) fn testing_empty(heap: &FrozenHeap) -> FrozenValueTyped<'static, FrozenDefaultInfo> {
+        let default_outputs = heap.alloc(AllocList::EMPTY);
+        let other_outputs = heap.alloc(AllocList::EMPTY);
+        let sub_targets = heap.alloc(AllocDict::EMPTY);
+        FrozenValueTyped::new_err(heap.alloc(FrozenDefaultInfo {
+            sub_targets,
+            default_outputs,
+            other_outputs,
+        }))
+        .unwrap()
+    }
+
     fn get_sub_target_providers_impl(
         &self,
         name: &str,

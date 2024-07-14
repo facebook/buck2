@@ -24,7 +24,6 @@ use starlark::values::starlark_value;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
-use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
@@ -121,9 +120,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
             this.analysis
                 .lookup_inner(&this.label)?
                 .value()
-                .owned_frozen_value(eval.frozen_heap())
-                .to_value()
-                .to_value(),
+                .owned_frozen_value_typed(eval.frozen_heap()),
             None,
         )))
     }
