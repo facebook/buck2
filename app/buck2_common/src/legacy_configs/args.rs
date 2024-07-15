@@ -27,8 +27,7 @@ use crate::legacy_configs::file_ops::ConfigPath;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, Eq, allocative::Allocative)]
-#[allow(private_interfaces)] // contents are not meant to be publicly inspectable
-pub enum ResolvedLegacyConfigArg {
+pub(crate) enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(ResolvedConfigFlag),
     /// A file containing additional config values (in `.buckconfig` format).
