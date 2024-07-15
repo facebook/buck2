@@ -115,13 +115,17 @@ impl ToOwned for AbsPath {
 }
 
 impl AbsPath {
-    pub fn new(path: &Path) -> anyhow::Result<&AbsPath> {
-        if path.is_absolute() {
-            // SAFETY: repr transparent.
-            Ok(unsafe { &*(path as *const Path as *const AbsPath) })
-        } else {
-            Err(AbsPathError::PathNotAbsolute(path.to_path_buf()).into())
+    pub fn new<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> anyhow::Result<&'a AbsPath> {
+        // Wrapper function to make sure the lifetimes are right
+        fn inner(path: &Path) -> anyhow::Result<&AbsPath> {
+            if path.is_absolute() {
+                // SAFETY: repr transparent.
+                Ok(unsafe { &*(path as *const Path as *const AbsPath) })
+            } else {
+                Err(AbsPathError::PathNotAbsolute(path.to_path_buf()).into())
+            }
         }
+        inner(path.as_ref())
     }
 
     pub fn as_path(&self) -> &Path {
