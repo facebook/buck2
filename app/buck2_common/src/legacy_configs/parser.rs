@@ -27,11 +27,11 @@ use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigData;
 use crate::legacy_configs::configs::ConfigFileLocation;
 use crate::legacy_configs::configs::ConfigFileLocationWithLine;
-use crate::legacy_configs::configs::ConfigParserFileOps;
 use crate::legacy_configs::configs::ConfigValue;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::Location;
+use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
 
 mod resolver;

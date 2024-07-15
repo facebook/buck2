@@ -19,8 +19,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
-use crate::legacy_configs::configs::ConfigParserFileOps;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
+use crate::legacy_configs::file_ops::ConfigParserFileOps;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, allocative::Allocative)]
