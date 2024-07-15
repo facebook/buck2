@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -36,10 +35,7 @@ use dupe::Dupe;
 use crate::cas_digest::RawDigest;
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
-use crate::dice::file_ops::DiceFileComputations;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
-use crate::file_ops::FileType;
-use crate::file_ops::RawPathMetadata;
 use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::BuckConfigParseOptions;
@@ -51,6 +47,7 @@ use crate::legacy_configs::file_ops::ConfigDirEntry;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
+use crate::legacy_configs::file_ops::DiceConfigFileOps;
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
 
@@ -351,93 +348,7 @@ impl BuckConfigBasedCells {
         let project_fs = io_provider.project_root();
         let overrides = ctx.get_injected_legacy_config_overrides().await?;
 
-        struct DiceConfigFileOps<'a, 'b>(
-            &'a mut DiceComputations<'b>,
-            &'a ProjectRoot,
-            &'a CellResolver,
-        );
-
-        #[async_trait::async_trait]
-        impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
-            async fn file_exists(&mut self, path: &ConfigPath) -> bool {
-                let ConfigPath::Project(path) = path else {
-                    // File is outside of project root, for example, /etc/buckconfigs.d/experiments
-                    return (DefaultConfigParserFileOps {
-                        project_fs: self.1.dupe(),
-                    })
-                    .file_exists(path)
-                    .await;
-                };
-                let Ok(path) = self.2.get_cell_path(path) else {
-                    // Can't actually happen
-                    return false;
-                };
-
-                DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref())
-                    .await
-                    .is_ok_and(|meta| meta.is_some())
-            }
-
-            async fn read_file_lines(
-                &mut self,
-                path: &ConfigPath,
-            ) -> anyhow::Result<
-                Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>,
-            > {
-                let ConfigPath::Project(path) = path else {
-                    return (DefaultConfigParserFileOps {
-                        project_fs: self.1.dupe(),
-                    })
-                    .read_file_lines(path)
-                    .await;
-                };
-                let path = self.2.get_cell_path(path)?;
-                let data = DiceFileComputations::read_file(&mut self.0, path.as_ref()).await?;
-                let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
-                Ok(Box::new(lines.into_iter().map(Ok)))
-            }
-
-            async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
-                let ConfigPath::Project(path) = path else {
-                    return (DefaultConfigParserFileOps {
-                        project_fs: self.1.dupe(),
-                    })
-                    .read_dir(path)
-                    .await;
-                };
-                let path = self.2.get_cell_path(path)?;
-
-                // This trait expects some slightly non-standard behavior wrt errors, so make sure
-                // to match what the `DefaultConfigParserFileOps` do
-                match DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref())
-                    .await?
-                {
-                    Some(RawPathMetadata::Directory) => {}
-                    Some(_) | None => return Ok(Vec::new()),
-                }
-
-                let out =
-                    DiceFileComputations::read_dir_include_ignores(&mut self.0, path.as_ref())
-                        .await?
-                        .included
-                        .iter()
-                        .filter_map(|e| match e.file_type {
-                            FileType::Directory => Some(ConfigDirEntry {
-                                name: e.file_name.clone(),
-                                is_dir: true,
-                            }),
-                            FileType::File => Some(ConfigDirEntry {
-                                name: e.file_name.clone(),
-                                is_dir: false,
-                            }),
-                            FileType::Symlink | FileType::Unknown => None,
-                        })
-                        .collect();
-                Ok(out)
-            }
-        }
-
-        let mut file_ops = DiceConfigFileOps(ctx, project_fs, &resolver);
+        let mut file_ops = DiceConfigFileOps::new(ctx, project_fs, &resolver);
 
         let config_paths = get_buckconfig_paths_for_cell(cell_path, &mut file_ops).await?;
 

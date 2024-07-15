@@ -7,18 +7,26 @@
  * of this source tree.
  */
 
+use std::io;
 use std::io::BufRead;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use dice::DiceComputations;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
+
+use crate::dice::file_ops::DiceFileComputations;
+use crate::file_ops::FileType;
+use crate::file_ops::RawPathMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
 pub enum ConfigPath {
@@ -141,6 +149,99 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
             }
         }
         Ok(entries)
+    }
+}
+
+pub(crate) struct DiceConfigFileOps<'a, 'b>(
+    &'a mut DiceComputations<'b>,
+    &'a ProjectRoot,
+    &'a CellResolver,
+);
+
+impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
+    pub(crate) fn new(
+        ctx: &'a mut DiceComputations<'b>,
+        project_fs: &'a ProjectRoot,
+        cell_resolver: &'a CellResolver,
+    ) -> Self {
+        Self(ctx, project_fs, cell_resolver)
+    }
+}
+
+#[async_trait::async_trait]
+impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
+    async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+        let ConfigPath::Project(path) = path else {
+            // File is outside of project root, for example, /etc/buckconfigs.d/experiments
+            return (DefaultConfigParserFileOps {
+                project_fs: self.1.dupe(),
+            })
+            .file_exists(path)
+            .await;
+        };
+        let Ok(path) = self.2.get_cell_path(path) else {
+            // Can't actually happen
+            return false;
+        };
+
+        DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref())
+            .await
+            .is_ok_and(|meta| meta.is_some())
+    }
+
+    async fn read_file_lines(
+        &mut self,
+        path: &ConfigPath,
+    ) -> anyhow::Result<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>
+    {
+        let ConfigPath::Project(path) = path else {
+            return (DefaultConfigParserFileOps {
+                project_fs: self.1.dupe(),
+            })
+            .read_file_lines(path)
+            .await;
+        };
+        let path = self.2.get_cell_path(path)?;
+        let data = DiceFileComputations::read_file(&mut self.0, path.as_ref()).await?;
+        let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
+        Ok(Box::new(lines.into_iter().map(Ok)))
+    }
+
+    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        let ConfigPath::Project(path) = path else {
+            return (DefaultConfigParserFileOps {
+                project_fs: self.1.dupe(),
+            })
+            .read_dir(path)
+            .await;
+        };
+        let path = self.2.get_cell_path(path)?;
+
+        // This trait expects some slightly non-standard behavior wrt errors, so make sure
+        // to match what the `DefaultConfigParserFileOps` do
+        match DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref()).await?
+        {
+            Some(RawPathMetadata::Directory) => {}
+            Some(_) | None => return Ok(Vec::new()),
+        }
+
+        let out = DiceFileComputations::read_dir_include_ignores(&mut self.0, path.as_ref())
+            .await?
+            .included
+            .iter()
+            .filter_map(|e| match e.file_type {
+                FileType::Directory => Some(ConfigDirEntry {
+                    name: e.file_name.clone(),
+                    is_dir: true,
+                }),
+                FileType::File => Some(ConfigDirEntry {
+                    name: e.file_name.clone(),
+                    is_dir: false,
+                }),
+                FileType::Symlink | FileType::Unknown => None,
+            })
+            .collect();
+        Ok(out)
     }
 }
 
