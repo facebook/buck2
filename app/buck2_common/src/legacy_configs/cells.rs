@@ -28,7 +28,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -233,9 +232,6 @@ impl BuckConfigBasedCells {
         };
 
         let mut buckconfigs = HashMap::new();
-        let mut work = vec![CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
-            "".to_owned(),
-        )?)];
         let mut cells_aggregator = CellsAggregator::new();
         let mut root_aliases = HashMap::new();
 
@@ -251,8 +247,76 @@ impl BuckConfigBasedCells {
         )
         .await?;
 
-        while let Some(path) = work.pop() {
-            if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {
+        let root_path = CellRootPathBuf::new(ProjectRelativePath::empty().to_owned());
+
+        let buckconfig_paths = get_project_buckconfig_paths(&root_path, &mut file_ops).await?;
+
+        let config = LegacyBuckConfig::finish_parse(
+            started_parse.clone(),
+            buckconfig_paths.as_slice(),
+            &root_path,
+            &mut file_ops,
+            &processed_config_args,
+            options.follow_includes,
+        )
+        .await?;
+
+        let mut other_cells = Vec::new();
+
+        let repositories = config
+            .get_section("repositories")
+            .or_else(|| config.get_section("cells"));
+        if let Some(repositories) = repositories {
+            for (alias, alias_path) in repositories.iter() {
+                let alias_path = CellRootPathBuf::new(
+                    root_path.as_project_relative_path()
+                        .join_normalized(RelativePath::new(alias_path.as_str()))
+                        .with_context(|| {
+                            format!(
+                                "expected alias path to be a relative path, but found `{}` for `{}`",
+                                alias_path.as_str(),
+                                alias,
+                            )
+                        })?
+                );
+                let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                root_aliases.insert(alias.clone(), alias_path.clone());
+                cells_aggregator.add_cell_entry(root_path.clone(), alias, alias_path.clone())?;
+                other_cells.push(alias_path);
+            }
+        }
+
+        if cells_aggregator.get_name(&root_path).is_none() {
+            return Err(CellsError::MissingRootCellName.into());
+        }
+
+        for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
+            let alias_path =
+                cells_aggregator.add_cell_alias(root_path.clone(), alias.clone(), destination)?;
+            root_aliases.insert(alias, alias_path.clone());
+        }
+
+        if let Some(external_cells) = config.get_section("external_cells") {
+            for (alias, origin) in external_cells.iter() {
+                let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                let target = root_aliases
+                    .get(&alias)
+                    .ok_or(CellsError::UnknownCellName(alias))?;
+                let name = cells_aggregator
+                    .get_name(target)
+                    .internal_error("We just checked that this cell exists")?;
+                let origin = Self::parse_external_cell_origin(name, origin.as_str(), &config)?;
+                if let ExternalCellOrigin::Bundled(name) = origin {
+                    EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
+                }
+                cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
+            }
+        }
+
+        buckconfigs.insert(root_path, config);
+
+        for path in other_cells {
+            if cells_aggregator.is_external(&path) {
                 continue;
             }
 
@@ -268,74 +332,12 @@ impl BuckConfigBasedCells {
             )
             .await?;
 
-            let is_root = path.is_repo_root();
-
-            if is_root {
-                let repositories = config
-                    .get_section("repositories")
-                    .or_else(|| config.get_section("cells"));
-                if let Some(repositories) = repositories {
-                    for (alias, alias_path) in repositories.iter() {
-                        let alias_path = CellRootPathBuf::new(path
-                        .join_normalized(RelativePath::new(alias_path.as_str()))
-                        .with_context(|| {
-                            format!(
-                                "expected alias path to be a relative path, but found `{}` for `{}` in buckconfig `{}`",
-                                alias_path.as_str(),
-                                alias,
-                                path
-                            )
-                        })?);
-                        let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                        if is_root {
-                            root_aliases.insert(alias.clone(), alias_path.clone());
-                        }
-                        cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
-                        work.push(alias_path);
-                    }
-                }
-            }
-
-            if is_root {
-                if cells_aggregator.get_name(&path).is_none() {
-                    return Err(CellsError::MissingRootCellName.into());
-                }
-            } else {
-                for (alias, alias_path) in &root_aliases {
-                    cells_aggregator.add_cell_entry(
-                        path.clone(),
-                        alias.clone(),
-                        alias_path.clone(),
-                    )?;
-                }
+            for (alias, alias_path) in &root_aliases {
+                cells_aggregator.add_cell_entry(path.clone(), alias.clone(), alias_path.clone())?;
             }
 
             for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
-                let alias_path =
-                    cells_aggregator.add_cell_alias(path.clone(), alias.clone(), destination)?;
-                if is_root {
-                    root_aliases.insert(alias, alias_path.clone());
-                }
-            }
-
-            if is_root {
-                if let Some(external_cells) = config.get_section("external_cells") {
-                    for (alias, origin) in external_cells.iter() {
-                        let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                        let target = root_aliases
-                            .get(&alias)
-                            .ok_or(CellsError::UnknownCellName(alias))?;
-                        let name = cells_aggregator
-                            .get_name(target)
-                            .internal_error("We just checked that this cell exists")?;
-                        let origin =
-                            Self::parse_external_cell_origin(name, origin.as_str(), &config)?;
-                        if let ExternalCellOrigin::Bundled(name) = origin {
-                            EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
-                        }
-                        cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
-                    }
-                }
+                cells_aggregator.add_cell_alias(path.clone(), alias.clone(), destination)?;
             }
 
             buckconfigs.insert(path, config);
