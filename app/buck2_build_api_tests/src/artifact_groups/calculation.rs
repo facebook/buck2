@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -85,16 +84,14 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let heap = set.owner();
 
-    let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
+    let cell_resolver = CellResolver::testing_with_names_and_paths(&[
         (
             CellName::testing_new("root"),
             CellRootPathBuf::testing_new("cell-path"),
-            HashMap::new(),
         ),
         (
             CellName::testing_new("parent"),
             CellRootPathBuf::testing_new(""),
-            HashMap::new(),
         ),
     ]);
 

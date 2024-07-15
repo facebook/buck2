@@ -427,39 +427,38 @@ impl CellResolver {
         // It is an error to build a CellResolver that doesn't cover the root.
         // Therefore, if it isn't needed for the test, just make one up.
         if other_path.is_empty() {
-            Self::testing_with_names_and_paths_with_alias(&[(
-                other_name,
-                other_path,
+            Self::testing_with_names_and_paths_with_alias(
+                &[(other_name, other_path)],
                 HashMap::new(),
-            )])
+            )
         } else {
-            Self::testing_with_names_and_paths_with_alias(&[
-                (other_name, other_path, HashMap::new()),
-                (
-                    CellName::testing_new("root"),
-                    CellRootPathBuf::testing_new(""),
-                    HashMap::new(),
-                ),
-            ])
+            Self::testing_with_names_and_paths_with_alias(
+                &[
+                    (other_name, other_path),
+                    (
+                        CellName::testing_new("root"),
+                        CellRootPathBuf::testing_new(""),
+                    ),
+                ],
+                HashMap::new(),
+            )
         }
     }
 
     pub fn testing_with_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver {
         Self::testing_with_names_and_paths_with_alias(
-            &cells.map(|(name, path)| (*name, path.clone(), HashMap::new())),
+            &cells.map(|(name, path)| (*name, path.clone())),
+            HashMap::new(),
         )
     }
 
     pub fn testing_with_names_and_paths_with_alias(
-        cells: &[(
-            CellName,
-            CellRootPathBuf,
-            HashMap<NonEmptyCellAlias, CellName>,
-        )],
+        cells: &[(CellName, CellRootPathBuf)],
+        root_cell_aliases: HashMap<NonEmptyCellAlias, CellName>,
     ) -> CellResolver {
         let cell_path_by_name: HashMap<CellName, CellRootPathBuf> = cells
             .iter()
-            .map(|(name, path, _)| (*name, path.clone()))
+            .map(|(name, path)| (*name, path.clone()))
             .collect();
 
         assert_eq!(cell_path_by_name.len(), cells.len(), "duplicate cell names");
@@ -467,7 +466,7 @@ impl CellResolver {
             cells.len(),
             cells
                 .iter()
-                .map(|(_, path, _)| path.as_path())
+                .map(|(_, path)| path.as_path())
                 .unique()
                 .count(),
             "duplicate cell paths"
@@ -475,10 +474,10 @@ impl CellResolver {
 
         let mut cell_aggregator = CellsAggregator::new();
 
-        for (name, path, alias) in cells {
+        for (name, path) in cells {
             cell_aggregator.cell_info(path.clone()).name = Some(*name);
 
-            for (alias, name) in alias {
+            for (alias, name) in root_cell_aliases.iter() {
                 cell_aggregator
                     .add_cell_entry(
                         path.clone(),

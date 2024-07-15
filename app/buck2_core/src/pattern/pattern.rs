@@ -1191,32 +1191,32 @@ mod tests {
     }
 
     fn resolver() -> CellResolver {
-        CellResolver::testing_with_names_and_paths_with_alias(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-                HashMap::from_iter([
-                    (
-                        NonEmptyCellAlias::testing_new("cell1"),
-                        CellName::testing_new("cell1"),
-                    ),
-                    (
-                        NonEmptyCellAlias::testing_new("alias2"),
-                        CellName::testing_new("cell2"),
-                    ),
-                ]),
-            ),
-            (
-                CellName::testing_new("cell1"),
-                CellRootPathBuf::testing_new("cell1"),
-                HashMap::new(),
-            ),
-            (
-                CellName::testing_new("cell2"),
-                CellRootPathBuf::testing_new("cell2"),
-                HashMap::new(),
-            ),
-        ])
+        CellResolver::testing_with_names_and_paths_with_alias(
+            &[
+                (
+                    CellName::testing_new("root"),
+                    CellRootPathBuf::testing_new(""),
+                ),
+                (
+                    CellName::testing_new("cell1"),
+                    CellRootPathBuf::testing_new("cell1"),
+                ),
+                (
+                    CellName::testing_new("cell2"),
+                    CellRootPathBuf::testing_new("cell2"),
+                ),
+            ],
+            HashMap::from_iter([
+                (
+                    NonEmptyCellAlias::testing_new("cell1"),
+                    CellName::testing_new("cell1"),
+                ),
+                (
+                    NonEmptyCellAlias::testing_new("alias2"),
+                    CellName::testing_new("cell2"),
+                ),
+            ]),
+        )
     }
 
     fn alias_resolver() -> CellAliasResolver {

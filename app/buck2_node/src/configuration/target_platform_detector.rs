@@ -140,21 +140,22 @@ mod tests {
 
     #[test]
     fn test_parse_errors() -> anyhow::Result<()> {
-        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-                HashMap::from_iter([(
-                    NonEmptyCellAlias::testing_new("alias1"),
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
+            &[
+                (
+                    CellName::testing_new("root"),
+                    CellRootPathBuf::testing_new(""),
+                ),
+                (
                     CellName::testing_new("cell1"),
-                )]),
-            ),
-            (
+                    CellRootPathBuf::testing_new("cell1"),
+                ),
+            ],
+            HashMap::from_iter([(
+                NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
-                CellRootPathBuf::testing_new("cell1"),
-                HashMap::new(),
-            ),
-        ]);
+            )]),
+        );
         let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
 
         let check_fails = |spec: &str| {
@@ -206,21 +207,22 @@ mod tests {
 
     #[test]
     fn test_detect() -> anyhow::Result<()> {
-        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-                HashMap::from_iter([(
-                    NonEmptyCellAlias::testing_new("alias1"),
+        let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
+            &[
+                (
+                    CellName::testing_new("root"),
+                    CellRootPathBuf::testing_new(""),
+                ),
+                (
                     CellName::testing_new("cell1"),
-                )]),
-            ),
-            (
+                    CellRootPathBuf::testing_new("cell1"),
+                ),
+            ],
+            HashMap::from_iter([(
+                NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
-                CellRootPathBuf::testing_new("cell1"),
-                HashMap::new(),
-            ),
-        ]);
+            )]),
+        );
         let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
 
         let detector = TargetPlatformDetector::parse_spec(

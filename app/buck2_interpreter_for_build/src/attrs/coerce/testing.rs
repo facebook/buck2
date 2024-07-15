@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
@@ -51,18 +50,16 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
     ];
 
-    let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(&[
-        (
-            package.cell_name(),
-            CellRootPathBuf::testing_new(""),
-            aliases,
-        ),
-        (
-            CellName::testing_new("cell1"),
-            CellRootPathBuf::testing_new("cell1"),
-            HashMap::new(),
-        ),
-    ]);
+    let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
+        &[
+            (package.cell_name(), CellRootPathBuf::testing_new("")),
+            (
+                CellName::testing_new("cell1"),
+                CellRootPathBuf::testing_new("cell1"),
+            ),
+        ],
+        aliases,
+    );
     let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver().dupe();
 
     BuildAttrCoercionContext::new_with_package(
