@@ -350,8 +350,8 @@ impl BuckConfigBasedCells {
 
         for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
             let alias_path =
-                cells_aggregator.add_cell_alias(root_path.clone(), alias.clone(), destination)?;
-            root_aliases.insert(alias, alias_path.clone());
+                cells_aggregator.add_cell_alias_for_root_cell(alias.clone(), destination)?;
+            root_aliases.insert(alias, alias_path);
         }
 
         if let Some(external_cells) = config.get_section("external_cells") {
@@ -389,14 +389,6 @@ impl BuckConfigBasedCells {
                 options.follow_includes,
             )
             .await?;
-
-            for (alias, alias_path) in &root_aliases {
-                cells_aggregator.add_cell_entry(path.clone(), alias.clone(), alias_path.clone())?;
-            }
-
-            for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
-                cells_aggregator.add_cell_alias(path.clone(), alias.clone(), destination)?;
-            }
 
             buckconfigs.insert(path, config);
         }

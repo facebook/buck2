@@ -18,12 +18,9 @@ use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
-use crate::cells::CellAliasResolver;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellInstanceError {
-    #[error("Inconsistent cell name: `{0}` in instance, but `{1}` in alias resolver")]
-    InconsistentCellName(CellName, CellName),
     #[error(
         "Attempted to refer to cell `{0}`; however, this is an external cell which cannot be used from `{1}`"
     )]
@@ -45,9 +42,6 @@ struct CellData {
     /// the project relative path to this 'CellInstance'
     path: CellRootPathBuf,
     external: Option<ExternalCellOrigin>,
-    #[derivative(Debug = "ignore")]
-    /// the aliases of this specific cell
-    aliases: CellAliasResolver,
     nested_cells: NestedCells,
 }
 
@@ -56,12 +50,8 @@ impl CellInstance {
         name: CellName,
         path: CellRootPathBuf,
         external: Option<ExternalCellOrigin>,
-        aliases: CellAliasResolver,
         nested_cells: NestedCells,
     ) -> anyhow::Result<CellInstance> {
-        if name != aliases.current {
-            return Err(CellInstanceError::InconsistentCellName(name, aliases.current).into());
-        }
         if external.is_some()
             && let Some(nested) = nested_cells.check_empty()
         {
@@ -71,7 +61,6 @@ impl CellInstance {
             name,
             path,
             external,
-            aliases,
             nested_cells,
         })))
     }
@@ -86,11 +75,6 @@ impl CellInstance {
     #[inline]
     pub fn path(&self) -> &CellRootPath {
         &self.0.path
-    }
-
-    #[inline]
-    pub fn testing_cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.0.aliases
     }
 
     #[inline]
