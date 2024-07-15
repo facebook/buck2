@@ -106,6 +106,30 @@ struct CellResolutionState<'a> {
     cell_resolver: Option<CellResolver>,
 }
 
+impl CellResolutionState<'_> {
+    fn get_cell_resolver(
+        &mut self,
+        file_ops: &mut dyn ConfigParserFileOps,
+    ) -> anyhow::Result<&CellResolver> {
+        if self.cell_resolver.is_none() {
+            // Reading an immediate cell mapping is extremely fast as we just read a single
+            // config file (which would already be in memory). There is another alternative,
+            // we can take advantage of the fact that config files argument resolution happens
+            // _after_ initial parsing of root. But this requires quite a bit more work to
+            // access the unresolved parts and making further assumptions. The saving would
+            // be < 1ms, so we take this approach here. It can easily be changed later.
+            let cell_resolver =
+                BuckConfigBasedCells::parse_cell_resolver(self.project_filesystem, file_ops)?;
+
+            self.cell_resolver = Some(cell_resolver);
+        }
+
+        // This is the standard `get_or_insert` limitation of the borrow checker. `None` case was
+        // covered above.
+        Ok(self.cell_resolver.as_mut().unwrap())
+    }
+}
+
 fn resolve_config_flag_arg(
     flag_arg: &LegacyConfigCmdArgFlag,
     cell_resolution: &mut CellResolutionState,
@@ -140,33 +164,11 @@ fn resolve_config_file_arg(
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<AbsNormPathBuf> {
     if let Some(cell_alias) = &file_arg.cell {
-        if let Some(cell_resolver) = &mut cell_resolution_state.cell_resolver {
-            let proj_path = cell_resolver.resolve_cell_relative_path(
-                cell_alias,
-                &file_arg.path,
-                cell_resolution_state.cwd,
-            )?;
-            return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
-        } else {
-            // Reading an immediate cell mapping is extremely fast as we just read a single
-            // config file (which would already be in memory). There is another alternative,
-            // we can take advantage of the fact that config files argument resolution happens
-            // _after_ initial parsing of root. But this requires quite a bit more work to
-            // access the unresolved parts and making further assumptions. The saving would
-            // be < 1ms, so we take this approach here. It can easily be changed later.
-            let cell_resolver = BuckConfigBasedCells::parse_cell_resolver(
-                cell_resolution_state.project_filesystem,
-                file_ops,
-            )?;
-            let proj_path = cell_resolver.resolve_cell_relative_path(
-                cell_alias,
-                &file_arg.path,
-                cell_resolution_state.cwd,
-            )?;
-            let resolved_path = cell_resolution_state.project_filesystem.resolve(&proj_path);
-            cell_resolution_state.cell_resolver = Some(cell_resolver);
-            return Ok(resolved_path);
-        }
+        let cwd = cell_resolution_state.cwd;
+        let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops)?;
+        let proj_path =
+            cell_resolver.resolve_cell_relative_path(cell_alias, &file_arg.path, cwd)?;
+        return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
     }
 
     // Cargo relative file paths are expanded before they make it into the daemon
