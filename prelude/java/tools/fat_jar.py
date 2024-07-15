@@ -14,7 +14,7 @@ import shlex
 import zipfile
 from shutil import copy, copytree
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Optional
 
 import utils
 
@@ -109,19 +109,45 @@ def _parse_args():
         action="store_true",
         help="Whether to create an inner jar if native libraries are present.",
     )
+    parser.add_argument(
+        "--append_jar",
+        required=False,
+        type=pathlib.Path,
+        help="path to a jar used as base of the new jar, which new files will be added",
+    )
 
     return parser.parse_args()
 
 
-def _merge_dictionaries(dict1: Dict[str, str], dict2: Dict[str, str]) -> Dict[str, str]:
-    return {**dict1, **dict2}
-
-
-def _shlex_split(cmd: str) -> List[str]:
-    if platform.system() == "Windows":
-        return cmd.split()
-    else:
-        return shlex.split(cmd)
+def _fat_jar(
+    jar_builder_tool: str,
+    output_path: str,
+    append_jar: Optional[str] = None,
+    main_class: Optional[str] = None,
+    entries_to_jar_file: Optional[str] = None,
+    override_entries_to_jar_file: Optional[str] = None,
+    manifest_file: Optional[str] = None,
+    blocklist_file: Optional[str] = None,
+) -> None:
+    cmd = []
+    cmd.extend(utils.shlex_split(jar_builder_tool))
+    if append_jar:
+        cmd.extend(["--append-jar", append_jar])
+    if main_class:
+        cmd.extend(["--main-class", main_class])
+    if entries_to_jar_file:
+        cmd.extend(["--entries-to-jar", entries_to_jar_file])
+    if override_entries_to_jar_file:
+        cmd.extend(["--override-entries-to-jar", override_entries_to_jar_file])
+    if manifest_file:
+        cmd.extend(["--manifest-file", manifest_file])
+    if blocklist_file:
+        cmd.extend(["--blocklist-patterns", blocklist_file])
+        cmd.extend(["--blocklist-patterns-matcher", "substring"])
+    cmd.append("--merge-manifests")
+    cmd.extend(["--output", output_path])
+    utils.log_message("fat_jar_cmd: {}".format(cmd))
+    utils.execute_command(cmd)
 
 
 # Reads a list of files from native_libs_file and symlinks each as files in native_libs_dir.
@@ -151,6 +177,7 @@ def main():
     manifest = args.manifest
     blocklist_file = args.blocklist
     meta_inf_directory = args.meta_inf_directory
+    append_jar = args.append_jar
 
     generate_wrapper = args.generate_wrapper
     classpath_args_output = args.classpath_args_output
@@ -191,6 +218,8 @@ def main():
         utils.log_message("classpath_args_output: {}".format(classpath_args_output))
         utils.log_message("java_tool: {}".format(java_tool))
         utils.log_message("script_marker_file_name: {}".format(script_marker_file_name))
+    if append_jar:
+        utils.log_message("append_jar = {}".format(append_jar))
 
     need_to_process_native_libs = native_libs_file is not None
     if need_to_process_native_libs and not do_not_create_inner_jar:
@@ -258,8 +287,8 @@ def main():
 
         else:  # generate fat jar
 
-            jar_cmd = []
-            jar_cmd.extend(utils.shlex_split(jar_builder_tool))
+            entries_to_jar_file = jars_file
+            override_entries_to_jar = None
 
             if need_to_process_native_libs and do_not_create_inner_jar:
                 # symlink native libs to `nativelibs` directory
@@ -283,11 +312,7 @@ def main():
                         f.write(str(f2.read()) + "\n")
                     f.write(str(native_libs_staging))
 
-                jar_cmd.extend(
-                    ["--entries-to-jar", jars_and_native_libs_directory_file]
-                )
-            else:
-                jar_cmd.extend(["--entries-to-jar", jars_file])
+                entries_to_jar_file = jars_and_native_libs_directory_file
 
             if meta_inf_directory:
                 meta_inf_staging = pathlib.Path(temp_dir) / "meta_inf_staging"
@@ -305,28 +330,26 @@ def main():
                 with open(meta_inf_directory_file, "w") as f:
                     f.write(str(meta_inf_staging))
 
-                jar_cmd.extend(["--override-entries-to-jar", meta_inf_directory_file])
-
-            if main_class:
-                jar_cmd.extend(["--main-class", main_class])
-
-            if blocklist_file:
-                jar_cmd.extend(["--blocklist-patterns", blocklist_file])
-                jar_cmd.extend(["--blocklist-patterns-matcher", "substring"])
-
-            if manifest:
-                jar_cmd.extend(["--manifest-file", manifest])
-
-            jar_cmd.append("--merge-manifests")
+                override_entries_to_jar = meta_inf_directory_file
 
             jar_output = (
                 os.path.join(temp_dir, "inner.jar")
                 if need_to_process_native_libs and not do_not_create_inner_jar
                 else output_path
             )
-            jar_cmd.extend(["--output", jar_output])
-            utils.log_message("jar_cmd: {}".format(jar_cmd))
-            utils.execute_command(jar_cmd)
+
+            utils.log_message("jar_output: {}".format(jar_output))
+
+            _fat_jar(
+                jar_builder_tool=jar_builder_tool,
+                output_path=jar_output,
+                main_class=main_class,
+                entries_to_jar_file=entries_to_jar_file,
+                override_entries_to_jar_file=override_entries_to_jar,
+                manifest_file=manifest,
+                blocklist_file=blocklist_file,
+                append_jar=append_jar,
+            )
 
         if need_to_process_native_libs and not do_not_create_inner_jar:
             fat_jar_content_dir = os.path.join(temp_dir, "fat_jar_content_dir")
@@ -385,13 +408,12 @@ def main():
             with open(entries_to_jar_file, "w") as f:
                 f.write("\n".join([contents_zip_path, str(fat_jar_lib)]))
 
-            fat_jar_cmd = []
-            fat_jar_cmd.extend(utils.shlex_split(jar_builder_tool))
-            fat_jar_cmd.extend(["--main-class", fat_jar_main_class])
-            fat_jar_cmd.extend(["--output", output_path])
-            fat_jar_cmd.extend(["--entries-to-jar", entries_to_jar_file])
-            fat_jar_cmd.append("--merge-manifests")
-            utils.execute_command(fat_jar_cmd)
+            _fat_jar(
+                jar_builder_tool=jar_builder_tool,
+                output_path=output_path,
+                main_class=fat_jar_main_class,
+                entries_to_jar_file=entries_to_jar_file,
+            )
 
 
 if __name__ == "__main__":
