@@ -54,7 +54,7 @@ impl ArtifactGroup {
     /// Gets the resolved artifact group, which is used further downstream to use DICE to get
     /// or compute the actual artifact values. For the `Artifact` variant, we will get the results
     /// via the base or projected artifact key. For the `TransitiveSetProjection` variant, we will
-    /// look get the resutls via the `EnsureTransitiveSetProjectionKey`, which expands the underlying
+    /// look get the results via the `EnsureTransitiveSetProjectionKey`, which expands the underlying
     /// tset. For the `Promise` variant, we will look up the promised artifact values by getting
     /// the analysis results of the owning anon target's analysis.
     pub async fn resolved_artifact(
