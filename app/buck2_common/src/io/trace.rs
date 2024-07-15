@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
-
 use allocative::Allocative;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -100,19 +98,6 @@ impl TracingIoProvider {
 
     pub fn add_symlink(&self, link: Symlink) {
         self.trace.symlinks.insert(link);
-    }
-
-    pub fn add_config_paths<I>(&self, project_root: &ProjectRoot, paths: I)
-    where
-        I: IntoIterator<Item = AbsNormPathBuf>,
-    {
-        for abspath in paths.into_iter() {
-            if let Ok(project_path) = project_root.relativize(&abspath).map(Cow::into_owned) {
-                self.add_project_path(project_path);
-            } else {
-                self.add_external_path(abspath);
-            }
-        }
     }
 
     pub fn trace(&self) -> &Trace {

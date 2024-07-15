@@ -78,7 +78,7 @@ enum CellsError {
 pub struct BuckConfigBasedCells {
     pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
-    pub config_paths: HashSet<AbsNormPathBuf>,
+    pub config_paths: HashSet<ConfigPath>,
     pub resolved_args: Arc<[ResolvedLegacyConfigArg]>,
 }
 
@@ -317,17 +317,10 @@ impl BuckConfigBasedCells {
             })
             .collect::<anyhow::Result<_>>()?;
 
-        // FIXME(JakobDegen): It'd be better to not absolutize unconditionally here
-        let config_paths = file_ops
-            .trace
-            .into_iter()
-            .map(|p| p.resolve_absolute(project_fs))
-            .collect();
-
         Ok(Self {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
-            config_paths,
+            config_paths: file_ops.trace,
             resolved_args: processed_config_args.into_iter().collect(),
         })
     }

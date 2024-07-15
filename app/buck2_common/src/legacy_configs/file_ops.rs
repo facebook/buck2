@@ -21,7 +21,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
-pub(crate) enum ConfigPath {
+pub enum ConfigPath {
     #[display(fmt = "{}", .0)]
     Project(ProjectRelativePathBuf),
     #[display(fmt = "{}", .0)]

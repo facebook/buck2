@@ -49,6 +49,7 @@ use buck2_common::legacy_configs::configs::ConfigDiffMetrics;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_core::async_once_cell::AsyncOnceCell;
@@ -273,12 +274,13 @@ impl<'a> ServerCommandContext<'a> {
 
         // Add argfiles read by client into IO tracing state.
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.daemon.io) {
-            let argfiles: anyhow::Result<Vec<_>> = client_context
+            for p in client_context
                 .argfiles
                 .iter()
                 .map(|s| AbsNormPathBuf::new(s.into()))
-                .collect();
-            tracing_provider.add_config_paths(&base_context.project_root, argfiles?);
+            {
+                tracing_provider.add_external_path(p?);
+            }
         }
 
         let oncall = if client_context.oncall.is_empty() {
@@ -1048,7 +1050,12 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         // Add legacy config paths to I/O tracing (if enabled).
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
-            tracing_provider.add_config_paths(&self.base_context.project_root, paths);
+            for config_path in paths {
+                match config_path {
+                    ConfigPath::Global(p) => tracing_provider.add_external_path(p),
+                    ConfigPath::Project(p) => tracing_provider.add_project_path(p),
+                }
+            }
         }
 
         Ok(())
