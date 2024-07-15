@@ -7,13 +7,7 @@
  * of this source tree.
  */
 
-pub(crate) enum BuckConfigFile {
-    // Buckconfig file in the cell relative to project root, such as .buckconfig or .buckconfig.local
-    CellRelativeFile(&'static str),
-
-    // Buckconfig folder in the cell, assuming all files in this folder are buckconfig
-    CellRelativeFolder(&'static str),
-
+pub(crate) enum ExternalConfigSource {
     // Buckconfig file in the user's home directory
     UserFile(&'static str),
 
@@ -27,40 +21,34 @@ pub(crate) enum BuckConfigFile {
     GlobalFolder(&'static str),
 }
 
-impl BuckConfigFile {
-    /// Returns whether this specific BuckConfigFile is external to the current project.
-    pub fn is_external(&self) -> bool {
-        match self {
-            Self::CellRelativeFile(..) | Self::CellRelativeFolder(..) => false,
-            Self::UserFile(..)
-            | Self::UserFolder(..)
-            | Self::GlobalFile(..)
-            | Self::GlobalFolder(..) => true,
-        }
-    }
+pub(crate) enum ProjectConfigSource {
+    // Buckconfig file in the cell relative to project root, such as .buckconfig or .buckconfig.local
+    CellRelativeFile(&'static str),
+
+    // Buckconfig folder in the cell, assuming all files in this folder are buckconfig
+    CellRelativeFolder(&'static str),
 }
 
-/// The override order of buck config, from highest priority to lowest
-/// 1. .buckconfig.local in repo
-/// 2. .buckconfig in repo
-/// 3. files in .buckconfig.d folder in repo
-/// 4. .buckconfig.local in user's home directory
-/// 5. files in .buckconfig.d folder in user's home directory
-/// 6. global file /etc/buckconfig
-/// 7. files in global directory /etc/buckconfig.d
-pub(crate) static DEFAULT_BUCK_CONFIG_FILES: &[BuckConfigFile] = &[
+/// The default places from which buckconfigs are sourced.
+///
+/// Later entries take precedence over earlier ones, and project configs take precedence over
+/// external configs.
+pub(crate) static DEFAULT_EXTERNAL_CONFIG_SOURCES: &[ExternalConfigSource] = &[
     #[cfg(not(windows))]
-    BuckConfigFile::GlobalFolder("/etc/buckconfig.d"),
+    ExternalConfigSource::GlobalFolder("/etc/buckconfig.d"),
     #[cfg(not(windows))]
-    BuckConfigFile::GlobalFile("/etc/buckconfig"),
+    ExternalConfigSource::GlobalFile("/etc/buckconfig"),
     // TODO: use %PROGRAMDATA% on Windows
     #[cfg(windows)]
-    BuckConfigFile::GlobalFolder("C:\\ProgramData\\buckconfig.d"),
+    ExternalConfigSource::GlobalFolder("C:\\ProgramData\\buckconfig.d"),
     #[cfg(windows)]
-    BuckConfigFile::GlobalFile("C:\\ProgramData\\buckconfig"),
-    BuckConfigFile::UserFolder(".buckconfig.d"),
-    BuckConfigFile::UserFile(".buckconfig.local"),
-    BuckConfigFile::CellRelativeFolder(".buckconfig.d"),
-    BuckConfigFile::CellRelativeFile(".buckconfig"),
-    BuckConfigFile::CellRelativeFile(".buckconfig.local"),
+    ExternalConfigSource::GlobalFile("C:\\ProgramData\\buckconfig"),
+    ExternalConfigSource::UserFolder(".buckconfig.d"),
+    ExternalConfigSource::UserFile(".buckconfig.local"),
+];
+
+pub(crate) static DEFAULT_PROJECT_CONFIG_SOURCES: &[ProjectConfigSource] = &[
+    ProjectConfigSource::CellRelativeFolder(".buckconfig.d"),
+    ProjectConfigSource::CellRelativeFile(".buckconfig"),
+    ProjectConfigSource::CellRelativeFile(".buckconfig.local"),
 ];

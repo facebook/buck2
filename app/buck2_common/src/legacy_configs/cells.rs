@@ -48,8 +48,10 @@ use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
 use crate::legacy_configs::file_ops::DiceConfigFileOps;
-use crate::legacy_configs::path::BuckConfigFile;
-use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
+use crate::legacy_configs::path::ExternalConfigSource;
+use crate::legacy_configs::path::ProjectConfigSource;
+use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
+use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
 
 #[derive(Debug, buck2_error::Error)]
 enum CellsError {
@@ -416,20 +418,64 @@ async fn get_buckconfig_paths_for_cell(
 
     let mut buckconfig_paths: Vec<ConfigPath> = Vec::new();
 
-    for buckconfig in DEFAULT_BUCK_CONFIG_FILES {
-        if skip_default_external_config && buckconfig.is_external() {
-            continue;
+    if !skip_default_external_config {
+        for buckconfig in DEFAULT_EXTERNAL_CONFIG_SOURCES {
+            match buckconfig {
+                ExternalConfigSource::UserFile(file) => {
+                    let home_dir = dirs::home_dir();
+                    if let Some(home_dir_path) = home_dir {
+                        let buckconfig_path = ForwardRelativePath::new(file)?;
+                        buckconfig_paths.push(ConfigPath::Global(
+                            AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str()),
+                        ));
+                    }
+                }
+                ExternalConfigSource::UserFolder(folder) => {
+                    let home_dir = dirs::home_dir();
+                    if let Some(home_dir_path) = home_dir {
+                        let buckconfig_path = ForwardRelativePath::new(folder)?;
+                        let buckconfig_folder_abs_path =
+                            AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str());
+                        push_all_files_from_a_directory(
+                            &mut buckconfig_paths,
+                            &ConfigPath::Global(buckconfig_folder_abs_path),
+                            file_ops,
+                        )
+                        .await?;
+                    }
+                }
+                ExternalConfigSource::GlobalFile(file) => {
+                    buckconfig_paths.push(ConfigPath::Global(AbsPath::new(*file)?.to_owned()));
+                }
+                ExternalConfigSource::GlobalFolder(folder) => {
+                    let buckconfig_folder_abs_path = AbsPath::new(*folder)?.to_owned();
+                    push_all_files_from_a_directory(
+                        &mut buckconfig_paths,
+                        &ConfigPath::Global(buckconfig_folder_abs_path),
+                        file_ops,
+                    )
+                    .await?;
+                }
+            }
         }
+    }
 
+    let extra_external_config =
+        buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
+
+    if let Some(f) = extra_external_config {
+        buckconfig_paths.push(ConfigPath::Global(AbsPath::new(f)?.to_owned()));
+    }
+
+    for buckconfig in DEFAULT_PROJECT_CONFIG_SOURCES {
         match buckconfig {
-            BuckConfigFile::CellRelativeFile(file) => {
+            ProjectConfigSource::CellRelativeFile(file) => {
                 let buckconfig_path = ForwardRelativePath::new(file)?;
                 buckconfig_paths.push(ConfigPath::Project(
                     path.as_project_relative_path().join(buckconfig_path),
                 ));
             }
-
-            BuckConfigFile::CellRelativeFolder(folder) => {
+            ProjectConfigSource::CellRelativeFolder(folder) => {
                 let buckconfig_folder_path = ForwardRelativePath::new(folder)?;
                 let buckconfig_folder_path =
                     path.as_project_relative_path().join(buckconfig_folder_path);
@@ -440,49 +486,7 @@ async fn get_buckconfig_paths_for_cell(
                 )
                 .await?;
             }
-            BuckConfigFile::UserFile(file) => {
-                let home_dir = dirs::home_dir();
-                if let Some(home_dir_path) = home_dir {
-                    let buckconfig_path = ForwardRelativePath::new(file)?;
-                    buckconfig_paths.push(ConfigPath::Global(
-                        AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str()),
-                    ));
-                }
-            }
-            BuckConfigFile::UserFolder(folder) => {
-                let home_dir = dirs::home_dir();
-                if let Some(home_dir_path) = home_dir {
-                    let buckconfig_path = ForwardRelativePath::new(folder)?;
-                    let buckconfig_folder_abs_path =
-                        AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str());
-                    push_all_files_from_a_directory(
-                        &mut buckconfig_paths,
-                        &ConfigPath::Global(buckconfig_folder_abs_path),
-                        file_ops,
-                    )
-                    .await?;
-                }
-            }
-            BuckConfigFile::GlobalFile(file) => {
-                buckconfig_paths.push(ConfigPath::Global(AbsPath::new(*file)?.to_owned()));
-            }
-            BuckConfigFile::GlobalFolder(folder) => {
-                let buckconfig_folder_abs_path = AbsPath::new(*folder)?.to_owned();
-                push_all_files_from_a_directory(
-                    &mut buckconfig_paths,
-                    &ConfigPath::Global(buckconfig_folder_abs_path),
-                    file_ops,
-                )
-                .await?;
-            }
         }
-    }
-
-    let extra_external_config =
-        buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
-
-    if let Some(f) = extra_external_config {
-        buckconfig_paths.push(ConfigPath::Global(AbsPath::new(f)?.to_owned()));
     }
 
     Ok(buckconfig_paths)
