@@ -15,6 +15,7 @@ tokio = { workspace = true }
 
 dice = { workspace = true }
 dupe = { workspace = true }
+futures = { workspace = true }
 gazebo = { workspace = true }
 starlark = { workspace = true }
 

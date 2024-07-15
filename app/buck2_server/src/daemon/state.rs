@@ -247,7 +247,7 @@ impl DaemonState {
             let fs = paths.project_root().clone();
 
             tracing::info!("Reading config...");
-            let legacy_cells = BuckConfigBasedCells::parse(&fs)?;
+            let legacy_cells = BuckConfigBasedCells::parse(&fs).await?;
 
             tracing::info!("Starting...");
 

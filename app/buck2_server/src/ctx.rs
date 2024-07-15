@@ -526,7 +526,7 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                let cells_and_configs = BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
+                let cells_and_configs = BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir).await
                     .map_err(buck2_error::Error::from)?;
 
                 let (new_configs, config_metrics) = if dice_ctx.is_injected_legacy_configs_key_set().await? {

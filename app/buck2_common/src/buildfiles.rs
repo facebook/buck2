@@ -131,8 +131,8 @@ mod tests {
         ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
     }
 
-    #[test]
-    fn test_buildfiles() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_buildfiles() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -177,7 +177,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?
+        )
+        .await?
         .configs_by_name;
 
         assert_eq!(

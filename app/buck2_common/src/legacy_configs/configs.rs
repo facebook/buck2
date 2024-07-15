@@ -363,21 +363,25 @@ pub mod testing {
     ) -> anyhow::Result<LegacyBuckConfig> {
         let mut file_ops = TestConfigParserFileOps::new(data)?;
         let path = ProjectRelativePath::new(cell_path)?;
-        // As long as people don't pass config files, making up values here is ok
-        let processed_config_args = resolve_config_args(
-            config_args,
-            &create_project_filesystem(),
-            &ProjectRelativePath::empty(),
-            &mut file_ops,
-        )?;
-        futures::executor::block_on(LegacyBuckConfig::finish_parse(
-            LegacyConfigParser::new(),
-            &[ConfigPath::Project(path.to_owned())],
-            CellRootPath::new(ProjectRelativePath::empty()),
-            &mut file_ops,
-            &processed_config_args,
-            true,
-        ))
+        futures::executor::block_on(async {
+            // As long as people don't pass config files, making up values here is ok
+            let processed_config_args = resolve_config_args(
+                config_args,
+                &create_project_filesystem(),
+                &ProjectRelativePath::empty(),
+                &mut file_ops,
+            )
+            .await?;
+            LegacyBuckConfig::finish_parse(
+                LegacyConfigParser::new(),
+                &[ConfigPath::Project(path.to_owned())],
+                CellRootPath::new(ProjectRelativePath::empty()),
+                &mut file_ops,
+                &processed_config_args,
+                true,
+            )
+            .await
+        })
     }
 
     pub struct TestConfigParserFileOps {

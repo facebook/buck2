@@ -36,7 +36,10 @@ impl ImmediateConfig {
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
     fn parse(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
-        let cells = BuckConfigBasedCells::parse_no_follow_includes(project_fs)?;
+        // This function is non-reentrant, and blocking for a bit should be ok
+        let cells = futures::executor::block_on(BuckConfigBasedCells::parse_no_follow_includes(
+            project_fs,
+        ))?;
 
         let root_config = cells
             .configs_by_name

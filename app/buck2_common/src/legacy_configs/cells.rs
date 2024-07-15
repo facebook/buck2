@@ -101,7 +101,7 @@ pub struct BuckConfigBasedCells {
 }
 
 impl BuckConfigBasedCells {
-    pub(crate) fn parse_cell_resolver(
+    pub(crate) async fn parse_cell_resolver(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<CellResolver> {
@@ -114,12 +114,13 @@ impl BuckConfigBasedCells {
             &[],
             ProjectRelativePath::empty(),
             opts,
-        )?;
+        )
+        .await?;
 
         Ok(cells.cell_resolver)
     }
 
-    pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
+    pub async fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
             &mut DefaultConfigParserFileOps {
@@ -128,9 +129,10 @@ impl BuckConfigBasedCells {
             &[],
             ProjectRelativePath::empty(),
         )
+        .await
     }
 
-    pub fn parse_with_config_args(
+    pub async fn parse_with_config_args(
         project_fs: &ProjectRoot,
         config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
@@ -143,9 +145,10 @@ impl BuckConfigBasedCells {
             config_args,
             cwd,
         )
+        .await
     }
 
-    pub fn parse_with_file_ops(
+    pub async fn parse_with_file_ops(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
@@ -154,10 +157,10 @@ impl BuckConfigBasedCells {
         let opts = BuckConfigParseOptions {
             follow_includes: true,
         };
-        Self::parse_with_file_ops_and_options(project_fs, file_ops, config_args, cwd, opts)
+        Self::parse_with_file_ops_and_options(project_fs, file_ops, config_args, cwd, opts).await
     }
 
-    pub fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
+    pub async fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         let opts = BuckConfigParseOptions {
             follow_includes: false,
         };
@@ -170,9 +173,10 @@ impl BuckConfigBasedCells {
             ProjectRelativePath::empty(),
             opts,
         )
+        .await
     }
 
-    fn parse_with_file_ops_and_options(
+    async fn parse_with_file_ops_and_options(
         project_root: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
@@ -186,10 +190,11 @@ impl BuckConfigBasedCells {
             cwd,
             options,
         )
+        .await
         .with_context(|| format!("Parsing cells with project root `{project_root}`, cwd `{cwd}`",))
     }
 
-    fn parse_with_file_ops_and_options_inner(
+    async fn parse_with_file_ops_and_options_inner(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
@@ -236,34 +241,32 @@ impl BuckConfigBasedCells {
 
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
-            resolve_config_args(&config_args, project_fs, cwd, &mut file_ops)?;
+            resolve_config_args(&config_args, project_fs, cwd, &mut file_ops).await?;
 
-        let external_paths =
-            futures::executor::block_on(get_external_buckconfig_paths(&mut file_ops))?;
-        let started_parse =
-            futures::executor::block_on(LegacyBuckConfig::start_parse_for_external_files(
-                &external_paths,
-                &mut file_ops,
-                options.follow_includes,
-            ))?;
+        let external_paths = get_external_buckconfig_paths(&mut file_ops).await?;
+        let started_parse = LegacyBuckConfig::start_parse_for_external_files(
+            &external_paths,
+            &mut file_ops,
+            options.follow_includes,
+        )
+        .await?;
 
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {
                 continue;
             }
 
-            // Blocking is ok because we know the fileops don't suspend
-            let buckconfig_paths =
-                futures::executor::block_on(get_project_buckconfig_paths(&path, &mut file_ops))?;
+            let buckconfig_paths = get_project_buckconfig_paths(&path, &mut file_ops).await?;
 
-            let config = futures::executor::block_on(LegacyBuckConfig::finish_parse(
+            let config = LegacyBuckConfig::finish_parse(
                 started_parse.clone(),
                 buckconfig_paths.as_slice(),
                 &path,
                 &mut file_ops,
                 &processed_config_args,
                 options.follow_includes,
-            ))?;
+            )
+            .await?;
 
             let is_root = path.is_repo_root();
 
@@ -562,8 +565,8 @@ mod tests {
     use crate::legacy_configs::configs::tests::assert_config_value;
     use crate::legacy_configs::key::BuckconfigKeyRef;
 
-    #[test]
-    fn test_cells() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_cells() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -605,7 +608,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let resolver = &cells.cell_resolver;
 
@@ -636,8 +640,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_multi_cell_with_config_file() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_multi_cell_with_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -696,7 +700,8 @@ mod tests {
                 config_type: ConfigType::File.into(),
             }],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let configs = &cells.configs_by_name;
         let root_config = configs.get(CellName::testing_new("root")).unwrap();
@@ -728,8 +733,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_multi_cell_no_repositories_in_non_root_cell() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_multi_cell_no_repositories_in_non_root_cell() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -758,7 +763,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let configs = &cells.configs_by_name;
 
@@ -775,8 +781,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_multi_cell_with_cell_relative() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_multi_cell_with_cell_relative() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -835,7 +841,8 @@ mod tests {
                 },
             ],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let configs = &cells.configs_by_name;
         let other_config = configs.get(CellName::testing_new("other")).unwrap();
@@ -858,8 +865,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -893,7 +900,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let configs = &cells.configs_by_name;
         let config = configs.get(CellName::testing_new("root")).unwrap();
@@ -909,8 +917,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_multi_cell_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_multi_cell_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",
@@ -970,7 +978,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?;
+        )
+        .await?;
 
         let configs = &cells.configs_by_name;
         let root_config = configs.get(CellName::testing_new("root")).unwrap();
@@ -997,8 +1006,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_arg_with_no_buckconfig() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_config_arg_with_no_buckconfig() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -1019,7 +1028,8 @@ mod tests {
                 config_type: ConfigType::Value.into(),
             }],
             ProjectRelativePath::empty(),
-        )?
+        )
+        .await?
         .configs_by_name;
         let config = configs.get(CellName::testing_new("other")).unwrap();
 
@@ -1028,8 +1038,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_cell_config_section_name() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_cell_config_section_name() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -1049,7 +1059,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?
+        )
+        .await?
         .cell_resolver;
 
         let root = resolver.get(CellName::testing_new("root")).unwrap();
@@ -1115,8 +1126,8 @@ mod tests {
         });
     }
 
-    #[test]
-    fn test_external_cell_configs() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_external_cell_configs() -> anyhow::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1141,7 +1152,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?
+        )
+        .await?
         .cell_resolver;
 
         let root = resolver.get(CellName::testing_new("root")).unwrap();
@@ -1172,8 +1184,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_nested_external_cell_configs() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_nested_external_cell_configs() -> anyhow::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1197,14 +1209,15 @@ mod tests {
             &[],
             ProjectRelativePath::empty(),
         )
+        .await
         .err()
         .unwrap();
 
         Ok(())
     }
 
-    #[test]
-    fn test_missing_bundled_cell() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_missing_bundled_cell() -> anyhow::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1228,6 +1241,7 @@ mod tests {
             &[],
             ProjectRelativePath::empty(),
         )
+        .await
         .err()
         .unwrap();
 
@@ -1237,8 +1251,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_git_external_cell() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_git_external_cell() -> anyhow::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1263,7 +1277,8 @@ mod tests {
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
-        )?
+        )
+        .await?
         .cell_resolver;
 
         let instance = resolver.get(CellName::testing_new("libfoo")).unwrap();
@@ -1279,8 +1294,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_git_external_cell_invalid_sha1() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_git_external_cell_invalid_sha1() -> anyhow::Result<()> {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
@@ -1306,6 +1321,7 @@ mod tests {
             &[],
             ProjectRelativePath::empty(),
         )
+        .await
         .err()
         .unwrap();
 

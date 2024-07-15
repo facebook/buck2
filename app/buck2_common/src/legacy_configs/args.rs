@@ -88,7 +88,7 @@ struct CellResolutionState<'a> {
 }
 
 impl CellResolutionState<'_> {
-    fn get_cell_resolver(
+    async fn get_cell_resolver(
         &mut self,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<&CellResolver> {
@@ -99,8 +99,11 @@ impl CellResolutionState<'_> {
             // _after_ initial parsing of root. But this requires quite a bit more work to
             // access the unresolved parts and making further assumptions. The saving would
             // be < 1ms, so we take this approach here. It can easily be changed later.
-            let cell_resolver =
-                BuckConfigBasedCells::parse_cell_resolver(self.project_filesystem, file_ops)?;
+            let cell_resolver = Box::pin(BuckConfigBasedCells::parse_cell_resolver(
+                self.project_filesystem,
+                file_ops,
+            ))
+            .await?;
 
             self.cell_resolver = Some(cell_resolver);
         }
@@ -111,23 +114,21 @@ impl CellResolutionState<'_> {
     }
 }
 
-fn resolve_config_flag_arg(
+async fn resolve_config_flag_arg(
     flag_arg: &ParsedFlagArg,
-    cell_resolution: &mut CellResolutionState,
+    cell_resolution: &mut CellResolutionState<'_>,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ResolvedConfigFlag> {
-    let cell = flag_arg
-        .cell
-        .as_ref()
-        .map(|cell| {
-            let cwd = cell_resolution.cwd;
-            let cell_resolver = cell_resolution.get_cell_resolver(file_ops)?;
-            let cell = cell_resolver
-                .get_cwd_cell_alias_resolver(cwd)?
-                .resolve(cell)?;
-            anyhow::Ok(cell_resolver.get(cell)?.path().to_buf())
-        })
-        .transpose()?;
+    let cell = if let Some(cell) = flag_arg.cell.as_ref() {
+        let cwd = cell_resolution.cwd;
+        let cell_resolver = cell_resolution.get_cell_resolver(file_ops).await?;
+        let cell = cell_resolver
+            .get_cwd_cell_alias_resolver(cwd)?
+            .resolve(cell)?;
+        Some(cell_resolver.get(cell)?.path().to_buf())
+    } else {
+        None
+    };
 
     Ok(ResolvedConfigFlag {
         section: flag_arg.section.clone(),
@@ -137,9 +138,9 @@ fn resolve_config_flag_arg(
     })
 }
 
-fn resolve_config_file_arg(
+async fn resolve_config_file_arg(
     arg: &str,
-    cell_resolution_state: &mut CellResolutionState,
+    cell_resolution_state: &mut CellResolutionState<'_>,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ConfigPath> {
     let (cell, path) = match arg.split_once("//") {
@@ -149,7 +150,7 @@ fn resolve_config_file_arg(
 
     if let Some(cell_alias) = &cell {
         let cwd = cell_resolution_state.cwd;
-        let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops)?;
+        let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops).await?;
         let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
         return Ok(ConfigPath::Project(proj_path));
     }
@@ -165,7 +166,7 @@ fn resolve_config_file_arg(
     }
 }
 
-pub(crate) fn resolve_config_args(
+pub(crate) async fn resolve_config_args(
     args: &[ConfigOverride],
     project_fs: &ProjectRoot,
     cwd: &ProjectRelativePath,
@@ -177,29 +178,33 @@ pub(crate) fn resolve_config_args(
         cell_resolver: None,
     };
 
-    let resolved_args = args.iter().map(|u| {
+    let mut resolved_args = Vec::new();
+
+    for u in args {
         let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
             format!(
                 "Unknown ConfigType enum value `{}` when trying to deserialize",
                 u.config_type
             )
         })?;
-        match config_type {
+        let resolved = match config_type {
             ConfigType::Value => {
                 let parsed_flag = ParsedFlagArg::new(&u.config_override)?;
                 let resolved_flag =
-                    resolve_config_flag_arg(&parsed_flag, &mut cell_resolution, file_ops)?;
-                Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
+                    resolve_config_flag_arg(&parsed_flag, &mut cell_resolution, file_ops).await?;
+                ResolvedLegacyConfigArg::Flag(resolved_flag)
             }
             ConfigType::File => {
                 let resolved_path =
-                    resolve_config_file_arg(&u.config_override, &mut cell_resolution, file_ops)?;
-                Ok(ResolvedLegacyConfigArg::File(resolved_path))
+                    resolve_config_file_arg(&u.config_override, &mut cell_resolution, file_ops)
+                        .await?;
+                ResolvedLegacyConfigArg::File(resolved_path)
             }
-        }
-    });
+        };
+        resolved_args.push(resolved);
+    }
 
-    resolved_args.collect()
+    Ok(resolved_args)
 }
 
 #[cfg(test)]

@@ -185,7 +185,7 @@ fn cells() -> CellsData {
         configs_by_name,
         config_paths: _,
         external_data: _,
-    } = BuckConfigBasedCells::parse_with_file_ops(
+    } = futures::executor::block_on(BuckConfigBasedCells::parse_with_file_ops(
         &project_fs,
         &mut TestConfigParserFileOps::new(&[(
             ".buckconfig",
@@ -202,7 +202,7 @@ fn cells() -> CellsData {
         .unwrap(),
         &[],
         ProjectRelativePath::empty(),
-    )
+    ))
     .unwrap();
     (
         cell_resolver.root_cell_cell_alias_resolver().dupe(),
