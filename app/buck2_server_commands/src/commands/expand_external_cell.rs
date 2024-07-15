@@ -57,8 +57,9 @@ impl ServerCommandTemplate for ExpandExternalCellServerCommand {
         mut ctx: DiceTransaction,
     ) -> anyhow::Result<Self::Response> {
         let res = ctx.get_cell_resolver().await?;
-        let cell = res
-            .get_cwd_cell_alias_resolver(server_ctx.working_dir())?
+        let cell = ctx
+            .get_cell_alias_resolver_for_dir(server_ctx.working_dir())
+            .await?
             .resolve(&self.req.cell_name)?;
 
         let instance = res.get(cell)?;

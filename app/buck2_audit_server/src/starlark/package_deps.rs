@@ -35,9 +35,11 @@ pub(crate) async fn server_execute(
             let cwd = server_ctx.working_dir();
             let current_cell_path = cell_resolver.get_cell_path(cwd)?;
             let current_cell = BuildFileCell::new(current_cell_path.cell());
-            let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
+            let cell_alias_resolver = dice_ctx
+                .get_cell_alias_resolver(current_cell_path.cell())
+                .await?;
 
-            let package = parse_package(&command.package, cell_alias_resolver)?;
+            let package = parse_package(&command.package, &cell_alias_resolver)?;
 
             let module_deps = INTERPRETER_CALCULATION_IMPL
                 .get()?

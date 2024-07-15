@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -34,6 +35,11 @@ pub trait HasCellResolver {
     async fn get_cell_alias_resolver(
         &mut self,
         cell: CellName,
+    ) -> anyhow::Result<CellAliasResolver>;
+
+    async fn get_cell_alias_resolver_for_dir(
+        &mut self,
+        dir: &ProjectRelativePath,
     ) -> anyhow::Result<CellAliasResolver>;
 }
 
@@ -82,6 +88,14 @@ impl HasCellResolver for DiceComputations<'_> {
         } else {
             Ok(instance.non_external_cell_alias_resolver().dupe())
         }
+    }
+
+    async fn get_cell_alias_resolver_for_dir(
+        &mut self,
+        dir: &ProjectRelativePath,
+    ) -> anyhow::Result<CellAliasResolver> {
+        let cell = self.get_cell_resolver().await?.find(dir)?;
+        self.get_cell_alias_resolver(cell).await
     }
 }
 

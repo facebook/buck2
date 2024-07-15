@@ -34,10 +34,12 @@ pub(crate) async fn server_execute(
             let cwd = server_ctx.working_dir();
             let current_cell_path = cell_resolver.get_cell_path(cwd)?;
             let current_cell = BuildFileCell::new(current_cell_path.cell());
-            let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
+            let cell_alias_resolver = dice_ctx
+                .get_cell_alias_resolver(current_cell_path.cell())
+                .await?;
 
             let import_path = parse_bzl_path_with_config(
-                cell_alias_resolver,
+                &cell_alias_resolver,
                 &command.import_path,
                 &ParseImportOptions {
                     relative_import_option: RelativeImports::Allow {

@@ -41,13 +41,13 @@ impl ServerAuditSubcommand for PackageValuesCommand {
 
         server_ctx
             .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
-                let cell_resolver = dice_ctx.get_cell_resolver().await?;
-                let cell_alias_resolver =
-                    cell_resolver.get_cwd_cell_alias_resolver(server_ctx.working_dir())?;
+                let cell_alias_resolver = dice_ctx
+                    .get_cell_alias_resolver_for_dir(server_ctx.working_dir())
+                    .await?;
 
                 let packages = self
                     .packages
-                    .try_map(|package| parse_package(package.dupe(), cell_alias_resolver))?;
+                    .try_map(|package| parse_package(package.dupe(), &cell_alias_resolver))?;
 
                 let package_values_by_package = dice_ctx
                     .try_compute_join(packages, |ctx, package| {

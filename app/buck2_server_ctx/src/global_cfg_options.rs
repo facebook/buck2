@@ -25,8 +25,8 @@ pub async fn global_cfg_options_from_client_context(
 ) -> anyhow::Result<GlobalCfgOptions> {
     let cell_resolver: &CellResolver = &dice_ctx.get_cell_resolver().await?;
     let working_dir: &ProjectRelativePath = server_ctx.working_dir();
-    let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(working_dir)?;
     let cwd = cell_resolver.get_cell_path(working_dir)?;
+    let cell_alias_resolver = dice_ctx.get_cell_alias_resolver(cwd.cell()).await?;
     let target_platform = &target_cfg.target_platform;
     let target_platform_label = if !target_platform.is_empty() {
         Some(
@@ -34,7 +34,7 @@ pub async fn global_cfg_options_from_client_context(
                 target_platform,
                 cwd.cell(),
                 cell_resolver,
-                cell_alias_resolver,
+                &cell_alias_resolver,
             )?
             .as_target_label(target_platform)?,
         )

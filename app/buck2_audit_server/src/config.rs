@@ -185,7 +185,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
-                let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
+                let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
 
                 let relevant_cell = if self.all_cells {
                     None
@@ -193,7 +193,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                     Some(cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?)
                 };
 
-                let specs = Matches::parse(cell_alias_resolver, &self.specs)?;
+                let specs = Matches::parse(&cell_alias_resolver, &self.specs)?;
                 let mut stdout = stdout.as_writer();
 
                 let output_format = self.output_format();
