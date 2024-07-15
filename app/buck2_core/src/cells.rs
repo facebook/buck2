@@ -226,10 +226,14 @@ struct CellResolverInternals {
     #[allocative(visit = crate::cells::sequence_trie_allocative::visit_sequence_trie)]
     path_mappings: SequenceTrie<FileNameBuf, CellName>,
     root_cell: CellName,
+    root_cell_alias_resolver: CellAliasResolver,
 }
 
 impl CellResolver {
-    fn new(cells: Vec<CellInstance>) -> anyhow::Result<CellResolver> {
+    fn new(
+        cells: Vec<CellInstance>,
+        root_cell_alias_resolver: CellAliasResolver,
+    ) -> anyhow::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
         let mut root_cell = None;
         for cell in &cells {
@@ -266,6 +270,7 @@ impl CellResolver {
             cells: cells_map,
             root_cell,
             path_mappings,
+            root_cell_alias_resolver,
         })))
     }
 
@@ -293,8 +298,7 @@ impl CellResolver {
     }
 
     pub fn root_cell_cell_alias_resolver(&self) -> &CellAliasResolver {
-        // Root cell is never external
-        self.root_cell_instance().testing_cell_alias_resolver()
+        &self.0.root_cell_alias_resolver
     }
 
     /// Get a `CellName` from a path by finding the best matching cell path that
@@ -588,6 +592,8 @@ impl CellsAggregator {
             .map(|path| Ok((self.get_cell_name_from_path(path)?, path.as_path())))
             .collect::<anyhow::Result<_>>()?;
 
+        let mut root_cell_alias_resolver = None;
+
         for (cell_path, cell_info) in &self.cell_infos {
             let nested_cells =
                 NestedCells::from_cell_roots(&all_cell_roots_for_nested_cells, cell_path);
@@ -600,16 +606,25 @@ impl CellsAggregator {
                     .insert(alias.clone(), self.get_cell_name_from_path(path_for_alias)?);
             }
 
+            let alias_resolver = CellAliasResolver::new(cell_name, aliases_for_cell)?;
+
+            if cell_path.is_repo_root() {
+                root_cell_alias_resolver = Some(alias_resolver.clone());
+            }
+
             cell_mappings.push(CellInstance::new(
                 cell_name,
                 cell_path.clone(),
                 cell_info.external.dupe(),
-                CellAliasResolver::new(cell_name, aliases_for_cell)?,
+                alias_resolver,
                 nested_cells,
             )?);
         }
 
-        CellResolver::new(cell_mappings)
+        CellResolver::new(
+            cell_mappings,
+            root_cell_alias_resolver.ok_or(CellError::NoRootCell)?,
+        )
     }
 
     pub fn mark_external_cell(
