@@ -679,25 +679,26 @@ mod tests {
         let other_instance = resolver.get(CellName::testing_new("other"))?;
         let tp_instance = resolver.get(CellName::testing_new("third_party"))?;
 
-        assert_eq!(
-            "other",
-            root_instance
-                .testing_cell_alias_resolver()
-                .resolve("other_alias")?
-                .as_str()
-        );
-
-        assert_eq!(
-            "other",
-            tp_instance
-                .testing_cell_alias_resolver()
-                .resolve("other_alias")?
-                .as_str()
-        );
-
         assert_eq!("", root_instance.path().as_str());
         assert_eq!("other", other_instance.path().as_str());
         assert_eq!("third_party", tp_instance.path().as_str());
+
+        assert_eq!(
+            "other",
+            resolver
+                .root_cell_cell_alias_resolver()
+                .resolve("other_alias")?
+                .as_str()
+        );
+
+        let tp_resolver = BuckConfigBasedCells::get_cell_alias_resolver_for_cwd_fast_with_file_ops(
+            resolver,
+            &mut file_ops,
+            tp_instance.path().as_project_relative_path(),
+        )
+        .await?;
+
+        assert_eq!("other", tp_resolver.resolve("other_alias")?.as_str());
 
         Ok(())
     }
@@ -1125,21 +1126,12 @@ mod tests {
         .await?
         .cell_resolver;
 
-        let root = resolver.get(CellName::testing_new("root")).unwrap();
-
         assert_eq!(
-            root.testing_cell_alias_resolver()
-                .resolve("other")
-                .unwrap()
+            "other",
+            resolver
+                .root_cell_cell_alias_resolver()
+                .resolve("other_alias")?
                 .as_str(),
-            "other"
-        );
-        assert_eq!(
-            root.testing_cell_alias_resolver()
-                .resolve("other_alias")
-                .unwrap()
-                .as_str(),
-            "other"
         );
 
         Ok(())
@@ -1218,13 +1210,12 @@ mod tests {
         .await?
         .cell_resolver;
 
-        let root = resolver.get(CellName::testing_new("root")).unwrap();
-        let other1 = root
-            .testing_cell_alias_resolver()
+        let other1 = resolver
+            .root_cell_cell_alias_resolver()
             .resolve("other_alias")
             .unwrap();
-        let other2 = root
-            .testing_cell_alias_resolver()
+        let other2 = resolver
+            .root_cell_cell_alias_resolver()
             .resolve("other2")
             .unwrap();
 
@@ -1236,7 +1227,8 @@ mod tests {
         );
         assert_eq!(resolver.get(other2).unwrap().external(), None,);
         assert_eq!(
-            root.testing_cell_alias_resolver()
+            resolver
+                .root_cell_cell_alias_resolver()
                 .resolve("other_alias")
                 .unwrap()
                 .as_str(),
