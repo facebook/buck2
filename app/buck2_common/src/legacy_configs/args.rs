@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::path::Path;
+
 use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
@@ -153,8 +155,15 @@ fn resolve_config_file_arg(
         return Ok(ConfigPath::Project(proj_path));
     }
 
-    // Cargo relative file paths are expanded before they make it into the daemon
-    Ok(ConfigPath::Global(AbsPath::new(path)?.to_owned()))
+    let path = Path::new(path);
+    if path.is_absolute() {
+        Ok(ConfigPath::Global(AbsPath::new(path)?.to_owned()))
+    } else {
+        let cwd = cell_resolution_state
+            .project_filesystem
+            .resolve(cell_resolution_state.cwd);
+        Ok(ConfigPath::Global(cwd.into_abs_path_buf().join(path)))
+    }
 }
 
 pub(crate) fn resolve_config_args(

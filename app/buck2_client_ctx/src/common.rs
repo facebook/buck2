@@ -26,11 +26,8 @@ pub mod build;
 pub mod target_cfg;
 pub mod ui;
 
-use std::path::Path;
-
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
-use buck2_core::fs::fs_util;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -204,23 +201,6 @@ impl CommonBuildConfigurationOptions {
             indices.into_iter().zip(collection)
         }
 
-        // Relative paths passed on the command line are relative to the cwd
-        // of the client, not the daemon, so perform path canonicalisation here.
-        fn resolve_config_file_argument(arg: &str) -> anyhow::Result<String> {
-            if arg.contains("//") {
-                // Cell-relative path resolution would be performed by the daemon
-                return Ok(arg.to_owned());
-            }
-
-            let path = Path::new(arg);
-            if path.is_absolute() {
-                return Ok(arg.to_owned());
-            }
-
-            let abs_path = fs_util::canonicalize(path)?;
-            Ok(abs_path.to_string_lossy().into_owned())
-        }
-
         let config_values_args = with_indices(&self.config_values, "config_values", matches).map(
             |(index, config_value)| {
                 (
@@ -234,12 +214,11 @@ impl CommonBuildConfigurationOptions {
         );
 
         let config_file_args = with_indices(&self.config_files, "config_files", matches)
-            .map(|(index, unresolved_file)| {
-                let resolved_file = resolve_config_file_argument(unresolved_file)?;
+            .map(|(index, file)| {
                 Ok((
                     index,
                     ConfigOverride {
-                        config_override: resolved_file,
+                        config_override: file.to_owned(),
                         config_type: ConfigType::File as i32,
                     },
                 ))
