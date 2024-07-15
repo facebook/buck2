@@ -10,6 +10,7 @@
 import React, {ReactNode, useContext, useEffect, useState} from 'react'
 
 export const SEARCH_VIEW = 'search'
+export const GRAPH_VIEW = 'graph'
 export const TARGET_VIEW = 'target'
 export const ROOT_VIEW = ''
 export const TARGET_TAB = 'target_tab'

@@ -16,10 +16,11 @@ import {createRoot} from 'react-dom/client'
 import {ByteBuffer} from 'flatbuffers'
 import {Index} from 'flexsearch-ts'
 import {Build, ConfiguredTargetNode, TargetField, TargetValue, TargetValueType} from './fbs/explain'
-import {ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
+import {GRAPH_VIEW, ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
+import {GraphView} from './GraphView'
 import {Header} from './Header'
 
 const INITIAL_STATE = {
@@ -93,6 +94,7 @@ function App() {
           <RootView view={ROOT_VIEW} />
           <TargetView view={TARGET_VIEW} />
           <SearchView view={SEARCH_VIEW} />
+          <GraphView view={GRAPH_VIEW} />
         </Router>
       </DataContext.Provider>
     )
