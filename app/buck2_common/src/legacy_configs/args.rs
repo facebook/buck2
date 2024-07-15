@@ -17,13 +17,16 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
+use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
+use crate::legacy_configs::parser::LegacyConfigParser;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, Eq, allocative::Allocative)]
@@ -31,7 +34,15 @@ pub(crate) enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(ResolvedConfigFlag),
     /// A file containing additional config values (in `.buckconfig` format).
-    File(ConfigPath),
+    File(ResolvedConfigFile),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+pub(crate) enum ResolvedConfigFile {
+    /// If the config file is project relative, the path of the file
+    Project(ProjectRelativePathBuf),
+    /// If the config file is external, we pre-parse it to be able to insert the results into dice
+    Global(LegacyConfigParser),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
@@ -142,7 +153,7 @@ async fn resolve_config_file_arg(
     arg: &str,
     cell_resolution_state: &mut CellResolutionState<'_>,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<ConfigPath> {
+) -> anyhow::Result<ResolvedConfigFile> {
     let (cell, path) = match arg.split_once("//") {
         Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
         _ => (None, arg),
@@ -152,18 +163,29 @@ async fn resolve_config_file_arg(
         let cwd = cell_resolution_state.cwd;
         let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops).await?;
         let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
-        return Ok(ConfigPath::Project(proj_path));
+        return Ok(ResolvedConfigFile::Project(proj_path));
     }
 
     let path = Path::new(path);
-    if path.is_absolute() {
-        Ok(ConfigPath::Global(AbsPath::new(path)?.to_owned()))
+    let path = if path.is_absolute() {
+        AbsPath::new(path)?.to_owned()
     } else {
         let cwd = cell_resolution_state
             .project_filesystem
             .resolve(cell_resolution_state.cwd);
-        Ok(ConfigPath::Global(cwd.into_abs_path_buf().join(path)))
-    }
+        cwd.into_abs_path_buf().join(path)
+    };
+
+    Ok(ResolvedConfigFile::Global(
+        LegacyBuckConfig::start_parse_for_external_files(
+            &[ConfigPath::Global(path)],
+            file_ops,
+            // Note that when reading immediate configs that don't follow includes, we don't apply
+            // config args either
+            true, // follow includes
+        )
+        .await?,
+    ))
 }
 
 pub(crate) async fn resolve_config_args(

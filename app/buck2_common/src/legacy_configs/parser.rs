@@ -79,7 +79,7 @@ impl SectionBuilder {
 /// Represents the state associated with a buckconfig that is being parsed right now.
 ///
 /// A buckconfig will generally be parsed by combining multiple command args and files
-#[derive(Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
 pub(crate) struct LegacyConfigParser {
     values: BTreeMap<String, SectionBuilder>,
 }
@@ -164,6 +164,18 @@ impl LegacyConfigParser {
         let values = ConfigResolver::resolve(values)?;
 
         Ok(LegacyBuckConfig(Arc::new(ConfigData { values })))
+    }
+
+    pub(crate) fn join(&mut self, other: &LegacyConfigParser) {
+        for (section, section_builder) in other.values.iter() {
+            for (key, value) in section_builder.values.iter() {
+                self.values
+                    .entry(section.to_owned())
+                    .or_insert_with(SectionBuilder::default)
+                    .values
+                    .insert(key.to_owned(), value.clone());
+            }
+        }
     }
 }
 

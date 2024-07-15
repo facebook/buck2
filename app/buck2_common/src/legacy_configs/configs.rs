@@ -22,6 +22,7 @@ use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
+use crate::legacy_configs::args::ResolvedConfigFile;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
@@ -292,15 +293,18 @@ impl LegacyBuckConfig {
                 ResolvedLegacyConfigArg::Flag(config_value) => {
                     parser.apply_config_arg(config_value, current_cell)?
                 }
-                ResolvedLegacyConfigArg::File(file_path) => {
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Project(path)) => {
                     parser
                         .parse_file(
-                            file_path,
+                            &ConfigPath::Project(path.to_owned()),
                             Some(Location::CommandLineArgument),
                             follow_includes,
                             file_ops,
                         )
                         .await?
+                }
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Global(other)) => {
+                    parser.join(other);
                 }
             };
         }
