@@ -16,18 +16,22 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::buck2_env;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::WorkingDir;
+use dupe::Dupe;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.
 struct ImmediateConfig {
     cell_resolver: CellResolver,
+    cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
 }
 
@@ -35,19 +39,29 @@ impl ImmediateConfig {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    fn parse(project_fs: &ProjectRoot) -> anyhow::Result<ImmediateConfig> {
+    fn parse(
+        project_fs: &ProjectRoot,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<ImmediateConfig> {
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_no_follow_includes(
             project_fs,
         ))?;
 
+        let cell_resolver = cells.cell_resolver;
+        let cwd_cell_alias_resolver = cell_resolver
+            .get(cell_resolver.find(cwd)?)?
+            .non_external_cell_alias_resolver()
+            .dupe();
+
         let root_config = cells
             .configs_by_name
-            .get(cells.cell_resolver.root_cell())
+            .get(cell_resolver.root_cell())
             .context("No config for root cell")?;
 
         Ok(ImmediateConfig {
-            cell_resolver: cells.cell_resolver,
+            cell_resolver,
+            cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(root_config)
                 .context("Error loading daemon startup config")?,
         })
@@ -58,6 +72,7 @@ impl ImmediateConfig {
 /// processing any includes).
 struct ImmediateConfigContextData {
     cell_resolver: CellResolver,
+    cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
     project_filesystem: ProjectRoot,
 }
@@ -110,14 +125,10 @@ impl<'a> ImmediateConfigContext<'a> {
     ) -> anyhow::Result<AbsNormPathBuf> {
         let data = self.data()?;
 
-        let proj_relative = data.cell_resolver.resolve_cell_relative_path(
-            cell_alias,
-            cell_relative_path,
-            data.project_filesystem
-                .relativize(self.cwd.path())?
-                .as_ref(),
-        )?;
-        Ok(data.project_filesystem.resolve(&proj_relative))
+        let cell = data.cwd_cell_alias_resolver.resolve(cell_alias)?;
+        let cell = data.cell_resolver.get(cell)?;
+        let path = cell.path().join_normalized(cell_relative_path)?;
+        Ok(data.project_filesystem.resolve(&path))
     }
 
     fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
@@ -128,7 +139,10 @@ impl<'a> ImmediateConfigContext<'a> {
 
                 // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
                 let project_filesystem = roots.project_root;
-                let cfg = ImmediateConfig::parse(&project_filesystem)?;
+                let cfg = ImmediateConfig::parse(
+                    &project_filesystem,
+                    project_filesystem.relativize(self.cwd.path())?.as_ref(),
+                )?;
 
                 // It'd be nice to deal with this a little differently by having this be a separate
                 // type.
@@ -149,6 +163,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
                 anyhow::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
+                    cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
                     project_filesystem,
                 })

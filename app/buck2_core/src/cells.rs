@@ -347,28 +347,6 @@ impl CellResolver {
             .map(|(name, instance)| (*name, instance))
     }
 
-    /// Resolves a cell alias and a cell relative path into an absolute path.
-    /// `cwd` is used to perform contextual resolution and figure out which
-    /// cell mapping to use (i.e., map from alias to cell name).
-    pub fn resolve_cell_relative_path(
-        &self,
-        cell_alias: &str,
-        cell_relative_path: &str,
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
-        let context_cell_name = self.find(cwd)?;
-        let context_cell = self.get(context_cell_name)?;
-
-        // cwd is always non-external
-        let resolved_cell_name = context_cell
-            .non_external_cell_alias_resolver()
-            .resolve(cell_alias)?;
-        let cell = self.get(resolved_cell_name)?;
-        cell.path()
-            .as_project_relative_path()
-            .join_normalized(cell_relative_path)
-    }
-
     /// Resolves a given 'Package' to the 'ProjectRelativePath' that points to
     /// the 'Package'
     ///
