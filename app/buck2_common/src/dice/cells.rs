@@ -81,13 +81,7 @@ impl HasCellResolver for DiceComputations<'_> {
         &mut self,
         cell: CellName,
     ) -> anyhow::Result<CellAliasResolver> {
-        let resolver = self.get_cell_resolver().await?;
-        let instance = resolver.get(cell)?;
-        if instance.external().is_some() {
-            Ok(self.compute(&CellAliasResolverKey(cell)).await??)
-        } else {
-            Ok(instance.non_external_cell_alias_resolver().dupe())
-        }
+        Ok(self.compute(&CellAliasResolverKey(cell)).await??)
     }
 
     async fn get_cell_alias_resolver_for_dir(
@@ -113,9 +107,7 @@ impl Key for CellAliasResolverKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let resolver = ctx.get_cell_resolver().await?;
-        let root_aliases = resolver
-            .root_cell_instance()
-            .non_external_cell_alias_resolver();
+        let root_aliases = resolver.root_cell_cell_alias_resolver();
         let config = ctx.get_legacy_config_for_cell(self.0).await?;
         // Cell alias resolvers that are parsed within dice differ from those outside of dice in
         // that they cannot create new cells, and so respect only their `cell_aliases` section, not

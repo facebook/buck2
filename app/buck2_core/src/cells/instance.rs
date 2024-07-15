@@ -94,11 +94,6 @@ impl CellInstance {
     }
 
     #[inline]
-    pub fn non_external_cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.0.aliases
-    }
-
-    #[inline]
     pub fn nested_cells(&self) -> &NestedCells {
         &self.0.nested_cells
     }
