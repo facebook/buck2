@@ -73,7 +73,7 @@ impl TargetAliasResolver for BuckConfigTargetAliasResolver {
 }
 
 impl BuckConfigTargetAliasResolver {
-    pub fn new(config: LegacyBuckConfig) -> Self {
+    fn new(config: LegacyBuckConfig) -> Self {
         Self { config }
     }
 
