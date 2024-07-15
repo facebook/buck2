@@ -76,12 +76,20 @@ impl SectionBuilder {
     }
 }
 
+/// Represents the state associated with a buckconfig that is being parsed right now.
+///
+/// A buckconfig will generally be parsed by combining multiple command args and files
 #[derive(Clone, PartialEq, Eq, Allocative)]
 pub(crate) struct LegacyConfigParser {
+    values: BTreeMap<String, SectionBuilder>,
+}
+
+/// Represents the state associated with parsing a single file into a buckconfig.
+struct LegacyConfigFileParser<'p> {
     include_stack: Vec<ConfigFileLocationWithLine>,
     current_file: Option<Arc<ConfigFileLocation>>,
-    values: BTreeMap<String, SectionBuilder>,
     current_section: (String, BTreeMap<String, ConfigValue>),
+    values: &'p mut LegacyConfigParser,
 }
 
 /// Matches file include directives. `optional` indicates whether it's an
@@ -97,14 +105,7 @@ impl LegacyConfigParser {
     pub(crate) fn new() -> Self {
         LegacyConfigParser {
             values: BTreeMap::new(),
-            include_stack: Vec::new(),
-            current_file: None,
-            current_section: Self::unspecified_section(),
         }
-    }
-
-    fn unspecified_section() -> (String, BTreeMap<String, ConfigValue>) {
-        ("__unspecified__".to_owned(), BTreeMap::new())
     }
 
     pub(crate) async fn parse_file(
@@ -115,13 +116,69 @@ impl LegacyConfigParser {
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
         if file_ops.file_exists(path).await? {
-            self.start_file(path, source)?;
-            self.parse_file_on_stack(path, follow_includes, file_ops)
+            let mut file_parser = LegacyConfigFileParser::new(self);
+            file_parser.start_file(path, source)?;
+            file_parser
+                .parse_file_on_stack(path, follow_includes, file_ops)
                 .await
                 .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
-            self.finish_file();
+            file_parser.finish_file();
         }
         Ok(())
+    }
+
+    pub(crate) fn apply_config_arg(
+        &mut self,
+        config_pair: &ResolvedConfigFlag,
+        current_cell: &CellRootPath,
+    ) -> anyhow::Result<()> {
+        for banned_section in ["repositories", "cells"] {
+            if config_pair.section == banned_section {
+                return Err(
+                    ConfigArgumentParseError::CellOverrideViaCliConfig(banned_section).into(),
+                );
+            };
+        }
+        let pair = config_pair.to_owned();
+        let cell_matches = pair.cell.as_deref() == Some(current_cell) || pair.cell.is_none();
+        if cell_matches {
+            let config_section = self
+                .values
+                .entry(pair.section)
+                .or_insert_with(SectionBuilder::default);
+
+            match pair.value {
+                Some(raw_value) => {
+                    let config_value = ConfigValue::new_raw_arg(raw_value);
+                    config_section.values.insert(pair.key, config_value)
+                }
+                None => config_section.values.remove(&pair.key),
+            };
+        }
+        Ok(())
+    }
+
+    pub(crate) fn finish(self) -> anyhow::Result<LegacyBuckConfig> {
+        let LegacyConfigParser { values } = self;
+
+        let values = ConfigResolver::resolve(values)?;
+
+        Ok(LegacyBuckConfig(Arc::new(ConfigData { values })))
+    }
+}
+
+impl<'p> LegacyConfigFileParser<'p> {
+    fn new(values: &'p mut LegacyConfigParser) -> Self {
+        LegacyConfigFileParser {
+            include_stack: Vec::new(),
+            current_file: None,
+            current_section: Self::unspecified_section(),
+            values,
+        }
+    }
+
+    fn unspecified_section() -> (String, BTreeMap<String, ConfigValue>) {
+        ("__unspecified__".to_owned(), BTreeMap::new())
     }
 
     fn push_file(&mut self, line: usize, path: &ConfigPath) -> anyhow::Result<()> {
@@ -169,37 +226,6 @@ impl LegacyConfigParser {
             // Our line numbers at this point are 0-based, but most people expect file line numbers to be 1-based.
             line: line_number + 1,
         }
-    }
-
-    pub(crate) fn apply_config_arg(
-        &mut self,
-        config_pair: &ResolvedConfigFlag,
-        current_cell: &CellRootPath,
-    ) -> anyhow::Result<()> {
-        for banned_section in ["repositories", "cells"] {
-            if config_pair.section == banned_section {
-                return Err(
-                    ConfigArgumentParseError::CellOverrideViaCliConfig(banned_section).into(),
-                );
-            };
-        }
-        let pair = config_pair.to_owned();
-        let cell_matches = pair.cell.as_deref() == Some(current_cell) || pair.cell.is_none();
-        if cell_matches {
-            let config_section = self
-                .values
-                .entry(pair.section)
-                .or_insert_with(SectionBuilder::default);
-
-            match pair.value {
-                Some(raw_value) => {
-                    let config_value = ConfigValue::new_raw_arg(raw_value);
-                    config_section.values.insert(pair.key, config_value)
-                }
-                None => config_section.values.remove(&pair.key),
-            };
-        }
-        Ok(())
     }
 
     fn parse_file_on_stack<'a>(
@@ -343,6 +369,7 @@ impl LegacyConfigParser {
         // Commit the previous section.
         let committed = self
             .values
+            .values
             .entry(section)
             .or_insert_with(SectionBuilder::default);
         values.into_iter().for_each(|(k, v)| {
@@ -355,13 +382,5 @@ impl LegacyConfigParser {
 
         let section = std::mem::replace(&mut self.current_section, Self::unspecified_section());
         self.commit_section(section);
-    }
-
-    pub(crate) fn finish(self) -> anyhow::Result<LegacyBuckConfig> {
-        let LegacyConfigParser { values, .. } = self;
-
-        let values = ConfigResolver::resolve(values)?;
-
-        Ok(LegacyBuckConfig(Arc::new(ConfigData { values })))
     }
 }
