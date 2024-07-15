@@ -39,7 +39,6 @@ def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
     attrs = (rust_common.deps_arg(is_binary = True) |
              rust_common.named_deps_arg(is_binary = True) |
              rust_common.linker_flags_arg() |
-             rust_common.env_arg() |
              native_common.link_style())
     return {prefix + name: v for name, v in attrs.items()}
 
@@ -120,6 +119,7 @@ rust_binary = prelude_rule(
         rust_common.rustc_flags_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
+        rust_common.env_arg() |
         _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |
@@ -191,6 +191,7 @@ rust_library = prelude_rule(
         _rust_common_attributes(is_binary = False) |
         {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
+            "doc_env": rust_common.env_arg()["env"],
             "doctests": attrs.option(attrs.bool(), default = None),
             "proc_macro": attrs.bool(default = False),
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
@@ -258,6 +259,8 @@ rust_test = prelude_rule(
         rust_common.rustc_flags_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
+        rust_common.run_env_arg() |
+        rust_common.build_and_run_env_arg() |
         _rust_binary_attrs_group(prefix = "") |
         _rust_common_attributes(is_binary = True) |
         _RUST_EXECUTABLE_ATTRIBUTES |

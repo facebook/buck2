@@ -91,6 +91,23 @@ def _env_arg():
 """),
     }
 
+def _run_env_arg():
+    return {
+        "run_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+    Set environment variables during test execution. The environment variable values may
+     include macros which are expanded.
+"""),
+    }
+
+def _build_and_run_env_arg():
+    # Same as env_arg(), but with different documentation.
+    return {
+        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+    Set environment variables for this rule's invocations of rustc *and* during execution of
+     the tests. The environment variable values may include macros which are expanded.
+"""),
+    }
+
 def _mapped_srcs_arg():
     return {
         "mapped_srcs": attrs.dict(key = attrs.source(), value = attrs.string(), sorted = False, default = {}, doc = """
@@ -143,6 +160,8 @@ rust_common = struct(
     crate = _crate,
     crate_root = _crate_root,
     env_arg = _env_arg,
+    run_env_arg = _run_env_arg,
+    build_and_run_env_arg = _build_and_run_env_arg,
     mapped_srcs_arg = _mapped_srcs_arg,
     named_deps_arg = _named_deps_arg,
     rust_toolchain_arg = _rust_toolchain_arg,

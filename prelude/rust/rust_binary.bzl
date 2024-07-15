@@ -416,7 +416,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ExternalRunnerTestInfo(
             type = "rust",
             command = [args],
-            env = ctx.attrs.env,
+            env = ctx.attrs.env | ctx.attrs.run_env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
