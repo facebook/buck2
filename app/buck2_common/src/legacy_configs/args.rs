@@ -12,7 +12,7 @@ use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
@@ -154,9 +154,7 @@ fn resolve_config_file_arg(
     }
 
     // Cargo relative file paths are expanded before they make it into the daemon
-    Ok(ConfigPath::Global(AbsNormPathBuf::try_from(
-        path.to_owned(),
-    )?))
+    Ok(ConfigPath::Global(AbsPath::new(path)?.to_owned()))
 }
 
 pub(crate) fn resolve_config_args(

@@ -297,8 +297,9 @@ impl LegacyConfigParser {
                         include
                     };
                     let optional = m.name("optional").is_some();
+                    // Note: Using `AbsNormPath` to preserve existing behavior of requiring normalized paths
                     let include_file = if let Ok(absolute) = AbsNormPath::new(include) {
-                        ConfigPath::Global(absolute.to_owned())
+                        ConfigPath::Global(absolute.to_owned().into_abs_path_buf())
                     } else {
                         let relative = RelativePath::new(include);
                         match config_path.join_to_parent_normalized(relative) {

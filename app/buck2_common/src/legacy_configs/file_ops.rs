@@ -14,7 +14,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
@@ -34,13 +34,13 @@ pub enum ConfigPath {
     #[display(fmt = "{}", .0)]
     Project(ProjectRelativePathBuf),
     #[display(fmt = "{}", .0)]
-    Global(AbsNormPathBuf),
+    Global(AbsPathBuf),
 }
 
 impl ConfigPath {
-    pub(crate) fn resolve_absolute(&self, project_fs: &ProjectRoot) -> AbsNormPathBuf {
+    pub(crate) fn resolve_absolute(&self, project_fs: &ProjectRoot) -> AbsPathBuf {
         match self {
-            ConfigPath::Project(path) => project_fs.resolve(path),
+            ConfigPath::Project(path) => project_fs.resolve(path).into_abs_path_buf(),
             ConfigPath::Global(path) => path.clone(),
         }
     }
@@ -52,18 +52,18 @@ impl ConfigPath {
                 .context("file has no parent")?
                 .join_normalized(rel)
                 .map(ConfigPath::Project),
-            ConfigPath::Global(path) => path
-                .parent()
-                .context("file has no parent")?
-                .join_normalized(rel)
-                .map(ConfigPath::Global),
+            ConfigPath::Global(path) => Ok(ConfigPath::Global(
+                path.parent()
+                    .context("file has no parent")?
+                    .join(rel.as_str()),
+            )),
         }
     }
 
     pub(crate) fn join(&self, p: impl AsRef<ForwardRelativePath>) -> Self {
         match self {
             ConfigPath::Project(path) => ConfigPath::Project(path.join(p)),
-            ConfigPath::Global(path) => ConfigPath::Global(path.join(p)),
+            ConfigPath::Global(path) => ConfigPath::Global(path.join(p.as_ref().as_path())),
         }
     }
 }
@@ -262,7 +262,6 @@ pub(crate) fn push_all_files_from_a_directory<'a>(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::paths::abs_path::AbsPath;
 
     use super::*;
@@ -276,8 +275,8 @@ mod tests {
         let file = root.join("foo");
         fs_util::write(&file, "")?;
 
-        let file = AbsNormPath::new(&file)?;
-        let dir = AbsNormPath::new(&dir)?;
+        let file = AbsPath::new(&file)?;
+        let dir = AbsPath::new(dir.path())?;
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
@@ -295,7 +294,7 @@ mod tests {
     fn empty_dir() -> anyhow::Result<()> {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
-        let dir = AbsNormPath::new(&dir)?;
+        let dir = AbsPath::new(dir.path())?;
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
@@ -314,7 +313,7 @@ mod tests {
         let mut v = vec![];
         let dir = tempfile::tempdir()?;
         let dir = dir.path().join("bad");
-        let dir = AbsNormPath::new(&dir)?;
+        let dir = AbsPath::new(&dir)?;
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
@@ -337,7 +336,7 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            &ConfigPath::Global(AbsNormPath::new(dir)?.to_owned()),
+            &ConfigPath::Global(AbsPath::new(dir)?.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
@@ -351,7 +350,7 @@ mod tests {
     fn file() -> anyhow::Result<()> {
         let mut v = vec![];
         let file = tempfile::NamedTempFile::new()?;
-        let file = AbsNormPath::new(file.path())?;
+        let file = AbsPath::new(file.path())?;
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
@@ -375,8 +374,8 @@ mod tests {
         let file = nested_dir.join("foo");
         fs_util::write(&file, "")?;
 
-        let file = AbsNormPath::new(&file)?;
-        let dir = AbsNormPath::new(&dir)?;
+        let file = AbsPath::new(&file)?;
+        let dir = AbsPath::new(&dir)?;
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,

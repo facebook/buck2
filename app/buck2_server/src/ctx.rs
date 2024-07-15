@@ -55,6 +55,7 @@ use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::facebook_only;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -1052,7 +1053,11 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             for config_path in paths {
                 match config_path {
-                    ConfigPath::Global(p) => tracing_provider.add_external_path(p),
+                    ConfigPath::Global(p) => {
+                        // FIXME(JakobDegen): This is wrong, since we might fail to add symlinks that we depend on.
+                        let p = fs_util::canonicalize(p)?;
+                        tracing_provider.add_external_path(p)
+                    }
                     ConfigPath::Project(p) => tracing_provider.add_project_path(p),
                 }
             }

@@ -21,8 +21,8 @@ use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
@@ -445,7 +445,7 @@ async fn get_buckconfig_paths_for_cell(
                 if let Some(home_dir_path) = home_dir {
                     let buckconfig_path = ForwardRelativePath::new(file)?;
                     buckconfig_paths.push(ConfigPath::Global(
-                        AbsNormPath::new(&home_dir_path)?.join_normalized(buckconfig_path)?,
+                        AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str()),
                     ));
                 }
             }
@@ -454,7 +454,7 @@ async fn get_buckconfig_paths_for_cell(
                 if let Some(home_dir_path) = home_dir {
                     let buckconfig_path = ForwardRelativePath::new(folder)?;
                     let buckconfig_folder_abs_path =
-                        AbsNormPath::new(&home_dir_path)?.join_normalized(buckconfig_path)?;
+                        AbsPath::new(&home_dir_path)?.join(buckconfig_path.as_str());
                     push_all_files_from_a_directory(
                         &mut buckconfig_paths,
                         &ConfigPath::Global(buckconfig_folder_abs_path),
@@ -464,12 +464,10 @@ async fn get_buckconfig_paths_for_cell(
                 }
             }
             BuckConfigFile::GlobalFile(file) => {
-                buckconfig_paths.push(ConfigPath::Global(AbsNormPathBuf::from(String::from(
-                    *file,
-                ))?));
+                buckconfig_paths.push(ConfigPath::Global(AbsPath::new(*file)?.to_owned()));
             }
             BuckConfigFile::GlobalFolder(folder) => {
-                let buckconfig_folder_abs_path = AbsNormPathBuf::from(String::from(*folder))?;
+                let buckconfig_folder_abs_path = AbsPath::new(*folder)?.to_owned();
                 push_all_files_from_a_directory(
                     &mut buckconfig_paths,
                     &ConfigPath::Global(buckconfig_folder_abs_path),
@@ -484,7 +482,7 @@ async fn get_buckconfig_paths_for_cell(
         buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
 
     if let Some(f) = extra_external_config {
-        buckconfig_paths.push(ConfigPath::Global(AbsNormPathBuf::from(f.to_owned())?));
+        buckconfig_paths.push(ConfigPath::Global(AbsPath::new(f)?.to_owned()));
     }
 
     Ok(buckconfig_paths)
