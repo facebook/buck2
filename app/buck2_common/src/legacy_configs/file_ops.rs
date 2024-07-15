@@ -152,11 +152,11 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
     }
 }
 
-pub(crate) struct DiceConfigFileOps<'a, 'b>(
-    &'a mut DiceComputations<'b>,
-    &'a ProjectRoot,
-    &'a CellResolver,
-);
+pub(crate) struct DiceConfigFileOps<'a, 'b> {
+    ctx: &'a mut DiceComputations<'b>,
+    project_fs: &'a ProjectRoot,
+    cell_resolver: &'a CellResolver,
+}
 
 impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
     pub(crate) fn new(
@@ -164,7 +164,11 @@ impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
         project_fs: &'a ProjectRoot,
         cell_resolver: &'a CellResolver,
     ) -> Self {
-        Self(ctx, project_fs, cell_resolver)
+        Self {
+            ctx,
+            project_fs,
+            cell_resolver,
+        }
     }
 }
 
@@ -174,17 +178,17 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
         let ConfigPath::Project(path) = path else {
             // File is outside of project root, for example, /etc/buckconfigs.d/experiments
             return (DefaultConfigParserFileOps {
-                project_fs: self.1.dupe(),
+                project_fs: self.project_fs.dupe(),
             })
             .file_exists(path)
             .await;
         };
-        let Ok(path) = self.2.get_cell_path(path) else {
+        let Ok(path) = self.cell_resolver.get_cell_path(path) else {
             // Can't actually happen
             return false;
         };
 
-        DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref())
+        DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref())
             .await
             .is_ok_and(|meta| meta.is_some())
     }
@@ -196,13 +200,13 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     {
         let ConfigPath::Project(path) = path else {
             return (DefaultConfigParserFileOps {
-                project_fs: self.1.dupe(),
+                project_fs: self.project_fs.dupe(),
             })
             .read_file_lines(path)
             .await;
         };
-        let path = self.2.get_cell_path(path)?;
-        let data = DiceFileComputations::read_file(&mut self.0, path.as_ref()).await?;
+        let path = self.cell_resolver.get_cell_path(path)?;
+        let data = DiceFileComputations::read_file(self.ctx, path.as_ref()).await?;
         let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
         Ok(Box::new(lines.into_iter().map(Ok)))
     }
@@ -210,22 +214,21 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
         let ConfigPath::Project(path) = path else {
             return (DefaultConfigParserFileOps {
-                project_fs: self.1.dupe(),
+                project_fs: self.project_fs.dupe(),
             })
             .read_dir(path)
             .await;
         };
-        let path = self.2.get_cell_path(path)?;
+        let path = self.cell_resolver.get_cell_path(path)?;
 
         // This trait expects some slightly non-standard behavior wrt errors, so make sure
         // to match what the `DefaultConfigParserFileOps` do
-        match DiceFileComputations::read_path_metadata_if_exists(&mut self.0, path.as_ref()).await?
-        {
+        match DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref()).await? {
             Some(RawPathMetadata::Directory) => {}
             Some(_) | None => return Ok(Vec::new()),
         }
 
-        let out = DiceFileComputations::read_dir_include_ignores(&mut self.0, path.as_ref())
+        let out = DiceFileComputations::read_dir_include_ignores(self.ctx, path.as_ref())
             .await?
             .included
             .iter()
