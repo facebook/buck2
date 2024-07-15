@@ -14,13 +14,14 @@ use buck2_audit::cell::AuditCellCommand;
 use buck2_build_api::audit_cell::AUDIT_CELL;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use dice::DiceComputations;
+use futures::FutureExt;
 use indexmap::IndexMap;
 
 use crate::ServerAuditSubcommand;
@@ -35,11 +36,11 @@ impl ServerAuditSubcommand for AuditCellCommand {
     ) -> anyhow::Result<()> {
         server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
-                let cells = ctx.get_cell_resolver().await?;
                 let fs = server_ctx.project_root();
                 let cwd = server_ctx.working_dir();
 
-                let mappings = audit_cell(&self.aliases_to_resolve, self.aliases, &cells, cwd, fs)?;
+                let mappings =
+                    audit_cell(&mut ctx, &self.aliases_to_resolve, self.aliases, cwd, fs).await?;
 
                 let mut stdout = stdout.as_writer();
                 if self.paths_only {
@@ -65,14 +66,15 @@ impl ServerAuditSubcommand for AuditCellCommand {
     }
 }
 
-pub(crate) fn audit_cell(
+pub(crate) async fn audit_cell(
+    ctx: &mut DiceComputations<'_>,
     aliases_to_resolve: &[String],
     aliases: bool,
-    cells: &CellResolver,
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
 ) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
-    let this_resolver = cells.get_cwd_cell_alias_resolver(cwd)?;
+    let cells = ctx.get_cell_resolver().await?;
+    let this_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
     let mappings: IndexMap<_, _> = {
         if aliases_to_resolve.is_empty() {
             if aliases {
@@ -124,7 +126,7 @@ pub(crate) fn audit_cell(
 }
 
 pub(crate) fn init_audit_cell() {
-    AUDIT_CELL.init(|aliases_to_resolve, aliases, cells, cwd, fs| {
-        audit_cell(aliases_to_resolve, aliases, cells, cwd, fs)
+    AUDIT_CELL.init(|ctx, aliases_to_resolve, aliases, cwd, fs| {
+        audit_cell(ctx, aliases_to_resolve, aliases, cwd, fs).boxed()
     });
 }

@@ -7,29 +7,36 @@
  * of this source tree.
  */
 
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_util::late_binding::LateBinding;
+use dice::DiceComputations;
+use futures::future::BoxFuture;
 use indexmap::IndexMap;
 
 pub static AUDIT_CELL: LateBinding<
     for<'v> fn(
+        ctx: &'v mut DiceComputations<'_>,
         aliases_to_resolve: &'v Vec<String>,
         aliases: bool,
-        cells: &'v CellResolver,
         cwd: &'v ProjectRelativePath,
         fs: &'v ProjectRoot,
-    ) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>>,
+    ) -> BoxFuture<'v, anyhow::Result<IndexMap<String, AbsNormPathBuf>>>,
 > = LateBinding::new("AUDIT_CELL");
 
 pub fn audit_cell<'v>(
+    ctx: &'v mut DiceComputations<'_>,
     aliases_to_resolve: &'v Vec<String>,
     aliases: bool,
-    cells: &'v CellResolver,
     cwd: &'v ProjectRelativePath,
     fs: &'v ProjectRoot,
-) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
-    (AUDIT_CELL.get()?)(aliases_to_resolve, aliases, cells, cwd, fs)
+) -> anyhow::Result<BoxFuture<'v, anyhow::Result<IndexMap<String, AbsNormPathBuf>>>> {
+    Ok((AUDIT_CELL.get()?)(
+        ctx,
+        aliases_to_resolve,
+        aliases,
+        cwd,
+        fs,
+    ))
 }

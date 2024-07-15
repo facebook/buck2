@@ -182,15 +182,21 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         >,
         #[starlark(require = named, default = false)] aliases: bool,
     ) -> anyhow::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
-        let result = audit_cell(
-            &aliases_to_resolve.items,
-            aliases,
-            &this.cell_resolver,
-            &this.working_dir,
-            this.ctx.project_root(),
-        )?;
-        Ok(AllocDict(
-            result.into_iter().map(|(k, v)| (k, v.to_string())),
-        ))
+        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+            async {
+                let result = audit_cell(
+                    ctx,
+                    &aliases_to_resolve.items,
+                    aliases,
+                    &this.working_dir,
+                    this.ctx.project_root(),
+                )?
+                .await?;
+                Ok(AllocDict(
+                    result.into_iter().map(|(k, v)| (k, v.to_string())),
+                ))
+            }
+            .boxed_local()
+        })
     }
 }
