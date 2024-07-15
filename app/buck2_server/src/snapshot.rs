@@ -183,9 +183,7 @@ impl SnapshotCollector {
     }
 
     fn add_net_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        if let Ok(Some(mut net_io_counters_per_nic)) = self.net_io_collector.collect() {
-            net_io_counters_per_nic
-                .retain(|k, _| ["en", "eth"].iter().any(|prefix| k.starts_with(prefix)));
+        if let Ok(Some(net_io_counters_per_nic)) = self.net_io_collector.collect() {
             snapshot.network_interface_stats = net_io_counters_per_nic
                 .into_iter()
                 .map(|(nic, counters)| {

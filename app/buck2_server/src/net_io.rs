@@ -50,6 +50,7 @@ mod collector {
                 .net_io_counters_pernic()
                 .context("collecting old counters")?
                 .into_iter()
+                .filter(|(s, _)| ["en", "eth"].iter().any(|prefix| s.starts_with(prefix)))
                 .map(|(nic, counters)| {
                     (
                         nic,
