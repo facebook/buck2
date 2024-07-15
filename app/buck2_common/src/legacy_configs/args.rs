@@ -165,9 +165,14 @@ async fn resolve_config_file_arg(
     };
 
     if let Some(cell_alias) = &cell {
-        let cwd = cell_resolution_state.cwd;
-        let (cell_resolver, _) = cell_resolution_state.get_cell_resolver(file_ops).await?;
-        let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
+        let (cell_resolver, cell_alias_resolver) =
+            cell_resolution_state.get_cell_resolver(file_ops).await?;
+        let cell = cell_alias_resolver.resolve(cell_alias)?;
+        let cell = cell_resolver.get(cell)?;
+        let proj_path = cell
+            .path()
+            .as_project_relative_path()
+            .join_normalized(path)?;
         return Ok(ResolvedConfigFile::Project(proj_path));
     }
 
