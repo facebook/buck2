@@ -270,12 +270,13 @@ impl BuckConfigBasedCells {
 
             let is_root = path.is_repo_root();
 
-            let repositories = config
-                .get_section("repositories")
-                .or_else(|| config.get_section("cells"));
-            if let Some(repositories) = repositories {
-                for (alias, alias_path) in repositories.iter() {
-                    let alias_path = CellRootPathBuf::new(path
+            if is_root {
+                let repositories = config
+                    .get_section("repositories")
+                    .or_else(|| config.get_section("cells"));
+                if let Some(repositories) = repositories {
+                    for (alias, alias_path) in repositories.iter() {
+                        let alias_path = CellRootPathBuf::new(path
                         .join_normalized(RelativePath::new(alias_path.as_str()))
                         .with_context(|| {
                             format!(
@@ -285,12 +286,13 @@ impl BuckConfigBasedCells {
                                 path
                             )
                         })?);
-                    let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                    if is_root {
-                        root_aliases.insert(alias.clone(), alias_path.clone());
+                        let alias = NonEmptyCellAlias::new(alias.to_owned())?;
+                        if is_root {
+                            root_aliases.insert(alias.clone(), alias_path.clone());
+                        }
+                        cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
+                        work.push(alias_path);
                     }
-                    cells_aggregator.add_cell_entry(path.clone(), alias, alias_path.clone())?;
-                    work.push(alias_path);
                 }
             }
 
