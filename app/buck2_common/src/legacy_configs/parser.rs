@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -62,7 +63,7 @@ fn format_cycle(cycle: &[(String, String)]) -> String {
         .join(" -> ")
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Allocative)]
 struct SectionBuilder {
     values: BTreeMap<String, ConfigValue>,
 }
@@ -75,7 +76,7 @@ impl SectionBuilder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Allocative)]
 pub(crate) struct LegacyConfigParser {
     include_stack: Vec<ConfigFileLocationWithLine>,
     current_file: Option<Arc<ConfigFileLocation>>,

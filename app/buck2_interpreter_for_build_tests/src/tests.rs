@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
@@ -86,7 +87,8 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     )
     .unwrap();
     ctx.set_legacy_configs(cell_configs).unwrap();
-    ctx.set_legacy_config_overrides(Arc::new([])).unwrap();
+    ctx.set_legacy_config_external_data(Arc::new(ExternalBuckconfigData::testing_default()))
+        .unwrap();
     ctx.set_starlark_profiler_configuration(StarlarkProfilerConfiguration::default())
         .unwrap();
     ctx.set_starlark_types(false, false).unwrap();

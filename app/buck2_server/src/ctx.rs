@@ -494,7 +494,7 @@ impl CellConfigLoader {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
                     if dice_ctx.is_cell_resolver_key_set().await?
                         && dice_ctx.is_injected_legacy_configs_key_set().await?
-                        && dice_ctx.is_injected_legacy_config_override_key_set().await?
+                        && dice_ctx.is_injected_external_buckconfig_data_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
                             let config_type_str = |c| match ConfigType::from_i32(c) {
@@ -514,7 +514,7 @@ impl CellConfigLoader {
                                 cell_resolver: dice_ctx.get_cell_resolver().await?,
                                 configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
                                 config_paths: HashSet::new(),
-                                resolved_args: dice_ctx.get_injected_legacy_config_overrides().await?,
+                                external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
                             },
                             new_configs: false,
                             config_metrics: None,
@@ -809,7 +809,7 @@ impl DiceUpdater for DiceCommandUpdater {
             cell_resolver,
             configuror,
             legacy_configs,
-            cells_and_configs.resolved_args,
+            cells_and_configs.external_data,
             self.starlark_profiler_instrumentation_override.clone(),
             self.disable_starlark_types,
             self.unstable_typecheck,

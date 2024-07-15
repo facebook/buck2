@@ -28,8 +28,8 @@ use dice::ProjectionKey;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
-use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
+use crate::legacy_configs::cells::ExternalBuckconfigData;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigs;
 use crate::legacy_configs::key::BuckconfigKeyRef;
@@ -113,12 +113,11 @@ pub trait HasInjectedLegacyConfigs {
     /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
     fn is_injected_legacy_configs_key_set(&mut self) -> impl Future<Output = anyhow::Result<bool>>;
 
-    /// Returns the list of overrides passed to the command line.
-    fn get_injected_legacy_config_overrides(
+    fn get_injected_external_buckconfig_data(
         &mut self,
-    ) -> impl Future<Output = anyhow::Result<Arc<[ResolvedLegacyConfigArg]>>>;
+    ) -> impl Future<Output = anyhow::Result<Arc<ExternalBuckconfigData>>>;
 
-    fn is_injected_legacy_config_override_key_set(
+    fn is_injected_external_buckconfig_data_key_set(
         &mut self,
     ) -> impl Future<Output = anyhow::Result<bool>>;
 }
@@ -168,12 +167,12 @@ pub trait SetLegacyConfigs {
 
     fn set_none_legacy_configs(&mut self) -> anyhow::Result<()>;
 
-    fn set_legacy_config_overrides(
+    fn set_legacy_config_external_data(
         &mut self,
-        overrides: Arc<[ResolvedLegacyConfigArg]>,
+        overrides: Arc<ExternalBuckconfigData>,
     ) -> anyhow::Result<()>;
 
-    fn set_none_legacy_config_overrides(&mut self) -> anyhow::Result<()>;
+    fn set_none_legacy_config_external_data(&mut self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -194,10 +193,10 @@ impl InjectedKey for LegacyBuckConfigKey {
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "{:?}", self)]
-struct LegacyBuckConfigOverridesKey;
+struct LegacyExternalBuckConfigDataKey;
 
-impl InjectedKey for LegacyBuckConfigOverridesKey {
-    type Value = Option<Arc<[ResolvedLegacyConfigArg]>>;
+impl InjectedKey for LegacyExternalBuckConfigDataKey {
+    type Value = Option<Arc<ExternalBuckconfigData>>;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -311,16 +310,19 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
         Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
     }
 
-    async fn get_injected_legacy_config_overrides(
+    async fn get_injected_external_buckconfig_data(
         &mut self,
-    ) -> anyhow::Result<Arc<[ResolvedLegacyConfigArg]>> {
-        self.compute(&LegacyBuckConfigOverridesKey).await?.ok_or_else(|| {
+    ) -> anyhow::Result<Arc<ExternalBuckconfigData>> {
+        self.compute(&LegacyExternalBuckConfigDataKey).await?.ok_or_else(|| {
             panic!("Tried to retrieve LegacyBuckConfigOverridesKey from the graph, but key has None value")
         })
     }
 
-    async fn is_injected_legacy_config_override_key_set(&mut self) -> anyhow::Result<bool> {
-        Ok(self.compute(&LegacyBuckConfigOverridesKey).await?.is_some())
+    async fn is_injected_external_buckconfig_data_key_set(&mut self) -> anyhow::Result<bool> {
+        Ok(self
+            .compute(&LegacyExternalBuckConfigDataKey)
+            .await?
+            .is_some())
     }
 }
 
@@ -394,15 +396,15 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
         Ok(self.changed_to(vec![(LegacyBuckConfigKey, None)])?)
     }
 
-    fn set_legacy_config_overrides(
+    fn set_legacy_config_external_data(
         &mut self,
-        overrides: Arc<[ResolvedLegacyConfigArg]>,
+        data: Arc<ExternalBuckconfigData>,
     ) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyBuckConfigOverridesKey, Some(overrides))])?)
+        Ok(self.changed_to(vec![(LegacyExternalBuckConfigDataKey, Some(data))])?)
     }
 
-    fn set_none_legacy_config_overrides(&mut self) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyBuckConfigOverridesKey, None)])?)
+    fn set_none_legacy_config_external_data(&mut self) -> anyhow::Result<()> {
+        Ok(self.changed_to(vec![(LegacyExternalBuckConfigDataKey, None)])?)
     }
 }
 

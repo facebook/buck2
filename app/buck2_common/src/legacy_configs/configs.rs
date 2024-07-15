@@ -50,7 +50,7 @@ pub(crate) struct ConfigData {
     pub(crate) values: SortedMap<String, LegacyBuckConfigSection>,
 }
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
 pub(crate) enum ResolvedValue {
     // A placeholder used before we do resolution.
     Unknown,
@@ -60,19 +60,19 @@ pub(crate) enum ResolvedValue {
     Resolved(String),
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, PartialEq, Eq, Allocative)]
 pub(crate) struct ConfigFileLocation {
     pub(crate) path: String,
     pub(crate) include_source: Option<Location>,
 }
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
 pub(crate) struct ConfigFileLocationWithLine {
     pub(crate) source_file: Arc<ConfigFileLocation>,
     pub(crate) line: usize,
 }
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
 pub(crate) enum Location {
     File(ConfigFileLocationWithLine),
     CommandLineArgument,
@@ -145,7 +145,7 @@ pub fn parse_config_section_and_key(
     })
 }
 
-#[derive(Debug, Clone, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
 pub(crate) struct ConfigValue {
     raw_value: String,
     pub(crate) resolved_value: ResolvedValue,

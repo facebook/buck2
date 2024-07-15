@@ -184,7 +184,7 @@ fn cells() -> CellsData {
         cell_resolver,
         configs_by_name,
         config_paths: _,
-        resolved_args: _,
+        external_data: _,
     } = BuckConfigBasedCells::parse_with_file_ops(
         &project_fs,
         &mut TestConfigParserFileOps::new(&[(

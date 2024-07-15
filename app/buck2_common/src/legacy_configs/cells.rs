@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
 use buck2_core::cells::alias::NonEmptyCellAlias;
@@ -48,6 +49,7 @@ use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
 use crate::legacy_configs::file_ops::DiceConfigFileOps;
+use crate::legacy_configs::parser::LegacyConfigParser;
 use crate::legacy_configs::path::ExternalConfigSource;
 use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
@@ -64,6 +66,23 @@ enum CellsError {
     UnknownCellName(NonEmptyCellAlias),
 }
 
+/// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
+/// buckconfig comes from outside the buildgraph, and this type represents those parts.
+#[derive(PartialEq, Eq, Allocative)]
+pub struct ExternalBuckconfigData {
+    parse_state: LegacyConfigParser,
+    args: Arc<[ResolvedLegacyConfigArg]>,
+}
+
+impl ExternalBuckconfigData {
+    pub fn testing_default() -> Self {
+        Self {
+            parse_state: LegacyConfigParser::new(),
+            args: std::iter::empty().collect(),
+        }
+    }
+}
+
 /// Used for creating a CellResolver in a buckv1-compatible way based on values
 /// in .buckconfig in each cell.
 ///
@@ -78,7 +97,7 @@ pub struct BuckConfigBasedCells {
     pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
     pub config_paths: HashSet<ConfigPath>,
-    pub resolved_args: Arc<[ResolvedLegacyConfigArg]>,
+    pub external_data: Arc<ExternalBuckconfigData>,
 }
 
 impl BuckConfigBasedCells {
@@ -329,7 +348,10 @@ impl BuckConfigBasedCells {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
             config_paths: file_ops.trace,
-            resolved_args: processed_config_args.into_iter().collect(),
+            external_data: Arc::new(ExternalBuckconfigData {
+                parse_state: started_parse,
+                args: processed_config_args.into_iter().collect(),
+            }),
         })
     }
 
@@ -357,24 +379,17 @@ impl BuckConfigBasedCells {
         let resolver = ctx.get_cell_resolver().await?;
         let io_provider = ctx.global_data().get_io_provider();
         let project_fs = io_provider.project_root();
-        let overrides = ctx.get_injected_legacy_config_overrides().await?;
+        let external_data = ctx.get_injected_external_buckconfig_data().await?;
 
         let mut file_ops = DiceConfigFileOps::new(ctx, project_fs, &resolver);
 
-        let config_paths = get_external_buckconfig_paths(&mut file_ops).await?;
-        let started_parse = LegacyBuckConfig::start_parse_for_external_files(
-            &config_paths,
-            &mut file_ops,
-            /* follow_includes */ true,
-        )
-        .await?;
         let config_paths = get_project_buckconfig_paths(cell_path, &mut file_ops).await?;
         LegacyBuckConfig::finish_parse(
-            started_parse,
+            external_data.parse_state.clone(),
             &config_paths,
             cell_path,
             &mut file_ops,
-            overrides.as_ref(),
+            external_data.args.as_ref(),
             /* follow includes */ true,
         )
         .await
