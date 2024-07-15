@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::Context;
+use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::RelativePath;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -171,7 +171,7 @@ impl LegacyConfigParser {
     pub(crate) fn apply_config_arg(
         &mut self,
         config_pair: &ResolvedConfigFlag,
-        current_cell_path: AbsNormPathBuf,
+        current_cell: &CellRootPath,
     ) -> anyhow::Result<()> {
         for banned_section in ["repositories", "cells"] {
             if config_pair.section == banned_section {
@@ -181,7 +181,7 @@ impl LegacyConfigParser {
             };
         }
         let pair = config_pair.to_owned();
-        let cell_matches = pair.cell_path == Some(current_cell_path) || pair.cell_path.is_none();
+        let cell_matches = pair.cell.as_deref() == Some(current_cell) || pair.cell.is_none();
         if cell_matches {
             let config_section = self
                 .values

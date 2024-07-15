@@ -231,7 +231,7 @@ impl BuckConfigBasedCells {
             let config =
                 futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
                     buckconfig_paths.as_slice(),
-                    project_fs.resolve(path.as_project_relative_path()),
+                    &path,
                     &mut file_ops,
                     &processed_config_args,
                     options.follow_includes,
@@ -434,7 +434,7 @@ impl BuckConfigBasedCells {
 
         LegacyBuckConfig::parse_with_file_ops_with_includes(
             &config_paths,
-            project_fs.resolve(cell_path.as_project_relative_path()),
+            cell_path,
             &mut file_ops,
             overrides.as_ref(),
             /* follow includes */ true,

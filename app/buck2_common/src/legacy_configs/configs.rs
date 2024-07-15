@@ -17,6 +17,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_cli_proto::ConfigOverride;
+use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -353,7 +354,7 @@ impl LegacyBuckConfig {
 
     pub(crate) async fn parse_with_file_ops_with_includes(
         main_config_files: &[MainConfigFile],
-        cell_path: AbsNormPathBuf,
+        current_cell: &CellRootPath,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
@@ -368,7 +369,7 @@ impl LegacyBuckConfig {
         for config_arg in config_args {
             match config_arg {
                 ResolvedLegacyConfigArg::Flag(config_value) => {
-                    parser.apply_config_arg(config_value, cell_path.clone())?
+                    parser.apply_config_arg(config_value, current_cell)?
                 }
                 ResolvedLegacyConfigArg::File(file_path) => {
                     parser
@@ -463,15 +464,15 @@ pub mod testing {
 
     pub fn parse_with_config_args(
         data: &[(&str, &str)],
-        path: &str,
+        cell_path: &str,
         config_args: &[ConfigOverride],
     ) -> anyhow::Result<LegacyBuckConfig> {
         let mut file_ops = TestConfigParserFileOps::new(data)?;
         #[cfg(not(windows))]
-        let path = &AbsNormPathBuf::from(path.into())?;
+        let path = &AbsNormPathBuf::from(cell_path.into())?;
         // Need to add some disk drive on Windows to make path absolute.
         #[cfg(windows)]
-        let path = &AbsNormPathBuf::from(format!("C:{}", path))?;
+        let path = &AbsNormPathBuf::from(format!("C:{}", cell_path))?;
         let project_fs = create_project_filesystem();
         // As long as people don't pass config files, making up values here is ok
         let processed_config_args = resolve_config_args(
@@ -485,7 +486,7 @@ pub mod testing {
                 path: path.to_buf(),
                 owned_by_project: true,
             }],
-            path.clone(),
+            CellRootPath::new(ProjectRelativePath::unchecked_new(cell_path)),
             &mut file_ops,
             &processed_config_args,
             true,

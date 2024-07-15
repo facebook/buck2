@@ -10,6 +10,7 @@
 use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -37,10 +38,8 @@ pub(crate) struct ResolvedConfigFlag {
     pub(crate) key: String,
     // None value means this config is unset.
     pub(crate) value: Option<String>,
-    // Stores config's cell dir for resolving cell, when applicable.
-    // cell name not used due to the many-to-one mapping of cell aliases to
-    // actual cells, which complicates parsing.
-    pub(crate) cell_path: Option<AbsNormPathBuf>,
+    // If this arg only applies to one cell, the root of that cell.
+    pub(crate) cell: Option<CellRootPathBuf>,
 }
 
 impl LegacyConfigCmdArgFlag {
@@ -135,18 +134,16 @@ fn resolve_config_flag_arg(
     cell_resolution: &mut CellResolutionState,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ResolvedConfigFlag> {
-    let cell_path = flag_arg
+    let cell = flag_arg
         .cell
         .as_ref()
         .map(|cell| {
-            let project_fs = cell_resolution.project_filesystem;
             let cwd = cell_resolution.cwd;
             let cell_resolver = cell_resolution.get_cell_resolver(file_ops)?;
             let cell = cell_resolver
                 .get_cwd_cell_alias_resolver(cwd)?
                 .resolve(cell)?;
-            let cell_root = cell_resolver.get(cell)?.path().as_project_relative_path();
-            anyhow::Ok(project_fs.resolve(cell_root))
+            anyhow::Ok(cell_resolver.get(cell)?.path().to_buf())
         })
         .transpose()?;
 
@@ -154,7 +151,7 @@ fn resolve_config_flag_arg(
         section: flag_arg.section.clone(),
         key: flag_arg.key.clone(),
         value: flag_arg.value.clone(),
-        cell_path,
+        cell,
     })
 }
 
