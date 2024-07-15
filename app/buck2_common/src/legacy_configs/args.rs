@@ -69,32 +69,12 @@ impl LegacyConfigCmdArgFlag {
     }
 }
 
-impl LegacyConfigCmdArgFile {
-    fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFile> {
-        let (cell, val) = match val.split_once("//") {
-            Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
-            _ => (None, val),
-        };
-
-        Ok(LegacyConfigCmdArgFile {
-            cell,
-            path: val.to_owned(),
-        })
-    }
-}
-
 #[derive(Debug)]
 struct LegacyConfigCmdArgFlag {
     cell: Option<String>,
     section: String,
     key: String,
     value: Option<String>,
-}
-
-#[derive(Debug)]
-struct LegacyConfigCmdArgFile {
-    cell: Option<String>,
-    path: String,
 }
 
 /// State required to perform resolution of cell-relative paths.
@@ -156,20 +136,24 @@ fn resolve_config_flag_arg(
 }
 
 fn resolve_config_file_arg(
-    file_arg: &LegacyConfigCmdArgFile,
+    arg: &str,
     cell_resolution_state: &mut CellResolutionState,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<AbsNormPathBuf> {
-    if let Some(cell_alias) = &file_arg.cell {
+    let (cell, path) = match arg.split_once("//") {
+        Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
+        _ => (None, arg),
+    };
+
+    if let Some(cell_alias) = &cell {
         let cwd = cell_resolution_state.cwd;
         let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops)?;
-        let proj_path =
-            cell_resolver.resolve_cell_relative_path(cell_alias, &file_arg.path, cwd)?;
+        let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
         return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
     }
 
     // Cargo relative file paths are expanded before they make it into the daemon
-    AbsNormPathBuf::try_from(file_arg.path.to_owned())
+    AbsNormPathBuf::try_from(path.to_owned())
 }
 
 pub(crate) fn resolve_config_args(
@@ -199,9 +183,8 @@ pub(crate) fn resolve_config_args(
                 Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
             }
             ConfigType::File => {
-                let parsed_file = LegacyConfigCmdArgFile::new(&u.config_override)?;
                 let resolved_path =
-                    resolve_config_file_arg(&parsed_file, &mut cell_resolution, file_ops)?;
+                    resolve_config_file_arg(&u.config_override, &mut cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::File(resolved_path))
             }
         }
