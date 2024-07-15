@@ -20,10 +20,6 @@
 #![feature(used_with_arg)]
 #![feature(let_chains)]
 
-#[cfg(test)]
-#[macro_use]
-extern crate maplit;
-
 #[macro_use]
 pub mod error;
 

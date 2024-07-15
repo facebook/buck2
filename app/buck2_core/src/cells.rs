@@ -74,58 +74,6 @@
 //! containing Cell given a path. 'CellAlias' can be resolved with an
 //! 'CellAliasResolver'. Each 'CellInstance' contains a 'CellAliasResolver' for
 //! the cell alias mapping for that particular cell.
-//!
-//! e.g.
-//! ```
-//! use buck2_core::fs::project_rel_path::{ProjectRelativePath, ProjectRelativePathBuf};
-//! use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-//! use buck2_core::cells::CellResolver;
-//! use std::convert::TryFrom;
-//! use maplit::hashmap;
-//! use buck2_core::cells::cell_root_path::CellRootPathBuf;
-//! use buck2_core::cells::name::CellName;
-//! use buck2_core::cells::alias::CellAlias;
-//! use dupe::Dupe;
-//! use buck2_core::cells::alias::NonEmptyCellAlias;
-//!
-//! let cell_config = ForwardRelativePathBuf::try_from(".buckconfig".to_owned())?;
-//! let fbsource = ProjectRelativePath::new("")?;
-//! let fbcode = ProjectRelativePath::new("fbcode")?;
-//!
-//! let cells = CellResolver::testing_with_names_and_paths_with_alias(&[
-//!     (CellName::testing_new("fbsource"), CellRootPathBuf::new(fbsource.to_buf()), hashmap![
-//!         NonEmptyCellAlias::new("fbsource".to_owned()).unwrap() => CellName::testing_new("fbsource"),
-//!         NonEmptyCellAlias::new("fbcode".to_owned()).unwrap() => CellName::testing_new("fbcode"),
-//!     ]),
-//!     (CellName::testing_new("fbcode"), CellRootPathBuf::new(fbcode.to_buf()), hashmap![
-//!         NonEmptyCellAlias::new("fbcode".to_owned()).unwrap() => CellName::testing_new("fbcode"),
-//!         NonEmptyCellAlias::new("fbsource".to_owned()).unwrap() => CellName::testing_new("fbsource"),
-//!     ])
-//! ]);
-//!
-//! let fbsource_cell_name = cells.find(ProjectRelativePath::new("something/in/fbsource")?)?.dupe();
-//! assert_eq!(fbsource_cell_name, CellName::testing_new("fbsource"));
-//!
-//! let fbcode_cell_name = cells.find(ProjectRelativePath::new("fbcode/something/in/fbcode")?)?.dupe();
-//! assert_eq!(fbcode_cell_name, CellName::testing_new("fbcode"));
-//!
-//! let fbsource_cell = cells.get(fbsource_cell_name)?;
-//! assert_eq!(fbsource_cell.name(), CellName::testing_new("fbsource"));
-//! let fbcode_cell = cells.get(fbcode_cell_name)?;
-//! assert_eq!(fbcode_cell.name(), CellName::testing_new("fbcode"));
-//!
-//! let fbsource_aliases = fbsource_cell.testing_cell_alias_resolver();
-//! assert_eq!(fbsource_aliases.resolve("")?, CellName::testing_new("fbsource"));
-//! assert_eq!(fbsource_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
-//! assert_eq!(fbsource_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
-//!
-//! let fbcode_aliases = fbcode_cell.testing_cell_alias_resolver();
-//! assert_eq!(fbcode_aliases.resolve("")?, CellName::testing_new("fbcode"));
-//! assert_eq!(fbcode_aliases.resolve("fbsource")?, CellName::testing_new("fbsource"));
-//! assert_eq!(fbcode_aliases.resolve("fbcode")?, CellName::testing_new("fbcode"));
-//!
-//! # anyhow::Ok(())
-//! ```
 
 pub mod alias;
 pub mod build_file_cell;
@@ -751,100 +699,15 @@ mod tests {
         let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
         let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
 
-        let cells = CellResolver::testing_with_names_and_paths_with_alias(&[
+        let cells = CellResolver::testing_with_names_and_paths(&[
             (
                 CellName::testing_new("root"),
                 CellRootPathBuf::testing_new(""),
-                HashMap::new(),
             ),
-            (
-                CellName::testing_new("cell1"),
-                cell1_path.to_buf(),
-                hashmap![
-                    NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-                    NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
-                    NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
-                ],
-            ),
-            (
-                CellName::testing_new("cell2"),
-                cell2_path.to_buf(),
-                hashmap![
-                    NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
-                    NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-                    NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
-                ],
-            ),
-            (
-                CellName::testing_new("cell3"),
-                cell3_path.to_buf(),
-                hashmap![
-                    NonEmptyCellAlias::new("z_cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
-                    NonEmptyCellAlias::new("z_cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-                    NonEmptyCellAlias::new("z_cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
-                ],
-            ),
+            (CellName::testing_new("cell1"), cell1_path.to_buf()),
+            (CellName::testing_new("cell2"), cell2_path.to_buf()),
+            (CellName::testing_new("cell3"), cell3_path.to_buf()),
         ]);
-
-        {
-            let cell1 = cells.get(CellName::testing_new("cell1")).unwrap();
-            assert_eq!(cell1.path(), cell1_path);
-
-            let aliases = cell1.testing_cell_alias_resolver();
-            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell1"));
-            assert_eq!(
-                aliases.resolve("cell1").unwrap(),
-                CellName::testing_new("cell1")
-            );
-            assert_eq!(
-                aliases.resolve("cell2").unwrap(),
-                CellName::testing_new("cell2")
-            );
-            assert_eq!(
-                aliases.resolve("cell3").unwrap(),
-                CellName::testing_new("cell3")
-            );
-        }
-
-        {
-            let cell2 = cells.get(CellName::testing_new("cell2")).unwrap();
-            assert_eq!(cell2.path(), cell2_path);
-
-            let aliases = cell2.testing_cell_alias_resolver();
-            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell2"));
-            assert_eq!(
-                aliases.resolve("cell1").unwrap(),
-                CellName::testing_new("cell1")
-            );
-            assert_eq!(
-                aliases.resolve("cell2").unwrap(),
-                CellName::testing_new("cell2")
-            );
-            assert_eq!(
-                aliases.resolve("cell3").unwrap(),
-                CellName::testing_new("cell3")
-            );
-        }
-
-        {
-            let cell3 = cells.get(CellName::testing_new("cell3")).unwrap();
-            assert_eq!(cell3.path(), cell3_path);
-
-            let aliases = cell3.testing_cell_alias_resolver();
-            assert_eq!(aliases.resolve("").unwrap(), CellName::testing_new("cell3"));
-            assert_eq!(
-                aliases.resolve("z_cell1").unwrap(),
-                CellName::testing_new("cell1")
-            );
-            assert_eq!(
-                aliases.resolve("z_cell2").unwrap(),
-                CellName::testing_new("cell2")
-            );
-            assert_eq!(
-                aliases.resolve("z_cell3").unwrap(),
-                CellName::testing_new("cell3")
-            );
-        }
 
         assert_eq!(cells.find(cell1_path)?, CellName::testing_new("cell1"));
         assert_eq!(cells.find(cell2_path)?, CellName::testing_new("cell2"));
