@@ -19,6 +19,12 @@ rust_library(
                 "fbsource//third-party/rust:psutil",
             ],
         ),
+        (
+            "windows",
+            [
+                "fbsource//third-party/rust:winapi",
+            ],
+        ),
     ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",

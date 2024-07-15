@@ -77,6 +77,9 @@ host_sharing = { workspace = true }
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 psutil = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+winapi = { workspace = true }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 buck2_util = { workspace = true }
