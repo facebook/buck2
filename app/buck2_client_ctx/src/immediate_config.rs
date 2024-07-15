@@ -25,7 +25,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::WorkingDir;
-use dupe::Dupe;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.
@@ -49,10 +48,13 @@ impl ImmediateConfig {
         ))?;
 
         let cell_resolver = cells.cell_resolver;
-        let cwd_cell_alias_resolver = cell_resolver
-            .get(cell_resolver.find(cwd)?)?
-            .non_external_cell_alias_resolver()
-            .dupe();
+        let cwd_cell_alias_resolver = futures::executor::block_on(
+            BuckConfigBasedCells::get_cell_alias_resolver_for_cwd_fast(
+                &cell_resolver,
+                project_fs,
+                cwd,
+            ),
+        )?;
 
         let root_config = cells
             .configs_by_name

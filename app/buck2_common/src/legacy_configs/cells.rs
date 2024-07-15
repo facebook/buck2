@@ -20,6 +20,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::CellsAggregator;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -117,6 +118,63 @@ impl BuckConfigBasedCells {
         .await?;
 
         Ok(cells.cell_resolver)
+    }
+
+    /// In the client and one place in the daemon, we need access to the alias resolver for the cwd
+    /// in some places where we don't have normal dice access
+    ///
+    /// This function reads buckconfigs to compute an appropriate cell alias resolver to make that
+    /// possible.
+    pub async fn get_cell_alias_resolver_for_cwd_fast(
+        resolver: &CellResolver,
+        project_fs: &ProjectRoot,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<CellAliasResolver> {
+        Self::get_cell_alias_resolver_for_cwd_fast_with_file_ops(
+            resolver,
+            &mut DefaultConfigParserFileOps {
+                project_fs: project_fs.dupe(),
+            },
+            cwd,
+        )
+        .await
+    }
+
+    pub(crate) async fn get_cell_alias_resolver_for_cwd_fast_with_file_ops(
+        resolver: &CellResolver,
+        file_ops: &mut dyn ConfigParserFileOps,
+        cwd: &ProjectRelativePath,
+    ) -> anyhow::Result<CellAliasResolver> {
+        let cell_name = resolver.find(cwd)?;
+        let cell_path = resolver.get(cell_name)?.path();
+
+        let follow_includes = false;
+
+        // FIXME(JakobDegen): Adjust semantics so that this is not needed
+        let external_paths = get_external_buckconfig_paths(file_ops).await?;
+        let started_parse = LegacyBuckConfig::start_parse_for_external_files(
+            &external_paths,
+            file_ops,
+            follow_includes,
+        )
+        .await?;
+
+        let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
+        let config = LegacyBuckConfig::finish_parse(
+            started_parse,
+            &config_paths,
+            cell_path,
+            file_ops,
+            &[],
+            follow_includes,
+        )
+        .await?;
+
+        CellAliasResolver::new_for_dice_parsed_cell(
+            cell_name,
+            resolver.root_cell_cell_alias_resolver(),
+            BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,
+        )
     }
 
     pub async fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {

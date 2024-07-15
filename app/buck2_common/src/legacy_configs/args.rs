@@ -19,7 +19,6 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use dupe::Dupe;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
@@ -118,10 +117,13 @@ impl CellResolutionState<'_> {
                 file_ops,
             ))
             .await?;
-            let cell_alias_resolver = cell_resolver
-                .get(cell_resolver.find(self.cwd)?)?
-                .non_external_cell_alias_resolver()
-                .dupe();
+            let cell_alias_resolver =
+                BuckConfigBasedCells::get_cell_alias_resolver_for_cwd_fast_with_file_ops(
+                    &cell_resolver,
+                    file_ops,
+                    self.cwd,
+                )
+                .await?;
 
             self.cell_resolver = Some((cell_resolver, cell_alias_resolver));
         }
