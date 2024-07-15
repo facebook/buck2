@@ -255,7 +255,7 @@ mod tests {
 
         // Canonicalize this because the canonicalize() call in `interior_links()`
         // resolves to /private/var/... on macOS.
-        let working_dir = fs_util::canonicalize(tree.path())?;
+        let working_dir = AbsNormPathBuf::new(tree.path().canonicalize()?)?;
 
         let external_link = ExternalSymlink {
             link: ProjectRelativePathBuf::unchecked_new("unused".to_owned()),
@@ -292,7 +292,7 @@ mod tests {
 
         // Canonicalize this because the canonicalize() call in `interior_links()`
         // resolves to /private/var/... on macOS.
-        let working_dir = fs_util::canonicalize(tree.path())?;
+        let working_dir = AbsNormPathBuf::new(tree.path().canonicalize()?)?;
 
         let external_link = ExternalSymlink {
             link: ProjectRelativePathBuf::unchecked_new("unused".to_owned()),

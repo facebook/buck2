@@ -43,6 +43,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
@@ -1068,8 +1069,9 @@ impl TestLabelFiltering {
 fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
     match s.split_once("$BUCK2_BINARY_DIR/") {
         Some(("", rest)) => {
-            let exe = std::env::current_exe().context("Cannot get Buck2 executable")?;
-            let exe = fs_util::canonicalize(exe).context(
+            let exe =
+                AbsPathBuf::new(std::env::current_exe().context("Cannot get Buck2 executable")?)?;
+            let exe = fs_util::canonicalize(&exe).context(
                 "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
             )?;
 

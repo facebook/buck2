@@ -513,19 +513,21 @@ pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoE
     )
 }
 
-pub fn canonicalize<P: AsRef<Path>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
+pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = make_error!(
-        dunce::canonicalize(&path),
+        dunce::canonicalize(path.as_ref()),
         format!("canonicalize({})", P::as_ref(&path).display()),
     )?;
     AbsNormPathBuf::new(path)
 }
 
-pub fn canonicalize_if_exists<P: AsRef<Path>>(path: P) -> anyhow::Result<Option<AbsNormPathBuf>> {
+pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> anyhow::Result<Option<AbsNormPathBuf>> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = make_error!(
-        if_exists(dunce::canonicalize(&path)),
+        if_exists(dunce::canonicalize(path.as_ref())),
         format!("canonicalize_if_exists({})", P::as_ref(&path).display()),
     )?;
     path.map(AbsNormPathBuf::new).transpose()

@@ -92,7 +92,7 @@ impl<'a> ImmediateConfigContext<'a> {
     }
 
     pub(crate) fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
-        fs_util::canonicalize(self.cwd.path().as_path().join(path))
+        fs_util::canonicalize(self.cwd.path().as_abs_path().join(path))
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have

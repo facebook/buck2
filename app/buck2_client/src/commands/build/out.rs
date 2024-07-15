@@ -319,7 +319,7 @@ mod tests {
         let src_path = AbsPath::new(src_dir.path())?;
         let dst_path = AbsPath::new(dst_dir.path())?;
         let copy_context = CopyContext {
-            relative_symlink_boundary: fs_util::canonicalize(src_path.as_path())?,
+            relative_symlink_boundary: fs_util::canonicalize(src_path)?,
         };
         copy_directory(src_path, dst_path, &copy_context).await?;
 
@@ -335,7 +335,7 @@ mod tests {
         #[cfg(windows)]
         {
             // Symlink value is canonicalized on Windows
-            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            let dst_dir_canon_path = fs_util::canonicalize(dst_path)?;
             assert_eq!(dst_dir_canon_path.as_path().join("foo"), copied_fool_path);
         }
 
@@ -347,7 +347,7 @@ mod tests {
         #[cfg(windows)]
         {
             // Symlink value is canonicalized on Windows
-            let src_dir_canon_path = fs_util::canonicalize(src_dir.path())?;
+            let src_dir_canon_path = fs_util::canonicalize(src_path)?;
             assert_eq!(
                 src_dir_canon_path.as_path().join("foo"),
                 copied_foo_abs_path
@@ -362,7 +362,7 @@ mod tests {
         #[cfg(windows)]
         {
             // Symlink value is canonicalized on Windows
-            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            let dst_dir_canon_path = fs_util::canonicalize(dst_path)?;
             assert_eq!(
                 dst_dir_canon_path.as_path().join("bar\\qux"),
                 copied_bax_path
@@ -377,7 +377,7 @@ mod tests {
         #[cfg(windows)]
         {
             // Symlink value is canonicalized on Windows
-            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            let dst_dir_canon_path = fs_util::canonicalize(dst_path)?;
             assert_eq!(
                 dst_dir_canon_path.as_path().join("foo"),
                 copied_foo_in_bar_path
@@ -395,7 +395,7 @@ mod tests {
     #[tokio::test]
     async fn test_copy_directory_with_symlink_pointing_externally() -> anyhow::Result<()> {
         let src_dir = tempfile::tempdir()?;
-        let src_path = fs_util::canonicalize(src_dir.path())?;
+        let src_path = fs_util::canonicalize(AbsPath::new(src_dir.path())?)?;
         // <tmp>
         // ├── qux
         // │    ├── foo -> ../foo
@@ -494,7 +494,7 @@ mod tests {
             AbsPath::new(&src_symlink_path)?,
             AbsPath::new(&dst_symlink_path)?,
             &CopyContext {
-                relative_symlink_boundary: fs_util::canonicalize(src_dir.path())?,
+                relative_symlink_boundary: fs_util::canonicalize(AbsPath::new(src_dir.path())?)?,
             },
         )?;
 
@@ -506,7 +506,7 @@ mod tests {
         #[cfg(windows)]
         {
             // Symlink value is canonicalized on Windows
-            let dst_dir_canon_path = fs_util::canonicalize(dst_dir.path())?;
+            let dst_dir_canon_path = fs_util::canonicalize(AbsPath::new(dst_dir.path())?)?;
             assert_eq!(dst_dir_canon_path.as_path().join("bar"), target);
         }
 

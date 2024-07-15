@@ -9,12 +9,12 @@
 
 use std::io;
 use std::path::Path;
-use std::path::PathBuf;
 
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use regex::Regex;
 use serde::Deserialize;
 
@@ -57,7 +57,7 @@ impl XcodeVersionInfo {
     // Construct from version.plist in root of Xcode install dir.
     pub fn new() -> anyhow::Result<Option<Self>> {
         let resolved_xcode_path =
-            fs_util::canonicalize_if_exists(PathBuf::from(XCODE_SELECT_SYMLINK))
+            fs_util::canonicalize_if_exists(AbsPath::new(XCODE_SELECT_SYMLINK)?)
                 .context("resolve selected xcode link")?;
         let resolved_xcode_path = match resolved_xcode_path {
             Some(p) => p,
@@ -138,6 +138,7 @@ impl XcodeVersionInfo {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::PathBuf;
 
     use super::*;
 

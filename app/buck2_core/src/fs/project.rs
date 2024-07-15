@@ -55,7 +55,7 @@ impl ProjectRootTemp {
     /// same root
     pub fn new() -> anyhow::Result<Self> {
         let temp = tempfile::tempdir()?;
-        let path = fs_util::canonicalize(temp.path())?;
+        let path = fs_util::canonicalize(AbsPath::new(temp.path())?)?;
         let path = ProjectRoot::new(path)?;
         Ok(Self { path, _temp: temp })
     }
