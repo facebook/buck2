@@ -263,10 +263,6 @@ impl StreamingCommand for TestCommand {
             console.print_error(&format!("{} BUILDS FAILED", build_errors.len()))?;
         }
 
-        // TODO(nmj): Might make sense for us to expose the event ctx, and use its
-        //            handle_stdout method, instead of raw buck2_client::println!s here.
-        // TODO: also remove the duplicate information when the above is done.
-
         let mut line = Line::default();
         line.push(Span::new_unstyled_lossy("Tests finished: "));
         if listing_failed.count > 0 {
