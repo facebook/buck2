@@ -145,7 +145,7 @@ pub fn parse_config_section_and_key(
     })
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Clone, Allocative)]
 pub(crate) struct ConfigValue {
     raw_value: String,
     pub(crate) resolved_value: ResolvedValue,
@@ -259,14 +259,28 @@ impl LegacyBuckConfig {
         }))
     }
 
-    pub(crate) async fn parse_with_file_ops_with_includes(
+    pub(crate) async fn start_parse_for_external_files(
+        config_paths: &[ConfigPath],
+        file_ops: &mut dyn ConfigParserFileOps,
+        follow_includes: bool,
+    ) -> anyhow::Result<LegacyConfigParser> {
+        let mut parser = LegacyConfigParser::new();
+        for main_config_file in config_paths {
+            parser
+                .parse_file(&main_config_file, None, follow_includes, file_ops)
+                .await?;
+        }
+        Ok(parser)
+    }
+
+    pub(crate) async fn finish_parse(
+        mut parser: LegacyConfigParser,
         main_config_files: &[ConfigPath],
         current_cell: &CellRootPath,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
     ) -> anyhow::Result<Self> {
-        let mut parser = LegacyConfigParser::new();
         for main_config_file in main_config_files {
             parser
                 .parse_file(&main_config_file, None, follow_includes, file_ops)
@@ -356,7 +370,8 @@ pub mod testing {
             &ProjectRelativePath::empty(),
             &mut file_ops,
         )?;
-        futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
+        futures::executor::block_on(LegacyBuckConfig::finish_parse(
+            LegacyConfigParser::new(),
             &[ConfigPath::Project(path.to_owned())],
             CellRootPath::new(ProjectRelativePath::empty()),
             &mut file_ops,

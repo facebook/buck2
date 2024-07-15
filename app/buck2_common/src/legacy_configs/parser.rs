@@ -62,7 +62,7 @@ fn format_cycle(cycle: &[(String, String)]) -> String {
         .join(" -> ")
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct SectionBuilder {
     values: BTreeMap<String, ConfigValue>,
 }
@@ -75,6 +75,7 @@ impl SectionBuilder {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct LegacyConfigParser {
     include_stack: Vec<ConfigFileLocationWithLine>,
     current_file: Option<Arc<ConfigFileLocation>>,

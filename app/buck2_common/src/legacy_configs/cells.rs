@@ -219,6 +219,15 @@ impl BuckConfigBasedCells {
         let processed_config_args =
             resolve_config_args(&config_args, project_fs, cwd, &mut file_ops)?;
 
+        let external_paths =
+            futures::executor::block_on(get_external_buckconfig_paths(&mut file_ops))?;
+        let started_parse =
+            futures::executor::block_on(LegacyBuckConfig::start_parse_for_external_files(
+                &external_paths,
+                &mut file_ops,
+                options.follow_includes,
+            ))?;
+
         while let Some(path) = work.pop() {
             if buckconfigs.contains_key(&path) || cells_aggregator.is_external(&path) {
                 continue;
@@ -226,16 +235,16 @@ impl BuckConfigBasedCells {
 
             // Blocking is ok because we know the fileops don't suspend
             let buckconfig_paths =
-                futures::executor::block_on(get_buckconfig_paths_for_cell(&path, &mut file_ops))?;
+                futures::executor::block_on(get_project_buckconfig_paths(&path, &mut file_ops))?;
 
-            let config =
-                futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
-                    buckconfig_paths.as_slice(),
-                    &path,
-                    &mut file_ops,
-                    &processed_config_args,
-                    options.follow_includes,
-                ))?;
+            let config = futures::executor::block_on(LegacyBuckConfig::finish_parse(
+                started_parse.clone(),
+                buckconfig_paths.as_slice(),
+                &path,
+                &mut file_ops,
+                &processed_config_args,
+                options.follow_includes,
+            ))?;
 
             let is_root = path.is_repo_root();
 
@@ -352,9 +361,16 @@ impl BuckConfigBasedCells {
 
         let mut file_ops = DiceConfigFileOps::new(ctx, project_fs, &resolver);
 
-        let config_paths = get_buckconfig_paths_for_cell(cell_path, &mut file_ops).await?;
-
-        LegacyBuckConfig::parse_with_file_ops_with_includes(
+        let config_paths = get_external_buckconfig_paths(&mut file_ops).await?;
+        let started_parse = LegacyBuckConfig::start_parse_for_external_files(
+            &config_paths,
+            &mut file_ops,
+            /* follow_includes */ true,
+        )
+        .await?;
+        let config_paths = get_project_buckconfig_paths(cell_path, &mut file_ops).await?;
+        LegacyBuckConfig::finish_parse(
+            started_parse,
             &config_paths,
             cell_path,
             &mut file_ops,
@@ -406,8 +422,7 @@ impl BuckConfigBasedCells {
     }
 }
 
-async fn get_buckconfig_paths_for_cell(
-    path: &CellRootPath,
+async fn get_external_buckconfig_paths(
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<ConfigPath>> {
     let skip_default_external_config = buck2_env!(
@@ -466,6 +481,15 @@ async fn get_buckconfig_paths_for_cell(
     if let Some(f) = extra_external_config {
         buckconfig_paths.push(ConfigPath::Global(AbsPath::new(f)?.to_owned()));
     }
+
+    Ok(buckconfig_paths)
+}
+
+async fn get_project_buckconfig_paths(
+    path: &CellRootPath,
+    file_ops: &mut dyn ConfigParserFileOps,
+) -> anyhow::Result<Vec<ConfigPath>> {
+    let mut buckconfig_paths: Vec<ConfigPath> = Vec::new();
 
     for buckconfig in DEFAULT_PROJECT_CONFIG_SOURCES {
         match buckconfig {
