@@ -14,6 +14,7 @@ use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::project::ProjectRoot;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 
@@ -48,7 +49,10 @@ enum ReadDirError {
     NotUtf8(String, String),
 }
 
-pub(crate) struct DefaultConfigParserFileOps {}
+pub(crate) struct DefaultConfigParserFileOps {
+    #[allow(unused)] // TODO(JakobDegen): Use next diff
+    pub(crate) project_fs: ProjectRoot,
+}
 
 #[async_trait::async_trait]
 impl ConfigParserFileOps for DefaultConfigParserFileOps {
@@ -141,6 +145,7 @@ mod tests {
     use buck2_core::fs::paths::abs_path::AbsPath;
 
     use super::*;
+    use crate::legacy_configs::cells::create_project_filesystem;
 
     #[test]
     fn dir_with_file() -> anyhow::Result<()> {
@@ -157,7 +162,9 @@ mod tests {
             &mut v,
             dir,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(
             v,
@@ -180,7 +187,9 @@ mod tests {
             &mut v,
             dir,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(v, vec![]);
 
@@ -198,7 +207,9 @@ mod tests {
             &mut v,
             dir,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(v, vec![]);
 
@@ -216,7 +227,9 @@ mod tests {
             &mut v,
             AbsNormPath::new(dir)?,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(v, vec![]);
 
@@ -233,7 +246,9 @@ mod tests {
             &mut v,
             file,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(v, vec![]);
 
@@ -257,7 +272,9 @@ mod tests {
             &mut v,
             dir,
             false,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: create_project_filesystem(),
+            },
         ))?;
         assert_eq!(
             v,

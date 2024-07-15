@@ -31,6 +31,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::cas_digest::RawDigest;
 use crate::dice::cells::HasCellResolver;
@@ -103,7 +104,9 @@ impl BuckConfigBasedCells {
     pub fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: project_fs.dupe(),
+            },
             &[],
             ProjectRelativePath::empty(),
         )
@@ -116,7 +119,9 @@ impl BuckConfigBasedCells {
     ) -> anyhow::Result<Self> {
         Self::parse_with_file_ops(
             project_fs,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: project_fs.dupe(),
+            },
             config_args,
             cwd,
         )
@@ -140,7 +145,9 @@ impl BuckConfigBasedCells {
         };
         Self::parse_with_file_ops_and_options(
             project_fs,
-            &mut DefaultConfigParserFileOps {},
+            &mut DefaultConfigParserFileOps {
+                project_fs: project_fs.dupe(),
+            },
             &[],
             ProjectRelativePath::empty(),
             opts,
@@ -361,7 +368,11 @@ impl BuckConfigBasedCells {
             async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
                 let Ok(path) = self.1.relativize(path) else {
                     // File is outside of project root, for example, /etc/buckconfigs.d/experiments
-                    return (DefaultConfigParserFileOps {}).file_exists(path).await;
+                    return (DefaultConfigParserFileOps {
+                        project_fs: self.1.dupe(),
+                    })
+                    .file_exists(path)
+                    .await;
                 };
                 let Ok(path) = self.2.get_cell_path(path.as_ref()) else {
                     // Can't actually happen
@@ -380,7 +391,11 @@ impl BuckConfigBasedCells {
                 Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>,
             > {
                 let Ok(path) = self.1.relativize(path) else {
-                    return (DefaultConfigParserFileOps {}).read_file_lines(path).await;
+                    return (DefaultConfigParserFileOps {
+                        project_fs: self.1.dupe(),
+                    })
+                    .read_file_lines(path)
+                    .await;
                 };
                 let path = self.2.get_cell_path(path.as_ref())?;
                 let data = DiceFileComputations::read_file(&mut self.0, path.as_ref()).await?;
@@ -393,7 +408,11 @@ impl BuckConfigBasedCells {
                 path: &AbsNormPath,
             ) -> anyhow::Result<Vec<ConfigDirEntry>> {
                 let Ok(path) = self.1.relativize(path) else {
-                    return (DefaultConfigParserFileOps {}).read_dir(path).await;
+                    return (DefaultConfigParserFileOps {
+                        project_fs: self.1.dupe(),
+                    })
+                    .read_dir(path)
+                    .await;
                 };
                 let path = self.2.get_cell_path(path.as_ref())?;
 
