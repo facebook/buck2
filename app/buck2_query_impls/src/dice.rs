@@ -52,7 +52,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
-use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::indexset;
@@ -148,15 +147,13 @@ impl DiceQueryData {
     pub(crate) fn new(
         global_cfg_options: GlobalCfgOptions,
         cell_resolver: CellResolver,
+        cell_alias_resolver: CellAliasResolver,
         working_dir: &ProjectRelativePath,
         project_root: ProjectRoot,
         target_alias_resolver: BuckConfigTargetAliasResolver,
     ) -> anyhow::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
 
-        let cell_alias_resolver = cell_resolver
-            .get_cwd_cell_alias_resolver(working_dir)?
-            .dupe();
         let working_dir_abs = project_root.resolve(working_dir);
 
         Ok(Self {
@@ -339,6 +336,10 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     global_cfg_options: GlobalCfgOptions,
 ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get().get_cell_resolver().await?;
+    let cell_alias_resolver = ctx
+        .get()
+        .get_cell_alias_resolver_for_dir(working_dir)
+        .await?;
     let target_alias_resolver = ctx
         .get()
         .target_alias_resolver_for_working_dir(working_dir)
@@ -354,6 +355,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
         Arc::new(DiceQueryData::new(
             global_cfg_options,
             cell_resolver,
+            cell_alias_resolver,
             working_dir,
             project_root,
             target_alias_resolver,

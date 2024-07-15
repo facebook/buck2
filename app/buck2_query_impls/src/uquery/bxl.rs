@@ -46,6 +46,10 @@ impl BxlUqueryFunctionsImpl {
         dice: &'c LinearRecomputeDiceComputations<'d>,
     ) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
+        let cell_alias_resolver = dice
+            .get()
+            .get_cell_alias_resolver_for_dir(&self.working_dir)
+            .await?;
         let target_alias_resolver = dice
             .get()
             .target_alias_resolver_for_working_dir(&self.working_dir)
@@ -54,6 +58,7 @@ impl BxlUqueryFunctionsImpl {
         let query_data = Arc::new(DiceQueryData::new(
             GlobalCfgOptions::default(),
             cell_resolver.dupe(),
+            cell_alias_resolver,
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
