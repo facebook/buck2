@@ -154,8 +154,8 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 
 pub(crate) struct DiceConfigFileOps<'a, 'b> {
     ctx: &'a mut DiceComputations<'b>,
-    project_fs: &'a ProjectRoot,
     cell_resolver: &'a CellResolver,
+    io_ops: DefaultConfigParserFileOps,
 }
 
 impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
@@ -164,10 +164,13 @@ impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
         project_fs: &'a ProjectRoot,
         cell_resolver: &'a CellResolver,
     ) -> Self {
+        let io_ops = DefaultConfigParserFileOps {
+            project_fs: project_fs.dupe(),
+        };
         Self {
             ctx,
-            project_fs,
             cell_resolver,
+            io_ops,
         }
     }
 }
@@ -177,11 +180,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     async fn file_exists(&mut self, path: &ConfigPath) -> bool {
         let ConfigPath::Project(path) = path else {
             // File is outside of project root, for example, /etc/buckconfigs.d/experiments
-            return (DefaultConfigParserFileOps {
-                project_fs: self.project_fs.dupe(),
-            })
-            .file_exists(path)
-            .await;
+            return self.io_ops.file_exists(path).await;
         };
         let Ok(path) = self.cell_resolver.get_cell_path(path) else {
             // Can't actually happen
@@ -199,11 +198,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     ) -> anyhow::Result<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>
     {
         let ConfigPath::Project(path) = path else {
-            return (DefaultConfigParserFileOps {
-                project_fs: self.project_fs.dupe(),
-            })
-            .read_file_lines(path)
-            .await;
+            return self.io_ops.read_file_lines(path).await;
         };
         let path = self.cell_resolver.get_cell_path(path)?;
         let data = DiceFileComputations::read_file(self.ctx, path.as_ref()).await?;
@@ -213,11 +208,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
         let ConfigPath::Project(path) = path else {
-            return (DefaultConfigParserFileOps {
-                project_fs: self.project_fs.dupe(),
-            })
-            .read_dir(path)
-            .await;
+            return self.io_ops.read_dir(path).await;
         };
         let path = self.cell_resolver.get_cell_path(path)?;
 
