@@ -132,7 +132,7 @@ mod tests {
                 section += &format!("modern_dice_rollout = {}\n", self.modern_dice_rollout);
             }
 
-            parse(&[("/config", &format!("[buck2]\n{}", section))], "/config").unwrap()
+            parse(&[("config", &format!("[buck2]\n{}", section))], "config").unwrap()
         }
     }
 

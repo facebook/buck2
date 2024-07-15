@@ -189,7 +189,7 @@ fn cells() -> CellsData {
     } = BuckConfigBasedCells::parse_with_file_ops(
         &project_fs,
         &mut TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]

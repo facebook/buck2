@@ -525,7 +525,7 @@ mod tests {
     fn test_cells() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -537,7 +537,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -548,7 +548,7 @@ mod tests {
                 ),
             ),
             (
-                "/third_party/.buckconfig",
+                "third_party/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -599,7 +599,7 @@ mod tests {
     fn test_multi_cell_with_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -611,7 +611,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -624,7 +624,7 @@ mod tests {
                 ),
             ),
             (
-                "/third_party/.buckconfig",
+                "third_party/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -636,7 +636,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/cli-conf",
+                "other/cli-conf",
                 indoc!(
                     r#"
                             [foo]
@@ -647,15 +647,11 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        #[cfg(not(windows))]
-        let file_arg = "/other/cli-conf";
-        #[cfg(windows)]
-        let file_arg = "C:/other/cli-conf";
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[ConfigOverride {
-                config_override: file_arg.to_owned(),
+                config_override: "other//cli-conf".to_owned(),
                 config_type: ConfigType::File.into(),
             }],
             ProjectRelativePath::empty(),
@@ -695,7 +691,7 @@ mod tests {
     fn test_multi_cell_no_repositories_in_non_root_cell() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -705,7 +701,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [foo]
@@ -742,7 +738,7 @@ mod tests {
     fn test_multi_cell_with_cell_relative() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -752,7 +748,7 @@ mod tests {
                 ),
             ),
             (
-                "/global-conf",
+                "global-conf",
                 indoc!(
                     r#"
                             [apple]
@@ -761,7 +757,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -773,7 +769,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/app-conf",
+                "other/app-conf",
                 indoc!(
                     r#"
                             [apple]
@@ -825,7 +821,7 @@ mod tests {
     fn test_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -837,7 +833,7 @@ mod tests {
                 ),
             ),
             (
-                "/.buckconfig.local",
+                ".buckconfig.local",
                 indoc!(
                     r#"
                             [orange]
@@ -876,7 +872,7 @@ mod tests {
     fn test_multi_cell_local_config_file_overwrite_config_file() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -889,7 +885,7 @@ mod tests {
                 ),
             ),
             (
-                "/.buckconfig.local",
+                ".buckconfig.local",
                 indoc!(
                     r#"
                             [orange]
@@ -901,7 +897,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -914,7 +910,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig.local",
+                "other/.buckconfig.local",
                 indoc!(
                     r#"
                             [orange]
@@ -963,7 +959,7 @@ mod tests {
     #[test]
     fn test_config_arg_with_no_buckconfig() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                         [repositories]
@@ -994,7 +990,7 @@ mod tests {
     #[test]
     fn test_cell_config_section_name() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                             [repositories]
@@ -1083,7 +1079,7 @@ mod tests {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]
@@ -1140,7 +1136,7 @@ mod tests {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]
@@ -1171,7 +1167,7 @@ mod tests {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]
@@ -1205,7 +1201,7 @@ mod tests {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]
@@ -1247,7 +1243,7 @@ mod tests {
         initialize_external_cells_impl();
 
         let mut file_ops = TestConfigParserFileOps::new(&[(
-            "/.buckconfig",
+            ".buckconfig",
             indoc!(
                 r#"
                     [cells]

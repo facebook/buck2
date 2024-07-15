@@ -201,7 +201,7 @@ mod tests {
     fn test_aliases() -> anyhow::Result<()> {
         let config = legacy_configs::configs::testing::parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
             [alias]
@@ -218,7 +218,7 @@ mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
         )?;
 
         let target_alias_resolver = BuckConfigTargetAliasResolver::new(config);

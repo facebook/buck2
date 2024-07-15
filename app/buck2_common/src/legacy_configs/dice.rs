@@ -418,12 +418,12 @@ mod tests {
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {
-        let path = "/test";
+        let path = "test";
         let config1 = Some(LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
-                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
+                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
                     &[ConfigOverride::flag("sec1.a=c")],
                 )?
@@ -431,7 +431,7 @@ mod tests {
             CellName::testing_new("cell2")
             => {
                 parse_with_config_args(
-                    &[("/test", "[sec1]\nx=y\n[sec2]\na=b")],
+                    &[("test", "[sec1]\nx=y\n[sec2]\na=b")],
                     path,
                     &[],
                 )?
@@ -442,7 +442,7 @@ mod tests {
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
-                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
+                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
                     &[ConfigOverride::flag("sec1.a=c")],
                 )?
@@ -453,7 +453,7 @@ mod tests {
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
-                    &[("/test", "[sec1]\na=c\n[sec2]\nx=y")],
+                    &[("test", "[sec1]\na=c\n[sec2]\nx=y")],
                     path,
                     &[],
                 )?
@@ -464,7 +464,7 @@ mod tests {
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
-                    &[("/test", "[sec1]\na=b\n[sec2]\nx=y")],
+                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
                     path,
                     &[ConfigOverride::flag("sec1.d=e")],
                 )?

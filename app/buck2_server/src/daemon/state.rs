@@ -921,7 +921,7 @@ mod tests {
     async fn test_from_startup_config_overrides() -> anyhow::Result<()> {
         let config = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
                     [http]
@@ -931,7 +931,7 @@ mod tests {
                     "#
                 ),
             )],
-            "/config",
+            "config",
         )?;
         let startup_config = DaemonStartupConfig::new(&config)?;
         let builder = http_client_from_startup_config(&startup_config).await?;
@@ -950,7 +950,7 @@ mod tests {
     async fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
         let config = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
                     [http]
@@ -958,7 +958,7 @@ mod tests {
                     "#,
                 ),
             )],
-            "/config",
+            "config",
         )?;
         let startup_config = DaemonStartupConfig::new(&config)?;
         let builder = http_client_from_startup_config(&startup_config).await?;

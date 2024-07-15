@@ -87,7 +87,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
         parse_with_config_args(
             &[
                 (
-                    "/root",
+                    "root",
                     indoc!(
                         r#"
                         [section]
@@ -102,9 +102,9 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
                     "#
                     ),
                 ),
-                ("/extra_cfg", extra_root_config.unwrap_or("")),
+                ("extra_cfg", extra_root_config.unwrap_or("")),
             ],
-            "/root",
+            "root",
             &[],
         )?
     ];

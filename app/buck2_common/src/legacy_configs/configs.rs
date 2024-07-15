@@ -17,7 +17,6 @@ use allocative::Allocative;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
@@ -332,7 +331,7 @@ pub struct ConfigDiffMetrics {
 pub mod testing {
     use std::cmp::min;
 
-    use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use super::*;
     use crate::legacy_configs::args::resolve_config_args;
@@ -349,22 +348,17 @@ pub mod testing {
         config_args: &[ConfigOverride],
     ) -> anyhow::Result<LegacyBuckConfig> {
         let mut file_ops = TestConfigParserFileOps::new(data)?;
-        #[cfg(not(windows))]
-        let path = &AbsNormPathBuf::from(cell_path.into())?;
-        // Need to add some disk drive on Windows to make path absolute.
-        #[cfg(windows)]
-        let path = &AbsNormPathBuf::from(format!("C:{}", cell_path))?;
-        let project_fs = create_project_filesystem();
+        let path = ProjectRelativePath::new(cell_path)?;
         // As long as people don't pass config files, making up values here is ok
         let processed_config_args = resolve_config_args(
             config_args,
-            &project_fs,
+            &create_project_filesystem(),
             &ProjectRelativePath::empty(),
             &mut file_ops,
         )?;
         futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
-            &[ConfigPath::Global(path.to_owned())],
-            CellRootPath::new(ProjectRelativePath::unchecked_new(cell_path)),
+            &[ConfigPath::Project(path.to_owned())],
+            CellRootPath::new(ProjectRelativePath::empty()),
             &mut file_ops,
             &processed_config_args,
             true,
@@ -372,25 +366,19 @@ pub mod testing {
     }
 
     pub struct TestConfigParserFileOps {
-        project_fs: ProjectRoot,
-        data: HashMap<AbsNormPathBuf, String>,
+        data: HashMap<ProjectRelativePathBuf, String>,
     }
 
     impl TestConfigParserFileOps {
         pub fn new(data: &[(&str, &str)]) -> anyhow::Result<Self> {
             let mut holder_data = HashMap::new();
             for (file, content) in data {
-                #[cfg(not(windows))]
-                let file_path = (*file).to_owned();
-                // Need to add some disk drive on Windows to make path absolute.
-                #[cfg(windows)]
-                let file_path = format!("C:{}", file);
-                holder_data.insert(AbsNormPathBuf::from(file_path)?, (*content).to_owned());
+                holder_data.insert(
+                    ProjectRelativePath::new(*file)?.to_owned(),
+                    (*content).to_owned(),
+                );
             }
-            Ok(TestConfigParserFileOps {
-                data: holder_data,
-                project_fs: create_project_filesystem(),
-            })
+            Ok(TestConfigParserFileOps { data: holder_data })
         }
     }
 
@@ -398,8 +386,10 @@ pub mod testing {
     #[allow(private_interfaces)]
     impl ConfigParserFileOps for TestConfigParserFileOps {
         async fn file_exists(&mut self, path: &ConfigPath) -> bool {
-            self.data
-                .contains_key(&path.resolve_absolute(&self.project_fs))
+            let ConfigPath::Project(path) = path else {
+                return false;
+            };
+            self.data.contains_key(path)
         }
 
         async fn read_file_lines(
@@ -408,7 +398,12 @@ pub mod testing {
         ) -> anyhow::Result<
             Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + Send + 'static)>,
         > {
-            let path = &path.resolve_absolute(&self.project_fs);
+            let ConfigPath::Project(path) = path else {
+                return Err(anyhow::anyhow!(
+                    "Tests only have project paths, not {}",
+                    path
+                ));
+            };
             let content = self
                 .data
                 .get(path)
@@ -503,7 +498,7 @@ pub(crate) mod tests {
     fn test_simple() -> anyhow::Result<()> {
         let config = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
             [section]
@@ -534,7 +529,7 @@ pub(crate) mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
         )?;
 
         assert_eq!(
@@ -568,7 +563,7 @@ pub(crate) mod tests {
     fn test_comments() -> anyhow::Result<()> {
         let config = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
             [section1] # stuff
@@ -578,7 +573,7 @@ pub(crate) mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
         )?;
         assert_config_value(&config, "section1", "key1", "value1");
         assert_config_value(&config, "section2#name", "key2", "value2");
@@ -589,7 +584,7 @@ pub(crate) mod tests {
     fn test_references() -> anyhow::Result<()> {
         let config = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
 
@@ -610,7 +605,7 @@ pub(crate) mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
         )?;
 
         assert_config_value(
@@ -628,7 +623,7 @@ pub(crate) mod tests {
     fn test_reference_cycle() -> anyhow::Result<()> {
         let res = parse(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
 
@@ -643,7 +638,7 @@ pub(crate) mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
         );
 
         match res {
@@ -668,7 +663,7 @@ pub(crate) mod tests {
         let config = parse(
             &[
                 (
-                    "/base",
+                    "base",
                     indoc!(
                         r#"
                             base = okay!
@@ -676,7 +671,7 @@ pub(crate) mod tests {
                     ),
                 ),
                 (
-                    "/section",
+                    "section",
                     indoc!(
                         r#"
                             [section]
@@ -684,7 +679,7 @@ pub(crate) mod tests {
                     ),
                 ),
                 (
-                    "/some/deep/dir/includes_base",
+                    "some/deep/dir/includes_base",
                     indoc!(
                         r#"
                             <file:../../../base>
@@ -692,7 +687,7 @@ pub(crate) mod tests {
                     ),
                 ),
                 (
-                    "/includes_section",
+                    "includes_section",
                     indoc!(
                         r#"
                             <file:section>
@@ -700,7 +695,7 @@ pub(crate) mod tests {
                     ),
                 ),
                 (
-                    "/config",
+                    "config",
                     indoc!(
                         r#"
                         # use a couple optional includes in here to ensure those work when the file exists.
@@ -722,7 +717,7 @@ pub(crate) mod tests {
                     ),
                 ),
                 (
-                    "/test_bad_include",
+                    "test_bad_include",
                     indoc!(
                         r#"
                         <file:this_file_doesnt_exist>
@@ -730,7 +725,7 @@ pub(crate) mod tests {
                     ),
                 ),
             ],
-            "/config",
+            "config",
         )?;
 
         assert_config_value(&config, "opened_section", "base", "okay!");
@@ -748,8 +743,7 @@ pub(crate) mod tests {
             ConfigOverride::flag("apple.key=value1"),
             ConfigOverride::flag("apple.key=value2"),
         ];
-        let config =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "value2");
 
         Ok(())
@@ -758,8 +752,7 @@ pub(crate) mod tests {
     #[test]
     fn test_config_args_empty() -> anyhow::Result<()> {
         let config_args = vec![ConfigOverride::flag("apple.key=")];
-        let config =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value_is_empty(&config, "apple", "key");
 
         Ok(())
@@ -770,7 +763,7 @@ pub(crate) mod tests {
         let config_args = vec![ConfigOverride::flag("apple.key=value2")];
         let config = parse_with_config_args(
             &[(
-                "/config",
+                "config",
                 indoc!(
                     r#"
             [apple]
@@ -778,7 +771,7 @@ pub(crate) mod tests {
         "#
                 ),
             )],
-            "/config",
+            "config",
             &config_args,
         )?;
 
@@ -822,27 +815,26 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_file_args_overwrite_config_file() -> anyhow::Result<()> {
-        #[cfg(not(windows))]
-        let file_arg = "/cli-config";
-        #[cfg(windows)]
-        let file_arg = "C:/cli-config";
         let config_args = vec![
             ConfigOverride::flag("apple.key=value3"),
-            ConfigOverride::file(file_arg),
+            ConfigOverride::file("//cli-config"),
         ];
         let config = parse_with_config_args(
             &[
                 (
-                    "/config",
+                    ".buckconfig",
                     indoc!(
                         r#"
-            [apple]
-                key = value1
-        "#
+                            [cells]
+                              root = .
+                            
+                            [apple]
+                              key = value1
+                        "#
                     ),
                 ),
                 (
-                    "/cli-config",
+                    "cli-config",
                     indoc!(
                         r#"
             [apple]
@@ -851,7 +843,7 @@ pub(crate) mod tests {
                     ),
                 ),
             ],
-            "/config",
+            ".buckconfig",
             &config_args,
         )?;
 
@@ -859,10 +851,7 @@ pub(crate) mod tests {
 
         let apple_section = config.get_section("apple").unwrap();
         let key_value = apple_section.get("key").unwrap();
-        #[cfg(not(windows))]
-        let expected_path = LegacyBuckConfigLocation::File("/cli-config", 2);
-        #[cfg(windows)]
-        let expected_path = LegacyBuckConfigLocation::File("C:/cli-config", 2);
+        let expected_path = LegacyBuckConfigLocation::File("cli-config", 2);
         assert_eq!(key_value.location(), expected_path);
 
         Ok(())
@@ -871,8 +860,7 @@ pub(crate) mod tests {
     #[test]
     fn test_config_args_cell_in_value() -> anyhow::Result<()> {
         let config_args = vec![ConfigOverride::flag("apple.key=foo//value1")];
-        let config =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");
 
         Ok(())
@@ -885,8 +873,7 @@ pub(crate) mod tests {
             ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
             ConfigOverride::flag("apple.key=value1"),
         ];
-        let config =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
         let configs = LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("root") =>
@@ -915,8 +902,7 @@ pub(crate) mod tests {
             ConfigOverride::flag(&format!("buck2.{limit_key}={limit_value}")),
             ConfigOverride::flag(&format!("apple.{key}={value}")),
         ];
-        let config =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args)?;
+        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
         let configs1 = LegacyBuckConfigs::new(hashmap![
             cell => config
@@ -963,7 +949,7 @@ pub(crate) mod tests {
             ConfigOverride::flag(&format!("apple.{key2}={value2_1}")),
         ];
         let config1 =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
+            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
         let config_args2 = vec![
             ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
@@ -972,7 +958,7 @@ pub(crate) mod tests {
             ConfigOverride::flag(&format!("apple.{key3}={value3}")),
         ];
         let config2 =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;
+            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
 
         let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
         let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);
@@ -1015,14 +1001,14 @@ pub(crate) mod tests {
             ConfigOverride::flag(&format!("apple.{key1}={value1}")),
         ];
         let config1 =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args1)?;
+            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
         let config_args2 = vec![
             ConfigOverride::flag("buck2.config_diff_size_limit=12"),
             ConfigOverride::flag(&format!("apple.{key2}={value2}")),
         ];
         let config2 =
-            parse_with_config_args(&[("/config", indoc!(r#""#))], "/config", &config_args2)?;
+            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
 
         let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
         let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);

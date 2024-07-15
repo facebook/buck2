@@ -135,7 +135,7 @@ mod tests {
     fn test_buildfiles() -> anyhow::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
-                "/.buckconfig",
+                ".buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -146,7 +146,7 @@ mod tests {
                 ),
             ),
             (
-                "/other/.buckconfig",
+                "other/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
@@ -158,7 +158,7 @@ mod tests {
                 ),
             ),
             (
-                "/third_party/.buckconfig",
+                "third_party/.buckconfig",
                 indoc!(
                     r#"
                             [cells]
