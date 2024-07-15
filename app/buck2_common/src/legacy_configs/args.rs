@@ -139,14 +139,14 @@ fn resolve_config_flag_arg(
         .cell
         .as_ref()
         .map(|cell| {
-            resolve_config_file_arg(
-                &LegacyConfigCmdArgFile {
-                    cell: Some(cell.clone()),
-                    path: "".to_owned(),
-                },
-                cell_resolution,
-                file_ops,
-            )
+            let project_fs = cell_resolution.project_filesystem;
+            let cwd = cell_resolution.cwd;
+            let cell_resolver = cell_resolution.get_cell_resolver(file_ops)?;
+            let cell = cell_resolver
+                .get_cwd_cell_alias_resolver(cwd)?
+                .resolve(cell)?;
+            let cell_root = cell_resolver.get(cell)?.path().as_project_relative_path();
+            anyhow::Ok(project_fs.resolve(cell_root))
         })
         .transpose()?;
 
