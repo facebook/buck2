@@ -25,7 +25,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
@@ -42,6 +41,7 @@ use tokio::sync::Mutex;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
+use crate::actions::calculation::get_target_rule_type_name;
 use crate::actions::calculation::BuildKey;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -368,14 +368,8 @@ async fn build_configured_label_inner<'a>(
             }
         }
 
-        let target_rule_type_name: String = ctx
-            .get()
-            .get_configured_target_node(providers_label.target())
-            .await?
-            .require_compatible()?
-            .rule_type()
-            .name()
-            .to_owned();
+        let target_rule_type_name =
+            get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
         (outputs, run_args, target_rule_type_name)
     };

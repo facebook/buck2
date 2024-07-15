@@ -20,6 +20,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
@@ -143,14 +144,7 @@ async fn build_action_no_redirect(
     };
 
     let target_rule_type_name = match target {
-        Some(label) => Some(
-            ctx.get_configured_target_node(&label)
-                .await?
-                .require_compatible()?
-                .rule_type()
-                .name()
-                .to_owned(),
-        ),
+        Some(label) => Some(get_target_rule_type_name(ctx, &label).await?),
         None => None,
     };
 
@@ -586,4 +580,17 @@ pub async fn command_details(
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),
     }
+}
+
+pub async fn get_target_rule_type_name(
+    ctx: &mut DiceComputations<'_>,
+    label: &ConfiguredTargetLabel,
+) -> anyhow::Result<String> {
+    Ok(ctx
+        .get_configured_target_node(label)
+        .await?
+        .require_compatible()?
+        .rule_type()
+        .name()
+        .to_owned())
 }
