@@ -17,7 +17,6 @@ use allocative::Allocative;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
@@ -26,7 +25,7 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
-use crate::legacy_configs::file_ops::MainConfigFile;
+use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;
 
 /// A collection of configs, keyed by cell.
@@ -262,7 +261,7 @@ impl LegacyBuckConfig {
     }
 
     pub(crate) async fn parse_with_file_ops_with_includes(
-        main_config_files: &[MainConfigFile],
+        main_config_files: &[ConfigPath],
         current_cell: &CellRootPath,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
@@ -271,7 +270,7 @@ impl LegacyBuckConfig {
         let mut parser = LegacyConfigParser::new();
         for main_config_file in main_config_files {
             parser
-                .parse_file(&main_config_file.path, None, follow_includes, file_ops)
+                .parse_file(&main_config_file, None, follow_includes, file_ops)
                 .await?;
         }
 
@@ -333,6 +332,8 @@ pub struct ConfigDiffMetrics {
 pub mod testing {
     use std::cmp::min;
 
+    use buck2_core::fs::project::ProjectRoot;
+
     use super::*;
     use crate::legacy_configs::args::resolve_config_args;
     use crate::legacy_configs::cells::create_project_filesystem;
@@ -362,10 +363,7 @@ pub mod testing {
             &mut file_ops,
         )?;
         futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
-            &[MainConfigFile {
-                path: path.to_buf(),
-                owned_by_project: true,
-            }],
+            &[ConfigPath::Global(path.to_owned())],
             CellRootPath::new(ProjectRelativePath::unchecked_new(cell_path)),
             &mut file_ops,
             &processed_config_args,
@@ -374,6 +372,7 @@ pub mod testing {
     }
 
     pub struct TestConfigParserFileOps {
+        project_fs: ProjectRoot,
         data: HashMap<AbsNormPathBuf, String>,
     }
 
@@ -388,22 +387,28 @@ pub mod testing {
                 let file_path = format!("C:{}", file);
                 holder_data.insert(AbsNormPathBuf::from(file_path)?, (*content).to_owned());
             }
-            Ok(TestConfigParserFileOps { data: holder_data })
+            Ok(TestConfigParserFileOps {
+                data: holder_data,
+                project_fs: create_project_filesystem(),
+            })
         }
     }
 
     #[async_trait::async_trait]
+    #[allow(private_interfaces)]
     impl ConfigParserFileOps for TestConfigParserFileOps {
-        async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
-            self.data.contains_key(path)
+        async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+            self.data
+                .contains_key(&path.resolve_absolute(&self.project_fs))
         }
 
         async fn read_file_lines(
             &mut self,
-            path: &AbsNormPath,
+            path: &ConfigPath,
         ) -> anyhow::Result<
             Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + Send + 'static)>,
         > {
+            let path = &path.resolve_absolute(&self.project_fs);
             let content = self
                 .data
                 .get(path)
@@ -424,7 +429,7 @@ pub mod testing {
             Ok(Box::new(file.lines()))
         }
 
-        async fn read_dir(&mut self, _path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        async fn read_dir(&mut self, _path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
             // This is only used for listing files in `buckconfig.d` directories, which we can just
             // say are always empty in tests
             Ok(Vec::new())

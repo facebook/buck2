@@ -32,6 +32,7 @@ use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::Location;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
+use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
 
 mod resolver;
@@ -106,7 +107,7 @@ impl LegacyConfigParser {
 
     pub(crate) async fn parse_file(
         &mut self,
-        path: &AbsNormPath,
+        path: &ConfigPath,
         source: Option<Location>,
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
@@ -121,7 +122,7 @@ impl LegacyConfigParser {
         Ok(())
     }
 
-    fn push_file(&mut self, line: usize, path: &AbsNormPath) -> anyhow::Result<()> {
+    fn push_file(&mut self, line: usize, path: &ConfigPath) -> anyhow::Result<()> {
         let include_source = ConfigFileLocationWithLine {
                 source_file: self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()")),
                 line,
@@ -137,7 +138,7 @@ impl LegacyConfigParser {
         Ok(())
     }
 
-    fn start_file(&mut self, path: &AbsNormPath, source: Option<Location>) -> anyhow::Result<()> {
+    fn start_file(&mut self, path: &ConfigPath, source: Option<Location>) -> anyhow::Result<()> {
         let source_file = Arc::new(ConfigFileLocation {
             path: path.to_string(),
             include_source: source,
@@ -201,13 +202,13 @@ impl LegacyConfigParser {
 
     fn parse_file_on_stack<'a>(
         &'a mut self,
-        path: &'a AbsNormPath,
+        config_path: &'a ConfigPath,
         parse_includes: bool,
         file_ops: &'a mut dyn ConfigParserFileOps,
     ) -> BoxFuture<'a, anyhow::Result<()>> {
         async move {
-            let file_lines = file_ops.read_file_lines(path).await?;
-            self.parse_lines(path, file_lines, parse_includes, file_ops)
+            let file_lines = file_ops.read_file_lines(config_path).await?;
+            self.parse_lines(config_path, file_lines, parse_includes, file_ops)
                 .await
         }
         .boxed()
@@ -234,7 +235,7 @@ impl LegacyConfigParser {
 
     async fn parse_lines<T, E>(
         &mut self,
-        config_path: &AbsNormPath,
+        config_path: &ConfigPath,
         lines: T,
         parse_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
@@ -297,14 +298,10 @@ impl LegacyConfigParser {
                     };
                     let optional = m.name("optional").is_some();
                     let include_file = if let Ok(absolute) = AbsNormPath::new(include) {
-                        absolute.to_owned()
+                        ConfigPath::Global(absolute.to_owned())
                     } else {
                         let relative = RelativePath::new(include);
-                        match config_path
-                            .parent()
-                            .context("file has no parent")?
-                            .join_normalized(relative)
-                        {
+                        match config_path.join_to_parent_normalized(relative) {
                             Ok(d) => d,
                             Err(_) => {
                                 return Err(anyhow::anyhow!(ConfigError::BadIncludePath(

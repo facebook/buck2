@@ -21,6 +21,7 @@ use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
+use crate::legacy_configs::file_ops::ConfigPath;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, allocative::Allocative)]
@@ -29,7 +30,7 @@ pub enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(ResolvedConfigFlag),
     /// A file containing additional config values (in `.buckconfig` format).
-    File(AbsNormPathBuf),
+    File(ConfigPath),
 }
 
 #[derive(Clone, Debug, PartialEq, allocative::Allocative)]
@@ -139,7 +140,7 @@ fn resolve_config_file_arg(
     arg: &str,
     cell_resolution_state: &mut CellResolutionState,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<AbsNormPathBuf> {
+) -> anyhow::Result<ConfigPath> {
     let (cell, path) = match arg.split_once("//") {
         Some((cell, val)) => (Some(cell.to_owned()), val), // This should also reject =?
         _ => (None, arg),
@@ -149,11 +150,13 @@ fn resolve_config_file_arg(
         let cwd = cell_resolution_state.cwd;
         let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops)?;
         let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
-        return Ok(cell_resolution_state.project_filesystem.resolve(&proj_path));
+        return Ok(ConfigPath::Project(proj_path));
     }
 
     // Cargo relative file paths are expanded before they make it into the daemon
-    AbsNormPathBuf::try_from(path.to_owned())
+    Ok(ConfigPath::Global(AbsNormPathBuf::try_from(
+        path.to_owned(),
+    )?))
 }
 
 pub(crate) fn resolve_config_args(

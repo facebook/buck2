@@ -49,8 +49,8 @@ use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
 use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
 use crate::legacy_configs::file_ops::ConfigDirEntry;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
+use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
-use crate::legacy_configs::file_ops::MainConfigFile;
 use crate::legacy_configs::path::BuckConfigFile;
 use crate::legacy_configs::path::DEFAULT_BUCK_CONFIG_FILES;
 
@@ -181,28 +181,25 @@ impl BuckConfigBasedCells {
         // Tracing file ops to record config file accesses on command invocation.
         struct TracingFileOps<'a> {
             inner: &'a mut dyn ConfigParserFileOps,
-            trace: HashSet<AbsNormPathBuf>,
+            trace: HashSet<ConfigPath>,
         }
 
         #[async_trait::async_trait]
         impl ConfigParserFileOps for TracingFileOps<'_> {
             async fn read_file_lines(
                 &mut self,
-                path: &AbsNormPath,
+                path: &ConfigPath,
             ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>
             {
-                self.trace.insert(path.to_buf());
+                self.trace.insert(path.clone());
                 self.inner.read_file_lines(path).await
             }
 
-            async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
+            async fn file_exists(&mut self, path: &ConfigPath) -> bool {
                 self.inner.file_exists(path).await
             }
 
-            async fn read_dir(
-                &mut self,
-                path: &AbsNormPath,
-            ) -> anyhow::Result<Vec<ConfigDirEntry>> {
+            async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
                 self.inner.read_dir(path).await
             }
         }
@@ -229,11 +226,8 @@ impl BuckConfigBasedCells {
             }
 
             // Blocking is ok because we know the fileops don't suspend
-            let buckconfig_paths = futures::executor::block_on(get_buckconfig_paths_for_cell(
-                &path,
-                project_fs,
-                &mut file_ops,
-            ))?;
+            let buckconfig_paths =
+                futures::executor::block_on(get_buckconfig_paths_for_cell(&path, &mut file_ops))?;
 
             let config =
                 futures::executor::block_on(LegacyBuckConfig::parse_with_file_ops_with_includes(
@@ -323,10 +317,17 @@ impl BuckConfigBasedCells {
             })
             .collect::<anyhow::Result<_>>()?;
 
+        // FIXME(JakobDegen): It'd be better to not absolutize unconditionally here
+        let config_paths = file_ops
+            .trace
+            .into_iter()
+            .map(|p| p.resolve_absolute(project_fs))
+            .collect();
+
         Ok(Self {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
-            config_paths: file_ops.trace,
+            config_paths,
             resolved_args: processed_config_args.into_iter().collect(),
         })
     }
@@ -365,8 +366,8 @@ impl BuckConfigBasedCells {
 
         #[async_trait::async_trait]
         impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
-            async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
-                let Ok(path) = self.1.relativize(path) else {
+            async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+                let ConfigPath::Project(path) = path else {
                     // File is outside of project root, for example, /etc/buckconfigs.d/experiments
                     return (DefaultConfigParserFileOps {
                         project_fs: self.1.dupe(),
@@ -374,7 +375,7 @@ impl BuckConfigBasedCells {
                     .file_exists(path)
                     .await;
                 };
-                let Ok(path) = self.2.get_cell_path(path.as_ref()) else {
+                let Ok(path) = self.2.get_cell_path(path) else {
                     // Can't actually happen
                     return false;
                 };
@@ -386,35 +387,32 @@ impl BuckConfigBasedCells {
 
             async fn read_file_lines(
                 &mut self,
-                path: &AbsNormPath,
+                path: &ConfigPath,
             ) -> anyhow::Result<
                 Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>,
             > {
-                let Ok(path) = self.1.relativize(path) else {
+                let ConfigPath::Project(path) = path else {
                     return (DefaultConfigParserFileOps {
                         project_fs: self.1.dupe(),
                     })
                     .read_file_lines(path)
                     .await;
                 };
-                let path = self.2.get_cell_path(path.as_ref())?;
+                let path = self.2.get_cell_path(path)?;
                 let data = DiceFileComputations::read_file(&mut self.0, path.as_ref()).await?;
                 let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
                 Ok(Box::new(lines.into_iter().map(Ok)))
             }
 
-            async fn read_dir(
-                &mut self,
-                path: &AbsNormPath,
-            ) -> anyhow::Result<Vec<ConfigDirEntry>> {
-                let Ok(path) = self.1.relativize(path) else {
+            async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+                let ConfigPath::Project(path) = path else {
                     return (DefaultConfigParserFileOps {
                         project_fs: self.1.dupe(),
                     })
                     .read_dir(path)
                     .await;
                 };
-                let path = self.2.get_cell_path(path.as_ref())?;
+                let path = self.2.get_cell_path(path)?;
 
                 // This trait expects some slightly non-standard behavior wrt errors, so make sure
                 // to match what the `DefaultConfigParserFileOps` do
@@ -448,8 +446,7 @@ impl BuckConfigBasedCells {
 
         let mut file_ops = DiceConfigFileOps(ctx, project_fs, &resolver);
 
-        let config_paths =
-            get_buckconfig_paths_for_cell(cell_path, project_fs, &mut file_ops).await?;
+        let config_paths = get_buckconfig_paths_for_cell(cell_path, &mut file_ops).await?;
 
         LegacyBuckConfig::parse_with_file_ops_with_includes(
             &config_paths,
@@ -505,16 +502,15 @@ impl BuckConfigBasedCells {
 
 async fn get_buckconfig_paths_for_cell(
     path: &CellRootPath,
-    project_fs: &ProjectRoot,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<Vec<MainConfigFile>> {
+) -> anyhow::Result<Vec<ConfigPath>> {
     let skip_default_external_config = buck2_env!(
         "BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG",
         bool,
         applicability = testing
     )?;
 
-    let mut buckconfig_paths: Vec<MainConfigFile> = Vec::new();
+    let mut buckconfig_paths: Vec<ConfigPath> = Vec::new();
 
     for buckconfig in DEFAULT_BUCK_CONFIG_FILES {
         if skip_default_external_config && buckconfig.is_external() {
@@ -524,21 +520,18 @@ async fn get_buckconfig_paths_for_cell(
         match buckconfig {
             BuckConfigFile::CellRelativeFile(file) => {
                 let buckconfig_path = ForwardRelativePath::new(file)?;
-                buckconfig_paths.push(MainConfigFile {
-                    path: project_fs
-                        .resolve(&path.as_project_relative_path().join(buckconfig_path)),
-                    owned_by_project: true,
-                });
+                buckconfig_paths.push(ConfigPath::Project(
+                    path.as_project_relative_path().join(buckconfig_path),
+                ));
             }
 
             BuckConfigFile::CellRelativeFolder(folder) => {
                 let buckconfig_folder_path = ForwardRelativePath::new(folder)?;
-                let buckconfig_folder_abs_path = project_fs
-                    .resolve(&path.as_project_relative_path().join(buckconfig_folder_path));
+                let buckconfig_folder_path =
+                    path.as_project_relative_path().join(buckconfig_folder_path);
                 push_all_files_from_a_directory(
                     &mut buckconfig_paths,
-                    &buckconfig_folder_abs_path,
-                    true,
+                    &ConfigPath::Project(buckconfig_folder_path),
                     file_ops,
                 )
                 .await?;
@@ -547,10 +540,9 @@ async fn get_buckconfig_paths_for_cell(
                 let home_dir = dirs::home_dir();
                 if let Some(home_dir_path) = home_dir {
                     let buckconfig_path = ForwardRelativePath::new(file)?;
-                    buckconfig_paths.push(MainConfigFile {
-                        path: AbsNormPath::new(&home_dir_path)?.join_normalized(buckconfig_path)?,
-                        owned_by_project: false,
-                    });
+                    buckconfig_paths.push(ConfigPath::Global(
+                        AbsNormPath::new(&home_dir_path)?.join_normalized(buckconfig_path)?,
+                    ));
                 }
             }
             BuckConfigFile::UserFolder(folder) => {
@@ -561,25 +553,22 @@ async fn get_buckconfig_paths_for_cell(
                         AbsNormPath::new(&home_dir_path)?.join_normalized(buckconfig_path)?;
                     push_all_files_from_a_directory(
                         &mut buckconfig_paths,
-                        &buckconfig_folder_abs_path,
-                        false,
+                        &ConfigPath::Global(buckconfig_folder_abs_path),
                         file_ops,
                     )
                     .await?;
                 }
             }
             BuckConfigFile::GlobalFile(file) => {
-                buckconfig_paths.push(MainConfigFile {
-                    path: AbsNormPathBuf::from(String::from(*file))?,
-                    owned_by_project: false,
-                });
+                buckconfig_paths.push(ConfigPath::Global(AbsNormPathBuf::from(String::from(
+                    *file,
+                ))?));
             }
             BuckConfigFile::GlobalFolder(folder) => {
                 let buckconfig_folder_abs_path = AbsNormPathBuf::from(String::from(*folder))?;
                 push_all_files_from_a_directory(
                     &mut buckconfig_paths,
-                    &buckconfig_folder_abs_path,
-                    false,
+                    &ConfigPath::Global(buckconfig_folder_abs_path),
                     file_ops,
                 )
                 .await?;
@@ -591,10 +580,7 @@ async fn get_buckconfig_paths_for_cell(
         buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
 
     if let Some(f) = extra_external_config {
-        buckconfig_paths.push(MainConfigFile {
-            path: AbsNormPathBuf::from(f.to_owned())?,
-            owned_by_project: false,
-        });
+        buckconfig_paths.push(ConfigPath::Global(AbsNormPathBuf::from(f.to_owned())?));
     }
 
     Ok(buckconfig_paths)

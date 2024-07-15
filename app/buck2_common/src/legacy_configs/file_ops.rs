@@ -8,22 +8,55 @@
  */
 
 use std::io::BufRead;
-use std::path::PathBuf;
 
+use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct MainConfigFile {
-    pub(crate) path: AbsNormPathBuf,
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
+pub(crate) enum ConfigPath {
+    #[display(fmt = "{}", .0)]
+    Project(ProjectRelativePathBuf),
+    #[display(fmt = "{}", .0)]
+    Global(AbsNormPathBuf),
+}
 
-    /// if a main config file is in project or global
-    pub(crate) owned_by_project: bool,
+impl ConfigPath {
+    pub(crate) fn resolve_absolute(&self, project_fs: &ProjectRoot) -> AbsNormPathBuf {
+        match self {
+            ConfigPath::Project(path) => project_fs.resolve(path),
+            ConfigPath::Global(path) => path.clone(),
+        }
+    }
+
+    pub(crate) fn join_to_parent_normalized(&self, rel: &RelativePath) -> anyhow::Result<Self> {
+        match self {
+            ConfigPath::Project(path) => path
+                .parent()
+                .context("file has no parent")?
+                .join_normalized(rel)
+                .map(ConfigPath::Project),
+            ConfigPath::Global(path) => path
+                .parent()
+                .context("file has no parent")?
+                .join_normalized(rel)
+                .map(ConfigPath::Global),
+        }
+    }
+
+    pub(crate) fn join(&self, p: impl AsRef<ForwardRelativePath>) -> Self {
+        match self {
+            ConfigPath::Project(path) => ConfigPath::Project(path.join(p)),
+            ConfigPath::Global(path) => ConfigPath::Global(path.join(p)),
+        }
+    }
 }
 
 pub struct ConfigDirEntry {
@@ -32,15 +65,16 @@ pub struct ConfigDirEntry {
 }
 
 #[async_trait::async_trait]
+#[allow(private_interfaces)]
 pub trait ConfigParserFileOps: Send + Sync {
     async fn read_file_lines(
         &mut self,
-        path: &AbsNormPath,
+        path: &ConfigPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>;
 
-    async fn file_exists(&mut self, path: &AbsNormPath) -> bool;
+    async fn file_exists(&mut self, path: &ConfigPath) -> bool;
 
-    async fn read_dir(&mut self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
+    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -50,7 +84,6 @@ enum ReadDirError {
 }
 
 pub(crate) struct DefaultConfigParserFileOps {
-    #[allow(unused)] // TODO(JakobDegen): Use next diff
     pub(crate) project_fs: ProjectRoot,
 }
 
@@ -58,18 +91,20 @@ pub(crate) struct DefaultConfigParserFileOps {
 impl ConfigParserFileOps for DefaultConfigParserFileOps {
     async fn read_file_lines(
         &mut self,
-        path: &AbsNormPath,
+        path: &ConfigPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>> {
-        let f = std::fs::File::open(path).with_context(|| format!("Reading file `{:?}`", path))?;
+        let path = path.resolve_absolute(&self.project_fs);
+        let f = std::fs::File::open(&path).with_context(|| format!("Reading file `{:?}`", path))?;
         let file = std::io::BufReader::new(f);
         Ok(Box::new(file.lines()))
     }
 
-    async fn file_exists(&mut self, path: &AbsNormPath) -> bool {
-        PathBuf::from(path.as_os_str()).exists()
+    async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+        path.resolve_absolute(&self.project_fs).exists()
     }
 
-    async fn read_dir(&mut self, path: &AbsNormPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+    async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        let path = path.resolve_absolute(&self.project_fs);
         let read_dir = match std::fs::read_dir(path.as_path()) {
             Ok(read_dir) => read_dir,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -110,27 +145,17 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 }
 
 pub(crate) fn push_all_files_from_a_directory<'a>(
-    buckconfig_paths: &'a mut Vec<MainConfigFile>,
-    folder_path: &'a AbsNormPath,
-    owned_by_project: bool,
+    buckconfig_paths: &'a mut Vec<ConfigPath>,
+    folder_path: &'a ConfigPath,
     file_ops: &'a mut dyn ConfigParserFileOps,
 ) -> BoxFuture<'a, anyhow::Result<()>> {
     async move {
         for entry in file_ops.read_dir(folder_path).await? {
             let entry_path = folder_path.join(&entry.name);
             if entry.is_dir {
-                push_all_files_from_a_directory(
-                    buckconfig_paths,
-                    &entry_path,
-                    owned_by_project,
-                    file_ops,
-                )
-                .await?;
+                push_all_files_from_a_directory(buckconfig_paths, &entry_path, file_ops).await?;
             } else {
-                buckconfig_paths.push(MainConfigFile {
-                    path: entry_path,
-                    owned_by_project,
-                });
+                buckconfig_paths.push(entry_path);
             }
         }
 
@@ -142,6 +167,7 @@ pub(crate) fn push_all_files_from_a_directory<'a>(
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::fs_util;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
     use buck2_core::fs::paths::abs_path::AbsPath;
 
     use super::*;
@@ -160,19 +186,12 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            dir,
-            false,
+            &ConfigPath::Global(dir.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
         ))?;
-        assert_eq!(
-            v,
-            vec![MainConfigFile {
-                path: file.to_owned(),
-                owned_by_project: false,
-            }]
-        );
+        assert_eq!(v, vec![ConfigPath::Global(file.to_owned())]);
 
         Ok(())
     }
@@ -185,8 +204,7 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            dir,
-            false,
+            &ConfigPath::Global(dir.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
@@ -205,8 +223,7 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            dir,
-            false,
+            &ConfigPath::Global(dir.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
@@ -225,8 +242,7 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            AbsNormPath::new(dir)?,
-            false,
+            &ConfigPath::Global(AbsNormPath::new(dir)?.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
@@ -244,8 +260,7 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            file,
-            false,
+            &ConfigPath::Global(file.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
@@ -270,19 +285,12 @@ mod tests {
 
         futures::executor::block_on(push_all_files_from_a_directory(
             &mut v,
-            dir,
-            false,
+            &ConfigPath::Global(dir.to_owned()),
             &mut DefaultConfigParserFileOps {
                 project_fs: create_project_filesystem(),
             },
         ))?;
-        assert_eq!(
-            v,
-            vec![MainConfigFile {
-                path: file.to_owned(),
-                owned_by_project: false,
-            }]
-        );
+        assert_eq!(v, vec![ConfigPath::Global(file.to_owned())]);
 
         Ok(())
     }
