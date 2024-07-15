@@ -114,7 +114,6 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 
 static PyObject* _exec_module(PyObject* self, PyObject* module) {
   PyModuleDef* def;
-  int res;
 
   // TODO errors
   if (!PyModule_Check(module)) {
@@ -128,8 +127,9 @@ static PyObject* _exec_module(PyObject* self, PyObject* module) {
     Py_RETURN_NONE;
   }
 
-  res = PyModule_ExecDef(module, def);
-  // TODO check res
+  // TODO check this result
+  PyModule_ExecDef(module, def);
+
   Py_RETURN_NONE;
 }
 
