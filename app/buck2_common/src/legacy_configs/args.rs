@@ -42,8 +42,8 @@ pub(crate) struct ResolvedConfigFlag {
     pub(crate) cell: Option<CellRootPathBuf>,
 }
 
-impl LegacyConfigCmdArgFlag {
-    fn new(val: &str) -> anyhow::Result<LegacyConfigCmdArgFlag> {
+impl ParsedFlagArg {
+    fn new(val: &str) -> anyhow::Result<ParsedFlagArg> {
         let (cell, raw_arg) = match val.split_once("//") {
             Some((cell, val)) if !cell.contains('=') => (Some(cell.to_owned()), val),
             _ => (None, val),
@@ -60,7 +60,7 @@ impl LegacyConfigCmdArgFlag {
             v => Some(v.to_owned()),
         };
 
-        Ok(LegacyConfigCmdArgFlag {
+        Ok(ParsedFlagArg {
             cell,
             section,
             key,
@@ -70,7 +70,7 @@ impl LegacyConfigCmdArgFlag {
 }
 
 #[derive(Debug)]
-struct LegacyConfigCmdArgFlag {
+struct ParsedFlagArg {
     cell: Option<String>,
     section: String,
     key: String,
@@ -110,7 +110,7 @@ impl CellResolutionState<'_> {
 }
 
 fn resolve_config_flag_arg(
-    flag_arg: &LegacyConfigCmdArgFlag,
+    flag_arg: &ParsedFlagArg,
     cell_resolution: &mut CellResolutionState,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ResolvedConfigFlag> {
@@ -177,7 +177,7 @@ pub(crate) fn resolve_config_args(
         })?;
         match config_type {
             ConfigType::Value => {
-                let parsed_flag = LegacyConfigCmdArgFlag::new(&u.config_override)?;
+                let parsed_flag = ParsedFlagArg::new(&u.config_override)?;
                 let resolved_flag =
                     resolve_config_flag_arg(&parsed_flag, &mut cell_resolution, file_ops)?;
                 Ok(ResolvedLegacyConfigArg::Flag(resolved_flag))
@@ -195,19 +195,19 @@ pub(crate) fn resolve_config_args(
 
 #[cfg(test)]
 mod tests {
-    use super::LegacyConfigCmdArgFlag;
+    use super::ParsedFlagArg;
 
     #[test]
     fn test_argument_pair() -> anyhow::Result<()> {
         // Valid Formats
 
-        let normal_pair = LegacyConfigCmdArgFlag::new("apple.key=value")?;
+        let normal_pair = ParsedFlagArg::new("apple.key=value")?;
 
         assert_eq!("apple", normal_pair.section);
         assert_eq!("key", normal_pair.key);
         assert_eq!(Some("value".to_owned()), normal_pair.value);
 
-        let unset_pair = LegacyConfigCmdArgFlag::new("apple.key=")?;
+        let unset_pair = ParsedFlagArg::new("apple.key=")?;
 
         assert_eq!("apple", unset_pair.section);
         assert_eq!("key", unset_pair.key);
@@ -215,16 +215,16 @@ mod tests {
 
         // Whitespace
 
-        let section_leading_whitespace = LegacyConfigCmdArgFlag::new("  apple.key=value")?;
+        let section_leading_whitespace = ParsedFlagArg::new("  apple.key=value")?;
         assert_eq!("apple", section_leading_whitespace.section);
         assert_eq!("key", section_leading_whitespace.key);
         assert_eq!(Some("value".to_owned()), section_leading_whitespace.value);
 
-        let pair_with_whitespace_in_key = LegacyConfigCmdArgFlag::new("apple. key=value");
+        let pair_with_whitespace_in_key = ParsedFlagArg::new("apple. key=value");
         assert!(pair_with_whitespace_in_key.is_err());
 
         let pair_with_whitespace_in_value =
-            LegacyConfigCmdArgFlag::new("apple.key= value with whitespace  ")?;
+            ParsedFlagArg::new("apple.key= value with whitespace  ")?;
         assert_eq!("apple", pair_with_whitespace_in_value.section);
         assert_eq!("key", pair_with_whitespace_in_value.key);
         assert_eq!(
@@ -234,13 +234,13 @@ mod tests {
 
         // Invalid Formats
 
-        let pair_without_section = LegacyConfigCmdArgFlag::new("key=value");
+        let pair_without_section = ParsedFlagArg::new("key=value");
         assert!(pair_without_section.is_err());
 
-        let pair_without_equals = LegacyConfigCmdArgFlag::new("apple.keyvalue");
+        let pair_without_equals = ParsedFlagArg::new("apple.keyvalue");
         assert!(pair_without_equals.is_err());
 
-        let pair_without_section_or_equals = LegacyConfigCmdArgFlag::new("applekeyvalue");
+        let pair_without_section_or_equals = ParsedFlagArg::new("applekeyvalue");
         assert!(pair_without_section_or_equals.is_err());
 
         Ok(())
