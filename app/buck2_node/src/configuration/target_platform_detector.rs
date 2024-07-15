@@ -155,10 +155,7 @@ mod tests {
                 HashMap::new(),
             ),
         ]);
-        let cell_alias_resolver = cell_resolver
-            .get(CellName::testing_new("root"))
-            .unwrap()
-            .testing_cell_alias_resolver();
+        let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
 
         let check_fails = |spec: &str| {
             if TargetPlatformDetector::parse_spec(
@@ -224,10 +221,7 @@ mod tests {
                 HashMap::new(),
             ),
         ]);
-        let cell_alias_resolver = cell_resolver
-            .get(CellName::testing_new("root"))
-            .unwrap()
-            .testing_cell_alias_resolver();
+        let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
 
         let detector = TargetPlatformDetector::parse_spec(
             "target://lib/...->//:p1 target://lib2/foo/...->//:p2 target:alias1//map/...->alias1//:alias",

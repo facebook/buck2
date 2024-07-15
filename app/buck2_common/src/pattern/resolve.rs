@@ -219,11 +219,7 @@ mod tests {
                     p,
                     CellName::testing_new("root"),
                     &self.resolver,
-                    &self
-                        .resolver
-                        .get(CellName::testing_new("root"))
-                        .unwrap()
-                        .testing_cell_alias_resolver(),
+                    &self.resolver.root_cell_cell_alias_resolver(),
                 )
                 .unwrap()
             });

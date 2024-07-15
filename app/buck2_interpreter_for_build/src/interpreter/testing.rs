@@ -110,10 +110,7 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     ];
 
     Ok((
-        resolver
-            .get(CellName::testing_new("root"))?
-            .testing_cell_alias_resolver()
-            .dupe(),
+        resolver.root_cell_cell_alias_resolver().dupe(),
         resolver,
         LegacyBuckConfigs::new(configs),
     ))

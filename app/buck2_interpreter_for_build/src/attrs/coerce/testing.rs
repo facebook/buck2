@@ -63,11 +63,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
             HashMap::new(),
         ),
     ]);
-    let cell_alias_resolver = cell_resolver
-        .get(package.cell_name())
-        .unwrap()
-        .testing_cell_alias_resolver()
-        .dupe();
+    let cell_alias_resolver = cell_resolver.root_cell_cell_alias_resolver().dupe();
 
     BuildAttrCoercionContext::new_with_package(
         cell_resolver,
@@ -96,11 +92,7 @@ pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<
     let cell_info = InterpreterCellInfo::new(
         BuildFileCell::new(CellName::testing_new("root")),
         cell_resolver(),
-        cell_resolver()
-            .get(CellName::testing_new("root"))
-            .unwrap()
-            .testing_cell_alias_resolver()
-            .dupe(),
+        cell_resolver().root_cell_cell_alias_resolver().dupe(),
     )
     .unwrap();
 

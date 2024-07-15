@@ -15,7 +15,6 @@ use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -206,11 +205,7 @@ fn cells() -> CellsData {
     )
     .unwrap();
     (
-        cell_resolver
-            .get(CellName::testing_new("root"))
-            .unwrap()
-            .testing_cell_alias_resolver()
-            .dupe(),
+        cell_resolver.root_cell_cell_alias_resolver().dupe(),
         cell_resolver,
         configs_by_name,
     )

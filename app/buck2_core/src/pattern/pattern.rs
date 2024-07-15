@@ -377,10 +377,7 @@ impl<T: PatternType> ParsedPattern<T> {
             pattern,
             cell_name,
             &cell_resolver,
-            cell_resolver
-                .get(cell_name)
-                .unwrap()
-                .testing_cell_alias_resolver(),
+            cell_resolver.root_cell_cell_alias_resolver(),
         )
         .unwrap()
     }
@@ -1223,11 +1220,7 @@ mod tests {
     }
 
     fn alias_resolver() -> CellAliasResolver {
-        resolver()
-            .get(CellName::testing_new("root"))
-            .unwrap()
-            .testing_cell_alias_resolver()
-            .clone()
+        resolver().root_cell_cell_alias_resolver().clone()
     }
 
     #[test_case(PhantomData::< TargetPatternExtra >; "parsing TargetPattern")]
