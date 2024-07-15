@@ -18,8 +18,8 @@ Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not
 
 ## Workflow by example
 
-The built-in Buck2 rules are stored in `fbsource` in `fbcode/buck2/prelude`. To
-add a rule for a language, say `pascal`:
+The built-in Buck2 rules are stored in the `prelude` folder in the buck2 repo.
+To add a rule for a language, say `pascal`:
 
 1. Look at
    [prelude/decls](https://github.com/facebook/buck2/blob/main/prelude/decls/)
