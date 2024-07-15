@@ -320,19 +320,6 @@ impl CellResolver {
             })
     }
 
-    /// Finds the cell alias resolver for the cell containing the given path.
-    ///
-    /// The path must be the cwd, to ensure that the cell is non-external.
-    pub fn get_cwd_cell_alias_resolver(
-        &self,
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<&CellAliasResolver> {
-        // cwd is always non-external
-        Ok(self
-            .get(self.find(cwd)?)?
-            .non_external_cell_alias_resolver())
-    }
-
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
         &self,
         path: &P,

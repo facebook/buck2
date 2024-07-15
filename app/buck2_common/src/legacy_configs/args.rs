@@ -13,11 +13,13 @@ use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use dupe::Dupe;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::configs::parse_config_section_and_key;
@@ -95,14 +97,15 @@ struct CellResolutionState<'a> {
     project_filesystem: &'a ProjectRoot,
     cwd: &'a ProjectRelativePath,
     /// Lazily initialized.
-    cell_resolver: Option<CellResolver>,
+    /// Holds the cell resolver and the cell alias resolver for the cwd
+    cell_resolver: Option<(CellResolver, CellAliasResolver)>,
 }
 
 impl CellResolutionState<'_> {
     async fn get_cell_resolver(
         &mut self,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<&CellResolver> {
+    ) -> anyhow::Result<&(CellResolver, CellAliasResolver)> {
         if self.cell_resolver.is_none() {
             // Reading an immediate cell mapping is extremely fast as we just read a single
             // config file (which would already be in memory). There is another alternative,
@@ -115,8 +118,12 @@ impl CellResolutionState<'_> {
                 file_ops,
             ))
             .await?;
+            let cell_alias_resolver = cell_resolver
+                .get(cell_resolver.find(self.cwd)?)?
+                .non_external_cell_alias_resolver()
+                .dupe();
 
-            self.cell_resolver = Some(cell_resolver);
+            self.cell_resolver = Some((cell_resolver, cell_alias_resolver));
         }
 
         // This is the standard `get_or_insert` limitation of the borrow checker. `None` case was
@@ -131,11 +138,9 @@ async fn resolve_config_flag_arg(
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ResolvedConfigFlag> {
     let cell = if let Some(cell) = flag_arg.cell.as_ref() {
-        let cwd = cell_resolution.cwd;
-        let cell_resolver = cell_resolution.get_cell_resolver(file_ops).await?;
-        let cell = cell_resolver
-            .get_cwd_cell_alias_resolver(cwd)?
-            .resolve(cell)?;
+        let (cell_resolver, cell_alias_resolver) =
+            cell_resolution.get_cell_resolver(file_ops).await?;
+        let cell = cell_alias_resolver.resolve(cell)?;
         Some(cell_resolver.get(cell)?.path().to_buf())
     } else {
         None
@@ -161,7 +166,7 @@ async fn resolve_config_file_arg(
 
     if let Some(cell_alias) = &cell {
         let cwd = cell_resolution_state.cwd;
-        let cell_resolver = cell_resolution_state.get_cell_resolver(file_ops).await?;
+        let (cell_resolver, _) = cell_resolution_state.get_cell_resolver(file_ops).await?;
         let proj_path = cell_resolver.resolve_cell_relative_path(cell_alias, path, cwd)?;
         return Ok(ResolvedConfigFile::Project(proj_path));
     }
