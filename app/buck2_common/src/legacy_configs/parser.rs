@@ -206,11 +206,8 @@ impl LegacyConfigParser {
         file_ops: &'a mut dyn ConfigParserFileOps,
     ) -> BoxFuture<'a, anyhow::Result<()>> {
         async move {
-            let parent = path
-                .parent()
-                .context("parent should give directory containing the config file")?;
             let file_lines = file_ops.read_file_lines(path).await?;
-            self.parse_lines(parent, file_lines, parse_includes, file_ops)
+            self.parse_lines(path, file_lines, parse_includes, file_ops)
                 .await
         }
         .boxed()
@@ -237,7 +234,7 @@ impl LegacyConfigParser {
 
     async fn parse_lines<T, E>(
         &mut self,
-        dir: &AbsNormPath,
+        config_path: &AbsNormPath,
         lines: T,
         parse_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
@@ -303,7 +300,11 @@ impl LegacyConfigParser {
                         absolute.to_owned()
                     } else {
                         let relative = RelativePath::new(include);
-                        match dir.join_normalized(relative) {
+                        match config_path
+                            .parent()
+                            .context("file has no parent")?
+                            .join_normalized(relative)
+                        {
                             Ok(d) => d,
                             Err(_) => {
                                 return Err(anyhow::anyhow!(ConfigError::BadIncludePath(
