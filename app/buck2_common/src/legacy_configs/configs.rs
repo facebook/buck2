@@ -385,11 +385,11 @@ pub mod testing {
     #[async_trait::async_trait]
     #[allow(private_interfaces)]
     impl ConfigParserFileOps for TestConfigParserFileOps {
-        async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+        async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
             let ConfigPath::Project(path) = path else {
-                return false;
+                return Ok(false);
             };
-            self.data.contains_key(path)
+            Ok(self.data.contains_key(path))
         }
 
         async fn read_file_lines(

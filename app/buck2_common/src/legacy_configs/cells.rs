@@ -192,7 +192,7 @@ impl BuckConfigBasedCells {
                 self.inner.read_file_lines(path).await
             }
 
-            async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+            async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
                 self.inner.file_exists(path).await
             }
 

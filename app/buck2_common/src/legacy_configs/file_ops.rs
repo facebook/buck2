@@ -13,6 +13,7 @@ use std::io::BufRead;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -80,7 +81,7 @@ pub trait ConfigParserFileOps: Send + Sync {
         path: &ConfigPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>;
 
-    async fn file_exists(&mut self, path: &ConfigPath) -> bool;
+    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool>;
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
 }
@@ -107,8 +108,8 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
         Ok(Box::new(file.lines()))
     }
 
-    async fn file_exists(&mut self, path: &ConfigPath) -> bool {
-        path.resolve_absolute(&self.project_fs).exists()
+    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
+        fs_util::try_exists(path.resolve_absolute(&self.project_fs)).map_err(Into::into)
     }
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
@@ -177,19 +178,18 @@ impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
 
 #[async_trait::async_trait]
 impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
-    async fn file_exists(&mut self, path: &ConfigPath) -> bool {
+    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
         let ConfigPath::Project(path) = path else {
             // File is outside of project root, for example, /etc/buckconfigs.d/experiments
             return self.io_ops.file_exists(path).await;
         };
-        let Ok(path) = self.cell_resolver.get_cell_path(path) else {
-            // Can't actually happen
-            return false;
-        };
+        let path = self.cell_resolver.get_cell_path(path)?;
 
-        DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref())
-            .await
-            .is_ok_and(|meta| meta.is_some())
+        Ok(
+            DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref())
+                .await?
+                .is_some(),
+        )
     }
 
     async fn read_file_lines(

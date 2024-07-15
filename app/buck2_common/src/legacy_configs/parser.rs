@@ -112,7 +112,7 @@ impl LegacyConfigParser {
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
-        if file_ops.file_exists(path).await {
+        if file_ops.file_exists(path).await? {
             self.start_file(path, source)?;
             self.parse_file_on_stack(path, follow_includes, file_ops)
                 .await
@@ -311,7 +311,7 @@ impl LegacyConfigParser {
                         }
                     };
 
-                    match (optional, file_ops.file_exists(&include_file).await) {
+                    match (optional, file_ops.file_exists(&include_file).await?) {
                         (_, true) => {
                             self.push_file(i, &include_file)?;
                             self.parse_file_on_stack(&include_file, parse_includes, file_ops)
