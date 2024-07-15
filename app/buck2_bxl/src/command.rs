@@ -32,6 +32,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::fs_util;
@@ -134,7 +135,13 @@ async fn bxl(
 ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
     let cell_resolver = ctx.get_cell_resolver().await?;
-    let bxl_label = parse_bxl_label_from_cli(cwd, &request.bxl_label, &cell_resolver)?;
+    let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+    let bxl_label = parse_bxl_label_from_cli(
+        cwd,
+        &request.bxl_label,
+        &cell_resolver,
+        &cell_alias_resolver,
+    )?;
     let project_root = server_ctx.project_root().to_string();
 
     let global_cfg_options = global_cfg_options_from_client_context(
@@ -389,12 +396,9 @@ pub(crate) fn parse_bxl_label_from_cli(
     cwd: &ProjectRelativePath,
     bxl_label: &str,
     cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
 ) -> anyhow::Result<BxlFunctionLabel> {
     let current_cell = cell_resolver.get_cell_path(cwd)?;
-
-    // Targets with cell aliases should be resolved against the cell mapping
-    // as defined the cell derived from the cwd.
-    let cell_alias_resolver = cell_resolver.get_cwd_cell_alias_resolver(cwd)?;
 
     let (bxl_path, bxl_fn) = bxl_label
         .rsplit_once(':')

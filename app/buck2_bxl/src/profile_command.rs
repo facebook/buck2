@@ -86,8 +86,13 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         let cwd = server_ctx.working_dir();
 
                         let cell_resolver = ctx.get_cell_resolver().await?;
-                        let bxl_label =
-                            parse_bxl_label_from_cli(cwd, &opts.bxl_label, &cell_resolver)?;
+                        let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+                        let bxl_label = parse_bxl_label_from_cli(
+                            cwd,
+                            &opts.bxl_label,
+                            &cell_resolver,
+                            &cell_alias_resolver,
+                        )?;
 
                         let bxl_args = match get_bxl_cli_args(
                             cwd,
