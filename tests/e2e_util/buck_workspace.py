@@ -401,22 +401,24 @@ def is_deployed_buck2() -> bool:
     return os.environ.get("TEST_EXECUTABLE") == "buck2"
 
 
-def get_mode_from_platform(mode="dev", prefix=True) -> str:
-    if mode not in ("dev", "opt"):
+def get_mode_from_platform(
+    mode="dev", prefix=True, skip_validation_i_know_what_im_doing=False
+) -> str:
+    if not skip_validation_i_know_what_im_doing and (mode not in ("dev", "opt")):
         raise Exception(f"Invalid mode: {mode}")
 
     def modefile_basename():
         if sys.platform == "darwin":
-            if mode == "dev":
+            if mode.startswith("dev"):
                 return "mac"
             else:
                 return "opt-mac"
         elif sys.platform == "win32":
-            if mode == "dev":
+            if mode.startswith("dev"):
                 return "win"
             else:
                 return "opt-win"
-        if mode == "dev":
+        if mode.startswith("dev"):
             return "dev"
         else:
             return "opt"

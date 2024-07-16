@@ -17,6 +17,7 @@ def check_dependencies_test(
         allowlist_patterns = None,
         blocklist_patterns = None,
         expect_failure_msg = None,
+        env = None,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -29,12 +30,14 @@ def check_dependencies_test(
         allowlist_patterns: a regex of patterns that should be allowed in transitive deps of the target
         blocklist_patterns: a regex of patterns that should be blocked in transitive deps of the target
         expect_failure_msg: the test is expected to fail with this message regex
+        env: additional environment variables to pass to the checking script
     """
     bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
     allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
     blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
     if not (expect_failure_msg == None or len(expect_failure_msg) > 0):
         fail("Expected failure message can only be None or non-empty string")
+
     buck2_e2e_test(
         contacts = contacts,
         name = name,
@@ -45,7 +48,7 @@ def check_dependencies_test(
             "BXL_MAIN": bxl_main,
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "TARGET": target,
-        },
+        } | (env or {}),
         # fbcode_macros uses tags instead of labels
         tags = ["check_dependencies_test"],
         test_with_compiled_buck2 = False,

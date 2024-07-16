@@ -8,7 +8,7 @@
 import os
 
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platform
 
 
 # This is just a template test case for `check_dependencies_test` to use buck2's e2e test framework.
@@ -28,8 +28,18 @@ async def test_check_dependencies_bxl(buck) -> None:
     allowlist = process_list_arg(is_allowlist=True)
     blocklist = process_list_arg(is_allowlist=False)
     expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
+
+    fbcode_build_mode = os.environ.get("CHECK_DEPENDENCIES_TEST_FBCODE_BUILD_MODE")
+    if fbcode_build_mode:
+        mode_argfile = get_mode_from_platform(
+            fbcode_build_mode, skip_validation_i_know_what_im_doing=True
+        )
+    else:
+        mode_argfile = get_mode_from_platform()
+
     bxl_call = buck.bxl(
         os.environ["BXL_MAIN"],
+        mode_argfile,
         "--",
         "--target",
         os.environ["TARGET"],
