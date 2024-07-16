@@ -59,47 +59,6 @@ pub(crate) enum TargetListExpr<'v, Node: QueryTarget> {
     TargetSet(Cow<'v, TargetSet<Node>>),
 }
 
-impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
-    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, ConfiguredTargetNode>> + '_> {
-        match &self {
-            Self::One(one) => Box::new(iter::once(one.clone())),
-            Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
-            Self::TargetSet(target_set) => {
-                Box::new(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
-            }
-        }
-    }
-
-    /// Get a vector of maybe compatible `ConfiguredTargetNode`s from the `TargetExpr`.
-    /// Any callers of this function will need to call `filter_incompatible()` on the result
-    /// in order to get the `TargetSet<ConfiguredTargetNode>`.
-    pub(crate) async fn get(
-        self,
-        dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        dice.compute_join(self.iter(), |ctx, node_or_ref| {
-            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
-        })
-        .await
-        .into_iter()
-        .collect()
-    }
-
-    /// Get a single maybe compatible `ConfiguredTargetNode`.
-    pub(crate) async fn get_one(
-        &self,
-        dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
-        Ok(match &self {
-            Self::One(node_or_ref) => Some(
-                dice.get_configured_target_node(node_or_ref.node_ref())
-                    .await?,
-            ),
-            _ => None,
-        })
-    }
-}
-
 // Filters out incompatible targets and emits the error message
 pub(crate) fn filter_incompatible(
     targets: impl IntoIterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
@@ -238,6 +197,45 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
+    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, ConfiguredTargetNode>> + '_> {
+        match &self {
+            Self::One(one) => Box::new(iter::once(one.clone())),
+            Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
+            Self::TargetSet(target_set) => {
+                Box::new(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
+            }
+        }
+    }
+
+    /// Get a vector of maybe compatible `ConfiguredTargetNode`s from the `TargetExpr`.
+    /// Any callers of this function will need to call `filter_incompatible()` on the result
+    /// in order to get the `TargetSet<ConfiguredTargetNode>`.
+    pub(crate) async fn get(
+        self,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
+        dice.compute_join(self.iter(), |ctx, node_or_ref| {
+            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
+        })
+        .await
+        .into_iter()
+        .collect()
+    }
+
+    /// Get a single maybe compatible `ConfiguredTargetNode`.
+    pub(crate) async fn get_one(
+        &self,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
+        Ok(match &self {
+            Self::One(node_or_ref) => Some(
+                dice.get_configured_target_node(node_or_ref.node_ref())
+                    .await?,
+            ),
+            _ => None,
+        })
+    }
+
     pub(crate) fn as_provider_labels(&self) -> Vec<ConfiguredProvidersLabel> {
         self.iter()
             .map(|e| ConfiguredProvidersLabel::default_for(e.node_ref().dupe()))
