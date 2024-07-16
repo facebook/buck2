@@ -146,7 +146,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
 
     async fn dfs_postorder(
         &self,
-        root: &TargetSet<ConfiguredTargetNode>,
+        root: &TargetSet<Self::Target>,
         traversal_delegate: impl AsyncChildVisitor<Self::Target>,
         visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
     ) -> anyhow::Result<()> {
