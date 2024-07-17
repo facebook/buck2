@@ -14,10 +14,6 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
-use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_cli_proto::build_request::Materializations;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -25,8 +21,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use dashmap::DashMap;
-use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -40,11 +34,9 @@ use itertools::Itertools;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
-use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::calculation::get_target_rule_type_name;
 use crate::actions::calculation::BuildKey;
 use crate::analysis::calculation::RuleAnalysisCalculation;
-use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
@@ -57,6 +49,8 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
+use crate::materialize::materialize_artifact_group;
+use crate::materialize::MaterializationContext;
 
 mod action_error;
 pub mod build_report;
@@ -500,98 +494,6 @@ impl Debug for ProviderArtifacts {
             .field("values", &self.values.iter().collect::<Vec<_>>())
             .field("provider_type", &self.provider_type)
             .finish()
-    }
-}
-
-pub async fn materialize_artifact_group(
-    ctx: &mut DiceComputations<'_>,
-    artifact_group: &ArtifactGroup,
-    materialization_context: &MaterializationContext,
-) -> anyhow::Result<ArtifactGroupValues> {
-    let values = ctx.ensure_artifact_group(artifact_group).await?;
-
-    if let MaterializationContext::Materialize { map, force } = materialization_context {
-        let mut artifacts_to_materialize = Vec::new();
-        for (artifact, _value) in values.iter() {
-            if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                if map.insert(artifact.dupe(), ()).is_some() {
-                    // We've already requested this artifact, no use requesting it again.
-                    continue;
-                }
-                artifacts_to_materialize.push(artifact);
-            }
-        }
-
-        ctx.try_compute_join(artifacts_to_materialize, |ctx, artifact| {
-            async move {
-                ctx.try_materialize_requested_artifact(artifact, *force)
-                    .await
-            }
-            .boxed()
-        })
-        .await
-        .context("Failed to materialize artifacts")?;
-    }
-
-    Ok(values)
-}
-
-#[derive(Clone, Dupe)]
-pub enum MaterializationContext {
-    Skip,
-    Materialize {
-        /// This map contains all the artifacts that we enqueued for materialization. This ensures
-        /// we don't enqueue the same thing more than once.
-        map: Arc<DashMap<BuildArtifact, ()>>,
-        /// Whether we should force the materialization of requested artifacts, or defer to the
-        /// config.
-        force: bool,
-    },
-}
-
-impl MaterializationContext {
-    /// Create a new MaterializationContext that will force all materializations.
-    pub fn force_materializations() -> Self {
-        Self::Materialize {
-            map: Arc::new(DashMap::new()),
-            force: true,
-        }
-    }
-}
-
-pub trait ConvertMaterializationContext {
-    fn from(self) -> MaterializationContext;
-
-    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext;
-}
-
-impl ConvertMaterializationContext for Materializations {
-    fn from(self) -> MaterializationContext {
-        match self {
-            Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: false,
-            },
-            Materializations::Materialize => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: true,
-            },
-        }
-    }
-
-    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext {
-        match self {
-            Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize {
-                map: map.dupe(),
-                force: false,
-            },
-            Materializations::Materialize => MaterializationContext::Materialize {
-                map: map.dupe(),
-                force: true,
-            },
-        }
     }
 }
 

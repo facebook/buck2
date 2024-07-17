@@ -37,6 +37,7 @@ pub mod deferred;
 pub mod dynamic;
 pub mod interpreter;
 pub mod keep_going;
+pub mod materialize;
 pub mod query;
 pub mod spawner;
 pub mod transition;
