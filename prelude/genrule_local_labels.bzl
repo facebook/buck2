@@ -217,6 +217,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # locally to build on Windows. This is a mitigation until we can break down these
     # targets
     "zeratul_windows_capacity_hog",
+
+    # Uses fakeroot which is not on RE
+    "uses_fakeroot",
 ]}
 
 def genrule_labels_require_local(labels):
