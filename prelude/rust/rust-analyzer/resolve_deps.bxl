@@ -296,12 +296,18 @@ def resolve_owning_buildfile_impl(ctx: BxlContext) -> None:
 
     if ctx.cli_args.files:
         targets = ctx.uquery().owner(ctx.cli_args.files)
+    elif ctx.cli_args.buildfiles:
+        targets = [ctx.uquery().targets_in_buildfile(buildfile) for buildfile in ctx.cli_args.buildfiles]
+
+        # equivalent of `flat_map`ing
+        targets = [target for sublist in targets for target in sublist]
+        targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
     elif ctx.cli_args.targets:
         # equivalent of `flat_map`ing
         targets = [target for sublist in ctx.cli_args.targets for target in sublist]
         targets = ctx.unconfigured_targets(targets)
     else:
-        fail("neither `--files` nor `--targets` where specified; this is a bug")
+        fail("`--files`, `--targets`, nor `--buildfiles` where specified; this is a bug")
 
     out = {}
 
@@ -333,9 +339,10 @@ expand_and_resolve = bxl_main(
 resolve_owning_buildfile = bxl_main(
     impl = resolve_owning_buildfile_impl,
     cli_args = {
-        # while both can be passed, only files will be used.
+        # while buildfiles, files, and targets can all be passed, only files will be used.
         # this file is driven primarily by rust-project's needs and is a private implementation
         # detail.
+        "buildfiles": cli_args.option(cli_args.list(cli_args.string())),
         "files": cli_args.option(cli_args.list(cli_args.string())),
         "max_extra_targets": cli_args.int(),
         "targets": cli_args.option(cli_args.list(cli_args.target_expr())),
