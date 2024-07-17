@@ -28,6 +28,8 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "EntryPoint", "EntryPointKind", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")  # @unused Used as a type
+load(":python.bzl", "manifests_to_interface")
+load(":python_library.bzl", "gather_dep_libraries")
 load(":toolchain.bzl", "PackageStyle", "PythonToolchainInfo", "get_package_style")
 
 # This represents the input to the creation of a Pex. Manifests provide source
@@ -37,6 +39,7 @@ PexModules = record(
     manifests = field(PythonLibraryManifestsInterface),
     extensions = field(ManifestInfo | None, None),
     extra_manifests = field(ManifestInfo | None, None),
+    repl_manifests = field(PythonLibraryManifestsInterface | None, None),
     compile = field(bool, False),
 )
 
@@ -187,6 +190,52 @@ def make_py_package(
         output_suffix = "",
         allow_cache_upload = allow_cache_upload,
     )
+
+    # lets make a shell
+    if ctx.attrs.repl_main:
+        # no more
+        # kjdfhgskjh
+        repl_deps, _ = gather_dep_libraries(ctx.attrs.repl_only_deps)
+        repl_manifests = manifests_to_interface(repl_deps[0].manifests)
+
+        repl_pex_modules = PexModules(
+            manifests = pex_modules.manifests,
+            extra_manifests = pex_modules.extra_manifests,
+            extensions = pex_modules.extensions,
+            repl_manifests = repl_manifests,
+            compile = pex_modules.compile,
+        )
+
+        repl_common_modules_args, repl_dep_artifacts, repl_debug_artifacts = _pex_modules_common_args(
+            ctx,
+            repl_pex_modules,
+            [startup_function] if startup_function else [],
+            [(shlib, libdir) for libdir, shlib, _ in shared_libraries],
+            debuginfo_files = debuginfo_files,
+            suffix = "_repl",
+        )
+
+        default.sub_targets["repl"] = make_py_package_providers(
+            _make_py_package_impl(
+                ctx,
+                python_toolchain,
+                make_py_package_cmd,
+                PackageStyle("inplace"),
+                build_args,
+                len(shared_libraries) > 0,
+                preload_libraries,
+                repl_common_modules_args,
+                repl_dep_artifacts,
+                repl_debug_artifacts,
+                (EntryPointKind("function"), ctx.attrs.repl_main),
+                hidden_resources,
+                manifest_module,
+                pex_modules,
+                output_suffix = "-repl",
+                allow_cache_upload = allow_cache_upload,
+            ),
+        )
+
     for style in PackageStyle.values():
         pex_providers = default if style == package_style.value else _make_py_package_impl(
             ctx,
@@ -442,7 +491,8 @@ def _pex_modules_common_args(
         pex_modules: PexModules,
         extra_manifests: list[ArgLike],
         shared_libraries: list[(SharedLibrary, str)],
-        debuginfo_files: list[(str | (str, SharedLibrary, str), Artifact)]) -> (cmd_args, list[ArgLike], list[(str | (str, SharedLibrary, str), ArgLike)]):
+        debuginfo_files: list[(str | (str, SharedLibrary, str), Artifact)],
+        suffix: str = "") -> (cmd_args, list[ArgLike], list[(str | (str, SharedLibrary, str), ArgLike)]):
     srcs = []
     src_artifacts = []
     deps = []
@@ -459,6 +509,10 @@ def _pex_modules_common_args(
         srcs.append(pex_modules.extra_manifests.manifest)
         src_artifacts.extend(pex_modules.extra_manifests.artifacts)
 
+    if pex_modules.repl_manifests:
+        srcs.extend(pex_modules.repl_manifests.src_manifests())
+        src_artifacts.extend(pex_modules.repl_manifests.src_artifacts_with_paths())
+
     if extra_manifests:
         srcs.extend(extra_manifests)
 
@@ -467,17 +521,17 @@ def _pex_modules_common_args(
     deps.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths()])
 
     src_manifests_path = ctx.actions.write(
-        "__src_manifests.txt",
+        "__src_manifests{}.txt".format(suffix),
         _srcs(srcs, format = "--module-manifest={}"),
     )
     resource_manifests_path = ctx.actions.write(
-        "__resource_manifests.txt",
+        "__resource_manifests{}.txt".format(suffix),
         _srcs(resources, format = "--resource-manifest={}"),
     )
 
     native_libraries = gen_shared_libs_action(
         actions = ctx.actions,
-        out = "__native_libraries__.txt",
+        out = "__native_libraries{}__.txt".format(suffix),
         shared_libs = [shlib for shlib, _ in shared_libraries],
         gen_action = lambda actions, output, shared_libs: actions.write(
             output,
@@ -504,7 +558,7 @@ def _pex_modules_common_args(
 
     if debuginfo_files:
         debuginfo_srcs_path = ctx.actions.write(
-            "__debuginfo___srcs.txt",
+            "__debuginfo___srcs{}.txt".format(suffix),
             _srcs([src for _, src in debuginfo_files], format = "--debuginfo-src={}"),
         )
         debuginfo_srcs_args = cmd_args(debuginfo_srcs_path)
@@ -522,7 +576,7 @@ def _pex_modules_common_args(
             dwp_ext = ".dwp"
         dwp_args = gen_shared_libs_action(
             actions = ctx.actions,
-            out = "__dwp__.txt",
+            out = "__dwp{}__.txt".format(suffix),
             shared_libs = [shlib for shlib, _ in shared_libraries],
             gen_action = lambda actions, output, shared_libs: actions.write(
                 output,
