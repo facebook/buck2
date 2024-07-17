@@ -16,6 +16,14 @@ load(
     "get_roots",
 )
 load(
+    "@prelude//cxx:preprocessor.bzl",
+    "CPreprocessor",
+    "CPreprocessorArgs",
+    "cxx_inherited_preprocessor_infos",
+    "cxx_merge_cpreprocessors",
+    "format_system_include_arg",
+)
+load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -57,6 +65,13 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     if ctx.attrs.strip_soabi_tags:
         cmd.add("--strip-soabi-tags")
+    inferred_cxx_header_dirs = None
+    if ctx.attrs.infer_cxx_header_dirs:
+        inferred_cxx_header_dirs = ctx.actions.declare_output("__cxx_header_dirs__.txt")
+        cmd.add(
+            "--cxx-header-dirs",
+            inferred_cxx_header_dirs.as_output(),
+        )
     ctx.actions.run(cmd, category = "py_extract_prebuilt_library")
     deps, shared_deps = gather_dep_libraries(ctx.attrs.deps)
     src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src, exclude = "\\.pyc$")
@@ -141,5 +156,57 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = ctx.attrs.deps,
         ),
     )
+
+    # If this prebuilt wheel contains headers, export them via a C++ provider.
+    pp_args = []
+    if ctx.attrs.cxx_header_dirs:
+        for header_dir in ctx.attrs.cxx_header_dirs:
+            pp_args.append(
+                format_system_include_arg(
+                    cmd_args(extracted_src.project(header_dir)),
+                    "clang",
+                ),
+            )
+    if inferred_cxx_header_dirs != None:
+        pp_argsfile = ctx.actions.declare_output("__cxx_header_dirs__.argsfile")
+
+        def write_argsfile(actions, header_dirs, output):
+            lines = []
+            for header_dir in header_dirs.read_string().splitlines():
+                lines.append(format_system_include_arg(
+                    cmd_args(extracted_src.project(header_dir)),
+                    "clang",
+                ))
+            actions.write(output, lines)
+
+        ctx.actions.dynamic_output(
+            dynamic = [inferred_cxx_header_dirs],
+            inputs = [],
+            outputs = [pp_argsfile.as_output()],
+            f = lambda ctx, artifacts, outputs: write_argsfile(
+                ctx.actions,
+                artifacts[inferred_cxx_header_dirs],
+                outputs[pp_argsfile],
+            ),
+        )
+        pp_args.append(
+            cmd_args(
+                pp_argsfile,
+                format = "@{}",
+                hidden = [extracted_src],
+            ),
+        )
+    if pp_args:
+        providers.append(cxx_merge_cpreprocessors(
+            ctx = ctx,
+            own = [
+                CPreprocessor(
+                    args = CPreprocessorArgs(
+                        args = pp_args,
+                    ),
+                ),
+            ],
+            xs = cxx_inherited_preprocessor_infos(ctx.attrs.deps),
+        ))
 
     return providers

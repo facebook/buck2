@@ -191,6 +191,8 @@ prebuilt_python_library = prelude_rule(
         {
             "compile": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
+            "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
+            "infer_cxx_header_dirs": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),

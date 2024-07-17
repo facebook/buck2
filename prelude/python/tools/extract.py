@@ -105,6 +105,11 @@ def main() -> None:
     parser.add_argument("--strip-soabi-tags", action="store_true")
     parser.add_argument("--entry-points", type=Path, help="The directory to write to")
     parser.add_argument(
+        "--cxx-header-dirs",
+        type=Path,
+        help="A file to write out inferred C++ include dirs to",
+    )
+    parser.add_argument(
         "--entry-points-manifest", type=Path, help="The directory to write to"
     )
     parser.add_argument("src", type=Path, help="The archive to extract to --output")
@@ -117,6 +122,14 @@ def main() -> None:
         dst_dir=args.output,
         strip_soabi_tags=args.strip_soabi_tags,
     )
+
+    # Infer C++ header dirs.
+    if args.cxx_header_dirs is not None:
+        with open(args.cxx_header_dirs, mode="w") as f:
+            for root, dirs, _files in os.walk(args.output):
+                root = os.path.relpath(root, args.output)
+                if "include" in dirs:
+                    print(os.path.normpath(os.path.join(root, "include")), file=f)
 
     # Extract any "entry points" from the wheel, and generate scripts from them
     # (just like `pip install` would do).
