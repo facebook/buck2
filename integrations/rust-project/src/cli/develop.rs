@@ -55,19 +55,6 @@ pub(crate) enum Output {
 }
 
 impl Develop {
-    pub(crate) fn new() -> Self {
-        let mode = select_mode(None);
-        let buck = buck::Buck::new(mode);
-
-        Self {
-            sysroot: SysrootConfig::BuckConfig,
-            buck,
-            relative_paths: false,
-            check_cycles: false,
-            invoked_by_ra: false,
-        }
-    }
-
     pub(crate) fn from_command(command: Command) -> (Develop, Input, OutputCfg) {
         if let crate::Command::Develop {
             files,

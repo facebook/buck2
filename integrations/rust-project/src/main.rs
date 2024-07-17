@@ -12,9 +12,7 @@ mod cli;
 mod diagnostics;
 mod json_project;
 mod path;
-mod progress;
 mod scuba;
-mod server;
 mod sysroot;
 mod target;
 
@@ -26,7 +24,6 @@ use std::str::FromStr;
 use clap::ArgAction;
 use clap::Parser;
 use clap::Subcommand;
-use progress::ProgressLayer;
 use serde::Deserialize;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -131,9 +128,6 @@ enum Command {
         #[clap(long, hide = true)]
         log_scuba_to_stdout: bool,
     },
-    /// Start an LSP server whose functionality is similar to [Command::Develop].
-    #[clap(hide = true)]
-    LspServer,
 }
 
 #[derive(PartialEq, Clone, Debug, Deserialize)]
@@ -201,19 +195,6 @@ fn main() -> Result<(), anyhow::Error> {
                     Ok(())
                 }
             }
-        }
-        Command::LspServer => {
-            let state = server::State::new()?;
-            let sender = state.server.sender.clone();
-
-            let progress = ProgressLayer::new(sender);
-
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.with_filter(filter))
-                .with(progress);
-            tracing::subscriber::set_global_default(subscriber)?;
-
-            state.run()
         }
         Command::New { name, kind, path } => {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
