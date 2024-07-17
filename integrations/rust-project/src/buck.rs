@@ -28,7 +28,6 @@ use tracing::warn;
 use tracing::Level;
 
 use crate::cli::Input;
-use crate::json_project::deprecated::{self};
 use crate::json_project::Build;
 use crate::json_project::Edition;
 use crate::json_project::JsonProject;
@@ -171,38 +170,9 @@ pub(crate) fn to_json_project(
             None
         };
 
-        // FIXME: remove this after a few days; it is only for backwards compatibility.
-        let target_spec = if info.in_workspace {
-            let spec = deprecated::TargetSpec {
-                manifest_file: build_file.to_owned(),
-                target_label: target.to_string(),
-                target_kind: info.kind.clone().into(),
-                runnables: deprecated::Runnables {
-                    check: vec!["build".to_owned(), target.to_string()],
-                    run: vec!["run".to_owned(), target.to_string()],
-                    test: vec![
-                        "test".to_owned(),
-                        "-c=client.id=rust-project".to_owned(),
-                        target.to_string(),
-                        "--".to_owned(),
-                        "{test_id}".to_owned(),
-                        "--print-passing-details".to_owned(),
-                    ],
-                },
-                flycheck_command: vec!["build".to_owned(), target.to_string()],
-            };
-            Some(spec)
-        } else {
-            None
-        };
-
         let crate_info = Crate {
             display_name: Some(info.display_name()),
             root_module,
-            buck_extensions: deprecated::BuckExtensions {
-                label: target.to_owned(),
-                build_file: build_file.to_owned(),
-            },
             edition,
             deps,
             is_workspace_member: info.in_workspace,
@@ -212,7 +182,6 @@ pub(crate) fn to_json_project(
             }),
             cfg: info.cfg(),
             env,
-            target_spec,
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,

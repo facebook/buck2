@@ -44,7 +44,6 @@ pub(crate) struct Crate {
     pub(crate) display_name: Option<String>,
     /// The path to the root module of the crate.
     pub(crate) root_module: PathBuf,
-    pub(crate) buck_extensions: deprecated::BuckExtensions,
     pub(crate) edition: Edition,
     pub(crate) deps: Vec<Dep>,
     /// Should this crate be treated as a member of
@@ -86,8 +85,6 @@ pub(crate) struct Crate {
     pub(crate) target: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) build: Option<Build>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) target_spec: Option<deprecated::TargetSpec>,
     /// Environment for the crate, often used by `env!`.
     pub(crate) env: FxHashMap<String, String>,
     /// Whether the crate is a proc-macro crate/
@@ -244,41 +241,4 @@ pub(crate) struct Sysroot {
     /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) sysroot_src: Option<PathBuf>,
-}
-
-// FIXME: remove these structs after a few days; they're only here for backwards compability
-// and not break users.
-pub(crate) mod deprecated {
-    use super::*;
-
-    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-    #[serde(rename = "TargetSpec")]
-    pub(crate) struct TargetSpec {
-        /// `manifest_file` corresponds to the `BUCK`/`TARGETS` file.
-        pub(crate) manifest_file: PathBuf,
-        pub(crate) target_label: String,
-        pub(crate) target_kind: TargetKind,
-        pub(crate) runnables: deprecated::Runnables,
-        pub(crate) flycheck_command: Vec<String>,
-    }
-
-    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-    #[serde(rename = "Runnables")]
-    pub(crate) struct Runnables {
-        pub(crate) check: Vec<String>,
-        pub(crate) run: Vec<String>,
-        pub(crate) test: Vec<String>,
-    }
-
-    /// Buck-specific extensions to the `rust-project.json` format.
-    ///
-    /// This is needed to add support for reloading `rust-analyzer` when
-    /// a `TARGETS` file is changed.
-    #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
-    pub(crate) struct BuckExtensions {
-        /// Path corresponding to the BUCK defining the crate.
-        pub(crate) build_file: PathBuf,
-        /// A name corresponding to the Buck target of the crate.
-        pub(crate) label: Target,
-    }
 }
