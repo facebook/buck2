@@ -471,52 +471,64 @@ struct CellConfigLoader {
 }
 
 impl CellConfigLoader {
+    async fn load_new_configs(
+        &self,
+        dice_ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<BuckConfigBasedCells> {
+        let new_configs = BuckConfigBasedCells::parse_with_config_args(
+            &self.project_root,
+            &self.config_overrides,
+            &self.working_dir,
+        )
+        .await?;
+        if self.reuse_current_config {
+            if dice_ctx
+                .is_injected_external_buckconfig_data_key_set()
+                .await?
+            {
+                if !self.config_overrides.is_empty() {
+                    let config_type_str = |c| match ConfigType::from_i32(c) {
+                        Some(ConfigType::Value) => "--config",
+                        Some(ConfigType::File) => "--config-file",
+                        None => "",
+                    };
+                    warn!(
+                        "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
+                        truncate_container(
+                            self.config_overrides.iter().map(|o| {
+                                format!("{} {}", config_type_str(o.config_type), o.config_override)
+                            }),
+                            200
+                        ),
+                    );
+                }
+                // If `--reuse-current-config` is set, use the external config data from the
+                // previous command.
+                Ok(BuckConfigBasedCells {
+                    cell_resolver: new_configs.cell_resolver,
+                    root_config: new_configs.root_config,
+                    config_paths: HashSet::new(),
+                    external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
+                })
+            } else {
+                // If there is no previous command but the flag was set, then the flag is ignored,
+                // the command behaves as if there isn't the reuse config flag.
+                warn!(
+                    "--reuse-current-config flag was set, but there was no previous invocation detected. Ignoring --reuse-current-config flag"
+                );
+                Ok(new_configs)
+            }
+        } else {
+            Ok(new_configs)
+        }
+    }
+
     async fn cells_and_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
-    ) -> Result<BuckConfigBasedCells, buck2_error::Error> {
+    ) -> buck2_error::Result<BuckConfigBasedCells> {
         self.loaded_cell_configs
-            .get_or_init(async move {
-                let new_configs = BuckConfigBasedCells::parse_with_config_args(
-                    &self.project_root,
-                    &self.config_overrides,
-                    &self.working_dir
-                ).await?;
-                if self.reuse_current_config {
-                    if dice_ctx.is_injected_external_buckconfig_data_key_set().await?
-                    {
-                        if !self.config_overrides.is_empty() {
-                            let config_type_str = |c| match ConfigType::from_i32(c) {
-                                Some(ConfigType::Value) => "--config",
-                                Some(ConfigType::File) => "--config-file",
-                                None => "",
-                            };
-                            warn!(
-                                "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
-                                truncate_container(self.config_overrides.iter().map(|o| {
-                                    format!("{} {}", config_type_str(o.config_type), o.config_override)
-                                }), 200),
-                            );
-                        }
-                        // If `--reuse-current-config` is set, use the external config data from the
-                        // previous command.
-                        Ok(BuckConfigBasedCells {
-                            cell_resolver: new_configs.cell_resolver,
-                            root_config: new_configs.root_config,
-                            config_paths: HashSet::new(),
-                            external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
-                        })
-                    } else {
-                        // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
-                        warn!(
-                            "--reuse-current-config flag was set, but there was no previous invocation detected. Ignoring --reuse-current-config flag"
-                        );
-                        Ok(new_configs)
-                    }
-                } else {
-                    Ok(new_configs)
-                }
-            })
+            .get_or_init(self.load_new_configs(dice_ctx))
             .await
             .clone()
     }
