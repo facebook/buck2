@@ -32,6 +32,7 @@ use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::cells::ExternalBuckconfigData;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigs;
+use crate::legacy_configs::diffs::ConfigDiffTracker;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
@@ -227,10 +228,14 @@ impl Key for LegacyBuckConfigForCellKey {
         }
 
         let legacy_configs = ctx.get_injected_legacy_configs().await?;
-        legacy_configs
+        let config = legacy_configs
             .get(self.cell_name)
             .map(|x| x.dupe())
-            .map_err(buck2_error::Error::from)
+            .map_err(buck2_error::Error::from)?;
+
+        ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
+
+        Ok(config)
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

@@ -48,7 +48,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::diffs::ConfigDiffMetrics;
+use buck2_common::legacy_configs::diffs::ConfigDiffTracker;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
@@ -120,7 +120,6 @@ use tokio::sync::Mutex;
 use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
-use crate::configs;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::common::parse_concurrency;
 use crate::daemon::common::CommandExecutorFactory;
@@ -448,7 +447,6 @@ impl<'a> ServerCommandContext<'a> {
             starlark_profiler_instrumentation_override: self
                 .starlark_profiler_instrumentation_override
                 .clone(),
-            events: self.events().dupe(),
             disable_starlark_types: self.disable_starlark_types,
             unstable_typecheck: self.unstable_typecheck,
             skip_targets_with_duplicate_names: self.skip_targets_with_duplicate_names,
@@ -470,22 +468,14 @@ struct CellConfigLoader {
     /// Reuses build config from the previous invocation if there is one
     reuse_current_config: bool,
     config_overrides: Vec<buck2_cli_proto::ConfigOverride>,
-    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCellsStatus>>,
-}
-
-#[derive(Clone)]
-#[allow(dead_code)]
-struct BuckConfigBasedCellsStatus {
-    cells_and_configs: BuckConfigBasedCells,
-    // None on init and first config, Some after config change
-    config_metrics: Option<ConfigDiffMetrics>,
+    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCells>>,
 }
 
 impl CellConfigLoader {
     async fn cells_and_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
-    ) -> Result<BuckConfigBasedCellsStatus, buck2_error::Error> {
+    ) -> Result<BuckConfigBasedCells, buck2_error::Error> {
         self.loaded_cell_configs
             .get_or_init(async move {
                 if self.reuse_current_config {
@@ -507,17 +497,11 @@ impl CellConfigLoader {
                                 }), 200),
                             );
                         }
-                        return buck2_error::Ok(BuckConfigBasedCellsStatus {
-                            cells_and_configs: BuckConfigBasedCells {
-                                cell_resolver: dice_ctx.get_cell_resolver().await?,
-                                configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
-                                config_paths: HashSet::new(),
-                                external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
-                            },
-                            // Report that at least one cell didn't change it's config, so that it
-                            // doesn't look like there are a new set of configs. Once this is moved
-                            // into dice properly, the special case can go away
-                            config_metrics: Some(ConfigDiffMetrics(vec![Default::default()])),
+                        return buck2_error::Ok(BuckConfigBasedCells {
+                            cell_resolver: dice_ctx.get_cell_resolver().await?,
+                            configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
+                            config_paths: HashSet::new(),
+                            external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
                         });
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
@@ -526,31 +510,9 @@ impl CellConfigLoader {
                         );
                     }
                 }
-                let cells_and_configs = BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir).await
-                    .map_err(buck2_error::Error::from)?;
-
-                let config_metrics = if dice_ctx.is_injected_legacy_configs_key_set().await? {
-                    let injected_legacy_configs = dice_ctx.get_injected_legacy_configs().await?;
-                    let root_cell = cells_and_configs.cell_resolver.root_cell();
-                    let diff_size_limit: Option<usize> = cells_and_configs.configs_by_name
-                        .get(root_cell)?
-                        .parse(BuckconfigKeyRef {
-                            section: "buck2",
-                            property: "config_diff_size_limit",
-                        })
-                        // FIXME(JakobDegen): Don't ignore errors
-                        .unwrap_or_default();
-
-                    let diff_data = ConfigDiffMetrics::new(&cells_and_configs.configs_by_name, &injected_legacy_configs, &diff_size_limit);
-                    Some(diff_data)
-                } else {
-                    // first invocation of a daemon
-                    None
-                };
-                buck2_error::Ok(BuckConfigBasedCellsStatus {
-                    cells_and_configs,
-                    config_metrics,
-                })
+                BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
+                    .await
+                    .map_err(buck2_error::Error::from)
             })
             .await
             .clone()
@@ -584,11 +546,7 @@ struct DiceCommandDataProvider {
 #[async_trait]
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
-        let cells_and_configs = self
-            .cell_configs_loader
-            .cells_and_configs(ctx)
-            .await?
-            .cells_and_configs;
+        let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
         let cell_resolver = cells_and_configs.cell_resolver;
         let legacy_configs = cells_and_configs.configs_by_name;
 
@@ -737,6 +695,7 @@ impl DiceDataProvider for DiceCommandDataProvider {
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
         data.spawner = self.spawner.dupe();
+        ConfigDiffTracker::promote_into(ctx, &mut data, root_config);
 
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),
@@ -768,7 +727,6 @@ struct DiceCommandUpdater {
     interpreter_architecture: InterpreterHostArchitecture,
     interpreter_xcode_version: Option<XcodeVersionInfo>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
-    events: EventDispatcher,
     disable_starlark_types: bool,
     unstable_typecheck: bool,
     record_target_call_stacks: bool,
@@ -782,10 +740,7 @@ impl DiceUpdater for DiceCommandUpdater {
         ctx: DiceTransactionUpdater,
         user_data: &mut UserComputationData,
     ) -> anyhow::Result<DiceTransactionUpdater> {
-        let BuckConfigBasedCellsStatus {
-            cells_and_configs,
-            config_metrics,
-        } = self
+        let cells_and_configs = self
             .cell_config_loader
             .cells_and_configs(&mut ctx.existing_state().await.clone())
             .await?;
@@ -821,10 +776,6 @@ impl DiceUpdater for DiceCommandUpdater {
             self.disable_starlark_types,
             self.unstable_typecheck,
         )?;
-
-        for c in configs::buck_configs(config_metrics) {
-            self.events.instant_event(c);
-        }
 
         Ok(ctx)
     }
@@ -1054,7 +1005,6 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             .cell_configs_loader
             .cells_and_configs(ctx)
             .await?
-            .cells_and_configs
             .config_paths;
 
         // Add legacy config paths to I/O tracing (if enabled).

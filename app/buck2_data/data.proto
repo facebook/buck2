@@ -192,6 +192,10 @@ message CellConfigDiff {
   uint64 config_diff_count = 2;
   // key + old value + new value
   uint64 config_diff_size = 3;
+  // If this is set, then this event indicates that buck has loaded configs for
+  // a new cell for which configs had not previously been loaded. In this case,
+  // the other fields are left empty
+  bool new_config_indicator_only = 4;
 }
 
 message SectionConfigDiff {

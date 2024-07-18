@@ -163,6 +163,7 @@ pub(crate) struct InvocationRecorder<'a> {
     re_avg_download_speed: NetworkSpeedAverage,
     re_avg_upload_speed: NetworkSpeedAverage,
     peak_process_memory_bytes: Option<u64>,
+    has_new_buckconfigs: bool,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
     total_disk_space_bytes: Option<u64>,
@@ -277,6 +278,7 @@ impl<'a> InvocationRecorder<'a> {
             re_avg_download_speed: NetworkSpeedAverage::default(),
             re_avg_upload_speed: NetworkSpeedAverage::default(),
             peak_process_memory_bytes: None,
+            has_new_buckconfigs: false,
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
             total_disk_space_bytes: None,
@@ -506,7 +508,9 @@ impl<'a> InvocationRecorder<'a> {
             errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
-            new_configs_used: Some(self.buckconfig_diff_size.map_or(true, |s| s > 0)),
+            new_configs_used: Some(
+                self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),
+            ),
             re_max_download_speed: self
                 .re_max_download_speeds
                 .iter()
@@ -1179,6 +1183,10 @@ impl<'a> InvocationRecorder<'a> {
                         self.handle_concurrent_commands(concurrent_commands)
                     }
                     buck2_data::instant_event::Data::CellConfigDiff(conf) => {
+                        if conf.new_config_indicator_only {
+                            self.has_new_buckconfigs = true;
+                            return Ok(());
+                        }
                         self.buckconfig_diff_count = Some(
                             self.buckconfig_diff_count.unwrap_or_default() + conf.config_diff_count,
                         );

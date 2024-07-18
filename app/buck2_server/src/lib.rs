@@ -15,7 +15,6 @@
 pub mod active_commands;
 pub mod builtin_docs;
 mod clean_stale;
-mod configs;
 mod ctx;
 pub mod daemon;
 mod dice_tracker;

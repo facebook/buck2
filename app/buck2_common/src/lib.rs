@@ -14,6 +14,7 @@
 #![feature(fs_try_exists)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
+#![feature(map_try_insert)]
 #![feature(never_type)]
 #![feature(used_with_arg)]
 

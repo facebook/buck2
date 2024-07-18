@@ -10,31 +10,114 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::sync::Mutex;
 
+use buck2_core::cells::name::CellName;
+use buck2_events::dispatch::get_dispatcher;
+use dice::DiceComputations;
+use dice::UserComputationData;
+use dupe::Dupe;
 use itertools::Itertools;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
-use crate::legacy_configs::configs::LegacyBuckConfigs;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct ConfigDiffMetrics(pub Vec<buck2_data::CellConfigDiff>);
+/// This is a helper struct to track the config diffs between two commands.
+///
+/// This type is stored in the `UserComputationData` - at the beginning of each command, a new one
+/// is created by promoting the one from the previous command. Whenever a cell's buckconfigs are
+/// computed, this type is informed and it sends an event to the client.
+pub struct ConfigDiffTracker {
+    previous: HashMap<CellName, LegacyBuckConfig>,
+    current: Mutex<HashMap<CellName, LegacyBuckConfig>>,
+    size_limit: Option<usize>,
+}
 
-impl ConfigDiffMetrics {
-    pub fn new(
-        new: &LegacyBuckConfigs,
-        old: &LegacyBuckConfigs,
-        diff_size_limit: &Option<usize>,
-    ) -> Self {
-        let mut metrics = Self::default();
+impl ConfigDiffTracker {
+    pub fn promote_into(
+        previous: &mut DiceComputations<'_>,
+        next: &mut UserComputationData,
+        root_config: &LegacyBuckConfig,
+    ) {
+        // `None` indicates that this is the first command
+        let previous = match previous.per_transaction_data().data.get::<Self>() {
+            Ok(previous) => {
+                // It's not enough to just take the current set from the previous command, because
+                // the previous command might not have computed some of the buckconfigs - maybe
+                // because it didn't need them, or maybe because they didn't change. If we didn't
+                // compute them previously, the right thing to do is to assume that the most recent
+                // ones that were computed are still good, and diff against those next command.
+                let mut new = previous.previous.clone();
+                new.extend(
+                    previous
+                        .current
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .map(|(x, y)| (*x, y.dupe())),
+                );
+                new
+            }
+            Err(_) => HashMap::new(),
+        };
 
-        for (_, new_config, old_config) in merge(&new.data, &old.data) {
-            let diff = CellConfigDiff::new(new_config, old_config, diff_size_limit);
-            metrics.0.push(diff.inner);
+        // We parse this here, instead of doing it dynamically, to ensure that we don't take a
+        // dependency on the root config from every other config
+        let size_limit = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "config_diff_size_limit",
+            })
+            // FIXME(JakobDegen): Don't ignore errors
+            .unwrap_or_default();
+
+        let val = ConfigDiffTracker {
+            previous,
+            current: Mutex::new(HashMap::new()),
+            size_limit,
+        };
+
+        next.data.set(val);
+    }
+
+    pub(crate) fn report_computed_config(
+        ctx: &mut DiceComputations<'_>,
+        cell: CellName,
+        config: &LegacyBuckConfig,
+    ) {
+        let Ok(this) = ctx.per_transaction_data().data.get::<Self>() else {
+            // This can happen in tests
+            return;
+        };
+
+        if this
+            .current
+            .lock()
+            .unwrap()
+            .try_insert(cell, config.dupe())
+            .is_err()
+        {
+            // This is a bit suspicious, we normally should not compute the same key twice. It does
+            // mean that the diff was already reported though, so doing nothing seems safe
+            return;
         }
 
-        metrics
+        let event = if let Some(previous) = this.previous.get(&cell) {
+            CellConfigDiff::new(Some(previous), Some(config), &this.size_limit).inner
+        } else {
+            // If there is no previous set, that usually means that this is a new daemon, or maybe
+            // that this particular cell was not loaded in the previous command. To avoid generating
+            // a very large diff, we do not report this to the client - but we still need to tell
+            // the client that there were some new configs
+            buck2_data::CellConfigDiff {
+                new_config_indicator_only: true,
+                ..Default::default()
+            }
+        };
+
+        get_dispatcher().instant_event(event);
     }
 }
 
