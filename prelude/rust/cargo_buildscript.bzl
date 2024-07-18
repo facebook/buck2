@@ -65,8 +65,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
 
         null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
         dep_args = cmd_args("--sysroot=" + null_path, dep_args)
-        dep_args = cmd_args("-Zunstable-options", dep_args)
-        dep_args = dep_args.relative_to(cwd)
+        dep_args = cmd_args("-Zunstable-options", dep_args, relative_to = cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
         sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)
     else:
@@ -77,7 +76,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             "__rustc_shim.bat",
             [
                 "@echo off",
-                cmd_args(toolchain_info.compiler, sysroot_args, "%*", delimiter = " ").relative_to(cwd),
+                cmd_args(toolchain_info.compiler, sysroot_args, "%*", delimiter = " ", relative_to = cwd),
             ],
             allow_args = True,
         )
@@ -86,7 +85,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
             "__rustc_shim.sh",
             [
                 "#!/usr/bin/env bash",
-                cmd_args(toolchain_info.compiler, sysroot_args, "\"$@\"\n", delimiter = " ").relative_to(cwd),
+                cmd_args(toolchain_info.compiler, sysroot_args, "\"$@\"\n", delimiter = " ", relative_to = cwd),
             ],
             is_executable = True,
             allow_args = True,
@@ -136,7 +135,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     # Environment variables specified in the target's attributes get priority
     # over all the above.
     for k, v in ctx.attrs.env.items():
-        env[k] = cmd_args(v).relative_to(cwd)
+        env[k] = cmd_args(v, relative_to = cwd)
 
     ctx.actions.run(
         cmd,
