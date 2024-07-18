@@ -196,7 +196,7 @@ def cxx_sanitizer_runtime_arguments(
             # The parent dir of the runtime shared lib must appear as a path
             # relative to the parent dir of the binary. `@executable_path`
             # represents the parent dir of the binary, not the binary itself.
-            runtime_shared_lib_rpath = cmd_args(runtime_shared_lib_dir, format = "-Wl,-rpath,@executable_path/{}").relative_to(output, parent = 1)
+            runtime_shared_lib_rpath = cmd_args(runtime_shared_lib_dir, format = "-Wl,-rpath,@executable_path/{}", relative_to = (output, 1))
             runtime_rpath.add(runtime_shared_lib_rpath)
 
         return CxxSanitizerRuntimeArguments(
@@ -253,7 +253,12 @@ def executable_shared_lib_arguments(
             rpath_reference = get_rpath_origin(linker_type)
 
             # We ignore_artifacts here since we don't want the symlink tree to actually be there for the link.
-            rpath_arg = cmd_args(shared_libs_symlink_tree, format = "-Wl,-rpath,{}/{{}}".format(rpath_reference), ignore_artifacts = True).relative_to(output, parent = 1)
+            rpath_arg = cmd_args(
+                shared_libs_symlink_tree,
+                format = "-Wl,-rpath,{}/{{}}".format(rpath_reference),
+                ignore_artifacts = True,
+                relative_to = (output, 1),
+            )
             extra_link_args.append(rpath_arg)
 
     return ExecutableSharedLibArguments(
