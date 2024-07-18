@@ -755,6 +755,13 @@ impl EventSubscriber for StatefulSuperConsole {
         }
     }
 
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+        match self {
+            StatefulSuperConsole::Running(c) => c.handle_stderr(stderr).await,
+            StatefulSuperConsole::Finalized(c) => c.handle_stderr(stderr).await,
+        }
+    }
+
     async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
         if let Self::Running(super_console) = self {
             super_console.handle_console_interaction(c).await?;
@@ -1138,6 +1145,40 @@ mod tests {
 
         assert_eq!(too_small.len(), 1);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_tailer_stderr() -> anyhow::Result<()> {
+        let trace_id = TraceId::new();
+        let tick = Tick::now();
+
+        let mut console = StatefulSuperConsole::new(
+            "build",
+            trace_id.dupe(),
+            test_console(),
+            Verbosity::default(),
+            true,
+            Default::default(),
+            Default::default(),
+        )?;
+
+        console.handle_tailer_stderr("some stderr output").await?;
+        console.tick(&tick).await?;
+
+        let frame = match &mut console {
+            StatefulSuperConsole::Running(c) => c
+                .super_console
+                .test_output_mut()?
+                .frames
+                .pop()
+                .context("No frame was emitted")?,
+            StatefulSuperConsole::Finalized(_) => {
+                panic!("Console was downgraded");
+            }
+        };
+
+        assert_frame_contains(&frame, "some stderr output");
         Ok(())
     }
 }
