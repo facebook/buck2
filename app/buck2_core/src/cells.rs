@@ -423,14 +423,13 @@ impl CellResolver {
 
     pub fn testing_with_names_and_paths_with_alias(
         cells: &[(CellName, CellRootPathBuf)],
-        root_cell_aliases: HashMap<NonEmptyCellAlias, CellName>,
+        mut root_cell_aliases: HashMap<NonEmptyCellAlias, CellName>,
     ) -> CellResolver {
-        let cell_path_by_name: HashMap<CellName, CellRootPathBuf> = cells
-            .iter()
-            .map(|(name, path)| (*name, path.clone()))
-            .collect();
-
-        assert_eq!(cell_path_by_name.len(), cells.len(), "duplicate cell names");
+        assert_eq!(
+            cells.len(),
+            cells.iter().map(|(cell, _)| *cell).unique().count(),
+            "duplicate cell name"
+        );
         assert_eq!(
             cells.len(),
             cells
@@ -441,23 +440,37 @@ impl CellResolver {
             "duplicate cell paths"
         );
 
-        let mut cell_aggregator = CellsAggregator::new();
+        let all_roots = cells
+            .iter()
+            .map(|(cell, path)| (*cell, path.as_path()))
+            .collect::<Vec<_>>();
+        let instances: Vec<CellInstance> = cells
+            .iter()
+            .map(|(name, path)| {
+                CellInstance::new(
+                    *name,
+                    path.clone(),
+                    None,
+                    NestedCells::from_cell_roots(&all_roots, path),
+                )
+                .unwrap()
+            })
+            .collect();
 
-        for (name, path) in cells {
-            cell_aggregator.cell_info(path.clone()).name = Some(*name);
-
-            for (alias, name) in root_cell_aliases.iter() {
-                cell_aggregator
-                    .add_cell_entry(
-                        path.clone(),
-                        alias.clone(),
-                        cell_path_by_name.get(name).unwrap().clone(),
-                    )
-                    .unwrap();
+        let mut root = None;
+        for (cell, p) in cells {
+            root_cell_aliases.insert(
+                NonEmptyCellAlias::new(cell.as_str().to_owned()).unwrap(),
+                *cell,
+            );
+            if p.is_repo_root() {
+                root = Some(*cell);
             }
         }
 
-        cell_aggregator.make_cell_resolver().unwrap()
+        let root_aliases = CellAliasResolver::new(root.unwrap(), root_cell_aliases).unwrap();
+
+        CellResolver::new(instances, root_aliases).unwrap()
     }
 
     pub(crate) fn resolve_path_crossing_cell_boundaries<'a>(
