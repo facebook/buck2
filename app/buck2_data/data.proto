@@ -181,11 +181,7 @@ message CommandOptions {
 }
 
 message BuckConfigs {
-  reserved 1;
-  // unset on init and first config,set only after config change
-  optional uint64 config_diff_count = 2;
-  // key + old value + new value
-  optional uint64 config_diff_size = 3;
+  reserved 1, 2, 3;
   // config diff by cell name
   map<string, CellConfigDiff> cell_diff = 4;
 }
@@ -193,6 +189,9 @@ message BuckConfigs {
 message CellConfigDiff {
   // config diff by section name
   map<string, SectionConfigDiff> section_diff = 1;
+  uint64 config_diff_count = 2;
+  // key + old value + new value
+  uint64 config_diff_size = 3;
 }
 
 message SectionConfigDiff {
@@ -210,7 +209,7 @@ message ConfigDiff {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -291,7 +290,7 @@ message InstantEvent {
 
     CleanStaleResult clean_stale_result = 37;
 
-    BuckConfigs buck_configs = 38;
+    CellConfigDiff cell_config_diff = 41;
 
     InstallFinished install_finished = 39;
 

@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_core::cells::name::CellName;
-use dupe::Dupe;
 use gazebo::eq_chain;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
@@ -239,37 +238,33 @@ impl ConfigDiffMetrics {
     ) -> Self {
         let mut metrics = Self::default();
 
-        for (cell, new_config, old_config) in merge(&new.data, &old.data) {
-            if let Some(diff) = metrics.cell_diff(new_config, old_config, diff_size_limit) {
-                metrics.diff.insert(cell.dupe(), diff);
-            }
+        for (_, new_config, old_config) in merge(&new.data, &old.data) {
+            let diff = CellConfigDiff::new(new_config, old_config, diff_size_limit);
+            metrics.0.push(diff);
         }
 
         metrics
     }
+}
 
-    fn cell_diff(
-        &mut self,
+impl CellConfigDiff {
+    pub(crate) fn new(
         new: Option<&LegacyBuckConfig>,
         old: Option<&LegacyBuckConfig>,
         diff_size_limit: &Option<usize>,
-    ) -> Option<CellConfigDiff> {
-        let mut result = SmallMap::new();
+    ) -> CellConfigDiff {
+        let mut this = Self::default();
         let empty = SortedMap::new();
         let new_conf = new.map(|n| &n.0.values).unwrap_or(&empty);
         let old_conf = old.map(|o| &o.0.values).unwrap_or(&empty);
 
         for (section, new_conf, old_conf) in merge(&new_conf, &old_conf) {
-            if let Some(diff) = self.section_diff(new_conf, old_conf, diff_size_limit) {
-                result.insert(section.to_owned(), diff);
+            if let Some(diff) = this.section_diff(new_conf, old_conf, diff_size_limit) {
+                this.diff.insert(section.to_owned(), diff);
             }
         }
 
-        if result.is_empty() {
-            None
-        } else {
-            Some(CellConfigDiff(result))
-        }
+        this
     }
 
     fn section_diff(

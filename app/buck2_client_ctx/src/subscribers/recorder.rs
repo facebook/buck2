@@ -1178,9 +1178,13 @@ impl<'a> InvocationRecorder<'a> {
                     buck2_data::instant_event::Data::ConcurrentCommands(concurrent_commands) => {
                         self.handle_concurrent_commands(concurrent_commands)
                     }
-                    buck2_data::instant_event::Data::BuckConfigs(conf) => {
-                        self.buckconfig_diff_count = conf.config_diff_count;
-                        self.buckconfig_diff_size = conf.config_diff_size;
+                    buck2_data::instant_event::Data::CellConfigDiff(conf) => {
+                        self.buckconfig_diff_count = Some(
+                            self.buckconfig_diff_count.unwrap_or_default() + conf.config_diff_count,
+                        );
+                        self.buckconfig_diff_size = Some(
+                            self.buckconfig_diff_size.unwrap_or_default() + conf.config_diff_size,
+                        );
                         Ok(())
                     }
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {

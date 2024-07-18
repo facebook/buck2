@@ -514,7 +514,10 @@ impl CellConfigLoader {
                                 config_paths: HashSet::new(),
                                 external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
                             },
-                            config_metrics: Some(ConfigDiffMetrics::default()),
+                            // Report that at least one cell didn't change it's config, so that it
+                            // doesn't look like there are a new set of configs. Once this is moved
+                            // into dice properly, the special case can go away
+                            config_metrics: Some(ConfigDiffMetrics(vec![Default::default()])),
                         });
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
@@ -819,8 +822,9 @@ impl DiceUpdater for DiceCommandUpdater {
             self.unstable_typecheck,
         )?;
 
-        let buck_configs = configs::buck_configs(config_metrics);
-        self.events.instant_event(buck_configs);
+        for c in configs::buck_configs(config_metrics) {
+            self.events.instant_event(c);
+        }
 
         Ok(ctx)
     }
