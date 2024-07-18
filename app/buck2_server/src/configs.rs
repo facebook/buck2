@@ -12,10 +12,7 @@ use std::collections::HashMap;
 use buck2_common::legacy_configs::configs::ConfigDiffEntry;
 use buck2_common::legacy_configs::configs::ConfigDiffMetrics;
 
-pub(crate) fn buck_configs(
-    new_configs_used: bool,
-    metrics: Option<ConfigDiffMetrics>,
-) -> buck2_data::BuckConfigs {
+pub(crate) fn buck_configs(metrics: Option<ConfigDiffMetrics>) -> buck2_data::BuckConfigs {
     let (config_diff_count, config_diff_size, cell_diff) = match metrics {
         Some(metrics) => (
             Some(metrics.count as u64),
@@ -26,7 +23,6 @@ pub(crate) fn buck_configs(
         None => (None, None, HashMap::new()),
     };
     buck2_data::BuckConfigs {
-        new_configs_used,
         config_diff_count,
         config_diff_size,
         cell_diff,
@@ -72,10 +68,9 @@ mod tests {
 
     #[test]
     fn test_buck_configs_without_metrics() {
-        let buck_configs = buck_configs(true, None);
+        let buck_configs = buck_configs(None);
 
         let expected = buck2_data::BuckConfigs {
-            new_configs_used: true,
             config_diff_count: None,
             config_diff_size: None,
             cell_diff: HashMap::new(),
@@ -112,10 +107,9 @@ mod tests {
             size_bytes: 10,
             diff_size_exceeded: false,
         };
-        let buck_configs = buck_configs(true, Some(metrics));
+        let buck_configs = buck_configs(Some(metrics));
 
         let expected = buck2_data::BuckConfigs {
-            new_configs_used: true,
             config_diff_count: Some(2),
             config_diff_size: Some(10),
             cell_diff: hashmap![

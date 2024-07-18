@@ -906,7 +906,6 @@ pub(crate) mod tests {
         let metrics = ConfigDiffMetrics::new(cell, &configs, &configs);
 
         assert_eq!(metrics.count, 0);
-        assert_eq!(metrics.has_changed(), false);
         assert_eq!(metrics.size_bytes, 0);
         assert_eq!(metrics.diff, SmallMap::new());
         assert_eq!(metrics.diff_size_exceeded, false);
@@ -934,7 +933,6 @@ pub(crate) mod tests {
         let metrics = ConfigDiffMetrics::new(cell, &configs1, &empty);
 
         assert_eq!(metrics.count, 2);
-        assert_eq!(metrics.has_changed(), true);
         assert_eq!(
             metrics.size_bytes,
             key.len() + value.len() + limit_key.len() + limit_value.len()
@@ -988,7 +986,6 @@ pub(crate) mod tests {
         let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
 
         assert_eq!(metrics.count, 2);
-        assert_eq!(metrics.has_changed(), true);
         assert_eq!(
             metrics.size_bytes,
             key2.len() + value2_1.len() + value2_2.len() + key3.len() + value3.len()
@@ -1038,7 +1035,6 @@ pub(crate) mod tests {
         let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
 
         assert_eq!(metrics.count, 2);
-        assert_eq!(metrics.has_changed(), true);
         assert_eq!(
             metrics.size_bytes,
             key1.len() + value1.len() + key2.len() + value2.len()

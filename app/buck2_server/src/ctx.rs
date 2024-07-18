@@ -477,8 +477,6 @@ struct CellConfigLoader {
 #[allow(dead_code)]
 struct BuckConfigBasedCellsStatus {
     cells_and_configs: BuckConfigBasedCells,
-    // false on init, true on first config or after config change
-    new_configs: bool,
     // None on init and first config, Some after config change
     config_metrics: Option<ConfigDiffMetrics>,
 }
@@ -516,8 +514,7 @@ impl CellConfigLoader {
                                 config_paths: HashSet::new(),
                                 external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
                             },
-                            new_configs: false,
-                            config_metrics: None,
+                            config_metrics: Some(ConfigDiffMetrics::default()),
                         });
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
@@ -529,18 +526,17 @@ impl CellConfigLoader {
                 let cells_and_configs = BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir).await
                     .map_err(buck2_error::Error::from)?;
 
-                let (new_configs, config_metrics) = if dice_ctx.is_injected_legacy_configs_key_set().await? {
+                let config_metrics = if dice_ctx.is_injected_legacy_configs_key_set().await? {
                     let injected_legacy_configs = dice_ctx.get_injected_legacy_configs().await?;
                     let root_cell = cells_and_configs.cell_resolver.root_cell();
                     let diff_data = ConfigDiffMetrics::new(root_cell, &cells_and_configs.configs_by_name, &injected_legacy_configs);
-                    (diff_data.has_changed(), Some(diff_data))
+                    Some(diff_data)
                 } else {
                     // first invocation of a daemon
-                    (true, None)
+                    None
                 };
                 buck2_error::Ok(BuckConfigBasedCellsStatus {
                     cells_and_configs,
-                    new_configs,
                     config_metrics,
                 })
             })
@@ -776,7 +772,6 @@ impl DiceUpdater for DiceCommandUpdater {
     ) -> anyhow::Result<DiceTransactionUpdater> {
         let BuckConfigBasedCellsStatus {
             cells_and_configs,
-            new_configs,
             config_metrics,
         } = self
             .cell_config_loader
@@ -815,7 +810,7 @@ impl DiceUpdater for DiceCommandUpdater {
             self.unstable_typecheck,
         )?;
 
-        let buck_configs = configs::buck_configs(new_configs, config_metrics);
+        let buck_configs = configs::buck_configs(config_metrics);
         self.events.instant_event(buck_configs);
 
         Ok(ctx)

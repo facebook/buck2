@@ -256,10 +256,6 @@ impl ConfigDiffMetrics {
         metrics
     }
 
-    pub fn has_changed(&self) -> bool {
-        self.count != 0
-    }
-
     fn cell_diff(
         &mut self,
         new: Option<&LegacyBuckConfig>,

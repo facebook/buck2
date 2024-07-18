@@ -158,7 +158,6 @@ pub(crate) struct InvocationRecorder<'a> {
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
-    new_configs_used: bool,
     re_max_download_speeds: Vec<SlidingWindow>,
     re_max_upload_speeds: Vec<SlidingWindow>,
     re_avg_download_speed: NetworkSpeedAverage,
@@ -265,7 +264,6 @@ impl<'a> InvocationRecorder<'a> {
             errors: Vec::new(),
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
-            new_configs_used: false,
             re_max_download_speeds: vec![
                 SlidingWindow::new(Duration::from_secs(1)),
                 SlidingWindow::new(Duration::from_secs(5)),
@@ -508,7 +506,7 @@ impl<'a> InvocationRecorder<'a> {
             errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
-            new_configs_used: Some(self.new_configs_used),
+            new_configs_used: Some(self.buckconfig_diff_size.map_or(true, |s| s > 0)),
             re_max_download_speed: self
                 .re_max_download_speeds
                 .iter()
@@ -1181,7 +1179,6 @@ impl<'a> InvocationRecorder<'a> {
                         self.handle_concurrent_commands(concurrent_commands)
                     }
                     buck2_data::instant_event::Data::BuckConfigs(conf) => {
-                        self.new_configs_used = conf.new_configs_used;
                         self.buckconfig_diff_count = conf.config_diff_count;
                         self.buckconfig_diff_size = conf.config_diff_size;
                         Ok(())

@@ -181,7 +181,7 @@ message CommandOptions {
 }
 
 message BuckConfigs {
-  bool new_configs_used = 1;
+  reserved 1;
   // unset on init and first config,set only after config change
   optional uint64 config_diff_count = 2;
   // key + old value + new value
