@@ -793,10 +793,15 @@ mod tests {
         )
         .await?;
 
-        let configs = &cells.configs_by_name;
-        let root_config = configs.get(CellName::testing_new("root")).unwrap();
-        let other_config = configs.get(CellName::testing_new("other")).unwrap();
-        let tp_config = configs.get(CellName::testing_new("third_party")).unwrap();
+        let root_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
+            .await?;
+        let other_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
+        let tp_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("third_party"), &mut file_ops)
+            .await?;
 
         assert_eq!(
             root_config.get(BuckconfigKeyRef {
@@ -856,9 +861,9 @@ mod tests {
         )
         .await?;
 
-        let configs = &cells.configs_by_name;
-
-        let other_config = configs.get(CellName::testing_new("other")).unwrap();
+        let other_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
 
         assert_eq!(
             other_config.get(BuckconfigKeyRef {
@@ -934,8 +939,9 @@ mod tests {
         )
         .await?;
 
-        let configs = &cells.configs_by_name;
-        let other_config = configs.get(CellName::testing_new("other")).unwrap();
+        let other_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
 
         assert_eq!(
             other_config.get(BuckconfigKeyRef {
@@ -993,16 +999,17 @@ mod tests {
         )
         .await?;
 
-        let configs = &cells.configs_by_name;
-        let config = configs.get(CellName::testing_new("root")).unwrap();
+        let config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
+            .await?;
         // No local override
-        assert_config_value(config, "apple", "key", "value1");
+        assert_config_value(&config, "apple", "key", "value1");
         // local override to new value
-        assert_config_value(config, "apple", "key2", "value5");
+        assert_config_value(&config, "apple", "key2", "value5");
         // local override new field
-        assert_config_value(config, "apple", "key3", "value4");
+        assert_config_value(&config, "apple", "key3", "value4");
         // local override new section
-        assert_config_value(config, "orange", "key", "value3");
+        assert_config_value(&config, "orange", "key", "value3");
 
         Ok(())
     }
@@ -1071,27 +1078,30 @@ mod tests {
         )
         .await?;
 
-        let configs = &cells.configs_by_name;
-        let root_config = configs.get(CellName::testing_new("root")).unwrap();
-        let other_config = configs.get(CellName::testing_new("other")).unwrap();
+        let root_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
+            .await?;
+        let other_config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
 
         // No local override
-        assert_config_value(root_config, "apple", "key", "value1");
+        assert_config_value(&root_config, "apple", "key", "value1");
         // local override to new value
-        assert_config_value(root_config, "apple", "key2", "value5");
+        assert_config_value(&root_config, "apple", "key2", "value5");
         // local override new field
-        assert_config_value(root_config, "apple", "key3", "value4");
+        assert_config_value(&root_config, "apple", "key3", "value4");
         // local override new section
-        assert_config_value(root_config, "orange", "key", "value3");
+        assert_config_value(&root_config, "orange", "key", "value3");
 
         // No local override
-        assert_config_value(other_config, "apple", "key", "othervalue1");
+        assert_config_value(&other_config, "apple", "key", "othervalue1");
         // local override to new value
-        assert_config_value(other_config, "apple", "key2", "othervalue5");
+        assert_config_value(&other_config, "apple", "key2", "othervalue5");
         // local override new field
-        assert_config_value(other_config, "apple", "key3", "othervalue4");
+        assert_config_value(&other_config, "apple", "key3", "othervalue4");
         // local override new section
-        assert_config_value(other_config, "orange", "key", "othervalue3");
+        assert_config_value(&other_config, "orange", "key", "othervalue3");
 
         Ok(())
     }
@@ -1110,7 +1120,7 @@ mod tests {
         )])?;
         let project_fs = create_project_filesystem();
 
-        let configs = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[ConfigOverride {
@@ -1119,11 +1129,12 @@ mod tests {
             }],
             ProjectRelativePath::empty(),
         )
-        .await?
-        .configs_by_name;
-        let config = configs.get(CellName::testing_new("other")).unwrap();
+        .await?;
+        let config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
 
-        assert_config_value(config, "some_section", "key", "value1");
+        assert_config_value(&config, "some_section", "key", "value1");
 
         Ok(())
     }

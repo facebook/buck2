@@ -172,27 +172,36 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let configs = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
             ProjectRelativePath::empty(),
         )
-        .await?
-        .configs_by_name;
+        .await?;
 
+        let config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
+            .await?;
         assert_eq!(
             vec!["BUCK.v2", "BUCK"],
-            parse_buildfile_name(configs.get(CellName::testing_new("root"))?)?.map(|f| f.as_str()),
+            parse_buildfile_name(&config)?.map(|f| f.as_str()),
         );
+
+        let config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
+            .await?;
         assert_eq!(
             vec!["TARGETS.v2", "TARGETS", "TARGETS.test"],
-            parse_buildfile_name(configs.get(CellName::testing_new("other"))?)?.map(|f| f.as_str()),
+            parse_buildfile_name(&config)?.map(|f| f.as_str()),
         );
+
+        let config = cells
+            .parse_single_cell_with_file_ops(CellName::testing_new("third_party"), &mut file_ops)
+            .await?;
         assert_eq!(
             vec!["OKAY"],
-            parse_buildfile_name(configs.get(CellName::testing_new("third_party"))?)?
-                .map(|f| f.as_str()),
+            parse_buildfile_name(&config)?.map(|f| f.as_str()),
         );
 
         Ok(())
