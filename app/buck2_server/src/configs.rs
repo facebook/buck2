@@ -9,9 +9,9 @@
 
 use std::collections::HashMap;
 
-use buck2_common::legacy_configs::configs::CellConfigDiff;
-use buck2_common::legacy_configs::configs::ConfigDiffEntry;
-use buck2_common::legacy_configs::configs::ConfigDiffMetrics;
+use buck2_common::legacy_configs::diffs::CellConfigDiff;
+use buck2_common::legacy_configs::diffs::ConfigDiffEntry;
+use buck2_common::legacy_configs::diffs::ConfigDiffMetrics;
 
 pub(crate) fn buck_configs(metrics: Option<ConfigDiffMetrics>) -> Vec<buck2_data::CellConfigDiff> {
     let Some(metrics) = metrics else {
@@ -50,8 +50,8 @@ pub(crate) fn diff_by_cell(metrics: CellConfigDiff) -> buck2_data::CellConfigDif
 
 #[cfg(test)]
 mod tests {
-    use buck2_common::legacy_configs::configs::CellConfigDiff;
-    use buck2_common::legacy_configs::configs::SectionConfigDiff;
+    use buck2_common::legacy_configs::diffs::CellConfigDiff;
+    use buck2_common::legacy_configs::diffs::SectionConfigDiff;
     use maplit::hashmap;
     use starlark_map::smallmap;
 

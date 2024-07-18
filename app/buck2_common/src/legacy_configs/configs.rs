@@ -19,7 +19,6 @@ use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::args::ResolvedConfigFile;
@@ -319,32 +318,6 @@ pub(crate) struct BuckConfigParseOptions {
     pub(crate) follow_includes: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConfigDiffEntry {
-    Added(String),
-    Removed(String),
-    Changed { new: String, old: String },
-}
-
-// config name to config diff
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct SectionConfigDiff(pub SmallMap<String, ConfigDiffEntry>);
-
-// section name to config diffs
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct CellConfigDiff {
-    pub diff: SmallMap<String, SectionConfigDiff>,
-    // count of changed/removed/added config antries
-    pub count: usize,
-    // key + old value + new value
-    pub size_bytes: usize,
-    // if diff map is complete or partial due to size limit
-    pub diff_size_exceeded: bool,
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct ConfigDiffMetrics(pub Vec<CellConfigDiff>);
-
 pub mod testing {
     use std::cmp::min;
 
@@ -458,7 +431,6 @@ pub mod testing {
 pub(crate) mod tests {
     use indoc::indoc;
     use itertools::Itertools;
-    use starlark_map::smallmap;
 
     use super::testing::*;
     use super::*;
@@ -884,133 +856,6 @@ pub(crate) mod tests {
         let config_args = vec![ConfigOverride::flag("apple.key=foo//value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
-        let config_args = vec![ConfigOverride::flag("apple.key=value1")];
-        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
-
-        let metrics = CellConfigDiff::new(Some(&config), Some(&config), &Some(10000));
-
-        assert_eq!(metrics.count, 0);
-        assert_eq!(metrics.size_bytes, 0);
-        assert_eq!(metrics.diff, SmallMap::new());
-        assert_eq!(metrics.diff_size_exceeded, false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_diff_metrics_with_empty() -> anyhow::Result<()> {
-        let key = "key";
-        let value = "value1";
-        let limit_key = "config_diff_size_limit";
-        let limit_value = "10000";
-        let config_args = vec![
-            ConfigOverride::flag(&format!("buck2.{limit_key}={limit_value}")),
-            ConfigOverride::flag(&format!("apple.{key}={value}")),
-        ];
-        let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
-
-        let metrics = CellConfigDiff::new(Some(&config), None, &Some(10000));
-
-        assert_eq!(metrics.count, 2);
-        assert_eq!(
-            metrics.size_bytes,
-            key.len() + value.len() + limit_key.len() + limit_value.len()
-        );
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key.to_owned() => ConfigDiffEntry::Added(value.to_owned())
-            ]),
-            "buck2".to_owned() => SectionConfigDiff(smallmap![
-                limit_key.to_owned() => ConfigDiffEntry::Added(limit_value.to_owned())
-            ]),
-        ];
-        assert_eq!(metrics.diff, expected);
-        assert_eq!(metrics.diff_size_exceeded, false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_diff_metrics_only_changed() -> anyhow::Result<()> {
-        let key1 = "key1";
-        let value1 = "value1";
-        let key2 = "key2";
-        let value2_1 = "value2";
-        let value2_2 = "value3";
-        let key3 = "key3";
-        let value3 = "value3";
-
-        let config_args1 = vec![
-            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
-            ConfigOverride::flag(&format!("apple.{key2}={value2_1}")),
-        ];
-        let config1 =
-            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
-
-        let config_args2 = vec![
-            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
-            ConfigOverride::flag(&format!("apple.{key2}={value2_2}")),
-            ConfigOverride::flag(&format!("apple.{key3}={value3}")),
-        ];
-        let config2 =
-            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
-
-        let metrics = CellConfigDiff::new(Some(&config1), Some(&config2), &Some(1000));
-
-        assert_eq!(metrics.count, 2);
-        assert_eq!(
-            metrics.size_bytes,
-            key2.len() + value2_1.len() + value2_2.len() + key3.len() + value3.len()
-        );
-
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key2.to_owned() => ConfigDiffEntry::Changed {
-                    new: value2_1.to_owned(),
-                    old: value2_2.to_owned()
-                },
-                key3.to_owned() => ConfigDiffEntry::Removed(value3.to_owned())
-            ])
-        ];
-        assert_eq!(metrics.diff, expected);
-        assert_eq!(metrics.diff_size_exceeded, false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_diff_metrics_size_exceeded() -> anyhow::Result<()> {
-        let key1 = "key1";
-        let value1 = "value1";
-        let key2 = "key2";
-        let value2 = "value2";
-
-        let config_args1 = vec![ConfigOverride::flag(&format!("apple.{key1}={value1}"))];
-        let config1 =
-            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
-
-        let config_args2 = vec![ConfigOverride::flag(&format!("apple.{key2}={value2}"))];
-        let config2 =
-            parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
-
-        let metrics = CellConfigDiff::new(Some(&config1), Some(&config2), &Some(12));
-
-        assert_eq!(metrics.count, 2);
-        assert_eq!(
-            metrics.size_bytes,
-            key1.len() + value1.len() + key2.len() + value2.len()
-        );
-
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key1.to_owned() => ConfigDiffEntry::Added(value1.to_owned())
-            ])
-        ];
-        assert_eq!(metrics.diff, expected);
-        assert_eq!(metrics.diff_size_exceeded, true);
 
         Ok(())
     }

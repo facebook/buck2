@@ -15,6 +15,7 @@ pub mod args;
 pub mod cells;
 pub mod configs;
 pub mod dice;
+pub mod diffs;
 pub mod file_ops;
 pub mod key;
 mod parser;
