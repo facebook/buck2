@@ -8,41 +8,18 @@
  */
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::hash::Hash;
 
 use itertools::Itertools;
-use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::LegacyBuckConfigs;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConfigDiffEntry {
-    Added(String),
-    Removed(String),
-    Changed { new: String, old: String },
-}
-
-// config name to config diff
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct SectionConfigDiff(pub SmallMap<String, ConfigDiffEntry>);
-
-// section name to config diffs
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct CellConfigDiff {
-    pub diff: SmallMap<String, SectionConfigDiff>,
-    // count of changed/removed/added config antries
-    pub count: usize,
-    // key + old value + new value
-    pub size_bytes: usize,
-    // if diff map is complete or partial due to size limit
-    pub diff_size_exceeded: bool,
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct ConfigDiffMetrics(pub Vec<CellConfigDiff>);
+pub struct ConfigDiffMetrics(pub Vec<buck2_data::CellConfigDiff>);
 
 impl ConfigDiffMetrics {
     pub fn new(
@@ -54,15 +31,22 @@ impl ConfigDiffMetrics {
 
         for (_, new_config, old_config) in merge(&new.data, &old.data) {
             let diff = CellConfigDiff::new(new_config, old_config, diff_size_limit);
-            metrics.0.push(diff);
+            metrics.0.push(diff.inner);
         }
 
         metrics
     }
 }
 
+// section name to config diffs
+#[derive(Debug, Clone, Default, PartialEq)]
+struct CellConfigDiff {
+    inner: buck2_data::CellConfigDiff,
+    diff_size_exceeded: bool,
+}
+
 impl CellConfigDiff {
-    pub(crate) fn new(
+    fn new(
         new: Option<&LegacyBuckConfig>,
         old: Option<&LegacyBuckConfig>,
         diff_size_limit: &Option<usize>,
@@ -74,7 +58,7 @@ impl CellConfigDiff {
 
         for (section, new_conf, old_conf) in merge(&new_conf, &old_conf) {
             if let Some(diff) = this.section_diff(new_conf, old_conf, diff_size_limit) {
-                this.diff.insert(section.to_owned(), diff);
+                this.inner.section_diff.insert(section.to_owned(), diff);
             }
         }
 
@@ -86,73 +70,51 @@ impl CellConfigDiff {
         new: Option<&LegacyBuckConfigSection>,
         old: Option<&LegacyBuckConfigSection>,
         diff_size_limit: &Option<usize>,
-    ) -> Option<SectionConfigDiff> {
-        let mut result = SmallMap::new();
+    ) -> Option<buck2_data::SectionConfigDiff> {
+        let mut result = HashMap::new();
         let empty = SortedMap::new();
         let new_section = new.map(|n| &n.values).unwrap_or(&empty);
         let old_section = old.map(|o| &o.values).unwrap_or(&empty);
 
         for (name, new_conf, old_conf) in merge(&new_section, &old_section) {
-            match (new_conf, old_conf) {
-                (None, Some(old_value)) => {
-                    let old_value = old_value.as_str();
-                    self.count += 1;
-                    self.size_bytes += name.len() + old_value.len();
-                    self.insert_if_fits(
-                        &mut result,
-                        name,
-                        ConfigDiffEntry::Removed(old_value.to_owned()),
-                        diff_size_limit,
-                    );
-                }
-                (Some(new_value), None) => {
-                    let new_value = new_value.as_str();
-                    self.count += 1;
-                    self.size_bytes += name.len() + new_value.len();
-                    self.insert_if_fits(
-                        &mut result,
-                        name,
-                        ConfigDiffEntry::Added(new_value.to_owned()),
-                        diff_size_limit,
-                    );
-                }
-                (Some(new_value), Some(old_value)) => {
-                    let new_value = new_value.as_str();
-                    let old_value = old_value.as_str();
-                    if new_value != old_value {
-                        self.count += 1;
-                        self.size_bytes += name.len() + new_value.len() + old_value.len();
-                        self.insert_if_fits(
-                            &mut result,
-                            name,
-                            ConfigDiffEntry::Changed {
-                                new: new_value.to_owned(),
-                                old: old_value.to_owned(),
-                            },
-                            diff_size_limit,
-                        );
-                    }
-                }
-                (None, None) => {}
-            };
+            let new_conf = new_conf.map(|x| x.as_str());
+            let old_conf = old_conf.map(|x| x.as_str());
+            if new_conf == old_conf {
+                continue;
+            }
+            self.inner.config_diff_count += 1;
+            self.inner.config_diff_size +=
+                (name.len() + old_conf.map_or(0, |x| x.len()) + new_conf.map_or(0, |x| x.len()))
+                    as u64;
+            self.insert_if_fits(
+                &mut result,
+                name,
+                buck2_data::ConfigDiff {
+                    old_value: old_conf.map(|x| x.to_owned()),
+                    new_value: new_conf.map(|x| x.to_owned()),
+                },
+                diff_size_limit,
+            );
         }
 
         if result.is_empty() {
             None
         } else {
-            Some(SectionConfigDiff(result))
+            Some(buck2_data::SectionConfigDiff {
+                config_diff: result,
+            })
         }
     }
 
     fn insert_if_fits(
         &mut self,
-        map: &mut SmallMap<String, ConfigDiffEntry>,
+        map: &mut HashMap<String, buck2_data::ConfigDiff>,
         name: &String,
-        entry: ConfigDiffEntry,
+        entry: buck2_data::ConfigDiff,
         diff_size_limit: &Option<usize>,
     ) {
         if let Some(limit) = diff_size_limit {
-            if self.size_bytes < *limit {
+            if self.inner.config_diff_size < (*limit) as u64 {
                 map.insert(name.to_owned(), entry);
             } else {
                 self.diff_size_exceeded = true;
@@ -184,7 +146,7 @@ where
 mod tests {
     use buck2_cli_proto::ConfigOverride;
     use indoc::indoc;
-    use starlark_map::smallmap;
+    use maplit::hashmap;
     use starlark_map::sorted_map::SortedMap;
 
     use super::merge;
@@ -258,9 +220,9 @@ mod tests {
 
         let metrics = CellConfigDiff::new(Some(&config), Some(&config), &Some(10000));
 
-        assert_eq!(metrics.count, 0);
-        assert_eq!(metrics.size_bytes, 0);
-        assert_eq!(metrics.diff, SmallMap::new());
+        assert_eq!(metrics.inner.config_diff_count, 0);
+        assert_eq!(metrics.inner.config_diff_size, 0);
+        assert_eq!(metrics.inner.section_diff, HashMap::new());
         assert_eq!(metrics.diff_size_exceeded, false);
         Ok(())
     }
@@ -279,20 +241,30 @@ mod tests {
 
         let metrics = CellConfigDiff::new(Some(&config), None, &Some(10000));
 
-        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.inner.config_diff_count, 2);
         assert_eq!(
-            metrics.size_bytes,
+            metrics.inner.config_diff_size as usize,
             key.len() + value.len() + limit_key.len() + limit_value.len()
         );
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key.to_owned() => ConfigDiffEntry::Added(value.to_owned())
-            ]),
-            "buck2".to_owned() => SectionConfigDiff(smallmap![
-                limit_key.to_owned() => ConfigDiffEntry::Added(limit_value.to_owned())
-            ]),
+        let expected = hashmap![
+            "apple".to_owned() => buck2_data::SectionConfigDiff {
+                config_diff: hashmap![
+                    key.to_owned() => buck2_data::ConfigDiff {
+                        old_value: None,
+                        new_value: Some(value.to_owned()),
+                    },
+                ],
+            },
+            "buck2".to_owned() => buck2_data::SectionConfigDiff {
+                config_diff: hashmap![
+                    limit_key.to_owned() => buck2_data::ConfigDiff {
+                        old_value: None,
+                        new_value: Some(limit_value.to_owned()),
+                    },
+                ],
+            },
         ];
-        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.inner.section_diff, expected);
         assert_eq!(metrics.diff_size_exceeded, false);
         Ok(())
     }
@@ -324,22 +296,27 @@ mod tests {
 
         let metrics = CellConfigDiff::new(Some(&config1), Some(&config2), &Some(1000));
 
-        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.inner.config_diff_count, 2);
         assert_eq!(
-            metrics.size_bytes,
+            metrics.inner.config_diff_size as usize,
             key2.len() + value2_1.len() + value2_2.len() + key3.len() + value3.len()
         );
 
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key2.to_owned() => ConfigDiffEntry::Changed {
-                    new: value2_1.to_owned(),
-                    old: value2_2.to_owned()
-                },
-                key3.to_owned() => ConfigDiffEntry::Removed(value3.to_owned())
-            ])
+        let expected = hashmap![
+            "apple".to_owned() => buck2_data::SectionConfigDiff {
+                config_diff: hashmap![
+                    key2.to_owned() => buck2_data::ConfigDiff {
+                        old_value: Some(value2_2.to_owned()),
+                        new_value: Some(value2_1.to_owned()),
+                    },
+                    key3.to_owned() => buck2_data::ConfigDiff {
+                        old_value: Some(value3.to_owned()),
+                        new_value: None
+                    },
+                ]
+            }
         ];
-        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.inner.section_diff, expected);
         assert_eq!(metrics.diff_size_exceeded, false);
         Ok(())
     }
@@ -361,18 +338,23 @@ mod tests {
 
         let metrics = CellConfigDiff::new(Some(&config1), Some(&config2), &Some(12));
 
-        assert_eq!(metrics.count, 2);
+        assert_eq!(metrics.inner.config_diff_count, 2);
         assert_eq!(
-            metrics.size_bytes,
+            metrics.inner.config_diff_size as usize,
             key1.len() + value1.len() + key2.len() + value2.len()
         );
 
-        let expected = smallmap![
-            "apple".to_owned() => SectionConfigDiff(smallmap![
-                key1.to_owned() => ConfigDiffEntry::Added(value1.to_owned())
-            ])
+        let expected = hashmap![
+            "apple".to_owned() => buck2_data::SectionConfigDiff {
+                config_diff: hashmap![
+                    key1.to_owned() => buck2_data::ConfigDiff {
+                        old_value: None,
+                        new_value: Some(value1.to_owned()),
+                    },
+                ],
+            },
         ];
-        assert_eq!(metrics.diff, expected);
+        assert_eq!(metrics.inner.section_diff, expected);
         assert_eq!(metrics.diff_size_exceeded, true);
 
         Ok(())

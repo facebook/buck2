@@ -31,7 +31,6 @@ rust_library(
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:maplit",
         "//buck2/app/buck2_util:buck2_util",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
