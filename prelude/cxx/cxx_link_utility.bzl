@@ -10,6 +10,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
@@ -72,6 +73,7 @@ LinkArgsOutput = record(
 )
 
 def make_link_args(
+        ctx: AnalysisContext,
         actions: AnalysisActions,
         cxx_toolchain_info: CxxToolchainInfo,
         links: list[LinkArgs],
@@ -90,27 +92,31 @@ def make_link_args(
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
-    # On Apple platforms, DWARF data is contained in the object files
-    # and executables contains paths to the object files (N_OSO stab).
-    #
-    # By default, ld64 will use absolute file paths in N_OSO entries
-    # which machine-dependent executables. Such executables would not
-    # be debuggable on any host apart from the host which performed
-    # the linking. Instead, we want produce machine-independent
-    # hermetic executables, so we need to relativize those paths.
-    #
-    # This is accomplished by passing the `oso-prefix` flag to ld64,
-    # which will strip the provided prefix from the N_OSO paths.
-    #
-    # The flag accepts a special value, `.`, which means it will
-    # use the current workding directory. This will make all paths
-    # relative to the parent of `buck-out`.
-    #
-    # Because all actions in Buck2 are run from the project root
-    # and `buck-out` is always inside the project root, we can
-    # safely pass `.` as the `-oso_prefix` without having to
-    # write a wrapper script to compute it dynamically.
     if linker_type == "darwin":
+        # Darwin requires a target triple specified to
+        # control the deployment target being linked for.
+        args.add(get_target_sdk_version_linker_flags(ctx))
+
+        # On Apple platforms, DWARF data is contained in the object files
+        # and executables contains paths to the object files (N_OSO stab).
+        #
+        # By default, ld64 will use absolute file paths in N_OSO entries
+        # which machine-dependent executables. Such executables would not
+        # be debuggable on any host apart from the host which performed
+        # the linking. Instead, we want produce machine-independent
+        # hermetic executables, so we need to relativize those paths.
+        #
+        # This is accomplished by passing the `oso-prefix` flag to ld64,
+        # which will strip the provided prefix from the N_OSO paths.
+        #
+        # The flag accepts a special value, `.`, which means it will
+        # use the current workding directory. This will make all paths
+        # relative to the parent of `buck-out`.
+        #
+        # Because all actions in Buck2 are run from the project root
+        # and `buck-out` is always inside the project root, we can
+        # safely pass `.` as the `-oso_prefix` without having to
+        # write a wrapper script to compute it dynamically.
         args.add(["-Wl,-oso_prefix,."])
 
     pdb_artifact = None
