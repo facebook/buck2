@@ -41,7 +41,6 @@ use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::BuckConfigParseOptions;
 use crate::legacy_configs::configs::LegacyBuckConfig;
-use crate::legacy_configs::configs::LegacyBuckConfigs;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
 use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
 use crate::legacy_configs::file_ops::ConfigDirEntry;
@@ -94,7 +93,6 @@ impl ExternalBuckconfigData {
 /// unlike v1, our cells implementation works just fine if that isn't the case.
 #[derive(Clone)]
 pub struct BuckConfigBasedCells {
-    pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
     pub root_config: LegacyBuckConfig,
     pub config_paths: HashSet<ConfigPath>,
@@ -290,7 +288,6 @@ impl BuckConfigBasedCells {
             trace: Default::default(),
         };
 
-        let mut buckconfigs = HashMap::new();
         let mut cells_aggregator = CellsAggregator::new();
         let mut root_aliases = HashMap::new();
 
@@ -320,8 +317,6 @@ impl BuckConfigBasedCells {
         )
         .await?;
 
-        let mut other_cells = Vec::new();
-
         let repositories = root_config
             .get_section("repositories")
             .or_else(|| root_config.get_section("cells"));
@@ -341,7 +336,6 @@ impl BuckConfigBasedCells {
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                 root_aliases.insert(alias.clone(), alias_path.clone());
                 cells_aggregator.add_cell_entry(root_path.clone(), alias, alias_path.clone())?;
-                other_cells.push(alias_path);
             }
         }
 
@@ -372,38 +366,9 @@ impl BuckConfigBasedCells {
             }
         }
 
-        buckconfigs.insert(root_path, root_config.dupe());
-
-        for path in other_cells {
-            if cells_aggregator.is_external(&path) {
-                continue;
-            }
-
-            let buckconfig_paths = get_project_buckconfig_paths(&path, &mut file_ops).await?;
-
-            let config = LegacyBuckConfig::finish_parse(
-                started_parse.clone(),
-                buckconfig_paths.as_slice(),
-                &path,
-                &mut file_ops,
-                &processed_config_args,
-                options.follow_includes,
-            )
-            .await?;
-
-            buckconfigs.insert(path, config);
-        }
-
         let cell_resolver = cells_aggregator.make_cell_resolver()?;
-        let configs_by_name = buckconfigs
-            .into_iter()
-            .map(|(path, config)| {
-                Ok((cell_resolver.find(path.as_project_relative_path())?, config))
-            })
-            .collect::<anyhow::Result<_>>()?;
 
         Ok(Self {
-            configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
             root_config,
             config_paths: file_ops.trace,

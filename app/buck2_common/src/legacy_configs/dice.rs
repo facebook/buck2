@@ -31,7 +31,6 @@ use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::cells::ExternalBuckconfigData;
 use crate::legacy_configs::configs::LegacyBuckConfig;
-use crate::legacy_configs::configs::LegacyBuckConfigs;
 use crate::legacy_configs::diffs::ConfigDiffTracker;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
@@ -103,17 +102,6 @@ impl<'a, 'd> LegacyBuckConfigView for LegacyBuckConfigOnDice<'a, 'd> {
 }
 
 pub trait HasInjectedLegacyConfigs {
-    /// Use this function carefully: a computation which fetches this key will be recomputed
-    /// if any buckconfig property changes.
-    ///
-    /// Consider using `get_legacy_config_property` instead.
-    fn get_injected_legacy_configs(
-        &mut self,
-    ) -> impl Future<Output = anyhow::Result<LegacyBuckConfigs>>;
-
-    /// Checks if LegacyBuckConfigsKey has been set in the DICE graph.
-    fn is_injected_legacy_configs_key_set(&mut self) -> impl Future<Output = anyhow::Result<bool>>;
-
     fn get_injected_external_buckconfig_data(
         &mut self,
     ) -> impl Future<Output = anyhow::Result<Arc<ExternalBuckconfigData>>>;
@@ -164,32 +152,12 @@ pub trait HasLegacyConfigs {
 }
 
 pub trait SetLegacyConfigs {
-    fn set_legacy_configs(&mut self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()>;
-
-    fn set_none_legacy_configs(&mut self) -> anyhow::Result<()>;
-
     fn set_legacy_config_external_data(
         &mut self,
         overrides: Arc<ExternalBuckconfigData>,
     ) -> anyhow::Result<()>;
 
     fn set_none_legacy_config_external_data(&mut self) -> anyhow::Result<()>;
-}
-
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
-struct LegacyBuckConfigKey;
-
-impl InjectedKey for LegacyBuckConfigKey {
-    type Value = Option<LegacyBuckConfigs>;
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Some(x), Some(y)) => x.compare(y),
-            (None, None) => true,
-            (_, _) => false,
-        }
-    }
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -221,17 +189,8 @@ impl Key for LegacyBuckConfigForCellKey {
     ) -> buck2_error::Result<LegacyBuckConfig> {
         let cells = ctx.get_cell_resolver().await?;
         let this_cell = cells.get(self.cell_name)?;
-        if this_cell.external().is_some() {
-            return BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path())
-                .await
-                .map_err(Into::into);
-        }
-
-        let legacy_configs = ctx.get_injected_legacy_configs().await?;
-        let config = legacy_configs
-            .get(self.cell_name)
-            .map(|x| x.dupe())
-            .map_err(buck2_error::Error::from)?;
+        let config =
+            BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path()).await?;
 
         ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
 
@@ -305,16 +264,6 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
 }
 
 impl HasInjectedLegacyConfigs for DiceComputations<'_> {
-    async fn get_injected_legacy_configs(&mut self) -> anyhow::Result<LegacyBuckConfigs> {
-        self.compute(&LegacyBuckConfigKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigKey from the graph, but key has None value")
-        })
-    }
-
-    async fn is_injected_legacy_configs_key_set(&mut self) -> anyhow::Result<bool> {
-        Ok(self.compute(&LegacyBuckConfigKey).await?.is_some())
-    }
-
     async fn get_injected_external_buckconfig_data(
         &mut self,
     ) -> anyhow::Result<Arc<ExternalBuckconfigData>> {
@@ -393,14 +342,6 @@ impl HasLegacyConfigs for DiceComputations<'_> {
 }
 
 impl SetLegacyConfigs for DiceTransactionUpdater {
-    fn set_legacy_configs(&mut self, legacy_configs: LegacyBuckConfigs) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyBuckConfigKey, Some(legacy_configs))])?)
-    }
-
-    fn set_none_legacy_configs(&mut self) -> anyhow::Result<()> {
-        Ok(self.changed_to(vec![(LegacyBuckConfigKey, None)])?)
-    }
-
     fn set_legacy_config_external_data(
         &mut self,
         data: Arc<ExternalBuckconfigData>,
@@ -417,16 +358,14 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
 mod tests {
     use buck2_cli_proto::ConfigOverride;
     use buck2_core::cells::name::CellName;
-    use dice::InjectedKey;
 
     use crate::legacy_configs::configs::testing::parse_with_config_args;
     use crate::legacy_configs::configs::LegacyBuckConfigs;
-    use crate::legacy_configs::dice::LegacyBuckConfigKey;
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {
         let path = "test";
-        let config1 = Some(LegacyBuckConfigs::new(hashmap![
+        let config1 = LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
@@ -443,9 +382,9 @@ mod tests {
                     &[],
                 )?
             }
-        ]));
+        ]);
 
-        let config2 = Some(LegacyBuckConfigs::new(hashmap![
+        let config2 = LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
@@ -454,9 +393,9 @@ mod tests {
                     &[ConfigOverride::flag("sec1.a=c")],
                 )?
             },
-        ]));
+        ]);
 
-        let config3 = Some(LegacyBuckConfigs::new(hashmap![
+        let config3 = LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
@@ -465,9 +404,9 @@ mod tests {
                     &[],
                 )?
             },
-        ]));
+        ]);
 
-        let config4 = Some(LegacyBuckConfigs::new(hashmap![
+        let config4 = LegacyBuckConfigs::new(hashmap![
             CellName::testing_new("cell1")
             => {
                 parse_with_config_args(
@@ -476,23 +415,18 @@ mod tests {
                     &[ConfigOverride::flag("sec1.d=e")],
                 )?
             },
-        ]));
+        ]);
 
-        let config5: Option<LegacyBuckConfigs> = None;
-        let config6: Option<LegacyBuckConfigs> = None;
-
-        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config1), true);
-        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config2), true);
-        assert_eq!(LegacyBuckConfigKey::equality(&config3, &config3), true);
-        assert_eq!(LegacyBuckConfigKey::equality(&config4, &config4), true);
-        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config2), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config3), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config1, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config3), true);
-        assert_eq!(LegacyBuckConfigKey::equality(&config2, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config3, &config4), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config5, &config1), false);
-        assert_eq!(LegacyBuckConfigKey::equality(&config5, &config6), true);
+        assert_eq!(config1.compare(&config1), true);
+        assert_eq!(config2.compare(&config2), true);
+        assert_eq!(config3.compare(&config3), true);
+        assert_eq!(config4.compare(&config4), true);
+        assert_eq!(config1.compare(&config2), false);
+        assert_eq!(config1.compare(&config3), false);
+        assert_eq!(config1.compare(&config4), false);
+        assert_eq!(config2.compare(&config3), true);
+        assert_eq!(config2.compare(&config4), false);
+        assert_eq!(config3.compare(&config4), false);
 
         Ok(())
     }

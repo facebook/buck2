@@ -12,8 +12,6 @@ use std::sync::Arc;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
-use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -41,15 +39,6 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 
-fn empty_configs(resolver: &CellResolver) -> LegacyBuckConfigs {
-    let config = resolver
-        .cells()
-        .map(|(name, _)| (name, LegacyBuckConfig::empty()))
-        .collect();
-
-    LegacyBuckConfigs::new(config)
-}
-
 pub(crate) fn root_cell() -> CellName {
     CellName::testing_new("root")
 }
@@ -69,7 +58,6 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         CellName::testing_new("root"),
         CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
     );
-    let cell_configs = empty_configs(&resolver);
 
     ctx.set_cell_resolver(resolver.dupe()).unwrap();
     ctx.set_interpreter_context(
@@ -86,7 +74,6 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         .unwrap(),
     )
     .unwrap();
-    ctx.set_legacy_configs(cell_configs).unwrap();
     ctx.set_legacy_config_external_data(Arc::new(ExternalBuckconfigData::testing_default()))
         .unwrap();
     ctx.set_starlark_profiler_configuration(StarlarkProfilerConfiguration::default())

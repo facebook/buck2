@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
-use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
@@ -27,7 +26,6 @@ pub fn setup_interpreter(
     updater: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<BuildInterpreterConfiguror>,
-    legacy_configs: LegacyBuckConfigs,
     legacy_config_overrides: Arc<ExternalBuckconfigData>,
     starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
     disable_starlark_types: bool,
@@ -35,7 +33,6 @@ pub fn setup_interpreter(
 ) -> anyhow::Result<()> {
     updater.set_cell_resolver(cell_resolver)?;
     updater.set_interpreter_context(configuror)?;
-    updater.set_legacy_configs(legacy_configs)?;
     updater.set_legacy_config_external_data(legacy_config_overrides)?;
     updater.set_starlark_profiler_configuration(starlark_profiler_instrumentation_override)?;
     updater.set_starlark_types(disable_starlark_types, unstable_typecheck)?;
@@ -47,13 +44,11 @@ pub fn setup_interpreter_basic(
     dice: &mut DiceTransactionUpdater,
     cell_resolver: CellResolver,
     configuror: Arc<BuildInterpreterConfiguror>,
-    legacy_configs: LegacyBuckConfigs,
 ) -> anyhow::Result<()> {
     setup_interpreter(
         dice,
         cell_resolver,
         configuror,
-        legacy_configs,
         Arc::new(ExternalBuckconfigData::testing_default()),
         StarlarkProfilerConfiguration::default(),
         false,

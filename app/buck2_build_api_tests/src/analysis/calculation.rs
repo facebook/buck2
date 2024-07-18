@@ -179,7 +179,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             None,
             Arc::new(ConcurrentTargetLabelInterner::default()),
         )?,
-        configs,
     )?;
     let mut dice = dice.commit().await;
 

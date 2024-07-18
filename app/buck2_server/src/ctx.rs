@@ -483,10 +483,7 @@ impl CellConfigLoader {
                     &self.working_dir
                 ).await?;
                 if self.reuse_current_config {
-                    // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
-                    if dice_ctx.is_cell_resolver_key_set().await?
-                        && dice_ctx.is_injected_legacy_configs_key_set().await?
-                        && dice_ctx.is_injected_external_buckconfig_data_key_set().await?
+                    if dice_ctx.is_injected_external_buckconfig_data_key_set().await?
                     {
                         if !self.config_overrides.is_empty() {
                             let config_type_str = |c| match ConfigType::from_i32(c) {
@@ -501,9 +498,10 @@ impl CellConfigLoader {
                                 }), 200),
                             );
                         }
+                        // If `--reuse-current-config` is set, use the external config data from the
+                        // previous command.
                         Ok(BuckConfigBasedCells {
-                            cell_resolver: dice_ctx.get_cell_resolver().await?,
-                            configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
+                            cell_resolver: new_configs.cell_resolver,
                             root_config: new_configs.root_config,
                             config_paths: HashSet::new(),
                             external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
@@ -745,9 +743,6 @@ impl DiceUpdater for DiceCommandUpdater {
             .cells_and_configs(&mut ctx.existing_state().await.clone())
             .await?;
         let cell_resolver = cells_and_configs.cell_resolver;
-        let legacy_configs = cells_and_configs.configs_by_name;
-        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
-        // just be setting the config overrides and host platform override as leaves on the graph.
 
         let configuror = BuildInterpreterConfiguror::new(
             prelude_path(&cell_resolver)?,
@@ -770,7 +765,6 @@ impl DiceUpdater for DiceCommandUpdater {
             &mut ctx,
             cell_resolver,
             configuror,
-            legacy_configs,
             cells_and_configs.external_data,
             self.starlark_profiler_instrumentation_override.clone(),
             self.disable_starlark_types,
