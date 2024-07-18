@@ -40,6 +40,8 @@ def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, 
 RustcExtraOutputsInfo = provider(
     fields = {
         "clippy": RustcOutput,
+        "clippy_incr": RustcOutput,
         "metadata": RustcOutput,
+        "metadata_incr": RustcOutput,
     },
 )

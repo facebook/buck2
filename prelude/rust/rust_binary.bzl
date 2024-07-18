@@ -290,33 +290,39 @@ def _rust_binary_common(
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
     # even when the target has bugs.
-    diag_artifacts = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("metadata-fast"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-    clippy_artifacts = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("clippy"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
+    diag_artifacts = {}
+    clippy_artifacts = {}
+    for incr in (True, False):
+        diag_artifacts[incr] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("metadata-fast"),
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            infallible_diagnostics = True,
+            incremental_enabled = incr,
+        )
+        clippy_artifacts[incr] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("clippy"),
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            infallible_diagnostics = True,
+            incremental_enabled = incr,
+        )
 
     providers = [RustcExtraOutputsInfo(
-        metadata = diag_artifacts,
-        clippy = clippy_artifacts,
+        metadata = diag_artifacts[False],
+        metadata_incr = diag_artifacts[True],
+        clippy = clippy_artifacts[False],
+        clippy_incr = diag_artifacts[True],
     )]
 
-    extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts, clippy_artifacts))
+    incr_enabled = ctx.attrs.incremental_enabled
+    extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]))
 
     expand = rust_compile(
         ctx = ctx,

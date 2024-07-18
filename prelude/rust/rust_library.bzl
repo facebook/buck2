@@ -267,25 +267,29 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
     # even when the target has bugs.
-    diag_artifacts = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("metadata-fast"),
-        params = meta_params,
-        default_roots = ["lib.rs"],
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-    clippy_artifacts = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("clippy"),
-        params = meta_params,
-        default_roots = ["lib.rs"],
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
+    diag_artifacts = {}
+    clippy_artifacts = {}
+    for incr in (True, False):
+        diag_artifacts[incr] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("metadata-fast"),
+            params = meta_params,
+            default_roots = ["lib.rs"],
+            infallible_diagnostics = True,
+            incremental_enabled = incr,
+        )
+        clippy_artifacts[incr] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("clippy"),
+            params = meta_params,
+            default_roots = ["lib.rs"],
+            infallible_diagnostics = True,
+            incremental_enabled = incr,
+        )
 
+    incr_enabled = ctx.attrs.incremental_enabled
     providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
@@ -294,7 +298,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
-        check_artifacts = output_as_diag_subtargets(diag_artifacts, clippy_artifacts),
+        check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
@@ -578,11 +582,13 @@ def _default_providers(
 
     return providers
 
-def _rust_metadata_providers(diag_artifacts: RustcOutput, clippy_artifacts: RustcOutput) -> list[Provider]:
+def _rust_metadata_providers(diag_artifacts: dict[bool, RustcOutput], clippy_artifacts: dict[bool, RustcOutput]) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
-            metadata = diag_artifacts,
-            clippy = clippy_artifacts,
+            metadata = diag_artifacts[False],
+            metadata_incr = diag_artifacts[True],
+            clippy = clippy_artifacts[False],
+            clippy_incr = clippy_artifacts[True],
         ),
     ]
 
