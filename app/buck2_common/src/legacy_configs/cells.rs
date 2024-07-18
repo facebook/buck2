@@ -169,7 +169,7 @@ impl BuckConfigBasedCells {
         )
         .await?;
 
-        CellAliasResolver::new_for_dice_parsed_cell(
+        CellAliasResolver::new_for_non_root_cell(
             cell_name,
             resolver.root_cell_cell_alias_resolver(),
             BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,

@@ -113,7 +113,7 @@ impl Key for CellAliasResolverKey {
         // that they cannot create new cells, and so respect only their `cell_aliases` section, not
         // their `cells` section. This is the expected behavior for external cells, moving other
         // cell resolver parsing into dice would require this code to be adjusted.
-        CellAliasResolver::new_for_dice_parsed_cell(
+        CellAliasResolver::new_for_non_root_cell(
             self.0,
             root_aliases,
             BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,

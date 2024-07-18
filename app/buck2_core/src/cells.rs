@@ -173,7 +173,7 @@ impl CellAliasResolver {
         Ok(CellAliasResolver { current, aliases })
     }
 
-    pub fn new_for_dice_parsed_cell(
+    pub fn new_for_non_root_cell(
         current: CellName,
         root_aliases: &CellAliasResolver,
         alias_list: impl IntoIterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>,
