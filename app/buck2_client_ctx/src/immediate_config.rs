@@ -56,15 +56,10 @@ impl ImmediateConfig {
             ),
         )?;
 
-        let root_config = cells
-            .configs_by_name
-            .get(cell_resolver.root_cell())
-            .context("No config for root cell")?;
-
         Ok(ImmediateConfig {
             cell_resolver,
             cwd_cell_alias_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(root_config)
+            daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
                 .context("Error loading daemon startup config")?,
         })
     }

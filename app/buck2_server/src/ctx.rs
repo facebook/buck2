@@ -14,7 +14,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
@@ -478,6 +477,11 @@ impl CellConfigLoader {
     ) -> Result<BuckConfigBasedCells, buck2_error::Error> {
         self.loaded_cell_configs
             .get_or_init(async move {
+                let new_configs = BuckConfigBasedCells::parse_with_config_args(
+                    &self.project_root,
+                    &self.config_overrides,
+                    &self.working_dir
+                ).await?;
                 if self.reuse_current_config {
                     // If there is a previous command and --reuse-current-config is set, then the old config is used, ignoring any overrides.
                     if dice_ctx.is_cell_resolver_key_set().await?
@@ -497,22 +501,23 @@ impl CellConfigLoader {
                                 }), 200),
                             );
                         }
-                        return buck2_error::Ok(BuckConfigBasedCells {
+                        Ok(BuckConfigBasedCells {
                             cell_resolver: dice_ctx.get_cell_resolver().await?,
                             configs_by_name: dice_ctx.get_injected_legacy_configs().await?,
+                            root_config: new_configs.root_config,
                             config_paths: HashSet::new(),
                             external_data: dice_ctx.get_injected_external_buckconfig_data().await?,
-                        });
+                        })
                     } else {
                         // If there is no previous command but the flag was set, then the flag is ignored, the command behaves as if there isn't the reuse config flag.
                         warn!(
                             "--reuse-current-config flag was set, but there was no previous invocation detected. Ignoring --reuse-current-config flag"
                         );
+                        Ok(new_configs)
                     }
+                } else {
+                    Ok(new_configs)
                 }
-                BuckConfigBasedCells::parse_with_config_args(&self.project_root, &self.config_overrides, &self.working_dir)
-                    .await
-                    .map_err(buck2_error::Error::from)
             })
             .await
             .clone()
@@ -547,15 +552,10 @@ struct DiceCommandDataProvider {
 impl DiceDataProvider for DiceCommandDataProvider {
     async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
         let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
-        let cell_resolver = cells_and_configs.cell_resolver;
-        let legacy_configs = cells_and_configs.configs_by_name;
+        let root_config = &cells_and_configs.root_config;
 
         // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
         // just be setting the config overrides and host platform override as leaves on the graph.
-
-        let root_config = legacy_configs
-            .get(cell_resolver.root_cell())
-            .context("No config for root cell")?;
 
         let config_threads = root_config
             .parse(BuckconfigKeyRef {

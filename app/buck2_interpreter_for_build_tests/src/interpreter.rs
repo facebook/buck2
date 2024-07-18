@@ -183,8 +183,7 @@ fn cells() -> CellsData {
     let BuckConfigBasedCells {
         cell_resolver,
         configs_by_name,
-        config_paths: _,
-        external_data: _,
+        ..
     } = futures::executor::block_on(BuckConfigBasedCells::parse_with_file_ops(
         &project_fs,
         &mut TestConfigParserFileOps::new(&[(

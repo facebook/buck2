@@ -96,6 +96,7 @@ impl ExternalBuckconfigData {
 pub struct BuckConfigBasedCells {
     pub configs_by_name: LegacyBuckConfigs,
     pub cell_resolver: CellResolver,
+    pub root_config: LegacyBuckConfig,
     pub config_paths: HashSet<ConfigPath>,
     pub external_data: Arc<ExternalBuckconfigData>,
 }
@@ -309,7 +310,7 @@ impl BuckConfigBasedCells {
 
         let buckconfig_paths = get_project_buckconfig_paths(&root_path, &mut file_ops).await?;
 
-        let config = LegacyBuckConfig::finish_parse(
+        let root_config = LegacyBuckConfig::finish_parse(
             started_parse.clone(),
             buckconfig_paths.as_slice(),
             &root_path,
@@ -321,9 +322,9 @@ impl BuckConfigBasedCells {
 
         let mut other_cells = Vec::new();
 
-        let repositories = config
+        let repositories = root_config
             .get_section("repositories")
-            .or_else(|| config.get_section("cells"));
+            .or_else(|| root_config.get_section("cells"));
         if let Some(repositories) = repositories {
             for (alias, alias_path) in repositories.iter() {
                 let alias_path = CellRootPathBuf::new(
@@ -348,13 +349,13 @@ impl BuckConfigBasedCells {
             return Err(CellsError::MissingRootCellName.into());
         }
 
-        for (alias, destination) in Self::get_cell_aliases_from_config(&config)? {
+        for (alias, destination) in Self::get_cell_aliases_from_config(&root_config)? {
             let alias_path =
                 cells_aggregator.add_cell_alias_for_root_cell(alias.clone(), destination)?;
             root_aliases.insert(alias, alias_path);
         }
 
-        if let Some(external_cells) = config.get_section("external_cells") {
+        if let Some(external_cells) = root_config.get_section("external_cells") {
             for (alias, origin) in external_cells.iter() {
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                 let target = root_aliases
@@ -363,7 +364,7 @@ impl BuckConfigBasedCells {
                 let name = cells_aggregator
                     .get_name(target)
                     .internal_error("We just checked that this cell exists")?;
-                let origin = Self::parse_external_cell_origin(name, origin.as_str(), &config)?;
+                let origin = Self::parse_external_cell_origin(name, origin.as_str(), &root_config)?;
                 if let ExternalCellOrigin::Bundled(name) = origin {
                     EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
                 }
@@ -371,7 +372,7 @@ impl BuckConfigBasedCells {
             }
         }
 
-        buckconfigs.insert(root_path, config);
+        buckconfigs.insert(root_path, root_config.dupe());
 
         for path in other_cells {
             if cells_aggregator.is_external(&path) {
@@ -404,6 +405,7 @@ impl BuckConfigBasedCells {
         Ok(Self {
             configs_by_name: LegacyBuckConfigs::new(configs_by_name),
             cell_resolver,
+            root_config,
             config_paths: file_ops.trace,
             external_data: Arc::new(ExternalBuckconfigData {
                 parse_state: started_parse,

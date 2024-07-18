@@ -251,14 +251,8 @@ impl DaemonState {
 
             tracing::info!("Starting...");
 
-            let (legacy_configs, cells) = (
-                legacy_cells.configs_by_name.dupe(),
-                legacy_cells.cell_resolver.dupe(),
-            );
-
-            let root_config = legacy_configs
-                .get(cells.root_cell())
-                .context("No config for root cell")?;
+            let cells = &legacy_cells.cell_resolver;
+            let root_config = &legacy_cells.root_config;
 
             let buffer_size = root_config
                 .parse(BuckconfigKeyRef {
