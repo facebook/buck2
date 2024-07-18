@@ -15,9 +15,6 @@ RustcOutput = record(
     stripped_output = field(Artifact),
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
-    # Only available on metadata-like emits
-    clippy_txt = field(Artifact | None),
-    clippy_json = field(Artifact | None),
     pdb = field(Artifact | None),
     dwp_output = field(Artifact | None),
     # Zero or more Split DWARF debug info files are emitted into this directory
@@ -26,11 +23,11 @@ RustcOutput = record(
     extra_external_debug_info = field(list[ArtifactTSet]),
 )
 
-def output_as_diag_subtargets(o: RustcOutput) -> dict[str, Artifact]:
+def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, Artifact]:
     return {
         "check": o.output,
-        "clippy.json": o.clippy_json,
-        "clippy.txt": o.clippy_txt,
+        "clippy.json": clippy.diag_json,
+        "clippy.txt": clippy.diag_txt,
         "diag.json": o.diag_json,
         "diag.txt": o.diag_txt,
     }
@@ -42,6 +39,7 @@ def output_as_diag_subtargets(o: RustcOutput) -> dict[str, Artifact]:
 # not exist on a prebuilt Rust library, but should exist on a binary.
 RustcExtraOutputsInfo = provider(
     fields = {
+        "clippy": RustcOutput,
         "metadata_fast": RustcOutput,
         "metadata_full": RustcOutput,
     },

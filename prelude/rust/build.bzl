@@ -411,7 +411,6 @@ def rust_compile(
         extra_link_args: list[typing.Any] = [],
         predeclared_output: Artifact | None = None,
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
-        designated_clippy: bool = False,
         allow_cache_upload: bool = False,
         # Setting this to true causes the diagnostic outputs that are generated
         # from this action to always be successfully generated, even if
@@ -423,7 +422,7 @@ def rust_compile(
 
     toolchain_info = compile_ctx.toolchain_info
 
-    lints, clippy_lints = _lint_flags(compile_ctx, designated_clippy)
+    lints = _lint_flags(compile_ctx, infallible_diagnostics, emit == Emit("clippy"))
 
     # If we are building metadata-full for a dylib target, we want the hollow-rlib version of rmeta, not the shared lib version.
     if compile_ctx.dep_ctx.advanced_unstable_linking and emit == Emit("metadata-full") and params.crate_type == CrateType("dylib"):
@@ -458,6 +457,8 @@ def rust_compile(
         extra_flags,
     )
 
+    rustc_bin = compile_ctx.clippy_wrapper if emit == Emit("clippy") else toolchain_info.compiler
+
     # If we're using failure filtering then we need to make sure the final
     # artifact location is the predeclared one since its specific path may have
     # already been encoded into the other compile args (eg rpath). So we still
@@ -479,6 +480,25 @@ def rust_compile(
             params = params,
             predeclared_output = predeclared_output,
         )
+
+    if emit == Emit("clippy"):
+        clippy_toml = None
+        if ctx.attrs.clippy_configuration:
+            clippy_toml = ctx.attrs.clippy_configuration[ClippyConfiguration].clippy_toml
+        elif toolchain_info.clippy_toml:
+            clippy_toml = toolchain_info.clippy_toml
+
+        if clippy_toml:
+            # Clippy wants to be given a path to a directory containing a
+            # clippy.toml (or .clippy.toml). Our buckconfig accepts an arbitrary
+            # label like //path/to:my-clippy.toml which may not have the
+            # filename that clippy looks for. Here we make a directory that
+            # symlinks the requested configuration file under the required name.
+            clippy_conf_dir = ctx.actions.symlinked_dir(
+                common_args.subdir + "-clippy-configuration",
+                {"clippy.toml": clippy_toml},
+            )
+            emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
 
     pdb_artifact = None
     dwp_inputs = []
@@ -530,61 +550,16 @@ def rust_compile(
         compile_ctx = compile_ctx,
         common_args = common_args,
         prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-        rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
+        rustc_cmd = cmd_args(rustc_bin, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
-        is_clippy = False,
+        is_clippy = emit.value == "clippy",
         infallible_diagnostics = infallible_diagnostics,
-        allow_cache_upload = allow_cache_upload,
+        allow_cache_upload = allow_cache_upload and emit != Emit("clippy"),
         crate_map = common_args.crate_map,
         env = emit_op.env,
     )
 
-    # Add clippy diagnostic targets next to the designated check build
-    if designated_clippy:
-        # We don't really need the outputs from this build, just to keep the artifact accounting straight
-        clippy_emit_op = _rustc_emit(
-            ctx = ctx,
-            emit = emit,
-            subdir = common_args.subdir + "-clippy",
-            params = params,
-        )
-        clippy_env = clippy_emit_op.env
-
-        clippy_toml = None
-        if ctx.attrs.clippy_configuration:
-            clippy_toml = ctx.attrs.clippy_configuration[ClippyConfiguration].clippy_toml
-        elif toolchain_info.clippy_toml:
-            clippy_toml = toolchain_info.clippy_toml
-
-        if clippy_toml:
-            # Clippy wants to be given a path to a directory containing a
-            # clippy.toml (or .clippy.toml). Our buckconfig accepts an arbitrary
-            # label like //path/to:my-clippy.toml which may not have the
-            # filename that clippy looks for. Here we make a directory that
-            # symlinks the requested configuration file under the required name.
-            clippy_conf_dir = ctx.actions.symlinked_dir(
-                common_args.subdir + "-clippy-configuration",
-                {"clippy.toml": clippy_toml},
-            )
-            clippy_env["CLIPPY_CONF_DIR"] = clippy_conf_dir
-        clippy_invoke = _rustc_invoke(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            common_args = common_args,
-            prefix = "{}/{}".format(common_args.subdir, common_args.tempfile),
-            # Lints go first to allow other args to override them.
-            rustc_cmd = cmd_args(compile_ctx.clippy_wrapper, clippy_lints, rustc_cmd, clippy_emit_op.args),
-            env = clippy_env,
-            required_outputs = [clippy_emit_op.output],
-            is_clippy = True,
-            infallible_diagnostics = infallible_diagnostics,
-            allow_cache_upload = False,
-            crate_map = common_args.crate_map,
-        )
-    else:
-        clippy_invoke = None
-
-    if infallible_diagnostics:
+    if infallible_diagnostics and emit != Emit("clippy"):
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
@@ -662,9 +637,6 @@ def rust_compile(
         stripped_output = stripped_output,
         diag_txt = invoke.diag_txt,
         diag_json = invoke.diag_json,
-        # Only available on metadata-like emits
-        clippy_txt = clippy_invoke.diag_txt if clippy_invoke else None,
-        clippy_json = clippy_invoke.diag_json if clippy_invoke else None,
         pdb = pdb_artifact,
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,
@@ -803,24 +775,15 @@ def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> 
         format = "-{}{{}}".format(flag),
     )
 
-def _lint_flags(compile_ctx: CompileContext, is_check: bool) -> (cmd_args, cmd_args):
+def _lint_flags(compile_ctx: CompileContext, is_check: bool, is_clippy: bool) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
 
-    plain = cmd_args(
-        _lintify("A", False, toolchain_info.allow_lints),
-        _lintify("D", False, toolchain_info.deny_lints),
-        _lintify("D" if is_check else "W", False, toolchain_info.deny_on_check_lints),
-        _lintify("W", False, toolchain_info.warn_lints),
+    return cmd_args(
+        _lintify("A", is_clippy, toolchain_info.allow_lints),
+        _lintify("D", is_clippy, toolchain_info.deny_lints),
+        _lintify("D" if is_check else "W", is_clippy, toolchain_info.deny_on_check_lints),
+        _lintify("W", is_clippy, toolchain_info.warn_lints),
     )
-
-    clippy = cmd_args(
-        _lintify("A", True, toolchain_info.allow_lints),
-        _lintify("D", True, toolchain_info.deny_lints),
-        _lintify("D" if is_check else "W", True, toolchain_info.deny_on_check_lints),
-        _lintify("W", True, toolchain_info.warn_lints),
-    )
-
-    return (plain, clippy)
 
 def _rustc_flags(flags: list[[str, ResolvedStringWithMacros]]) -> list[[str, ResolvedStringWithMacros]]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
@@ -1231,7 +1194,7 @@ def _rustc_emit(
             # get different crate hashes.
             emit_args.add("-Zno-codegen")
             effective_emit = "link"
-        elif emit == Emit("metadata-full") or emit == Emit("metadata-fast"):
+        elif emit == Emit("metadata-full") or emit == Emit("metadata-fast") or emit == Emit("clippy"):
             effective_emit = "metadata"
         else:
             effective_emit = emit.value

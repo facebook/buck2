@@ -269,7 +269,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         emit = Emit("metadata-fast"),
         params = meta_params,
         default_roots = ["lib.rs"],
-        designated_clippy = True,
+        infallible_diagnostics = True,
+    )
+    clippy_artifacts = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("clippy"),
+        params = meta_params,
+        default_roots = ["lib.rs"],
         infallible_diagnostics = True,
     )
 
@@ -281,7 +288,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
-        check_artifacts = output_as_diag_subtargets(diag_artifacts),
+        check_artifacts = output_as_diag_subtargets(diag_artifacts, clippy_artifacts),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
@@ -289,6 +296,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     providers += _rust_metadata_providers(
         check_artifacts = rust_param_artifact[meta_params],
+        clippy_artifacts = clippy_artifacts,
     )
 
     if ctx.attrs.proc_macro:
@@ -564,11 +572,12 @@ def _default_providers(
 
     return providers
 
-def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput]) -> list[Provider]:
+def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput], clippy_artifacts: RustcOutput) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
             metadata_full = check_artifacts[MetadataKind("full")],
             metadata_fast = check_artifacts[MetadataKind("fast")],
+            clippy = clippy_artifacts,
         ),
     ]
 

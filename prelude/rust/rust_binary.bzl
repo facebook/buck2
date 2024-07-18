@@ -303,11 +303,6 @@ def _rust_binary_common(
         extra_flags = extra_flags,
     )
 
-    providers = [RustcExtraOutputsInfo(
-        metadata_full = meta_full,
-        metadata_fast = meta_fast,
-    )]
-
     # `infallible_diagnostics` allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
@@ -319,10 +314,25 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
-        designated_clippy = True,
         infallible_diagnostics = True,
     )
-    extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts))
+    clippy_artifacts = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("clippy"),
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        infallible_diagnostics = True,
+    )
+
+    providers = [RustcExtraOutputsInfo(
+        metadata_full = meta_full,
+        metadata_fast = meta_fast,
+        clippy = clippy_artifacts,
+    )]
+
+    extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts, clippy_artifacts))
 
     expand = rust_compile(
         ctx = ctx,

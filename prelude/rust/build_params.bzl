@@ -64,6 +64,7 @@ Emit = enum(
     "dep-info",
     "mir",
     "expand",  # pseudo emit alias for -Zunpretty=expanded
+    "clippy",
     # Rustc actually has two different forms of metadata:
     #  - The full flavor, which is what's outputted when passing
     #    `--emit link,metadata` and can be used as a part of pipelined builds
@@ -86,7 +87,7 @@ MetadataKind = enum(
 def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
     if emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir"):
         return MetadataKind("link")
-    elif emit.value == "metadata-fast":
+    elif emit.value == "metadata-fast" or emit.value == "clippy":
         return MetadataKind("fast")
     else:
         return MetadataKind("full")
@@ -123,6 +124,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("dep-info"): ("", ".d"),
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),
+    Emit("clippy"): ("lib", ".rmeta"),  # Treated like metadata-fast
 }
 
 # Return the filename for a particular emitted artifact type
