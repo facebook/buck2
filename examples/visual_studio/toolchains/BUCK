@@ -1,8 +1,8 @@
+load("@buck2//buck2_utils/platforms:defs.bzl", "is_remote_enabled")
 load("@prelude//toolchains:cxx.bzl", "cxx_tools_info_toolchain")
 load("@prelude//toolchains:python.bzl", "system_python_bootstrap_toolchain")
 load("@prelude//toolchains/cxx/clang:tools.bzl", "path_clang_tools")
 load("@prelude//toolchains/msvc:tools.bzl", "find_msvc_tools")
-load("@root//buck2_utils/platforms:defs.bzl", "is_remote_enabled")
 
 oncall("build_infra")
 
@@ -43,13 +43,13 @@ cxx_tools_info_toolchain(
             "/permissive-",
             "/TC",
         ] + select({
-            "root//buck2_utils/configuration:debug": [
+            "buck2//buck2_utils/configuration:debug": [
                 "/Od",
                 "/D_DEBUG",
                 "/RTC1",
                 "/MDd",
             ],
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/O2",
                 "/Oi",
                 "/GL",
@@ -86,13 +86,13 @@ cxx_tools_info_toolchain(
             "/permissive-",
             "/TP",
         ] + select({
-            "root//buck2_utils/configuration:debug": [
+            "buck2//buck2_utils/configuration:debug": [
                 "/Od",
                 "/D_DEBUG",
                 "/RTC1",
                 "/MDd",
             ],
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/O2",
                 "/Oi",
                 "/GL",
@@ -117,9 +117,9 @@ cxx_tools_info_toolchain(
             "/DEBUG",
             "/INCREMENTAL:NO",
         ] + select({
-            "root//buck2_utils/configuration:debug": [],
+            "buck2//buck2_utils/configuration:debug": [],
             #Converted /LTCG:incremental to /LTCG because I'm guessing incremental actions won't work well with Buck2
-            "root//buck2_utils/configuration:release": [
+            "buck2//buck2_utils/configuration:release": [
                 "/OPT:REF",
                 "/OPT:ICF",
                 "/LTCG",

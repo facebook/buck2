@@ -1,6 +1,6 @@
 [repositories]
-root = .
 prelude = prelude
+buck2 = .
 shim = shim
 
 [repository_aliases]
@@ -14,4 +14,4 @@ buck = shim
 bazel_skylib = shim
 
 [parser]
-target_platform_detector_spec = target:root//...->prelude//platforms:default target:shim//...->prelude//platforms:default
+target_platform_detector_spec = target:buck2//...->prelude//platforms:default target:shim//...->prelude//platforms:default
