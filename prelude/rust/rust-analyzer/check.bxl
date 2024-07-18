@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("//rust:outputs.bzl", "RustcExtraOutputsInfo")
+
 def check_targets_impl(ctx: BxlContext) -> None:
     target_universe = ctx.uquery().owner(ctx.cli_args.file)
     owners = ctx.cquery().owner(ctx.cli_args.file, target_universe)
@@ -13,18 +15,21 @@ def check_targets_impl(ctx: BxlContext) -> None:
     if len(nodes) == 0:
         return
 
-    diag_kind = "clippy.json" if ctx.cli_args.use_clippy else "diag.json"
-    build_result = ctx.build([
-        node.label.with_sub_target(diag_kind)
-        for node in nodes
-    ])
+    analysis = ctx.analysis(nodes).values()
 
-    dict_output = ctx.output.ensure_multiple(build_result)
+    artifacts = []
+    for a in analysis:
+        o = a.providers()[RustcExtraOutputsInfo]
+        if ctx.cli_args.use_clippy:
+            artifacts.append(o.clippy.diag_json)
+        else:
+            artifacts.append(o.metadata.diag_json)
+
+    art_output = ctx.output.ensure_multiple(artifacts)
 
     out = [
-        artifacts[0].abs_path()
-        for artifacts in dict_output.values()
-        if len(artifacts) == 1
+        artifact.abs_path()
+        for artifact in art_output
     ]
 
     ctx.output.print_json(out)
