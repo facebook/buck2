@@ -194,7 +194,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         [
             cmd_args(script_output, format = mkdir),
             cmd_args(script_output, format = "cd {}"),
-            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ").relative_to(script_output),
+            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", relative_to = script_output),
         ],
         is_executable = True,
         allow_args = True,
