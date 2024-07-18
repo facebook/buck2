@@ -594,15 +594,15 @@ impl<'v> StarlarkCommandLineData<'v> {
     }
 
     /// Add values to the artifact that don't show up on the command line, but do for dependency
-    fn add_hidden(&mut self, values: &[Value<'v>]) -> anyhow::Result<()> {
-        for value in values {
-            match StarlarkCommandLineValueUnpack::unpack_value_err(*value)? {
-                StarlarkCommandLineValueUnpack::List(values) => {
-                    self.add_hidden(values.content())?
+    fn add_hidden(&mut self, value: Value<'v>) -> anyhow::Result<()> {
+        match StarlarkCommandLineValueUnpack::unpack_value_err(value)? {
+            StarlarkCommandLineValueUnpack::List(values) => {
+                for value in values.content() {
+                    self.add_hidden(*value)?
                 }
-                StarlarkCommandLineValueUnpack::CommandLineArg(arg) => {
-                    self.hidden.push(arg);
-                }
+            }
+            StarlarkCommandLineValueUnpack::CommandLineArg(arg) => {
+                self.hidden.push(arg);
             }
         }
         Ok(())
@@ -882,7 +882,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             builder.add_value_typed(v)?;
         }
         if let Some(hidden) = hidden {
-            builder.add_hidden(&[hidden])?;
+            builder.add_hidden(hidden)?;
         }
         Ok(StarlarkCmdArgs(RefCell::new(builder)))
     }
