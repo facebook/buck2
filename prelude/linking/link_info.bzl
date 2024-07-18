@@ -983,6 +983,7 @@ def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs
             associated_artifacts.extend([debug_output.dist_thin_lto_codegen_argsfile, debug_output.dist_thin_lto_index_argsfile])
         else:
             json_info.append({
+                "argsfile": debug_output.argsfile,
                 "command": debug_output.command,
                 "filename": debug_output.filename,
             })
