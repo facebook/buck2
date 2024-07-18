@@ -891,11 +891,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
-        let cell = CellName::testing_new("root");
-        let config_args = vec![
-            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
-            ConfigOverride::flag("apple.key=value1"),
-        ];
+        let config_args = vec![ConfigOverride::flag("apple.key=value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
         let configs = LegacyBuckConfigs::new(hashmap![
@@ -903,7 +899,7 @@ pub(crate) mod tests {
             config
         ]);
 
-        let metrics = ConfigDiffMetrics::new(cell, &configs, &configs);
+        let metrics = ConfigDiffMetrics::new(&configs, &configs, &Some(10000));
 
         assert_eq!(metrics.count, 0);
         assert_eq!(metrics.size_bytes, 0);
@@ -930,7 +926,7 @@ pub(crate) mod tests {
             cell => config
         ]);
         let empty = LegacyBuckConfigs::new(hashmap![]);
-        let metrics = ConfigDiffMetrics::new(cell, &configs1, &empty);
+        let metrics = ConfigDiffMetrics::new(&configs1, &empty, &Some(10000));
 
         assert_eq!(metrics.count, 2);
         assert_eq!(
@@ -965,7 +961,6 @@ pub(crate) mod tests {
         let value3 = "value3";
 
         let config_args1 = vec![
-            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
             ConfigOverride::flag(&format!("apple.{key1}={value1}")),
             ConfigOverride::flag(&format!("apple.{key2}={value2_1}")),
         ];
@@ -973,7 +968,6 @@ pub(crate) mod tests {
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
         let config_args2 = vec![
-            ConfigOverride::flag("buck2.config_diff_size_limit=10000"),
             ConfigOverride::flag(&format!("apple.{key1}={value1}")),
             ConfigOverride::flag(&format!("apple.{key2}={value2_2}")),
             ConfigOverride::flag(&format!("apple.{key3}={value3}")),
@@ -983,7 +977,7 @@ pub(crate) mod tests {
 
         let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
         let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);
-        let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
+        let metrics = ConfigDiffMetrics::new(&configs1, &configs2, &Some(1000));
 
         assert_eq!(metrics.count, 2);
         assert_eq!(
@@ -1016,23 +1010,17 @@ pub(crate) mod tests {
         let key2 = "key2";
         let value2 = "value2";
 
-        let config_args1 = vec![
-            ConfigOverride::flag("buck2.config_diff_size_limit=12"),
-            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
-        ];
+        let config_args1 = vec![ConfigOverride::flag(&format!("apple.{key1}={value1}"))];
         let config1 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
-        let config_args2 = vec![
-            ConfigOverride::flag("buck2.config_diff_size_limit=12"),
-            ConfigOverride::flag(&format!("apple.{key2}={value2}")),
-        ];
+        let config_args2 = vec![ConfigOverride::flag(&format!("apple.{key2}={value2}"))];
         let config2 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
 
         let configs1 = LegacyBuckConfigs::new(hashmap![cell => config1]);
         let configs2 = LegacyBuckConfigs::new(hashmap![cell => config2]);
-        let metrics = ConfigDiffMetrics::new(cell, &configs1, &configs2);
+        let metrics = ConfigDiffMetrics::new(&configs1, &configs2, &Some(12));
 
         assert_eq!(metrics.count, 2);
         assert_eq!(

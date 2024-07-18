@@ -232,23 +232,15 @@ impl LegacyBuckConfig {
 }
 
 impl ConfigDiffMetrics {
-    pub fn new(root_cell: CellName, new: &LegacyBuckConfigs, old: &LegacyBuckConfigs) -> Self {
+    pub fn new(
+        new: &LegacyBuckConfigs,
+        old: &LegacyBuckConfigs,
+        diff_size_limit: &Option<usize>,
+    ) -> Self {
         let mut metrics = Self::default();
-        let diff_size_limit: Option<usize> = new
-            .get(root_cell)
-            .ok()
-            .map(|root_conf| {
-                root_conf
-                    .parse(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "config_diff_size_limit",
-                    })
-                    .unwrap_or_default()
-            })
-            .flatten();
 
         for (cell, new_config, old_config) in merge(&new.data, &old.data) {
-            if let Some(diff) = metrics.cell_diff(new_config, old_config, &diff_size_limit) {
+            if let Some(diff) = metrics.cell_diff(new_config, old_config, diff_size_limit) {
                 metrics.diff.insert(cell.dupe(), diff);
             }
         }

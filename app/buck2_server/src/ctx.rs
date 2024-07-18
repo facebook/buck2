@@ -529,7 +529,16 @@ impl CellConfigLoader {
                 let config_metrics = if dice_ctx.is_injected_legacy_configs_key_set().await? {
                     let injected_legacy_configs = dice_ctx.get_injected_legacy_configs().await?;
                     let root_cell = cells_and_configs.cell_resolver.root_cell();
-                    let diff_data = ConfigDiffMetrics::new(root_cell, &cells_and_configs.configs_by_name, &injected_legacy_configs);
+                    let diff_size_limit: Option<usize> = cells_and_configs.configs_by_name
+                        .get(root_cell)?
+                        .parse(BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "config_diff_size_limit",
+                        })
+                        // FIXME(JakobDegen): Don't ignore errors
+                        .unwrap_or_default();
+
+                    let diff_data = ConfigDiffMetrics::new(&cells_and_configs.configs_by_name, &injected_legacy_configs, &diff_size_limit);
                     Some(diff_data)
                 } else {
                     // first invocation of a daemon
