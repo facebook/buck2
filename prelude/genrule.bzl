@@ -42,6 +42,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "flowtype_ota_safety_target",  # produces JSON containing file paths that are project-relative
     "ctrlr_setting_paths",
     "llvm_buck_genrule",
+    "cm_buildtime_publisher",  # does a 'buck2 run' of a CM publisher target
 ]}
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
