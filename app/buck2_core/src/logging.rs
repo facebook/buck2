@@ -17,6 +17,8 @@ use tracing_subscriber::reload;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
+pub mod log_file;
+
 pub trait LogConfigurationReloadHandle: Send + Sync + 'static {
     fn update_log_filter(&self, format: &str) -> anyhow::Result<()>;
 }

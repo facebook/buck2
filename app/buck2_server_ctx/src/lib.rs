@@ -16,7 +16,6 @@ pub mod command_end;
 pub mod concurrency;
 pub mod ctx;
 pub mod global_cfg_options;
-pub mod logging;
 pub mod other_server_commands;
 pub mod partial_result_dispatcher;
 pub mod pattern_parse_and_resolve;

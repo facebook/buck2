@@ -53,7 +53,6 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
-pub use buck2_server_ctx::logging::TracingLogFile;
 use buck2_starlark::StarlarkCommand;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use clap::CommandFactory;

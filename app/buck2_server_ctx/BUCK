@@ -23,7 +23,6 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
-        "fbsource//third-party/rust:tracing-subscriber",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
