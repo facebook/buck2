@@ -357,76 +357,32 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
 #[cfg(test)]
 mod tests {
     use buck2_cli_proto::ConfigOverride;
-    use buck2_core::cells::name::CellName;
 
     use crate::legacy_configs::configs::testing::parse_with_config_args;
-    use crate::legacy_configs::configs::LegacyBuckConfigs;
 
     #[test]
     fn config_equals() -> anyhow::Result<()> {
         let path = "test";
-        let config1 = LegacyBuckConfigs::new(hashmap![
-            CellName::testing_new("cell1")
-            => {
-                parse_with_config_args(
-                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
-                    path,
-                    &[ConfigOverride::flag("sec1.a=c")],
-                )?
-            },
-            CellName::testing_new("cell2")
-            => {
-                parse_with_config_args(
-                    &[("test", "[sec1]\nx=y\n[sec2]\na=b")],
-                    path,
-                    &[],
-                )?
-            }
-        ]);
+        let config1 = parse_with_config_args(
+            &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
+            path,
+            &[ConfigOverride::flag("sec1.a=c")],
+        )?;
 
-        let config2 = LegacyBuckConfigs::new(hashmap![
-            CellName::testing_new("cell1")
-            => {
-                parse_with_config_args(
-                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
-                    path,
-                    &[ConfigOverride::flag("sec1.a=c")],
-                )?
-            },
-        ]);
+        let config2 = parse_with_config_args(&[("test", "[sec1]\na=c\n[sec2]\nx=y")], path, &[])?;
 
-        let config3 = LegacyBuckConfigs::new(hashmap![
-            CellName::testing_new("cell1")
-            => {
-                parse_with_config_args(
-                    &[("test", "[sec1]\na=c\n[sec2]\nx=y")],
-                    path,
-                    &[],
-                )?
-            },
-        ]);
-
-        let config4 = LegacyBuckConfigs::new(hashmap![
-            CellName::testing_new("cell1")
-            => {
-                parse_with_config_args(
-                    &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
-                    path,
-                    &[ConfigOverride::flag("sec1.d=e")],
-                )?
-            },
-        ]);
+        let config3 = parse_with_config_args(
+            &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
+            path,
+            &[ConfigOverride::flag("sec1.d=e")],
+        )?;
 
         assert_eq!(config1.compare(&config1), true);
         assert_eq!(config2.compare(&config2), true);
         assert_eq!(config3.compare(&config3), true);
-        assert_eq!(config4.compare(&config4), true);
-        assert_eq!(config1.compare(&config2), false);
+        assert_eq!(config1.compare(&config2), true);
         assert_eq!(config1.compare(&config3), false);
-        assert_eq!(config1.compare(&config4), false);
-        assert_eq!(config2.compare(&config3), true);
-        assert_eq!(config2.compare(&config4), false);
-        assert_eq!(config3.compare(&config4), false);
+        assert_eq!(config2.compare(&config3), false);
 
         Ok(())
     }

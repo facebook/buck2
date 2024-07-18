@@ -18,10 +18,6 @@
 #![feature(never_type)]
 #![feature(used_with_arg)]
 
-#[cfg(test)]
-#[macro_use]
-extern crate maplit;
-
 pub mod argv;
 pub mod buckd_connection;
 pub mod buildfiles;
