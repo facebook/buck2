@@ -7,12 +7,29 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
+mod lint;
+mod typecheck;
+mod util;
+
+use async_trait::async_trait;
+use buck2_cli_proto::ClientContext;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_starlark::StarlarkOpaqueCommand;
 
-use crate::StarlarkOpaqueCommand;
+#[async_trait]
+pub(crate) trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
+    async fn server_execute(
+        &self,
+        server_ctx: &dyn ServerCommandContextTrait,
+        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        client_server_ctx: ClientContext,
+    ) -> anyhow::Result<()>;
+}
 
 pub async fn server_starlark_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -57,11 +74,18 @@ async fn parse_command_and_execute(
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {
     let command: StarlarkOpaqueCommand = serde_json::from_str(&req.serialized_opts)?;
-    command
+    as_server_subcommand(&command)
         .server_execute(
             context,
             partial_result_dispatcher,
             req.context.expect("buck cli always sets a client context"),
         )
         .await
+}
+
+fn as_server_subcommand(cmd: &StarlarkOpaqueCommand) -> &dyn StarlarkOpaqueSubcommand {
+    match cmd {
+        StarlarkOpaqueCommand::Lint(cmd) => cmd,
+        StarlarkOpaqueCommand::Typecheck(cmd) => cmd,
+    }
 }

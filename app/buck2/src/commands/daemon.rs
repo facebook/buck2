@@ -41,7 +41,7 @@ use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_starlark::server::server_starlark_command;
+use buck2_starlark_server::server_starlark_command;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;

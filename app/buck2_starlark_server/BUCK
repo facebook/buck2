@@ -4,23 +4,26 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 oncall("build_infra")
 
 rust_library(
-    name = "buck2_starlark",
+    name = "buck2_starlark_server",
     srcs = glob(["src/**/*.rs"]),
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:debugserver-types",
-        "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:once_cell",
-        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
-        "//buck2/app/buck2_event_observer:buck2_event_observer",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
+        "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
+        "//buck2/app/buck2_server_ctx:buck2_server_ctx",
+        "//buck2/app/buck2_starlark:buck2_starlark",
+        "//buck2/dice/dice:dice",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/starlark-rust/starlark:starlark",
     ],
 )

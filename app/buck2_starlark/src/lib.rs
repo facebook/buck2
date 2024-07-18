@@ -11,7 +11,6 @@
 #![feature(try_blocks)]
 
 use async_trait::async_trait;
-use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
@@ -25,18 +24,14 @@ use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::debug::StarlarkDebugAttachCommand;
 use crate::lint::StarlarkLintCommand;
 use crate::typecheck::StarlarkTypecheckCommand;
 
 mod debug;
-mod lint;
-pub mod server;
-mod typecheck;
-mod util;
+pub mod lint;
+pub mod typecheck;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(name = "starlark", about = "Run Starlark operations")]
@@ -55,6 +50,19 @@ pub enum StarlarkOpaqueCommand {
     Typecheck(StarlarkTypecheckCommand),
 }
 
+impl StarlarkOpaqueCommand {
+    fn as_client_subcommand(&self) -> &dyn StarlarkClientSubcommand {
+        match self {
+            StarlarkOpaqueCommand::Lint(cmd) => cmd,
+            StarlarkOpaqueCommand::Typecheck(cmd) => cmd,
+        }
+    }
+}
+
+trait StarlarkClientSubcommand {
+    fn common_opts(&self) -> &StarlarkCommandCommonOptions;
+}
+
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize, Default)]
 pub struct StarlarkCommandCommonOptions {
     #[clap(flatten)]
@@ -68,37 +76,6 @@ pub struct StarlarkCommandCommonOptions {
 
     #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
-}
-
-#[async_trait]
-pub trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
-    async fn server_execute(
-        &self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()>;
-
-    fn common_opts(&self) -> &StarlarkCommandCommonOptions;
-}
-
-impl StarlarkOpaqueCommand {
-    pub async fn server_execute(
-        &self,
-        server_ctx: &dyn ServerCommandContextTrait,
-        stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        self.as_subcommand()
-            .server_execute(server_ctx, stdout, client_server_ctx)
-            .await
-    }
-    fn as_subcommand(&self) -> &dyn StarlarkOpaqueSubcommand {
-        match self {
-            Self::Lint(cmd) => cmd,
-            Self::Typecheck(cmd) => cmd,
-        }
-    }
 }
 
 #[async_trait]
@@ -131,19 +108,19 @@ impl StreamingCommand for StarlarkOpaqueCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.as_subcommand().common_opts().console_opts
+        &self.as_client_subcommand().common_opts().console_opts
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
-        &self.as_subcommand().common_opts().event_log_opts
+        &self.as_client_subcommand().common_opts().event_log_opts
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.as_subcommand().common_opts().config_opts
+        &self.as_client_subcommand().common_opts().config_opts
     }
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
-        &self.as_subcommand().common_opts().starlark_opts
+        &self.as_client_subcommand().common_opts().starlark_opts
     }
 }
 
