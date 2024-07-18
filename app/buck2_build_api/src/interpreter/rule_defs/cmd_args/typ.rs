@@ -825,7 +825,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// in each argument with replacement strings.
     fn cmd_args<'v>(
         #[starlark(args)] args: UnpackTuple<StarlarkCommandLineValueUnpack<'v>>,
-        hidden: Option<Value<'v>>,
+        hidden: Option<StarlarkCommandLineValueUnpack<'v>>,
         delimiter: Option<StringValue<'v>>,
         format: Option<StringValue<'v>>,
         prepend: Option<StringValue<'v>>,
@@ -882,7 +882,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             builder.add_value_typed(v)?;
         }
         if let Some(hidden) = hidden {
-            builder.add_hidden(StarlarkCommandLineValueUnpack::unpack_value_err(hidden)?)?;
+            builder.add_hidden(hidden)?;
         }
         Ok(StarlarkCmdArgs(RefCell::new(builder)))
     }
