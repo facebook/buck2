@@ -421,6 +421,11 @@ LinkedObject = record(
     linker_command = field([cmd_args, None], None),
     # This sub-target is only available for distributed thinLTO builds.
     index_argsfile = field(Artifact | None, None),
+    # This sub-target is only available for distributed thinLTO builds.
+    dist_thin_lto_codegen_argsfile = field([Artifact, None], None),
+    # This sub-target is only available for distributed thinLTO builds. This is similar to
+    # index_argsfile, but only includes flags that can be determined at analysis time, no input files.
+    dist_thin_lto_index_argsfile = field([Artifact, None], None),
     # Import library for linking with DLL on Windows.
     # If not on Windows it's always None.
     import_library = field(Artifact | None, None),
@@ -923,6 +928,8 @@ LinkCommandDebugOutput = record(
     command = ArgLike,
     argsfile = Artifact,
     filelist = Artifact | None,
+    dist_thin_lto_codegen_argsfile = Artifact | None,
+    dist_thin_lto_index_argsfile = Artifact | None,
 )
 
 # NB: Debug output is _not_ transitive over deps, so tsets are not used here.
@@ -937,31 +944,51 @@ UnstrippedLinkOutputInfo = provider(fields = {
 })
 
 def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandDebugOutput, None]:
-    if not linked_object.output or not linked_object.linker_command or not linked_object.linker_argsfile:
+    local_link_debug_info_present = linked_object.output and linked_object.linker_command and linked_object.linker_argsfile
+    distributed_link_debug_info_present = linked_object.dist_thin_lto_index_argsfile and linked_object.dist_thin_lto_codegen_argsfile
+    if not local_link_debug_info_present and not distributed_link_debug_info_present:
         return None
     return LinkCommandDebugOutput(
         filename = linked_object.output.short_path,
         command = linked_object.linker_command,
         argsfile = linked_object.linker_argsfile,
         filelist = linked_object.linker_filelist,
+        dist_thin_lto_index_argsfile = linked_object.dist_thin_lto_index_argsfile,
+        dist_thin_lto_codegen_argsfile = linked_object.dist_thin_lto_codegen_argsfile,
     )
 
 # Given a list of `LinkCommandDebugOutput`, it will produce a JSON info file.
 # The JSON info file will contain entries for each link command. In addition,
 # it will _not_ materialize any inputs to the link command except:
+#
+# For local thin-LTO:
 # - linker argfile
 # - linker filelist (if present - only applicable to Darwin linkers)
+#
+# For distributed thin-LTO:
+# - thin-link argsfile (without inputs just flags)
+# - codegen argsfile (without inputs just flags)
 def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs: list[LinkCommandDebugOutput]) -> Artifact:
     json_info = []
     associated_artifacts = []
     for debug_output in debug_outputs:
-        json_info.append({
-            "command": debug_output.command,
-            "filename": debug_output.filename,
-        })
+        is_distributed_link = debug_output.dist_thin_lto_index_argsfile and debug_output.dist_thin_lto_codegen_argsfile
+        if is_distributed_link:
+            json_info.append({
+                "dist_thin_lto_codegen_argsfile": debug_output.dist_thin_lto_codegen_argsfile,
+                "dist_thin_lto_index_argsfile": debug_output.dist_thin_lto_index_argsfile,
+                "filename": debug_output.filename,
+            })
 
-        # Ensure all argsfile and filelists get materialized, as those are needed for debugging
-        associated_artifacts.extend(filter(None, [debug_output.argsfile, debug_output.filelist]))
+            associated_artifacts.extend([debug_output.dist_thin_lto_codegen_argsfile, debug_output.dist_thin_lto_index_argsfile])
+        else:
+            json_info.append({
+                "command": debug_output.command,
+                "filename": debug_output.filename,
+            })
+
+            # Ensure all argsfile and filelists get materialized, as those are needed for debugging
+            associated_artifacts.extend(filter(None, [debug_output.argsfile, debug_output.filelist]))
 
     # Explicitly drop all inputs by using `with_inputs = False`, we don't want
     # to materialize all inputs to the link actions (which includes all object files
