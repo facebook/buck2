@@ -172,7 +172,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn project_root<'v>(
         this: &StarlarkConfiguredProvidersLabel,
     ) -> anyhow::Result<StarlarkProjectRoot> {
-        Ok(StarlarkProjectRoot::new())
+        Ok(StarlarkProjectRoot)
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this returns the unconfigured underlying target label (`fbcode//buck2/hello:world`)

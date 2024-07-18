@@ -21,12 +21,6 @@ use starlark::values::StarlarkValue;
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkProjectRoot;
 
-impl StarlarkProjectRoot {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
 starlark_simple_value!(StarlarkProjectRoot);
 
 #[starlark_value(type = "project_root")]
