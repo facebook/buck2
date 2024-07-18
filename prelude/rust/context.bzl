@@ -55,7 +55,7 @@ CompileContext = record(
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
-    common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool), CommonArgsInfo]),
+    common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool), CommonArgsInfo]),
     transitive_dependency_dirs = field(dict[Artifact, None]),
     sysroot_args = field(cmd_args),
 )

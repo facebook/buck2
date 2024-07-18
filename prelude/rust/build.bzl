@@ -176,6 +176,7 @@ def generate_rustdoc(
         params = params,
         default_roots = default_roots,
         infallible_diagnostics = False,
+        incremental_enabled = False,
         is_rustdoc_test = False,
     )
 
@@ -233,6 +234,7 @@ def generate_rustdoc_coverage(
         params = params,
         default_roots = default_roots,
         infallible_diagnostics = False,
+        incremental_enabled = False,
         is_rustdoc_test = False,
     )
 
@@ -324,6 +326,7 @@ def generate_rustdoc_test(
         default_roots = default_roots,
         infallible_diagnostics = False,
         is_rustdoc_test = True,
+        incremental_enabled = False,
     )
 
     link_args_output = make_link_args(
@@ -408,6 +411,7 @@ def rust_compile(
         emit: Emit,
         params: BuildParams,
         default_roots: list[str],
+        incremental_enabled: bool,
         extra_link_args: list[typing.Any] = [],
         predeclared_output: Artifact | None = None,
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
@@ -442,6 +446,7 @@ def rust_compile(
         params = params,
         default_roots = default_roots,
         infallible_diagnostics = infallible_diagnostics,
+        incremental_enabled = incremental_enabled,
         is_rustdoc_test = False,
     )
 
@@ -471,6 +476,7 @@ def rust_compile(
             emit = emit,
             subdir = common_args.subdir,
             params = params,
+            incremental_enabled = incremental_enabled,
         )
     else:
         emit_op = _rustc_emit(
@@ -479,6 +485,7 @@ def rust_compile(
             subdir = common_args.subdir,
             params = params,
             predeclared_output = predeclared_output,
+            incremental_enabled = incremental_enabled,
         )
 
     if emit == Emit("clippy"):
@@ -557,6 +564,7 @@ def rust_compile(
         allow_cache_upload = allow_cache_upload and emit != Emit("clippy"),
         crate_map = common_args.crate_map,
         env = emit_op.env,
+        incremental_enabled = incremental_enabled,
     )
 
     if infallible_diagnostics and emit != Emit("clippy"):
@@ -804,13 +812,14 @@ def _compute_common_args(
         params: BuildParams,
         default_roots: list[str],
         infallible_diagnostics: bool,
+        incremental_enabled: bool,
         is_rustdoc_test: bool) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     path_sep = "\\" if exec_is_windows else "/"
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics)
+    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics, incremental_enabled)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
@@ -820,6 +829,8 @@ def _compute_common_args(
         subdir = "{}-rustdoc-test".format(subdir)
     if infallible_diagnostics:
         subdir = "{}-diag".format(subdir)
+    if incremental_enabled:
+        subdir = "{}-incr".format(subdir)
 
     # Included in tempfiles
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
@@ -1151,6 +1162,7 @@ def _rustc_emit(
         emit: Emit,
         subdir: str,
         params: BuildParams,
+        incremental_enabled: bool,
         predeclared_output: Artifact | None = None) -> EmitOperation:
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -1207,7 +1219,7 @@ def _rustc_emit(
         extra_out = ctx.actions.declare_output(extra_dir, dir = True)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
-        if ctx.attrs.incremental_enabled:
+        if incremental_enabled:
             build_mode = ctx.attrs.incremental_build_mode
             incremental_out = ctx.actions.declare_output("{}/extras/incremental/{}".format(subdir, build_mode))
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
@@ -1238,6 +1250,7 @@ def _rustc_invoke(
         is_clippy: bool,
         infallible_diagnostics: bool,
         allow_cache_upload: bool,
+        incremental_enabled: bool,
         crate_map: list[(CrateName, Label)],
         env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> Invoke:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -1287,7 +1300,6 @@ def _rustc_invoke(
         argfile_name = "{}-{}.args".format(prefix, diag),
     )
 
-    incremental_enabled = ctx.attrs.incremental_enabled
     local_only = False
     prefer_local = False
     if incremental_enabled:
@@ -1299,7 +1311,7 @@ def _rustc_invoke(
 
     if is_clippy:
         category = "clippy"
-        identifier = None
+        identifier = "run"
     else:
         category = "rustc"
         identifier = _explain(
@@ -1308,6 +1320,9 @@ def _rustc_invoke(
             emit = common_args.emit,
             infallible_diagnostics = infallible_diagnostics,
         )
+
+    if incremental_enabled:
+        identifier = identifier + " (incr)"
 
     ctx.actions.run(
         compile_cmd,

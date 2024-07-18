@@ -190,6 +190,7 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     args = cmd_args(link.output, hidden = executable_args.runtime_files)
@@ -292,6 +293,7 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     meta_fast = rust_compile(
@@ -301,6 +303,7 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     # `infallible_diagnostics` allows us to circumvent compilation failures and
@@ -315,6 +318,7 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_flags = extra_flags,
         infallible_diagnostics = True,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
     clippy_artifacts = rust_compile(
         ctx = ctx,
@@ -324,6 +328,7 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_flags = extra_flags,
         infallible_diagnostics = True,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     providers = [RustcExtraOutputsInfo(
@@ -341,6 +346,7 @@ def _rust_binary_common(
         params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
     extra_compiled_targets["expand"] = expand.output
 

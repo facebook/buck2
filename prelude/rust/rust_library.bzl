@@ -134,6 +134,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         emit = Emit("metadata-fast"),
         params = meta_params,
         default_roots = ["lib.rs"],
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     # Generate the actions to build various output artifacts. Given the set of
@@ -148,6 +149,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             emit = Emit("link"),
             params = params,
             default_roots = ["lib.rs"],
+            incremental_enabled = ctx.attrs.incremental_enabled,
         )
 
         if LinkageLang("rust") in langs:
@@ -159,6 +161,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     emit = Emit("metadata-full"),
                     params = params,
                     default_roots = ["lib.rs"],
+                    incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
                 MetadataKind("fast"): meta_fast,
             }
@@ -233,6 +236,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # TODO(pickett): Handle this at the rustc action level, we shouldn't
         # need to pass a special arg here, expand should just work.
         infallible_diagnostics = True,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     # If doctests=True or False is set on the individual target, respect that.
@@ -270,6 +274,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         params = meta_params,
         default_roots = ["lib.rs"],
         infallible_diagnostics = True,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
     clippy_artifacts = rust_compile(
         ctx = ctx,
@@ -278,6 +283,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         params = meta_params,
         default_roots = ["lib.rs"],
         infallible_diagnostics = True,
+        incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
     providers = []
