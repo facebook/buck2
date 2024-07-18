@@ -37,7 +37,7 @@ pub mod typecheck;
 #[clap(name = "starlark", about = "Run Starlark operations")]
 pub enum StarlarkCommand {
     #[clap(flatten)]
-    Opaque(StarlarkOpaqueCommand),
+    Opaque(StarlarkSubcommand),
     DebugAttach(StarlarkDebugAttachCommand),
 }
 
@@ -45,16 +45,16 @@ pub enum StarlarkCommand {
 // to the daemon and deserialized there and has a `server_execute()` on the Command object itself (as opposed
 // to using structured endpoints in the daemon protocol).
 #[derive(Debug, clap::Subcommand, serde::Serialize, serde::Deserialize)]
-pub enum StarlarkOpaqueCommand {
+pub enum StarlarkSubcommand {
     Lint(StarlarkLintCommand),
     Typecheck(StarlarkTypecheckCommand),
 }
 
-impl StarlarkOpaqueCommand {
+impl StarlarkSubcommand {
     fn as_client_subcommand(&self) -> &dyn StarlarkClientSubcommand {
         match self {
-            StarlarkOpaqueCommand::Lint(cmd) => cmd,
-            StarlarkOpaqueCommand::Typecheck(cmd) => cmd,
+            StarlarkSubcommand::Lint(cmd) => cmd,
+            StarlarkSubcommand::Typecheck(cmd) => cmd,
         }
     }
 }
@@ -79,7 +79,7 @@ pub struct StarlarkCommandCommonOptions {
 }
 
 #[async_trait]
-impl StreamingCommand for StarlarkOpaqueCommand {
+impl StreamingCommand for StarlarkSubcommand {
     const COMMAND_NAME: &'static str = "starlark";
 
     /// Starlark subcommands are all implemented as a generic request to the buckd server that will deserialize the command object.

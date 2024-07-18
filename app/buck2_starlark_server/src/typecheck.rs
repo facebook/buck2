@@ -36,7 +36,7 @@ use starlark::typing::Interface;
 
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
-use crate::StarlarkOpaqueSubcommand;
+use crate::StarlarkServerSubcommand;
 
 struct Cache<'a> {
     // Things we have access to get information
@@ -139,7 +139,7 @@ impl<'a> Cache<'a> {
 }
 
 #[async_trait]
-impl StarlarkOpaqueSubcommand for StarlarkTypecheckCommand {
+impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

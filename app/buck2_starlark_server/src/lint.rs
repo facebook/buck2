@@ -37,7 +37,7 @@ use starlark::syntax::AstModule;
 
 use crate::util::environment::Environment;
 use crate::util::paths::starlark_files;
-use crate::StarlarkOpaqueSubcommand;
+use crate::StarlarkServerSubcommand;
 
 /// The cache of names for a path, keyed by its CellName and its path type.
 struct Cache<'a> {
@@ -102,7 +102,7 @@ async fn lint_file(
 }
 
 #[async_trait]
-impl StarlarkOpaqueSubcommand for StarlarkLintCommand {
+impl StarlarkServerSubcommand for StarlarkLintCommand {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

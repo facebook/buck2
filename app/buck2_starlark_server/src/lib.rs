@@ -19,10 +19,10 @@ use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_starlark::StarlarkOpaqueCommand;
+use buck2_starlark::StarlarkSubcommand;
 
 #[async_trait]
-pub(crate) trait StarlarkOpaqueSubcommand: Send + Sync + 'static {
+pub(crate) trait StarlarkServerSubcommand: Send + Sync + 'static {
     async fn server_execute(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
@@ -73,7 +73,7 @@ async fn parse_command_and_execute(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {
-    let command: StarlarkOpaqueCommand = serde_json::from_str(&req.serialized_opts)?;
+    let command: StarlarkSubcommand = serde_json::from_str(&req.serialized_opts)?;
     as_server_subcommand(&command)
         .server_execute(
             context,
@@ -83,9 +83,9 @@ async fn parse_command_and_execute(
         .await
 }
 
-fn as_server_subcommand(cmd: &StarlarkOpaqueCommand) -> &dyn StarlarkOpaqueSubcommand {
+fn as_server_subcommand(cmd: &StarlarkSubcommand) -> &dyn StarlarkServerSubcommand {
     match cmd {
-        StarlarkOpaqueCommand::Lint(cmd) => cmd,
-        StarlarkOpaqueCommand::Typecheck(cmd) => cmd,
+        StarlarkSubcommand::Lint(cmd) => cmd,
+        StarlarkSubcommand::Typecheck(cmd) => cmd,
     }
 }
