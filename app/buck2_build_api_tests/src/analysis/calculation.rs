@@ -25,15 +25,13 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
-use buck2_core::cells::CellsAggregator;
+use buck2_core::cells::CellResolver;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::id::testing::ProviderIdExt;
 use buck2_core::provider::id::ProviderId;
@@ -63,20 +61,16 @@ use starlark_map::ordered_map::OrderedMap;
 #[tokio::test]
 async fn test_analysis_calculation() -> anyhow::Result<()> {
     let bzlfile = ImportPath::testing_new("cell//pkg:foo.bzl");
-    let resolver = {
-        let mut cells = CellsAggregator::new();
-        cells.add_cell_entry(
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-            NonEmptyCellAlias::new("root".to_owned()).unwrap(),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
-        )?;
-        cells.add_cell_entry(
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-            NonEmptyCellAlias::new("cell".to_owned()).unwrap(),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
-        )?;
-        cells.make_cell_resolver()?
-    };
+    let resolver = CellResolver::testing_with_names_and_paths(&[
+        (
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        ),
+        (
+            CellName::testing_new("cell"),
+            CellRootPathBuf::testing_new("cell"),
+        ),
+    ]);
     let mut interpreter = Tester::with_cells((
         CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
         resolver.dupe(),
