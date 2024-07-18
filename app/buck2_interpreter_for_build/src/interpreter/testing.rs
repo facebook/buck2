@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_common::legacy_configs::configs::testing::parse_with_config_args;
-use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
@@ -18,7 +18,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::cells::name::CellName;
 use buck2_core::cells::*;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
@@ -37,7 +36,6 @@ use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use indoc::indoc;
-use maplit::hashmap;
 use starlark::environment::GlobalsBuilder;
 
 use crate::interpreter::buckconfig::LegacyConfigsViewForStarlark;
@@ -54,14 +52,14 @@ use crate::super_package::package_value::SuperPackageValuesImpl;
 pub struct Tester {
     cell_alias_resolver: CellAliasResolver,
     cell_resolver: CellResolver,
-    configs: LegacyBuckConfigs,
+    root_config: LegacyBuckConfig,
     loaded_modules: LoadedModules,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
 }
 
 /// Helpers required to help drive the interpreter
-pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfigs);
+pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfig);
 
 /// The same as `run_starlark_test`, but just make sure the parse succeeds;
 /// ignore the targets
@@ -82,14 +80,12 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
     )?;
     let resolver = agg.make_cell_resolver()?;
 
-    let configs = hashmap![
-        CellName::testing_new("root") =>
-        parse_with_config_args(
-            &[
-                (
-                    "root",
-                    indoc!(
-                        r#"
+    let config = parse_with_config_args(
+        &[
+            (
+                "root",
+                indoc!(
+                    r#"
                         [section]
                             key = value
                             other = 1
@@ -100,19 +96,18 @@ pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
 
                         <file:extra_cfg>
                     "#
-                    ),
                 ),
-                ("extra_cfg", extra_root_config.unwrap_or("")),
-            ],
-            "root",
-            &[],
-        )?
-    ];
+            ),
+            ("extra_cfg", extra_root_config.unwrap_or("")),
+        ],
+        "root",
+        &[],
+    )?;
 
     Ok((
         resolver.root_cell_cell_alias_resolver().dupe(),
         resolver,
-        LegacyBuckConfigs::new(configs),
+        config,
     ))
 }
 
@@ -144,11 +139,11 @@ impl Tester {
     }
 
     pub fn with_cells(cells_data: CellsData) -> anyhow::Result<Self> {
-        let (cell_alias_resolver, cell_resolver, configs) = cells_data;
+        let (cell_alias_resolver, cell_resolver, root_config) = cells_data;
         Ok(Self {
             cell_alias_resolver,
             cell_resolver,
-            configs,
+            root_config,
             loaded_modules: LoadedModules::default(),
             additional_globals: Vec::new(),
             prelude_path: None,
@@ -170,9 +165,7 @@ impl Tester {
     fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
         let build_file_cell = BuildFileCell::new(self.cell_alias_resolver.resolve_self());
         let import_paths = ImplicitImportPaths::parse(
-            self.configs
-                .get(self.cell_alias_resolver.resolve_self())
-                .unwrap(),
+            &self.root_config,
             build_file_cell,
             &self.cell_alias_resolver,
         )?;
@@ -237,14 +230,9 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
-        let buckconfig = self
-            .configs
-            .get(self.cell_alias_resolver.resolve_self())
-            .unwrap();
-        let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
         let mut provider = StarlarkPassthroughProvider;
         let mut buckconfigs =
-            LegacyConfigsViewForStarlark::new(buckconfig.clone(), root_buckconfig.clone());
+            LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
 
         let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
@@ -288,14 +276,9 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
-        let buckconfig = self
-            .configs
-            .get(self.cell_alias_resolver.resolve_self())
-            .unwrap();
-        let root_buckconfig = self.configs.get(self.cell_resolver.root_cell()).unwrap();
         let mut provider = StarlarkPassthroughProvider;
         let mut buckconfigs =
-            LegacyConfigsViewForStarlark::new(buckconfig.clone(), root_buckconfig.clone());
+            LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
         let eval_result_with_stats = interpreter.eval_build_file(
             path,
             &mut buckconfigs,

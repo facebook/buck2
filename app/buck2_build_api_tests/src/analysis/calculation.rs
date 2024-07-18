@@ -20,7 +20,6 @@ use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
@@ -59,7 +58,6 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 use itertools::Itertools;
-use maplit::hashmap;
 use starlark_map::ordered_map::OrderedMap;
 
 #[tokio::test]
@@ -79,16 +77,10 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         )?;
         cells.make_cell_resolver()?
     };
-    let configs = LegacyBuckConfigs::new(hashmap![
-        CellName::testing_new("root") =>
-        LegacyBuckConfig::empty(),
-        CellName::testing_new("cell") =>
-        LegacyBuckConfig::empty(),
-    ]);
     let mut interpreter = Tester::with_cells((
         CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
         resolver.dupe(),
-        configs.dupe(),
+        LegacyBuckConfig::empty(),
     ))?;
     interpreter.additional_globals(register_rule_function);
     interpreter.additional_globals(register_provider);
