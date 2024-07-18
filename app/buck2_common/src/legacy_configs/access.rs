@@ -11,14 +11,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_core::cells::name::CellName;
 use gazebo::eq_chain;
 
 use crate::legacy_configs::configs::ConfigValue;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::LegacyBuckConfigValue;
-use crate::legacy_configs::configs::LegacyBuckConfigs;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
@@ -33,28 +31,6 @@ enum ConfigValueError {
         value: String,
         ty: &'static str,
     },
-    #[error("Unknown cell: `{0}`")]
-    UnknownCell(CellName),
-}
-
-impl LegacyBuckConfigs {
-    pub fn get<'a>(&'a self, cell_name: CellName) -> anyhow::Result<&'a LegacyBuckConfig> {
-        self.data
-            .get(&cell_name)
-            .ok_or_else(|| ConfigValueError::UnknownCell(cell_name).into())
-    }
-
-    pub fn compare(&self, other: &Self) -> bool {
-        let x = &self.data;
-        let y = &other.data;
-
-        eq_chain! {
-            x.len() == y.len(),
-            x.iter().all(|(cell, config)| {
-                y.get(cell).map_or(false, |y_config| y_config.compare(config))
-            })
-        }
-    }
 }
 
 impl LegacyBuckConfigView for &LegacyBuckConfig {

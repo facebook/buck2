@@ -16,7 +16,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
-use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
@@ -26,21 +25,6 @@ use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;
-
-/// A collection of configs, keyed by cell.
-#[derive(Clone, Dupe, Debug, Allocative)]
-pub struct LegacyBuckConfigs {
-    pub(crate) data: Arc<SortedMap<CellName, LegacyBuckConfig>>,
-}
-
-impl LegacyBuckConfigs {
-    pub fn new(data: HashMap<CellName, LegacyBuckConfig>) -> Self {
-        let data = SortedMap::from_iter(data);
-        Self {
-            data: Arc::new(data),
-        }
-    }
-}
 
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct LegacyBuckConfig(pub(crate) Arc<ConfigData>);
