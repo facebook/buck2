@@ -440,12 +440,47 @@ impl BuckConfigBasedCells {
 
         let mut file_ops = DiceConfigFileOps::new(ctx, project_fs, &resolver);
 
-        let config_paths = get_project_buckconfig_paths(cell_path, &mut file_ops).await?;
+        Self::parse_single_cell_with_file_ops_inner(&external_data, &mut file_ops, cell_path).await
+    }
+
+    pub async fn parse_single_cell(
+        &self,
+        cell: CellName,
+        project_fs: &ProjectRoot,
+    ) -> anyhow::Result<LegacyBuckConfig> {
+        self.parse_single_cell_with_file_ops(
+            cell,
+            &mut DefaultConfigParserFileOps {
+                project_fs: project_fs.dupe(),
+            },
+        )
+        .await
+    }
+
+    pub(crate) async fn parse_single_cell_with_file_ops(
+        &self,
+        cell: CellName,
+        file_ops: &mut dyn ConfigParserFileOps,
+    ) -> anyhow::Result<LegacyBuckConfig> {
+        Self::parse_single_cell_with_file_ops_inner(
+            &self.external_data,
+            file_ops,
+            self.cell_resolver.get(cell)?.path(),
+        )
+        .await
+    }
+
+    async fn parse_single_cell_with_file_ops_inner(
+        external_data: &ExternalBuckconfigData,
+        file_ops: &mut dyn ConfigParserFileOps,
+        cell_path: &CellRootPath,
+    ) -> anyhow::Result<LegacyBuckConfig> {
+        let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         LegacyBuckConfig::finish_parse(
             external_data.parse_state.clone(),
             &config_paths,
             cell_path,
-            &mut file_ops,
+            file_ops,
             external_data.args.as_ref(),
             /* follow includes */ true,
         )

@@ -251,8 +251,10 @@ impl DaemonState {
 
             tracing::info!("Starting...");
 
-            let (legacy_configs, cells) =
-                (legacy_cells.configs_by_name, legacy_cells.cell_resolver);
+            let (legacy_configs, cells) = (
+                legacy_cells.configs_by_name.dupe(),
+                legacy_cells.cell_resolver.dupe(),
+            );
 
             let root_config = legacy_configs
                 .get(cells.root_cell())
@@ -334,23 +336,22 @@ impl DaemonState {
                 root_config,
             )?);
 
-            let ignore_specs: HashMap<CellName, IgnoreSet> = legacy_configs
-                .iter()
-                .map(|(cell, config)| {
-                    Ok((
-                        cell,
-                        IgnoreSet::from_ignore_spec(
-                            config
-                                .get(BuckconfigKeyRef {
-                                    section: "project",
-                                    property: "ignore",
-                                })
-                                .unwrap_or(""),
-                            cells.is_root_cell(cell),
-                        )?,
-                    ))
-                })
-                .collect::<anyhow::Result<_>>()?;
+            let mut ignore_specs: HashMap<CellName, IgnoreSet> = HashMap::new();
+            for (cell, _) in cells.cells() {
+                let config = legacy_cells.parse_single_cell(cell, &fs).await?;
+                ignore_specs.insert(
+                    cell,
+                    IgnoreSet::from_ignore_spec(
+                        config
+                            .get(BuckconfigKeyRef {
+                                section: "project",
+                                property: "ignore",
+                            })
+                            .unwrap_or(""),
+                        cells.is_root_cell(cell),
+                    )?,
+                );
+            }
 
             let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
             let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);

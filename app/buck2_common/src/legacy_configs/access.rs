@@ -44,10 +44,6 @@ impl LegacyBuckConfigs {
             .ok_or_else(|| ConfigValueError::UnknownCell(cell_name).into())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (CellName, &LegacyBuckConfig)> {
-        self.data.iter().map(|(name, config)| (*name, config))
-    }
-
     pub fn compare(&self, other: &Self) -> bool {
         let x = &self.data;
         let y = &other.data;
