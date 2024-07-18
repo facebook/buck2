@@ -596,10 +596,13 @@ impl<'v> StarlarkCommandLineData<'v> {
     /// Add values to the artifact that don't show up on the command line, but do for dependency
     fn add_hidden(&mut self, values: &[Value<'v>]) -> anyhow::Result<()> {
         for value in values {
-            if let Some(values) = ListRef::from_value(*value) {
-                self.add_hidden(values.content())?;
-            } else {
-                self.hidden.push(CommandLineArg::unpack_value_err(*value)?);
+            match StarlarkCommandLineValueUnpack::unpack_value_err(*value)? {
+                StarlarkCommandLineValueUnpack::List(values) => {
+                    self.add_hidden(values.content())?
+                }
+                StarlarkCommandLineValueUnpack::CommandLineArg(arg) => {
+                    self.hidden.push(arg);
+                }
             }
         }
         Ok(())
