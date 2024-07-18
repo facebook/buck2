@@ -7,14 +7,19 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::testing::TestConfigParserFileOps;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::configs::LegacyBuckConfigs;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -180,33 +185,33 @@ fn cells() -> CellsData {
     let repo_root = if cfg!(windows) { "C:/" } else { "/" };
     let project_fs =
         ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
-    let BuckConfigBasedCells {
-        cell_resolver,
-        configs_by_name,
-        ..
-    } = futures::executor::block_on(BuckConfigBasedCells::parse_with_file_ops(
-        &project_fs,
-        &mut TestConfigParserFileOps::new(&[(
-            ".buckconfig",
-            indoc!(
-                r#"
+    let BuckConfigBasedCells { cell_resolver, .. } =
+        futures::executor::block_on(BuckConfigBasedCells::parse_with_file_ops(
+            &project_fs,
+            &mut TestConfigParserFileOps::new(&[(
+                ".buckconfig",
+                indoc!(
+                    r#"
                     [cells]
                         root = .
                         cell1 = project/cell1
                         cell2 = project/cell2
                         xalias2 = project/cell2
                     "#
-            ),
-        )])
-        .unwrap(),
-        &[],
-        ProjectRelativePath::empty(),
-    ))
-    .unwrap();
+                ),
+            )])
+            .unwrap(),
+            &[],
+            ProjectRelativePath::empty(),
+        ))
+        .unwrap();
     (
         cell_resolver.root_cell_cell_alias_resolver().dupe(),
         cell_resolver,
-        configs_by_name,
+        LegacyBuckConfigs::new(HashMap::from_iter([(
+            CellName::testing_new("root"),
+            LegacyBuckConfig::empty(),
+        )])),
     )
 }
 
