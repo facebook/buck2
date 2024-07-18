@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("//rust:outputs.bzl", "RustcExtraOutputsInfo")
+load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 
 def check_targets_impl(ctx: BxlContext) -> None:
     target_universe = ctx.uquery().owner(ctx.cli_args.file)
