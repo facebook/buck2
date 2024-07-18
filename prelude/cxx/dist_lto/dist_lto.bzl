@@ -435,6 +435,12 @@ def cxx_dist_link(
 
     opt_common_flags = prepare_opt_flags(link_infos)
 
+    # Create an argsfile and dump all the flags to be processed later by lto_opt.
+    # These flags are common to all opt actions, we don't need an argfile for each action, one
+    # for the entire link unit will do.
+    opt_argsfile = ctx.actions.declare_output(output.basename + ".opt.argsfile")
+    ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
+
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
     # opt actions, but an action needs to re-run whenever the analysis that
@@ -469,9 +475,6 @@ def cxx_dist_link(
             elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                 opt_cmd.add("--split-dwarf=single")
 
-            # Create an argsfile and dump all the flags to be processed later.
-            opt_argsfile = ctx.actions.declare_output(outputs[opt_object].basename + ".opt.argsfile")
-            ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
             opt_cmd.add(cmd_args(hidden = opt_common_flags))
             opt_cmd.add("--args", opt_argsfile)
 
@@ -526,8 +529,6 @@ def cxx_dist_link(
                 elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                     opt_cmd.add("--split-dwarf=single")
 
-                opt_argsfile = ctx.actions.declare_output(opt_object.basename + ".opt.argsfile")
-                ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
                 opt_cmd.add(cmd_args(hidden = opt_common_flags))
                 opt_cmd.add("--args", opt_argsfile)
 
