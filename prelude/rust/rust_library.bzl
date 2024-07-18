@@ -301,7 +301,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
     )
     providers += _rust_metadata_providers(
-        check_artifacts = rust_param_artifact[meta_params],
+        diag_artifacts = diag_artifacts,
         clippy_artifacts = clippy_artifacts,
     )
 
@@ -578,11 +578,10 @@ def _default_providers(
 
     return providers
 
-def _rust_metadata_providers(check_artifacts: dict[MetadataKind, RustcOutput], clippy_artifacts: RustcOutput) -> list[Provider]:
+def _rust_metadata_providers(diag_artifacts: RustcOutput, clippy_artifacts: RustcOutput) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
-            metadata_full = check_artifacts[MetadataKind("full")],
-            metadata_fast = check_artifacts[MetadataKind("fast")],
+            metadata = diag_artifacts,
             clippy = clippy_artifacts,
         ),
     ]

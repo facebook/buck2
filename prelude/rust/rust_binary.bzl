@@ -286,26 +286,6 @@ def _rust_binary_common(
             ),
         )]
 
-    meta_full = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("metadata-full"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-
-    meta_fast = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("metadata-fast"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-
     # `infallible_diagnostics` allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
@@ -332,8 +312,7 @@ def _rust_binary_common(
     )
 
     providers = [RustcExtraOutputsInfo(
-        metadata_full = meta_full,
-        metadata_fast = meta_fast,
+        metadata = diag_artifacts,
         clippy = clippy_artifacts,
     )]
 
