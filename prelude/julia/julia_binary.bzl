@@ -70,8 +70,11 @@ def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
         # iterate through all the shlib dependencies for the current jll
         artifact_info = []
         for julia_name, label in jll.libs.items():
-            symlink_dir = cmd_args(shared_libs_symlink_tree, delimiter = "")
-            symlink_dir.relative_to(json_info_file)  # That cannot be produced by a tset projection
+            symlink_dir = cmd_args(
+                shared_libs_symlink_tree,
+                delimiter = "",
+                relative_to = json_info_file,  # That cannot be produced by a tset projection
+            )
             artifact_info.append((julia_name, symlink_dir, shlib_label_to_soname[label]))
         json_info.append((jll.name, jli.uuid, artifact_info))
 
@@ -129,10 +132,10 @@ def build_julia_command(ctx):
         "env": julia_toolchain.env,
         "jll_mapping": build_jll_shlibs_mapping(ctx, json_info_file),
         "julia_args": ctx.attrs.julia_args,
-        "julia_binary": cmd_args(julia_toolchain.julia, delimiter = " ").relative_to(json_info_file),
+        "julia_binary": cmd_args(julia_toolchain.julia, delimiter = " ", relative_to = json_info_file),
         "julia_flags": ctx.attrs.julia_flags,
-        "lib_path": cmd_args(symlink_dir, delimiter = " ").relative_to(json_info_file),
-        "main": cmd_args(srcs.project(ctx.attrs.main), delimiter = " ").relative_to(json_info_file),
+        "lib_path": cmd_args(symlink_dir, delimiter = " ", relative_to = json_info_file),
+        "main": cmd_args(srcs.project(ctx.attrs.main), delimiter = " ", relative_to = json_info_file),
     }
 
     json_file_loc = ctx.actions.write_json(json_info_file, json_info_dict, with_inputs = True)
