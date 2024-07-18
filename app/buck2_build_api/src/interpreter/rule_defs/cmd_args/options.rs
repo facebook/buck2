@@ -18,6 +18,7 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
@@ -36,12 +37,13 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValue;
+use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -99,8 +101,7 @@ pub(crate) trait CommandLineOptionsTrait<'v> {
 #[repr(C)]
 pub(crate) struct CommandLineOptions<'v> {
     // These impact how artifacts are rendered
-    /// The value of V must be convertible to a `RelativeOrigin`
-    pub(crate) relative_to: Option<(Value<'v>, u32)>,
+    pub(crate) relative_to: Option<(ValueOfUnchecked<'v, RelativeOrigin<'v>>, u32)>,
     pub(crate) absolute_prefix: Option<StringValue<'v>>,
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
@@ -188,7 +189,7 @@ impl<'v, 'a> Serialize for OptionsReplacementsRef<'v, 'a> {
 #[derive(Default, Serialize)]
 pub(crate) struct CommandLineOptionsRef<'v, 'a> {
     #[serde(serialize_with = "serialize_opt_display")]
-    pub(crate) relative_to: Option<(Value<'v>, u32)>,
+    pub(crate) relative_to: Option<(ValueOfUnchecked<'v, RelativeOrigin<'v>>, u32)>,
     pub(crate) absolute_prefix: Option<StringValue<'v>>,
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
@@ -252,7 +253,10 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
 
 #[derive(Debug, Allocative)]
 enum FrozenCommandLineOption {
-    RelativeTo(FrozenValue, u32),
+    RelativeTo(
+        FrozenValueOfUnchecked<'static, RelativeOrigin<'static>>,
+        u32,
+    ),
     AbsolutePrefix(FrozenStringValue),
     AbsoluteSuffix(FrozenStringValue),
     Parent(u32),
@@ -373,10 +377,9 @@ impl<'v> Freeze for CommandLineOptions<'v> {
         } = self;
 
         let mut options = Vec::new();
-        if let Some(relative_to) = relative_to {
-            let (relative, parent) = relative_to.freeze(freezer)?;
-            let parent: u32 = parent.try_into()?;
-            options.push(FrozenCommandLineOption::RelativeTo(relative, parent));
+        if let Some((relative_to, parent)) = relative_to {
+            let relative_to = relative_to.cast().freeze(freezer)?;
+            options.push(FrozenCommandLineOption::RelativeTo(relative_to, parent));
         }
         if let Some(absolute_prefix) = absolute_prefix {
             let absolute_prefix = absolute_prefix.freeze(freezer)?;
@@ -673,9 +676,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             None => return Ok(None),
         };
 
-        let origin = RelativeOrigin::unpack_value(value)
-            .into_anyhow_result()?
-            .expect("Must be a valid RelativeOrigin as this was checked in the setter");
+        let origin = value
+            .unpack()
+            .into_anyhow_result()
+            .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {
             if !relative_path.pop() {
@@ -714,7 +718,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         let mut iter = Vec::new();
 
         if let Some((value, index)) = relative_to {
-            iter.push(("relative_to", CommandLineOptionsIterItem::Value(*value)));
+            iter.push((
+                "relative_to",
+                CommandLineOptionsIterItem::Value(value.get()),
+            ));
             if *index != 0 {
                 iter.push((
                     "relative_to_parent",
