@@ -10,8 +10,11 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 
@@ -28,3 +31,8 @@ starlark_simple_value!(StarlarkProjectRoot);
 
 #[starlark_value(type = "project_root")]
 impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
+
+#[starlark_module]
+pub fn register_project_root(globals: &mut GlobalsBuilder) {
+    const ProjectRoot: StarlarkValueAsType<StarlarkProjectRoot> = StarlarkValueAsType::new();
+}
