@@ -20,6 +20,8 @@ load(
     "is_modifiers_match",
 )
 
+MODIFIER_METADATA_KEY = "buck.cfg_modifiers"
+
 _TARGET_LOCATION_STR = "`metadata` attribute of target"
 _CLI_LOCATION_STR = "command line"
 

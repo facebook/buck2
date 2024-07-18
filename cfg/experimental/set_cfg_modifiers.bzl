@@ -6,8 +6,7 @@
 # of this source tree.
 
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
-load(":common.bzl?v2_only", "get_tagged_modifiers", "tagged_modifiers_to_json")
-load(":set_cfg_constructor.bzl?v2_only", "MODIFIER_METADATA_KEY")
+load(":common.bzl?v2_only", "MODIFIER_METADATA_KEY", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load(":types.bzl?v2_only", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
 def set_cfg_modifiers(

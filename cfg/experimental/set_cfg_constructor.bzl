@@ -7,8 +7,7 @@
 
 load(":alias.bzl?v2_only", "ALIASES")
 load(":cfg_constructor.bzl?v2_only", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
-
-MODIFIER_METADATA_KEY = "buck.cfg_modifiers"
+load(":common.bzl?v2_only", "MODIFIER_METADATA_KEY")
 
 def set_cfg_constructor():
     # This is to be buck1-proof.
