@@ -175,7 +175,7 @@ def generate_rustdoc(
         emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
-        diagnostics_only = False,
+        infallible_diagnostics = False,
         is_rustdoc_test = False,
     )
 
@@ -232,7 +232,7 @@ def generate_rustdoc_coverage(
         emit = Emit("metadata-fast"),
         params = params,
         default_roots = default_roots,
-        diagnostics_only = False,
+        infallible_diagnostics = False,
         is_rustdoc_test = False,
     )
 
@@ -322,7 +322,7 @@ def generate_rustdoc_test(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        diagnostics_only = False,
+        infallible_diagnostics = False,
         is_rustdoc_test = True,
     )
 
@@ -413,7 +413,11 @@ def rust_compile(
         extra_flags: list[[str, ResolvedStringWithMacros]] = [],
         designated_clippy: bool = False,
         allow_cache_upload: bool = False,
-        diagnostics_only: bool = False,
+        # Setting this to true causes the diagnostic outputs that are generated
+        # from this action to always be successfully generated, even if
+        # compilation fails. This should not generally be used if the "real"
+        # output of the action is going to be depended on
+        infallible_diagnostics: bool = False,
         rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
@@ -438,7 +442,7 @@ def rust_compile(
         emit = emit,
         params = params,
         default_roots = default_roots,
-        diagnostics_only = diagnostics_only,
+        infallible_diagnostics = infallible_diagnostics,
         is_rustdoc_test = False,
     )
 
@@ -460,7 +464,7 @@ def rust_compile(
     # let rustc_emit generate its own output artifacts, and then make sure we
     # use the predeclared one as the output after the failure filter action
     # below. Otherwise we'll use the predeclared outputs directly.
-    if diagnostics_only:
+    if infallible_diagnostics:
         emit_op = _rustc_emit(
             ctx = ctx,
             emit = emit,
@@ -529,7 +533,7 @@ def rust_compile(
         rustc_cmd = cmd_args(toolchain_info.compiler, rustc_cmd, emit_op.args),
         required_outputs = [emit_op.output],
         is_clippy = False,
-        diagnostics_only = diagnostics_only,
+        infallible_diagnostics = infallible_diagnostics,
         allow_cache_upload = allow_cache_upload,
         crate_map = common_args.crate_map,
         env = emit_op.env,
@@ -573,14 +577,14 @@ def rust_compile(
             env = clippy_env,
             required_outputs = [clippy_emit_op.output],
             is_clippy = True,
-            diagnostics_only = diagnostics_only,
+            infallible_diagnostics = infallible_diagnostics,
             allow_cache_upload = False,
             crate_map = common_args.crate_map,
         )
     else:
         clippy_invoke = None
 
-    if diagnostics_only:
+    if infallible_diagnostics:
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
@@ -836,14 +840,14 @@ def _compute_common_args(
         emit: Emit,
         params: BuildParams,
         default_roots: list[str],
-        diagnostics_only: bool,
+        infallible_diagnostics: bool,
         is_rustdoc_test: bool) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     path_sep = "\\" if exec_is_windows else "/"
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, diagnostics_only)
+    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
@@ -851,7 +855,7 @@ def _compute_common_args(
     subdir = "{}-{}-{}-{}".format(crate_type.value, params.reloc_model.value, params.dep_link_strategy.value, emit.value)
     if is_rustdoc_test:
         subdir = "{}-rustdoc-test".format(subdir)
-    if diagnostics_only:
+    if infallible_diagnostics:
         subdir = "{}-diag".format(subdir)
 
     # Included in tempfiles
@@ -1135,7 +1139,7 @@ def _crate_root(
          "\nMake sure you have one of {} in your `srcs` attribute.".format(default_roots) +
          "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates.list()))
 
-def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, diagnostics_only: bool) -> str:
+def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, infallible_diagnostics: bool) -> str:
     if emit == Emit("metadata-full"):
         link_strategy_suffix = {
             LinkStrategy("static"): " [static]",
@@ -1145,7 +1149,7 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, dia
         return "metadata" + link_strategy_suffix
 
     if emit == Emit("metadata-fast"):
-        return "diag" if diagnostics_only else "check"
+        return "diag" if infallible_diagnostics else "check"
 
     if emit == Emit("link"):
         link_strategy_suffix = {
@@ -1269,7 +1273,7 @@ def _rustc_invoke(
         rustc_cmd: cmd_args,
         required_outputs: list[Artifact],
         is_clippy: bool,
-        diagnostics_only: bool,
+        infallible_diagnostics: bool,
         allow_cache_upload: bool,
         crate_map: list[(CrateName, Label)],
         env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> Invoke:
@@ -1304,7 +1308,7 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args("--path-env=", k, "=", v, delimiter = ""))
 
     build_status = None
-    if diagnostics_only:
+    if infallible_diagnostics:
         # Build status for fail filter
         build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag))
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
@@ -1339,7 +1343,7 @@ def _rustc_invoke(
             crate_type = common_args.crate_type,
             link_strategy = common_args.params.dep_link_strategy,
             emit = common_args.emit,
-            diagnostics_only = diagnostics_only,
+            infallible_diagnostics = infallible_diagnostics,
         )
 
     ctx.actions.run(

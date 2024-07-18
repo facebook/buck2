@@ -232,7 +232,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # fully compile, but will report an error even if it succeeds.
         # TODO(pickett): Handle this at the rustc action level, we shouldn't
         # need to pass a special arg here, expand should just work.
-        diagnostics_only = True,
+        infallible_diagnostics = True,
     )
 
     # If doctests=True or False is set on the individual target, respect that.
@@ -259,7 +259,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = default_roots,
     )
 
-    # diagnostics_only allows us to circumvent compilation failures and
+    # infallible_diagnostics allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
     # even when the target has bugs.
@@ -270,7 +270,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         params = meta_params,
         default_roots = ["lib.rs"],
         designated_clippy = True,
-        diagnostics_only = True,
+        infallible_diagnostics = True,
     )
 
     providers = []

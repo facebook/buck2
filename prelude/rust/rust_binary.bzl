@@ -308,7 +308,7 @@ def _rust_binary_common(
         metadata_fast = meta_fast,
     )]
 
-    # `diagnostics_only` allows us to circumvent compilation failures and
+    # `infallible_diagnostics` allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
     # artifact was not generated. This allows us to generate diagnostics
     # even when the target has bugs.
@@ -320,7 +320,7 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_flags = extra_flags,
         designated_clippy = True,
-        diagnostics_only = True,
+        infallible_diagnostics = True,
     )
     extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts))
 
