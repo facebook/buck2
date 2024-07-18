@@ -182,7 +182,6 @@ def cxx_link_into(
         else:
             link_args_suffix = opts.category_suffix
     link_args_output = make_link_args(
-        ctx,
         ctx.actions,
         cxx_toolchain_info,
         links_with_linker_map,

@@ -330,7 +330,6 @@ def generate_rustdoc_test(
     )
 
     link_args_output = make_link_args(
-        ctx,
         ctx.actions,
         compile_ctx.cxx_toolchain_info,
         [
@@ -533,7 +532,6 @@ def rust_compile(
             )
 
         link_args_output = make_link_args(
-            ctx,
             ctx.actions,
             compile_ctx.cxx_toolchain_info,
             [

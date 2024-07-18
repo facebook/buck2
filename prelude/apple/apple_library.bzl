@@ -77,7 +77,7 @@ load("@prelude//apple/mockingbird/mockingbird_types.bzl", "MockingbirdLibraryInf
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
-load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_preprocessor_flags", "get_unversioned_target_triple", "get_versioned_target_triple")
+load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_linker_flags", "get_min_deployment_version_target_preprocessor_flags", "get_unversioned_target_triple", "get_versioned_target_triple")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
     ":debug.bzl",
@@ -352,6 +352,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
         extra_hidden = validation_deps_outputs,
+        extra_link_flags = [_get_linker_flags(ctx)],
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
@@ -502,6 +503,9 @@ def _get_link_style_sub_targets_and_providers(
         return (subtargets, providers)
 
     return get_link_style_sub_targets_impl
+
+def _get_linker_flags(ctx: AnalysisContext) -> cmd_args:
+    return cmd_args(get_min_deployment_version_target_linker_flags(ctx))
 
 def _xcode_populate_attributes(
         ctx,
