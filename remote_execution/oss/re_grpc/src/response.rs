@@ -205,6 +205,7 @@ impl Stage {
     pub const KEEP_ALIVE: Self = Stage(102i32);
     pub const BEFORE_ACTION: Self = Stage(103i32);
     pub const AFTER_ACTION: Self = Stage(104i32);
+    pub const WORKER_RECEIVED: Self = Stage(105i32);
 }
 
 #[derive(Clone, Default)]
