@@ -180,6 +180,7 @@ extern crate tracing;
 mod api;
 pub(crate) mod arc;
 mod ctx;
+pub(crate) mod future;
 mod impls;
 pub mod introspection;
 mod legacy;

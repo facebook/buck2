@@ -205,7 +205,7 @@ impl<'d> DiceComputations<'d> {
                 move |ctx: &mut DiceComputations| -> BoxFuture<Result<R, E>> { mapper(ctx, v) },
             )
         }));
-        futures::future::try_join_all(futs)
+        crate::future::try_join_all(futs)
     }
 
     /// Computes all the given tasks in parallel.
