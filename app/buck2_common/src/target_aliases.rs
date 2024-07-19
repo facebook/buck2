@@ -153,7 +153,8 @@ impl Key for TargetAliasResolverKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
-        let legacy_configs = ctx.get_legacy_config_for_cell(self.cell_name).await?;
+        let root_cell = ctx.get_cell_resolver().await?.root_cell();
+        let legacy_configs = ctx.get_legacy_config_for_cell(root_cell).await?;
         Ok(BuckConfigTargetAliasResolver::new(legacy_configs.dupe()))
     }
 
