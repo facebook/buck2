@@ -76,16 +76,11 @@ fn resolve_config_flag_arg(
     })
 }
 
-/// State required to perform resolution of cell-relative paths.
-struct CellResolutionState<'a> {
-    project_filesystem: &'a ProjectRoot,
-    cwd: &'a ProjectRelativePath,
-}
-
 async fn resolve_config_file_arg(
     cell: Option<CellRootPathBuf>,
     arg: &str,
-    cell_resolution_state: &mut CellResolutionState<'_>,
+    project_filesystem: &ProjectRoot,
+    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<ResolvedConfigFile> {
     if let Some(cell_path) = cell {
@@ -97,9 +92,7 @@ async fn resolve_config_file_arg(
     let path = if path.is_absolute() {
         AbsPath::new(path)?.to_owned()
     } else {
-        let cwd = cell_resolution_state
-            .project_filesystem
-            .resolve(cell_resolution_state.cwd);
+        let cwd = project_filesystem.resolve(cwd);
         cwd.into_abs_path_buf().join(path)
     };
 
@@ -121,11 +114,6 @@ pub(crate) async fn resolve_config_args(
     cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
-    let mut cell_resolution = CellResolutionState {
-        project_filesystem: project_fs,
-        cwd,
-    };
-
     let mut resolved_args = Vec::new();
 
     for u in args {
@@ -143,13 +131,9 @@ pub(crate) async fn resolve_config_args(
             }
             ConfigType::File => {
                 let cell = u.get_cell()?.map(|p| p.to_buf());
-                let resolved_path = resolve_config_file_arg(
-                    cell,
-                    &u.config_override,
-                    &mut cell_resolution,
-                    file_ops,
-                )
-                .await?;
+                let resolved_path =
+                    resolve_config_file_arg(cell, &u.config_override, project_fs, cwd, file_ops)
+                        .await?;
                 ResolvedLegacyConfigArg::File(resolved_path)
             }
         };
