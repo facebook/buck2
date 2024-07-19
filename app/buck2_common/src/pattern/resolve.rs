@@ -142,7 +142,6 @@ mod tests {
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
-    use buck2_core::cells::CellsAggregator;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::PackageLabel;
     use buck2_core::pattern::pattern::PackageSpec;
@@ -160,6 +159,7 @@ mod tests {
 
     use crate::file_ops::testing::TestFileOps;
     use crate::file_ops::FileOps;
+    use crate::legacy_configs::aggregator::CellsAggregator;
     use crate::pattern::resolve::resolve_target_patterns_impl;
     use crate::pattern::resolve::ResolvedPattern;
 

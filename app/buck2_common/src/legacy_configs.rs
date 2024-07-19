@@ -11,6 +11,7 @@
 //! .buckconfig files as configuration)
 
 mod access;
+pub(crate) mod aggregator;
 pub mod args;
 pub mod cells;
 pub mod configs;

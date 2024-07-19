@@ -46,7 +46,7 @@ struct CellData {
 }
 
 impl CellInstance {
-    pub(crate) fn new(
+    pub fn new(
         name: CellName,
         path: CellRootPathBuf,
         external: Option<ExternalCellOrigin>,
