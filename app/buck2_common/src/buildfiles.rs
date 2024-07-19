@@ -172,7 +172,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],

@@ -148,18 +148,19 @@ impl BuckConfigBasedCells {
         config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        Self::parse_with_file_ops(
+        Self::parse_with_file_ops_and_options(
             project_fs,
             &mut DefaultConfigParserFileOps {
                 project_fs: project_fs.dupe(),
             },
             config_args,
             cwd,
+            true, /* follow includes */
         )
         .await
     }
 
-    pub async fn parse_with_file_ops(
+    pub async fn testing_parse_with_file_ops(
         project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
@@ -602,7 +603,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -692,7 +693,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[ConfigOverride::file(
@@ -763,7 +764,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -832,7 +833,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[
@@ -895,7 +896,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -974,7 +975,7 @@ mod tests {
         ])?;
 
         let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1024,7 +1025,7 @@ mod tests {
         )])?;
         let project_fs = create_project_filesystem();
 
-        let cells = BuckConfigBasedCells::parse_with_file_ops(
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[ConfigOverride::flag_no_cell("some_section.key=value1")],
@@ -1056,7 +1057,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1140,7 +1141,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1196,7 +1197,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        BuckConfigBasedCells::parse_with_file_ops(
+        BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1228,7 +1229,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::parse_with_file_ops(
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1265,7 +1266,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::parse_with_file_ops(
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],
@@ -1308,7 +1309,7 @@ mod tests {
         )])?;
 
         let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::parse_with_file_ops(
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut file_ops,
             &[],

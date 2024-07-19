@@ -182,7 +182,7 @@ fn cells() -> CellsData {
     let project_fs =
         ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
     let BuckConfigBasedCells { cell_resolver, .. } =
-        futures::executor::block_on(BuckConfigBasedCells::parse_with_file_ops(
+        futures::executor::block_on(BuckConfigBasedCells::testing_parse_with_file_ops(
             &project_fs,
             &mut TestConfigParserFileOps::new(&[(
                 ".buckconfig",
