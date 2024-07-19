@@ -24,6 +24,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 buck2_re_configuration = { workspace = true }
+buck2_util = { workspace = true }
 re_grpc_proto = { path = "../re_grpc_proto" }
 
 [dev-dependencies]

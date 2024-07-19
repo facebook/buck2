@@ -1174,7 +1174,7 @@ where
         })
     });
 
-    futures::future::try_join_all(writes).await?;
+    buck2_util::future::try_join_all(writes).await?;
 
     Ok(DownloadResponse {
         inlined_blobs: Some(inlined_blobs),

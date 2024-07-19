@@ -24,6 +24,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:uuid",
         "//buck2/app/buck2_re_configuration:buck2_re_configuration",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/remote_execution/oss/re_grpc_proto:re_grpc_proto",
