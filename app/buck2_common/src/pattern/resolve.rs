@@ -134,11 +134,9 @@ async fn resolve_target_patterns_impl<P: PatternType>(
 mod tests {
     use std::collections::BTreeMap;
     use std::collections::BTreeSet;
-    use std::collections::HashMap;
     use std::marker::PhantomData;
     use std::sync::Arc;
 
-    use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
@@ -159,7 +157,6 @@ mod tests {
 
     use crate::file_ops::testing::TestFileOps;
     use crate::file_ops::FileOps;
-    use crate::legacy_configs::aggregator::CellsAggregator;
     use crate::pattern::resolve::resolve_target_patterns_impl;
     use crate::pattern::resolve::ResolvedPattern;
 
@@ -172,26 +169,17 @@ mod tests {
     impl TestPatternResolver {
         fn new(cells: &[(&str, &str)], files: &[&str]) -> anyhow::Result<Self> {
             let resolver = {
-                let mut agg = CellsAggregator::new();
-                let mut cell_paths = HashMap::new();
-                for (name, path) in cells {
-                    cell_paths.insert(*name, *path);
-                }
+                let cells: Vec<_> = cells
+                    .iter()
+                    .map(|(name, path)| {
+                        (
+                            CellName::testing_new(name),
+                            CellRootPathBuf::testing_new(path),
+                        )
+                    })
+                    .collect();
 
-                for (_, path) in cells {
-                    for (alias, alias_path) in &cell_paths {
-                        agg.add_cell_entry(
-                            CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
-                                (*path).to_owned(),
-                            )?),
-                            NonEmptyCellAlias::new((*alias).to_owned())?,
-                            CellRootPathBuf::new(ProjectRelativePathBuf::try_from(
-                                (*alias_path).to_owned(),
-                            )?),
-                        )?;
-                    }
-                }
-                agg.make_cell_resolver()?
+                CellResolver::testing_with_names_and_paths(&cells)
             };
 
             let resolved_files = files
