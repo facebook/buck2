@@ -296,12 +296,6 @@ impl LegacyBuckConfig {
     }
 }
 
-// Options on how to exactly parse config files
-pub(crate) struct BuckConfigParseOptions {
-    // Defines whether includes are followed, this can significantly reduce parse time.
-    pub(crate) follow_includes: bool,
-}
-
 pub mod testing {
     use std::cmp::min;
 

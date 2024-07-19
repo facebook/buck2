@@ -37,7 +37,6 @@ use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::legacy_configs::aggregator::CellsAggregator;
 use crate::legacy_configs::args::resolve_config_args;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
-use crate::legacy_configs::configs::BuckConfigParseOptions;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
 use crate::legacy_configs::file_ops::push_all_files_from_a_directory;
@@ -166,16 +165,17 @@ impl BuckConfigBasedCells {
         config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<Self> {
-        let opts = BuckConfigParseOptions {
-            follow_includes: true,
-        };
-        Self::parse_with_file_ops_and_options(project_fs, file_ops, config_args, cwd, opts).await
+        Self::parse_with_file_ops_and_options(
+            project_fs,
+            file_ops,
+            config_args,
+            cwd,
+            true, /* follow includes */
+        )
+        .await
     }
 
     pub async fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
-        let opts = BuckConfigParseOptions {
-            follow_includes: false,
-        };
         Self::parse_with_file_ops_and_options(
             project_fs,
             &mut DefaultConfigParserFileOps {
@@ -183,7 +183,7 @@ impl BuckConfigBasedCells {
             },
             &[],
             ProjectRelativePath::empty(),
-            opts,
+            false, /* follow includes */
         )
         .await
     }
@@ -193,14 +193,14 @@ impl BuckConfigBasedCells {
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
-        options: BuckConfigParseOptions,
+        follow_includes: bool,
     ) -> anyhow::Result<Self> {
         Self::parse_with_file_ops_and_options_inner(
             project_root,
             file_ops,
             config_args,
             cwd,
-            options,
+            follow_includes,
         )
         .await
         .with_context(|| format!("Parsing cells with project root `{project_root}`, cwd `{cwd}`",))
@@ -211,7 +211,7 @@ impl BuckConfigBasedCells {
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
         cwd: &ProjectRelativePath,
-        options: BuckConfigParseOptions,
+        follow_includes: bool,
     ) -> anyhow::Result<Self> {
         // Tracing file ops to record config file accesses on command invocation.
         struct TracingFileOps<'a> {
@@ -252,7 +252,7 @@ impl BuckConfigBasedCells {
         let started_parse = LegacyBuckConfig::start_parse_for_external_files(
             &external_paths,
             &mut file_ops,
-            options.follow_includes,
+            follow_includes,
         )
         .await?;
 
@@ -266,7 +266,7 @@ impl BuckConfigBasedCells {
             &root_path,
             &mut file_ops,
             &processed_config_args,
-            options.follow_includes,
+            follow_includes,
         )
         .await?;
 
