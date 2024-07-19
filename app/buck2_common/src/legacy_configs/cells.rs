@@ -144,18 +144,6 @@ impl BuckConfigBasedCells {
         )
     }
 
-    pub async fn parse(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
-        Self::parse_with_file_ops(
-            project_fs,
-            &mut DefaultConfigParserFileOps {
-                project_fs: project_fs.dupe(),
-            },
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-    }
-
     pub async fn parse_with_config_args(
         project_fs: &ProjectRoot,
         config_args: &[buck2_cli_proto::ConfigOverride],
