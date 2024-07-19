@@ -52,9 +52,6 @@ impl BuckVersion {
     }
 
     fn compute() -> BuckVersion {
-        // TODO(cjhopman): Currently, buck is just a single executable and we don't have really stringent
-        // perf requirements so we hash the binary itself for the unique id. We will need to move this to
-        // be part of the build/packaging process at some point.
         let exe = std::env::current_exe().unwrap();
         let mut file = File::open(exe).unwrap();
         let file_m = match unsafe { memmap2::Mmap::map(&file) } {
