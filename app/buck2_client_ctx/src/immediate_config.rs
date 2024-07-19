@@ -48,17 +48,12 @@ impl ImmediateConfig {
             project_fs,
         ))?;
 
-        let cell_resolver = cells.cell_resolver;
         let cwd_cell_alias_resolver = futures::executor::block_on(
-            BuckConfigBasedCells::get_cell_alias_resolver_for_cwd_fast(
-                &cell_resolver,
-                project_fs,
-                cwd,
-            ),
+            cells.get_cell_alias_resolver_for_cwd_fast(project_fs, cwd),
         )?;
 
         Ok(ImmediateConfig {
-            cell_resolver,
+            cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
                 .context("Error loading daemon startup config")?,

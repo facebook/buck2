@@ -92,12 +92,11 @@ impl BuckConfigBasedCells {
     /// This function reads buckconfigs to compute an appropriate cell alias resolver to make that
     /// possible.
     pub async fn get_cell_alias_resolver_for_cwd_fast(
-        resolver: &CellResolver,
+        &self,
         project_fs: &ProjectRoot,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<CellAliasResolver> {
-        Self::get_cell_alias_resolver_for_cwd_fast_with_file_ops(
-            resolver,
+        self.get_cell_alias_resolver_for_cwd_fast_with_file_ops(
             &mut DefaultConfigParserFileOps {
                 project_fs: project_fs.dupe(),
             },
@@ -107,27 +106,18 @@ impl BuckConfigBasedCells {
     }
 
     pub(crate) async fn get_cell_alias_resolver_for_cwd_fast_with_file_ops(
-        resolver: &CellResolver,
+        &self,
         file_ops: &mut dyn ConfigParserFileOps,
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<CellAliasResolver> {
-        let cell_name = resolver.find(cwd)?;
-        let cell_path = resolver.get(cell_name)?.path();
+        let cell_name = self.cell_resolver.find(cwd)?;
+        let cell_path = self.cell_resolver.get(cell_name)?.path();
 
         let follow_includes = false;
 
-        // FIXME(JakobDegen): Adjust semantics so that this is not needed
-        let external_paths = get_external_buckconfig_paths(file_ops).await?;
-        let started_parse = LegacyBuckConfig::start_parse_for_external_files(
-            &external_paths,
-            file_ops,
-            follow_includes,
-        )
-        .await?;
-
         let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         let config = LegacyBuckConfig::finish_parse(
-            started_parse,
+            self.external_data.parse_state.clone(),
             &config_paths,
             cell_path,
             file_ops,
@@ -138,7 +128,7 @@ impl BuckConfigBasedCells {
 
         CellAliasResolver::new_for_non_root_cell(
             cell_name,
-            resolver.root_cell_cell_alias_resolver(),
+            self.cell_resolver.root_cell_cell_alias_resolver(),
             BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,
         )
     }
@@ -629,12 +619,12 @@ mod tests {
                 .as_str()
         );
 
-        let tp_resolver = BuckConfigBasedCells::get_cell_alias_resolver_for_cwd_fast_with_file_ops(
-            resolver,
-            &mut file_ops,
-            tp_instance.path().as_project_relative_path(),
-        )
-        .await?;
+        let tp_resolver = cells
+            .get_cell_alias_resolver_for_cwd_fast_with_file_ops(
+                &mut file_ops,
+                tp_instance.path().as_project_relative_path(),
+            )
+            .await?;
 
         assert_eq!("other", tp_resolver.resolve("other_alias")?.as_str());
 
