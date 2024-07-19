@@ -69,6 +69,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -284,6 +285,27 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         }
 
         Ok(eval.heap().alloc(AllocStruct(resolved_attrs)))
+    }
+
+    /// Skip incoming transition forward node.
+    /// If a target is a forward node, which is created by applying incoming configuration transition,
+    /// return the transition target, otherwise return itself.
+    /// This is is particularly useful when you don't care about 'forward' node.
+    ///
+    /// Example usage:
+    /// ```text
+    /// def _impl_unwrap_forward(ctx):
+    ///     node = ctx.configured_targets("my_cell//bin:the_binary")
+    ///     actual_node = node.unwrap_forward()
+    /// ```
+    fn unwrap_forward<'v>(
+        this: ValueTyped<'v, StarlarkConfiguredTargetNode>,
+        heap: &'v Heap,
+    ) -> anyhow::Result<ValueTyped<'v, StarlarkConfiguredTargetNode>> {
+        match this.0.forward_target() {
+            Some(n) => Ok(heap.alloc_typed(StarlarkConfiguredTargetNode(n.dupe()))),
+            None => Ok(this),
+        }
     }
 
     /// Gets the targets' corresponding rule's name. This is the fully qualified rule name including
