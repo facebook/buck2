@@ -52,7 +52,10 @@ pub trait ServerCommandContextTrait: Send + Sync {
     fn materializer(&self) -> Arc<dyn Materializer>;
 
     /// exposes the dice for scoped access, but isn't intended to be callable by anyone
-    async fn dice_accessor(&self, private: PrivateStruct) -> buck2_error::Result<DiceAccessor>;
+    async fn dice_accessor<'a>(
+        &'a self,
+        private: PrivateStruct,
+    ) -> buck2_error::Result<DiceAccessor<'a>>;
 
     fn events(&self) -> &EventDispatcher;
 
@@ -80,9 +83,9 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
 pub struct PrivateStruct(());
 
-pub struct DiceAccessor {
+pub struct DiceAccessor<'a> {
     pub dice_handler: ConcurrencyHandler,
-    pub setup: Box<dyn DiceUpdater>,
+    pub setup: Box<dyn DiceUpdater + 'a>,
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
     pub exit_when_different_state: bool,

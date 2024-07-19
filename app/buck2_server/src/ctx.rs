@@ -70,7 +70,6 @@ use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
-use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -80,12 +79,8 @@ use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
-use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
-use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_file_watcher::mergebase::SetMergebase;
-use buck2_forkserver::client::ForkserverClient;
 use buck2_futures::cancellation::ExplicitCancellationContext;
-use buck2_http::HttpClient;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -114,7 +109,6 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use tokio::sync::Mutex;
 use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
@@ -336,10 +330,10 @@ impl<'a> ServerCommandContext<'a> {
         })
     }
 
-    async fn dice_updater(
-        &self,
+    async fn dice_updater<'s>(
+        &'s self,
         build_signals: BuildSignalsInstaller,
-    ) -> anyhow::Result<DiceCommandUpdater> {
+    ) -> anyhow::Result<DiceCommandUpdater<'s, 'a>> {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -382,19 +376,12 @@ impl<'a> ServerCommandContext<'a> {
             .map(|v| v.map_err(buck2_error::Error::from));
 
         let executor_config = get_default_executor_config(self.host_platform_override);
-        let blocking_executor: Arc<_> = self.base_context.daemon.blocking_executor.dupe();
-        let materializer = self.base_context.daemon.materializer.dupe();
         let re_connection = Arc::new(self.get_re_connection());
-
-        let forkserver = self.base_context.daemon.forkserver.dupe();
 
         let upload_all_actions = self
             .build_options
             .as_ref()
             .map_or(false, |opts| opts.upload_all_actions);
-
-        let create_unhashed_symlink_lock =
-            self.base_context.daemon.create_unhashed_outputs_lock.dupe();
 
         let (interpreter_platform, interpreter_architecture, interpreter_xcode_version) =
             host_info::get_host_info(
@@ -404,45 +391,27 @@ impl<'a> ServerCommandContext<'a> {
             )?;
 
         Ok(DiceCommandUpdater {
-            cell_configs_loader: self.cell_configs_loader.dupe(),
-            events: self.events().dupe(),
+            cmd_ctx: self,
             execution_strategy,
             run_action_knobs,
             concurrency,
             executor_config: Arc::new(executor_config),
-            blocking_executor,
-            materializer,
             re_connection,
             build_signals,
-            forkserver,
             upload_all_actions,
             skip_cache_read,
             skip_cache_write,
-            create_unhashed_symlink_lock,
-            starlark_debugger: self.debugger_handle.dupe(),
             keep_going: self
                 .build_options
                 .as_ref()
                 .map_or(false, |opts| opts.keep_going),
-            http_client: self.base_context.daemon.http_client.dupe(),
-            paranoid: self.base_context.daemon.paranoid.dupe(),
-            spawner: self.base_context.spawner.dupe(),
             materialize_failed_inputs: self
                 .build_options
                 .as_ref()
                 .map_or(false, |opts| opts.materialize_failed_inputs),
-            file_watcher: self.base_context.daemon.file_watcher.dupe(),
-            buck_out_dir: self.buck_out_dir.clone(),
             interpreter_platform,
             interpreter_architecture,
             interpreter_xcode_version,
-            starlark_profiler_instrumentation_override: self
-                .starlark_profiler_instrumentation_override
-                .clone(),
-            disable_starlark_types: self.disable_starlark_types,
-            unstable_typecheck: self.unstable_typecheck,
-            skip_targets_with_duplicate_names: self.skip_targets_with_duplicate_names,
-            record_target_call_stacks: self.record_target_call_stacks,
         })
     }
 
@@ -527,38 +496,22 @@ impl CellConfigLoader {
     }
 }
 
-struct DiceCommandUpdater {
-    cell_configs_loader: Arc<CellConfigLoader>,
+struct DiceCommandUpdater<'s, 'a: 's> {
+    cmd_ctx: &'s ServerCommandContext<'a>,
     execution_strategy: ExecutionStrategy,
-    events: EventDispatcher,
     concurrency: Option<Result<usize, buck2_error::Error>>,
     executor_config: Arc<CommandExecutorConfig>,
-    blocking_executor: Arc<dyn BlockingExecutor>,
-    materializer: Arc<dyn Materializer>,
     re_connection: Arc<ReConnectionHandle>,
     build_signals: BuildSignalsInstaller,
-    forkserver: Option<ForkserverClient>,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
     skip_cache_read: bool,
     skip_cache_write: bool,
-    create_unhashed_symlink_lock: Arc<Mutex<()>>,
-    starlark_debugger: Option<BuckStarlarkDebuggerHandle>,
     keep_going: bool,
-    http_client: HttpClient,
-    paranoid: Option<ParanoidDownloader>,
-    spawner: Arc<BuckSpawner>,
     materialize_failed_inputs: bool,
-    file_watcher: Arc<dyn FileWatcher>,
-    buck_out_dir: ProjectRelativePathBuf,
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
     interpreter_xcode_version: Option<XcodeVersionInfo>,
-    starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
-    disable_starlark_types: bool,
-    unstable_typecheck: bool,
-    record_target_call_stacks: bool,
-    skip_targets_with_duplicate_names: bool,
 }
 
 fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
@@ -569,13 +522,14 @@ fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
 }
 
 #[async_trait]
-impl DiceUpdater for DiceCommandUpdater {
+impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
     ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self
+            .cmd_ctx
             .cell_configs_loader
             .cells_and_configs(existing_state)
             .await?;
@@ -586,26 +540,34 @@ impl DiceUpdater for DiceCommandUpdater {
             self.interpreter_platform,
             self.interpreter_architecture,
             self.interpreter_xcode_version.clone(),
-            self.record_target_call_stacks,
-            self.skip_targets_with_duplicate_names,
+            self.cmd_ctx.record_target_call_stacks,
+            self.cmd_ctx.skip_targets_with_duplicate_names,
             None,
             // New interner for each transaction.
             Arc::new(ConcurrentTargetLabelInterner::default()),
         )?;
 
-        ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
+        ctx.set_buck_out_path(Some(self.cmd_ctx.buck_out_dir.clone()))?;
 
         setup_interpreter(
             &mut ctx,
             cell_resolver,
             configuror,
             cells_and_configs.external_data,
-            self.starlark_profiler_instrumentation_override.clone(),
-            self.disable_starlark_types,
-            self.unstable_typecheck,
+            self.cmd_ctx
+                .starlark_profiler_instrumentation_override
+                .clone(),
+            self.cmd_ctx.disable_starlark_types,
+            self.cmd_ctx.unstable_typecheck,
         )?;
 
-        let (ctx, mergebase) = self.file_watcher.sync(ctx).await?;
+        let (ctx, mergebase) = self
+            .cmd_ctx
+            .base_context
+            .daemon
+            .file_watcher
+            .sync(ctx)
+            .await?;
 
         let mut user_data =
             self.make_user_computation_data(existing_state, &cells_and_configs.root_config)?;
@@ -615,7 +577,7 @@ impl DiceUpdater for DiceCommandUpdater {
     }
 }
 
-impl DiceCommandUpdater {
+impl<'a, 's> DiceCommandUpdater<'a, 's> {
     fn make_user_computation_data(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -637,7 +599,8 @@ impl DiceCommandUpdater {
             section: "ui",
             property: "thread_line_limit",
         })? {
-            self.events
+            self.cmd_ctx
+                .events()
                 .instant_event(buck2_data::ConsolePreferences { max_lines });
         }
 
@@ -687,7 +650,7 @@ impl DiceCommandUpdater {
         let low_pass_filter = LowPassFilter::new(concurrency);
 
         let mut data = DiceData::new();
-        data.set(self.events.dupe());
+        data.set(self.cmd_ctx.events().dupe());
 
         let cycle_detector = if root_config
             .parse::<bool>(BuckconfigKeyRef {
@@ -712,7 +675,7 @@ impl DiceCommandUpdater {
 
         let mut data = UserComputationData {
             data,
-            tracker: Arc::new(BuckDiceTracker::new(self.events.dupe())),
+            tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())),
             cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
@@ -733,12 +696,12 @@ impl DiceCommandUpdater {
             self.re_connection.dupe(),
             host_sharing_broker,
             low_pass_filter,
-            self.materializer.dupe(),
-            self.blocking_executor.dupe(),
+            self.cmd_ctx.base_context.daemon.materializer.dupe(),
+            self.cmd_ctx.base_context.daemon.blocking_executor.dupe(),
             self.execution_strategy,
             executor_global_knobs,
             self.upload_all_actions,
-            self.forkserver.dupe(),
+            self.cmd_ctx.base_context.daemon.forkserver.dupe(),
             self.skip_cache_read,
             self.skip_cache_write,
             ctx.global_data()
@@ -746,19 +709,30 @@ impl DiceCommandUpdater {
                 .project_root()
                 .to_owned(),
             worker_pool,
-            self.paranoid.dupe(),
+            self.cmd_ctx.base_context.daemon.paranoid.dupe(),
             self.materialize_failed_inputs,
         )));
-        data.set_blocking_executor(self.blocking_executor.dupe());
-        data.set_http_client(self.http_client.dupe());
-        data.set_materializer(self.materializer.dupe());
+        data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
+        data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
+        data.set_materializer(self.cmd_ctx.base_context.daemon.materializer.dupe());
         data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);
-        data.set_create_unhashed_symlink_lock(self.create_unhashed_symlink_lock.dupe());
-        data.set_starlark_debugger_handle(self.starlark_debugger.clone().map(|v| Box::new(v) as _));
+        data.set_create_unhashed_symlink_lock(
+            self.cmd_ctx
+                .base_context
+                .daemon
+                .create_unhashed_outputs_lock
+                .dupe(),
+        );
+        data.set_starlark_debugger_handle(
+            self.cmd_ctx
+                .debugger_handle
+                .clone()
+                .map(|v| Box::new(v) as _),
+        );
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
-        data.spawner = self.spawner.dupe();
+        data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
         ConfigDiffTracker::promote_into(ctx, &mut data, root_config);
 
         let tags = vec![
@@ -766,11 +740,15 @@ impl DiceCommandUpdater {
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
         ];
-        self.events.instant_event(buck2_data::TagEvent { tags });
+        self.cmd_ctx
+            .events()
+            .instant_event(buck2_data::TagEvent { tags });
 
-        self.events.instant_event(buck2_data::CommandOptions {
-            concurrency: concurrency as _,
-        });
+        self.cmd_ctx
+            .events()
+            .instant_event(buck2_data::CommandOptions {
+                concurrency: concurrency as _,
+            });
 
         Ok(data)
     }
@@ -810,7 +788,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
-    async fn dice_accessor(&self, _private: PrivateStruct) -> buck2_error::Result<DiceAccessor> {
+    async fn dice_accessor<'s>(
+        &'s self,
+        _private: PrivateStruct,
+    ) -> buck2_error::Result<DiceAccessor<'s>> {
         let (build_signals_installer, deferred_build_signals) = create_build_signals();
 
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
