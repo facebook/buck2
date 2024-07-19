@@ -216,6 +216,8 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
 /// Implementing Termination lets us set the exit code for the process.
 impl ExitResultVariant {
     pub fn report(self) -> ! {
+        // Log the exit timestamp
+        tracing::debug!("Client exiting");
         // NOTE: We use writeln instead of println so we don't panic if stderr is closed. This
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {

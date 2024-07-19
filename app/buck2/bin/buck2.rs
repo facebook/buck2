@@ -140,6 +140,9 @@ fn main(init: fbinit::FacebookInit) -> ! {
 
         let log_reload_handle = init_logging(init)?;
 
+        // Log the start timestamp
+        tracing::debug!("Client initialized logging");
+
         let args = std::env::args().collect::<Vec<String>>();
         let cwd = WorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
