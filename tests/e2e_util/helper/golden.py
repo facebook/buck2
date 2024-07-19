@@ -43,6 +43,26 @@ def _test_repo_data_src() -> str:
     return dir
 
 
+def _unified_diff(
+    *,
+    left: str,
+    right: str,
+    file: str,
+    context: int,
+) -> str:
+    import difflib
+
+    return "".join(
+        difflib.unified_diff(
+            left.splitlines(keepends=True),
+            right.splitlines(keepends=True),
+            fromfile=file,
+            tofile=file,
+            n=context,
+        ),
+    )
+
+
 def golden(*, output: str, rel_path: str) -> None:
     assert "golden" in rel_path, f"Golden path `{rel_path}` must contain `golden`"
 
@@ -62,12 +82,15 @@ def golden(*, output: str, rel_path: str) -> None:
         expected = f.read()
 
     if _remove_ci_labels(expected) != _remove_ci_labels(output):
+        unified_diff = _unified_diff(
+            left=expected,
+            right=output,
+            file=path_in_src,
+            context=3,
+        )
         raise AssertionError(
-            f"Expected golden file {path_in_src} to match actual\n"
-            f"Expected:\n\n{expected}\n\n"
-            "End of expected.\n"
-            f"Actual:\n\n{output}\n"
-            "End of actual.\n"
+            f"Expected golden file to match actual\n"
+            f"\n\n{unified_diff}\n\n"
             "Re-run test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command to regenerate the files"
         )
 
