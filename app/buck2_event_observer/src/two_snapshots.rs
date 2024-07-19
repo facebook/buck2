@@ -47,6 +47,16 @@ impl TwoSnapshots {
         self.per_micro_second(|s| (s.buck2_user_cpu_us + s.buck2_system_cpu_us) * 100)
     }
 
+    /// User CPU time between two snapshots in percents.
+    pub fn user_cpu_percents(&self) -> Option<u64> {
+        self.per_micro_second(|s| s.buck2_user_cpu_us * 100)
+    }
+
+    /// System CPU time between two snapshots in percents.
+    pub fn system_cpu_percents(&self) -> Option<u64> {
+        self.per_micro_second(|s| s.buck2_system_cpu_us * 100)
+    }
+
     /// Measure bytes-per-second rate between two snapshots for some field.
     fn bytes_per_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
         self.per_micro_second(|s| field(s) * 1_000_000)
@@ -79,6 +89,8 @@ mod tests {
 
         let mut two_snapshots = TwoSnapshots::default();
         assert_eq!(None, two_snapshots.cpu_percents());
+        assert_eq!(None, two_snapshots.user_cpu_percents());
+        assert_eq!(None, two_snapshots.system_cpu_percents());
         two_snapshots.update(
             t0,
             &buck2_data::Snapshot {
@@ -88,6 +100,8 @@ mod tests {
             },
         );
         assert_eq!(None, two_snapshots.cpu_percents());
+        assert_eq!(None, two_snapshots.user_cpu_percents());
+        assert_eq!(None, two_snapshots.system_cpu_percents());
         two_snapshots.update(
             t0.add(Duration::from_secs(2)),
             &buck2_data::Snapshot {
@@ -98,6 +112,8 @@ mod tests {
         );
         // 2 seconds real time, 14 seconds user + system time, so 700% CPU.
         assert_eq!(Some(700), two_snapshots.cpu_percents());
+        assert_eq!(Some(300), two_snapshots.user_cpu_percents());
+        assert_eq!(Some(400), two_snapshots.system_cpu_percents());
     }
 
     #[test]
