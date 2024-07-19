@@ -37,7 +37,6 @@ use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
 use dice::Dice;
-use dice::DiceComputations;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
@@ -254,13 +253,7 @@ pub trait DiceUpdater: Send + Sync {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-        _user_data: &mut UserComputationData,
-    ) -> anyhow::Result<DiceTransactionUpdater>;
-}
-
-#[async_trait]
-pub trait DiceDataProvider: Send + Sync + 'static {
-    async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData>;
+    ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)>;
 }
 
 #[derive(Allocative)]
@@ -339,7 +332,6 @@ impl ConcurrencyHandler {
     pub async fn enter<F, Fut, R>(
         &self,
         event_dispatcher: EventDispatcher,
-        data: &dyn DiceDataProvider,
         updates: &dyn DiceUpdater,
         exec: F,
         is_nested_invocation: bool,
@@ -378,7 +370,6 @@ impl ConcurrencyHandler {
                     cancellations
                         .critical_section(|| {
                             self.wait_for_others(
-                                data,
                                 updates,
                                 events,
                                 is_nested_invocation,
@@ -411,7 +402,6 @@ impl ConcurrencyHandler {
     // starvation.
     async fn wait_for_others(
         &self,
-        user_data: &dyn DiceDataProvider,
         updates: &dyn DiceUpdater,
         event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
@@ -477,11 +467,8 @@ impl ConcurrencyHandler {
 
                     let transaction = async {
                         let updater = self.dice.updater();
-                        let mut user_data = user_data
-                            .provide(&mut updater.existing_state().await.clone())
-                            .await?;
 
-                        let transaction = updates.update(updater, &mut user_data).await?;
+                        let (transaction, user_data) = updates.update(updater).await?;
 
                         event_dispatcher
                             .span_async(buck2_data::DiceStateUpdateStart {}, async {
@@ -738,6 +725,7 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use derivative::Derivative;
     use dice::DetectCycles;
+    use dice::DiceComputations;
     use dice::InjectedKey;
     use dice::Key;
     use dupe::Dupe;
@@ -757,9 +745,8 @@ mod tests {
         async fn update(
             &self,
             ctx: DiceTransactionUpdater,
-            _user_data: &mut UserComputationData,
-        ) -> anyhow::Result<DiceTransactionUpdater> {
-            Ok(ctx)
+        ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+            Ok((ctx, Default::default()))
         }
     }
 
@@ -770,10 +757,9 @@ mod tests {
         async fn update(
             &self,
             mut ctx: DiceTransactionUpdater,
-            _user_data: &mut UserComputationData,
-        ) -> anyhow::Result<DiceTransactionUpdater> {
+        ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
             ctx.changed_to(vec![(K, ())])?;
-            Ok(ctx)
+            Ok((ctx, Default::default()))
         }
     }
 
@@ -786,18 +772,6 @@ mod tests {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
-        }
-    }
-
-    struct TestDiceDataProvider;
-
-    #[async_trait]
-    impl DiceDataProvider for TestDiceDataProvider {
-        async fn provide(
-            &self,
-            _ctx: &mut DiceComputations<'_>,
-        ) -> anyhow::Result<UserComputationData> {
-            Ok(Default::default())
         }
     }
 
@@ -820,7 +794,6 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -837,7 +810,6 @@ mod tests {
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -854,7 +826,6 @@ mod tests {
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -889,7 +860,6 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -907,7 +877,6 @@ mod tests {
 
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            &TestDiceDataProvider,
             &CtxDifferent,
             |_| {
                 let b = barrier.dupe();
@@ -945,7 +914,6 @@ mod tests {
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -962,7 +930,6 @@ mod tests {
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -979,7 +946,6 @@ mod tests {
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
-            &TestDiceDataProvider,
             &NoChanges,
             |_| {
                 let b = barrier.dupe();
@@ -1031,7 +997,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1057,7 +1022,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1086,7 +1050,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
-                        &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1151,7 +1114,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1177,7 +1139,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1206,7 +1167,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
-                        &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1276,7 +1236,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces1),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1302,7 +1261,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces2),
-                        &TestDiceDataProvider,
                         &NoChanges,
                         |_| async move {
                             barrier.wait().await;
@@ -1331,7 +1289,6 @@ mod tests {
                 concurrency
                     .enter(
                         EventDispatcher::null_sink_with_trace(traces_different),
-                        &TestDiceDataProvider,
                         &CtxDifferent,
                         |_| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1417,7 +1374,6 @@ mod tests {
         concurrency
             .enter(
                 EventDispatcher::null(),
-                &TestDiceDataProvider,
                 &NoChanges,
                 |mut dice| async move {
                     let compute = dice.compute(key).fuse();
@@ -1454,7 +1410,6 @@ mod tests {
         concurrency
             .enter(
                 EventDispatcher::null(),
-                &TestDiceDataProvider,
                 &NoChanges,
                 |_dice| async move {
                     // The key should still be evaluating by now.
@@ -1474,7 +1429,6 @@ mod tests {
         concurrency
             .enter(
                 EventDispatcher::null(),
-                &TestDiceDataProvider,
                 &CtxDifferent,
                 |_dice| async move {
                     assert!(!key.is_executing.is_locked());
@@ -1578,7 +1532,6 @@ mod tests {
                     concurrency
                         .enter(
                             dispatcher,
-                            &TestDiceDataProvider,
                             &NoChanges,
                             |_| async move {
                                 let _guard = mutex.try_lock().expect("Not exclusive!");
@@ -1657,7 +1610,6 @@ mod tests {
             concurrency
                 .enter(
                     EventDispatcher::null(),
-                    &TestDiceDataProvider,
                     &CtxDifferent,
                     |mut dice| async move {
                         // NOTE: We need to actually compute something for DICE to be not-idle.
@@ -1697,13 +1649,12 @@ mod tests {
             async fn update(
                 &self,
                 ctx: DiceTransactionUpdater,
-                _user_data: &mut UserComputationData,
-            ) -> anyhow::Result<DiceTransactionUpdater> {
+            ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
                 self.arrived_update.add_permits(1);
                 tokio::task::yield_now().await;
 
                 if self.should_be_able_to_run.load(Ordering::SeqCst) {
-                    Ok(ctx)
+                    Ok((ctx, Default::default()))
                 } else {
                     panic!("shouldn't be running")
                 }
@@ -1716,7 +1667,6 @@ mod tests {
         };
         let fut1 = concurrency.enter(
             EventDispatcher::null(),
-            &TestDiceDataProvider,
             &updater1,
             |_dice| async move {
                 tokio::task::yield_now().await;
@@ -1737,7 +1687,6 @@ mod tests {
         };
         let fut2 = concurrency.enter(
             EventDispatcher::null(),
-            &TestDiceDataProvider,
             &updater2,
             |_dice| async move {
                 tokio::task::yield_now().await;

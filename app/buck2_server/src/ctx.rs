@@ -95,7 +95,6 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
-use buck2_server_ctx::concurrency::DiceDataProvider;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
@@ -337,10 +336,10 @@ impl<'a> ServerCommandContext<'a> {
         })
     }
 
-    async fn dice_data_constructor(
+    async fn dice_updater(
         &self,
         build_signals: BuildSignalsInstaller,
-    ) -> DiceCommandDataProvider {
+    ) -> anyhow::Result<DiceCommandUpdater> {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -397,7 +396,14 @@ impl<'a> ServerCommandContext<'a> {
         let create_unhashed_symlink_lock =
             self.base_context.daemon.create_unhashed_outputs_lock.dupe();
 
-        DiceCommandDataProvider {
+        let (interpreter_platform, interpreter_architecture, interpreter_xcode_version) =
+            host_info::get_host_info(
+                self.host_platform_override,
+                self.host_arch_override,
+                &self.host_xcode_version_override,
+            )?;
+
+        Ok(DiceCommandUpdater {
             cell_configs_loader: self.cell_configs_loader.dupe(),
             events: self.events().dupe(),
             execution_strategy,
@@ -425,20 +431,7 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .map_or(false, |opts| opts.materialize_failed_inputs),
-        }
-    }
-
-    async fn dice_updater(&self) -> anyhow::Result<DiceCommandUpdater> {
-        let (interpreter_platform, interpreter_architecture, interpreter_xcode_version) =
-            host_info::get_host_info(
-                self.host_platform_override,
-                self.host_arch_override,
-                &self.host_xcode_version_override,
-            )?;
-
-        Ok(DiceCommandUpdater {
             file_watcher: self.base_context.daemon.file_watcher.dupe(),
-            cell_config_loader: self.cell_configs_loader.dupe(),
             buck_out_dir: self.buck_out_dir.clone(),
             interpreter_platform,
             interpreter_architecture,
@@ -534,7 +527,7 @@ impl CellConfigLoader {
     }
 }
 
-struct DiceCommandDataProvider {
+struct DiceCommandUpdater {
     cell_configs_loader: Arc<CellConfigLoader>,
     execution_strategy: ExecutionStrategy,
     events: EventDispatcher,
@@ -556,11 +549,77 @@ struct DiceCommandDataProvider {
     paranoid: Option<ParanoidDownloader>,
     spawner: Arc<BuckSpawner>,
     materialize_failed_inputs: bool,
+    file_watcher: Arc<dyn FileWatcher>,
+    buck_out_dir: ProjectRelativePathBuf,
+    interpreter_platform: InterpreterHostPlatform,
+    interpreter_architecture: InterpreterHostArchitecture,
+    interpreter_xcode_version: Option<XcodeVersionInfo>,
+    starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    disable_starlark_types: bool,
+    unstable_typecheck: bool,
+    record_target_call_stacks: bool,
+    skip_targets_with_duplicate_names: bool,
+}
+
+fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
+    Arc::new(PairDiceCycleDetector(
+        CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
+        CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
+    ))
 }
 
 #[async_trait]
-impl DiceDataProvider for DiceCommandDataProvider {
-    async fn provide(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<UserComputationData> {
+impl DiceUpdater for DiceCommandUpdater {
+    async fn update(
+        &self,
+        mut ctx: DiceTransactionUpdater,
+    ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+        let cells_and_configs = self
+            .cell_configs_loader
+            .cells_and_configs(&mut ctx.existing_state().await.clone())
+            .await?;
+        let cell_resolver = cells_and_configs.cell_resolver;
+
+        let configuror = BuildInterpreterConfiguror::new(
+            prelude_path(&cell_resolver)?,
+            self.interpreter_platform,
+            self.interpreter_architecture,
+            self.interpreter_xcode_version.clone(),
+            self.record_target_call_stacks,
+            self.skip_targets_with_duplicate_names,
+            None,
+            // New interner for each transaction.
+            Arc::new(ConcurrentTargetLabelInterner::default()),
+        )?;
+
+        ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
+
+        setup_interpreter(
+            &mut ctx,
+            cell_resolver,
+            configuror,
+            cells_and_configs.external_data,
+            self.starlark_profiler_instrumentation_override.clone(),
+            self.disable_starlark_types,
+            self.unstable_typecheck,
+        )?;
+
+        let (ctx, mergebase) = self.file_watcher.sync(ctx).await?;
+
+        let mut user_data = self
+            .make_user_computation_data(&mut ctx.existing_state().await.clone())
+            .await?;
+        user_data.set_mergebase(mergebase);
+
+        Ok((ctx, user_data))
+    }
+}
+
+impl DiceCommandUpdater {
+    async fn make_user_computation_data(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<UserComputationData> {
         let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
         let root_config = &cells_and_configs.root_config;
 
@@ -722,71 +781,6 @@ impl DiceDataProvider for DiceCommandDataProvider {
     }
 }
 
-fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
-    Arc::new(PairDiceCycleDetector(
-        CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
-        CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
-    ))
-}
-
-struct DiceCommandUpdater {
-    file_watcher: Arc<dyn FileWatcher>,
-    cell_config_loader: Arc<CellConfigLoader>,
-    buck_out_dir: ProjectRelativePathBuf,
-    interpreter_platform: InterpreterHostPlatform,
-    interpreter_architecture: InterpreterHostArchitecture,
-    interpreter_xcode_version: Option<XcodeVersionInfo>,
-    starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
-    disable_starlark_types: bool,
-    unstable_typecheck: bool,
-    record_target_call_stacks: bool,
-    skip_targets_with_duplicate_names: bool,
-}
-
-#[async_trait]
-impl DiceUpdater for DiceCommandUpdater {
-    async fn update(
-        &self,
-        ctx: DiceTransactionUpdater,
-        user_data: &mut UserComputationData,
-    ) -> anyhow::Result<DiceTransactionUpdater> {
-        let cells_and_configs = self
-            .cell_config_loader
-            .cells_and_configs(&mut ctx.existing_state().await.clone())
-            .await?;
-        let cell_resolver = cells_and_configs.cell_resolver;
-
-        let configuror = BuildInterpreterConfiguror::new(
-            prelude_path(&cell_resolver)?,
-            self.interpreter_platform,
-            self.interpreter_architecture,
-            self.interpreter_xcode_version.clone(),
-            self.record_target_call_stacks,
-            self.skip_targets_with_duplicate_names,
-            None,
-            // New interner for each transaction.
-            Arc::new(ConcurrentTargetLabelInterner::default()),
-        )?;
-
-        let (mut ctx, mergebase) = self.file_watcher.sync(ctx).await?;
-        user_data.set_mergebase(mergebase);
-
-        ctx.set_buck_out_path(Some(self.buck_out_dir.clone()))?;
-
-        setup_interpreter(
-            &mut ctx,
-            cell_resolver,
-            configuror,
-            cells_and_configs.external_data,
-            self.starlark_profiler_instrumentation_override.clone(),
-            self.disable_starlark_types,
-            self.unstable_typecheck,
-        )?;
-
-        Ok(ctx)
-    }
-}
-
 impl<'a> Drop for ServerCommandContext<'a> {
     fn drop(&mut self) {
         // Ensure we cancel the heartbeat guard first.
@@ -832,8 +826,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
         Ok(DiceAccessor {
             dice_handler: self.base_context.daemon.dice_manager.dupe(),
-            data: Box::new(self.dice_data_constructor(build_signals_installer).await),
-            setup: Box::new(self.dice_updater().await?),
+            setup: Box::new(self.dice_updater(build_signals_installer).await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
             exit_when_different_state: self.exit_when_different_state,

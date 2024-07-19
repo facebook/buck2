@@ -34,7 +34,6 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 
 use crate::concurrency::ConcurrencyHandler;
-use crate::concurrency::DiceDataProvider;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
@@ -83,7 +82,6 @@ pub struct PrivateStruct(());
 
 pub struct DiceAccessor {
     pub dice_handler: ConcurrencyHandler,
-    pub data: Box<dyn DiceDataProvider>,
     pub setup: Box<dyn DiceUpdater>,
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
@@ -135,7 +133,6 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
     {
         let DiceAccessor {
             dice_handler,
-            data,
             setup,
             is_nested_invocation,
             sanitized_argv,
@@ -151,7 +148,6 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                     dice_handler
                         .enter(
                             self.events().dupe(),
-                            &*data,
                             &*setup,
                             |mut dice| async move {
                                 let events = self.events().dupe();
