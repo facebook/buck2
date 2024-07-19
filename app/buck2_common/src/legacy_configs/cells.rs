@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -28,7 +27,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -53,17 +51,6 @@ use crate::legacy_configs::path::ExternalConfigSource;
 use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
 use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
-
-#[derive(Debug, buck2_error::Error)]
-enum CellsError {
-    #[error(
-        "Repository root buckconfig must have `[cells]` section with a pointer to itself \
-        like `root = .` which defines the root cell name"
-    )]
-    MissingRootCellName,
-    #[error("Unknown cell name `{}` when parsing external cell declarations", _0)]
-    UnknownCellName(NonEmptyCellAlias),
-}
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
@@ -288,9 +275,6 @@ impl BuckConfigBasedCells {
             trace: Default::default(),
         };
 
-        let mut cells_aggregator = CellsAggregator::new();
-        let mut root_aliases = HashMap::new();
-
         // NOTE: This will _not_ perform IO unless it needs to.
         let processed_config_args =
             resolve_config_args(&config_args, project_fs, cwd, &mut file_ops).await?;
@@ -317,6 +301,8 @@ impl BuckConfigBasedCells {
         )
         .await?;
 
+        let mut cell_definitions = Vec::new();
+
         let repositories = root_config
             .get_section("repositories")
             .or_else(|| root_config.get_section("cells"));
@@ -333,40 +319,28 @@ impl BuckConfigBasedCells {
                             )
                         })?
                 );
-                let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                root_aliases.insert(alias.clone(), alias_path.clone());
-                cells_aggregator.add_cell_entry(root_path.clone(), alias, alias_path.clone())?;
+                let name = CellName::unchecked_new(alias)?;
+                cell_definitions.push((name, alias_path));
             }
         }
 
-        if cells_aggregator.get_name(&root_path).is_none() {
-            return Err(CellsError::MissingRootCellName.into());
-        }
+        let root_aliases = Self::get_cell_aliases_from_config(&root_config)?.collect();
 
-        for (alias, destination) in Self::get_cell_aliases_from_config(&root_config)? {
-            let alias_path =
-                cells_aggregator.add_cell_alias_for_root_cell(alias.clone(), destination)?;
-            root_aliases.insert(alias, alias_path);
-        }
+        let mut aggregator = CellsAggregator::new(cell_definitions, root_aliases)?;
 
         if let Some(external_cells) = root_config.get_section("external_cells") {
             for (alias, origin) in external_cells.iter() {
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
-                let target = root_aliases
-                    .get(&alias)
-                    .ok_or(CellsError::UnknownCellName(alias))?;
-                let name = cells_aggregator
-                    .get_name(target)
-                    .internal_error("We just checked that this cell exists")?;
+                let name = aggregator.resolve_root_alias(alias)?;
                 let origin = Self::parse_external_cell_origin(name, origin.as_str(), &root_config)?;
                 if let ExternalCellOrigin::Bundled(name) = origin {
                     EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
                 }
-                cells_aggregator.mark_external_cell(target.to_owned(), origin)?;
+                aggregator.mark_external_cell(name, origin)?;
             }
         }
 
-        let cell_resolver = cells_aggregator.make_cell_resolver()?;
+        let cell_resolver = aggregator.make_cell_resolver()?;
 
         Ok(Self {
             cell_resolver,

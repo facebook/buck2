@@ -19,24 +19,24 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use dupe::Dupe;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use instance::CellInstance;
 
 /// Errors from cell creation
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum CellError {
-    #[error("Cell paths `{1}` and `{2}` had the same alias `{0}`.")]
-    DuplicateAliases(NonEmptyCellAlias, CellRootPathBuf, CellRootPathBuf),
-    #[error("cannot find the cell at current path `{0}`. Known roots are `<{}>`", .1.join(", "))]
-    UnknownCellPath(ProjectRelativePathBuf, Vec<String>),
     #[error(
         "Cell name `{0}` should be an alias for an existing cell, but `{1}` isn't a known alias"
     )]
     AliasOnlyCell(NonEmptyCellAlias, NonEmptyCellAlias),
     #[error("No cell name for the root path, add an entry for `.`")]
     NoRootCell,
+    #[error("`{0}` is not a known cell alias")]
+    UnknownCellAlias(NonEmptyCellAlias),
+    #[error("`{0}` was provided both as a cell name and as an alias")]
+    AliasAndName(NonEmptyCellAlias),
     #[error("Cell `{0}` was marked as external twice")]
     DuplicateExternalCell(CellName),
 }
@@ -45,156 +45,112 @@ enum CellError {
 /// generate a final 'CellResolver'
 #[derive(Debug)]
 pub(crate) struct CellsAggregator {
-    cell_infos: HashMap<CellRootPathBuf, CellAggregatorInfo>,
-    root_aliases: HashMap<NonEmptyCellAlias, CellRootPathBuf>,
+    cell_infos: HashMap<CellName, CellAggregatorInfo>,
+    root_aliases: HashMap<NonEmptyCellAlias, CellName>,
+    root_cell: CellName,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct CellAggregatorInfo {
-    /// The name to use for this alias.
-    /// So that it is predictable, we always use the first name we encounter,
-    /// so the root file can choose what the alias is called.
-    name: Option<CellName>,
+    path: CellRootPathBuf,
     external: Option<ExternalCellOrigin>,
 }
 
 impl CellsAggregator {
-    pub(crate) fn new() -> Self {
-        Self {
-            cell_infos: HashMap::new(),
-            root_aliases: HashMap::new(),
-        }
-    }
-
-    fn cell_info(&mut self, cell_path: CellRootPathBuf) -> &mut CellAggregatorInfo {
-        self.cell_infos
-            .entry(cell_path)
-            .or_insert_with(CellAggregatorInfo::default)
-    }
-
-    pub(crate) fn get_name(&self, cell_path: &CellRootPath) -> Option<CellName> {
-        match self.cell_infos.get(cell_path) {
-            None => None,
-            Some(info) => info.name,
-        }
-    }
-
-    /// Adds a cell configuration entry
-    pub(crate) fn add_cell_entry(
-        &mut self,
-        cell_root: CellRootPathBuf,
-        parsed_alias: NonEmptyCellAlias,
-        alias_path: CellRootPathBuf,
-    ) -> anyhow::Result<()> {
-        let name = &mut self.cell_info(alias_path.clone()).name;
-        if name.is_none() {
-            *name = Some(CellName::unchecked_new(parsed_alias.as_str())?);
+    pub(crate) fn new(
+        // This is order sensitive
+        cells: Vec<(CellName, CellRootPathBuf)>,
+        root_aliases: HashMap<NonEmptyCellAlias, NonEmptyCellAlias>,
+    ) -> anyhow::Result<Self> {
+        let mut path_rmap = HashMap::new();
+        let mut infos = HashMap::new();
+        let mut combined_aliases = HashMap::new();
+        for (cell, path) in cells {
+            let real_cell = match path_rmap.try_insert(path.clone(), cell) {
+                Ok(_) => {
+                    infos.insert(
+                        cell,
+                        CellAggregatorInfo {
+                            path,
+                            external: None,
+                        },
+                    );
+                    cell
+                }
+                Err(occupied) => *occupied.entry.get(),
+            };
+            combined_aliases.insert(NonEmptyCellAlias::new(cell.as_str().to_owned())?, real_cell);
         }
 
-        if cell_root.is_repo_root() {
-            self.add_cell_alias_for_root_cell_inner(parsed_alias, alias_path)?;
-        }
-        Ok(())
-    }
-
-    /// Adds a cell alias configuration entry
-    pub(crate) fn add_cell_alias_for_root_cell(
-        &mut self,
-        parsed_alias: NonEmptyCellAlias,
-        alias_destination: NonEmptyCellAlias,
-    ) -> anyhow::Result<CellRootPathBuf> {
-        let alias_path = match self.root_aliases.get(&alias_destination) {
-            None => return Err(CellError::AliasOnlyCell(parsed_alias, alias_destination).into()),
-            Some(alias_path) => alias_path.clone(),
+        let Some(&root_cell) = path_rmap.get(CellRootPath::new(ProjectRelativePath::empty()))
+        else {
+            return Err(CellError::NoRootCell.into());
         };
-        self.add_cell_alias_for_root_cell_inner(parsed_alias, alias_path.clone())?;
-        Ok(alias_path)
-    }
 
-    fn add_cell_alias_for_root_cell_inner(
-        &mut self,
-        from: NonEmptyCellAlias,
-        to: CellRootPathBuf,
-    ) -> anyhow::Result<()> {
-        let old: Option<CellRootPathBuf> = self.root_aliases.insert(from.clone(), to.clone());
-        if let Some(old) = old {
-            if old != to {
-                return Err(CellError::DuplicateAliases(from, old, to).into());
+        for (from, to) in root_aliases {
+            let Some(cell) = combined_aliases.get(&to) else {
+                return Err(CellError::AliasOnlyCell(from, to).into());
+            };
+            if combined_aliases.insert(from.clone(), *cell).is_some() {
+                return Err(CellError::AliasAndName(from).into());
             }
         }
-        Ok(())
+
+        Ok(Self {
+            cell_infos: infos,
+            root_aliases: combined_aliases,
+            root_cell,
+        })
     }
 
-    fn get_cell_name_from_path(&self, path: &CellRootPath) -> anyhow::Result<CellName> {
-        self.cell_infos
-            .get(path)
-            .and_then(|info| info.name)
-            .ok_or_else(|| {
-                anyhow::anyhow!(CellError::UnknownCellPath(
-                    path.as_project_relative_path().to_buf(),
-                    self.cell_infos
-                        .keys()
-                        .map(|p| p.as_str().to_owned())
-                        .collect()
-                ))
-            })
-    }
-
-    /// Creates the 'CellResolver' from all the entries that were aggregated
-    pub(crate) fn make_cell_resolver(mut self) -> anyhow::Result<CellResolver> {
-        let mut cell_mappings = Vec::new();
-
-        let all_cell_roots_for_nested_cells: Vec<_> = self
-            .cell_infos
-            .keys()
-            .map(|path| Ok((self.get_cell_name_from_path(path)?, path.as_path())))
-            .collect::<anyhow::Result<_>>()?;
-
-        let mut root_cell_name = None;
-
-        for (cell_path, cell_info) in &self.cell_infos {
-            let nested_cells =
-                NestedCells::from_cell_roots(&all_cell_roots_for_nested_cells, cell_path);
-
-            let cell_name = self.get_cell_name_from_path(cell_path)?;
-
-            if cell_path.is_repo_root() {
-                root_cell_name = Some(cell_name);
-            }
-
-            cell_mappings.push(CellInstance::new(
-                cell_name,
-                cell_path.clone(),
-                cell_info.external.dupe(),
-                nested_cells,
-            )?);
-        }
-
-        let root_cell_name = root_cell_name.ok_or(CellError::NoRootCell)?;
-        let mut root_aliases = HashMap::new();
-        for (alias, path) in std::mem::take(&mut self.root_aliases) {
-            root_aliases.insert(alias, self.get_cell_name_from_path(&path)?);
-        }
-
-        let root_cell_alias_resolver = CellAliasResolver::new(root_cell_name, root_aliases)?;
-
-        CellResolver::new(cell_mappings, root_cell_alias_resolver)
+    pub(crate) fn resolve_root_alias(&self, alias: NonEmptyCellAlias) -> anyhow::Result<CellName> {
+        self.root_aliases
+            .get(&alias)
+            .copied()
+            .ok_or_else(|| CellError::UnknownCellAlias(alias).into())
     }
 
     pub(crate) fn mark_external_cell(
         &mut self,
-        cell_root: CellRootPathBuf,
+        cell: CellName,
         origin: ExternalCellOrigin,
     ) -> anyhow::Result<()> {
-        let info = self.cell_info(cell_root.clone());
+        let info = self
+            .cell_infos
+            .get_mut(&cell)
+            .internal_error("cell name is not a cell")?;
         if info.external.is_some() {
-            return Err(CellError::DuplicateExternalCell(
-                self.get_cell_name_from_path(&cell_root)?,
-            )
-            .into());
+            return Err(CellError::DuplicateExternalCell(cell).into());
         }
         info.external = Some(origin);
         Ok(())
+    }
+
+    pub(crate) fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
+        let all_cell_roots_for_nested_cells: Vec<_> = self
+            .cell_infos
+            .iter()
+            .map(|(name, info)| (*name, info.path.as_path()))
+            .collect();
+
+        let instances = self
+            .cell_infos
+            .iter()
+            .map(|(name, info)| {
+                let nested_cells =
+                    NestedCells::from_cell_roots(&all_cell_roots_for_nested_cells, &info.path);
+                CellInstance::new(
+                    *name,
+                    info.path.clone(),
+                    info.external.clone(),
+                    nested_cells,
+                )
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        let root_cell_alias_resolver = CellAliasResolver::new(self.root_cell, self.root_aliases)?;
+
+        CellResolver::new(instances, root_cell_alias_resolver)
     }
 }
 
@@ -203,52 +159,52 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_duplicate_aliases() -> anyhow::Result<()> {
-        let mut agg = CellsAggregator::new();
+    fn test_duplicate_paths() -> anyhow::Result<()> {
+        let root = CellName::testing_new("root");
+        let root_path = CellRootPathBuf::new(ProjectRelativePath::empty().to_owned());
+        let other1 = CellName::testing_new("other1");
+        let other2 = CellName::testing_new("other2");
+        let other_path = CellRootPathBuf::new(ProjectRelativePath::new("random/path")?.to_owned());
 
-        let cell_root = CellRootPathBuf::new(ProjectRelativePathBuf::try_from("".to_owned())?);
-        let alias_path =
-            CellRootPathBuf::new(ProjectRelativePathBuf::try_from("random/path".to_owned())?);
-
-        agg.add_cell_entry(
-            cell_root.clone(),
-            NonEmptyCellAlias::new("root".to_owned()).unwrap(),
-            cell_root.clone(),
-        )?;
-        agg.add_cell_entry(
-            cell_root.clone(),
-            NonEmptyCellAlias::new("hello".to_owned()).unwrap(),
-            alias_path.clone(),
-        )?;
-        agg.add_cell_entry(
-            cell_root.clone(),
-            NonEmptyCellAlias::new("cruel".to_owned()).unwrap(),
-            alias_path.clone(),
-        )?;
-        agg.add_cell_entry(
-            cell_root,
-            NonEmptyCellAlias::new("world".to_owned()).unwrap(),
-            alias_path,
-        )?;
-
-        // We want the first alias to win (hello), rather than the lexiographically first (cruel)
-        let cell_resolver = agg.make_cell_resolver()?;
-        assert!(cell_resolver.get(CellName::testing_new("hello")).is_ok());
-        assert!(cell_resolver.get(CellName::testing_new("cruel")).is_err());
+        let cell_resolver = CellsAggregator::new(
+            vec![
+                (root, root_path.clone()),
+                (other1, other_path.clone()),
+                (other2, other_path.clone()),
+            ],
+            HashMap::new(),
+        )
+        .unwrap()
+        .make_cell_resolver()
+        .unwrap();
+        assert!(
+            cell_resolver
+                .get(CellName::testing_new("root"))
+                .unwrap()
+                .path()
+                == root_path.as_path()
+        );
+        assert!(
+            cell_resolver
+                .get(CellName::testing_new("other1"))
+                .unwrap()
+                .path()
+                == other_path.as_path()
+        );
         Ok(())
     }
 
     #[test]
-    fn test_alias_only_error() -> anyhow::Result<()> {
-        let mut agg = CellsAggregator::new();
-
+    fn test_alias_only_error() {
         assert!(
-            agg.add_cell_alias_for_root_cell(
-                NonEmptyCellAlias::new("root".to_owned()).unwrap(),
-                NonEmptyCellAlias::new("does_not_exist".to_owned()).unwrap(),
+            CellsAggregator::new(
+                Vec::new(),
+                HashMap::from_iter([(
+                    NonEmptyCellAlias::testing_new("root"),
+                    NonEmptyCellAlias::testing_new("does_not_exist")
+                )])
             )
             .is_err()
         );
-        Ok(())
     }
 }
