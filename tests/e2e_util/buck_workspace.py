@@ -235,6 +235,8 @@ def _copytree(
     """Copies all files and directories from src into dst"""
     dst.mkdir(parents=True, exist_ok=True)
     for item in os.listdir(src):
+        if item == "buck-out":
+            continue
         s = src / item
         d = dst / item
         if os.path.isdir(s):
