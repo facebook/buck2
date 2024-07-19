@@ -12,6 +12,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;
 use std::net::Ipv4Addr;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -355,7 +356,7 @@ impl<'a> BuckdLifecycle<'a> {
         args.extend(["--dont-daemonize"]);
         spawn_background_process_on_windows(
             self.paths.project_root().root(),
-            &env::current_exe()?,
+            &get_daemon_exe()?,
             args.into_iter()
                 .chain(std::iter::once(daemon_startup_config.as_str())),
             daemon_env_vars,
@@ -374,14 +375,14 @@ impl<'a> BuckdLifecycle<'a> {
                 .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
         }));
 
-        let current_exe = std::env::current_exe().context("Failed to get current exe")?;
+        let daemon_exe = get_daemon_exe()?;
         let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
             SystemdPropertySetType::Daemon,
             &daemon_startup_config.resource_control,
         )? {
             systemd_runner
                 .background_command_linux(
-                    current_exe,
+                    daemon_exe,
                     format!(
                         "buck2-daemon-{}-{}",
                         project_dir.name().unwrap_or("unknown_project"),
@@ -391,7 +392,7 @@ impl<'a> BuckdLifecycle<'a> {
                 )
                 .into()
         } else {
-            async_background_command(current_exe)
+            async_background_command(daemon_exe)
         };
 
         cmd.current_dir(project_dir.root())
@@ -1041,6 +1042,10 @@ async fn get_constraints(
     }?;
 
     Ok(status.daemon_constraints.unwrap_or_default())
+}
+
+pub fn get_daemon_exe() -> anyhow::Result<PathBuf> {
+    env::current_exe().context("Failed to get current exe")
 }
 
 #[derive(Debug, buck2_error::Error)]
