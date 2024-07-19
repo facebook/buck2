@@ -434,6 +434,7 @@ struct CellConfigLoader {
 impl CellConfigLoader {
     async fn load_new_configs(
         &self,
+        cmd_ctx: &ServerCommandContext<'_>,
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<BuckConfigBasedCells> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
@@ -442,6 +443,9 @@ impl CellConfigLoader {
             &self.working_dir,
         )
         .await?;
+
+        cmd_ctx.report_traced_config_paths(&new_configs.config_paths)?;
+
         if self.reuse_current_config {
             if dice_ctx
                 .is_injected_external_buckconfig_data_key_set()
@@ -486,12 +490,32 @@ impl CellConfigLoader {
 
     async fn cells_and_configs(
         &self,
+        cmd_ctx: &ServerCommandContext<'_>,
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<BuckConfigBasedCells> {
         self.loaded_cell_configs
-            .get_or_init(self.load_new_configs(dice_ctx))
+            .get_or_init(self.load_new_configs(cmd_ctx, dice_ctx))
             .await
             .clone()
+    }
+}
+
+impl ServerCommandContext<'_> {
+    fn report_traced_config_paths(&self, paths: &HashSet<ConfigPath>) -> anyhow::Result<()> {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
+            for config_path in paths {
+                match config_path {
+                    ConfigPath::Global(p) => {
+                        // FIXME(JakobDegen): This is wrong, since we might fail to add symlinks that we depend on.
+                        let p = fs_util::canonicalize(p)?;
+                        tracing_provider.add_external_path(p)
+                    }
+                    ConfigPath::Project(p) => tracing_provider.add_project_path(p.clone()),
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -530,7 +554,7 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
         let cells_and_configs = self
             .cmd_ctx
             .cell_configs_loader
-            .cells_and_configs(existing_state)
+            .cells_and_configs(self.cmd_ctx, existing_state)
             .await?;
         let cell_resolver = cells_and_configs.cell_resolver.dupe();
 
@@ -968,33 +992,6 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         }
 
         Ok(metadata)
-    }
-
-    async fn report_traced_config_paths(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<()> {
-        let paths = self
-            .cell_configs_loader
-            .cells_and_configs(ctx)
-            .await?
-            .config_paths;
-
-        // Add legacy config paths to I/O tracing (if enabled).
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
-            for config_path in paths {
-                match config_path {
-                    ConfigPath::Global(p) => {
-                        // FIXME(JakobDegen): This is wrong, since we might fail to add symlinks that we depend on.
-                        let p = fs_util::canonicalize(p)?;
-                        tracing_provider.add_external_path(p)
-                    }
-                    ConfigPath::Project(p) => tracing_provider.add_project_path(p),
-                }
-            }
-        }
-
-        Ok(())
     }
 
     fn log_target_pattern(
