@@ -472,6 +472,14 @@ message TestRequest {
 
   // Should you add tests that are on the `tests` attribute of the target.
   bool ignore_tests_attribute = 13;
+
+  // Whether `DefaultInfo` providers for targets matching `target_patterns`
+  // should be built instead of only test ones.
+  bool build_default_info = 15;
+
+  // Whether `RunInfo` providers for targets matching `target_patterns`
+  // should be built instead of only test ones.
+  bool build_run_info = 16;
 }
 
 message BxlRequest {

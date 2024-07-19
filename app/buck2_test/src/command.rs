@@ -19,7 +19,10 @@ use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
 use buck2_cli_proto::HasClientContext;
@@ -374,6 +377,8 @@ async fn test(
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
         timeout,
         request.ignore_tests_attribute,
+        request.build_default_info,
+        request.build_run_info,
     )
     .await?;
 
@@ -449,6 +454,8 @@ async fn test_targets(
     missing_target_behavior: MissingTargetBehavior,
     timeout: Option<Duration>,
     ignore_tests_attribute: bool,
+    build_default_info: bool,
+    build_run_info: bool,
 ) -> anyhow::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -532,6 +539,8 @@ async fn test_targets(
                     working_dir_cell,
                     missing_target_behavior,
                     ignore_tests_attribute,
+                    build_default_info,
+                    build_run_info,
                 });
 
                 driver.push_pattern(
@@ -658,6 +667,8 @@ pub(crate) struct TestDriverState<'a, 'e> {
     working_dir_cell: CellName,
     missing_target_behavior: MissingTargetBehavior,
     ignore_tests_attribute: bool,
+    build_default_info: bool,
+    build_run_info: bool,
 }
 
 /// Maintains the state of an ongoing test execution.
@@ -840,6 +851,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 state.label_filtering.dupe(),
                 state.cell_resolver,
                 state.working_dir_cell,
+                state.build_default_info,
+                state.build_run_info,
             )
             .await?;
             anyhow::Ok(vec![])
@@ -894,17 +907,26 @@ async fn test_target(
     label_filtering: Arc<TestLabelFiltering>,
     cell_resolver: &CellResolver,
     working_dir_cell: CellName,
+    build_default_info: bool,
+    build_run_info: bool,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
     // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
     let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
     let providers = frozen_providers.provider_collection();
-    build_artifacts(ctx, providers, &label_filtering).await?;
+    build_artifacts(
+        ctx,
+        providers,
+        &label_filtering,
+        build_default_info,
+        build_run_info,
+    )
+    .await?;
 
     let fut = match <dyn TestProvider>::from_collection(providers) {
         Some(test_info) => {
-            if skip_run_based_on_labels(test_info, &label_filtering) {
+            if label_filtering.is_excluded(test_info.labels()) {
                 return Ok(None);
             }
             run_tests(
@@ -930,46 +952,62 @@ async fn test_target(
     fut.await
 }
 
-fn skip_run_based_on_labels(
-    provider: &dyn TestProvider,
+fn skip_build_based_on_labels<'a>(
+    labels_fn: &dyn Fn() -> Vec<&'a str>,
     label_filtering: &TestLabelFiltering,
 ) -> bool {
-    let target_labels = provider.labels();
-    label_filtering.is_excluded(target_labels)
-}
-
-fn skip_build_based_on_labels(
-    provider: &dyn TestProvider,
-    label_filtering: &TestLabelFiltering,
-) -> bool {
-    !label_filtering.build_filtered_targets && skip_run_based_on_labels(provider, label_filtering)
+    !label_filtering.build_filtered_targets && label_filtering.is_excluded(labels_fn())
 }
 
 async fn build_artifacts(
     ctx: &mut DiceComputations<'_>,
     providers: &FrozenProviderCollection,
     label_filtering: &TestLabelFiltering,
+    build_default_info: bool,
+    build_run_info: bool,
 ) -> anyhow::Result<()> {
     fn get_artifacts_to_build(
         label_filtering: &TestLabelFiltering,
         providers: &FrozenProviderCollection,
+        build_default_info: bool,
+        build_run_info: bool,
     ) -> anyhow::Result<IndexSet<ArtifactGroup>> {
-        Ok(match <dyn TestProvider>::from_collection(providers) {
-            Some(provider) => {
-                if skip_build_based_on_labels(provider, label_filtering) {
-                    return Ok(indexset![]);
-                }
+        let mut artifacts = IndexSet::new();
+
+        if let Some(test_provider) = <dyn TestProvider>::from_collection(providers) {
+            if skip_build_based_on_labels(&|| test_provider.labels(), label_filtering) {
+                return Ok(indexset![]);
+            }
+            let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
+            test_provider.visit_artifacts(&mut artifact_visitor)?;
+            artifacts.extend(artifact_visitor.inputs)
+        }
+
+        if build_default_info {
+            if let Some(provider) = providers.builtin_provider::<FrozenDefaultInfo>() {
+                provider.for_each_output(&mut |artifact| {
+                    artifacts.insert(artifact);
+                })?;
+            }
+        }
+
+        if build_run_info {
+            if let Some(provider) = providers.builtin_provider::<FrozenRunInfo>() {
                 let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
                 provider.visit_artifacts(&mut artifact_visitor)?;
-                artifact_visitor.inputs
+                artifacts.extend(artifact_visitor.inputs);
             }
-            None => {
-                // not a test
-                indexset![]
-            }
-        })
+        }
+
+        Ok(artifacts)
     }
-    let artifacts_to_build = get_artifacts_to_build(label_filtering, providers)?;
+
+    let artifacts_to_build = get_artifacts_to_build(
+        label_filtering,
+        providers,
+        build_default_info,
+        build_run_info,
+    )?;
     // build the test target first
     ctx.try_compute_join(artifacts_to_build.iter(), |ctx, input| {
         ctx.ensure_artifact_group(input).boxed()

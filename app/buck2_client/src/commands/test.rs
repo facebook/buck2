@@ -157,6 +157,36 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long)]
     test_executor_stderr: Option<OutputDestinationArg>,
 
+    #[clap(
+        long,
+        group = "default-info",
+        help = "Also build default info (this is not the default)"
+    )]
+    build_default_info: bool,
+
+    #[allow(unused)]
+    #[clap(
+        long,
+        group = "default-info",
+        help = "Do not build default info (this is the default)"
+    )]
+    skip_default_info: bool,
+
+    #[clap(
+        long,
+        group = "run-info",
+        help = "Also build runtime dependencies (this is not the default)"
+    )]
+    build_run_info: bool,
+
+    #[allow(unused)]
+    #[clap(
+        long,
+        group = "run-info",
+        help = "Do not build runtime dependencies (this is the default)"
+    )]
+    skip_run_info: bool,
+
     /// Additional arguments passed to the test executor.
     ///
     /// Test executor is expected to have `--env` flag to pass environment variables.
@@ -225,6 +255,8 @@ impl StreamingCommand for TestCommand {
                         .transpose()
                         .context("Invalid `timeout`")?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
+                    build_default_info: self.build_default_info,
+                    build_run_info: self.build_run_info,
                 },
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
