@@ -20,7 +20,6 @@ use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
-use futures::future;
 
 #[derive(Debug, buck2_error::Error)]
 enum DebugEvalError {
@@ -59,7 +58,7 @@ pub(crate) async fn debug_eval_command(
             }
 
             // Catch errors, ignore results.
-            future::try_join_all(loads).await?;
+            buck2_util::future::try_join_all(loads).await?;
 
             Ok(DebugEvalResponse {})
         })

@@ -404,7 +404,7 @@ impl CacheUploader {
         }
 
         let uploads = async {
-            future::try_join_all(upload_futs)
+            buck2_util::future::try_join_all(upload_futs)
                 .await
                 .context("Error uploading outputs")?;
 
