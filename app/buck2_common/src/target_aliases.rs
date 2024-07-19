@@ -9,9 +9,6 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::cells::name::CellName;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::target_aliases::TargetAliasResolver;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
@@ -128,21 +125,11 @@ impl BuckConfigTargetAliasResolver {
 
 #[async_trait]
 pub trait HasTargetAliasResolver {
-    async fn target_alias_resolver_for_cell(
-        &mut self,
-        cell_name: CellName,
-    ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
-
-    async fn target_alias_resolver_for_working_dir(
-        &mut self,
-        working_dir: &ProjectRelativePath,
-    ) -> anyhow::Result<BuckConfigTargetAliasResolver>;
+    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver>;
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative)]
-struct TargetAliasResolverKey {
-    cell_name: CellName,
-}
+struct TargetAliasResolverKey();
 
 #[async_trait]
 impl Key for TargetAliasResolverKey {
@@ -168,24 +155,8 @@ impl Key for TargetAliasResolverKey {
 
 #[async_trait]
 impl HasTargetAliasResolver for DiceComputations<'_> {
-    async fn target_alias_resolver_for_cell(
-        &mut self,
-        cell_name: CellName,
-    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
-        Ok(self
-            .compute(&TargetAliasResolverKey { cell_name })
-            .await??)
-    }
-
-    async fn target_alias_resolver_for_working_dir(
-        &mut self,
-        working_dir: &ProjectRelativePath,
-    ) -> anyhow::Result<BuckConfigTargetAliasResolver> {
-        let cell_resolver = self.get_cell_resolver().await?;
-        let working_dir =
-            PackageLabel::from_cell_path(cell_resolver.get_cell_path(&working_dir)?.as_ref());
-        let cell_name = working_dir.as_cell_path().cell();
-        self.target_alias_resolver_for_cell(cell_name).await
+    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver> {
+        Ok(self.compute(&TargetAliasResolverKey()).await??)
     }
 }
 

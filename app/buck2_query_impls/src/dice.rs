@@ -340,10 +340,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
         .get()
         .get_cell_alias_resolver_for_dir(working_dir)
         .await?;
-    let target_alias_resolver = ctx
-        .get()
-        .target_alias_resolver_for_working_dir(working_dir)
-        .await?;
+    let target_alias_resolver = ctx.get().target_alias_resolver().await?;
     let project_root = ctx
         .get()
         .global_data()

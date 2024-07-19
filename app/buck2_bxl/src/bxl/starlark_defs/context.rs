@@ -268,7 +268,7 @@ impl BxlContextCoreData {
             .with_context(|| format!("Cell does not exist: `{}`", cell))?
             .dupe();
         let cell_name = bxl_cell.name();
-        let target_alias_resolver = dice.target_alias_resolver_for_cell(cell_name).await?;
+        let target_alias_resolver = dice.target_alias_resolver().await?;
         let cell_alias_resolver = dice.get_cell_alias_resolver(cell).await?;
         let artifact_fs = dice.get_artifact_fs().await?;
         let project_fs = dice.global_data().get_io_provider().project_root().dupe();

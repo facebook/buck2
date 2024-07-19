@@ -54,10 +54,7 @@ impl BxlCqueryFunctionsImpl {
             .get_cell_alias_resolver_for_dir(&self.working_dir)
             .await?;
 
-        let target_alias_resolver = dice
-            .get()
-            .target_alias_resolver_for_working_dir(&self.working_dir)
-            .await?;
+        let target_alias_resolver = dice.get().target_alias_resolver().await?;
 
         let query_data = Arc::new(DiceQueryData::new(
             self.global_cfg_options.dupe(),

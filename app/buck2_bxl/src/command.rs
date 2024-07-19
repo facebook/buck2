@@ -274,7 +274,7 @@ pub(crate) async fn get_bxl_cli_args(
     let cell_name = cell_resolver.find(&cwd)?;
     let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
-    let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
+    let target_alias_resolver = ctx.target_alias_resolver().await?;
 
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))

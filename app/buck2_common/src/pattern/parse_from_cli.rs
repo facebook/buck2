@@ -40,7 +40,7 @@ impl PatternParser {
         let cwd = cell_resolver.get_cell_path(&cwd)?;
         let cell_name = cwd.cell();
 
-        let target_alias_resolver = ctx.target_alias_resolver_for_cell(cell_name).await?;
+        let target_alias_resolver = ctx.target_alias_resolver().await?;
         let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
 
         Ok(Self {
