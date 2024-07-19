@@ -56,14 +56,14 @@ use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
 #[derive(PartialEq, Eq, Allocative)]
 pub struct ExternalBuckconfigData {
     parse_state: LegacyConfigParser,
-    args: Arc<[ResolvedLegacyConfigArg]>,
+    args: Vec<ResolvedLegacyConfigArg>,
 }
 
 impl ExternalBuckconfigData {
     pub fn testing_default() -> Self {
         Self {
             parse_state: LegacyConfigParser::new(),
-            args: std::iter::empty().collect(),
+            args: Vec::new(),
         }
     }
 }
@@ -318,7 +318,7 @@ impl BuckConfigBasedCells {
             config_paths: file_ops.trace,
             external_data: Arc::new(ExternalBuckconfigData {
                 parse_state: started_parse,
-                args: processed_config_args.into_iter().collect(),
+                args: processed_config_args,
             }),
         })
     }
