@@ -92,8 +92,6 @@ pub struct BuckOutScratchPath {
     path: ForwardRelativePathBuf,
     /// The unique identifier for this action
     action_key: String,
-    /// TODO(minglunli): Modifies action digest, remove after confirming bvb works fine
-    unique_scratch_path: bool,
 }
 
 impl BuckOutScratchPath {
@@ -104,7 +102,6 @@ impl BuckOutScratchPath {
         category: CategoryRef,
         identifier: Option<&str>,
         action_key: String,
-        unique_scratch_path: bool,
     ) -> anyhow::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
@@ -144,11 +141,6 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
-
-                    if !unique_scratch_path {
-                        action_key.hash(&mut hasher);
-                    }
-
                     let output_hash = format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
@@ -160,7 +152,6 @@ impl BuckOutScratchPath {
             owner,
             path,
             action_key,
-            unique_scratch_path,
         })
     }
 }
@@ -247,12 +238,10 @@ impl BuckOutPathResolver {
     }
 
     pub fn resolve_scratch(&self, path: &BuckOutScratchPath) -> ProjectRelativePathBuf {
-        let action_key = path.unique_scratch_path.then_some(path.action_key.as_str());
-
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
-            action_key,
+            Some(&path.action_key),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
@@ -419,7 +408,6 @@ mod tests {
                 CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
                 "1_2".to_owned(),
-                true,
             )
             .unwrap(),
         );
@@ -487,7 +475,6 @@ mod tests {
                     "xxx_some_crazy_long_file_name_that_causes_it_to_be_hashed_xxx.txt",
                 )),
                 "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
-                true,
             )
             .unwrap(),
         );
@@ -520,7 +507,6 @@ mod tests {
             category,
             None,
             "1_2".to_owned(),
-            true,
         )
         .unwrap();
 
@@ -530,7 +516,6 @@ mod tests {
                 category,
                 Some(s),
                 "3_4".to_owned(),
-                true,
             )
             .unwrap()
             .path
@@ -574,7 +559,6 @@ mod tests {
                         CategoryRef::new("category").unwrap(),
                         Some(id),
                         s.to_owned(),
-                        true,
                     )
                     .unwrap(),
                 )

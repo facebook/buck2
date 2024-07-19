@@ -351,7 +351,6 @@ impl<'a> ServerCommandContext<'a> {
                 .base_context
                 .daemon
                 .use_network_action_output_cache,
-            unique_scratch_path: self.base_context.daemon.unique_scratch_path,
             ..Default::default()
         };
 
