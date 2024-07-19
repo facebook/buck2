@@ -281,7 +281,13 @@ impl BuckConfigBasedCells {
                 let name = aggregator.resolve_root_alias(alias)?;
                 let origin = Self::parse_external_cell_origin(name, origin.as_str(), &root_config)?;
                 if let ExternalCellOrigin::Bundled(name) = origin {
-                    EXTERNAL_CELLS_IMPL.get()?.check_bundled_cell_exists(name)?;
+                    // This code is executed both in the client and in the daemon. When in the
+                    // client and using a client-only build, this late binding might not be bound,
+                    // and so we can't check this. That doesn't matter though, as we'll get an error
+                    // when this fails in the daemon anyway
+                    if let Ok(imp) = EXTERNAL_CELLS_IMPL.get() {
+                        imp.check_bundled_cell_exists(name)?;
+                    }
                 }
                 aggregator.mark_external_cell(name, origin)?;
             }
