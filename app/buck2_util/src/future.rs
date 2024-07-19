@@ -8,6 +8,8 @@
  */
 
 use std::future::Future;
+use std::iter;
+use std::mem;
 
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
@@ -58,15 +60,17 @@ where
         .collect();
 
     async move {
-        let mut outputs = Vec::with_capacity(futs.len());
+        let mut outputs: Vec<Option<_>> = iter::repeat_with(|| None).take(futs.len()).collect();
         while let Some((i, res)) = futs.next().await {
             match res {
-                Ok(v) => outputs.push((i, v)),
+                Ok(v) => {
+                    let prev = mem::replace(&mut outputs[i], Some(v));
+                    assert!(prev.is_none());
+                }
                 Err(e) => return Err(e),
             }
         }
-        outputs.sort_by_key(|(i, _)| *i);
-        Ok(outputs.into_iter().map(|(_, v)| v).collect())
+        Ok(outputs.into_iter().map(|v| v.unwrap()).collect())
     }
     .right_future()
     .right_future()
