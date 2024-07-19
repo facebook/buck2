@@ -194,8 +194,8 @@ impl StreamingCommand for RunCommand {
         let chdir = self.chdir.map(|chdir| chdir.resolve(&ctx.working_dir));
 
         ExitResult::exec(
-            run_args[0].clone(),
-            run_args,
+            run_args[0].clone().into(),
+            run_args.into_iter().map(|arg| arg.into()).collect(),
             chdir,
             vec![("BUCK_RUN_BUILD_ID".to_owned(), ctx.trace_id.to_string())],
         )

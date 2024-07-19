@@ -8,6 +8,7 @@
  */
 
 use std::convert::Infallible;
+use std::ffi::OsString;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -17,8 +18,8 @@ use std::process::Command;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
 pub struct ExecArgs {
-    prog: String,
-    argv: Vec<String>,
+    prog: OsString,
+    argv: Vec<OsString>,
     chdir: Option<AbsPathBuf>,
     env: Vec<(String, String)>,
 }
@@ -51,7 +52,7 @@ enum ExitResultVariant {
     /// Instead of terminating normally, `exec` (or spawn on Windows)
     /// a new process with the given name and argv.
     /// This is used to implement `buck2 run`.
-    Buck2RunExec(ExecArgs),
+    Exec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     StatusWithErr(ExitCode, anyhow::Error),
@@ -80,13 +81,13 @@ impl ExitResult {
     }
 
     pub fn exec(
-        prog: String,
-        argv: Vec<String>,
+        prog: OsString,
+        argv: Vec<OsString>,
         chdir: Option<AbsPathBuf>,
         env: Vec<(String, String)>,
     ) -> Self {
         Self {
-            variant: ExitResultVariant::Buck2RunExec(ExecArgs {
+            variant: ExitResultVariant::Exec(ExecArgs {
                 prog,
                 argv,
                 chdir,
@@ -219,7 +220,7 @@ impl ExitResultVariant {
         // ensures we get the desired exit code printed instead of potentially a panic.
         let mut exit_code = match self {
             Self::Status(v) => v,
-            Self::Buck2RunExec(args) => {
+            Self::Exec(args) => {
                 // Terminate by exec-ing a new process - usually because of `buck2 run`.
                 //
                 // execv does not return.
