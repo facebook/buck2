@@ -87,25 +87,6 @@ pub struct BuckConfigBasedCells {
 }
 
 impl BuckConfigBasedCells {
-    pub(crate) async fn parse_cell_resolver(
-        project_fs: &ProjectRoot,
-        file_ops: &mut dyn ConfigParserFileOps,
-    ) -> anyhow::Result<CellResolver> {
-        let opts = BuckConfigParseOptions {
-            follow_includes: false,
-        };
-        let cells = Self::parse_with_file_ops_and_options(
-            project_fs,
-            file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-            opts,
-        )
-        .await?;
-
-        Ok(cells.cell_resolver)
-    }
-
     /// In the client and one place in the daemon, we need access to the alias resolver for the cwd
     /// in some places where we don't have normal dice access
     ///
@@ -576,9 +557,9 @@ pub(crate) fn create_project_filesystem() -> ProjectRoot {
 mod tests {
     use std::sync::Arc;
 
-    use buck2_cli_proto::config_override::ConfigType;
     use buck2_cli_proto::ConfigOverride;
     use buck2_core::cells::cell_root_path::CellRootPath;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::external::GitCellSetup;
     use buck2_core::cells::name::CellName;
@@ -726,10 +707,10 @@ mod tests {
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
-            &[ConfigOverride {
-                config_override: "other//cli-conf".to_owned(),
-                config_type: ConfigType::File.into(),
-            }],
+            &[ConfigOverride::file(
+                "cli-conf",
+                Some(CellRootPathBuf::testing_new("other")),
+            )],
             ProjectRelativePath::empty(),
         )
         .await?;
@@ -867,14 +848,8 @@ mod tests {
             &project_fs,
             &mut file_ops,
             &[
-                ConfigOverride {
-                    config_override: "other//app-conf".to_owned(),
-                    config_type: ConfigType::File.into(),
-                },
-                ConfigOverride {
-                    config_override: "//global-conf".to_owned(),
-                    config_type: ConfigType::File.into(),
-                },
+                ConfigOverride::file("app-conf", Some(CellRootPathBuf::testing_new("other"))),
+                ConfigOverride::file("global-conf", Some(CellRootPathBuf::testing_new(""))),
             ],
             ProjectRelativePath::empty(),
         )
@@ -1064,10 +1039,7 @@ mod tests {
         let cells = BuckConfigBasedCells::parse_with_file_ops(
             &project_fs,
             &mut file_ops,
-            &[ConfigOverride {
-                config_override: "some_section.key=value1".to_owned(),
-                config_type: ConfigType::Value.into(),
-            }],
+            &[ConfigOverride::flag_no_cell("some_section.key=value1")],
             ProjectRelativePath::empty(),
         )
         .await?;

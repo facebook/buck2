@@ -413,6 +413,7 @@ pub mod testing {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use indoc::indoc;
     use itertools::Itertools;
 
@@ -795,7 +796,7 @@ pub(crate) mod tests {
     fn test_config_file_args_overwrite_config_file() -> anyhow::Result<()> {
         let config_args = vec![
             ConfigOverride::flag_no_cell("apple.key=value3"),
-            ConfigOverride::file("//cli-config"),
+            ConfigOverride::file("cli-config", Some(CellRootPathBuf::testing_new(""))),
         ];
         let config = parse_with_config_args(
             &[

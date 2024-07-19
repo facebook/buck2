@@ -32,6 +32,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::common::ui::CommonConsoleOptions;
+use crate::immediate_config::ImmediateConfigContext;
 use crate::path_arg::PathArg;
 
 pub const EVENT_LOG: &str = "event-log";
@@ -184,6 +185,7 @@ impl CommonBuildConfigurationOptions {
     pub fn config_overrides(
         &self,
         matches: &clap::ArgMatches,
+        immediate_ctx: &ImmediateConfigContext<'_>,
     ) -> anyhow::Result<Vec<ConfigOverride>> {
         fn with_indices<'a, T>(
             collection: &'a [T],
@@ -201,24 +203,46 @@ impl CommonBuildConfigurationOptions {
             indices.into_iter().zip(collection)
         }
 
-        let config_values_args = with_indices(&self.config_values, "config_values", matches).map(
-            |(index, config_value)| {
-                (
+        let config_values_args = with_indices(&self.config_values, "config_values", matches)
+            .map(|(index, config_value)| {
+                let (cell, raw_arg) = match config_value.split_once("//") {
+                    Some((cell, val)) if !cell.contains('=') => {
+                        let cell = immediate_ctx
+                            .resolve_alias_to_path_in_cwd(cell)?
+                            .to_string();
+                        (Some(cell), val)
+                    }
+                    _ => (None, config_value.as_str()),
+                };
+
+                anyhow::Ok((
                     index,
                     ConfigOverride {
-                        config_override: config_value.clone(),
+                        cell,
+                        config_override: raw_arg.to_owned(),
                         config_type: ConfigType::Value as i32,
                     },
-                )
-            },
-        );
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         let config_file_args = with_indices(&self.config_files, "config_files", matches)
             .map(|(index, file)| {
+                let (cell, path) = match file.split_once("//") {
+                    Some((cell, val)) => {
+                        // This should also reject =?
+                        let cell = immediate_ctx
+                            .resolve_alias_to_path_in_cwd(cell)?
+                            .to_string();
+                        (Some(cell), val)
+                    }
+                    _ => (None, file.as_str()),
+                };
                 Ok((
                     index,
                     ConfigOverride {
-                        config_override: file.to_owned(),
+                        cell,
+                        config_override: path.to_owned(),
                         config_type: ConfigType::File as i32,
                     },
                 ))
