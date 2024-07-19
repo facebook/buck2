@@ -9,9 +9,6 @@ def _export_exe_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.src and ctx.attrs.exe:
         fail("Must supply one of src or exe to export_exe")
 
-    if not ctx.attrs.src and not ctx.attrs.exe:
-        fail("Must supply one of src or exe to export_exe")
-
     src = ctx.attrs.src if ctx.attrs.src else ctx.attrs.exe
 
     return [
@@ -21,7 +18,7 @@ def _export_exe_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-export_exe = rule(
+_export_exe = rule(
     doc = """Exports a file as an executable, for use in $(exe) macros or as a valid target for an exec_dep().
     Accepts either a string `src`, which is a relative path to a file that will be directly referenced,
     or an arg `exe` which should be a path to an executable relative to a $(location) macro.
@@ -86,3 +83,24 @@ export_exe = rule(
         "src": attrs.option(attrs.source(), default = None, doc = "path to an executable binary relative to this package"),
     },
 )
+
+def export_exe(name, exe = None, src = None, **kwargs):
+    # If neither `exe` nor `src` is passed, treat the target's name as the src.
+    #
+    #     export_exe(
+    #         name = "script.sh",
+    #     )
+    #
+    # is equivalent to:
+    #
+    #     export_exe(
+    #         name = "script.sh",
+    #         src = "script.sh",
+    #     )
+    #
+    _export_exe(
+        name = name,
+        exe = exe,
+        src = src if (exe or src) else name,
+        **kwargs
+    )
