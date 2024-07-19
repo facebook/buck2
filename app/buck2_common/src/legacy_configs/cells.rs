@@ -145,7 +145,7 @@ impl BuckConfigBasedCells {
             },
             config_args,
             cwd,
-            true, /* follow includes */
+            false, /* follow includes */
         )
         .await
     }
@@ -162,19 +162,6 @@ impl BuckConfigBasedCells {
             config_args,
             cwd,
             true, /* follow includes */
-        )
-        .await
-    }
-
-    pub async fn parse_no_follow_includes(project_fs: &ProjectRoot) -> anyhow::Result<Self> {
-        Self::parse_with_file_ops_and_options(
-            project_fs,
-            &mut DefaultConfigParserFileOps {
-                project_fs: project_fs.dupe(),
-            },
-            &[],
-            ProjectRelativePath::empty(),
-            false, /* follow includes */
         )
         .await
     }

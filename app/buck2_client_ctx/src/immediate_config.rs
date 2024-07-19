@@ -44,8 +44,10 @@ impl ImmediateConfig {
         cwd: &ProjectRelativePath,
     ) -> anyhow::Result<ImmediateConfig> {
         // This function is non-reentrant, and blocking for a bit should be ok
-        let cells = futures::executor::block_on(BuckConfigBasedCells::parse_no_follow_includes(
+        let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
             project_fs,
+            &[],
+            cwd,
         ))?;
 
         let cwd_cell_alias_resolver = futures::executor::block_on(
