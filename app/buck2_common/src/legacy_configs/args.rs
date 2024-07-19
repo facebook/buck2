@@ -53,50 +53,33 @@ pub(crate) struct ResolvedConfigFlag {
     pub(crate) cell: Option<CellRootPathBuf>,
 }
 
-impl ParsedFlagArg {
-    fn new(cell: Option<CellRootPathBuf>, raw_arg: &str) -> anyhow::Result<ParsedFlagArg> {
-        let (raw_section_and_key, raw_value) = raw_arg
-            .split_once('=')
-            .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
-        let ConfigSectionAndKey { section, key } =
-            parse_config_section_and_key(raw_section_and_key, Some(raw_arg))?;
-
-        let value = match raw_value {
-            "" => None, // An empty string unsets this config.
-            v => Some(v.to_owned()),
-        };
-
-        Ok(ParsedFlagArg {
-            cell,
-            section,
-            key,
-            value,
-        })
-    }
-}
-
-#[derive(Debug)]
-struct ParsedFlagArg {
+fn resolve_config_flag_arg(
     cell: Option<CellRootPathBuf>,
-    section: String,
-    key: String,
-    value: Option<String>,
+    raw_arg: &str,
+) -> anyhow::Result<ResolvedConfigFlag> {
+    let (raw_section_and_key, raw_value) = raw_arg
+        .split_once('=')
+        .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
+    let ConfigSectionAndKey { section, key } =
+        parse_config_section_and_key(raw_section_and_key, Some(raw_arg))?;
+
+    let value = match raw_value {
+        "" => None, // An empty string unsets this config.
+        v => Some(v.to_owned()),
+    };
+
+    Ok(ResolvedConfigFlag {
+        cell,
+        section,
+        key,
+        value,
+    })
 }
 
 /// State required to perform resolution of cell-relative paths.
 struct CellResolutionState<'a> {
     project_filesystem: &'a ProjectRoot,
     cwd: &'a ProjectRelativePath,
-}
-
-async fn resolve_config_flag_arg(flag_arg: &ParsedFlagArg) -> anyhow::Result<ResolvedConfigFlag> {
-    // TODO(JakobDegen): Simplify next diff
-    Ok(ResolvedConfigFlag {
-        section: flag_arg.section.clone(),
-        key: flag_arg.key.clone(),
-        value: flag_arg.value.clone(),
-        cell: flag_arg.cell.clone(),
-    })
 }
 
 async fn resolve_config_file_arg(
@@ -155,8 +138,7 @@ pub(crate) async fn resolve_config_args(
         let resolved = match config_type {
             ConfigType::Value => {
                 let cell = u.get_cell()?.map(|p| p.to_buf());
-                let parsed_flag = ParsedFlagArg::new(cell, &u.config_override)?;
-                let resolved_flag = resolve_config_flag_arg(&parsed_flag).await?;
+                let resolved_flag = resolve_config_flag_arg(cell, &u.config_override)?;
                 ResolvedLegacyConfigArg::Flag(resolved_flag)
             }
             ConfigType::File => {
@@ -179,19 +161,19 @@ pub(crate) async fn resolve_config_args(
 
 #[cfg(test)]
 mod tests {
-    use super::ParsedFlagArg;
+    use super::resolve_config_flag_arg;
 
     #[test]
     fn test_argument_pair() -> anyhow::Result<()> {
         // Valid Formats
 
-        let normal_pair = ParsedFlagArg::new(None, "apple.key=value")?;
+        let normal_pair = resolve_config_flag_arg(None, "apple.key=value")?;
 
         assert_eq!("apple", normal_pair.section);
         assert_eq!("key", normal_pair.key);
         assert_eq!(Some("value".to_owned()), normal_pair.value);
 
-        let unset_pair = ParsedFlagArg::new(None, "apple.key=")?;
+        let unset_pair = resolve_config_flag_arg(None, "apple.key=")?;
 
         assert_eq!("apple", unset_pair.section);
         assert_eq!("key", unset_pair.key);
@@ -199,16 +181,16 @@ mod tests {
 
         // Whitespace
 
-        let section_leading_whitespace = ParsedFlagArg::new(None, "  apple.key=value")?;
+        let section_leading_whitespace = resolve_config_flag_arg(None, "  apple.key=value")?;
         assert_eq!("apple", section_leading_whitespace.section);
         assert_eq!("key", section_leading_whitespace.key);
         assert_eq!(Some("value".to_owned()), section_leading_whitespace.value);
 
-        let pair_with_whitespace_in_key = ParsedFlagArg::new(None, "apple. key=value");
+        let pair_with_whitespace_in_key = resolve_config_flag_arg(None, "apple. key=value");
         assert!(pair_with_whitespace_in_key.is_err());
 
         let pair_with_whitespace_in_value =
-            ParsedFlagArg::new(None, "apple.key= value with whitespace  ")?;
+            resolve_config_flag_arg(None, "apple.key= value with whitespace  ")?;
         assert_eq!("apple", pair_with_whitespace_in_value.section);
         assert_eq!("key", pair_with_whitespace_in_value.key);
         assert_eq!(
@@ -218,13 +200,13 @@ mod tests {
 
         // Invalid Formats
 
-        let pair_without_section = ParsedFlagArg::new(None, "key=value");
+        let pair_without_section = resolve_config_flag_arg(None, "key=value");
         assert!(pair_without_section.is_err());
 
-        let pair_without_equals = ParsedFlagArg::new(None, "apple.keyvalue");
+        let pair_without_equals = resolve_config_flag_arg(None, "apple.keyvalue");
         assert!(pair_without_equals.is_err());
 
-        let pair_without_section_or_equals = ParsedFlagArg::new(None, "applekeyvalue");
+        let pair_without_section_or_equals = resolve_config_flag_arg(None, "applekeyvalue");
         assert!(pair_without_section_or_equals.is_err());
 
         Ok(())
