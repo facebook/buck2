@@ -50,7 +50,6 @@ use buck2_common::legacy_configs::diffs::ConfigDiffTracker;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
-use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::facebook_only;
 use buck2_core::fs::fs_util;
@@ -165,6 +164,9 @@ pub struct ServerCommandContext<'a> {
     host_arch_override: HostArchOverride,
     host_xcode_version_override: Option<String>,
 
+    reuse_current_config: bool,
+    config_overrides: Vec<buck2_cli_proto::ConfigOverride>,
+
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We
     // also use this to send a RemoteExecutionSessionCreated if the connection is made.
@@ -186,9 +188,6 @@ pub struct ServerCommandContext<'a> {
 
     /// Common build options associated with this command.
     build_options: Option<CommonBuildOptions>,
-
-    /// The CellResolver and Configs loader for this command
-    cell_configs_loader: Arc<CellConfigLoader>,
 
     /// Keep emitting heartbeat events while the ServerCommandContext is alive  We put this in an
     /// Option so that we can ensure heartbeat events are cancelled before everything else is
@@ -289,14 +288,6 @@ impl<'a> ServerCommandContext<'a> {
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
-        let cell_configs_loader = Arc::new(CellConfigLoader {
-            project_root: base_context.project_root.clone(),
-            working_dir: working_dir_project_relative.dupe(),
-            reuse_current_config: client_context.reuse_current_config,
-            config_overrides: client_context.config_overrides.clone(),
-            loaded_cell_configs: AsyncOnceCell::new(),
-        });
-
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
         Ok(ServerCommandContext {
@@ -306,6 +297,8 @@ impl<'a> ServerCommandContext<'a> {
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
             host_xcode_version_override: client_context.host_xcode_version.clone(),
+            reuse_current_config: client_context.reuse_current_config,
+            config_overrides: client_context.config_overrides.clone(),
             oncall,
             client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
@@ -313,7 +306,6 @@ impl<'a> ServerCommandContext<'a> {
             buck_out_dir: paths.buck_out_dir(),
             isolation_prefix: paths.isolation.clone(),
             build_options: build_options.cloned(),
-            cell_configs_loader,
             record_target_call_stacks: client_context.target_call_stacks,
             skip_targets_with_duplicate_names: client_context.skip_targets_with_duplicate_names,
             disable_starlark_types: client_context.disable_starlark_types,
@@ -422,29 +414,19 @@ impl<'a> ServerCommandContext<'a> {
     }
 }
 
-struct CellConfigLoader {
-    project_root: ProjectRoot,
-    working_dir: ArcS<ProjectRelativePath>,
-    /// Reuses build config from the previous invocation if there is one
-    reuse_current_config: bool,
-    config_overrides: Vec<buck2_cli_proto::ConfigOverride>,
-    loaded_cell_configs: AsyncOnceCell<buck2_error::Result<BuckConfigBasedCells>>,
-}
-
-impl CellConfigLoader {
+impl ServerCommandContext<'_> {
     async fn load_new_configs(
         &self,
-        cmd_ctx: &ServerCommandContext<'_>,
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<BuckConfigBasedCells> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
-            &self.project_root,
+            &self.base_context.project_root,
             &self.config_overrides,
             &self.working_dir,
         )
         .await?;
 
-        cmd_ctx.report_traced_config_paths(&new_configs.config_paths)?;
+        self.report_traced_config_paths(&new_configs.config_paths)?;
 
         if self.reuse_current_config {
             if dice_ctx
@@ -488,19 +470,6 @@ impl CellConfigLoader {
         }
     }
 
-    async fn cells_and_configs(
-        &self,
-        cmd_ctx: &ServerCommandContext<'_>,
-        dice_ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<BuckConfigBasedCells> {
-        self.loaded_cell_configs
-            .get_or_init(self.load_new_configs(cmd_ctx, dice_ctx))
-            .await
-            .clone()
-    }
-}
-
-impl ServerCommandContext<'_> {
     fn report_traced_config_paths(&self, paths: &HashSet<ConfigPath>) -> anyhow::Result<()> {
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             for config_path in paths {
@@ -551,12 +520,8 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
         mut ctx: DiceTransactionUpdater,
     ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
         let existing_state = &mut ctx.existing_state().await.clone();
-        let cells_and_configs = self
-            .cmd_ctx
-            .cell_configs_loader
-            .cells_and_configs(self.cmd_ctx, existing_state)
-            .await?;
-        let cell_resolver = cells_and_configs.cell_resolver.dupe();
+        let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
+        let cell_resolver = cells_and_configs.cell_resolver;
 
         let configuror = BuildInterpreterConfiguror::new(
             prelude_path(&cell_resolver)?,
