@@ -7,7 +7,9 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -24,6 +26,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
+use buck2_data::ReUploadMetrics;
 use chrono::Duration;
 use chrono::Utc;
 use futures::FutureExt;
@@ -53,8 +56,8 @@ use crate::re::metadata::RemoteExecutionMetadataExt;
 
 #[derive(Clone, Debug, Default)]
 pub struct UploadStats {
-    pub bytes_uploaded: u64,
-    pub digests_uploaded: u64,
+    pub total: ReUploadMetrics,
+    pub by_extension: HashMap<String, ReUploadMetrics>,
 }
 
 pub struct Uploader {}
@@ -331,13 +334,18 @@ impl Uploader {
         // Compute stats of digests we're about to upload so we can report them
         // to the span end event of this stage of execution.
         let stats = {
-            let named_digest_byte_count: u64 = upload_files
-                .iter()
-                .map(|nd| {
-                    let byte_count: u64 = nd.digest.size_in_bytes.try_into().unwrap_or_default();
-                    byte_count
-                })
-                .sum();
+            let mut stats_by_extension = HashMap::new();
+            let mut named_digest_byte_count: u64 = 0;
+            for nd in &upload_files {
+                // Aggregate metrics by file extension.
+                let byte_count: u64 = nd.digest.size_in_bytes.try_into().unwrap_or_default();
+                let extension = extract_file_extension(&nd.name);
+                let ext_stats: &mut ReUploadMetrics =
+                    stats_by_extension.entry(extension).or_default();
+                ext_stats.digests_uploaded += 1;
+                ext_stats.bytes_uploaded += byte_count;
+                named_digest_byte_count += byte_count;
+            }
             let blob_byte_count: u64 = upload_blobs
                 .iter()
                 .map(|blob| {
@@ -347,8 +355,11 @@ impl Uploader {
                 .sum();
 
             UploadStats {
-                digests_uploaded: (upload_files.len() + upload_blobs.len()) as u64,
-                bytes_uploaded: named_digest_byte_count + blob_byte_count,
+                total: ReUploadMetrics {
+                    digests_uploaded: (upload_files.len() + upload_blobs.len()) as u64,
+                    bytes_uploaded: named_digest_byte_count + blob_byte_count,
+                },
+                by_extension: stats_by_extension,
             }
         };
 
@@ -465,4 +476,12 @@ fn add_injected_missing_digests<'a>(
     }
 
     Ok(())
+}
+
+fn extract_file_extension(path: &str) -> String {
+    let path = Path::new(path);
+    match path.extension() {
+        Some(ext) => ext.to_string_lossy().to_lowercase(),
+        None => "<empty>".to_owned(),
+    }
 }

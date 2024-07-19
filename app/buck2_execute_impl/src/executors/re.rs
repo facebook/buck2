@@ -107,8 +107,9 @@ impl ReExecutor {
                 Ok(stats) => (
                     Ok(()),
                     buck2_data::ReUploadEnd {
-                        digests_uploaded: Some(stats.digests_uploaded),
-                        bytes_uploaded: Some(stats.bytes_uploaded),
+                        digests_uploaded: Some(stats.total.digests_uploaded),
+                        bytes_uploaded: Some(stats.total.bytes_uploaded),
+                        stats_by_extension: stats.by_extension,
                     },
                 ),
                 Err(e) => (Err(e), buck2_data::ReUploadEnd::default()),
