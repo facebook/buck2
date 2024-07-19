@@ -14,14 +14,11 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
         return [test_info, RunInfo(args = test_info.command)]
 
     cell_root = ctx.label.cell_root
-    project_root = ctx.label.project_root
-
-    relative_to = _maybe_relativize_path(test_info, cell_root, project_root)
 
     env_file = ctx.actions.write_json(
         "test_env.json",
         {
-            k: cmd_args(v, delimiter = " ", relative_to = relative_to)
+            k: _maybe_relativize_path(test_info, cell_root, cmd_args(v, delimiter = " "))
             for (k, v) in test_info.env.items()
         },
         with_inputs = True,
@@ -30,12 +27,10 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
 
     return [test_info, RunInfo(args = [inject_test_env, env_file, "--", test_info.command])]
 
-# TODO(nga): D59890633 for symbol for `ProjectRoot` type.
-def _maybe_relativize_path(test_info: ExternalRunnerTestInfo, cell_root: CellRoot, project_root) -> CellRoot | typing.Any:
+def _maybe_relativize_path(test_info: ExternalRunnerTestInfo, cell_root: CellRoot, arg: cmd_args) -> cmd_args:
     if test_info.run_from_project_root:
-        return project_root
-    else:
-        return cell_root
+        return arg
+    return arg.relative_to(cell_root)
 
 def _exclude_test_env_from_run_info(ctx: AnalysisContext):
     # Antlir assumes that $(exe ...) is a single, relative path, so if we make
