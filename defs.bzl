@@ -13,10 +13,6 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
     """
     Produce a directory layout that is similar to the one our release binary
     uses, this allows setting a path for Tpx relative to BUCK2_BINARY_DIR.
-
-    We do the whole BUCK2_BINARY_DIR_RELATIVE_TO dance to support doing this
-    using just symlinks. If we're willing to do a copy we can just
-    `out.project("buck2")` and we're done.
     """
     target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
 
@@ -25,25 +21,9 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
     binary_extension = ".exe" if target_is_windows else ""
     buck2_binary = "buck2" + binary_extension
     buck2_tpx_binary = "buck2-tpx" + binary_extension
-    out = ctx.actions.symlinked_dir("out", {buck2_binary: buck2, buck2_tpx_binary: tpx})
+    out = ctx.actions.copied_dir("out", {buck2_binary: buck2, buck2_tpx_binary: tpx})
 
-    if target_is_windows:
-        cmd = cmd_args(
-            "cmd.exe",
-            "/c",
-            cmd_args(out, format = "set BUCK2_BINARY_DIR_RELATIVE_TO={}&&", relative_to = (buck2, 1)),
-            out.project(buck2_binary),
-            hidden = out,
-        )
-    else:
-        cmd = cmd_args(
-            "/usr/bin/env",
-            cmd_args(out, format = "BUCK2_BINARY_DIR_RELATIVE_TO={}", relative_to = (buck2, 1)),
-            out.project(buck2_binary),
-            hidden = out,
-        )
-
-    return [DefaultInfo(out), RunInfo(cmd)]
+    return [DefaultInfo(out), RunInfo(cmd_args(out.project("buck2" + binary_extension)))]
 
 _symlinked_buck2_and_tpx = rule(
     impl = _symlinked_buck2_and_tpx_impl,

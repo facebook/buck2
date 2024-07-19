@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,7 +36,6 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -1076,16 +1074,9 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
             )?;
 
             let exe = exe.as_abs_path();
-            let mut exe_dir = exe
+            let exe_dir = exe
                 .parent()
                 .context("Buck2 executable directory has no parent")?;
-
-            // We allow overriding the dir here. This is used for buck2.sh
-            let overridden;
-            if let Some(v) = buck2_env!("BUCK2_BINARY_DIR_RELATIVE_TO")? {
-                overridden = exe_dir.join(Path::new(v));
-                exe_dir = &overridden;
-            }
 
             Ok(exe_dir.join(rest).to_path_buf())
         }
