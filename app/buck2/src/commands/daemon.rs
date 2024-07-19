@@ -594,6 +594,8 @@ mod tests {
         // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
         let fbinit = unsafe { fbinit::assume_init() };
 
+        buck2_core::client_only::CLIENT_ONLY_VAL.init(false);
+
         let project_root = ProjectRootTemp::new().unwrap();
 
         let (endpoint, listener) = create_listener().unwrap();

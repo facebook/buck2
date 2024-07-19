@@ -107,21 +107,25 @@ fn print_retry() -> anyhow::Result<()> {
 // will start up their own tokio runtime.
 #[fbinit::main]
 fn main(init: fbinit::FacebookInit) -> ! {
-    buck2_analysis::init_late_bindings();
-    buck2_anon_target::init_late_bindings();
-    buck2_action_impl::init_late_bindings();
-    buck2_audit_server::init_late_bindings();
-    buck2_build_api::init_late_bindings();
-    buck2_transition::init_late_bindings();
-    buck2_build_signals_impl::init_late_bindings();
-    buck2_bxl::init_late_bindings();
-    buck2_cfg_constructor::init_late_bindings();
-    buck2_configured::init_late_bindings();
-    buck2_query_impls::init_late_bindings();
-    buck2_interpreter_for_build::init_late_bindings();
-    buck2_server_commands::init_late_bindings();
-    buck2_test::init_late_bindings();
-    buck2_external_cells::init_late_bindings();
+    buck2_core::client_only::CLIENT_ONLY_VAL.init(cfg!(client_only));
+    #[cfg(not(client_only))]
+    {
+        buck2_analysis::init_late_bindings();
+        buck2_anon_target::init_late_bindings();
+        buck2_action_impl::init_late_bindings();
+        buck2_audit_server::init_late_bindings();
+        buck2_build_api::init_late_bindings();
+        buck2_external_cells::init_late_bindings();
+        buck2_transition::init_late_bindings();
+        buck2_build_signals_impl::init_late_bindings();
+        buck2_bxl::init_late_bindings();
+        buck2_cfg_constructor::init_late_bindings();
+        buck2_configured::init_late_bindings();
+        buck2_query_impls::init_late_bindings();
+        buck2_interpreter_for_build::init_late_bindings();
+        buck2_server_commands::init_late_bindings();
+        buck2_test::init_late_bindings();
+    }
     BUCK2_BUILD_INFO.init(Buck2BuildInfo {
         revision: std::option_env!("BUCK2_SET_EXPLICIT_VERSION"),
         win_internal_version: std::option_env!("BUCK2_WIN_INTERNAL_VERSION"),

@@ -123,7 +123,9 @@ mod imp {
 
     /// Collects metadata from the current environment for use in LogView.
     fn get_metadata_for_panic() -> HashMap<String, String> {
+        #[cfg_attr(client_only, allow(unused_mut))]
         let mut map = metadata::collect();
+        #[cfg(not(client_only))]
         if let Some(commands) = buck2_server::active_commands::try_active_commands() {
             let commands = commands.keys().map(|id| id.to_string()).collect::<Vec<_>>();
             map.insert("active_commands".to_owned(), commands.join(","));
@@ -168,8 +170,12 @@ mod imp {
                 dispatcher.instant_event(event.clone());
             }
             None => {
-                if !buck2_server::active_commands::broadcast_instant_event(&event) && !options.quiet
-                {
+                #[cfg(client_only)]
+                let warn = true;
+                #[cfg(not(client_only))]
+                let warn = !buck2_server::active_commands::broadcast_instant_event(&event)
+                    && !options.quiet;
+                if warn {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
                 }
             }

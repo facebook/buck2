@@ -1045,7 +1045,16 @@ async fn get_constraints(
 }
 
 pub fn get_daemon_exe() -> anyhow::Result<PathBuf> {
-    env::current_exe().context("Failed to get current exe")
+    let exe = env::current_exe().context("Failed to get current exe")?;
+    if buck2_core::client_only::is_client_only()? {
+        let ext = if cfg!(windows) { ".exe" } else { "" };
+        Ok(exe
+            .parent()
+            .context("Expected current exe to be in a directory")?
+            .join(format!("buck2-daemon{}", ext)))
+    } else {
+        Ok(exe)
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]

@@ -58,18 +58,16 @@ use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use dupe::Dupe;
-use no_buckd::start_in_process_daemon;
 
 use crate::check_user_allowed::check_user_allowed;
-use crate::commands::daemon::DaemonCommand;
 use crate::commands::docs::DocsCommand;
 use crate::commands::forkserver::ForkserverCommand;
-use crate::commands::internal_test_runner::InternalTestRunnerCommand;
 use crate::process_context::ProcessContext;
 
 mod check_user_allowed;
 mod cli_style;
 pub mod commands;
+#[cfg(not(client_only))]
 mod no_buckd;
 pub mod panic;
 pub mod process_context;
@@ -214,7 +212,9 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     }
 
     match &opt.cmd {
-        CommandKind::Clean(..) | CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
+        #[cfg(not(client_only))]
+        CommandKind::Daemon(..) => {}
+        CommandKind::Clean(..) | CommandKind::Forkserver(..) => {}
         _ => {
             check_user_allowed()?;
         }
@@ -230,12 +230,14 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
 #[derive(Debug, clap::Subcommand)]
 pub(crate) enum CommandKind {
+    #[cfg(not(client_only))]
     #[clap(hide = true)]
-    Daemon(DaemonCommand),
+    Daemon(crate::commands::daemon::DaemonCommand),
     #[clap(hide = true)]
     Forkserver(ForkserverCommand),
+    #[cfg(not(client_only))]
     #[clap(hide = true)]
-    InternalTestRunner(InternalTestRunnerCommand),
+    InternalTestRunner(crate::commands::internal_test_runner::InternalTestRunnerCommand),
     #[clap(subcommand)]
     Audit(AuditCommand),
     Aquery(AqueryCommand),
@@ -300,6 +302,7 @@ impl CommandKind {
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
+        #[cfg(not(client_only))]
         if let CommandKind::Daemon(cmd) = self {
             return cmd
                 .exec(
@@ -312,16 +315,33 @@ impl CommandKind {
                 .into();
         }
 
+        if cfg!(client_only) && common_opts.no_buckd {
+            // A client-only binary can't support running an in process buckd. This is the easiest
+            // way to work around that.
+            let exe = buck2_client_ctx::daemon::client::connect::get_daemon_exe()?;
+            return ExitResult::exec(
+                exe.into_os_string(),
+                std::env::args_os().collect(),
+                None,
+                Vec::new(),
+            );
+        }
+
         let runtime = client_tokio_runtime()?;
         let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon = if common_opts.no_buckd {
-            start_in_process_daemon(
+            #[cfg(not(client_only))]
+            let v = no_buckd::start_in_process_daemon(
                 process.init,
                 immediate_config.daemon_startup_config()?,
                 paths.clone()?,
                 &runtime,
-            )?
+            )?;
+            #[cfg(client_only)]
+            let v = unreachable!(); // case covered above
+            #[allow(dead_code)]
+            v
         } else {
             None
         };
@@ -345,10 +365,12 @@ impl CommandKind {
         };
 
         match self {
+            #[cfg(not(client_only))]
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
             CommandKind::Forkserver(cmd) => cmd
                 .exec(matches, command_ctx, process.log_reload_handle.dupe())
                 .into(),
+            #[cfg(not(client_only))]
             CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),

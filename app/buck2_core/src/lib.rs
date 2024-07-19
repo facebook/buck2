@@ -31,6 +31,7 @@ pub mod bzl;
 pub mod category;
 pub mod cells;
 pub mod ci;
+pub mod client_only;
 pub mod configuration;
 pub mod directory;
 pub mod env;

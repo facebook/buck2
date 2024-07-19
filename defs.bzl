@@ -17,11 +17,13 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
     target_is_windows = ctx.attrs._target_os_type[OsLookup].platform == "windows"
 
     buck2 = ctx.attrs.buck2[DefaultInfo].default_outputs[0]
+    buck2_client = ctx.attrs.buck2_client[DefaultInfo].default_outputs[0]
     tpx = ctx.attrs.tpx[DefaultInfo].default_outputs[0]
     binary_extension = ".exe" if target_is_windows else ""
     buck2_binary = "buck2" + binary_extension
     buck2_tpx_binary = "buck2-tpx" + binary_extension
-    out = ctx.actions.copied_dir("out", {buck2_binary: buck2, buck2_tpx_binary: tpx})
+    buck2_daemon_binary = "buck2-daemon" + binary_extension
+    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: tpx, buck2_daemon_binary: buck2})
 
     return [DefaultInfo(out), RunInfo(cmd_args(out.project("buck2" + binary_extension)))]
 
@@ -29,6 +31,7 @@ _symlinked_buck2_and_tpx = rule(
     impl = _symlinked_buck2_and_tpx_impl,
     attrs = {
         "buck2": attrs.dep(),
+        "buck2_client": attrs.dep(),
         "labels": attrs.list(attrs.string(), default = []),
         "tpx": attrs.dep(),
         "_target_os_type": buck.target_os_type_arg(),

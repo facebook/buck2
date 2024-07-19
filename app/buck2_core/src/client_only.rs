@@ -7,14 +7,10 @@
  * of this source tree.
  */
 
-#[cfg(not(client_only))]
-pub mod daemon;
-#[cfg(not(client_only))]
-pub(crate) mod daemon_lower_priority;
-#[cfg(not(client_only))]
-pub(crate) mod daemonize;
-pub mod docs;
-pub mod forkserver;
-#[cfg(not(client_only))]
-pub mod internal_test_runner;
-pub(crate) mod schedule_termination;
+use buck2_util::late_binding::LateBinding;
+
+pub static CLIENT_ONLY_VAL: LateBinding<bool> = LateBinding::new("client_only_val");
+
+pub fn is_client_only() -> anyhow::Result<bool> {
+    CLIENT_ONLY_VAL.get().copied()
+}

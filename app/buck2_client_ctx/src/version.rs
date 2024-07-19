@@ -52,7 +52,8 @@ impl BuckVersion {
     }
 
     fn compute() -> BuckVersion {
-        let exe = std::env::current_exe().unwrap();
+        // Make sure to use the daemon exe's version, if there is one
+        let exe = crate::daemon::client::connect::get_daemon_exe().unwrap();
         let mut file = File::open(exe).unwrap();
         let file_m = match unsafe { memmap2::Mmap::map(&file) } {
             Ok(mmap) => mmap,
