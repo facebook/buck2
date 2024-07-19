@@ -39,7 +39,6 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::http::SetHttpClient;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
@@ -569,8 +568,12 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
             .sync(ctx)
             .await?;
 
-        let mut user_data =
-            self.make_user_computation_data(existing_state, &cells_and_configs.root_config)?;
+        let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
+        ConfigDiffTracker::promote_into(
+            existing_state,
+            &mut user_data,
+            &cells_and_configs.root_config,
+        );
         user_data.set_mergebase(mergebase);
 
         Ok((ctx, user_data))
@@ -580,7 +583,6 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
 impl<'a, 's> DiceCommandUpdater<'a, 's> {
     fn make_user_computation_data(
         &self,
-        ctx: &mut DiceComputations<'_>,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<UserComputationData> {
         let config_threads = root_config
@@ -704,10 +706,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             self.cmd_ctx.base_context.daemon.forkserver.dupe(),
             self.skip_cache_read,
             self.skip_cache_write,
-            ctx.global_data()
-                .get_io_provider()
-                .project_root()
-                .to_owned(),
+            self.cmd_ctx.base_context.daemon.io.project_root().dupe(),
             worker_pool,
             self.cmd_ctx.base_context.daemon.paranoid.dupe(),
             self.materialize_failed_inputs,
@@ -733,7 +732,6 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
-        ConfigDiffTracker::promote_into(ctx, &mut data, root_config);
 
         let tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),
