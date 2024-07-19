@@ -574,11 +574,12 @@ impl DiceUpdater for DiceCommandUpdater {
         &self,
         mut ctx: DiceTransactionUpdater,
     ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+        let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self
             .cell_configs_loader
-            .cells_and_configs(&mut ctx.existing_state().await.clone())
+            .cells_and_configs(existing_state)
             .await?;
-        let cell_resolver = cells_and_configs.cell_resolver;
+        let cell_resolver = cells_and_configs.cell_resolver.dupe();
 
         let configuror = BuildInterpreterConfiguror::new(
             prelude_path(&cell_resolver)?,
@@ -606,9 +607,8 @@ impl DiceUpdater for DiceCommandUpdater {
 
         let (ctx, mergebase) = self.file_watcher.sync(ctx).await?;
 
-        let mut user_data = self
-            .make_user_computation_data(&mut ctx.existing_state().await.clone())
-            .await?;
+        let mut user_data =
+            self.make_user_computation_data(existing_state, &cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
         Ok((ctx, user_data))
@@ -616,16 +616,11 @@ impl DiceUpdater for DiceCommandUpdater {
 }
 
 impl DiceCommandUpdater {
-    async fn make_user_computation_data(
+    fn make_user_computation_data(
         &self,
         ctx: &mut DiceComputations<'_>,
+        root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<UserComputationData> {
-        let cells_and_configs = self.cell_configs_loader.cells_and_configs(ctx).await?;
-        let root_config = &cells_and_configs.root_config;
-
-        // TODO(cjhopman): The CellResolver and the legacy configs shouldn't be leaves on the graph. This should
-        // just be setting the config overrides and host platform override as leaves on the graph.
-
         let config_threads = root_config
             .parse(BuckconfigKeyRef {
                 section: "build",
