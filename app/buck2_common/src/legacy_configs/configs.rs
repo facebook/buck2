@@ -718,8 +718,8 @@ pub(crate) mod tests {
     #[test]
     fn test_config_args_ordering() -> anyhow::Result<()> {
         let config_args = vec![
-            ConfigOverride::flag("apple.key=value1"),
-            ConfigOverride::flag("apple.key=value2"),
+            ConfigOverride::flag_no_cell("apple.key=value1"),
+            ConfigOverride::flag_no_cell("apple.key=value2"),
         ];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "value2");
@@ -729,7 +729,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_empty() -> anyhow::Result<()> {
-        let config_args = vec![ConfigOverride::flag("apple.key=")];
+        let config_args = vec![ConfigOverride::flag_no_cell("apple.key=")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value_is_empty(&config, "apple", "key");
 
@@ -738,7 +738,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_overwrite_config_file() -> anyhow::Result<()> {
-        let config_args = vec![ConfigOverride::flag("apple.key=value2")];
+        let config_args = vec![ConfigOverride::flag_no_cell("apple.key=value2")];
         let config = parse_with_config_args(
             &[(
                 "config",
@@ -794,7 +794,7 @@ pub(crate) mod tests {
     #[test]
     fn test_config_file_args_overwrite_config_file() -> anyhow::Result<()> {
         let config_args = vec![
-            ConfigOverride::flag("apple.key=value3"),
+            ConfigOverride::flag_no_cell("apple.key=value3"),
             ConfigOverride::file("//cli-config"),
         ];
         let config = parse_with_config_args(
@@ -837,7 +837,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_config_args_cell_in_value() -> anyhow::Result<()> {
-        let config_args = vec![ConfigOverride::flag("apple.key=foo//value1")];
+        let config_args = vec![ConfigOverride::flag_no_cell("apple.key=foo//value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");
 

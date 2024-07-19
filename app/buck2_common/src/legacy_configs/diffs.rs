@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
-        let config_args = vec![ConfigOverride::flag("apple.key=value1")];
+        let config_args = vec![ConfigOverride::flag_no_cell("apple.key=value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
         let metrics = CellConfigDiff::new(Some(&config), Some(&config), &Some(10000));
@@ -317,8 +317,8 @@ mod tests {
         let limit_key = "config_diff_size_limit";
         let limit_value = "10000";
         let config_args = vec![
-            ConfigOverride::flag(&format!("buck2.{limit_key}={limit_value}")),
-            ConfigOverride::flag(&format!("apple.{key}={value}")),
+            ConfigOverride::flag_no_cell(&format!("buck2.{limit_key}={limit_value}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key}={value}")),
         ];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
@@ -363,16 +363,16 @@ mod tests {
         let value3 = "value3";
 
         let config_args1 = vec![
-            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
-            ConfigOverride::flag(&format!("apple.{key2}={value2_1}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key1}={value1}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key2}={value2_1}")),
         ];
         let config1 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
         let config_args2 = vec![
-            ConfigOverride::flag(&format!("apple.{key1}={value1}")),
-            ConfigOverride::flag(&format!("apple.{key2}={value2_2}")),
-            ConfigOverride::flag(&format!("apple.{key3}={value3}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key1}={value1}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key2}={value2_2}")),
+            ConfigOverride::flag_no_cell(&format!("apple.{key3}={value3}")),
         ];
         let config2 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
@@ -411,11 +411,15 @@ mod tests {
         let key2 = "key2";
         let value2 = "value2";
 
-        let config_args1 = vec![ConfigOverride::flag(&format!("apple.{key1}={value1}"))];
+        let config_args1 = vec![ConfigOverride::flag_no_cell(&format!(
+            "apple.{key1}={value1}"
+        ))];
         let config1 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args1)?;
 
-        let config_args2 = vec![ConfigOverride::flag(&format!("apple.{key2}={value2}"))];
+        let config_args2 = vec![ConfigOverride::flag_no_cell(&format!(
+            "apple.{key2}={value2}"
+        ))];
         let config2 =
             parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args2)?;
 

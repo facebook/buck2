@@ -366,7 +366,7 @@ mod tests {
         let config1 = parse_with_config_args(
             &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
             path,
-            &[ConfigOverride::flag("sec1.a=c")],
+            &[ConfigOverride::flag_no_cell("sec1.a=c")],
         )?;
 
         let config2 = parse_with_config_args(&[("test", "[sec1]\na=c\n[sec2]\nx=y")], path, &[])?;
@@ -374,7 +374,7 @@ mod tests {
         let config3 = parse_with_config_args(
             &[("test", "[sec1]\na=b\n[sec2]\nx=y")],
             path,
-            &[ConfigOverride::flag("sec1.d=e")],
+            &[ConfigOverride::flag_no_cell("sec1.d=e")],
         )?;
 
         assert_eq!(config1.compare(&config1), true);

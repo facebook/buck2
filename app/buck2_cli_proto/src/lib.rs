@@ -32,7 +32,7 @@ fn wrong_request_type(request_type: &'static str) -> anyhow::Error {
 }
 
 impl ConfigOverride {
-    pub fn flag(s: &str) -> Self {
+    pub fn flag_no_cell(s: &str) -> Self {
         Self {
             config_override: s.to_owned(),
             config_type: crate::config_override::ConfigType::Value.into(),
