@@ -452,7 +452,10 @@ impl Buck {
         S: AsRef<OsStr>,
     {
         let mut cmd = self.command_without_config(subcommands);
-        cmd.args(["-c=client.id=rust-project"]);
+        cmd.args([
+            "-c=client.id=rust-project",
+            "-c=xplat.available_platforms=CXX,FBCODE",
+        ]);
         cmd
     }
 
