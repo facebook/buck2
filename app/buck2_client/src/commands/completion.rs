@@ -77,6 +77,12 @@ pub struct CompletionCommand {
     )]
     pattern: Option<String>,
 
+    #[clap(flatten)]
+    opts: CompletionOptions,
+}
+
+#[derive(Clone, Debug, clap::Args)]
+struct CompletionOptions {
     #[clap(
         hide = true,
         long = "timeout",
@@ -95,7 +101,7 @@ impl CompletionCommand {
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let start = Instant::now();
-        let time_limit = Duration::from_millis(self.timeout_ms);
+        let time_limit = Duration::from_millis(self.opts.timeout_ms);
         let deadline = start + time_limit;
 
         match (self.shell, self.pattern) {

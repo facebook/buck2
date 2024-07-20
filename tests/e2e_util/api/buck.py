@@ -367,6 +367,36 @@ class Buck(Executable):
             exception_type=BuckException,
         )
 
+    def completion(
+        self,
+        *argv: str,
+        input: Optional[bytes] = None,
+        rel_cwd: Optional[Path] = None,
+        env: Optional[Dict[str, str]] = None,
+    ) -> Process[BuckResult, BuckException]:
+        """
+        Returns a Process with BuckResult type using a process
+        created with the completion command and any
+        additional arguments.
+
+        rel_cwd: Optional Path specifying the workding directive to run
+        the command relative to the root.
+        env: Optional dictionary for environment variables to run command with.
+        """
+
+        my_env = {} if env is None else env.copy()
+        my_env["BUCK2_COMPLETION_TIMEOUT"] = "30000"
+
+        return self._run_buck_command(
+            "completion",
+            *argv,
+            input=input,
+            rel_cwd=rel_cwd,
+            env=my_env,
+            result_type=BuckResult,
+            exception_type=BuckException,
+        )
+
     def audit_config(
         self,
         *argv: str,
