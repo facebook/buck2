@@ -19,7 +19,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use relative_path::RelativePath;
 
 #[derive(Debug, Clone)]
 pub(crate) struct BuckPath {
@@ -30,9 +29,12 @@ pub(crate) struct BuckPath {
 }
 
 impl BuckPath {
-    pub(crate) async fn new(resolver: &CellResolver, cwd: &Path, s: &str) -> anyhow::Result<Self> {
+    pub(crate) async fn new(
+        resolver: &CellResolver,
+        cwd: &AbsNormPath,
+        s: &str,
+    ) -> anyhow::Result<Self> {
         let cwd_roots = find_invocation_roots(cwd)?;
-        let cwd_abs_path = AbsNormPathBuf::new(cwd.to_path_buf())?;
         let project_root = cwd_roots.project_root.root();
 
         match s.split("//").collect::<Vec<_>>()[..] {
@@ -41,12 +43,12 @@ impl BuckPath {
                 let abs_path = if path.is_absolute() {
                     AbsNormPathBuf::new(path.to_owned())?
                 } else {
-                    cwd_abs_path.join_normalized(RelativePath::from_path(&path)?)?
+                    cwd.join_normalized(path_str)?
                 };
 
                 let cwd_cell_name =
-                    Self::path_cell_name(resolver, project_root, &cwd_roots.cell_root)?;
-                let cell_name = Self::path_cell_name(resolver, project_root, &abs_path)?;
+                    Self::path_cell_name(&resolver, project_root, &cwd_roots.cell_root)?;
+                let cell_name = Self::path_cell_name(&resolver, project_root, &abs_path)?;
 
                 let cell_path = resolver
                     .get_cell_path_from_abs_path(&abs_path, &cwd_roots.project_root)?
@@ -74,21 +76,21 @@ impl BuckPath {
                 }
             }
             [given_cell_str, cell_path] => {
-                let cell_configs = BuckConfigBasedCells::parse_with_config_args(
-                    &cwd_roots.project_root,
-                    &[],
-                    ProjectRelativePath::empty(),
-                )
-                .await?;
-                let alias_resolver = cell_configs
-                    .get_cell_alias_resolver_for_cwd_fast(
-                        &cwd_roots.project_root,
-                        &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
-                    )
-                    .await?;
                 let given_cell = if given_cell_str == "" {
                     resolver.find(&cwd_roots.project_root.relativize(&cwd_roots.cell_root)?)?
                 } else {
+                    let cell_configs = BuckConfigBasedCells::parse_with_config_args(
+                        &cwd_roots.project_root,
+                        &[],
+                        ProjectRelativePath::empty(),
+                    )
+                    .await?;
+                    let alias_resolver = cell_configs
+                        .get_cell_alias_resolver_for_cwd_fast(
+                            &cwd_roots.project_root,
+                            &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
+                        )
+                        .await?;
                     alias_resolver.resolve(given_cell_str)?
                 };
                 let abs_path = project_root
@@ -175,8 +177,6 @@ impl std::fmt::Display for BuckPath {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
     use paste::paste;
 
@@ -190,38 +190,34 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<PathBuf> {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_dir(d: &str) -> anyhow::Result<AbsNormPathBuf> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path).join(d);
+            let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                break;
+                return Ok(candidate);
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        Ok(candidate)
+        Err(anyhow::anyhow!("test_data directory not found"))
     }
 
-    fn in_root() -> PathBuf {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_root() -> anyhow::Result<AbsNormPathBuf> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path);
+            let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                break;
+                return Ok(candidate);
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        candidate
+        Err(anyhow::anyhow!("test_data directory not found"))
     }
 
     fn abs_path_from_root(relative: &str) -> anyhow::Result<AbsNormPathBuf> {
-        let root = AbsNormPathBuf::new(in_root())?;
+        let root = in_root()?;
         root.join_normalized(relative)
     }
 
@@ -326,7 +322,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_create_from_a_canonical_path() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         BuckPath::new(&cell_resolver(&cwd)?, &cwd, "root//baredir0/buckdir0a").await?;
 
         Ok(())
@@ -334,13 +330,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_create_from_a_str_relative_path() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         BuckPath::new(&cell_resolver(&cwd)?, &cwd, "baredir0/buckdir0a").await?;
 
         Ok(())
     }
 
-    testy!(canonical_path_in_root_from_root(in_root(), "root//baredir0/buckdir0a") -> {
+    testy!(canonical_path_in_root_from_root(in_root()?, "root//baredir0/buckdir0a") -> {
         abs_path: from_root("baredir0/buckdir0a"),
         canonical: "root//baredir0/buckdir0a",
         cell_name: "root",
@@ -350,7 +346,7 @@ mod tests {
         to_string: "root//baredir0/buckdir0a",
     });
 
-    testy!(anonymous_cell_from_root(in_root(), "//") -> {
+    testy!(anonymous_cell_from_root(in_root()?, "//") -> {
         abs_path: from_root(""),
         canonical: "//",
         cell_name: "root",
@@ -360,7 +356,7 @@ mod tests {
         to_string: "//",
     });
 
-    testy!(canonical_cell_path_from_root(in_root(), "cell1//buck2") -> {
+    testy!(canonical_cell_path_from_root(in_root()?, "cell1//buck2") -> {
         abs_path: from_root("cell1/buck2"),
         canonical: "cell1//buck2",
         cell_name: "cell1",
@@ -370,7 +366,7 @@ mod tests {
         to_string: "cell1//buck2",
     });
 
-    testy!(relative_path_from_root(in_root(), "baredir0/buckdir0a") -> {
+    testy!(relative_path_from_root(in_root()?, "baredir0/buckdir0a") -> {
         abs_path: from_root("baredir0/buckdir0a"),
         canonical: "root//baredir0/buckdir0a",
         cell_name: "root",
@@ -380,7 +376,7 @@ mod tests {
         to_string: "baredir0/buckdir0a",
     });
 
-    testy!(cross_cell_forward_path_from_root(in_root(), "cell1/buck2") -> {
+    testy!(cross_cell_forward_path_from_root(in_root()?, "cell1/buck2") -> {
         abs_path: from_root("cell1/buck2"),
         canonical: "cell1//buck2",
         cell_name: "cell1",
@@ -390,7 +386,7 @@ mod tests {
         to_string: "cell1//buck2",
     });
 
-    testy!(corrects_malformed_cross_cell_forward_path_from_root(in_root(), "root//cell1/buck2") -> {
+    testy!(corrects_malformed_cross_cell_forward_path_from_root(in_root()?, "root//cell1/buck2") -> {
         abs_path: from_root("cell1/buck2"),
         canonical: "cell1//buck2",
         cell_name: "cell1",
@@ -402,7 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_root_dir_as_empty_string_is_ready_for_subdirs() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         let uut = BuckPath::new(&cell_resolver(&cwd)?, &cwd, "").await?;
 
         assert!(uut.is_full_dir());
@@ -412,7 +408,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_slash_terminated_dir_is_a_full_dir() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         let uut = BuckPath::new(&cell_resolver(&cwd)?, &cwd, "baredir0/").await?;
 
         assert!(uut.is_full_dir());
@@ -422,7 +418,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_partial_with_no_slash_is_not_a_full_dir() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         let uut = BuckPath::new(&cell_resolver(&cwd)?, &cwd, "baredir0").await?;
 
         assert!(!uut.is_full_dir());
@@ -432,7 +428,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fully_qualified_cell_is_a_full_dir() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         let uut = BuckPath::new(&cell_resolver(&cwd)?, &cwd, "cell1//").await?;
 
         assert!(uut.is_full_dir());
@@ -442,7 +438,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_bails_on_nonexistent_cell() -> anyhow::Result<()> {
-        let cwd = in_root();
+        let cwd = in_root()?;
         let uut = BuckPath::new(&cell_resolver(&cwd)?, &cwd, "boguscell//").await;
 
         assert!(uut.is_err());
@@ -450,7 +446,7 @@ mod tests {
         Ok(())
     }
 
-    testy!(absolute_path_from_root(in_root(), &abs_str_from_root("baredir0")?) -> {
+    testy!(absolute_path_from_root(in_root()?, &abs_str_from_root("baredir0")?) -> {
         abs_path: from_root("baredir0"),
         canonical: "root//baredir0",
         cell_name: "root",

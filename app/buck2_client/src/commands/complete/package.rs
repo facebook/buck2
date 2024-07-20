@@ -8,27 +8,27 @@
  */
 
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
 use super::buck_path::BuckPath;
 use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
-    cwd: PathBuf,
+    cwd: AbsNormPathBuf,
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
     results: CompletionResults<'a>,
 }
 
 impl<'a> PackageCompleter<'a> {
-    pub(crate) async fn new(cwd: &Path, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
+    pub(crate) async fn new(cwd: &AbsNormPath, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
         let cell_configs = Arc::new(
             BuckConfigBasedCells::parse_with_config_args(
                 &roots.project_root,
@@ -38,7 +38,7 @@ impl<'a> PackageCompleter<'a> {
             .await?,
         );
         CommandOutcome::Success(Self {
-            cwd: cwd.to_path_buf(),
+            cwd: cwd.to_owned(),
             roots,
             cell_configs: cell_configs.clone(),
             results: CompletionResults::new(roots, cell_configs.clone()),
@@ -62,12 +62,7 @@ impl<'a> PackageCompleter<'a> {
                     .await;
             } else {
                 if given_path == "" {
-                    self.results
-                        .insert_path(
-                            &BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, "//")
-                                .await?,
-                        )
-                        .await;
+                    self.results.insert_dir(&self.cwd, "//").await;
                 }
                 self.complete_partial_cells(given_path).await?;
             }
@@ -92,14 +87,11 @@ impl<'a> PackageCompleter<'a> {
             .cell_configs
             .get_cell_alias_resolver_for_cwd_fast(
                 &self.roots.project_root,
-                &self
-                    .roots
-                    .project_root
-                    .relativize(&AbsNormPath::new(&self.cwd)?)?,
+                &self.roots.project_root.relativize(&self.cwd)?,
             )
             .await?;
         for (cell_alias, cell_name) in alias_resolver.mappings() {
-            let canonical_cell_root = cell_alias.as_str().to_owned() + "//";
+            let canonical_cell_root = format!("{}//", cell_alias);
             let cell = cell_resolver.get(cell_name)?;
             if canonical_cell_root.starts_with(given_path) {
                 let cell_abs_path = self
@@ -214,34 +206,30 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, PathBuf)> {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, AbsNormPathBuf)> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path).join(d);
+            let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                break;
+                return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate))
+        CommandOutcome::Failure(ExitResult::bail("test_data directory not found"))
     }
 
-    fn in_root() -> CommandOutcome<(InvocationRoots, PathBuf)> {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_root() -> CommandOutcome<(InvocationRoots, AbsNormPathBuf)> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path);
+            let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                break;
+                return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate))
+        CommandOutcome::Failure(ExitResult::bail("test_data directory not found"))
     }
 
     fn is_err<T>(outcome: CommandOutcome<T>) -> bool {
@@ -599,8 +587,8 @@ mod tests {
     #[tokio::test]
     async fn test_normalizes_absolute_paths() -> anyhow::Result<()> {
         let (roots, cwd) = in_root()?;
+        let absolute_partial = cwd.as_path().join("bare");
         let uut = PackageCompleter::new(&cwd, &roots).await?;
-        let absolute_partial = cwd.join("bare");
 
         let actual = uut.complete(absolute_partial.to_str().unwrap()).await?;
 

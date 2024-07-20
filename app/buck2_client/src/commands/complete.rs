@@ -45,18 +45,18 @@ impl CompleteCommand {
         let time_limit = Duration::from_millis(self.timeout_ms);
         let deadline = start + time_limit;
 
-        let cwd = ctx.working_dir.path().to_owned();
+        let cwd = ctx.working_dir.path();
         let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
-                let completer = futures::executor::block_on(PackageCompleter::new(&cwd, roots))?;
+                let completer = futures::executor::block_on(PackageCompleter::new(cwd, roots))?;
                 print_completions(futures::executor::block_on(
                     completer.complete(given_partial_package),
                 ))
             }
             [given_package, given_partial_target] => {
                 let completer = CompleteTargetCommand::new(
-                    cwd.into_path_buf(),
+                    cwd,
                     given_package.to_owned(),
                     given_partial_target.to_owned(),
                     deadline,

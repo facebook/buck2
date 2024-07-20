@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -30,6 +28,8 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use clap::ArgMatches;
 use futures::future::BoxFuture;
@@ -48,7 +48,7 @@ pub(crate) trait TargetResolver: Send {
 pub(crate) struct CompleteTargetCommand {
     target_cfg: TargetCfgOptions,
 
-    cwd: PathBuf,
+    cwd: AbsNormPathBuf,
     package: String,
     partial_target: String,
 
@@ -58,7 +58,7 @@ pub(crate) struct CompleteTargetCommand {
 
 impl CompleteTargetCommand {
     pub(crate) fn new(
-        cwd: PathBuf,
+        cwd: &AbsNormPath,
         package: String,
         partial_target: String,
         deadline: Instant,
@@ -67,7 +67,7 @@ impl CompleteTargetCommand {
         let target_cfg = TargetCfgOptions::default();
         Self {
             target_cfg,
-            cwd,
+            cwd: cwd.to_owned(),
             package,
             partial_target,
             deadline,
@@ -94,13 +94,9 @@ impl StreamingCommand for CompleteTargetCommand {
             target_cfg: self.target_cfg,
         };
 
-        let completer = TargetCompleter::new(
-            self.cwd.as_path(),
-            &ctx.paths()?.roots,
-            &mut target_resolver,
-        )
-        .await
-        .expect("Failed to create target completer");
+        let completer = TargetCompleter::new(&self.cwd, &ctx.paths()?.roots, &mut target_resolver)
+            .await
+            .expect("Failed to create target completer");
         let task = completer.complete(&self.package, &self.partial_target);
 
         let remaining_time = self.deadline.saturating_duration_since(Instant::now());
@@ -130,7 +126,7 @@ impl StreamingCommand for CompleteTargetCommand {
     }
 }
 pub(crate) struct TargetCompleter<'a> {
-    cwd: PathBuf,
+    cwd: AbsNormPathBuf,
     cell_configs: Arc<BuckConfigBasedCells>,
     target_resolver: &'a mut dyn TargetResolver,
     results: CompletionResults<'a>,
@@ -138,7 +134,7 @@ pub(crate) struct TargetCompleter<'a> {
 
 impl<'a> TargetCompleter<'a> {
     pub(crate) async fn new(
-        cwd: &Path,
+        cwd: &AbsNormPath,
         roots: &'a InvocationRoots,
         target_resolver: &'a mut dyn TargetResolver,
     ) -> anyhow::Result<Self> {
@@ -151,7 +147,7 @@ impl<'a> TargetCompleter<'a> {
             .await?,
         );
         Ok(Self {
-            cwd: cwd.to_path_buf(),
+            cwd: cwd.to_owned(),
             cell_configs: cell_configs.clone(),
             target_resolver,
             results: CompletionResults::new(roots, cell_configs.clone()),
@@ -232,34 +228,30 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<(InvocationRoots, PathBuf)> {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_dir(d: &str) -> anyhow::Result<(InvocationRoots, AbsNormPathBuf)> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path).join(d);
+            let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                break;
+                return Ok((find_invocation_roots(&candidate)?, candidate));
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        Ok((find_invocation_roots(&candidate)?, candidate))
+        Err(anyhow::anyhow!("test_data directory not found"))
     }
 
-    fn in_root() -> anyhow::Result<(InvocationRoots, PathBuf)> {
-        let cwd = std::env::current_dir().unwrap();
+    fn in_root() -> anyhow::Result<(InvocationRoots, AbsNormPathBuf)> {
+        let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
-        let mut candidate = PathBuf::new();
         for path in paths_to_test_data() {
-            candidate = cwd.join(path);
+            let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                break;
+                return Ok((find_invocation_roots(&candidate)?, candidate));
             }
         }
 
-        assert!(candidate.exists(), "test_data directory not found");
-        Ok((find_invocation_roots(&candidate)?, candidate))
+        Err(anyhow::anyhow!("test_data directory not found"))
     }
 
     async fn target_complete_helper(

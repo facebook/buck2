@@ -80,9 +80,9 @@ impl<'a> CompletionResults<'a> {
         &mut self,
         abs_dir: &AbsNormPath,
     ) -> anyhow::Result<&Vec<FileNameBuf>> {
-        let cell_relative_to_project = self.roots.project_root.relativize(abs_dir)?;
+        let relative_to_project = self.roots.project_root.relativize(abs_dir)?;
         let cell_configs = &self.cell_configs;
-        let cell_name = cell_configs.cell_resolver.find(&cell_relative_to_project)?;
+        let cell_name = cell_configs.cell_resolver.find(&relative_to_project)?;
         if let Entry::Vacant(e) = self.buildfiles.entry(cell_name) {
             let cell_config = cell_configs
                 .parse_single_cell(cell_name, &self.roots.project_root)
