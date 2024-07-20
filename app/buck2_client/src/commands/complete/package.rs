@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::path::Path;
 use std::sync::Arc;
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
@@ -17,6 +16,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
+use super::path_completer::PathCompleter;
 use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
@@ -69,7 +69,7 @@ impl<'a> PackageCompleter<'a> {
 
             let path =
                 SanitizedPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
-            if path.given() != given_path && completes_to_dir(&self.cwd, &path)? {
+            if path.given() != given_path && PathCompleter::completes_to_dir(&self.cwd, &path)? {
                 // There are potential completions to this string, but we're
                 // transforming it on the first tab to minimize surprise and help
                 // the user learn to type paths the right way
@@ -114,81 +114,14 @@ impl<'a> PackageCompleter<'a> {
     }
 
     async fn complete_dir(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
-        if partial.is_full_dir() {
-            self.complete_subdirs(partial).await
-        } else {
-            self.complete_dir_fragment(partial).await
-        }
+        let mut completer = PathCompleter::new(
+            self.cell_configs.clone(),
+            &self.cwd,
+            // self.path_sanitizer,
+            &mut self.results,
+        )?;
+        completer.complete(partial).await
     }
-
-    async fn complete_subdirs(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
-        let partial_dir = partial.abs_path();
-
-        let given_dir = partial.given();
-
-        for entry in partial_dir.read_dir()?.flatten() {
-            if entry.path().is_dir() {
-                let path = SanitizedPath::new(
-                    &self.cell_configs.cell_resolver,
-                    &self.cwd,
-                    &(given_dir.to_owned() + &file_name_string(&entry)),
-                )
-                .await?;
-                if path.cell_name() == partial.cell_name() {
-                    self.results.insert_path(&path).await;
-                }
-            }
-        }
-        CommandOutcome::Success(())
-    }
-
-    async fn complete_dir_fragment(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
-        let partial_path = partial.abs_path();
-        let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
-
-        let given_dir = &partial.given()[..partial.given().len() - partial_base.len()];
-
-        let mut scan_dir = self.cwd.to_path_buf();
-        if let Some(offset_dir) = partial_path.parent() {
-            scan_dir = scan_dir.join(offset_dir);
-        }
-
-        for entry_result in scan_dir.read_dir()? {
-            let entry = entry_result?;
-            if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
-                let given_expanded = SanitizedPath::new(
-                    &self.cell_configs.cell_resolver,
-                    &self.cwd,
-                    &(given_dir.to_owned() + &file_name_string(&entry)),
-                )
-                .await?;
-                self.results.insert_path(&given_expanded).await;
-            }
-        }
-        CommandOutcome::Success(())
-    }
-}
-
-fn completes_to_dir(cwd: &Path, partial: &SanitizedPath) -> anyhow::Result<bool> {
-    let partial_path = partial.abs_path();
-    let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
-
-    let mut scan_dir = cwd.to_path_buf();
-    if let Some(offset_dir) = partial_path.parent() {
-        scan_dir = scan_dir.join(offset_dir);
-    }
-
-    for entry_result in scan_dir.read_dir()? {
-        let entry = entry_result?;
-        if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-fn file_name_string(entry: &std::fs::DirEntry) -> String {
-    entry.file_name().into_string().unwrap()
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@
  */
 
 mod package;
+mod path_completer;
 mod path_sanitizer;
 mod results;
 mod target;
