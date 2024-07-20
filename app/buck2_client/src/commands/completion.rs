@@ -110,14 +110,9 @@ impl CompletionCommand {
             (Some(_), Some(_)) => ExitResult::status(ExitCode::UserError),
             (None, None) => ExitResult::status(ExitCode::UserError),
 
-            (Some(Shell::Bash), None) => {
+            (Some(shell), None) => {
                 let mut command = command;
-                print_completion_script(clap_complete::Shell::Bash, &mut command)?;
-                ExitResult::success()
-            }
-            (Some(Shell::Zsh), None) => {
-                let mut command = command;
-                print_completion_script(clap_complete::Shell::Zsh, &mut command)?;
+                print_completion_script(shell, &mut command)?;
                 ExitResult::success()
             }
             (None, Some(pattern)) => {
@@ -155,9 +150,14 @@ const GENERATED_INSERTION_POINT: &str = "# %INSERT_GENERATED_LINE%";
 const GENERATED_TAG: &str = concat!("@", "generated");
 const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
 const BASH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.bash");
+const ZSH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.zsh");
 
-fn print_completion_script(shell: clap_complete::Shell, cmd: &mut Command) -> anyhow::Result<()> {
-    let mut wrapper_iter = BASH_COMPLETION_WRAPPER.lines();
+fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Result<()> {
+    let (wrapper, shell) = match shell_arg {
+        Shell::Bash => (BASH_COMPLETION_WRAPPER, clap_complete::Shell::Bash),
+        Shell::Zsh => (ZSH_COMPLETION_WRAPPER, clap_complete::Shell::Zsh),
+    };
+    let mut wrapper_iter = wrapper.lines();
     let mut found_insertion_point = false;
 
     for line in wrapper_iter.by_ref() {
@@ -183,8 +183,9 @@ fn print_completion_script(shell: clap_complete::Shell, cmd: &mut Command) -> an
 
     if !found_insertion_point {
         Err(anyhow::anyhow!(
-            "Failed to find {} in bash completion template",
-            COMPLETION_INSERTION_POINT
+            "Failed to find {} in {:?} completion template",
+            COMPLETION_INSERTION_POINT,
+            shell_arg
         ))
     } else {
         Ok(())
