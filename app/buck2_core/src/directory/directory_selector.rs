@@ -271,18 +271,11 @@ macro_rules! impl_directory_search {
             }
 
             impl<'a, 'b, L, H> DirectoryIteratorPathStack for $search_ty<'a, 'b, L, H> {
-                fn for_each_path<'this, F>(&'this self, mut f: F)
-                where
-                    F: FnMut(&'this FileName),
-                {
-                    let it = self.stack.iter().filter_map(|frame| match frame {
+                fn path(&self) -> impl Iterator<Item = &FileName> {
+                    self.stack.iter().filter_map(|frame| match frame {
                         SearchFrame::ReturnRoot { .. } => None,
                         SearchFrame::Search { name, .. } => name.as_deref(),
-                    });
-
-                    for path in it {
-                        f(path);
-                    }
+                    })
                 }
             }
         }

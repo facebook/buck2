@@ -101,17 +101,10 @@ macro_rules! impl_directory_walk {
             }
 
             impl<'a, L, H> DirectoryIteratorPathStack for $walk_ty<'a, L, H> {
-                fn for_each_path<'this, F>(&'this self, mut f: F)
-                where
-                    F: FnMut(&'this FileName),
-                {
-                    let it = self.stack.iter().filter_map(|frame| match frame {
+                fn path(&self) -> impl Iterator<Item = &FileName> {
+                    self.stack.iter().filter_map(|frame| match frame {
                         WalkFrame { name, .. } => name.as_deref(),
-                    });
-
-                    for path in it {
-                        f(path);
-                    }
+                    })
                 }
             }
 

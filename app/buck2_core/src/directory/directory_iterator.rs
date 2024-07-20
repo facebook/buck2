@@ -51,12 +51,7 @@ pub trait DirectoryIterator {
 /// The stack of paths for this DirectoryIterator. This must allow iterating over the path
 /// components htat make up the DirectoryIterator's current location.
 pub trait DirectoryIteratorPathStack {
-    // NOTE: Ideally we'd want this to return an iterator defined as an associated type, but that's
-    // annoying to spell out without using type Foo = impl ... This is available behind
-    // `type_alias_impl_trait`, but that causes lots of compiler crashes at this time.
-    fn for_each_path<'a, F>(&'a self, f: F)
-    where
-        F: FnMut(&'a FileName);
+    fn path(&self) -> impl Iterator<Item = &FileName>;
 }
 
 /// A thin struct that can be used to produce a path on demand.
@@ -69,14 +64,8 @@ impl<'a, T> DirectoryIteratorPathAccessor<'a, T>
 where
     T: DirectoryIteratorPathStack,
 {
-    fn for_each_path<'this, F>(&'this self, mut f: F)
-    where
-        F: FnMut(&'this FileName),
-    {
-        self.stack.for_each_path(&mut f);
-        if let Some(leaf) = self.leaf {
-            f(leaf);
-        }
+    fn path(&self) -> impl Iterator<Item = &FileName> {
+        self.stack.path().chain(self.leaf)
     }
 
     pub fn name(&self) -> Option<&'a FileName> {
@@ -86,7 +75,9 @@ where
     pub fn get(&self) -> ForwardRelativePathBuf {
         // Evaluate the size of our path.
         let mut size = 0;
-        self.for_each_path(|name| size += name.as_str().len() + 1);
+        for name in self.path() {
+            size += name.as_str().len() + 1
+        }
 
         // Remove extra "/" we accounted for.
         size = size.saturating_sub(1);
@@ -94,13 +85,13 @@ where
         // Produce it.
         let mut first = true;
         let mut path = String::with_capacity(size);
-        self.for_each_path(|name| {
+        for name in self.path() {
             if !first {
                 path.push('/');
             }
             first = false;
             path.push_str(name.as_str());
-        });
+        }
 
         #[cfg(test)]
         {
