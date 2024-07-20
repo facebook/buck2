@@ -7,47 +7,49 @@
  * of this source tree.
  */
 
-use std::path::Path;
-use std::sync::Arc;
-
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 
+use super::path_sanitizer::PathSanitizer;
 use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
 pub(crate) struct PathCompleter<'a, 'b> {
-    cell_configs: Arc<BuckConfigBasedCells>,
-
     cwd: AbsNormPathBuf,
-    // sanitizer: &'b PathSanitizer,
+    sanitizer: &'b PathSanitizer,
     results: &'b mut CompletionResults<'a>,
 }
 
 impl<'a, 'b> PathCompleter<'a, 'b> {
     pub(crate) fn new(
-        cell_configs: Arc<BuckConfigBasedCells>,
-
         cwd: &AbsNormPath,
-        // sanitizer: &'b PathSanitizer,
+        sanitizer: &'b PathSanitizer,
         results: &'b mut CompletionResults<'a>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            cell_configs,
             cwd: cwd.to_owned(),
-            // sanitizer,
+            sanitizer,
             results,
         })
     }
 
-    pub(crate) async fn complete(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
-        if partial.is_full_dir() {
-            self.complete_subdirs(partial).await
+    pub(crate) async fn complete(mut self, given_path: &str) -> CommandOutcome<()> {
+        let path = self.sanitizer.sanitize(given_path)?;
+        if path.given() != given_path && self.completes_to_dir(&path)? {
+            // There are potential completions to this string, but we're
+            // correcting it on the first tab to minimize surprise and help
+            // the user learn to type paths the right way.
+            //
+            // The completes_to_dir() check guards against complete_dir_fragment()
+            // completing "cell//" -> "cell1//", "root//cell/"
+            self.results.insert(path.given());
+        } else if path.is_ready_for_next_dir() {
+            self.complete_subdirs(&path).await?;
         } else {
-            self.complete_dir_fragment(partial).await
+            self.complete_dir_fragment(&path).await?;
         }
+        CommandOutcome::Success(())
     }
 
     async fn complete_subdirs(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
@@ -57,12 +59,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
 
         for entry in partial_dir.read_dir()?.flatten() {
             if entry.path().is_dir() {
-                let path = SanitizedPath::new(
-                    &self.cell_configs.cell_resolver,
-                    &self.cwd,
-                    &(given_dir.to_owned() + &file_name_string(&entry)),
-                )
-                .await?;
+                let path = self.sanitize(&(given_dir.to_owned() + &file_name_string(&entry)))?;
                 if path.cell_name() == partial.cell_name() {
                     self.results.insert_path(&path).await;
                 }
@@ -85,23 +82,19 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         for entry_result in scan_dir.read_dir()? {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
-                let given_expanded = SanitizedPath::new(
-                    &self.cell_configs.cell_resolver,
-                    &self.cwd,
-                    &(given_dir.to_owned() + &file_name_string(&entry)),
-                )
-                .await?;
+                let given_expanded =
+                    self.sanitize(&(given_dir.to_owned() + &file_name_string(&entry)))?;
                 self.results.insert_path(&given_expanded).await;
             }
         }
         CommandOutcome::Success(())
     }
 
-    pub(crate) fn completes_to_dir(cwd: &Path, partial: &SanitizedPath) -> anyhow::Result<bool> {
+    fn completes_to_dir(&self, partial: &SanitizedPath) -> anyhow::Result<bool> {
         let partial_path = partial.abs_path();
         let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
 
-        let mut scan_dir = cwd.to_path_buf();
+        let mut scan_dir = self.cwd.to_path_buf();
         if let Some(offset_dir) = partial_path.parent() {
             scan_dir = scan_dir.join(offset_dir);
         }
@@ -113,6 +106,10 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
             }
         }
         Ok(false)
+    }
+
+    fn sanitize(&self, given: &str) -> anyhow::Result<SanitizedPath> {
+        self.sanitizer.sanitize(given)
     }
 }
 

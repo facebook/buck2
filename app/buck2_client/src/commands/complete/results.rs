@@ -50,19 +50,19 @@ impl<'a> CompletionResults<'a> {
     pub(crate) async fn insert_dir(&mut self, abs_dir: &AbsNormPath, nickname: &str) -> &mut Self {
         if nickname.ends_with("//") {
             self.insert(nickname);
-            self.insert_package_if_buildfile_exists(abs_dir, nickname)
+            self.insert_package_colon_if_buildfile_exists(abs_dir, nickname)
                 .await;
         } else if nickname.ends_with('/') {
             self.insert(nickname);
         } else {
             self.insert(&format!("{}/", nickname));
-            self.insert_package_if_buildfile_exists(abs_dir, nickname)
+            self.insert_package_colon_if_buildfile_exists(abs_dir, nickname)
                 .await;
         }
         self
     }
 
-    pub(crate) async fn insert_package_if_buildfile_exists(
+    pub(crate) async fn insert_package_colon_if_buildfile_exists(
         &mut self,
         abs_dir: &AbsNormPath,
         nickname: &str,

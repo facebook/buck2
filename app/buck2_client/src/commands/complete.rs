@@ -40,6 +40,37 @@ pub struct CompleteCommand {
     timeout_ms: u64,
 }
 
+/// Complete a given target string.
+///
+/// This command and the files in `complete/*.rs` use the following naming
+/// conventions when completing targets (aka labels):
+///
+/// ```text
+/// [[cell_name]//][path/to/package][:target_name]
+///
+/// |---- cell ---||----- path ----||-- target --|
+/// |---------- package -----------|
+/// |------------------ label -------------------|
+/// ```
+///
+/// Note that this code must, by design, take in a number of malformed strings
+/// and cannot rely on buck2's own parsing logic which (generally) requires
+/// its targets to be well-formed.
+///
+/// Its goal is to create a label that buck2 commands will accept. These may,
+/// but are not required to, be fully-qualified targets. It does this
+/// following these principles:
+///
+/// 1. Provide reasonable "next step" completions to the shell. This set of
+///    completions may not be the same as what the shell decides to display
+///    but should be the options the user might choose from to reach the next
+///    decision branch.
+/// 2. Completions extend the input while retain the specific partial label
+///    to as large a degree as possible.
+/// 3. When corrections are necessary to create a label that buck2 will accept,
+///    make the corrections first, then next-step completions in a second
+///    stage.
+
 impl CompleteCommand {
     pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let start = Instant::now();
@@ -48,6 +79,7 @@ impl CompleteCommand {
 
         let cwd = ctx.working_dir.path();
         let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
+            // Package completion is performed locally and called here directly
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
                 let completer = futures::executor::block_on(PackageCompleter::new(cwd, roots))?;
@@ -55,6 +87,7 @@ impl CompleteCommand {
                     completer.complete(given_partial_package),
                 ))
             }
+            // Target completion requires a round-trip to the daemon, so we spin up a new command
             [given_package, given_partial_target] => {
                 let completer = CompleteTargetCommand::new(
                     cwd,
@@ -66,7 +99,7 @@ impl CompleteCommand {
                 completer.exec(matches, ctx)
             }
             _ => ExitResult::bail(
-                "Malformed target string (expected [[cell]//]path/to/package[:targetName])",
+                "Malformed target string (expected [[cell]//][path/to/package][:target_name])",
             ),
         };
         exit_result

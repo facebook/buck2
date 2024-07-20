@@ -17,13 +17,14 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
 use super::path_completer::PathCompleter;
-use super::path_sanitizer::SanitizedPath;
+use super::path_sanitizer::PathSanitizer;
 use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
     cwd: AbsNormPathBuf,
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
+    path_sanitizer: PathSanitizer,
     results: CompletionResults<'a>,
 }
 
@@ -37,11 +38,15 @@ impl<'a> PackageCompleter<'a> {
             )
             .await?,
         );
+
+        let path_sanitizer = PathSanitizer::new(&cell_configs, cwd).await?;
+        let results = CompletionResults::new(roots, cell_configs.clone());
         CommandOutcome::Success(Self {
             cwd: cwd.to_owned(),
             roots,
-            cell_configs: cell_configs.clone(),
-            results: CompletionResults::new(roots, cell_configs.clone()),
+            cell_configs,
+            path_sanitizer,
+            results,
         })
     }
 
@@ -53,35 +58,33 @@ impl<'a> PackageCompleter<'a> {
     /// such as partials which cross cell boundaries. In this case, normalized
     /// completion(s) are returned.
     pub(crate) async fn complete(mut self, given_path: &str) -> CommandOutcome<Vec<String>> {
-        if given_path == "/" {
-            self.results.insert_dir(&self.roots.cell_root, "//").await;
-        } else {
-            if given_path == "//" {
+        match given_path {
+            "" => {
+                self.results.insert_dir(&self.cwd, "//").await;
                 self.results
-                    .insert_package_if_buildfile_exists(&self.roots.cell_root, "//")
+                    .insert_package_colon_if_buildfile_exists(&self.roots.cell_root, given_path)
                     .await;
-            } else {
-                if given_path == "" {
-                    self.results.insert_dir(&self.cwd, "//").await;
-                }
                 self.complete_partial_cells(given_path).await?;
+                self.complete_partial_path(given_path).await?;
             }
-
-            let path =
-                SanitizedPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
-            if path.given() != given_path && PathCompleter::completes_to_dir(&self.cwd, &path)? {
-                // There are potential completions to this string, but we're
-                // transforming it on the first tab to minimize surprise and help
-                // the user learn to type paths the right way
-                self.results.insert(path.given());
-            } else {
-                self.complete_dir(&path).await?;
+            "/" => {
+                self.results.insert_dir(&self.roots.cell_root, "//").await;
+            }
+            "//" => {
+                self.results
+                    .insert_package_colon_if_buildfile_exists(&self.roots.cell_root, given_path)
+                    .await;
+                self.complete_partial_path(given_path).await?;
+            }
+            _ => {
+                self.complete_partial_cells(given_path).await?;
+                self.complete_partial_path(given_path).await?;
             }
         }
         CommandOutcome::Success(self.results.into())
     }
 
-    async fn complete_partial_cells(&mut self, given_path: &str) -> Result<(), anyhow::Error> {
+    async fn complete_partial_cells(&mut self, given_path: &str) -> anyhow::Result<()> {
         let cell_resolver = &self.cell_configs.cell_resolver;
         let alias_resolver = self
             .cell_configs
@@ -92,18 +95,24 @@ impl<'a> PackageCompleter<'a> {
             .await?;
         for (cell_alias, cell_name) in alias_resolver.mappings() {
             let canonical_cell_root = format!("{}//", cell_alias);
-            let cell = cell_resolver.get(cell_name)?;
             if canonical_cell_root.starts_with(given_path) {
+                let cell = cell_resolver.get(cell_name)?;
                 let cell_abs_path = self
                     .roots
                     .project_root
                     .root()
                     .join_normalized(cell.path().as_project_relative_path())?;
                 if canonical_cell_root == given_path {
+                    // "cell1//" -> "cell1//:"
                     self.results
-                        .insert_package_if_buildfile_exists(&cell_abs_path, &canonical_cell_root)
+                        .insert_package_colon_if_buildfile_exists(
+                            &cell_abs_path,
+                            &canonical_cell_root,
+                        )
                         .await;
                 } else {
+                    // "cell1" -> ["cell1//", "cell1//:"]
+                    // "cell"  -> ["cell1//", "cell1//:", "cell2//"]
                     self.results
                         .insert_dir(&cell_abs_path, &canonical_cell_root)
                         .await;
@@ -113,14 +122,9 @@ impl<'a> PackageCompleter<'a> {
         Ok(())
     }
 
-    async fn complete_dir(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
-        let mut completer = PathCompleter::new(
-            self.cell_configs.clone(),
-            &self.cwd,
-            // self.path_sanitizer,
-            &mut self.results,
-        )?;
-        completer.complete(partial).await
+    async fn complete_partial_path(&mut self, given_path: &str) -> CommandOutcome<()> {
+        let completer = PathCompleter::new(&self.cwd, &self.path_sanitizer, &mut self.results)?;
+        completer.complete(given_path).await
     }
 }
 
@@ -466,6 +470,34 @@ mod tests {
                 "cell3a//:",
                 "cell3b//",
                 "dir3/",
+                "prelude//",
+                "root//"
+            ]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_empty_string_also_completes_colon_if_in_target_dir() -> anyhow::Result<()> {
+        let (roots, cwd) = in_dir("cell1")?;
+        let uut = PackageCompleter::new(&cwd, &roots).await?;
+
+        let actual = uut.complete("").await?;
+
+        assert_eq!(
+            actual,
+            vec![
+                "//",
+                "//:",
+                ":",
+                "buck2/",
+                "buck2:",
+                "cell1//",
+                "cell1//:",
+                "cell2//",
+                "cell3a//",
+                "cell3a//:",
+                "cell3b//",
                 "prelude//",
                 "root//"
             ]
