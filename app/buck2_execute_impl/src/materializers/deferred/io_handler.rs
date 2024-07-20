@@ -190,7 +190,7 @@ impl DefaultIoHandler {
 
                     while let Some((entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
-                            let name = path.join_normalized(entry_path.get())?;
+                            let name = path.join(entry_path.get());
                             let digest = maybe_tombstone_digest(f.digest.data())?.to_re();
 
                             tracing::trace!(name = %name, digest = %digest, "push download");

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::fs::fs_util::IoError;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -33,10 +34,14 @@ fn test_find_artifacts() -> anyhow::Result<()> {
 
     // Build deps with artifacts 1-3, and non-artifacts 1-2
     let mut builder = ActionDirectoryBuilder::empty();
-    insert_file(&mut builder, &artifact1.join_normalized("f1")?, file.dupe())?;
     insert_file(
         &mut builder,
-        &artifact2.join_normalized("d/f1")?,
+        &artifact1.join(ForwardRelativePath::new("f1").unwrap()),
+        file.dupe(),
+    )?;
+    insert_file(
+        &mut builder,
+        &artifact2.join(ForwardRelativePath::new("d/f1").unwrap()),
         file.dupe(),
     )?;
     insert_file(&mut builder, &artifact3, file.dupe())?;

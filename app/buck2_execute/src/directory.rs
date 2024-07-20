@@ -479,8 +479,8 @@ pub fn relativize_directory(
 
             let path = path.get();
 
-            let orig_path = orig_root.join_normalized(&path)?;
-            let new_path = new_root.join_normalized(&path)?;
+            let orig_path = orig_root.join(&path);
+            let new_path = new_root.join(&path);
 
             let orig_dest = orig_path
                 .parent()
