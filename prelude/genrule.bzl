@@ -9,6 +9,7 @@
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
+load("@prelude//:genrule_prefer_local_labels.bzl", "genrule_labels_prefer_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
@@ -66,6 +67,9 @@ def _requires_build_root(ctx: AnalysisContext) -> bool:
 
 def _requires_local(ctx: AnalysisContext) -> bool:
     return genrule_labels_require_local(ctx.attrs.labels)
+
+def _prefers_local(ctx: AnalysisContext) -> bool:
+    return genrule_labels_prefer_local(ctx.attrs.labels)
 
 def _ignore_artifacts(ctx: AnalysisContext) -> bool:
     return "buck2_ignore_artifacts" in ctx.attrs.labels
@@ -136,6 +140,7 @@ def process_genrule(
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
     local_only = _requires_local(ctx)
+    prefer_local = _prefers_local(ctx)
 
     # NOTE: Eventually we shouldn't require local_only here, since we should be
     # fine with caching local fallbacks if necessary (or maybe that should be
@@ -232,6 +237,10 @@ def process_genrule(
     # set, we make the action *different*.
     if local_only:
         env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
+
+    # see comment above
+    if prefer_local:
+        env_vars["__BUCK2_PREFER_LOCAL_CACHE_BUSTER"] = cmd_args("")
 
     # For now, when uploads are enabled, be safe and avoid sharing cache hits.
     cache_bust = _get_cache_mode(ctx).cache_bust_genrules
@@ -349,6 +358,7 @@ def process_genrule(
         cmd_args(script_args, hidden = [cmd, srcs_artifact, out_artifact.as_output()] + hidden),
         env = env_vars,
         local_only = local_only,
+        prefer_local = prefer_local,
         weight = value_or(ctx.attrs.weight, 1),
         allow_cache_upload = cacheable,
         category = category,
