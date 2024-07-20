@@ -787,11 +787,7 @@ impl ForwardRelativePathBuf {
             }
         }
         let mut path = ForwardRelativePathBuf::with_capacity(cap);
-        for item in items {
-            path.push(item);
-        }
-        // Cheap self-test.
-        assert!(path.0.len() == cap);
+        path.extend(items);
         path
     }
 
@@ -940,6 +936,14 @@ impl Clone for Box<ForwardRelativePath> {
     #[inline]
     fn clone(&self) -> Self {
         self.to_buf().into_box()
+    }
+}
+
+impl<P: AsRef<ForwardRelativePath>> Extend<P> for ForwardRelativePathBuf {
+    fn extend<T: IntoIterator<Item = P>>(&mut self, iter: T) {
+        for p in iter {
+            self.push(p);
+        }
     }
 }
 
