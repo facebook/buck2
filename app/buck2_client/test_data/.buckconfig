@@ -1,0 +1,9 @@
+[repositories]
+    root = .
+    cell1 = cell1
+    prelude = cell1/dir1a/prelude
+    cell2a = dir2/cell2a
+    cell2b = dir2/cell2b
+
+[buildfile]
+    name = BUCK.fixture

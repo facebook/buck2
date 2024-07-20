@@ -398,7 +398,7 @@ impl CommandKind {
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
-            CommandKind::Completion(cmd) => cmd.exec(&mut Opt::command(), matches, command_ctx),
+            CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),

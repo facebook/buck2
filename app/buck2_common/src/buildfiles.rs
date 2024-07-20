@@ -25,7 +25,9 @@ use crate::legacy_configs::view::LegacyBuckConfigView;
 const DEFAULT_BUILDFILES: &[&str] = &["BUCK.v2", "BUCK"];
 
 /// Deal with the `buildfile.name` key (and `name_v2`)
-fn parse_buildfile_name(mut config: impl LegacyBuckConfigView) -> anyhow::Result<Vec<FileNameBuf>> {
+pub fn parse_buildfile_name(
+    mut config: impl LegacyBuckConfigView,
+) -> anyhow::Result<Vec<FileNameBuf>> {
     // For buck2, we support a slightly different mechanism for setting the buildfile to
     // assist with easier migration from v1 to v2.
     // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
