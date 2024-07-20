@@ -15,7 +15,7 @@ mod subscriptions;
 
 #[cfg(test)]
 mod tests;
-use std::borrow::Cow;
+
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
@@ -79,7 +79,6 @@ use chrono::Duration;
 use chrono::Utc;
 use derivative::Derivative;
 use derive_more::Display;
-use dupe::Clone_;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::future;
@@ -142,7 +141,7 @@ use crate::materializers::sqlite::MaterializerStateSqliteDb;
 pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// Sender to emit commands to the command loop. See `MaterializerCommand`.
     #[allocative(skip)]
-    command_sender: MaterializerSender<T>,
+    command_sender: Arc<MaterializerSender<T>>,
     /// Handle of the command loop thread. Aborted on Drop.
     /// This thread serves as a queue for declare/ensure requests, making
     /// sure only one executes at a time and in the order they came in.
@@ -255,23 +254,16 @@ impl MaterializerCounters {
     }
 }
 
-// NOTE: When constructing a MaterializerSender, we just leak the underlying channel. We do this
-// because the materializer lives for the lifetime of the process anyway, so there's no value in
-// refcounting any of this (though we make many copies of it).
-#[derive(Clone_)]
 pub struct MaterializerSender<T: 'static> {
     /// High priority commands are processed in order.
-    high_priority: Cow<'static, mpsc::UnboundedSender<MaterializerCommand<T>>>,
+    high_priority: mpsc::UnboundedSender<MaterializerCommand<T>>,
     /// Low priority commands are processed in order relative to each other, but high priority
     /// commands can be reordered ahead of them.
-    low_priority: Cow<'static, mpsc::UnboundedSender<LowPriorityMaterializerCommand>>,
+    low_priority: mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
     counters: MaterializerCounters,
     /// Liveliness guard held while clean stale executes, dropped to interrupt clean.
-    clean_guard: Arc<Mutex<Option<LivelinessGuard>>>,
+    clean_guard: Mutex<Option<LivelinessGuard>>,
 }
-
-// Unbounded channels can be cheaply cloned.
-impl<T> Dupe for MaterializerSender<T> {}
 
 impl<T> MaterializerSender<T> {
     fn send(
@@ -312,7 +304,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// forward.
     version_tracker: VersionTracker,
     /// Send messages back to the materializer.
-    command_sender: MaterializerSender<T>,
+    command_sender: Arc<MaterializerSender<T>>,
     /// The actual materializer state.
     tree: ArtifactTree,
     /// Active subscriptions
@@ -1002,12 +994,12 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
 
         let counters = MaterializerCounters::leak_new();
 
-        let command_sender = MaterializerSender {
-            high_priority: Cow::Borrowed(Box::leak(Box::new(high_priority_sender))),
-            low_priority: Cow::Borrowed(Box::leak(Box::new(low_priority_sender))),
+        let command_sender = Arc::new(MaterializerSender {
+            high_priority: high_priority_sender,
+            low_priority: low_priority_sender,
             counters,
-            clean_guard: Arc::new(Mutex::new(None)),
-        };
+            clean_guard: Mutex::new(None),
+        });
 
         let command_receiver = MaterializerReceiver {
             high_priority: high_priority_receiver,
@@ -2456,7 +2448,7 @@ fn clean_path<T: IoHandler>(
     io: &Arc<T>,
     path: ProjectRelativePathBuf,
     version: Version,
-    command_sender: MaterializerSender<T>,
+    command_sender: Arc<MaterializerSender<T>>,
     existing_futs: ExistingFutures,
     rt: &Handle,
     cancellations: &'static CancellationContext,

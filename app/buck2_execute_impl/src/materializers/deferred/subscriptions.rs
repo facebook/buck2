@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
@@ -219,7 +220,7 @@ where
 pub(super) struct SubscriptionHandle<T: 'static> {
     index: SubscriptionIndex,
     #[derivative(Debug = "ignore")]
-    command_sender: MaterializerSender<T>,
+    command_sender: Arc<MaterializerSender<T>>,
     /// Channel to send back notifications.
     #[derivative(Debug = "ignore")]
     receiver: UnboundedReceiver<ProjectRelativePathBuf>,

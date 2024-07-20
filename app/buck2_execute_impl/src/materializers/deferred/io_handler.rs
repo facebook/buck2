@@ -96,7 +96,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: Version,
-        command_sender: MaterializerSender<Self>,
+        command_sender: Arc<MaterializerSender<Self>>,
         cancellations: &'a CancellationContext<'a>,
     ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
 
@@ -109,7 +109,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         version: Version,
-        command_sender: MaterializerSender<Self>,
+        command_sender: Arc<MaterializerSender<Self>>,
         cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, Result<(), buck2_error::Error>>;
 
@@ -318,7 +318,7 @@ impl IoHandler for DefaultIoHandler {
         path: ProjectRelativePathBuf,
         write: Arc<WriteFile>,
         version: Version,
-        command_sender: MaterializerSender<Self>,
+        command_sender: Arc<MaterializerSender<Self>>,
         cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
         self.io_executor
@@ -352,7 +352,7 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         path: ProjectRelativePathBuf,
         version: Version,
-        command_sender: MaterializerSender<Self>,
+        command_sender: Arc<MaterializerSender<Self>>,
         cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, Result<(), buck2_error::Error>> {
         self.io_executor
@@ -590,7 +590,7 @@ struct WriteIoRequest {
     path: ProjectRelativePathBuf,
     write: Arc<WriteFile>,
     version: Version,
-    command_sender: MaterializerSender<DefaultIoHandler>,
+    command_sender: Arc<MaterializerSender<DefaultIoHandler>>,
 }
 
 impl WriteIoRequest {
@@ -629,7 +629,7 @@ impl IoRequest for WriteIoRequest {
 struct CleanIoRequest {
     path: ProjectRelativePathBuf,
     version: Version,
-    command_sender: MaterializerSender<DefaultIoHandler>,
+    command_sender: Arc<MaterializerSender<DefaultIoHandler>>,
 }
 
 impl IoRequest for CleanIoRequest {

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use buck2_common::file_ops::FileMetadata;
@@ -210,7 +209,7 @@ mod state_machine {
             path: ProjectRelativePathBuf,
             write: Arc<WriteFile>,
             version: Version,
-            command_sender: MaterializerSender<Self>,
+            command_sender: Arc<MaterializerSender<Self>>,
             _cancellations: &'a CancellationContext<'a>,
         ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
             self.actually_write(&path, &write);
@@ -239,7 +238,7 @@ mod state_machine {
             self: &Arc<Self>,
             path: ProjectRelativePathBuf,
             version: Version,
-            command_sender: MaterializerSender<Self>,
+            command_sender: Arc<MaterializerSender<Self>>,
             _cancellations: &'a CancellationContext,
         ) -> BoxFuture<'a, Result<(), buck2_error::Error>> {
             self.log.lock().push((Op::Clean, path.clone()));
@@ -337,7 +336,7 @@ mod state_machine {
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.
     fn channel() -> (
-        MaterializerSender<StubIoHandler>,
+        Arc<MaterializerSender<StubIoHandler>>,
         MaterializerReceiver<StubIoHandler>,
     ) {
         // We don't use those counts in tests.
@@ -352,12 +351,12 @@ mod state_machine {
         };
 
         (
-            MaterializerSender {
-                high_priority: Cow::Owned(hi_send),
-                low_priority: Cow::Owned(lo_send),
+            Arc::new(MaterializerSender {
+                high_priority: hi_send,
+                low_priority: lo_send,
                 counters,
                 clean_guard: Default::default(),
-            },
+            }),
             MaterializerReceiver {
                 high_priority: hi_recv,
                 low_priority: lo_recv,
@@ -416,7 +415,7 @@ mod state_machine {
         io: Arc<StubIoHandler>,
     ) -> (
         DeferredMaterializerCommandProcessor<StubIoHandler>,
-        MaterializerSender<StubIoHandler>,
+        Arc<MaterializerSender<StubIoHandler>>,
         MaterializerReceiver<StubIoHandler>,
         ChannelEventSource,
     ) {
