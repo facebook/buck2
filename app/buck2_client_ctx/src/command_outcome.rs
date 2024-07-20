@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;
@@ -61,5 +62,24 @@ impl FromResidual<CommandFailure> for ExitResult {
 impl<R> FromResidual<CommandFailure> for CommandOutcome<R> {
     fn from_residual(residual: CommandFailure) -> Self {
         Self::Failure(residual.0)
+    }
+}
+
+impl<R, E> FromResidual<Result<Infallible, E>> for CommandOutcome<R>
+where
+    E: Into<anyhow::Error>,
+{
+    fn from_residual(result: Result<Infallible, E>) -> Self {
+        match result {
+            Ok(infallible) => match infallible {},
+            Err(err) => Self::Failure(ExitResult::err(err.into())),
+        }
+    }
+}
+
+impl<T> FromResidual<CommandFailure> for anyhow::Result<T> {
+    fn from_residual(residual: CommandFailure) -> anyhow::Result<T> {
+        // Err(residual.0.in)
+        Err(residual.0.into())
     }
 }

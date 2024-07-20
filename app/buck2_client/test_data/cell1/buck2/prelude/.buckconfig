@@ -1,0 +1,6 @@
+[repositories]
+    prelude = .
+    root = ../../..
+    cell1 = ../..
+    cell2a = ../../../dir2/cell2a
+    cell2b = ../../../dir2/cell2b

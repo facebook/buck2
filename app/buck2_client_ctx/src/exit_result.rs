@@ -9,6 +9,7 @@
 
 use std::convert::Infallible;
 use std::ffi::OsString;
+use std::fmt;
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -17,6 +18,7 @@ use std::process::Command;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
+#[derive(Debug)]
 pub struct ExecArgs {
     prog: OsString,
     argv: Vec<OsString>,
@@ -37,6 +39,7 @@ pub struct ExecArgs {
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
+#[derive(Debug)]
 #[must_use]
 pub struct ExitResult {
     variant: ExitResultVariant,
@@ -46,6 +49,7 @@ pub struct ExitResult {
     stdout: Vec<u8>,
 }
 
+#[derive(Debug)]
 enum ExitResultVariant {
     /// We finished successfully, return the specific exit code.
     Status(ExitCode),
@@ -56,6 +60,25 @@ enum ExitResultVariant {
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
     StatusWithErr(ExitCode, anyhow::Error),
+}
+
+impl Display for ExitResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ignored = match &self.variant {
+            ExitResultVariant::Status(code) => write!(f, "ExitCode = {}", code.exit_code()),
+            ExitResultVariant::Buck2RunExec(args) => {
+                write!(f, "Exec {} {}", args.prog, args.argv.join(" "))
+            }
+            ExitResultVariant::StatusWithErr(code, e) => {
+                write!(f, "ExitCode = {}, Err = {}", code.exit_code(), e)
+            }
+        };
+        if !self.stdout.is_empty() {
+            let _ignored = writeln!(f, "Stdout:");
+            let _ignored = write!(f, "{}", String::from_utf8_lossy(self.stdout.as_slice()));
+        };
+        Ok(())
+    }
 }
 
 impl ExitResult {
@@ -176,6 +199,8 @@ impl ExitResult {
     }
 }
 
+impl std::error::Error for ExitResult {}
+
 /// We can produce a ExitResult from a `anyhow::Result` for convenience.
 impl From<anyhow::Result<()>> for ExitResult {
     fn from(e: anyhow::Result<()>) -> Self {
@@ -273,7 +298,7 @@ impl ExitResultVariant {
 pub struct ClientIoError(pub io::Error);
 
 /// Common exit codes for buck with stronger semantic meanings
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ExitCode {
     // TODO: Fill in more exit codes from ExitCode.java here. Need to determine
     // how many make sense in v2 versus v1. Some are assuredly unnecessary in v2.
@@ -283,6 +308,7 @@ pub enum ExitCode {
     UserError,
     DaemonIsBusy,
     DaemonPreempted,
+    Timeout,
     ConnectError,
     SignalInterrupt,
     BrokenPipe,
@@ -301,6 +327,7 @@ impl ExitCode {
             UserError => 3,
             DaemonIsBusy => 4,
             DaemonPreempted => 5,
+            Timeout => 6,
             ConnectError => 11,
             BrokenPipe => 130,
             SignalInterrupt => 141,
