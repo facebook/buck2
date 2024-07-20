@@ -40,11 +40,11 @@ where
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env {
-    ($var:literal, bool $(, $($rest:tt)*)?) => {{
+    ($var:expr, bool $(, $($rest:tt)*)?) => {{
         let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env!($var, type=bool, default=false, $($($rest)*)?);
         v
     }},
-    ($var:literal, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
+    ($var:expr, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse2!(
             (
             var=$var,
@@ -57,7 +57,7 @@ pub macro buck2_env {
             $($($rest)*)?
         )
     }},
-    ($var:literal, type=$ty:ty, converter=$converter:expr $(, $($rest:tt)*)?) => {{
+    ($var:expr, type=$ty:ty, converter=$converter:expr $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse2!(
             (
             var=$var,
@@ -70,7 +70,7 @@ pub macro buck2_env {
             $($($rest)*)?
         )
     }},
-    ($var:literal, type=$ty:ty $(, $($rest:tt)*)?) => {{
+    ($var:expr, type=$ty:ty $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse2!(
             (
             var=$var,
@@ -83,7 +83,7 @@ pub macro buck2_env {
             $($($rest)*)?
         )
     }},
-    ($var:literal $(, $($rest:tt)*)?) => {{
+    ($var:expr $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse2!(
             (
             var=$var,
@@ -136,7 +136,7 @@ macro parse2 {
 /// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
 macro expand(
     (
-    var=$var:literal,
+    var=$var:expr,
     parser=$parser:expr,
     stored_type=$stored_ty:ty,
     processor=$processor:expr,

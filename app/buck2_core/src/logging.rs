@@ -17,6 +17,8 @@ use tracing_subscriber::reload;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
+use crate::buck2_env;
+
 pub mod log_file;
 
 pub trait LogConfigurationReloadHandle: Send + Sync + 'static {
@@ -61,15 +63,9 @@ where
     // If the user specifies BUCK_LOG, we want to honour that.
     const ENV_VAR: &str = "BUCK_LOG";
 
-    let filter = match std::env::var_os(ENV_VAR) {
-        Some(v) => {
-            let v = v
-                .into_string()
-                .ok()
-                .with_context(|| format!("Failed to parse ${} as utf-8", ENV_VAR))?;
-            EnvFilter::try_new(v)
-                .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?
-        }
+    let filter = match buck2_env!(ENV_VAR)? {
+        Some(v) => EnvFilter::try_new(v)
+            .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?,
         // daemon_listener is all emitted before the client starts tailing, which is why we log
         // those by default.
         None => EnvFilter::new("warn,[daemon_listener]=info"),
