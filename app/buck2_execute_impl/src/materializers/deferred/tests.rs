@@ -100,6 +100,7 @@ mod state_machine {
     use buck2_core::fs::fs_util::ReadDir;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_core::fs::paths::RelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::Symlink;

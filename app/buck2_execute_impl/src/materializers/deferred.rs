@@ -37,7 +37,6 @@ use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_core::buck2_env;
 use buck2_core::directory::unordered_entry_walk;
 use buck2_core::directory::DirectoryEntry;
-use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -2348,14 +2347,14 @@ impl<V: 'static> FileTree<V> {
         fn walk_deps<V, D>(
             tree: &FileTree<V>,
             entry: DirectoryEntry<&D, &ActionDirectoryMember>,
-            path: &mut RelativePathBuf,
+            path: &mut ProjectRelativePathBuf,
             found_artifacts: &mut Vec<ProjectRelativePathBuf>,
         ) where
             D: ActionDirectory + ?Sized,
         {
             match tree {
                 FileTree::Data(_) => {
-                    found_artifacts.push(ProjectRelativePathBuf::unchecked_new(path.to_string()));
+                    found_artifacts.push(path.clone());
                 }
                 FileTree::Tree(tree_children) => {
                     // Not an artifact, but if entry is a directory we can search deeper within
@@ -2374,14 +2373,14 @@ impl<V: 'static> FileTree<V> {
         }
 
         let mut artifacts = Vec::new();
-        let mut path_buf = RelativePathBuf::new();
+        let mut path_buf = ProjectRelativePathBuf::default();
         walk_deps(
             self,
             DirectoryEntry::Dir(deps),
             &mut path_buf,
             &mut artifacts,
         );
-        assert!(path_buf.as_str().is_empty());
+        assert!(path_buf.is_empty());
         artifacts
     }
 
