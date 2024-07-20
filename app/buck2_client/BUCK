@@ -5,7 +5,10 @@ oncall("build_infra")
 
 rust_library(
     name = "buck2_client",
-    srcs = glob(["src/**/*.rs"]),
+    srcs = glob([
+        "src/**/*.rs",
+        "src/commands/completion/completion-wrapper.*",
+    ]),
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:tempfile",

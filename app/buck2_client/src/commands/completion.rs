@@ -111,11 +111,13 @@ impl CompletionCommand {
             (None, None) => ExitResult::status(ExitCode::UserError),
 
             (Some(Shell::Bash), None) => {
-                print_completion_script(clap_complete::Shell::Bash, command);
+                let mut command = command;
+                print_completion_script(clap_complete::Shell::Bash, &mut command)?;
                 ExitResult::success()
             }
             (Some(Shell::Zsh), None) => {
-                print_completion_script(clap_complete::Shell::Zsh, command);
+                let mut command = command;
+                print_completion_script(clap_complete::Shell::Zsh, &mut command)?;
                 ExitResult::success()
             }
             (None, Some(pattern)) => {
@@ -149,6 +151,46 @@ impl CompletionCommand {
     }
 }
 
+const GENERATED_INSERTION_POINT: &str = "# %INSERT_GENERATED_LINE%";
+const GENERATED_TAG: &str = concat!("@", "generated");
+const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
+const BASH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.bash");
+
+fn print_completion_script(shell: clap_complete::Shell, cmd: &mut Command) -> anyhow::Result<()> {
+    let mut wrapper_iter = BASH_COMPLETION_WRAPPER.lines();
+    let mut found_insertion_point = false;
+
+    for line in wrapper_iter.by_ref() {
+        match line {
+            GENERATED_INSERTION_POINT => {
+                buck2_client_ctx::println!(
+                    "# {} by `{}`",
+                    GENERATED_TAG,
+                    std::env::args().collect::<Vec<String>>().join(" ")
+                )?;
+            }
+            COMPLETION_INSERTION_POINT => {
+                found_insertion_point = true;
+
+                // FIXME: it appears that this might silently swallow errors; would require a PR to fix
+                generate(shell, cmd, cmd.get_name().to_owned(), &mut io::stdout());
+            }
+            s => {
+                buck2_client_ctx::println!("{}", s)?;
+            }
+        }
+    }
+
+    if !found_insertion_point {
+        Err(anyhow::anyhow!(
+            "Failed to find {} in bash completion template",
+            COMPLETION_INSERTION_POINT
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 struct DaemonTargetsResolver<'a, 'b> {
     buckd_client: FlushingBuckdClient<'a, 'b>,
     context: ClientContext,
@@ -176,11 +218,6 @@ fn print_completions(completions: &Vec<String>) {
     for completion in completions {
         println!("{}", completion);
     }
-}
-
-fn print_completion_script(shell: clap_complete::Shell, mut cmd: Command) {
-    let name = cmd.get_name().to_owned();
-    generate(shell, &mut cmd, name, &mut io::stdout());
 }
 
 struct TargetCompleterCommand<'a> {
