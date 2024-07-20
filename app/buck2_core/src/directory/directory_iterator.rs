@@ -83,29 +83,9 @@ where
         size = size.saturating_sub(1);
 
         // Produce it.
-        let mut first = true;
-        let mut path = String::with_capacity(size);
-        for name in self.path() {
-            if !first {
-                path.push('/');
-            }
-            first = false;
-            path.push_str(name.as_str());
-        }
-
-        #[cfg(test)]
-        {
-            assert_eq!(
-                size,
-                path.len(),
-                "reserved the wrong capacity ({}) for {:?}",
-                size,
-                path
-            );
-        }
-
-        // Concatenating FileName guarantees we get a ForwardRelativePathBuf.
-        ForwardRelativePathBuf::unchecked_new(path)
+        let mut path = ForwardRelativePathBuf::with_capacity(size);
+        path.extend(self.path());
+        path
     }
 }
 
