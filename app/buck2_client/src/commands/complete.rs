@@ -7,9 +7,13 @@
  * of this source tree.
  */
 
-mod target;
+pub(crate) mod target;
+
+use std::time::Duration;
+use std::time::Instant;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -25,17 +29,34 @@ pub struct CompleteCommand {
 
 impl CompleteCommand {
     pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let real = CompleteTargetCommand::new(self.partial_target, print_completions);
-        real.exec(matches, ctx)
+        let cwd = std::env::current_dir()?;
+        let deadline = Instant::now() + Duration::from_millis(500);
+        match self.partial_target.split(':').collect::<Vec<_>>()[..] {
+            [package, partial_target] => {
+                let real = CompleteTargetCommand::new(
+                    cwd,
+                    package.to_owned(),
+                    partial_target.to_owned(),
+                    deadline,
+                    print_completions,
+                );
+                real.exec(matches, ctx)
+            }
+            _ => ExitResult::status(ExitCode::UserError),
+        }
     }
 }
 
-fn print_completions(result: anyhow::Result<Vec<String>>) -> ExitResult {
-    match result.map_err(|_err: anyhow::Error| ExitResult::status(ExitCode::UserError)) {
-        Ok(completions) => {
-            let stdout = format!("{}\n", completions.join("\n"));
+fn print_completions(result: CommandOutcome<Vec<String>>) -> ExitResult {
+    match result {
+        CommandOutcome::Success(completions) => {
+            let stdout = completions
+                .into_iter()
+                .map(|s| s + "\n")
+                .collect::<Vec<String>>()
+                .join("");
             ExitResult::success().with_stdout(stdout.into_bytes())
         }
-        Err(result) => result,
+        CommandOutcome::Failure(result) => result,
     }
 }

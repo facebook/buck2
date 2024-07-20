@@ -39,8 +39,8 @@ pub struct ExecArgs {
 /// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
-#[derive(Debug)]
 #[must_use]
+#[derive(Debug)]
 pub struct ExitResult {
     variant: ExitResultVariant,
 
@@ -217,6 +217,12 @@ impl From<anyhow::Result<ExitCode>> for ExitResult {
             Ok(code) => Self::status(code),
             Err(e) => Self::err(e),
         }
+    }
+}
+
+impl From<anyhow::Error> for ExitResult {
+    fn from(e: anyhow::Error) -> Self {
+        Self::err(e)
     }
 }
 

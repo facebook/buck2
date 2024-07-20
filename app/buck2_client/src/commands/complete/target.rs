@@ -7,51 +7,60 @@
  * of this source tree.
  */
 
+use std::path::PathBuf;
+use std::time::Instant;
+
 use buck2_cli_proto::new_generic::CompleteRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
+use buck2_cli_proto::ClientContext;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
-use buck2_client_ctx::common::ui::ConsoleType;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::daemon::client::FlushingBuckdClient;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use clap::ArgMatches;
+use futures::future::BoxFuture;
+use futures::FutureExt;
+use tokio::time;
 
-type CompleteCallback = fn(anyhow::Result<Vec<String>>) -> ExitResult;
+use crate::commands::completion::pattern;
+
+type CompleteCallback = fn(CommandOutcome<Vec<String>>) -> ExitResult;
 
 pub(crate) struct CompleteTargetCommand {
-    common_opts: CommonCommandOptions,
     target_cfg: TargetCfgOptions,
 
+    cwd: PathBuf,
+    package: String,
     partial_target: String,
+
+    deadline: Instant,
     callback: CompleteCallback,
 }
 
 impl CompleteTargetCommand {
-    pub(crate) fn new(partial_target: String, callback: CompleteCallback) -> Self {
-        let common_opts = CommonCommandOptions {
-            config_opts: CommonBuildConfigurationOptions {
-                reuse_current_config: true,
-                ..Default::default()
-            },
-            console_opts: CommonConsoleOptions {
-                console_type: ConsoleType::None,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
+    pub(crate) fn new(
+        cwd: PathBuf,
+        package: String,
+        partial_target: String,
+        deadline: Instant,
+        callback: CompleteCallback,
+    ) -> Self {
         let target_cfg = TargetCfgOptions::default();
         Self {
-            common_opts,
             target_cfg,
+            cwd,
+            package,
             partial_target,
+            deadline,
             callback,
         }
     }
@@ -67,38 +76,73 @@ impl StreamingCommand for CompleteTargetCommand {
         matches: &ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
+        let buckd_client = buckd.with_flushing();
         let context = ctx.client_context(matches, &self)?;
-        let res = buckd
-            .with_flushing()
-            .new_generic(
-                context,
-                NewGenericRequest::Complete(CompleteRequest {
-                    target_cfg: self.target_cfg.target_cfg(),
-                    partial_target: self.partial_target,
-                }),
-                None,
-            )
-            .await??;
-        let NewGenericResponse::Complete(res) = res else {
-            return ExitResult::bail("Unexpected response type from generic command");
+        let mut resolver = DaemonTargetResolver {
+            buckd_client,
+            context,
+            target_cfg: self.target_cfg,
         };
 
-        (self.callback)(Ok(res.completions))
+        let completer =
+            pattern::TargetCompleter::new(self.cwd.as_path(), &ctx.paths()?.roots, &mut resolver)
+                .await
+                .expect("Failed to create target completer");
+        let task = completer.complete(&self.package, &self.partial_target);
+
+        let remaining_time = self.deadline.saturating_duration_since(Instant::now());
+        match time::timeout(remaining_time, task).await {
+            Ok(CommandOutcome::Success(completions)) => {
+                (self.callback)(CommandOutcome::Success(completions))
+            }
+            Ok(CommandOutcome::Failure(err)) => err,
+            Err(_) => ExitResult::status(ExitCode::Timeout),
+        }
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        &self.common_opts.console_opts
+        CommonConsoleOptions::none_ref()
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
-        &self.common_opts.event_log_opts
+        CommonEventLogOptions::default_ref()
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
-        &self.common_opts.config_opts
+        CommonBuildConfigurationOptions::reuse_current_config_ref()
     }
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
-        &self.common_opts.starlark_opts
+        CommonStarlarkOptions::default_ref()
+    }
+}
+
+struct DaemonTargetResolver<'a, 'b> {
+    buckd_client: FlushingBuckdClient<'a, 'b>,
+    context: ClientContext,
+    target_cfg: TargetCfgOptions,
+}
+
+impl<'a, 'b> pattern::TargetResolver for DaemonTargetResolver<'a, 'b> {
+    fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
+        let request = NewGenericRequest::Complete(CompleteRequest {
+            target_cfg: self.target_cfg.target_cfg(),
+            partial_target,
+        });
+        self.buckd_client
+            .new_generic(self.context.clone(), request, None)
+            .then(|res| async move {
+                match res {
+                    Ok(CommandOutcome::Success(NewGenericResponse::Complete(res))) => {
+                        CommandOutcome::Success(res.completions)
+                    }
+                    Ok(CommandOutcome::Success(_)) => CommandOutcome::Failure(ExitResult::bail(
+                        "Unexpected response type from generic command",
+                    )),
+                    Ok(CommandOutcome::Failure(result)) => CommandOutcome::Failure(result),
+                    Err(e) => CommandOutcome::Failure(ExitResult::err(e)),
+                }
+            })
+            .boxed()
     }
 }

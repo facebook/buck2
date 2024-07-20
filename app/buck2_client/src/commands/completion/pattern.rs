@@ -12,10 +12,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use buck2_cli_proto::targets_request;
-use buck2_cli_proto::targets_request::OutputFormat;
-use buck2_cli_proto::TargetsRequest;
-use buck2_cli_proto::TargetsResponse;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::buildfiles::parse_buildfile_name;
 use buck2_common::invocation_roots::InvocationRoots;
@@ -27,11 +23,8 @@ use futures::future::BoxFuture;
 
 use crate::commands::completion::buck_path::BuckPath;
 
-pub(crate) trait TargetsResolver: Send {
-    fn resolve(
-        &mut self,
-        req: TargetsRequest,
-    ) -> BoxFuture<anyhow::Result<CommandOutcome<TargetsResponse>>>;
+pub(crate) trait TargetResolver: Send {
+    fn resolve(&mut self, partial_pattern: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
 }
 
 pub(crate) struct PackageCompleter<'a> {
@@ -42,7 +35,7 @@ pub(crate) struct PackageCompleter<'a> {
 }
 
 impl<'a> PackageCompleter<'a> {
-    pub(crate) async fn new(cwd: &Path, roots: &'a InvocationRoots) -> anyhow::Result<Self> {
+    pub(crate) async fn new(cwd: &Path, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
         let cell_configs = Arc::new(
             BuckConfigBasedCells::parse_with_config_args(
                 &roots.project_root,
@@ -51,7 +44,7 @@ impl<'a> PackageCompleter<'a> {
             )
             .await?,
         );
-        Ok(Self {
+        CommandOutcome::Success(Self {
             cwd: cwd.to_path_buf(),
             roots,
             cell_configs: cell_configs.clone(),
@@ -66,7 +59,7 @@ impl<'a> PackageCompleter<'a> {
     /// completion logic is able to unambiguously normalize the partial pattern,
     /// such as partials which cross cell boundaries. In this case, normalized
     /// completion(s) are returned.
-    pub(crate) async fn complete(mut self, given_path: &str) -> anyhow::Result<Vec<String>> {
+    pub(crate) async fn complete(mut self, given_path: &str) -> CommandOutcome<Vec<String>> {
         if given_path == "/" {
             self.results.insert_dir(&self.roots.cell_root, "//").await;
         } else {
@@ -97,7 +90,7 @@ impl<'a> PackageCompleter<'a> {
                 self.complete_dir(&path).await?;
             }
         }
-        Ok(self.results.to_vec())
+        CommandOutcome::Success(self.results.into())
     }
 
     async fn complete_partial_cells(&mut self, given_path: &str) -> Result<(), anyhow::Error> {
@@ -194,7 +187,7 @@ impl<'a> PackageCompleter<'a> {
 pub(crate) struct TargetCompleter<'a> {
     cwd: PathBuf,
     cell_configs: Arc<BuckConfigBasedCells>,
-    target_resolver: &'a mut dyn TargetsResolver,
+    target_resolver: &'a mut dyn TargetResolver,
     results: PatternResults<'a>,
 }
 
@@ -202,7 +195,7 @@ impl<'a> TargetCompleter<'a> {
     pub(crate) async fn new(
         cwd: &Path,
         roots: &'a InvocationRoots,
-        target_resolver: &'a mut dyn TargetsResolver,
+        target_resolver: &'a mut dyn TargetResolver,
     ) -> anyhow::Result<Self> {
         let cell_configs = Arc::new(
             BuckConfigBasedCells::parse_with_config_args(
@@ -230,34 +223,19 @@ impl<'a> TargetCompleter<'a> {
         partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
         let path = BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
-        let response = self
+        let completions = self
             .target_resolver
-            .resolve(TargetsRequest {
-                target_patterns: vec![path.given().to_owned() + ":"],
-                output_format: OutputFormat::Text.into(),
-                // FIXME -- is it safe to take defaults?
-                targets: Some(targets_request::Targets::Other(targets_request::Other {
-                    ..Default::default()
-                })),
+            .resolve(path.given().to_owned() + ":")
+            .await?;
 
-                ..Default::default()
-            })
-            .await??;
-
-        // The response comes back one per line, plus a trailing newline
-        let pattern_text = response.serialized_targets_output;
-        for pattern in pattern_text.split('\n') {
-            if pattern != "" {
-                let mut pattern_parts = pattern.split(':');
-                let target = pattern_parts.next_back().unwrap();
-                if target.starts_with(partial_target) {
-                    let completion = path.given().to_owned() + ":" + target;
-                    self.results.insert(&completion);
-                }
+        for pattern in completions {
+            let target = pattern.split(':').next_back().unwrap();
+            if target.starts_with(partial_target) {
+                let completion = path.given().to_owned() + ":" + target;
+                self.results.insert(&completion);
             }
         }
-
-        CommandOutcome::Success(self.results.to_vec())
+        CommandOutcome::Success(self.results.into())
     }
 }
 
@@ -345,9 +323,11 @@ impl<'a> PatternResults<'a> {
             .await?;
         parse_buildfile_name(&config)
     }
+}
 
-    fn to_vec(self) -> Vec<String> {
-        self.results.iter().map(String::from).collect()
+impl<'a> From<PatternResults<'a>> for Vec<String> {
+    fn from(pr: PatternResults) -> Self {
+        pr.results.iter().map(String::from).collect()
     }
 }
 
@@ -355,40 +335,32 @@ impl<'a> PatternResults<'a> {
 mod tests {
     use std::collections::HashMap;
 
+    use buck2_client_ctx::exit_result::ExitResult;
     use buck2_common::invocation_roots::find_invocation_roots;
     use futures::future;
 
     use super::*;
 
-    struct FakeTargetsResolver {
-        target_responses: HashMap<String, String>,
+    struct FakeTargetResolver {
+        target_responses: HashMap<String, Vec<String>>,
     }
-    impl FakeTargetsResolver {
+    impl FakeTargetResolver {
         fn new() -> Self {
-            FakeTargetsResolver {
-                target_responses: HashMap::<String, String>::new(),
+            FakeTargetResolver {
+                target_responses: HashMap::new(),
             }
         }
-        fn add_response(&mut self, request: &str, response: &str) {
-            self.target_responses
-                .insert(request.to_owned(), response.to_owned());
+        fn add_response(&mut self, request: &str, response: Vec<&str>) {
+            self.target_responses.insert(
+                request.to_owned(),
+                response.into_iter().map(|s| s.to_owned()).collect(),
+            );
         }
     }
-    impl TargetsResolver for FakeTargetsResolver {
-        fn resolve(
-            &mut self,
-            req: TargetsRequest,
-        ) -> BoxFuture<anyhow::Result<CommandOutcome<TargetsResponse>>> {
-            let res = TargetsResponse {
-                serialized_targets_output: match self.target_responses.get(&req.target_patterns[0])
-                {
-                    Some(targets) => targets.to_owned(),
-                    None => "".to_owned(),
-                },
-
-                ..Default::default()
-            };
-            Box::pin(future::ok(CommandOutcome::Success(res)))
+    impl TargetResolver for FakeTargetResolver {
+        fn resolve(&mut self, partial_pattern: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
+            let res = self.target_responses.get(&partial_pattern).unwrap();
+            Box::pin(future::ready(CommandOutcome::Success(res.clone())))
         }
     }
 
@@ -400,7 +372,7 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<(InvocationRoots, PathBuf)> {
+    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, PathBuf)> {
         let cwd = std::env::current_dir().unwrap();
 
         let mut candidate = PathBuf::new();
@@ -412,10 +384,10 @@ mod tests {
         }
 
         assert!(candidate.exists(), "test_data directory not found");
-        Ok((find_invocation_roots(&candidate)?, candidate))
+        CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate))
     }
 
-    fn in_root() -> anyhow::Result<(InvocationRoots, PathBuf)> {
+    fn in_root() -> CommandOutcome<(InvocationRoots, PathBuf)> {
         let cwd = std::env::current_dir().unwrap();
 
         let mut candidate = PathBuf::new();
@@ -427,21 +399,30 @@ mod tests {
         }
 
         assert!(candidate.exists(), "test_data directory not found");
-        Ok((find_invocation_roots(&candidate)?, candidate))
+        CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate))
+    }
+
+    fn is_err<T>(outcome: CommandOutcome<T>) -> bool {
+        match outcome {
+            CommandOutcome::Success(_) => false,
+            CommandOutcome::Failure(_) => true,
+        }
     }
 
     async fn target_complete_helper(
         uut: TargetCompleter<'_>,
-        partial_pattern: &str,
+        partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
-        match partial_pattern.split(':').collect::<Vec<_>>()[..] {
-            [pattern, partial_target] => uut.complete(pattern, partial_target).await,
-            _ => panic!("unexpected pattern {}", partial_pattern),
+        match partial_target.split(':').collect::<Vec<_>>()[..] {
+            [package, partial_target] => uut.complete(package, partial_target).await,
+            _ => panic!("unexpected target {}", partial_target),
         }
     }
 
+    type TestResult = Result<(), ExitResult>;
+
     #[tokio::test]
-    async fn test_expands_top_level_directory() -> anyhow::Result<()> {
+    async fn test_expands_top_level_directory() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -452,7 +433,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_expands_subdirectory() -> anyhow::Result<()> {
+    async fn test_expands_subdirectory() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -463,7 +444,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_expands_subdirectory_with_buck_targets() -> anyhow::Result<()> {
+    async fn test_expands_subdirectory_with_buck_targets() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -474,7 +455,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_provides_subdirectory_and_target_alternatives() -> anyhow::Result<()> {
+    async fn test_provides_subdirectory_and_target_alternatives() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -485,7 +466,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_partial_paths_and_matched_target_dirs() -> anyhow::Result<()> {
+    async fn test_completes_partial_paths_and_matched_target_dirs() -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -496,10 +477,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handles_degenerate_buck_directory_with_no_targets() -> anyhow::Result<()> {
+    async fn test_handles_degenerate_buck_directory_with_no_targets() -> TestResult {
         let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetsResolver::new();
-        target_resolver.add_response("baredir0:", "");
+        let mut target_resolver = FakeTargetResolver::new();
+        target_resolver.add_response("baredir0:", vec![]);
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
         let actual = target_complete_helper(uut, "baredir0:").await?;
@@ -510,18 +491,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_provides_targets_for_path_ending_with_a_colon() -> anyhow::Result<()> {
+    async fn test_provides_targets_for_path_ending_with_a_colon() -> TestResult {
         let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "baredir0/buckdir0b:",
-            &([
+            vec![
                 "root//baredir0/buckdir0b:target1",
                 "root//baredir0/buckdir0b:target2",
                 "root//baredir0/buckdir0b:target3",
-                "",
-            ]
-            .join("\n")),
+            ],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -533,23 +512,18 @@ mod tests {
                 "baredir0/buckdir0b:target1",
                 "baredir0/buckdir0b:target2",
                 "baredir0/buckdir0b:target3",
-            ]
+            ],
         );
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_provides_targets_in_nested_cell() -> anyhow::Result<()> {
+    async fn test_provides_targets_in_nested_cell() -> TestResult {
         let (roots, cwd) = in_dir("cell1")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -563,17 +537,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_a_partial_target() -> anyhow::Result<()> {
+    async fn test_completes_a_partial_target() -> TestResult {
         let (roots, cwd) = in_dir("cell1")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -584,7 +553,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_cell_name_when_given_cell_root() -> anyhow::Result<()> {
+    async fn test_completes_cell_name_when_given_cell_root() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -605,7 +574,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_cell_name_when_given_cell_root_as_directory() -> anyhow::Result<()> {
+    async fn test_completes_cell_name_when_given_cell_root_as_directory() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -616,7 +585,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_identifies_non_local_cell_name() -> anyhow::Result<()> {
+    async fn test_identifies_non_local_cell_name() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -627,8 +596,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_non_local_cell_name_when_provided_with_a_single_slash()
-    -> anyhow::Result<()> {
+    async fn test_completes_non_local_cell_name_when_provided_with_a_single_slash() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -639,7 +607,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_non_local_cell_name() -> anyhow::Result<()> {
+    async fn test_completes_non_local_cell_name() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -650,7 +618,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_mix_of_non_local_cell_name_and_local_dirs() -> anyhow::Result<()> {
+    async fn test_completes_mix_of_non_local_cell_name_and_local_dirs() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -671,7 +639,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_multiple_partial_dirs() -> anyhow::Result<()> {
+    async fn test_completes_multiple_partial_dirs() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -700,8 +668,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_subdirs_as_well_as_target_colon_for_fully_qualified_cell()
-    -> anyhow::Result<()> {
+    async fn test_completes_subdirs_as_well_as_target_colon_for_fully_qualified_cell() -> TestResult
+    {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -723,10 +691,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_targets_for_fully_qualified_cell() -> anyhow::Result<()> {
+    async fn test_completes_targets_for_fully_qualified_cell() -> TestResult {
         let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetsResolver::new();
-        target_resolver.add_response("cell1//:", &(["cell1//:target1", ""].join("\n")));
+        let mut target_resolver = FakeTargetResolver::new();
+        target_resolver.add_response("cell1//:", vec!["cell1//:target1"]);
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
         let actual = target_complete_helper(uut, "cell1//:").await?;
@@ -736,7 +704,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_directory_in_different_cell_to_canonical_name() -> anyhow::Result<()> {
+    async fn test_completes_directory_in_different_cell_to_canonical_name() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -747,8 +715,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_partial_dir_in_different_cell_to_canonical_name() -> anyhow::Result<()>
-    {
+    async fn test_completes_partial_dir_in_different_cell_to_canonical_name() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -759,8 +726,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_canonical_path_in_other_cell_to_with_slash_or_colon()
-    -> anyhow::Result<()> {
+    async fn test_completes_canonical_path_in_other_cell_to_with_slash_or_colon() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -772,7 +738,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_completes_canonical_path_to_other_cell_from_subdirectory_in_this_cell()
-    -> anyhow::Result<()> {
+    -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -784,17 +750,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_completes_other_cell_canonical_path_targets_from_subdirectory_in_this_cell()
-    -> anyhow::Result<()> {
+    -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "cell1//buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -809,7 +770,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_in_subdirectory_can_complete_subdirs_of_project_root_with_canonical_cell()
-    -> anyhow::Result<()> {
+    -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -821,7 +782,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_backwards_path_to_different_cell_root_directory_completes_to_canonical_cell_name()
-    -> anyhow::Result<()> {
+    -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -832,7 +793,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_partial_subdirectory_name_expands_to_all_matches() -> anyhow::Result<()> {
+    async fn test_partial_subdirectory_name_expands_to_all_matches() -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -843,18 +804,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_expands_cell_to_canonical_in_middle_of_input_text_with_target_colon()
-    -> anyhow::Result<()> {
+    async fn test_expands_cell_to_canonical_in_middle_of_input_text_with_target_colon() -> TestResult
+    {
         let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "cell1//buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -869,17 +825,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_expands_cell_to_canonical_in_middle_of_input_text_with_partial_target()
-    -> anyhow::Result<()> {
+    -> TestResult {
         let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "cell1//buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -890,17 +841,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_expands_targets_for_a_bare_colon_in_a_buck_directory() -> anyhow::Result<()> {
+    async fn test_expands_targets_for_a_bare_colon_in_a_buck_directory() -> TestResult {
         let (roots, cwd) = in_dir("cell1/buck2")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             ":",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -911,9 +857,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_returns_nothing_for_a_bare_colon_in_a_non_buck_directory() -> anyhow::Result<()> {
+    async fn test_returns_nothing_for_a_bare_colon_in_a_non_buck_directory() -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
+        // This is weird, but it reflects the behavior of the server API
+        // when given an invalid ":" as its argument
+        target_resolver.add_response(":", vec![]);
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
         let actual = target_complete_helper(uut, ":").await?;
@@ -1046,7 +995,7 @@ mod tests {
 
         let actual_result = uut.complete("cell1_alias//b").await;
 
-        assert!(actual_result.is_err());
+        assert!(is_err(actual_result));
         Ok(())
     }
 
@@ -1067,15 +1016,10 @@ mod tests {
     #[tokio::test]
     async fn test_target_completion_works_correctly_with_aliased_cells() -> anyhow::Result<()> {
         let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "cell1_alias//buck2:",
-            &([
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ]
-            .join("\n")),
+            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 
@@ -1095,15 +1039,14 @@ mod tests {
     async fn test_target_completion_fails_with_error_with_nonexistent_alias() -> anyhow::Result<()>
     {
         let (roots, cwd) = in_dir("cell1/buck2")?;
-        let mut target_resolver = FakeTargetsResolver::new();
+        let mut target_resolver = FakeTargetResolver::new();
         target_resolver.add_response(
             "cell1_alias//buck2:",
-            &([
+            vec![
                 "cell1//buck2:buck2",
                 "cell1//buck2:symlinked_buck2_and_tpx",
                 "",
-            ]
-            .join("\n")),
+            ],
         );
         let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
 

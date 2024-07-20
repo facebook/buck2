@@ -8,38 +8,23 @@
  */
 
 mod buck_path;
-mod pattern;
+pub(crate) mod pattern; // FIXME: de-public after refactoring complete
 
 use std::io;
-use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
-use async_trait::async_trait;
-use buck2_cli_proto::ClientContext;
-use buck2_cli_proto::TargetsRequest;
-use buck2_cli_proto::TargetsResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
-use buck2_client_ctx::common::ui::CommonConsoleOptions;
-use buck2_client_ctx::common::CommonBuildConfigurationOptions;
-use buck2_client_ctx::common::CommonEventLogOptions;
-use buck2_client_ctx::common::CommonStarlarkOptions;
-use buck2_client_ctx::daemon::client::BuckdClientConnector;
-use buck2_client_ctx::daemon::client::FlushingBuckdClient;
-use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
-use buck2_client_ctx::streaming::StreamingCommand;
 use clap::Command;
 use clap::ValueEnum;
 use clap_complete::generate;
-use futures::future::BoxFuture;
 use pattern::PackageCompleter;
-use pattern::TargetCompleter;
-use tokio::time;
+
+use super::complete::target::CompleteTargetCommand;
 
 // This file is the entry point for the target-completing delegate for buck2
 // command line completions. Its completion commands are called from shell
@@ -115,30 +100,32 @@ impl CompletionCommand {
                 print_completion_script(shell, &mut command)?;
                 ExitResult::success()
             }
-            (None, Some(pattern)) => {
-                let exit_result = match pattern.split(':').collect::<Vec<_>>()[..] {
+            (None, Some(partial_target)) => {
+                let exit_result = match partial_target.split(':').collect::<Vec<_>>()[..] {
                     [given_partial_package] => {
                         let cwd = ctx.working_dir.path();
                         let completer = futures::executor::block_on(PackageCompleter::new(
                             cwd,
                             &ctx.paths()?.roots,
                         ))?;
-                        print_completions(&futures::executor::block_on(
+                        print_completions_and_exit(futures::executor::block_on(
                             completer.complete(given_partial_package),
-                        )?);
-                        ExitResult::success()
+                        ))
                     }
                     [given_package, given_partial_target] => {
                         let cwd = ctx.working_dir.path().to_path_buf().to_owned();
-                        let completer = TargetCompleterCommand::new(matches, ctx, cwd);
-                        completer.complete(
+                        let completer = CompleteTargetCommand::new(
+                            cwd,
                             given_package.to_owned(),
                             given_partial_target.to_owned(),
                             deadline,
-                            |result| print_completions(&result),
-                        )
+                            print_completions_and_exit,
+                        );
+                        completer.exec(matches, ctx)
                     }
-                    _ => ExitResult::bail("Malformed pattern string (expected package[:target])"),
+                    _ => ExitResult::bail(
+                        "Malformed label string (expected [cell//]package[:target])",
+                    ),
                 };
                 exit_result
             }
@@ -192,143 +179,18 @@ fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Resul
     }
 }
 
-struct DaemonTargetsResolver<'a, 'b> {
-    buckd_client: FlushingBuckdClient<'a, 'b>,
-    context: ClientContext,
-    target_cfg: TargetCfgOptions,
-    handler: StdoutPartialResultHandler,
-}
-
-impl<'a, 'b> pattern::TargetsResolver for DaemonTargetsResolver<'a, 'b> {
-    fn resolve(
-        &mut self,
-        target_request: TargetsRequest,
-    ) -> BoxFuture<anyhow::Result<CommandOutcome<TargetsResponse>>> {
-        let request = TargetsRequest {
-            context: Some(self.context.clone()),
-            target_cfg: Some(self.target_cfg.target_cfg()),
-
-            ..target_request
-        };
-        let future = self.buckd_client.targets(request, None, &mut self.handler);
-        Box::pin(future)
+fn print_completions_and_exit(input: CommandOutcome<Vec<String>>) -> ExitResult {
+    match input {
+        CommandOutcome::Success(completions) => {
+            print_completions(&completions);
+            ExitResult::success()
+        }
+        CommandOutcome::Failure(result) => result,
     }
 }
 
 fn print_completions(completions: &Vec<String>) {
     for completion in completions {
         println!("{}", completion);
-    }
-}
-
-struct TargetCompleterCommand<'a> {
-    matches: &'a clap::ArgMatches,
-    ctx: ClientCommandContext<'a>,
-    cwd: PathBuf,
-}
-
-impl<'a> TargetCompleterCommand<'a> {
-    fn new(matches: &'a clap::ArgMatches, ctx: ClientCommandContext<'a>, cwd: PathBuf) -> Self {
-        Self { matches, ctx, cwd }
-    }
-
-    fn complete(
-        self,
-        given_package: String,
-        partial_target: String,
-        deadline: Instant,
-        callback: fn(Vec<String>),
-    ) -> ExitResult {
-        let real = TargetCompleterCommandImpl::new(
-            self.cwd,
-            given_package,
-            partial_target,
-            deadline,
-            callback,
-        );
-        real.exec(self.matches, self.ctx)
-    }
-}
-
-struct TargetCompleterCommandImpl {
-    target_cfg: TargetCfgOptions,
-
-    cwd: PathBuf,
-    given_package: String,
-    partial_target: String,
-
-    deadline: Instant,
-    callback: fn(Vec<String>),
-}
-
-impl TargetCompleterCommandImpl {
-    fn new(
-        cwd: PathBuf,
-        given_package: String,
-        partial_target: String,
-        deadline: Instant,
-        callback: fn(Vec<String>),
-    ) -> Self {
-        let target_cfg = TargetCfgOptions::default();
-
-        Self {
-            target_cfg,
-            cwd,
-            given_package,
-            partial_target,
-            deadline,
-            callback,
-        }
-    }
-}
-
-#[async_trait]
-impl StreamingCommand for TargetCompleterCommandImpl {
-    const COMMAND_NAME: &'static str = "complete";
-
-    async fn exec_impl(
-        self,
-        buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
-        ctx: &mut ClientCommandContext<'_>,
-    ) -> ExitResult {
-        let buckd_client = buckd.with_flushing();
-        let result_handler = StdoutPartialResultHandler;
-        let mut resolver = DaemonTargetsResolver {
-            buckd_client,
-            context: ctx.client_context(matches, &self)?,
-            target_cfg: self.target_cfg,
-            handler: result_handler,
-        };
-
-        let completer =
-            TargetCompleter::new(self.cwd.as_path(), &ctx.paths()?.roots, &mut resolver).await?;
-        let completion_task = completer.complete(&self.given_package, &self.partial_target);
-
-        let remaining_time = self.deadline.saturating_duration_since(Instant::now());
-        match time::timeout(remaining_time, completion_task).await {
-            Ok(CommandOutcome::Success(res)) => {
-                (self.callback)(res);
-                ExitResult::success()
-            }
-            Ok(CommandOutcome::Failure(err)) => err,
-            Err(_) => ExitResult::status(ExitCode::Timeout),
-        }
-    }
-
-    fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::none_ref()
-    }
-
-    fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
-    }
-
-    fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
-        CommonBuildConfigurationOptions::reuse_current_config_ref()
-    }
-
-    fn starlark_opts(&self) -> &CommonStarlarkOptions {
-        CommonStarlarkOptions::default_ref()
     }
 }
