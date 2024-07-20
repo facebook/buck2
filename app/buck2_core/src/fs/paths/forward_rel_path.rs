@@ -703,6 +703,23 @@ impl ForwardRelativePathBuf {
         Self(String::with_capacity(cap))
     }
 
+    pub fn with_capacity_for_concat(
+        items: impl IntoIterator<Item = impl AsRef<ForwardRelativePath>>,
+    ) -> Self {
+        let mut cap = 0;
+        for item in items {
+            let item = item.as_ref();
+            if !item.is_empty() {
+                if cap != 0 {
+                    // `/`.
+                    cap += 1;
+                }
+                cap += item.0.len();
+            }
+        }
+        ForwardRelativePathBuf::with_capacity(cap)
+    }
+
     /// Returns the capacity of the underlying 'String'
     #[inline]
     pub fn capacity(&self) -> usize {
@@ -776,17 +793,7 @@ impl ForwardRelativePathBuf {
     pub fn concat<'a, I: IntoIterator<Item = &'a ForwardRelativePath> + Copy>(
         items: I,
     ) -> ForwardRelativePathBuf {
-        let mut cap = 0;
-        for item in items {
-            if !item.is_empty() {
-                if cap != 0 {
-                    // `/`.
-                    cap += 1;
-                }
-                cap += item.0.len();
-            }
-        }
-        let mut path = ForwardRelativePathBuf::with_capacity(cap);
+        let mut path = ForwardRelativePathBuf::with_capacity_for_concat(items);
         path.extend(items);
         path
     }

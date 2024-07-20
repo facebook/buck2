@@ -73,17 +73,7 @@ where
     }
 
     pub fn get(&self) -> ForwardRelativePathBuf {
-        // Evaluate the size of our path.
-        let mut size = 0;
-        for name in self.path() {
-            size += name.as_str().len() + 1
-        }
-
-        // Remove extra "/" we accounted for.
-        size = size.saturating_sub(1);
-
-        // Produce it.
-        let mut path = ForwardRelativePathBuf::with_capacity(size);
+        let mut path = ForwardRelativePathBuf::with_capacity_for_concat(self.path());
         path.extend(self.path());
         path
     }
