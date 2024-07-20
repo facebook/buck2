@@ -148,14 +148,14 @@ pub struct CommonBuildConfigurationOptions {
     pub config_files: Vec<String>,
 
     #[clap(long, ignore_case = true, value_name = "HOST", value_enum)]
-    fake_host: Option<HostPlatformOverride>,
+    pub fake_host: Option<HostPlatformOverride>,
 
     #[clap(long, ignore_case = true, value_name = "ARCH", value_enum)]
-    fake_arch: Option<HostArchOverride>,
+    pub fake_arch: Option<HostArchOverride>,
 
     /// Value must be formatted as: version-build (e.g., 14.3.0-14C18 or 14.1-14B47b)
     #[clap(long, value_name = "VERSION-BUILD")]
-    fake_xcode_version: Option<String>,
+    pub fake_xcode_version: Option<String>,
 
     /// Re-uses any `--config` values (inline or via modefiles) if there's
     /// a previous command, otherwise the flag is ignored.

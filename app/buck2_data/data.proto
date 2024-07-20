@@ -728,6 +728,7 @@ message CommandStart {
     StarlarkDebugAttachCommandStart starlark_debug_attach = 39;
     ExplainCommandStart explain = 40;
     ExpandExternalCellCommandStart expand_external_cell = 41;
+    CompleteCommandStart complete = 42;
   }
 }
 
@@ -795,6 +796,8 @@ message ProfileCommandStart {}
 
 message ExpandExternalCellCommandStart {}
 
+message CompleteCommandStart {}
+
 message CommandEnd {
   reserved 3;
   oneof data {
@@ -820,6 +823,7 @@ message CommandEnd {
     StarlarkDebugAttachCommandEnd starlark_debug_attach = 39;
     ExplainCommandEnd explain = 40;
     ExpandExternalCellCommandEnd expand_external_cell = 41;
+    CompleteCommandEnd complete = 42;
   }
 
   bool is_success = 2;
@@ -928,6 +932,8 @@ message FileStatusCommandEnd {}
 message ProfileCommandEnd {}
 
 message ExpandExternalCellCommandEnd {}
+
+message CompleteCommandEnd {}
 
 message LoadPackageStart {
   string path = 1;

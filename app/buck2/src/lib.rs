@@ -15,6 +15,7 @@ use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
+use buck2_client::commands::complete::CompleteCommand;
 use buck2_client::commands::completion::CompletionCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
@@ -270,6 +271,8 @@ pub(crate) enum CommandKind {
     Uquery(UqueryCommand),
     #[clap(subcommand, hide = true)]
     Debug(DebugCommand),
+    #[clap(hide = true)]
+    Complete(CompleteCommand),
     Completion(CompletionCommand),
     Docs(DocsCommand),
     #[clap(subcommand)]
@@ -398,6 +401,7 @@ impl CommandKind {
             CommandKind::Run(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Uquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx),
+            CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
             CommandKind::Docs(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx),

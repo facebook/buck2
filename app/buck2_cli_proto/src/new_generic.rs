@@ -19,6 +19,7 @@ pub enum NewGenericRequest {
     DebugEval(DebugEvalRequest),
     Explain(ExplainRequest),
     ExpandExternalCell(ExpandExternalCellRequest),
+    Complete(CompleteRequest),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,6 +28,7 @@ pub enum NewGenericResponse {
     DebugEval(DebugEvalResponse),
     Explain(ExplainResponse),
     ExpandExternalCell(ExpandExternalCellResponse),
+    Complete(CompleteResponse),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -69,4 +71,17 @@ pub struct ExpandExternalCellRequest {
 #[derive(Serialize, Deserialize)]
 pub struct ExpandExternalCellResponse {
     pub path: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CompleteRequest {
+    pub target_cfg: TargetCfg,
+    /// The label with partial target we want to complete \[\[cell\]//\]package:\[partial_target\]
+    pub partial_target: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CompleteResponse {
+    /// Completions matching the partial input.
+    pub completions: Vec<String>,
 }

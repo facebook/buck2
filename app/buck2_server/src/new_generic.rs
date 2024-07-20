@@ -29,6 +29,12 @@ pub(crate) async fn new_generic_command(
         NewGenericRequest::Materialize(m) => {
             NewGenericResponse::Materialize(materialize_command(context, m).await?)
         }
+        NewGenericRequest::Complete(e) => NewGenericResponse::Complete(
+            OTHER_SERVER_COMMANDS
+                .get()?
+                .complete(context, partial_result_dispatcher, e)
+                .await?,
+        ),
         NewGenericRequest::DebugEval(e) => NewGenericResponse::DebugEval(
             OTHER_SERVER_COMMANDS.get()?.debug_eval(context, e).await?,
         ),

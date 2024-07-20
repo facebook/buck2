@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::new_generic::CompleteRequest;
+use buck2_cli_proto::new_generic::CompleteResponse;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
 use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
@@ -70,6 +72,12 @@ pub trait OtherServerCommands: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ConfiguredTargetsRequest,
     ) -> anyhow::Result<buck2_cli_proto::ConfiguredTargetsResponse>;
+    async fn complete(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: CompleteRequest,
+    ) -> anyhow::Result<CompleteResponse>;
     async fn debug_eval(
         &self,
         ctx: &dyn ServerCommandContextTrait,

@@ -8,6 +8,8 @@
  */
 
 use async_trait::async_trait;
+use buck2_cli_proto::new_generic::CompleteRequest;
+use buck2_cli_proto::new_generic::CompleteResponse;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
 use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
@@ -21,6 +23,7 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 
 use crate::commands::build::build_command;
+use crate::commands::complete::complete_command;
 use crate::commands::ctargets::configured_targets_command;
 use crate::commands::debug_eval::debug_eval_command;
 use crate::commands::expand_external_cell::expand_external_cell_command;
@@ -100,6 +103,16 @@ impl OtherServerCommands for OtherServerCommandsInstance {
     ) -> anyhow::Result<buck2_cli_proto::ConfiguredTargetsResponse> {
         configured_targets_command(ctx, partial_result_dispatcher, req).await
     }
+
+    async fn complete(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: CompleteRequest,
+    ) -> anyhow::Result<CompleteResponse> {
+        complete_command(ctx, partial_result_dispatcher, req).await
+    }
+
     async fn debug_eval(
         &self,
         ctx: &dyn ServerCommandContextTrait,

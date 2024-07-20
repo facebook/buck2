@@ -8,6 +8,7 @@
  */
 
 pub mod build;
+pub mod complete;
 pub mod ctargets;
 pub mod debug_eval;
 pub mod expand_external_cell;
