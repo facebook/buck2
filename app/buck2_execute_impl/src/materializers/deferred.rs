@@ -2364,7 +2364,8 @@ impl<V: 'static> FileTree<V> {
                             if let Some(subtree) = tree_children.get(name) {
                                 path.push(name);
                                 walk_deps(subtree, child, path, found_artifacts);
-                                path.pop();
+                                let popped = path.pop();
+                                assert!(popped);
                             }
                         }
                     }
@@ -2373,12 +2374,14 @@ impl<V: 'static> FileTree<V> {
         }
 
         let mut artifacts = Vec::new();
+        let mut path_buf = RelativePathBuf::new();
         walk_deps(
             self,
             DirectoryEntry::Dir(deps),
-            &mut RelativePathBuf::new(),
+            &mut path_buf,
             &mut artifacts,
         );
+        assert!(path_buf.as_str().is_empty());
         artifacts
     }
 
