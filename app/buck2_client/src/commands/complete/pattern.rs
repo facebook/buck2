@@ -21,17 +21,17 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use futures::future::BoxFuture;
 
-use crate::commands::completion::buck_path::BuckPath;
+use super::buck_path::BuckPath;
 
 pub(crate) trait TargetResolver: Send {
-    fn resolve(&mut self, partial_pattern: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
+    fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
 }
 
 pub(crate) struct PackageCompleter<'a> {
     cwd: PathBuf,
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
-    results: PatternResults<'a>,
+    results: CompletionResults<'a>,
 }
 
 impl<'a> PackageCompleter<'a> {
@@ -48,15 +48,15 @@ impl<'a> PackageCompleter<'a> {
             cwd: cwd.to_path_buf(),
             roots,
             cell_configs: cell_configs.clone(),
-            results: PatternResults::new(roots, cell_configs.clone()),
+            results: CompletionResults::new(roots, cell_configs.clone()),
         })
     }
 
-    /// Complete the package portion of a partial pattern.
+    /// Complete the package portion of a partial target.
     ///
     /// Returns a collection of possible completions, each generally including the
-    /// partial pattern. The partial pattern might not be returned as-is when
-    /// completion logic is able to unambiguously normalize the partial pattern,
+    /// partial target. The partial target might not be returned as-is when
+    /// completion logic is able to unambiguously normalize the partial target,
     /// such as partials which cross cell boundaries. In this case, normalized
     /// completion(s) are returned.
     pub(crate) async fn complete(mut self, given_path: &str) -> CommandOutcome<Vec<String>> {
@@ -188,7 +188,7 @@ pub(crate) struct TargetCompleter<'a> {
     cwd: PathBuf,
     cell_configs: Arc<BuckConfigBasedCells>,
     target_resolver: &'a mut dyn TargetResolver,
-    results: PatternResults<'a>,
+    results: CompletionResults<'a>,
 }
 
 impl<'a> TargetCompleter<'a> {
@@ -209,27 +209,29 @@ impl<'a> TargetCompleter<'a> {
             cwd: cwd.to_path_buf(),
             cell_configs: cell_configs.clone(),
             target_resolver,
-            results: PatternResults::new(roots, cell_configs.clone()),
+            results: CompletionResults::new(roots, cell_configs.clone()),
         })
     }
 
-    /// Complete the target in a partial pattern.
+    /// Complete the target in a partial label.
     ///
-    /// Returns a collection of possible completions, each including the partial
-    /// pattern.
+    /// Returns a collection of possible label completions, each including
+    /// the original cell/package name(s) and completions for the partial
+    /// target.
     pub(crate) async fn complete(
         mut self,
-        given_path: &str,
+        given_package: &str,
         partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
-        let path = BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
+        let path =
+            BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_package).await?;
         let completions = self
             .target_resolver
             .resolve(path.given().to_owned() + ":")
             .await?;
 
-        for pattern in completions {
-            let target = pattern.split(':').next_back().unwrap();
+        for label in completions {
+            let target = label.split(':').next_back().unwrap();
             if target.starts_with(partial_target) {
                 let completion = path.given().to_owned() + ":" + target;
                 self.results.insert(&completion);
@@ -261,13 +263,13 @@ fn file_name_string(entry: &std::fs::DirEntry) -> String {
     entry.file_name().into_string().unwrap()
 }
 
-struct PatternResults<'a> {
+struct CompletionResults<'a> {
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
     results: BTreeSet<String>,
 }
 
-impl<'a> PatternResults<'a> {
+impl<'a> CompletionResults<'a> {
     fn new(roots: &'a InvocationRoots, cell_configs: Arc<BuckConfigBasedCells>) -> Self {
         Self {
             roots,
@@ -276,8 +278,8 @@ impl<'a> PatternResults<'a> {
         }
     }
 
-    fn insert(&mut self, pattern: &str) -> &mut Self {
-        self.results.insert(pattern.to_owned());
+    fn insert(&mut self, target: &str) -> &mut Self {
+        self.results.insert(target.to_owned());
         self
     }
 
@@ -325,8 +327,8 @@ impl<'a> PatternResults<'a> {
     }
 }
 
-impl<'a> From<PatternResults<'a>> for Vec<String> {
-    fn from(pr: PatternResults) -> Self {
+impl<'a> From<CompletionResults<'a>> for Vec<String> {
+    fn from(pr: CompletionResults) -> Self {
         pr.results.iter().map(String::from).collect()
     }
 }
@@ -358,8 +360,8 @@ mod tests {
         }
     }
     impl TargetResolver for FakeTargetResolver {
-        fn resolve(&mut self, partial_pattern: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
-            let res = self.target_responses.get(&partial_pattern).unwrap();
+        fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
+            let res = self.target_responses.get(&partial_target).unwrap();
             Box::pin(future::ready(CommandOutcome::Success(res.clone())))
         }
     }

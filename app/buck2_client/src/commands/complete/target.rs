@@ -31,7 +31,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use tokio::time;
 
-use crate::commands::completion::pattern;
+use super::pattern;
 
 type CompleteCallback = fn(CommandOutcome<Vec<String>>) -> ExitResult;
 

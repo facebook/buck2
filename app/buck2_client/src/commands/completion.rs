@@ -7,24 +7,13 @@
  * of this source tree.
  */
 
-mod buck_path;
-pub(crate) mod pattern; // FIXME: de-public after refactoring complete
-
 use std::io;
-use std::time::Duration;
-use std::time::Instant;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
-use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use clap::Command;
 use clap::ValueEnum;
 use clap_complete::generate;
-use pattern::PackageCompleter;
-
-use super::complete::target::CompleteTargetCommand;
 
 // This file is the entry point for the target-completing delegate for buck2
 // command line completions. Its completion commands are called from shell
@@ -42,7 +31,6 @@ enum Shell {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "completion", verbatim_doc_comment)]
-#[group(id = "operation", required = true, multiple = false)]
 /// Print completion configuration for shell
 ///
 /// For a one-time setup, run one of the following commands:
@@ -54,82 +42,19 @@ pub struct CompletionCommand {
         help = "shell for which to generate completion script",
         group = "operation"
     )]
-    shell: Option<Shell>,
-
-    #[clap(
-        hide = true,
-        long = "pattern",
-        help = "Generate completions for target patterns",
-        group = "operation"
-    )]
-    pattern: Option<String>,
-
-    #[clap(flatten)]
-    opts: CompletionOptions,
-}
-
-#[derive(Clone, Debug, clap::Args)]
-struct CompletionOptions {
-    #[clap(
-        hide = true,
-        long = "timeout",
-        help = "Timeout for completion in milliseconds",
-        env = "BUCK2_COMPLETION_TIMEOUT",
-        default_value_t = 500
-    )]
-    timeout_ms: u64,
+    shell: Shell,
 }
 
 impl CompletionCommand {
     pub fn exec(
         self,
         command: Command,
-        matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
+        _matches: &clap::ArgMatches,
+        _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let start = Instant::now();
-        let time_limit = Duration::from_millis(self.opts.timeout_ms);
-        let deadline = start + time_limit;
-
-        match (self.shell, self.pattern) {
-            (Some(_), Some(_)) => ExitResult::status(ExitCode::UserError),
-            (None, None) => ExitResult::status(ExitCode::UserError),
-
-            (Some(shell), None) => {
-                let mut command = command;
-                print_completion_script(shell, &mut command)?;
-                ExitResult::success()
-            }
-            (None, Some(partial_target)) => {
-                let exit_result = match partial_target.split(':').collect::<Vec<_>>()[..] {
-                    [given_partial_package] => {
-                        let cwd = ctx.working_dir.path();
-                        let completer = futures::executor::block_on(PackageCompleter::new(
-                            cwd,
-                            &ctx.paths()?.roots,
-                        ))?;
-                        print_completions_and_exit(futures::executor::block_on(
-                            completer.complete(given_partial_package),
-                        ))
-                    }
-                    [given_package, given_partial_target] => {
-                        let cwd = ctx.working_dir.path().to_path_buf().to_owned();
-                        let completer = CompleteTargetCommand::new(
-                            cwd,
-                            given_package.to_owned(),
-                            given_partial_target.to_owned(),
-                            deadline,
-                            print_completions_and_exit,
-                        );
-                        completer.exec(matches, ctx)
-                    }
-                    _ => ExitResult::bail(
-                        "Malformed label string (expected [cell//]package[:target])",
-                    ),
-                };
-                exit_result
-            }
-        }
+        let mut command = command;
+        print_completion_script(self.shell, &mut command)?;
+        ExitResult::success()
     }
 }
 
@@ -176,21 +101,5 @@ fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Resul
         ))
     } else {
         Ok(())
-    }
-}
-
-fn print_completions_and_exit(input: CommandOutcome<Vec<String>>) -> ExitResult {
-    match input {
-        CommandOutcome::Success(completions) => {
-            print_completions(&completions);
-            ExitResult::success()
-        }
-        CommandOutcome::Failure(result) => result,
-    }
-}
-
-fn print_completions(completions: &Vec<String>) {
-    for completion in completions {
-        println!("{}", completion);
     }
 }

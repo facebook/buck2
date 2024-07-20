@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+mod buck_path;
+mod pattern;
 pub(crate) mod target;
 
 use std::time::Duration;
@@ -14,10 +16,10 @@ use std::time::Instant;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use clap::ArgMatches;
+use pattern::PackageCompleter;
 use target::CompleteTargetCommand;
 
 #[derive(Debug, clap::Parser)]
@@ -25,25 +27,47 @@ use target::CompleteTargetCommand;
 pub struct CompleteCommand {
     #[clap(long = "target", help = "Target to complete")]
     partial_target: String,
+
+    #[clap(
+        hide = true,
+        long = "timeout",
+        help = "Timeout for completion in milliseconds",
+        env = "BUCK2_COMPLETION_TIMEOUT",
+        default_value_t = 500
+    )]
+    timeout_ms: u64,
 }
 
 impl CompleteCommand {
     pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let cwd = std::env::current_dir()?;
-        let deadline = Instant::now() + Duration::from_millis(500);
-        match self.partial_target.split(':').collect::<Vec<_>>()[..] {
-            [package, partial_target] => {
-                let real = CompleteTargetCommand::new(
-                    cwd,
-                    package.to_owned(),
-                    partial_target.to_owned(),
+        let start = Instant::now();
+        let time_limit = Duration::from_millis(self.timeout_ms);
+        let deadline = start + time_limit;
+
+        let cwd = ctx.working_dir.path().to_owned();
+        let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
+            [given_partial_package] => {
+                let roots = &ctx.paths()?.roots;
+                let completer = futures::executor::block_on(PackageCompleter::new(&cwd, roots))?;
+                print_completions(futures::executor::block_on(
+                    completer.complete(given_partial_package),
+                ))
+            }
+            [given_package, given_partial_target] => {
+                let completer = CompleteTargetCommand::new(
+                    cwd.into_path_buf(),
+                    given_package.to_owned(),
+                    given_partial_target.to_owned(),
                     deadline,
                     print_completions,
                 );
-                real.exec(matches, ctx)
+                completer.exec(matches, ctx)
             }
-            _ => ExitResult::status(ExitCode::UserError),
-        }
+            _ => ExitResult::bail(
+                "Malformed target string (expected [[cell]//]path/to/package[:targetName])",
+            ),
+        };
+        exit_result
     }
 }
 

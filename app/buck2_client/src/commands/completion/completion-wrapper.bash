@@ -60,7 +60,7 @@ __buck2_add_target_completions()
         else
             completions+=("$REPLY")
         fi
-    done < <("${_BUCK_COMPLETE_BIN[@]}" completion --pattern="$1" 2>/dev/null)
+    done < <("${_BUCK_COMPLETE_BIN[@]}" complete --target="$1" 2>/dev/null)
     COMPREPLY=("${completions[@]}")
 }
 
