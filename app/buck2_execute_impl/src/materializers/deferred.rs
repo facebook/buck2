@@ -754,11 +754,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                     if let DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) = entry {
                         let path = path.get();
                         let dest_iter = dest.iter().chain(path.iter()).map(|f| f.to_owned());
-                        let src = if path.as_str().is_empty() {
-                            copied_artifact.src.clone()
-                        } else {
-                            copied_artifact.src.join(&path)
-                        };
+                        let src = copied_artifact.src.join(&path);
                         srcs_tree.insert(dest_iter, src);
                     }
                 }
