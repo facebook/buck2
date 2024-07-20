@@ -37,6 +37,8 @@ use clap::Command;
 use clap::ValueEnum;
 use clap_complete::generate;
 use futures::future::BoxFuture;
+use pattern::PackageCompleter;
+use pattern::TargetCompleter;
 use tokio::time;
 
 // This file is the entry point for the target-completing delegate for buck2
@@ -120,18 +122,18 @@ impl CompletionCommand {
                 let exit_result = match pattern.split(':').collect::<Vec<_>>()[..] {
                     [given_partial_package] => {
                         let cwd = ctx.working_dir.path();
+                        let completer = futures::executor::block_on(PackageCompleter::new(
+                            cwd,
+                            &ctx.paths()?.roots,
+                        ))?;
                         print_completions(&futures::executor::block_on(
-                            pattern::complete_package(
-                                &ctx.paths()?.roots,
-                                cwd,
-                                &given_partial_package,
-                            ),
+                            completer.complete(given_partial_package),
                         )?);
                         ExitResult::success()
                     }
                     [given_package, given_partial_target] => {
                         let cwd = ctx.working_dir.path().to_path_buf().to_owned();
-                        let completer = TargetCompleter::new(matches, ctx, cwd);
+                        let completer = TargetCompleterCommand::new(matches, ctx, cwd);
                         completer.complete(
                             given_package.to_owned(),
                             given_partial_target.to_owned(),
@@ -181,13 +183,13 @@ fn print_completion_script(shell: clap_complete::Shell, mut cmd: Command) {
     generate(shell, &mut cmd, name, &mut io::stdout());
 }
 
-struct TargetCompleter<'a> {
+struct TargetCompleterCommand<'a> {
     matches: &'a clap::ArgMatches,
     ctx: ClientCommandContext<'a>,
     cwd: PathBuf,
 }
 
-impl<'a> TargetCompleter<'a> {
+impl<'a> TargetCompleterCommand<'a> {
     fn new(matches: &'a clap::ArgMatches, ctx: ClientCommandContext<'a>, cwd: PathBuf) -> Self {
         Self { matches, ctx, cwd }
     }
@@ -199,13 +201,18 @@ impl<'a> TargetCompleter<'a> {
         deadline: Instant,
         callback: fn(Vec<String>),
     ) -> ExitResult {
-        let real =
-            TargetCompleterImpl::new(self.cwd, given_package, partial_target, deadline, callback);
+        let real = TargetCompleterCommandImpl::new(
+            self.cwd,
+            given_package,
+            partial_target,
+            deadline,
+            callback,
+        );
         real.exec(self.matches, self.ctx)
     }
 }
 
-struct TargetCompleterImpl {
+struct TargetCompleterCommandImpl {
     target_cfg: TargetCfgOptions,
 
     cwd: PathBuf,
@@ -216,7 +223,7 @@ struct TargetCompleterImpl {
     callback: fn(Vec<String>),
 }
 
-impl TargetCompleterImpl {
+impl TargetCompleterCommandImpl {
     fn new(
         cwd: PathBuf,
         given_package: String,
@@ -238,7 +245,7 @@ impl TargetCompleterImpl {
 }
 
 #[async_trait]
-impl StreamingCommand for TargetCompleterImpl {
+impl StreamingCommand for TargetCompleterCommandImpl {
     const COMMAND_NAME: &'static str = "complete";
 
     async fn exec_impl(
@@ -256,13 +263,10 @@ impl StreamingCommand for TargetCompleterImpl {
             handler: result_handler,
         };
 
-        let completion_task = pattern::complete_target(
-            &ctx.paths()?.roots,
-            &mut resolver,
-            self.cwd.as_path(),
-            &self.given_package,
-            &self.partial_target,
-        );
+        let completer =
+            TargetCompleter::new(self.cwd.as_path(), &ctx.paths()?.roots, &mut resolver).await?;
+        let completion_task = completer.complete(&self.given_package, &self.partial_target);
+
         let remaining_time = self.deadline.saturating_duration_since(Instant::now());
         match time::timeout(remaining_time, completion_task).await {
             Ok(CommandOutcome::Success(res)) => {
