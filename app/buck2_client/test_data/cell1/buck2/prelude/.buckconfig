@@ -2,5 +2,6 @@
     prelude = .
     root = ../../..
     cell1 = ../..
-    cell2a = ../../../dir2/cell2a
-    cell2b = ../../../dir2/cell2b
+    cell2 = ../../../cell2
+    cell3a = ../../../dir3/cell3a
+    cell3b = ../../../dir3/cell3b

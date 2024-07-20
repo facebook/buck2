@@ -7,9 +7,11 @@
  * of this source tree.
  */
 
+mod buck_path;
 mod pattern;
 
 use std::io;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -109,14 +111,31 @@ impl CompletionCommand {
                 ExitResult::success()
             }
             (None, Some(pattern)) => {
-                if pattern::completing_target(&pattern) {
-                    complete_target(ctx, matches, pattern, deadline, |result| {
-                        print_completions(&result)
-                    })
-                } else {
-                    print_completions(&futures::executor::block_on(complete_dir(&ctx, &pattern))?);
-                    ExitResult::success()
-                }
+                let exit_result = match pattern.split(':').collect::<Vec<_>>()[..] {
+                    [given_partial_package] => {
+                        let cwd = ctx.working_dir.path();
+                        print_completions(&futures::executor::block_on(
+                            pattern::complete_package(
+                                &ctx.paths()?.roots,
+                                cwd,
+                                &given_partial_package,
+                            ),
+                        )?);
+                        ExitResult::success()
+                    }
+                    [given_package, given_partial_target] => {
+                        let cwd = ctx.working_dir.path().to_path_buf().to_owned();
+                        let completer = TargetCompleter::new(matches, ctx, cwd);
+                        completer.complete(
+                            given_package.to_owned(),
+                            given_partial_target.to_owned(),
+                            deadline,
+                            |result| print_completions(&result),
+                        )
+                    }
+                    _ => ExitResult::bail("Malformed pattern string (expected package[:target])"),
+                };
+                exit_result
             }
         }
     }
@@ -145,25 +164,6 @@ impl<'a, 'b> pattern::TargetsResolver for DaemonTargetsResolver<'a, 'b> {
     }
 }
 
-async fn complete_dir(
-    ctx: &ClientCommandContext<'_>,
-    pattern: &str,
-) -> CommandOutcome<Vec<String>> {
-    let cwd = &ctx.working_dir;
-    pattern::complete_dir(&ctx.paths()?.roots, cwd.path(), &pattern).await
-}
-
-fn complete_target(
-    ctx: ClientCommandContext<'_>,
-    matches: &clap::ArgMatches,
-    pattern: String,
-    deadline: Instant,
-    callback: fn(Vec<String>),
-) -> ExitResult {
-    let completer = TargetCompleter::new(matches, ctx);
-    completer.complete(pattern, deadline, callback)
-}
-
 fn print_completions(completions: &Vec<String>) {
     for completion in completions {
         println!("{}", completion);
@@ -178,19 +178,23 @@ fn print_completion_script(shell: clap_complete::Shell, mut cmd: Command) {
 struct TargetCompleter<'a> {
     matches: &'a clap::ArgMatches,
     ctx: ClientCommandContext<'a>,
+    cwd: PathBuf,
 }
 
 impl<'a> TargetCompleter<'a> {
-    fn new(matches: &'a clap::ArgMatches, ctx: ClientCommandContext<'a>) -> Self {
-        Self {
-            // command,
-            matches,
-            ctx,
-        }
+    fn new(matches: &'a clap::ArgMatches, ctx: ClientCommandContext<'a>, cwd: PathBuf) -> Self {
+        Self { matches, ctx, cwd }
     }
 
-    fn complete(self, pattern: String, deadline: Instant, callback: fn(Vec<String>)) -> ExitResult {
-        let real = TargetCompleterImpl::new(pattern, deadline, callback);
+    fn complete(
+        self,
+        given_package: String,
+        partial_target: String,
+        deadline: Instant,
+        callback: fn(Vec<String>),
+    ) -> ExitResult {
+        let real =
+            TargetCompleterImpl::new(self.cwd, given_package, partial_target, deadline, callback);
         real.exec(self.matches, self.ctx)
     }
 }
@@ -198,18 +202,29 @@ impl<'a> TargetCompleter<'a> {
 struct TargetCompleterImpl {
     target_cfg: TargetCfgOptions,
 
-    partial: String,
+    cwd: PathBuf,
+    given_package: String,
+    partial_target: String,
+
     deadline: Instant,
     callback: fn(Vec<String>),
 }
 
 impl TargetCompleterImpl {
-    fn new(partial: String, deadline: Instant, callback: fn(Vec<String>)) -> Self {
+    fn new(
+        cwd: PathBuf,
+        given_package: String,
+        partial_target: String,
+        deadline: Instant,
+        callback: fn(Vec<String>),
+    ) -> Self {
         let target_cfg = TargetCfgOptions::default();
 
         Self {
             target_cfg,
-            partial,
+            cwd,
+            given_package,
+            partial_target,
             deadline,
             callback,
         }
@@ -235,7 +250,13 @@ impl StreamingCommand for TargetCompleterImpl {
             handler: result_handler,
         };
 
-        let completion_task = pattern::complete_target(&mut resolver, &self.partial);
+        let completion_task = pattern::complete_target(
+            &ctx.paths()?.roots,
+            &mut resolver,
+            self.cwd.as_path(),
+            &self.given_package,
+            &self.partial_target,
+        );
         let remaining_time = self.deadline.saturating_duration_since(Instant::now());
         match time::timeout(remaining_time, completion_task).await {
             Ok(CommandOutcome::Success(res)) => {
