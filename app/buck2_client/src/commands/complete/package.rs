@@ -7,25 +7,18 @@
  * of this source tree.
  */
 
-use std::collections::BTreeSet;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_common::buildfiles::parse_buildfile_name;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use futures::future::BoxFuture;
 
 use super::buck_path::BuckPath;
-
-pub(crate) trait TargetResolver: Send {
-    fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>>;
-}
+use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
     cwd: PathBuf,
@@ -184,63 +177,6 @@ impl<'a> PackageCompleter<'a> {
     }
 }
 
-pub(crate) struct TargetCompleter<'a> {
-    cwd: PathBuf,
-    cell_configs: Arc<BuckConfigBasedCells>,
-    target_resolver: &'a mut dyn TargetResolver,
-    results: CompletionResults<'a>,
-}
-
-impl<'a> TargetCompleter<'a> {
-    pub(crate) async fn new(
-        cwd: &Path,
-        roots: &'a InvocationRoots,
-        target_resolver: &'a mut dyn TargetResolver,
-    ) -> anyhow::Result<Self> {
-        let cell_configs = Arc::new(
-            BuckConfigBasedCells::parse_with_config_args(
-                &roots.project_root,
-                &[],
-                ProjectRelativePath::empty(),
-            )
-            .await?,
-        );
-        Ok(Self {
-            cwd: cwd.to_path_buf(),
-            cell_configs: cell_configs.clone(),
-            target_resolver,
-            results: CompletionResults::new(roots, cell_configs.clone()),
-        })
-    }
-
-    /// Complete the target in a partial label.
-    ///
-    /// Returns a collection of possible label completions, each including
-    /// the original cell/package name(s) and completions for the partial
-    /// target.
-    pub(crate) async fn complete(
-        mut self,
-        given_package: &str,
-        partial_target: &str,
-    ) -> CommandOutcome<Vec<String>> {
-        let path =
-            BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_package).await?;
-        let completions = self
-            .target_resolver
-            .resolve(path.given().to_owned() + ":")
-            .await?;
-
-        for label in completions {
-            let target = label.split(':').next_back().unwrap();
-            if target.starts_with(partial_target) {
-                let completion = path.given().to_owned() + ":" + target;
-                self.results.insert(&completion);
-            }
-        }
-        CommandOutcome::Success(self.results.into())
-    }
-}
-
 fn completes_to_dir(cwd: &Path, partial: &BuckPath) -> anyhow::Result<bool> {
     let partial_path = partial.abs_path();
     let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
@@ -263,108 +199,12 @@ fn file_name_string(entry: &std::fs::DirEntry) -> String {
     entry.file_name().into_string().unwrap()
 }
 
-struct CompletionResults<'a> {
-    roots: &'a InvocationRoots,
-    cell_configs: Arc<BuckConfigBasedCells>,
-    results: BTreeSet<String>,
-}
-
-impl<'a> CompletionResults<'a> {
-    fn new(roots: &'a InvocationRoots, cell_configs: Arc<BuckConfigBasedCells>) -> Self {
-        Self {
-            roots,
-            cell_configs,
-            results: BTreeSet::<String>::new(),
-        }
-    }
-
-    fn insert(&mut self, target: &str) -> &mut Self {
-        self.results.insert(target.to_owned());
-        self
-    }
-
-    async fn insert_path(&mut self, path: &BuckPath) -> &mut Self {
-        self.insert_dir(&path.abs_path(), path.given()).await
-    }
-
-    async fn insert_dir(&mut self, abs_dir: &AbsNormPath, nickname: &str) -> &mut Self {
-        if nickname.ends_with("//") {
-            self.insert(nickname);
-            self.insert_package_if_buildfile_exists(abs_dir, nickname)
-                .await;
-        } else if nickname.ends_with('/') {
-            self.insert(nickname);
-        } else {
-            self.insert(&format!("{}/", nickname));
-            self.insert_package_if_buildfile_exists(abs_dir, nickname)
-                .await;
-        }
-        self
-    }
-
-    async fn insert_package_if_buildfile_exists(
-        &mut self,
-        abs_dir: &AbsNormPath,
-        nickname: &str,
-    ) -> &mut Self {
-        for f in self.buildfile_names(abs_dir).await.unwrap() {
-            if abs_dir.join(f).exists() {
-                self.insert(&format!("{}:", nickname));
-                break;
-            }
-        }
-        self
-    }
-
-    async fn buildfile_names(&mut self, abs_dir: &AbsNormPath) -> anyhow::Result<Vec<FileNameBuf>> {
-        let cell_relative_to_project = self.roots.project_root.relativize(abs_dir)?;
-        let cell_configs = &self.cell_configs;
-        let cell_name = cell_configs.cell_resolver.find(&cell_relative_to_project)?;
-        let config = cell_configs
-            .parse_single_cell(cell_name, &self.roots.project_root)
-            .await?;
-        parse_buildfile_name(&config)
-    }
-}
-
-impl<'a> From<CompletionResults<'a>> for Vec<String> {
-    fn from(pr: CompletionResults) -> Self {
-        pr.results.iter().map(String::from).collect()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use buck2_client_ctx::exit_result::ExitResult;
     use buck2_common::invocation_roots::find_invocation_roots;
-    use futures::future;
 
     use super::*;
-
-    struct FakeTargetResolver {
-        target_responses: HashMap<String, Vec<String>>,
-    }
-    impl FakeTargetResolver {
-        fn new() -> Self {
-            FakeTargetResolver {
-                target_responses: HashMap::new(),
-            }
-        }
-        fn add_response(&mut self, request: &str, response: Vec<&str>) {
-            self.target_responses.insert(
-                request.to_owned(),
-                response.into_iter().map(|s| s.to_owned()).collect(),
-            );
-        }
-    }
-    impl TargetResolver for FakeTargetResolver {
-        fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
-            let res = self.target_responses.get(&partial_target).unwrap();
-            Box::pin(future::ready(CommandOutcome::Success(res.clone())))
-        }
-    }
 
     fn paths_to_test_data() -> &'static [&'static str] {
         &[
@@ -408,16 +248,6 @@ mod tests {
         match outcome {
             CommandOutcome::Success(_) => false,
             CommandOutcome::Failure(_) => true,
-        }
-    }
-
-    async fn target_complete_helper(
-        uut: TargetCompleter<'_>,
-        partial_target: &str,
-    ) -> CommandOutcome<Vec<String>> {
-        match partial_target.split(':').collect::<Vec<_>>()[..] {
-            [package, partial_target] => uut.complete(package, partial_target).await,
-            _ => panic!("unexpected target {}", partial_target),
         }
     }
 
@@ -475,82 +305,6 @@ mod tests {
         let actual = uut.complete("b").await?;
 
         assert_eq!(actual, vec!["baredir0a/", "buckdir0b/", "buckdir0b:",]);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_handles_degenerate_buck_directory_with_no_targets() -> TestResult {
-        let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response("baredir0:", vec![]);
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "baredir0:").await?;
-
-        let expected: Vec<String> = vec![];
-        assert_eq!(actual, expected);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_provides_targets_for_path_ending_with_a_colon() -> TestResult {
-        let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "baredir0/buckdir0b:",
-            vec![
-                "root//baredir0/buckdir0b:target1",
-                "root//baredir0/buckdir0b:target2",
-                "root//baredir0/buckdir0b:target3",
-            ],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "baredir0/buckdir0b:").await?;
-
-        assert_eq!(
-            actual,
-            vec![
-                "baredir0/buckdir0b:target1",
-                "baredir0/buckdir0b:target2",
-                "baredir0/buckdir0b:target3",
-            ],
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_provides_targets_in_nested_cell() -> TestResult {
-        let (roots, cwd) = in_dir("cell1")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "buck2:").await?;
-
-        assert_eq!(
-            actual,
-            vec!["buck2:buck2", "buck2:symlinked_buck2_and_tpx",]
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_completes_a_partial_target() -> TestResult {
-        let (roots, cwd) = in_dir("cell1")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "buck2:bu").await?;
-
-        assert_eq!(actual, vec!["buck2:buck2",]);
         Ok(())
     }
 
@@ -693,19 +447,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_targets_for_fully_qualified_cell() -> TestResult {
-        let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response("cell1//:", vec!["cell1//:target1"]);
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "cell1//:").await?;
-
-        assert_eq!(actual, vec!["cell1//:target1"]);
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_completes_directory_in_different_cell_to_canonical_name() -> TestResult {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
@@ -751,26 +492,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_other_cell_canonical_path_targets_from_subdirectory_in_this_cell()
-    -> TestResult {
-        let (roots, cwd) = in_dir("baredir0")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "cell1//buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "cell1//buck2:").await?;
-
-        assert_eq!(
-            actual,
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"]
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn test_in_subdirectory_can_complete_subdirs_of_project_root_with_canonical_cell()
     -> TestResult {
         let (roots, cwd) = in_dir("baredir0")?;
@@ -802,74 +523,6 @@ mod tests {
         let actual = uut.complete("b").await?;
 
         assert_eq!(actual, vec!["baredir0a/", "buckdir0b/", "buckdir0b:",]);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_expands_cell_to_canonical_in_middle_of_input_text_with_target_colon() -> TestResult
-    {
-        let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "cell1//buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "cell1/buck2:").await?;
-
-        assert_eq!(
-            actual,
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx",]
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_expands_cell_to_canonical_in_middle_of_input_text_with_partial_target()
-    -> TestResult {
-        let (roots, cwd) = in_root()?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "cell1//buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "cell1/buck2:bu").await?;
-
-        assert_eq!(actual, vec!["cell1//buck2:buck2"]);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_expands_targets_for_a_bare_colon_in_a_buck_directory() -> TestResult {
-        let (roots, cwd) = in_dir("cell1/buck2")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            ":",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, ":").await?;
-
-        assert_eq!(actual, vec![":buck2", ":symlinked_buck2_and_tpx",]);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_returns_nothing_for_a_bare_colon_in_a_non_buck_directory() -> TestResult {
-        let (roots, cwd) = in_dir("baredir0")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        // This is weird, but it reflects the behavior of the server API
-        // when given an invalid ":" as its argument
-        target_resolver.add_response(":", vec![]);
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, ":").await?;
-
-        assert_eq!(actual.len(), 0);
         Ok(())
     }
 
@@ -1013,48 +666,5 @@ mod tests {
             vec!["cell1//", "cell1//:", "cell1_alias//", "cell1_alias//:"]
         );
         Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_target_completion_works_correctly_with_aliased_cells() -> anyhow::Result<()> {
-        let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "cell1_alias//buck2:",
-            vec!["cell1//buck2:buck2", "cell1//buck2:symlinked_buck2_and_tpx"],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        let actual = target_complete_helper(uut, "cell1_alias//buck2:").await?;
-
-        assert_eq!(
-            actual,
-            vec![
-                "cell1_alias//buck2:buck2",
-                "cell1_alias//buck2:symlinked_buck2_and_tpx",
-            ]
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_target_completion_fails_with_error_with_nonexistent_alias() -> anyhow::Result<()>
-    {
-        let (roots, cwd) = in_dir("cell1/buck2")?;
-        let mut target_resolver = FakeTargetResolver::new();
-        target_resolver.add_response(
-            "cell1_alias//buck2:",
-            vec![
-                "cell1//buck2:buck2",
-                "cell1//buck2:symlinked_buck2_and_tpx",
-                "",
-            ],
-        );
-        let uut = TargetCompleter::new(&cwd, &roots, &mut target_resolver).await?;
-
-        match target_complete_helper(uut, "cell1_alias//buck2:").await {
-            CommandOutcome::Success(_) => panic!("Expected error"),
-            CommandOutcome::Failure(_) => Ok(()),
-        }
     }
 }

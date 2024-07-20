@@ -8,8 +8,9 @@
  */
 
 mod buck_path;
-mod pattern;
-pub(crate) mod target;
+mod package;
+mod results;
+mod target;
 
 use std::time::Duration;
 use std::time::Instant;
@@ -19,7 +20,7 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use clap::ArgMatches;
-use pattern::PackageCompleter;
+use package::PackageCompleter;
 use target::CompleteTargetCommand;
 
 #[derive(Debug, clap::Parser)]
