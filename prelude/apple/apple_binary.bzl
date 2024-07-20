@@ -9,6 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactInfoTag",
 )
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -120,7 +121,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
             extra_link_flags = extra_link_flags,
-            extra_hidden = validation_deps_outputs,
+            extra_hidden = validation_deps_outputs + get_attrs_validators_outputs(ctx),
             srcs = cxx_srcs,
             additional = CxxRuleAdditionalParams(
                 srcs = swift_srcs,

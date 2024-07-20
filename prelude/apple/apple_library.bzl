@@ -12,6 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -351,7 +352,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_hidden = validation_deps_outputs,
+        extra_hidden = validation_deps_outputs + get_attrs_validators_outputs(ctx),
         extra_link_flags = [_get_linker_flags(ctx)],
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,

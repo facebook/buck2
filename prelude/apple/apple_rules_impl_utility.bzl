@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
 load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
@@ -111,6 +112,7 @@ def apple_test_extra_attrs():
     # wrap this test library into an `apple_bundle`. Because of this, `apple_test` has attributes
     # from both `apple_library` and `apple_bundle`.
     attribs = {
+        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
