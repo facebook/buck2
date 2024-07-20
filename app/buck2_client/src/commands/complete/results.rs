@@ -19,7 +19,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 
-use super::buck_path::BuckPath;
+use super::path_sanitizer::SanitizedPath;
 
 pub(crate) struct CompletionResults<'a> {
     roots: &'a InvocationRoots,
@@ -43,7 +43,7 @@ impl<'a> CompletionResults<'a> {
         self
     }
 
-    pub(crate) async fn insert_path(&mut self, path: &BuckPath) -> &mut Self {
+    pub(crate) async fn insert_path(&mut self, path: &SanitizedPath) -> &mut Self {
         self.insert_dir(&path.abs_path(), path.given()).await
     }
 

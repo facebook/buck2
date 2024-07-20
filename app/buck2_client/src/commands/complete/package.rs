@@ -17,7 +17,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 
-use super::buck_path::BuckPath;
+use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
@@ -68,7 +68,7 @@ impl<'a> PackageCompleter<'a> {
             }
 
             let path =
-                BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
+                SanitizedPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_path).await?;
             if path.given() != given_path && completes_to_dir(&self.cwd, &path)? {
                 // There are potential completions to this string, but we're
                 // transforming it on the first tab to minimize surprise and help
@@ -113,7 +113,7 @@ impl<'a> PackageCompleter<'a> {
         Ok(())
     }
 
-    async fn complete_dir(&mut self, partial: &BuckPath) -> CommandOutcome<()> {
+    async fn complete_dir(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
         if partial.is_full_dir() {
             self.complete_subdirs(partial).await
         } else {
@@ -121,14 +121,14 @@ impl<'a> PackageCompleter<'a> {
         }
     }
 
-    async fn complete_subdirs(&mut self, partial: &BuckPath) -> CommandOutcome<()> {
+    async fn complete_subdirs(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
         let partial_dir = partial.abs_path();
 
         let given_dir = partial.given();
 
         for entry in partial_dir.read_dir()?.flatten() {
             if entry.path().is_dir() {
-                let path = BuckPath::new(
+                let path = SanitizedPath::new(
                     &self.cell_configs.cell_resolver,
                     &self.cwd,
                     &(given_dir.to_owned() + &file_name_string(&entry)),
@@ -142,7 +142,7 @@ impl<'a> PackageCompleter<'a> {
         CommandOutcome::Success(())
     }
 
-    async fn complete_dir_fragment(&mut self, partial: &BuckPath) -> CommandOutcome<()> {
+    async fn complete_dir_fragment(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
         let partial_path = partial.abs_path();
         let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
 
@@ -156,7 +156,7 @@ impl<'a> PackageCompleter<'a> {
         for entry_result in scan_dir.read_dir()? {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
-                let given_expanded = BuckPath::new(
+                let given_expanded = SanitizedPath::new(
                     &self.cell_configs.cell_resolver,
                     &self.cwd,
                     &(given_dir.to_owned() + &file_name_string(&entry)),
@@ -169,7 +169,7 @@ impl<'a> PackageCompleter<'a> {
     }
 }
 
-fn completes_to_dir(cwd: &Path, partial: &BuckPath) -> anyhow::Result<bool> {
+fn completes_to_dir(cwd: &Path, partial: &SanitizedPath) -> anyhow::Result<bool> {
     let partial_path = partial.abs_path();
     let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
 

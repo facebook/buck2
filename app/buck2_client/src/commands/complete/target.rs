@@ -36,7 +36,7 @@ use futures::future::BoxFuture;
 use futures::FutureExt;
 use tokio::time;
 
-use super::buck_path::BuckPath;
+use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
 type CompleteCallback = fn(CommandOutcome<Vec<String>>) -> ExitResult;
@@ -164,7 +164,7 @@ impl<'a> TargetCompleter<'a> {
         partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
         let path =
-            BuckPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_package).await?;
+            SanitizedPath::new(&self.cell_configs.cell_resolver, &self.cwd, given_package).await?;
         let completions = self
             .target_resolver
             .resolve(path.given().to_owned() + ":")

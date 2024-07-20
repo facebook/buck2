@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-mod buck_path;
 mod package;
+mod path_sanitizer;
 mod results;
 mod target;
 
