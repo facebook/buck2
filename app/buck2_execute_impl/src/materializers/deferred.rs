@@ -667,14 +667,14 @@ enum ArtifactMaterializationStage {
 #[derive(Debug, Display)]
 pub enum ArtifactMaterializationMethod {
     /// The files must be copied from a local path.
-    ///
-    /// The first argument is a map `[dest => src]`, meaning that a file at
-    /// `{artifact_path}/{dest}/{p}` needs to be copied from `{src}/{p}`.
-    ///
-    /// The second argument is the raw list of copied artifacts, as received
-    /// in `declare_copy`.
     #[display(fmt = "local copy")]
-    LocalCopy(FileTree<ProjectRelativePathBuf>, Vec<CopiedArtifact>),
+    LocalCopy(
+        /// A map `[dest => src]`, meaning that a file at
+        /// `{artifact_path}/{dest}/{p}` needs to be copied from `{src}/{p}`.
+        FileTree<ProjectRelativePathBuf>,
+        /// Raw list of copied artifacts, as received in `declare_copy`.
+        Vec<CopiedArtifact>,
+    ),
 
     #[display(fmt = "write")]
     Write(Arc<WriteFile>),
