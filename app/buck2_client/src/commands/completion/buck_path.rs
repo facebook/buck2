@@ -35,13 +35,13 @@ impl BuckPath {
         let cwd_abs_path = AbsNormPathBuf::new(cwd.to_path_buf())?;
         let cwd_relative = cwd_roots.project_root.relativize(&cwd_abs_path)?;
         let project_root = cwd_roots.project_root.root();
-        let resolver = BuckConfigBasedCells::parse_with_config_args(
+        let cell_configs = BuckConfigBasedCells::parse_with_config_args(
             &cwd_roots.project_root,
             &[],
             &cwd_relative,
         )
-        .await?
-        .cell_resolver;
+        .await?;
+        let resolver = &cell_configs.cell_resolver;
 
         match s.split("//").collect::<Vec<_>>()[..] {
             [path_str] => {
@@ -82,10 +82,16 @@ impl BuckPath {
                 }
             }
             [given_cell_str, cell_path] => {
+                let alias_resolver = cell_configs
+                    .get_cell_alias_resolver_for_cwd_fast(
+                        &cwd_roots.project_root,
+                        &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
+                    )
+                    .await?;
                 let given_cell = if given_cell_str == "" {
                     resolver.find(&cwd_roots.project_root.relativize(&cwd_roots.cell_root)?)?
                 } else {
-                    CellName::unchecked_new(given_cell_str)?
+                    alias_resolver.resolve(given_cell_str)?
                 };
                 let abs_path = project_root
                     .join_normalized(&resolver.get(given_cell)?.path().as_forward_relative_path())?
@@ -734,6 +740,97 @@ mod tests {
         let uut = BuckPath::new(&cwd, cwd.join("buck2").to_str().unwrap()).await?;
 
         assert_eq!(uut.to_string(), "cell1//buck2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_can_create_from_a_cell_alias() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_aliased_object_provides_correct_abs_path() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        assert_eq!(uut.abs_path(), abs_path_from_relative("cell1/buck2")?);
+
+        Ok(())
+    }
+
+    // #[tokio::test]
+    // async fn test_aliased_object_provides_non_aliased_canonical_path() -> anyhow::Result<()> {
+    //     let cwd = in_dir("cell1/buck2/prelude")?;
+    //     let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+    //     assert_eq!(uut.canonical(), "cell1//buck2");
+
+    //     Ok(())
+    // }
+
+    #[tokio::test]
+    async fn test_aliased_object_provides_non_aliased_cell_name() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        assert_eq!(uut.cell_name(), &CellName::testing_new("cell1"));
+
+        Ok(())
+    }
+
+    // #[tokio::test]
+    // async fn test_exposes_cell_relative_path_from_canonical_path() -> anyhow::Result<()> {
+    //     let cwd = in_dir("cell1/buck2/prelude")?;
+    //     let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+    //     assert_eq!(
+    //         uut.cell_path(),
+    //         CellRelativePath::testing_new("cell1/buck2".into())
+    //     );
+
+    //     Ok(())
+    // }
+
+    #[tokio::test]
+    async fn test_aliased_object_retains_aliased_cell_in_given() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        assert_eq!(uut.given(), "cell1_alias//buck2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_aliased_object_displays_as_aliased_non_canonical_path() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        assert_eq!(format!("{}", uut), "cell1_alias//buck2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_alaised_object_stringifies_as_aliased_non_canonical_path() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2/prelude")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await?;
+
+        assert_eq!(uut.to_string(), "cell1_alias//buck2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_creation_returns_error_on_non_local_alias() -> anyhow::Result<()> {
+        let cwd = in_dir("cell1/buck2")?;
+        let uut = BuckPath::new(&cwd, "cell1_alias//buck2").await;
+
+        assert!(uut.is_err());
 
         Ok(())
     }

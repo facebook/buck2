@@ -58,7 +58,7 @@ pub(crate) async fn complete_package(
                 results.insert_path(&BuckPath::new(cwd, "//").await?).await;
             }
 
-            insert_partially_complete_cells(&mut results, roots, given_partial).await?;
+            insert_partially_complete_cells(&mut results, roots, cwd, given_partial).await?;
         }
 
         let partial = BuckPath::new(cwd, given_partial).await?;
@@ -77,18 +77,26 @@ pub(crate) async fn complete_package(
 async fn insert_partially_complete_cells(
     results: &mut PatternResults<'_>,
     roots: &InvocationRoots,
+    cwd: &Path,
     given_partial: &str,
 ) -> anyhow::Result<()> {
-    let cell_resolver = BuckConfigBasedCells::parse_with_config_args(
+    let cell_configs = BuckConfigBasedCells::parse_with_config_args(
         &roots.project_root,
         &[],
         ProjectRelativePath::empty(),
     )
-    .await?
-    .cell_resolver;
+    .await?;
+    let alias_resolver = cell_configs
+        .get_cell_alias_resolver_for_cwd_fast(
+            &roots.project_root,
+            &roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
+        )
+        .await?;
+    let cell_resolver = &cell_configs.cell_resolver;
 
-    for (cell_name, cell) in cell_resolver.cells() {
-        let canonical_cell_root = format!("{}//", cell_name.as_str());
+    for (cell_alias, cell_name) in alias_resolver.mappings() {
+        let canonical_cell_root = cell_alias.as_str().to_owned() + "//";
+        let cell = cell_resolver.get(cell_name)?;
         if canonical_cell_root.starts_with(given_partial) {
             let cell_abs_path = roots
                 .project_root
@@ -948,5 +956,91 @@ mod tests {
 
         assert_eq!(actual.len(), 0);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_package_completion_completes_packages_with_cell_aliases_as_aliases()
+    -> anyhow::Result<()> {
+        let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
+
+        let actual = complete_package(&roots, &cwd, "cell1_alias//b").await?;
+
+        assert_eq!(actual, vec!["cell1_alias//buck2/", "cell1_alias//buck2:"]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_package_completion_only_uses_aliases_in_cells_definining_them()
+    -> anyhow::Result<()> {
+        let (roots, cwd) = in_dir("cell1/buck2")?;
+
+        let actual_result = complete_package(&roots, &cwd, "cell1_alias//b").await;
+
+        assert!(actual_result.is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_completes_cell_aliases_alongside_cells() -> anyhow::Result<()> {
+        let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
+
+        let actual = complete_package(&roots, &cwd, "cell1").await?;
+
+        assert_eq!(
+            actual,
+            vec!["cell1//", "cell1//:", "cell1_alias//", "cell1_alias//:"]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_target_completion_works_correctly_with_aliased_cells() -> anyhow::Result<()> {
+        let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
+        let mut target_resolver = FakeTargetsResolver::new();
+        target_resolver.add_response(
+            "cell1_alias//buck2:",
+            &([
+                "cell1//buck2:buck2",
+                "cell1//buck2:symlinked_buck2_and_tpx",
+                "",
+            ]
+            .join("\n")),
+        );
+
+        let actual =
+            complete_target_helper(&roots, &mut target_resolver, &cwd, "cell1_alias//buck2:")
+                .await?;
+
+        assert_eq!(
+            actual,
+            vec![
+                "cell1_alias//buck2:buck2",
+                "cell1_alias//buck2:symlinked_buck2_and_tpx",
+            ]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_target_completion_fails_with_error_with_nonexistent_alias() -> anyhow::Result<()>
+    {
+        let (roots, cwd) = in_dir("cell1/buck2")?;
+        let mut target_resolver = FakeTargetsResolver::new();
+        target_resolver.add_response(
+            "cell1_alias//buck2:",
+            &([
+                "cell1//buck2:buck2",
+                "cell1//buck2:symlinked_buck2_and_tpx",
+                "",
+            ]
+            .join("\n")),
+        );
+
+        match complete_target_helper(&roots, &mut target_resolver, &cwd, "cell1_alias//buck2:")
+            .await
+        {
+            CommandOutcome::Success(_) => panic!("Expected error"),
+            CommandOutcome::Failure(_) => Ok(()),
+        }
     }
 }
