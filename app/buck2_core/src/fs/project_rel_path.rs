@@ -111,6 +111,7 @@ pub struct ProjectRelativePath(
 #[derive(Clone, derive_more::Display, Derivative)]
 // split in two because formatters don't agree
 #[derive(
+    Default,
     Hash,
     PartialEq,
     Eq,
@@ -514,6 +515,11 @@ impl ProjectRelativePathBuf {
     /// Pushes a `ForwardRelativePath` to the existing buffer
     pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         self.0.push(path)
+    }
+
+    /// Pops the last component from the path, if there is one.
+    pub fn pop(&mut self) -> bool {
+        self.0.pop()
     }
 
     /// Pushes a `RelativePath` to the existing buffer, normalizing it

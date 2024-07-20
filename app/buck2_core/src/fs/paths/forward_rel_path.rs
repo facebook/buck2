@@ -49,7 +49,7 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+    Default, Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePathBuf(String);
@@ -95,6 +95,15 @@ impl<'a> Iterator for ForwardRelativePathIter<'a> {
         let (first, rem) = self.0.split_first()?;
         self.0 = rem;
         Some(first)
+    }
+}
+
+impl<'a> DoubleEndedIterator for ForwardRelativePathIter<'a> {
+    #[inline]
+    fn next_back(&mut self) -> Option<&'a FileName> {
+        let (rem, last) = self.0.split_last()?;
+        self.0 = rem;
+        Some(last)
     }
 }
 
@@ -341,6 +350,24 @@ impl ForwardRelativePath {
             None
         } else {
             Some((FileName::unchecked_new(s), ForwardRelativePath::empty()))
+        }
+    }
+
+    /// Split off the last component of the path.
+    pub fn split_last(&self) -> Option<(&ForwardRelativePath, &FileName)> {
+        let s = &self.0;
+        for (i, b) in s.bytes().enumerate().rev() {
+            if b == b'/' {
+                return Some((
+                    ForwardRelativePath::unchecked_new(&s[..i]),
+                    FileName::unchecked_new(&s[i + 1..]),
+                ));
+            }
+        }
+        if s.is_empty() {
+            None
+        } else {
+            Some((ForwardRelativePath::empty(), FileName::unchecked_new(s)))
         }
     }
 
@@ -788,6 +815,15 @@ impl ForwardRelativePathBuf {
             self.0.push('/');
         }
         self.0.push_str(path.as_ref().as_str())
+    }
+
+    /// Pop the last component of the path, if there is one.
+    pub fn pop(&mut self) -> bool {
+        let Some((me, _pop)) = self.split_last() else {
+            return false;
+        };
+        self.0.truncate(me.0.len());
+        true
     }
 
     pub fn concat<'a, I: IntoIterator<Item = &'a ForwardRelativePath> + Copy>(
@@ -1444,6 +1480,27 @@ mod tests {
     }
 
     #[test]
+    fn test_iter() {
+        assert_eq!(
+            vec!["foo", "bar", "baz"],
+            ForwardRelativePath::new("foo/bar/baz")
+                .unwrap()
+                .iter()
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            vec!["baz", "bar", "foo"],
+            ForwardRelativePath::new("foo/bar/baz")
+                .unwrap()
+                .iter()
+                .rev()
+                .map(|p| p.as_str())
+                .collect::<Vec<_>>()
+        )
+    }
+
+    #[test]
     fn test_strip_suffix() {
         let path = ForwardRelativePath::new("foo/bar/baz").unwrap();
         assert_eq!(
@@ -1504,5 +1561,45 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("expected a normalized path"), "{}", err);
+    }
+
+    #[test]
+    fn test_split_last() {
+        assert_eq!(
+            Some((
+                ForwardRelativePath::new("foo/bar").unwrap(),
+                FileName::new("baz").unwrap()
+            )),
+            ForwardRelativePath::new("foo/bar/baz")
+                .unwrap()
+                .split_last(),
+        );
+        assert_eq!(
+            Some((
+                ForwardRelativePath::new("foo").unwrap(),
+                FileName::new("bar").unwrap()
+            )),
+            ForwardRelativePath::new("foo/bar").unwrap().split_last(),
+        );
+        assert_eq!(
+            Some((
+                ForwardRelativePath::new("").unwrap(),
+                FileName::new("foo").unwrap()
+            )),
+            ForwardRelativePath::new("foo").unwrap().split_last(),
+        );
+        assert_eq!(None, ForwardRelativePath::new("").unwrap().split_last());
+    }
+
+    #[test]
+    fn test_pop() {
+        let mut p = ForwardRelativePath::new("foo/bar/baz").unwrap().to_buf();
+        assert!(p.pop());
+        assert_eq!(ForwardRelativePath::new("foo/bar").unwrap(), p);
+        assert!(p.pop());
+        assert_eq!(ForwardRelativePath::new("foo").unwrap(), p);
+        assert!(p.pop());
+        assert_eq!(ForwardRelativePath::new("").unwrap(), p);
+        assert!(!p.pop());
     }
 }
