@@ -9,11 +9,11 @@
 
 use std::fmt;
 
-use super::DirectoryBuilder;
-use super::DirectoryDigest;
-use super::DirectoryEntry;
-use super::OrderedDirectoryWalk;
-use super::UnorderedDirectoryWalk;
+use crate::directory::builder::DirectoryBuilder;
+use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::walk::OrderedDirectoryWalk;
+use crate::directory::walk::UnorderedDirectoryWalk;
 use crate::fs::paths::file_name::FileName;
 
 pub type DirectoryEntries<'a, L, H> =

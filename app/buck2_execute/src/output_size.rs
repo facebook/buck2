@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use buck2_core::directory::unordered_entry_walk;
-use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::entry::DirectoryEntry;
+use buck2_core::directory::walk::unordered_entry_walk;
 
 use crate::artifact_value::ArtifactValue;
 use crate::directory::ActionDirectory;

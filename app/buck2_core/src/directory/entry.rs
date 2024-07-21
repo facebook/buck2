@@ -12,7 +12,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
-use crate::directory::Directory;
+use crate::directory::directory::Directory;
 
 /// An entry in a Directory, parameterized by the type of children directories and the type of leaf
 /// nodes. We expect to be able to traverse directories, and we don't traverse leaves.

@@ -30,7 +30,7 @@ use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::directory::Directory;
+use buck2_core::directory::directory::Directory;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;

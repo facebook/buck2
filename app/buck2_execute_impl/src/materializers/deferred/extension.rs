@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::get_dispatcher;

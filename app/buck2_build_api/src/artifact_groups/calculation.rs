@@ -24,7 +24,7 @@ use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::directory::DirectoryData;
+use buck2_core::directory::directory_data::DirectoryData;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;

@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use super::Directory;
-use super::DirectoryEntry;
-use super::DirectoryMut;
-use super::FingerprintedDirectory;
-use super::PathAccumulator;
+use crate::directory::directory::Directory;
+use crate::directory::directory_mut::DirectoryMut;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
+use crate::directory::path_accumulator::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 

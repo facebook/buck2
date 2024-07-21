@@ -37,7 +37,7 @@ use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
-use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;

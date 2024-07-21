@@ -14,7 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;

@@ -9,8 +9,8 @@
 
 use std::fmt;
 
-use super::Directory;
-use super::DirectoryEntry;
+use crate::directory::directory::Directory;
+use crate::directory::entry::DirectoryEntry;
 use crate::fs::paths::file_name::FileName;
 
 /// A directory that isn't fingerprinted, and as such is mutable;

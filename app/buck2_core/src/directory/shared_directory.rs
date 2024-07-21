@@ -15,17 +15,13 @@ use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe_;
 
-use super::impl_fingerprinted_directory;
-use super::DashMapDirectoryInterner;
-use super::Directory;
-use super::DirectoryBuilder;
-use super::DirectoryData;
-use super::DirectoryDigest;
-use super::DirectoryEntries;
-use super::DirectoryEntry;
-use super::FingerprintedDirectory;
-use super::FingerprintedDirectoryEntries;
-use super::ImmutableDirectory;
+use crate::directory::builder::DirectoryBuilder;
+use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+use crate::directory::directory_data::DirectoryData;
+use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::immutable_directory::ImmutableDirectory;
+use crate::directory::macros::impl_fingerprinted_directory;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 

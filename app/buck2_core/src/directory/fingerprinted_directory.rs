@@ -9,10 +9,10 @@
 
 use std::fmt;
 
-use super::DirectoryDigest;
-use super::DirectoryEntry;
-use super::FingerprintedOrderedDirectoryWalk;
-use super::FingerprintedUnorderedDirectoryWalk;
+use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::walk::FingerprintedOrderedDirectoryWalk;
+use crate::directory::walk::FingerprintedUnorderedDirectoryWalk;
 use crate::fs::paths::file_name::FileName;
 
 pub type FingerprintedDirectoryEntries<'a, L, H> = Box<

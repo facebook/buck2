@@ -18,7 +18,7 @@ use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::directory::DirectoryEntry;
+use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;

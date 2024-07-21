@@ -9,18 +9,18 @@
 
 use starlark_map::small_map::SmallMap;
 
-use super::Directory;
-use super::DirectoryBuilder;
-use super::DirectoryDigest;
-use super::DirectoryEntries;
-use super::DirectoryEntry;
-use super::DirectoryIterator;
-use super::DirectoryIteratorPathAccessor;
-use super::DirectoryIteratorPathStack;
-use super::FingerprintedDirectory;
-use super::FingerprintedDirectoryEntries;
-use super::FingerprintedOrderedDirectoryEntries;
-use super::OrderedDirectoryEntries;
+use crate::directory::builder::DirectoryBuilder;
+use crate::directory::directory::Directory;
+use crate::directory::directory::DirectoryEntries;
+use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::directory_iterator::DirectoryIterator;
+use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
+use crate::directory::directory_iterator::DirectoryIteratorPathStack;
+use crate::directory::entries::FingerprintedOrderedDirectoryEntries;
+use crate::directory::entries::OrderedDirectoryEntries;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
+use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::IntoFileNameBufIterator;

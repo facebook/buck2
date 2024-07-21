@@ -15,8 +15,8 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
-use super::DirectoryEntry;
-use super::FingerprintedDirectory;
+use crate::directory::entry::DirectoryEntry;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::fs::paths::file_name::FileName;
 
 pub trait DirectoryDigest:

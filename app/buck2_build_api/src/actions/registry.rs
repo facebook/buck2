@@ -19,12 +19,12 @@ use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::directory;
-use buck2_core::directory::Directory;
-use buck2_core::directory::DirectoryBuilder;
-use buck2_core::directory::DirectoryEntry;
-use buck2_core::directory::DirectoryInsertError;
-use buck2_core::directory::DirectoryIterator;
-use buck2_core::directory::NoDigest;
+use buck2_core::directory::builder::DirectoryBuilder;
+use buck2_core::directory::builder::DirectoryInsertError;
+use buck2_core::directory::directory::Directory;
+use buck2_core::directory::directory_hasher::NoDigest;
+use buck2_core::directory::directory_iterator::DirectoryIterator;
+use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -129,7 +129,7 @@ impl ActionsRegistry {
                 Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
             }
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
-                let location = match directory::find(&self.claimed_output_paths, &conflict) {
+                let location = match directory::find::find(&self.claimed_output_paths, &conflict) {
                     Ok(Some(DirectoryEntry::Leaf(l))) => l.as_ref(),
                     _ => None,
                 };

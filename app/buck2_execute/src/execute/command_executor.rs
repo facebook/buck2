@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::directory::FingerprintedDirectory;
+use buck2_core::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
