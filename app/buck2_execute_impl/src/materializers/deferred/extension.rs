@@ -22,6 +22,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
+use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use chrono::DateTime;
 use chrono::Duration;
@@ -114,7 +115,7 @@ struct Iterate {
     /// This is for debug commands so we use an unbounded channel to avoid locking up the
     /// materializer command thread.
     #[derivative(Debug = "ignore")]
-    sender: UnboundedSender<(ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
+    sender: UnboundedSender<DeferredMaterializerIterItem>,
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for Iterate {
@@ -166,7 +167,10 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
 
             let path = ProjectRelativePathBuf::from(path);
 
-            match self.sender.send((path, Box::new(path_data) as _)) {
+            match self.sender.send(DeferredMaterializerIterItem {
+                artifact_path: path,
+                artifact_display: Box::new(path_data) as _,
+            }) {
                 Ok(..) => {}
                 Err(..) => break, // No use sending more if the client disconnected.
             }
@@ -347,11 +351,7 @@ impl<T: IoHandler> ExtensionCommand<T> for FlushAccessTimes {
 
 #[async_trait]
 impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccessor<T> {
-    fn iterate(
-        &self,
-    ) -> anyhow::Result<
-        BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
-    > {
+    fn iterate(&self) -> anyhow::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Iterate { sender }) as _

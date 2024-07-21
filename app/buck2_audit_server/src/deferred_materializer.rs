@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
 use buck2_cli_proto::ClientContext;
+use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
@@ -41,8 +42,12 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .iterate()
                     .context("Failed to start iterating")?;
 
-                while let Some((path, entry)) = stream.next().await {
-                    writeln!(stdout, "{}\t{}", path, entry)?;
+                while let Some(DeferredMaterializerIterItem {
+                    artifact_path,
+                    artifact_display,
+                }) = stream.next().await
+                {
+                    writeln!(stdout, "{artifact_path}\t{artifact_display}")?;
                 }
             }
             DeferredMaterializerSubcommand::ListSubscriptions => {

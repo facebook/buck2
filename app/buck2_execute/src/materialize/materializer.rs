@@ -604,6 +604,11 @@ impl MaterializationMethod {
 /// `DeferredMaterializerEntry` lives in a crate that depends on this one.
 pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
 
+pub struct DeferredMaterializerIterItem {
+    pub artifact_path: ProjectRelativePathBuf,
+    pub artifact_display: Box<dyn DeferredMaterializerEntry>,
+}
+
 /// Obtain notifications for entries as they are materialized, and request eager materialization of
 /// those paths.
 #[async_trait]
@@ -623,11 +628,7 @@ pub trait DeferredMaterializerSubscription: Send + Sync {
 /// Extensions to the Materializer trait that are only available in the Deferred materializer.
 #[async_trait]
 pub trait DeferredMaterializerExtensions: Send + Sync {
-    fn iterate(
-        &self,
-    ) -> anyhow::Result<
-        BoxStream<'static, (ProjectRelativePathBuf, Box<dyn DeferredMaterializerEntry>)>,
-    >;
+    fn iterate(&self) -> anyhow::Result<BoxStream<'static, DeferredMaterializerIterItem>>;
 
     fn list_subscriptions(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>>;
 
