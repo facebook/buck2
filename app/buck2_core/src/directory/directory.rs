@@ -29,11 +29,17 @@ pub trait Directory<L, H> {
         needle: &'_ FileName,
     ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>>;
 
-    fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, L, H> {
+    fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, L, H>
+    where
+        Self: Sized,
+    {
         UnorderedDirectoryWalk::new(self)
     }
 
-    fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, L, H> {
+    fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, L, H>
+    where
+        Self: Sized,
+    {
         OrderedDirectoryWalk::new(self)
     }
 

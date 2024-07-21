@@ -32,11 +32,17 @@ pub trait FingerprintedDirectory<L, H> {
         needle: &'_ FileName,
     ) -> Option<DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>>;
 
-    fn fingerprinted_unordered_walk(&self) -> FingerprintedUnorderedDirectoryWalk<'_, L, H> {
+    fn fingerprinted_unordered_walk(&self) -> FingerprintedUnorderedDirectoryWalk<'_, L, H>
+    where
+        Self: Sized,
+    {
         FingerprintedUnorderedDirectoryWalk::new(self)
     }
 
-    fn fingerprinted_ordered_walk(&self) -> FingerprintedOrderedDirectoryWalk<'_, L, H> {
+    fn fingerprinted_ordered_walk(&self) -> FingerprintedOrderedDirectoryWalk<'_, L, H>
+    where
+        Self: Sized,
+    {
         FingerprintedOrderedDirectoryWalk::new(self)
     }
 

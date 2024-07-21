@@ -186,7 +186,7 @@ impl DefaultIoHandler {
                 let mut files = Vec::new();
 
                 {
-                    let mut walk = unordered_entry_walk(entry.as_ref());
+                    let mut walk = unordered_entry_walk(entry.as_ref_dyn());
 
                     while let Some((entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
@@ -505,7 +505,7 @@ pub(super) fn create_ttl_refresh(
         match &data.stage {
             ArtifactMaterializationStage::Declared { entry, method } => match method.as_ref() {
                 ArtifactMaterializationMethod::CasDownload { info } => {
-                    let mut walk = unordered_entry_walk(entry.as_ref());
+                    let mut walk = unordered_entry_walk(entry.as_ref_dyn());
                     while let Some((_entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
                             let needs_refresh = file.digest.expires() < ttl_deadline;

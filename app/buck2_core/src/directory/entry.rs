@@ -12,6 +12,8 @@ use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
+use crate::directory::Directory;
+
 /// An entry in a Directory, parameterized by the type of children directories and the type of leaf
 /// nodes. We expect to be able to traverse directories, and we don't traverse leaves.
 #[derive(
@@ -50,6 +52,16 @@ impl<D, L> DirectoryEntry<D, L> {
         match self {
             Self::Dir(ref d) => DirectoryEntry::Dir(d),
             Self::Leaf(ref l) => DirectoryEntry::Leaf(l),
+        }
+    }
+
+    pub fn as_ref_dyn<H>(&self) -> DirectoryEntry<&dyn Directory<L, H>, &L>
+    where
+        D: Directory<L, H>,
+    {
+        match self {
+            Self::Dir(d) => DirectoryEntry::Dir(d),
+            Self::Leaf(l) => DirectoryEntry::Leaf(l),
         }
     }
 

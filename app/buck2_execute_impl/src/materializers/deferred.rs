@@ -748,7 +748,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             let dest = copied_artifact.dest.strip_prefix(&path)?;
 
             {
-                let mut walk = unordered_entry_walk(copied_artifact.dest_entry.as_ref());
+                let mut walk = unordered_entry_walk(copied_artifact.dest_entry.as_ref_dyn());
                 while let Some((path, entry)) = walk.next() {
                     if let DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) = entry {
                         let path = path.get();

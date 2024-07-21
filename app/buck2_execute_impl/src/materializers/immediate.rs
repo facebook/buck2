@@ -303,7 +303,7 @@ pub async fn cas_download<'a, 'b>(
 
     let mut files = Vec::new();
     for (path, value) in artifacts.iter() {
-        let mut walk = unordered_entry_walk(value.entry().as_ref());
+        let mut walk = unordered_entry_walk(value.entry().as_ref_dyn());
         while let Some((entry_path, entry)) = walk.next() {
             if let DirectoryEntry::Leaf(ActionDirectoryMember::File(m)) = entry {
                 files.push(NamedDigestWithPermissions {

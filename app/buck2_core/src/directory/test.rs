@@ -471,7 +471,7 @@ fn test_filter() -> anyhow::Result<()> {
 fn test_entry_walk() {
     {
         let e = DirectoryEntry::<TestDirectoryBuilder, _>::Leaf(NopEntry);
-        let mut it = ordered_entry_walk(e.as_ref());
+        let mut it = ordered_entry_walk(e.as_ref_dyn());
 
         assert_matches!(
             it.next(),
@@ -483,7 +483,7 @@ fn test_entry_walk() {
 
     {
         let e = DirectoryEntry::<_, NopEntry>::Dir(TestDirectoryBuilder::empty());
-        let mut it = ordered_entry_walk(e.as_ref());
+        let mut it = ordered_entry_walk(e.as_ref_dyn());
 
         assert_matches!(it.next(), None);
     }

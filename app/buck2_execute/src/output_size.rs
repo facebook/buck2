@@ -35,7 +35,7 @@ where
     fn calc_output_count_and_bytes(&self) -> OutputCountAndBytes {
         let mut bytes = 0;
         let mut count = 0;
-        let mut walk = unordered_entry_walk(self.as_ref());
+        let mut walk = unordered_entry_walk(self.as_ref_dyn());
         while let Some((_path, entry)) = walk.next() {
             match entry {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
