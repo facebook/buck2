@@ -66,8 +66,17 @@ impl Display for ExitResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let _ignored = match &self.variant {
             ExitResultVariant::Status(code) => write!(f, "ExitCode = {}", code.exit_code()),
-            ExitResultVariant::Buck2RunExec(args) => {
-                write!(f, "Exec {} {}", args.prog, args.argv.join(" "))
+            ExitResultVariant::Exec(args) => {
+                write!(
+                    f,
+                    "Exec {} {}",
+                    args.prog.to_string_lossy(),
+                    args.argv
+                        .iter()
+                        .map(|s| s.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
             }
             ExitResultVariant::StatusWithErr(code, e) => {
                 write!(f, "ExitCode = {}, Err = {}", code.exit_code(), e)
