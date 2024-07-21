@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::iter;
+
+use either::Either;
 use starlark_map::small_map::SmallMap;
 
 use crate::directory::builder::DirectoryBuilder;
@@ -139,38 +142,34 @@ fn filter_inner<L, H>(
     }
 }
 
-enum SearchFrame<'a, 'b, T: WalkType<'b>> {
-    /// The search consists of just returning the root.
-    ReturnRoot {
-        root: Option<DirectoryEntry<T::Directory, &'b T::Leaf>>,
-    },
+/// Continue the search.
+struct SearchFrame<'a, 'b, T: WalkType<'b>> {
+    search: &'a SmallMap<FileNameBuf, DirectorySelector>,
+    name: Option<&'b FileName>,
+    entries: T::Entries,
+}
 
-    /// Continue the search.
-    Search {
-        search: &'a SmallMap<FileNameBuf, DirectorySelector>,
-        name: Option<&'b FileName>,
-        entries: T::Entries,
-    },
+enum SearchInner<'a, 'b, T: WalkType<'b>> {
+    ReturnRoot(Option<DirectoryEntry<T::Directory, &'b T::Leaf>>),
+    Stack(Vec<SearchFrame<'a, 'b, T>>),
 }
 
 pub struct Search<'a, 'b, T: WalkType<'b>> {
-    stack: Vec<SearchFrame<'a, 'b, T>>,
+    inner: SearchInner<'a, 'b, T>,
 }
 
 impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
     pub fn new(selector: &'a DirectorySelector, root: T::Directory) -> Self {
         match selector {
-            DirectorySelector::Traverse(ref search) => Self {
-                stack: vec![SearchFrame::Search {
+            DirectorySelector::Traverse(ref search) => Search {
+                inner: SearchInner::Stack(vec![SearchFrame {
                     search,
                     name: None,
                     entries: T::directory_entries(root).into(),
-                }],
+                }]),
             },
-            DirectorySelector::Take => Self {
-                stack: vec![SearchFrame::ReturnRoot {
-                    root: Some(DirectoryEntry::Dir(root)),
-                }],
+            DirectorySelector::Take => Search {
+                inner: SearchInner::ReturnRoot(Some(DirectoryEntry::Dir(root))),
             },
         }
     }
@@ -182,23 +181,25 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
         Result<DirectoryEntry<T::Directory, &'b T::Leaf>, DirectorySearchError<&'b T::Leaf>>;
 
     fn next<'c>(&'c mut self) -> Option<(DirectoryIteratorPathAccessor<'c, Self>, Self::Item)> {
-        loop {
-            let frame = self.stack.last_mut()?;
+        match &mut self.inner {
+            SearchInner::ReturnRoot(root) => {
+                let root = root.take()?;
+                Some((
+                    DirectoryIteratorPathAccessor {
+                        leaf: None,
+                        stack: self,
+                    },
+                    Ok(root),
+                ))
+            }
+            SearchInner::Stack(stack) => {
+                loop {
+                    let frame = stack.last_mut()?;
 
-            match frame {
-                SearchFrame::ReturnRoot { root } => {
-                    let root = root.take()?;
-                    return Some((
-                        DirectoryIteratorPathAccessor {
-                            leaf: None,
-                            stack: self,
-                        },
-                        Ok(root),
-                    ));
-                }
-                SearchFrame::Search {
-                    search, entries, ..
-                } => {
+                    let SearchFrame {
+                        search, entries, ..
+                    } = frame;
+
                     if let Some((name, entry)) = entries.next() {
                         let search = search.get(name);
 
@@ -206,7 +207,7 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
                             Some(DirectorySelector::Traverse(t)) => match entry {
                                 // Traverse into this directory ... assuming it's a directory :)
                                 DirectoryEntry::Dir(d) => {
-                                    self.stack.push(SearchFrame::Search {
+                                    stack.push(SearchFrame {
                                         name: Some(name),
                                         search: t,
                                         entries: T::directory_entries(d).into(),
@@ -239,21 +240,21 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
                             }
                         }
                     }
-                }
-            };
 
-            // We've exhausted this iterator. Go back to the previous stack frame.
-            self.stack.pop();
+                    // We've exhausted this iterator. Go back to the previous stack frame.
+                    stack.pop();
+                }
+            }
         }
     }
 }
 
 impl<'a, 'b, T: WalkType<'b>> DirectoryIteratorPathStack for Search<'a, 'b, T> {
     fn path(&self) -> impl Iterator<Item = &FileName> {
-        self.stack.iter().filter_map(|frame| match frame {
-            SearchFrame::ReturnRoot { .. } => None,
-            SearchFrame::Search { name, .. } => name.as_deref(),
-        })
+        match &self.inner {
+            SearchInner::ReturnRoot(_) => Either::Left(iter::empty()),
+            SearchInner::Stack(stack) => Either::Right(stack.iter().filter_map(|frame| frame.name)),
+        }
     }
 }
 
