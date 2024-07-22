@@ -266,18 +266,19 @@ function itemFilter(item, docs) {
 }
 
 function itemSort(items) {
-  function is_globals(x) {
-    // We want API "globals" docs to come first
-    return x.id && x.id.endsWith("/globals") ? 0 : 1;
-  }
-
-  // Reverse items in categories
+  // First, handle recursive categories
   const result = items.map((item) => {
     if (item.type === 'category') {
       return {...item, items: itemSort(item.items)};
     }
     return item;
   });
+
+  function is_globals(x) {
+    // We want API "globals" docs to come first
+    return x.id && x.id.endsWith("/globals") ? 0 : 1;
+  }
+
   // Make `globals` come first
   result.sort((a, b) => is_globals(a) - is_globals(b));
   return result;
