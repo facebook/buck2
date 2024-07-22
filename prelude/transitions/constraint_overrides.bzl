@@ -20,6 +20,22 @@ _CONSTRAINTS = [
 def _constr_eq(a, b):
     return a.label == b.label
 
+# It's possible that we multiple constraints for the same setting, so drop all
+# but the last one.
+def _dedupe(constraints):
+    deduped = []
+
+    # Walk the constraints in reverse, so that the last one trakes precedence.
+    settings = {}
+    for constraint in reversed(constraints):
+        if constraint.setting.label in settings:
+            # we've already seen this setting
+            continue
+        settings[constraint.setting.label] = None
+        deduped.append(constraint)
+
+    return reversed(deduped)
+
 def _constraint_overrides_transition_impl(
         platform: PlatformInfo,
         refs: struct,
@@ -29,6 +45,9 @@ def _constraint_overrides_transition_impl(
         getattr(refs, constraint)[ConstraintValueInfo]
         for constraint in attrs.constraint_overrides
     ]
+
+    # Filter out redundant constraints.
+    new_constraints = _dedupe(new_constraints)
 
     # Filter out new constraints which are already a part of the platform.
     new_constraints = [
