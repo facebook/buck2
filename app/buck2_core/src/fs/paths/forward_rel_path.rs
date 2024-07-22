@@ -807,14 +807,18 @@ impl ForwardRelativePathBuf {
     /// # anyhow::Ok(())
     /// ```
     pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
-        if path.as_ref().0.is_empty() {
+        let path = path.as_ref();
+        if path.is_empty() {
             return;
         }
 
-        if !self.0.is_empty() {
+        if self.is_empty() {
+            self.0.push_str(path.as_str());
+        } else {
+            self.reserve(1 + path.0.len());
             self.0.push('/');
+            self.0.push_str(path.as_str());
         }
-        self.0.push_str(path.as_ref().as_str())
     }
 
     /// Pop the last component of the path, if there is one.
