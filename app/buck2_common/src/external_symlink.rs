@@ -110,10 +110,7 @@ impl ExternalSymlink {
         path: &'a ForwardRelativePath,
     ) -> Option<&'a ForwardRelativePath> {
         if let Some(remaining) = self.remaining_path() {
-            let p = path.as_str().strip_suffix(remaining.as_str())?;
-            Some(ForwardRelativePath::unchecked_new(
-                p.strip_suffix('/').unwrap_or(p),
-            ))
+            path.strip_suffix_opt(remaining)
         } else {
             Some(path)
         }
