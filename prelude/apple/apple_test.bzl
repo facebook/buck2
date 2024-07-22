@@ -29,6 +29,7 @@ load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
+load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
 load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",
@@ -310,14 +311,14 @@ def _xcode_populate_attributes(
         test_host_app_binary: [cmd_args, None],
         **_kwargs) -> dict[str, typing.Any]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
-    data["output"] = xctest_bundle
+    data[XcodeDataInfoKeys.OUTPUT] = xctest_bundle
     if ctx.attrs.ui_test_target_app:
-        data["test_type"] = "ui-test"
-        data["test_target_name"] = ctx.attrs.ui_test_target_app.label.name
+        data[XcodeDataInfoKeys.TEST_TYPE] = "ui-test"
+        data[XcodeDataInfoKeys.TEST_TARGET_NAME] = ctx.attrs.ui_test_target_app.label.name
     else:
+        data[XcodeDataInfoKeys.TEST_TYPE] = "unit-test"
         if test_host_app_binary:
-            data["test_host_app_binary"] = test_host_app_binary
-        data["test_type"] = "unit-test"
+            data[XcodeDataInfoKeys.TEST_HOST_APP_BINARY] = test_host_app_binary
     return data
 
 def _get_xctest_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_args):

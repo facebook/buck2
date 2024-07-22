@@ -20,6 +20,7 @@ load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebugg
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
+    "XcodeDataInfoKeys",
     "generate_xcode_data",
 )
 load(
@@ -398,11 +399,11 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
     data = {
-        "deployment_version": get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary)),
-        "info_plist": ctx.attrs.info_plist,
-        "processed_info_plist": processed_info_plist,
-        "product_name": get_product_name(ctx),
-        "sdk": get_apple_sdk_name(ctx),
+        XcodeDataInfoKeys.DEPLOYMENT_VERSION: get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary)),
+        XcodeDataInfoKeys.INFO_PLIST: ctx.attrs.info_plist,
+        XcodeDataInfoKeys.PROCESSED_INFO_PLIST: processed_info_plist,
+        XcodeDataInfoKeys.PRODUCT_NAME: get_product_name(ctx),
+        XcodeDataInfoKeys.SDK: get_apple_sdk_name(ctx),
     }
 
     apple_xcode_data_add_xctoolchain(ctx, data)

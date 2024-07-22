@@ -18,6 +18,7 @@ XcodeDataInfoKeys = struct(
     ARCH = "arch",
     ARGSFILES_BY_EXT = "argsfiles_by_ext",
     BUNDLE_TYPE = "bundle_type",
+    CONTAINS_SWIFT_SOURCES = "contains_swift_sources",
     DEFAULT_TARGET_PLATFORM = "default_target_platform",
     DEPLOYMENT_VERSION = "deployment_version",
     EXPORTED_HEADERS = "exported_headers",
@@ -31,6 +32,7 @@ XcodeDataInfoKeys = struct(
     SDK = "sdk",
     SRCS = "srcs",
     SWIFT_VERSION = "swift_version",
+    TARGET = "target",
     TEST_HOST_APP_BINARY = "test_host_app_binary",
     TEST_TARGET_NAME = "test_target_name",
     TEST_TYPE = "test_type",
@@ -46,17 +48,17 @@ def generate_xcode_data(
         populate_rule_specific_attributes_func: [typing.Callable, None] = None,
         **kwargs) -> (list[DefaultInfo], XcodeDataInfo):
     data = {
-        "rule_type": rule_type,
-        "target": ctx.label,
+        XcodeDataInfoKeys.RULE_TYPE: rule_type,
+        XcodeDataInfoKeys.TARGET: ctx.label,
     }
     if output:
-        data["output"] = output
+        data[XcodeDataInfoKeys.OUTPUT] = output
     if populate_rule_specific_attributes_func:
         data.update(populate_rule_specific_attributes_func(ctx, **kwargs))
 
-    data["extra_xcode_files"] = []
+    data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = []
     if hasattr(ctx.attrs, "extra_xcode_files"):
-        data["extra_xcode_files"] = ctx.attrs.extra_xcode_files
+        data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = ctx.attrs.extra_xcode_files
 
     json_file = ctx.actions.write_json(_XCODE_DATA_FILE_NAME, data)
     return [DefaultInfo(default_output = json_file)], XcodeDataInfo(data = data)

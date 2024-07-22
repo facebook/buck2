@@ -13,6 +13,7 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
 
 def cxx_populate_xcode_attributes(
         ctx,
@@ -32,17 +33,17 @@ def cxx_populate_xcode_attributes(
         converted_srcs[src.file] = file_properties
 
     data = {
-        "argsfiles_by_ext": {
+        XcodeDataInfoKeys.ARGSFILES_BY_EXT: {
             ext: argsfile.file
             for ext, argsfile in argsfiles.items()
         },
-        "headers": _get_artifacts_with_owners(ctx.attrs.headers),
-        "product_name": product_name,
-        "srcs": converted_srcs,
+        XcodeDataInfoKeys.HEADERS: _get_artifacts_with_owners(ctx.attrs.headers),
+        XcodeDataInfoKeys.PRODUCT_NAME: product_name,
+        XcodeDataInfoKeys.SRCS: converted_srcs,
     }
 
     if hasattr(ctx.attrs, "exported_headers"):
-        data["exported_headers"] = _get_artifacts_with_owners(ctx.attrs.exported_headers)
+        data[XcodeDataInfoKeys.EXPORTED_HEADERS] = _get_artifacts_with_owners(ctx.attrs.exported_headers)
 
     return data
 
