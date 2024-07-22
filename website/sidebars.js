@@ -30,7 +30,6 @@ const { isInternal } = require("docusaurus-plugin-internaldocs-fb/internal");
 
 const universallyExcludedDirs = new Set([
   "rfcs/",
-  "legacy/",
 ]);
 
 const manualSidebar = [
