@@ -24,11 +24,15 @@ use crate::actions::RegisteredAction;
 #[derivative(Debug)]
 pub struct ActionExecutionTarget<'a> {
     action: &'a RegisteredAction,
+    new_style_scratch_path: bool,
 }
 
 impl<'a> ActionExecutionTarget<'a> {
-    pub(crate) fn new(action: &'a RegisteredAction) -> Self {
-        Self { action }
+    pub(crate) fn new(action: &'a RegisteredAction, new_style_scratch_path: bool) -> Self {
+        Self {
+            action,
+            new_style_scratch_path,
+        }
     }
 
     pub fn owner(&self) -> &'a BaseDeferredKey {
@@ -48,7 +52,7 @@ impl<'a> ActionExecutionTarget<'a> {
             self.action.owner().dupe(),
             self.action.category(),
             self.action.identifier(),
-            self.action.action_key(),
+            self.action.action_key(self.new_style_scratch_path),
         )
         .unwrap()
     }
