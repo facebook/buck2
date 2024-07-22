@@ -381,7 +381,7 @@ def generate_rustdoc_test(
         common_args.args,
         extern_arg([], attr_crate(ctx), rlib),
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
-        compile_ctx.linker_args,
+        cmd_args(compile_ctx.linker_args, format = "-Clinker={}"),
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
         cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
@@ -450,6 +450,40 @@ def rust_compile(
         is_rustdoc_test = False,
     )
 
+    deferred_link_cmd = None
+
+    # TODO(pickett): We can expand this to support all linked crate types (cdylib + binary)
+    # We can also share logic here for producing linked artifacts with cxx_library (instead of using)
+    # deferred_link_action
+    if params.crate_type == CrateType("dylib") and compile_ctx.dep_ctx.advanced_unstable_linking:
+        out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
+        out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
+        out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
+        linker_cmd = cmd_args(
+            compile_ctx.toolchain_info.extract_link_action,
+            cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
+            cmd_args(out_version_script.as_output(), format = "--out_version-script={}") if out_version_script else cmd_args(),
+            cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
+            compile_ctx.linker_args,
+        )
+
+        linker_args = cmd_script(
+            ctx = ctx,
+            name = common_args.subdir + "/linker_wrapper",
+            cmd = linker_cmd,
+            os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+        )
+
+        deferred_link_cmd = cmd_args(
+            compile_ctx.toolchain_info.deferred_link_action,
+            cmd_args(out_objects_dir, format = "--objects={}"),
+            cmd_args(out_version_script, format = "--version-script={}"),
+            compile_ctx.linker_args,
+            cmd_args(out_argsfile, format = "@{}"),
+        )
+    else:
+        linker_args = compile_ctx.linker_args
+
     path_sep = "\\" if exec_is_windows else "/"
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -458,7 +492,7 @@ def rust_compile(
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
-        compile_ctx.linker_args,
+        cmd_args(linker_args, format = "-Clinker={}"),
         extra_flags,
     )
 
@@ -486,6 +520,7 @@ def rust_compile(
             params = params,
             predeclared_output = predeclared_output,
             incremental_enabled = incremental_enabled,
+            deferred_link = deferred_link_cmd != None,
         )
 
     if emit == Emit("clippy"):
@@ -549,8 +584,19 @@ def rust_compile(
 
         pdb_artifact = link_args_output.pdb_artifact
         dwp_inputs = [link_args_output.link_args]
-        rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-        rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
+
+        # If we are deferring the real link to a separate action, we no longer pass the linker
+        # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
+        if deferred_link_cmd != None:
+            deferred_link_cmd.add(cmd_args(linker_argsfile, format = "@{}"))
+            deferred_link_cmd.add(cmd_args(hidden = link_args_output.hidden))
+
+            # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
+            # out in `extract_link_action.py` and provide our own output path here.
+            deferred_link_cmd.add(cmd_args(emit_op.output.as_output(), format = "-o {}"))
+        else:
+            rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
+            rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
 
     invoke = _rustc_invoke(
         ctx = ctx,
@@ -565,6 +611,7 @@ def rust_compile(
         crate_map = common_args.crate_map,
         env = emit_op.env,
         incremental_enabled = incremental_enabled,
+        deferred_link_cmd = deferred_link_cmd,
     )
 
     if infallible_diagnostics and emit != Emit("clippy"):
@@ -1073,14 +1120,12 @@ def _linker_args(
         ctx.attrs.linker_flags,
     )
 
-    linker_wrapper = cmd_script(
+    return cmd_script(
         ctx = ctx,
         name = "linker_wrapper",
         cmd = linker,
         os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
     )
-
-    return cmd_args(linker_wrapper, format = "-Clinker={}")
 
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named
@@ -1167,7 +1212,8 @@ def _rustc_emit(
         subdir: str,
         params: BuildParams,
         incremental_enabled: bool,
-        predeclared_output: Artifact | None = None) -> EmitOperation:
+        predeclared_output: Artifact | None = None,
+        deferred_link: bool = False) -> EmitOperation:
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
 
@@ -1215,7 +1261,13 @@ def _rustc_emit(
         else:
             effective_emit = emit.value
 
-        emit_args.add(cmd_args("--emit=", effective_emit, "=", emit_output.as_output(), delimiter = ""))
+        # When using deferred link, we still want to pass `--emit` to rustc to trigger
+        # the correct compilation behavior, but we do not want to pass emit_output here.
+        # Instead, we will bind the emit output to the actual deferred link action.
+        if deferred_link and effective_emit == "link":
+            emit_args.add(cmd_args("--emit=", effective_emit, delimiter = ""))
+        else:
+            emit_args.add(cmd_args("--emit=", effective_emit, "=", emit_output.as_output(), delimiter = ""))
 
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(simple_crate, emit, params))
@@ -1256,7 +1308,8 @@ def _rustc_invoke(
         allow_cache_upload: bool,
         incremental_enabled: bool,
         crate_map: list[(CrateName, Label)],
-        env: dict[str, str | ResolvedStringWithMacros | Artifact]) -> Invoke:
+        env: dict[str, str | ResolvedStringWithMacros | Artifact],
+        deferred_link_cmd: cmd_args | None) -> Invoke:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1331,12 +1384,23 @@ def _rustc_invoke(
     ctx.actions.run(
         compile_cmd,
         local_only = local_only,
-        prefer_local = prefer_local,
+        # We only want to prefer_local here if rustc is performing the link
+        prefer_local = prefer_local and deferred_link_cmd == None,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
-        allow_cache_upload = allow_cache_upload,
+        # We want to unconditionally cache object file compilations when rustc is not linking
+        allow_cache_upload = allow_cache_upload or deferred_link_cmd != None,
     )
+
+    if deferred_link_cmd:
+        ctx.actions.run(
+            deferred_link_cmd,
+            local_only = local_only,
+            prefer_local = prefer_local,
+            category = "deferred_link",
+            allow_cache_upload = allow_cache_upload,
+        )
 
     return Invoke(
         diag_txt = diag_txt,

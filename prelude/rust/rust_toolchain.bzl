@@ -68,6 +68,12 @@ rust_toolchain_attrs = {
     "rustdoc_test_with_resources": provider_field(RunInfo | None, default = None),
     # Wrapper for rustdoc coverage
     "rustdoc_coverage": provider_field(RunInfo | None, default = None),
+    # These two scripts are used to implement deferred linking, where the link action
+    # is separate from the rustc invocation action. The benefit here is that we can
+    # decouple the action graph such that rustc can compile libs without waiting for
+    # the link step from shared lib dependencies from completing.
+    "deferred_link_action": provider_field(RunInfo | None, default = None),
+    "extract_link_action": provider_field(RunInfo | None, default = None),
     # Failure filter action
     "failure_filter_action": provider_field(RunInfo | None, default = None),
     # The default edition to use, if not specified.

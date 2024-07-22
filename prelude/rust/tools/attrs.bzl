@@ -12,6 +12,8 @@ def _internal_tool(default: str) -> Attr:
 # configurable attributes there. This list of internal tools is distracting and
 # expected to grow.
 internal_tool_attrs = {
+    "deferred_link_action": _internal_tool("prelude//rust/tools:deferred_link_action"),
+    "extract_link_action": _internal_tool("prelude//rust/tools:extract_link_action"),
     "failure_filter_action": _internal_tool("prelude//rust/tools:failure_filter_action"),
     "rustc_action": _internal_tool("prelude//rust/tools:rustc_action"),
     "rustdoc_coverage": _internal_tool("prelude//rust/tools:rustdoc_coverage"),

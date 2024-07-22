@@ -13,6 +13,18 @@ get_rustc_cfg(
 )
 
 prelude.python_bootstrap_binary(
+    name = "deferred_link_action",
+    main = "deferred_link_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "extract_link_action",
+    main = "extract_link_action.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "rustc_action",
     main = "rustc_action.py",
     visibility = ["PUBLIC"],
