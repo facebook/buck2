@@ -19,7 +19,7 @@ use crate::context::write::analysis_actions_methods_write;
 mod copy;
 mod download;
 mod dynamic_output;
-mod run;
+pub(crate) mod run;
 mod unsorted;
 mod write;
 

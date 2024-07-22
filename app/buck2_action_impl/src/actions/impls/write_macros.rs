@@ -139,6 +139,11 @@ impl Action for WriteMacrosToFileAction {
         Cow::Borrowed(&self.outputs)
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        // Required to have outputs on construction
+        &self.outputs[0]
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Incremental(self)
     }

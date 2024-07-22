@@ -204,6 +204,10 @@ impl Action for SymlinkedDirAction {
         Cow::Borrowed(self.outputs.as_slice())
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        self.output()
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Incremental(self)
     }

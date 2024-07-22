@@ -121,6 +121,9 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// function.
     fn outputs(&self) -> Cow<'_, [BuildArtifact]>;
 
+    /// Returns a reference to an output of the action. All actions are required to have at least one output.
+    fn first_output(&self) -> &BuildArtifact;
+
     /// Obtains an executable for this action.
     fn as_executable(&self) -> ActionExecutable<'_>;
 

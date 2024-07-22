@@ -117,6 +117,10 @@ impl Action for SimpleAction {
         Cow::Borrowed(self.outputs.as_slice())
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        &self.outputs.as_slice()[0]
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Pristine(self)
     }

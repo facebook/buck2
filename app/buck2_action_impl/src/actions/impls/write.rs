@@ -159,6 +159,10 @@ impl Action for WriteAction {
         Cow::Borrowed(slice::from_ref(&self.output))
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        &self.output
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Incremental(self)
     }

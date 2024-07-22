@@ -235,6 +235,10 @@ impl Action for DownloadFileAction {
         Cow::Borrowed(&self.outputs)
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        self.output()
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Incremental(self)
     }

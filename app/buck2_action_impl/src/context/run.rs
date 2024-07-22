@@ -53,7 +53,7 @@ use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
 
 #[derive(Debug, buck2_error::Error)]
-enum RunActionError {
+pub(crate) enum RunActionError {
     #[error("expected at least one output artifact, did not get any")]
     NoOutputsSpecified,
     #[error("`weight` must be a positive integer, got `{0}`")]

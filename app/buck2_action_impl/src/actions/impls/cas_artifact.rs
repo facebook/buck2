@@ -176,6 +176,10 @@ impl Action for CasArtifactAction {
         Cow::Borrowed(slice::from_ref(&self.output))
     }
 
+    fn first_output(&self) -> &BuildArtifact {
+        &self.output
+    }
+
     fn as_executable(&self) -> ActionExecutable<'_> {
         ActionExecutable::Incremental(self)
     }

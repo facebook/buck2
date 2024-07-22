@@ -95,6 +95,7 @@ use crate::actions::impls::run::dep_files::populate_dep_files;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::metadata::metadata_content;
+use crate::context::run::RunActionError;
 
 pub(crate) mod audit_dep_files;
 pub(crate) mod dep_files;
@@ -380,6 +381,11 @@ impl RunAction {
 
         Self::unpack(&starlark_values)?;
 
+        // This is checked when declared, but we depend on it so make it clear that it's enforced.
+        if outputs.is_empty() {
+            return Err(RunActionError::NoOutputsSpecified.into());
+        }
+
         Ok(RunAction {
             inner,
             starlark_values,
@@ -589,6 +595,11 @@ impl Action for RunAction {
 
     fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
         Cow::Borrowed(self.outputs.as_slice())
+    }
+
+    fn first_output(&self) -> &BuildArtifact {
+        // Required to have outputs on construction
+        &self.outputs.as_slice()[0]
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
