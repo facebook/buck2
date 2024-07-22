@@ -311,8 +311,13 @@ def _xcode_populate_attributes(
         **_kwargs) -> dict[str, typing.Any]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data["output"] = xctest_bundle
-    if test_host_app_binary:
-        data["test_host_app_binary"] = test_host_app_binary
+    if ctx.attrs.ui_test_target_app:
+        data["test_type"] = "ui-test"
+        data["test_target_name"] = ctx.attrs.ui_test_target_app.label.name
+    else:
+        if test_host_app_binary:
+            data["test_host_app_binary"] = test_host_app_binary
+        data["test_type"] = "unit-test"
     return data
 
 def _get_xctest_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_args):
