@@ -242,11 +242,11 @@ impl CommandExecutionPaths {
         let mut input_files_bytes = 0;
 
         for entry in input_directory
-            .fingerprinted_unordered_walk()
+            .fingerprinted_unordered_walk_leaves()
             .without_paths()
         {
             match entry {
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
+                ActionDirectoryMember::File(f) => {
                     input_files_bytes += f.digest.size();
                 }
                 _ => {}

@@ -8,6 +8,7 @@
  */
 
 use std::fmt;
+use std::mem;
 
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -15,7 +16,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 /// A trait shared by iterators on Directories. Unlike a regular Iterator, this returns an accessor
 /// to give us the current path in addition to the current item (which borrows from the iterator
 /// itself, which is why this cannot be an iterator).
-pub trait DirectoryIterator {
+pub trait DirectoryIterator: Sized {
     /// The way this iterator will report its current path.
     type PathStack: DirectoryIteratorPathStack;
 
@@ -32,19 +33,55 @@ pub trait DirectoryIterator {
 
     /// Compute all paths in this iterator. This returns a regular Iterator since we no longer
     /// need to borrow from self in next.
-    fn with_paths(self) -> DirectoryIteratorWithPaths<Self>
-    where
-        Self: Sized,
-    {
+    fn with_paths(self) -> DirectoryIteratorWithPaths<Self> {
         DirectoryIteratorWithPaths { inner: self }
     }
 
     /// Compute none of the paths in this iterator. Here again, this is a reglar Iteraotr.
-    fn without_paths(self) -> DirectoryIteratorWithoutPaths<Self>
-    where
-        Self: Sized,
-    {
+    fn without_paths(self) -> DirectoryIteratorWithoutPaths<Self> {
         DirectoryIteratorWithoutPaths { inner: self }
+    }
+
+    fn filter_map<F, B>(self, f: F) -> impl DirectoryIterator<Item = B, PathStack = Self::PathStack>
+    where
+        F: FnMut(Self::Item) -> Option<B>,
+    {
+        struct FilterMap<T, F> {
+            inner: T,
+            f: F,
+        }
+
+        impl<T, F, B> DirectoryIterator for FilterMap<T, F>
+        where
+            T: DirectoryIterator,
+            F: FnMut(T::Item) -> Option<B>,
+        {
+            type PathStack = T::PathStack;
+            type Item = B;
+
+            fn next<'b>(
+                &'b mut self,
+            ) -> Option<(DirectoryIteratorPathAccessor<'b, T::PathStack>, B)> {
+                loop {
+                    let (path, item) = self.inner.next()?;
+                    if let Some(item) = (self.f)(item) {
+                        // SAFETY: This is a complication introduced by the lending-iterator pattern
+                        // of this trait. The compiler otherwise does not understand that our borrow
+                        // of `self.inner` expires in the none case. However, because `item` does
+                        // not have a lifetime tied to `'b`, it indeed does.
+                        let path = unsafe {
+                            mem::transmute::<
+                                DirectoryIteratorPathAccessor<'_, T::PathStack>,
+                                DirectoryIteratorPathAccessor<'b, T::PathStack>,
+                            >(path)
+                        };
+                        return Some((path, item));
+                    }
+                }
+            }
+        }
+
+        FilterMap { inner: self, f }
     }
 }
 

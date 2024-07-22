@@ -471,10 +471,10 @@ pub fn relativize_directory(
     let mut replacements = ActionDirectoryBuilder::empty();
 
     {
-        let mut walk = builder.unordered_walk();
+        let mut walk = builder.unordered_walk_leaves();
         while let Some((path, entry)) = walk.next() {
             let link = match entry {
-                DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(link)) => link,
+                ActionDirectoryMember::Symlink(link) => link,
                 _ => continue,
             };
 

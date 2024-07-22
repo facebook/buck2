@@ -69,21 +69,12 @@ async fn audit_dep_files(
         StoredFingerprints::Dirs(dirs) => dirs,
     };
 
-    for (path, ..) in dirs
-        .untagged
-        .ordered_walk()
-        .with_paths()
-        .filter_map(|(p, e)| Some((p, e.into_leaf()?)))
-    {
+    for (path, ..) in dirs.untagged.ordered_walk_leaves().with_paths() {
         writeln!(stdout, "untagged\t{}", path)?;
     }
 
     for (tag, dir) in dirs.tagged.iter() {
-        for (path, ..) in dir
-            .ordered_walk()
-            .with_paths()
-            .filter_map(|(p, e)| Some((p, e.into_leaf()?)))
-        {
+        for (path, ..) in dir.ordered_walk_leaves().with_paths() {
             writeln!(stdout, "{}\t{}", tag, path)?;
         }
     }

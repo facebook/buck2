@@ -108,15 +108,14 @@ impl ActionsRegistry {
                 }
                 DirectoryEntry::Dir(conflict_dir) => {
                     let conflicting_paths = conflict_dir
-                        .ordered_walk()
+                        .ordered_walk_leaves()
                         .with_paths()
-                        .filter_map(|(p, entry)| match entry {
-                            DirectoryEntry::Leaf(location) => Some(format!(
+                        .map(|(p, location)| {
+                            format!(
                                 "{} declared at {}",
                                 path.join(p),
                                 display_location_opt(location.as_ref()),
-                            )),
-                            _ => None,
+                            )
                         })
                         .collect::<Vec<_>>();
                     Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(

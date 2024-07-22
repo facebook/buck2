@@ -11,7 +11,6 @@ use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
-use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -31,19 +30,16 @@ pub(crate) fn metadata_content(
         group.add_to_directory(&mut builder, fs)?;
     }
 
-    let mut walk = builder.ordered_walk();
+    let mut walk = builder.ordered_walk_leaves();
     while let Some((path, item)) = walk.next() {
         match item {
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
+            ActionDirectoryMember::File(metadata) => {
                 blob_builder.add(path.get(), metadata.digest.data());
             }
             // Omit symlinks and let user script detect and handle symlinks in inputs.
             // Metadata will contain artifacts which are symlinked, meaning the user
             // can resolve the symlink and get the digest of the symlinked artifact.
-            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(_))
-            | DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(_)) => {}
-            // Only interested in actual content, skip.
-            DirectoryEntry::Dir(_) => {}
+            ActionDirectoryMember::Symlink(_) | ActionDirectoryMember::ExternalSymlink(_) => {}
         }
     }
 

@@ -11,6 +11,7 @@ use std::fmt;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::walk::OrderedDirectoryWalk;
 use crate::directory::walk::UnorderedDirectoryWalk;
@@ -36,11 +37,35 @@ pub trait Directory<L, H> {
         UnorderedDirectoryWalk::new(self)
     }
 
+    fn unordered_walk_leaves<'a>(&'a self) -> impl DirectoryIterator<Item = &'a L>
+    where
+        Self: Sized,
+        H: 'a,
+        L: 'a,
+    {
+        self.unordered_walk().filter_map(|entry| match entry {
+            DirectoryEntry::Leaf(leaf) => Some(leaf),
+            DirectoryEntry::Dir(_) => None,
+        })
+    }
+
     fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, L, H>
     where
         Self: Sized,
     {
         OrderedDirectoryWalk::new(self)
+    }
+
+    fn ordered_walk_leaves<'a>(&'a self) -> impl DirectoryIterator<Item = &'a L>
+    where
+        Self: Sized,
+        H: 'a,
+        L: 'a,
+    {
+        self.ordered_walk().filter_map(|entry| match entry {
+            DirectoryEntry::Leaf(leaf) => Some(leaf),
+            DirectoryEntry::Dir(_) => None,
+        })
     }
 
     fn to_builder(&self) -> DirectoryBuilder<L, H>

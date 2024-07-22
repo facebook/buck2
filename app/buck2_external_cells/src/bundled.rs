@@ -282,10 +282,7 @@ async fn declare_all_source_artifacts(
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 
-    for (path, entry) in ops.dir.unordered_walk().with_paths() {
-        let DirectoryEntry::Leaf(entry) = entry else {
-            continue;
-        };
+    for (path, entry) in ops.dir.unordered_walk_leaves().with_paths() {
         let path = buck_out_resolver.resolve_external_cell_source(
             CellRelativePath::new(path.as_ref()),
             ExternalCellOrigin::Bundled(cell_name),
@@ -355,10 +352,7 @@ pub(crate) async fn materialize_all(
     let ops = get_file_ops_delegate(ctx, cell).await?;
     let materializer = ctx.per_transaction_data().get_materializer();
     let mut paths = Vec::new();
-    for (path, entry) in ops.dir.unordered_walk().with_paths() {
-        let DirectoryEntry::Leaf(_) = entry else {
-            continue;
-        };
+    for (path, _entry) in ops.dir.unordered_walk_leaves().with_paths() {
         let path = buck_out_resolver.resolve_external_cell_source(
             CellRelativePath::new(path.as_ref()),
             ExternalCellOrigin::Bundled(cell),
