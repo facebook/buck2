@@ -323,4 +323,15 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
             value: f(self.value)?,
         })
     }
+
+    /// Same as [`map`](OwnedFrozenValue::map) above but with [`Option`]
+    pub fn maybe_map<U: StarlarkValue<'static>>(
+        &self,
+        f: impl FnOnce(FrozenValueTyped<T>) -> Option<FrozenValueTyped<U>>,
+    ) -> Option<OwnedFrozenValueTyped<U>> {
+        Some(OwnedFrozenValueTyped {
+            owner: self.owner.dupe(),
+            value: f(self.value)?,
+        })
+    }
 }
