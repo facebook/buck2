@@ -15,7 +15,6 @@
 
 use std::borrow::Borrow;
 use std::ops::Deref;
-use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
@@ -121,15 +120,11 @@ impl CellRelativePath {
     /// assert!(CellRelativePath::from_path("/abs/bar").is_err());
     /// assert!(CellRelativePath::from_path("normalize/./bar").is_err());
     /// assert!(CellRelativePath::from_path("normalize/../bar").is_err());
-    ///
-    /// assert!(CellRelativePath::from_path(Path::new("foo/bar")).is_ok());
-    /// assert!(CellRelativePath::from_path(Path::new("")).is_ok());
-    /// assert!(CellRelativePath::from_path(Path::new("/abs/bar")).is_err());
-    /// assert!(CellRelativePath::from_path(Path::new("normalize/./bar")).is_err());
-    /// assert!(CellRelativePath::from_path(Path::new("normalize/../bar")).is_err());
     /// ```
-    pub fn from_path<P: ?Sized + AsRef<Path>>(p: &P) -> anyhow::Result<&CellRelativePath> {
-        Ok(CellRelativePath::ref_cast(ForwardRelativePath::new(p)?))
+    pub fn from_path<P: ?Sized + AsRef<str>>(p: &P) -> anyhow::Result<&CellRelativePath> {
+        Ok(CellRelativePath::ref_cast(ForwardRelativePath::new(
+            p.as_ref(),
+        )?))
     }
 
     pub fn new(path: &ForwardRelativePath) -> &CellRelativePath {
