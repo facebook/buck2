@@ -2352,23 +2352,22 @@ impl<V: 'static> FileTree<V> {
         ) where
             D: ActionDirectory + ?Sized,
         {
-            match tree {
-                FileTree::Data(_) => {
+            match (tree, entry) {
+                (FileTree::Data(_), DirectoryEntry::Dir(_) | DirectoryEntry::Leaf(_)) => {
                     found_artifacts.push(path.clone());
                 }
-                FileTree::Tree(tree_children) => {
+                (FileTree::Tree(tree_children), DirectoryEntry::Dir(d)) => {
                     // Not an artifact, but if entry is a directory we can search deeper within
-                    if let DirectoryEntry::Dir(d) = entry {
-                        for (name, child) in d.entries() {
-                            if let Some(subtree) = tree_children.get(name) {
-                                path.push(name);
-                                walk_deps(subtree, child, path, found_artifacts);
-                                let popped = path.pop();
-                                assert!(popped);
-                            }
+                    for (name, child) in d.entries() {
+                        if let Some(subtree) = tree_children.get(name) {
+                            path.push(name);
+                            walk_deps(subtree, child, path, found_artifacts);
+                            let popped = path.pop();
+                            assert!(popped);
                         }
                     }
                 }
+                (FileTree::Tree(_), DirectoryEntry::Leaf(_)) => {}
             }
         }
 
