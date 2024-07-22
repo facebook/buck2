@@ -67,6 +67,12 @@ impl PartialEq<str> for FileName {
     }
 }
 
+impl AsRef<FileName> for FileName {
+    fn as_ref(&self) -> &FileName {
+        self
+    }
+}
+
 impl PartialEq<FileName> for str {
     #[inline]
     fn eq(&self, other: &FileName) -> bool {

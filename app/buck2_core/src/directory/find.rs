@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::iter;
+
 use crate::directory::directory::Directory;
 use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::entry::DirectoryEntry;
@@ -53,10 +55,9 @@ impl<T> FindConflict<T> for PrefixLookupContainer<T> {
     fn new<'b>(path: &'b FileName, remaining: impl Iterator<Item = &'b FileName>, leaf: T) -> Self {
         Self {
             leaf,
-            path: std::iter::once(path)
+            path: iter::once(path)
                 .chain(remaining)
-                .collect::<Option<ForwardRelativePathBuf>>()
-                .expect("We know there is at least one path component"),
+                .collect::<ForwardRelativePathBuf>(),
         }
     }
 

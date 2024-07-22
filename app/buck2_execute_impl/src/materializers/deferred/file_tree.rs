@@ -236,8 +236,7 @@ impl<'a> FromIterator<&'a FileNameBuf> for NoopCollector {
 
 impl<V: 'static> FileTree<V> {
     pub fn iter_with_paths(&self) -> impl Iterator<Item = (ForwardRelativePathBuf, &V)> {
-        self.iter::<Option<ForwardRelativePathBuf>>()
-            .map(|(k, v)| (k.unwrap_or_else(ForwardRelativePathBuf::empty), v))
+        self.iter::<ForwardRelativePathBuf>()
     }
 
     pub fn iter_without_paths(&self) -> impl Iterator<Item = &V> {
@@ -245,8 +244,7 @@ impl<V: 'static> FileTree<V> {
     }
 
     pub fn into_iter_with_paths(self) -> impl Iterator<Item = (ForwardRelativePathBuf, V)> {
-        self.into_iter::<Option<ForwardRelativePathBuf>>()
-            .map(|(k, v)| (k.unwrap_or_else(ForwardRelativePathBuf::empty), v))
+        self.into_iter::<ForwardRelativePathBuf>()
     }
 
     #[allow(unused)]

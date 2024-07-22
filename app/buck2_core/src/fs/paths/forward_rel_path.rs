@@ -29,7 +29,6 @@ use crate::fs::fs_util;
 use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::path_util::path_remove_prefix;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
@@ -1322,62 +1321,20 @@ impl ForwardRelativePathVerifier {
     }
 }
 
-impl<'a> FromIterator<&'a FileName> for Option<ForwardRelativePathBuf> {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = &'a FileName>,
-    {
-        from_iter::<20, _>(iter)
-    }
-}
+impl<A: AsRef<ForwardRelativePath>> FromIterator<A> for ForwardRelativePathBuf {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        // Collect up to 20 pointers to the stack.
+        // This avoids a reallocation when joining paths of up to 20 components.
+        let parts = iter.into_iter().collect::<SmallVec<[_; 20]>>();
 
-impl<'a> FromIterator<&'a FileNameBuf> for Option<ForwardRelativePathBuf> {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = &'a FileNameBuf>,
-    {
-        iter.into_iter()
-            .map(<FileNameBuf as AsRef<FileName>>::as_ref)
-            .collect()
-    }
-}
-
-fn from_iter<'a, const N: usize, I>(iter: I) -> Option<ForwardRelativePathBuf>
-where
-    I: IntoIterator<Item = &'a FileName>,
-{
-    // Collect up to 20 pointers to the stack. This avoids a reallocation when joining paths of up
-    // to 20 components.
-    let parts = iter.into_iter().collect::<SmallVec<[_; 20]>>();
-
-    let mut first = true;
-    let mut size = 0;
-    for part in &parts {
-        if !first {
-            size += 1; // For `/`
-        }
-        size += part.as_str().len();
-        first = false;
-    }
-
-    let mut ret = String::with_capacity(size);
-    for part in &parts {
-        if !ret.is_empty() {
-            ret.push('/');
-        }
-        ret.push_str(part.as_ref());
-    }
-
-    if ret.is_empty() {
-        None
-    } else {
-        Some(ForwardRelativePathBuf(ret))
+        let mut result = ForwardRelativePathBuf::with_capacity_for_concat(&parts);
+        result.extend(parts);
+        result
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::fs::paths::forward_rel_path::from_iter;
     use crate::fs::paths::forward_rel_path::FileName;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -1451,6 +1408,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::from_iter_instead_of_collect)]
     #[test]
     fn test_from_iter() {
         let parts = &["foo", "bar", "baz"]
@@ -1458,12 +1416,10 @@ mod tests {
             .map(FileName::unchecked_new)
             .collect::<Vec<_>>();
 
-        let expected = Some(ForwardRelativePath::unchecked_new("foo/bar/baz").to_buf());
-
-        assert_eq!(from_iter::<1, _>(parts.iter().copied()), expected);
-        assert_eq!(from_iter::<2, _>(parts.iter().copied()), expected);
-        assert_eq!(from_iter::<3, _>(parts.iter().copied()), expected);
-        assert_eq!(from_iter::<4, _>(parts.iter().copied()), expected);
+        assert_eq!(
+            ForwardRelativePath::new("foo/bar/baz").unwrap().to_buf(),
+            ForwardRelativePathBuf::from_iter(parts.iter().copied()),
+        );
     }
 
     #[test]

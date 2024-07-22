@@ -236,9 +236,11 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
         match ExactPathMetadata::from_exact_path(&curr)? {
             ExactPathMetadata::DoesNotExist => return Ok(None),
             ExactPathMetadata::Symlink(symlink) => {
-                return Ok(Some(
-                    symlink.to_raw_path_metadata(curr, relpath_components.collect())?,
-                ));
+                let rest: ForwardRelativePathBuf = relpath_components.collect();
+                return Ok(Some(symlink.to_raw_path_metadata(
+                    curr,
+                    if rest.is_empty() { None } else { Some(rest) },
+                )?));
             }
             ExactPathMetadata::FileOrDirectory(path_meta) => {
                 meta = Some(path_meta);
