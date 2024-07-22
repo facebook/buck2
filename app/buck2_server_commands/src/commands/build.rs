@@ -181,7 +181,11 @@ async fn dump_artifacts_to_file(
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
                 ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
                     target: external_symlink.target(),
-                    remaining_path: external_symlink.remaining_path(),
+                    remaining_path: if external_symlink.remaining_path().is_empty() {
+                        None
+                    } else {
+                        Some(external_symlink.remaining_path())
+                    },
                 })
             }
         };

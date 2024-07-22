@@ -22,6 +22,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -279,7 +280,7 @@ fn convert_artifact_metadata(
                         })
                     })?
                     .into(),
-                None,
+                ForwardRelativePathBuf::default(),
             )?;
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(Arc::new(
                 external_symlink,

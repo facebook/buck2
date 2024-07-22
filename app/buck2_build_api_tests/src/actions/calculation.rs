@@ -471,7 +471,7 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
     let symlink = Arc::new(
         ExternalSymlink::new(
             PathBuf::from("/mnt/gvfs"),
-            Some(ForwardRelativePathBuf::unchecked_new("include".to_owned())),
+            ForwardRelativePathBuf::new("include".to_owned()).unwrap(),
         )
         .unwrap(),
     );

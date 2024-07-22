@@ -311,14 +311,11 @@ impl dyn Materializer {
     fn check_declared_external_symlink(&self, value: &ArtifactValue) -> anyhow::Result<()> {
         match value.entry() {
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
-                match external_symlink.remaining_path() {
-                    Some(_) => {
-                        return Err(anyhow::anyhow!(
-                            "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
-                            external_symlink.dupe().to_path_buf().display()
-                        ));
-                    }
-                    None => {}
+                if !external_symlink.remaining_path().is_empty() {
+                    return Err(anyhow::anyhow!(
+                        "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
+                        external_symlink.dupe().to_path_buf().display()
+                    ));
                 }
             }
             _ => {}

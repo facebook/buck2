@@ -87,7 +87,11 @@ async fn build_response_with_trace(
                 external_symlinks.push(trace_io_response::ExternalSymlink {
                     link: link.at.to_string(),
                     target: external.target_str().to_owned(),
-                    remaining_path: external.remaining_path().map(|path| path.to_string()),
+                    remaining_path: if external.remaining_path().is_empty() {
+                        None
+                    } else {
+                        Some(external.remaining_path().to_string())
+                    },
                 });
             }
         }

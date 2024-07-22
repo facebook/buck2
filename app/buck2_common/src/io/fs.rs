@@ -237,10 +237,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
             ExactPathMetadata::DoesNotExist => return Ok(None),
             ExactPathMetadata::Symlink(symlink) => {
                 let rest: ForwardRelativePathBuf = relpath_components.collect();
-                return Ok(Some(symlink.to_raw_path_metadata(
-                    curr,
-                    if rest.is_empty() { None } else { Some(rest) },
-                )?));
+                return Ok(Some(symlink.to_raw_path_metadata(curr, rest)?));
             }
             ExactPathMetadata::FileOrDirectory(path_meta) => {
                 meta = Some(path_meta);
@@ -330,7 +327,7 @@ impl ExactPathSymlinkMetadata {
     fn to_raw_path_metadata(
         self,
         curr: PathAndAbsPath,
-        rest: Option<ForwardRelativePathBuf>,
+        rest: ForwardRelativePathBuf,
     ) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
         Ok(match self {
             Self::ExternalSymlink(link_path) => RawPathMetadata::Symlink {
@@ -338,9 +335,7 @@ impl ExactPathSymlinkMetadata {
                 to: RawSymlink::External(Arc::new(ExternalSymlink::new(link_path, rest)?)),
             },
             Self::InternalSymlink(mut link_path) => {
-                if let Some(rest) = rest {
-                    link_path.push(&rest);
-                }
+                link_path.push(&rest);
                 RawPathMetadata::Symlink {
                     at: curr.path,
                     to: RawSymlink::Relative(link_path),
@@ -377,7 +372,9 @@ fn read_unchecked<P: AsRef<AbsPath>>(
             ReadUncheckedOptions::Symlink => Err(ReadSymlinkAtExactPathError::NotASymlink.into()),
             ReadUncheckedOptions::Anything => convert_metadata(&curr, meta, file_digest_config),
         },
-        ExactPathMetadata::Symlink(link) => link.to_raw_path_metadata(curr, None),
+        ExactPathMetadata::Symlink(link) => {
+            link.to_raw_path_metadata(curr, ForwardRelativePathBuf::default())
+        }
     }
 }
 

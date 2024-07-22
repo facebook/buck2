@@ -31,7 +31,7 @@ pub struct ExternalSymlink {
     // We can't use AbsPathBuf because there might be "." or ".." in the path
     abs_target: Utf8Path,
     /// What goes after the external target path.
-    remaining_path: Option<ForwardRelativePathBuf>,
+    remaining_path: ForwardRelativePathBuf,
 }
 
 impl fmt::Display for ExternalSymlink {
@@ -43,7 +43,7 @@ impl fmt::Display for ExternalSymlink {
 impl ExternalSymlink {
     pub fn new(
         abs_target: PathBuf,
-        remaining_path: Option<ForwardRelativePathBuf>,
+        remaining_path: ForwardRelativePathBuf,
     ) -> anyhow::Result<Self> {
         let abs_target = match abs_target.into_os_string().into_string() {
             Ok(string) => string,
@@ -64,23 +64,27 @@ impl ExternalSymlink {
         Path::new(&self.abs_target)
     }
 
-    pub fn remaining_path(&self) -> Option<&ForwardRelativePath> {
-        self.remaining_path.as_ref().map(|p| p.as_ref())
+    pub fn remaining_path(&self) -> &ForwardRelativePath {
+        &self.remaining_path
     }
 
     /// Returns the complete path as a [`PathBuf`]
     pub fn to_path_buf(&self) -> PathBuf {
-        match &self.remaining_path {
-            Some(p) => Path::new(&self.abs_target).join(p.as_str()),
-            None => Path::new(&self.abs_target).to_owned(),
+        if !self.remaining_path.is_empty() {
+            Path::new(&self.abs_target).join(self.remaining_path.as_str())
+        } else {
+            Path::new(&self.abs_target).to_owned()
         }
     }
 
     /// Returns a new `ExternalSymlink` with its target being the full target
     /// of `self` (i.e. `{self.target}/{self.remaining_path}`).
     pub fn with_full_target(self: &Arc<Self>) -> anyhow::Result<Arc<Self>> {
-        if self.remaining_path.is_some() {
-            Ok(Arc::new(Self::new(self.to_path_buf(), None)?))
+        if !self.remaining_path.is_empty() {
+            Ok(Arc::new(Self::new(
+                self.to_path_buf(),
+                ForwardRelativePathBuf::default(),
+            )?))
         } else {
             Ok(self.dupe())
         }
@@ -88,10 +92,10 @@ impl ExternalSymlink {
 
     /// Returns a new `ExternalSymlink` with `remaining_path` discarded.
     pub fn without_remaining_path(self: &Arc<Self>) -> Arc<Self> {
-        if self.remaining_path.is_some() {
+        if !self.remaining_path.is_empty() {
             Arc::new(Self {
                 abs_target: self.abs_target.clone(),
-                remaining_path: None,
+                remaining_path: ForwardRelativePathBuf::default(),
             })
         } else {
             self.dupe()
@@ -109,10 +113,6 @@ impl ExternalSymlink {
         &self,
         path: &'a ForwardRelativePath,
     ) -> Option<&'a ForwardRelativePath> {
-        if let Some(remaining) = self.remaining_path() {
-            path.strip_suffix_opt(remaining)
-        } else {
-            Some(path)
-        }
+        path.strip_suffix_opt(&self.remaining_path)
     }
 }

@@ -39,6 +39,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -217,7 +218,7 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> anyhow::Result<ActionDirectoryM
     let target = target.as_ref();
     if target.is_absolute() {
         Ok(ActionDirectoryMember::ExternalSymlink(Arc::new(
-            ExternalSymlink::new(target.to_path_buf(), None)?,
+            ExternalSymlink::new(target.to_path_buf(), ForwardRelativePathBuf::default())?,
         )))
     } else {
         Ok(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
@@ -451,7 +452,7 @@ impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
         let symlink = if node.target.starts_with('/') {
             ActionDirectoryMember::ExternalSymlink(Arc::new(ExternalSymlink::new(
                 PathBuf::from(node.target.as_str()),
-                None,
+                ForwardRelativePathBuf::default(),
             )?))
         } else {
             ActionDirectoryMember::Symlink(Arc::new(Symlink(RelativePathBuf::from(
