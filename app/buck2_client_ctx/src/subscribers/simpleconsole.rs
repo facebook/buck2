@@ -549,7 +549,7 @@ where
                             " [{}]",
                             display::display_event(
                                 &c.info().event,
-                                TargetDisplayOptions::for_log()
+                                TargetDisplayOptions::for_log(),
                             )?
                         )),
                         None => Cow::Borrowed(""),
@@ -569,16 +569,15 @@ where
                         remaining
                     )?;
 
-                    if let Some(memory_pressure) = check_memory_pressure(
-                        &self.observer().two_snapshots().last,
-                        &self.observer().system_info(),
-                    ) {
+                    let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
+                    if let Some(memory_pressure) =
+                        check_memory_pressure(last_snapshot, &self.observer().system_info())
+                    {
                         echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
                     }
-                    if let Some(low_disk_space) = check_remaining_disk_space(
-                        &self.observer().two_snapshots().last,
-                        &self.observer().system_info(),
-                    ) {
+                    if let Some(low_disk_space) =
+                        check_remaining_disk_space(last_snapshot, &self.observer().system_info())
+                    {
                         echo!("{}", low_disk_space_msg(&low_disk_space))?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();

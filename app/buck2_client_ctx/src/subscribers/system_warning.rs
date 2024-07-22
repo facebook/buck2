@@ -53,12 +53,11 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
     )
 }
 
-pub(crate) fn check_memory_pressure<T>(
-    snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
+pub(crate) fn check_memory_pressure(
+    last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
 ) -> Option<MemoryPressureHigh> {
-    let (_, snapshot) = snapshot_tuple.as_ref()?;
-    let process_memory = process_memory(snapshot)?;
+    let process_memory = process_memory(last_snapshot?)?;
     let system_total_memory = system_info.system_total_memory_bytes?;
     let memory_pressure_threshold_percent = system_info.memory_pressure_threshold_percent?;
     // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
@@ -75,12 +74,11 @@ pub(crate) fn check_memory_pressure<T>(
     }
 }
 
-pub(crate) fn check_remaining_disk_space<T>(
-    snapshot_tuple: &Option<(T, buck2_data::Snapshot)>,
+pub(crate) fn check_remaining_disk_space(
+    last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
 ) -> Option<LowDiskSpace> {
-    let (_, snapshot) = snapshot_tuple.as_ref()?;
-    let used_disk_space = snapshot.used_disk_space_bytes?;
+    let used_disk_space = last_snapshot?.used_disk_space_bytes?;
     let total_disk_space = system_info.total_disk_space_bytes?;
     let remaining_disk_space_threshold =
         system_info.remaining_disk_space_threshold_gb? * BYTES_PER_GIGABYTE;
