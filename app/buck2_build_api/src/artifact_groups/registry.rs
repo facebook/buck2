@@ -13,8 +13,10 @@ use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 
 use crate::analysis::registry::AnalysisValueFetcher;
+use crate::analysis::registry::AnalysisValueStorage;
 use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::deferred::types::DeferredRegistry;
 use crate::deferred::types::ReservedTrivialDeferredData;
@@ -34,14 +36,15 @@ impl ArtifactGroupRegistry {
         }
     }
 
-    pub fn create_transitive_set<'v>(
+    pub(crate) fn create_transitive_set<'v>(
         &mut self,
         definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         deferred: &mut DeferredRegistry,
+        analysis_value_storage: &mut AnalysisValueStorage<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<TransitiveSet<'v>> {
+    ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let reserved = deferred.reserve_trivial::<DeferredTransitiveSetData>();
         let set = TransitiveSet::new_from_values(
             reserved.data().dupe(),
@@ -51,6 +54,13 @@ impl ArtifactGroupRegistry {
             eval,
         )?;
         self.pending.push(reserved);
+
+        let key = set.key().deferred_key().id();
+        let set = eval.heap().alloc_complex(set);
+        let set = ValueTyped::<TransitiveSet>::new_err(set)?;
+
+        analysis_value_storage.set_value(key, set.to_value());
+
         Ok(set)
     }
 

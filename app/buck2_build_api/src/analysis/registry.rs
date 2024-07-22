@@ -247,21 +247,14 @@ impl<'v> AnalysisRegistry<'v> {
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        let set = self.artifact_groups.create_transitive_set(
+        self.artifact_groups.create_transitive_set(
             definition,
             value,
             children,
             &mut self.deferred,
+            &mut self.analysis_value_storage,
             eval,
-        )?;
-
-        let key = set.key().deferred_key().id();
-        let set = eval.heap().alloc_complex(set);
-        let set = ValueTyped::<TransitiveSet>::new_err(set)?;
-
-        self.analysis_value_storage.set_value(key, set.to_value());
-
-        Ok(set)
+        )
     }
 
     pub fn register_dynamic_output(
@@ -483,7 +476,7 @@ impl<'v> AnalysisValueStorage<'v> {
     }
 
     /// Add a value to the internal hash map that maps ids -> values
-    fn set_value(&mut self, id: DeferredId, value: Value<'v>) {
+    pub fn set_value(&mut self, id: DeferredId, value: Value<'v>) {
         self.values.insert(id, value);
     }
 
