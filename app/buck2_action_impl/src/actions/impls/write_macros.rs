@@ -135,8 +135,8 @@ impl Action for WriteMacrosToFileAction {
         Ok(Cow::Borrowed(&[]))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
-        Ok(Cow::Borrowed(&self.outputs))
+    fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
+        Cow::Borrowed(&self.outputs)
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

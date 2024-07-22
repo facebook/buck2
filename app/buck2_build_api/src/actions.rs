@@ -119,7 +119,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 
     /// All the outputs this 'Artifact' will generate. Just like inputs, this should be a pure
     /// function.
-    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>>;
+    fn outputs(&self) -> Cow<'_, [BuildArtifact]>;
 
     /// Obtains an executable for this action.
     fn as_executable(&self) -> ActionExecutable<'_>;
@@ -323,11 +323,7 @@ impl TrivialDeferred for RegisteredAction {
 
     fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
         demand.provide_value_with(|| {
-            ProvideOutputs(
-                self.action
-                    .outputs()
-                    .map(|outputs| outputs.iter().cloned().collect()),
-            )
+            ProvideOutputs(Ok(self.action.outputs().iter().cloned().collect()))
         });
         demand.provide_value_with(|| ProvideActionKey(self.key.dupe()));
     }

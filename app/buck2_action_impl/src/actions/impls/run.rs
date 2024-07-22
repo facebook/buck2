@@ -587,8 +587,8 @@ impl Action for RunAction {
         Ok(Cow::Owned(artifact_visitor.inputs.into_iter().collect()))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
-        Ok(Cow::Borrowed(self.outputs.as_slice()))
+    fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
+        Cow::Borrowed(self.outputs.as_slice())
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {

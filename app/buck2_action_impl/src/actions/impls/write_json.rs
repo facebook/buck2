@@ -163,8 +163,8 @@ impl Action for WriteJsonAction {
         Ok(Cow::Borrowed(&[]))
     }
 
-    fn outputs(&self) -> anyhow::Result<Cow<'_, [BuildArtifact]>> {
-        Ok(Cow::Borrowed(slice::from_ref(&self.output)))
+    fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
+        Cow::Borrowed(slice::from_ref(&self.output))
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
