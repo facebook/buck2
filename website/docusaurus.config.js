@@ -63,6 +63,39 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
         anonymizeIP: true,
       },
     ],
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        redirects: [
+          {
+            to: '/docs/about/why',
+            from: '/docs/why',
+          },
+          {
+            to: '/docs/about/getting_started',
+            from: '/docs/getting_started',
+          },
+          {
+            to: '/docs/about/benefits/compared_to_buck1',
+            from: '/docs/benefits',
+          },
+          {
+            to: '/docs/about/bootstrapping',
+            from: '/docs/bootstrapping',
+          },
+        ] + (!isInternal()) ? [] : [
+          // Internal-only redirects
+          {
+            to: '/docs/about/benefits/testimonials',
+            from: '/docs/testimonials',
+          },
+          {
+            to: '/docs/about/knowledge_sharing',
+            from: '/docs/knowledge_sharing',
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:

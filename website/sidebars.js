@@ -39,19 +39,19 @@ const manualSidebar = [
     type: 'category',
     label: 'About Buck2',
     items: [
-      'why',
+      'about/why',
       // The getting_started page is for OSS only.
-      isInternal() ? [] : 'getting_started',
+      isInternal() ? [] : 'about/getting_started',
       {
         type: 'category',
         label: 'Benefits',
         items: [
-          'benefits',
-          isInternal() ? 'testimonials' : [],
+          'about/benefits/compared_to_buck1',
+          isInternal() ? 'about/benefits/testimonials' : [],
         ],
       },
-      isInternal() ? 'knowledge_sharing' : [],
-      'bootstrapping',
+      isInternal() ? 'about/knowledge_sharing' : [],
+      'about/bootstrapping',
     ],
   },
   {

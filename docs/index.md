@@ -31,8 +31,9 @@ your team.
 
 ### For end users
 
-- [Getting Started](getting_started.md) - how to get started with using Buck2.
-- [Benefits](benefits.md) - the benefits of using Buck2.
+- [Getting Started](about/getting_started.md) - how to get started with using
+  Buck2.
+- [Benefits](about/benefits/compared_to_buck1.md) - the benefits of using Buck2.
 
 <FbInternalOnly>
 

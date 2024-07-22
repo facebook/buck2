@@ -30,7 +30,7 @@ function HomepageHeader() {
           <div className={styles.buttons}>
             <Link
               className="button button--secondary button--lg"
-              to="/docs/benefits">
+              to="/docs/about/benefits/compared_to_buck1">
               Why switch?
             </Link>
             <Link
@@ -44,12 +44,12 @@ function HomepageHeader() {
           <div className={styles.buttons}>
             <Link
               className="button button--secondary button--lg"
-              to="/docs/why">
+              to="/docs/about/why">
               Why Buck2?
             </Link>
             <Link
               className="button button--secondary button--lg"
-              to="/docs/getting_started">
+              to="/docs/about/getting_started">
               Getting started
             </Link>
           </div>
