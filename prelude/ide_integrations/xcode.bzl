@@ -14,6 +14,31 @@ XcodeDataInfo = provider(fields = {
     "data": provider_field(typing.Any, default = None),  # {str: _a}
 })
 
+XcodeDataInfoKeys = struct(
+    ARCH = "arch",
+    ARGSFILES_BY_EXT = "argsfiles_by_ext",
+    BUNDLE_TYPE = "bundle_type",
+    DEFAULT_TARGET_PLATFORM = "default_target_platform",
+    DEPLOYMENT_VERSION = "deployment_version",
+    EXPORTED_HEADERS = "exported_headers",
+    EXTRA_XCODE_FILES = "extra_xcode_files",
+    HEADERS = "headers",
+    INFO_PLIST = "info_plist",
+    OUTPUT = "output",
+    PROCESSED_INFO_PLIST = "processed_info_plist",
+    PRODUCT_NAME = "product_name",
+    RULE_TYPE = "rule_type",
+    SDK = "sdk",
+    SRCS = "srcs",
+    SWIFT_VERSION = "swift_version",
+    TEST_HOST_APP_BINARY = "test_host_app_binary",
+    TEST_TARGET_NAME = "test_target_name",
+    TEST_TYPE = "test_type",
+    XCTOOLCHAIN_BUNDLE_ID_TARGET = "xctoolchain_bundle_id_target",
+    XCTOOLCHAIN_BUNDLE_ID = "xctoolchain_bundle_id",
+    XCTOOLCHAIN_BUNDLE_TARGET = "xctoolchain_bundle_target",
+)
+
 def generate_xcode_data(
         ctx: AnalysisContext,
         rule_type: str,
