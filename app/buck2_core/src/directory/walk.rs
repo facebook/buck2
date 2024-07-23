@@ -8,6 +8,7 @@
  */
 
 use std::marker::PhantomData;
+use std::vec;
 
 use derivative::Derivative;
 
@@ -16,8 +17,6 @@ use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
-use crate::directory::entries::FingerprintedOrderedDirectoryEntries;
-use crate::directory::entries::OrderedDirectoryEntries;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
@@ -231,19 +230,26 @@ impl<'a, L, H> WalkType<'a> for UnorderedDirectoryWalkType<'a, L, H> {
 impl<'a, L, H> WalkType<'a> for FingerprintedOrderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn FingerprintedDirectory<L, H>;
-    type Entries = FingerprintedOrderedDirectoryEntries<'a, L, H>;
+    type Entries = vec::IntoIter<(
+        &'a FileName,
+        DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
+    )>;
 
     fn directory_entries(directory: Self::Directory) -> Self::Entries {
-        directory.fingerprinted_entries().into()
+        let mut entries = Vec::from_iter(directory.fingerprinted_entries());
+        entries.sort_by_key(|(name, _)| *name);
+        entries.into_iter()
     }
 }
 
 impl<'a, L, H> WalkType<'a> for OrderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn Directory<L, H>;
-    type Entries = OrderedDirectoryEntries<'a, L, H>;
+    type Entries = vec::IntoIter<(&'a FileName, DirectoryEntry<&'a dyn Directory<L, H>, &'a L>)>;
 
     fn directory_entries(directory: Self::Directory) -> Self::Entries {
-        directory.entries().into()
+        let mut entries = Vec::from_iter(directory.entries());
+        entries.sort_by_key(|(name, _)| *name);
+        entries.into_iter()
     }
 }

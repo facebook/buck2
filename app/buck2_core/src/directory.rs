@@ -15,7 +15,6 @@ pub mod directory_hasher;
 pub mod directory_iterator;
 mod directory_mut;
 pub mod directory_selector;
-mod entries;
 pub mod entry;
 mod exclusive_directory;
 pub mod find;
