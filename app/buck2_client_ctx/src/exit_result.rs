@@ -206,6 +206,26 @@ impl ExitResult {
         // "unknown"
         Self::status(ExitCode::InfraError)
     }
+
+    /// Buck2 supports being built as both a "full" binary as well as a "client-only" binary.
+    ///
+    /// However, some commands (eg `--no-buckd`) are not supported in the client-only binary, and so
+    /// when these commands are run, we have to retry them with the full build.
+    ///
+    /// This function is called in those cases. It returns `Some` only for client-only builds.
+    pub fn retry_command_with_full_binary() -> anyhow::Result<Option<Self>> {
+        if buck2_core::client_only::is_client_only()? {
+            let exe = crate::daemon::client::connect::get_daemon_exe()?;
+            Ok(Some(ExitResult::exec(
+                exe.into_os_string(),
+                std::env::args_os().collect(),
+                None,
+                Vec::new(),
+            )))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 impl std::error::Error for ExitResult {}

@@ -318,16 +318,11 @@ impl CommandKind {
                 .into();
         }
 
-        if cfg!(client_only) && common_opts.no_buckd {
-            // A client-only binary can't support running an in process buckd. This is the easiest
-            // way to work around that.
-            let exe = buck2_client_ctx::daemon::client::connect::get_daemon_exe()?;
-            return ExitResult::exec(
-                exe.into_os_string(),
-                std::env::args_os().collect(),
-                None,
-                Vec::new(),
-            );
+        if common_opts.no_buckd {
+            // `no_buckd` can't work in a client-only binary
+            if let Some(res) = ExitResult::retry_command_with_full_binary()? {
+                return res;
+            }
         }
 
         let runtime = client_tokio_runtime()?;
