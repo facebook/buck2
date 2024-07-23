@@ -11,7 +11,7 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
-load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version")
+load("@prelude//cxx:target_sdk_version.bzl", "get_toolchain_target_sdk_version")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
@@ -177,7 +177,7 @@ def cxx_toolchain_impl(ctx):
         cpp_dep_tracking_mode = DepTrackingMode(ctx.attrs.cpp_dep_tracking_mode),
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
-        target_sdk_version = get_target_sdk_version(ctx),
+        target_sdk_version = get_toolchain_target_sdk_version(ctx),
         dist_lto_tools_info = ctx.attrs.dist_lto_tools[DistLtoToolsInfo],
     )
 

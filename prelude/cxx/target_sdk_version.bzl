@@ -21,7 +21,7 @@ def _version_is_greater(left: str, right: str) -> bool:
 
     return len(left_components) > len(right_components)
 
-def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
+def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     min_version = ctx.attrs.min_sdk_version
     target_version = ctx.attrs.target_sdk_version
     if min_version == None and target_version == None:

@@ -10,6 +10,7 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
+load("@prelude//cxx:target_sdk_version.bzl", "get_toolchain_target_sdk_version")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -169,7 +170,7 @@ def _cxx_toolchain_override(ctx):
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
-        target_sdk_version = base_toolchain.target_sdk_version,
+        target_sdk_version = value_or(get_toolchain_target_sdk_version(ctx), base_toolchain.target_sdk_version),
     )
 
 cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
@@ -208,6 +209,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "linker_type": attrs.option(attrs.enum(LinkerType), default = None),
         "llvm_link": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "lto_mode": attrs.option(attrs.enum(LtoMode.values()), default = None),
+        "min_sdk_version": attrs.option(attrs.string(), default = None),
         "mk_comp_db": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "mk_hmap": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "mk_shlib_intf": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -231,6 +233,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "strip_all_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
     } | cxx_toolchain_allow_cache_upload_args(),
     is_toolchain_rule = True,
