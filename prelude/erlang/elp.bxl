@@ -41,7 +41,7 @@ def _get_absolute_path(ctx, src) -> dict[str, str]:
     """
     Get the absolute path of the thing passed in, which is either an artifact or a target label.
     """
-    if type(src) == "label":
+    if isinstance(src, ConfiguredProvidersLabel):
         return _as_target(str(src.raw_target()))
     else:
         return _as_path(get_path_without_materialization(src, ctx, abs = True))
