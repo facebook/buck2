@@ -110,6 +110,8 @@ def is_struct(arg):
 def _func():
     pass
 
+_FUNCTION_TYPE = type(_func)
+
 def is_function(args):
     """Checks if provided instance is a function value.
 
@@ -119,7 +121,7 @@ def is_function(args):
     Returns:
       True for function values, False otherwise. rtype: function
     """
-    return isinstance(args, typing.Callable)
+    return type(args) == _FUNCTION_TYPE
 
 type_utils = struct(
     is_bool = is_bool,
