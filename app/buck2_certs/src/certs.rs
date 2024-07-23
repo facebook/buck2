@@ -144,7 +144,7 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
 }
 
 // Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-pub async fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
+pub(crate) async fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
     let cert = cert.as_ref();
 
     let cert_data = tokio::fs::read(cert)

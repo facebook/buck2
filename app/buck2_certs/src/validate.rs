@@ -20,7 +20,7 @@ struct InvalidCertsError;
 
 /// Use SKS Agent to check the status of the VPNless cert in the scenario that VPNless is supported.
 /// SKS Agent is different in Windows so we need to use the appropriate command for the OS.
-pub async fn is_vpnless_cert_valid() -> bool {
+async fn is_vpnless_cert_valid() -> bool {
     if !supports_vpnless() {
         return false;
     }
@@ -45,7 +45,7 @@ pub async fn is_vpnless_cert_valid() -> bool {
 }
 
 /// Check if the provided certs exists and if it is still valid at the current time.
-pub fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
+fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
     certs.iter().any(|bytes| {
         let x509_cert = match x509_parser::parse_x509_certificate(bytes) {
             Ok((_, x509_cert)) => x509_cert,
