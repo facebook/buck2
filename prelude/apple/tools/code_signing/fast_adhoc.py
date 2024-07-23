@@ -88,6 +88,12 @@ def should_skip_adhoc_signing_path(
         _LOGGER.info("  Requested non-adhoc signing, not adhoc skipping signing")
         return False
 
+    if "libclang_rt" in str(path):
+        # Sanitizer runtime dylibs require re-signing, even though they're already pre-signed.
+        # Otherwise, `codesign` fails to sign the top-level bundle (as the adhoc pre-signed
+        # sanitizer dylibs have been signed within a different context).
+        return False
+
     codesign_args = ["/usr/bin/codesign", "-d", "-v", path]
     codesign_result = _logged_subprocess_run(
         "codesign", "check pre-existing signature", codesign_args
