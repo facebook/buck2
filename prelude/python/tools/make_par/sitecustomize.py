@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import itertools
 import multiprocessing.util as mp_util
 import os
 import sys
@@ -100,8 +101,9 @@ def __startup__() -> None:
 def __passthrough_exec_module() -> None:
     # Delegate this module execution to the next module in the path, if any,
     # effectively making this sitecustomize.py a passthrough module.
+    paths = itertools.dropwhile(lambda p: not __file__.startswith(p), sys.path)
     spec = PathFinder.find_spec(
-        __name__, path=[p for p in sys.path if not __file__.startswith(p)]
+        __name__, path=[p for p in paths if not __file__.startswith(p)]
     )
     if spec:
         mod = module_from_spec(spec)
