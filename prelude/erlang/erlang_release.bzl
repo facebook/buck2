@@ -336,7 +336,7 @@ def _dependencies(ctx: AnalysisContext) -> list[Dependency]:
     """Extract dependencies from `applications` field, order preserving"""
     deps = []
     for dep in ctx.attrs.applications:
-        if type(dep) == "tuple":
+        if isinstance(dep, tuple):
             deps.append(dep[0])
         else:
             deps.append(dep)
@@ -346,7 +346,7 @@ def _dependencies_with_start_types(ctx: AnalysisContext) -> dict[str, StartType]
     """Extract mapping from dependency to start type from `applications` field, this is not order preserving"""
     deps = {}
     for dep in ctx.attrs.applications:
-        if type(dep) == "tuple":
+        if isinstance(dep, tuple):
             deps[_app_name(dep[0])] = StartType(dep[1])
         else:
             deps[_app_name(dep)] = StartType("permanent")

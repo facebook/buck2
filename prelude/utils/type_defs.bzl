@@ -60,8 +60,6 @@ def is_dict(arg):
     """
     return type(arg) == _DICT_TYPE
 
-_TUPLE_TYPE = type(())
-
 def is_tuple(arg):
     """Checks if provided instance has a tuple type.
 
@@ -71,7 +69,7 @@ def is_tuple(arg):
     Returns:
       True for tuple instances, False otherwise. rtype: bool
     """
-    return type(arg) == _TUPLE_TYPE
+    return isinstance(arg, tuple)
 
 def is_collection(arg):
     """Checks if provided instance is a collection subtype.
