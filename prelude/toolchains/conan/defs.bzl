@@ -386,7 +386,7 @@ def _conan_cxx_libraries_impl(ctx: AnalysisContext) -> list[Provider]:
         default_outputs = ctx.attrs.main[DefaultInfo].default_outputs + flatten([c[DefaultInfo].default_outputs for c in ctx.attrs.components.values()]),
         sub_targets = {n: c.providers for n, c in ctx.attrs.components.items()},
     )
-    providers = [p for p in ctx.attrs.main.providers if not isinstance(p, DefaultInfo)]
+    providers = [p for p in ctx.attrs.main.providers if type(p) != "DefaultInfo"]
     providers.append(default_info)
     return providers
 
