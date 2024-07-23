@@ -32,7 +32,7 @@ const universallyExcludedDirs = new Set([
   "rfcs/",
 ]);
 
-const manualSidebar = [
+const mainSidebar = [
     'index',
   {
     type: 'category',
@@ -285,5 +285,7 @@ function itemSort(items) {
 module.exports = {
   itemFilter: itemFilter,
   itemSort: itemSort,
-  manualSidebar: manualSidebar,
+  sidebars: {
+    mainSidebar: mainSidebar,
+  },
 };
