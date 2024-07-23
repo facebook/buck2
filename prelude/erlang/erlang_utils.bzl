@@ -48,7 +48,7 @@ def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
     """
     if isinstance(data, list):
         return convert_list(data)
-    elif isinstance(data, tuple):
+    elif type(data) == "tuple":
         return convert_list(list(data), ob = "{", cb = "}")
     elif type(data) == "dict":
         return convert_dict(data)

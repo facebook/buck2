@@ -178,7 +178,7 @@ def _get_prepackaged_validators_outputs(ctx: AnalysisContext, prepackaged_conten
 
     outputs = []
     for idx, validator in enumerate(ctx.attrs.prepackaged_validators):
-        if isinstance(validator, tuple):
+        if type(validator) == "tuple":
             validator, validator_args = validator
         else:
             validator = validator
