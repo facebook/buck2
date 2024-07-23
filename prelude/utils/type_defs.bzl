@@ -23,6 +23,8 @@ def is_unicode(arg):
     """
     return hasattr(arg, "encode")
 
+_STRING_TYPE = type("")
+
 def is_string(arg):
     """Checks if provided instance has a string type.
 
@@ -32,7 +34,7 @@ def is_string(arg):
     Returns:
       True for string instances, False otherwise. rtype: bool
     """
-    return isinstance(arg, str)
+    return type(arg) == _STRING_TYPE
 
 def is_list(arg):
     """Checks if provided instance has a list type.

@@ -564,7 +564,7 @@ def _pex_modules_common_args(
         debuginfo_srcs_args = cmd_args(debuginfo_srcs_path)
         cmd.add(cmd_args(debuginfo_srcs_args, format = "@{}"))
         for name, artifact in debuginfo_files:
-            if not isinstance(name, str):
+            if type(name) != type(""):
                 libdir, shlib, ext = name
                 name = paths.join(libdir, shlib.soname.ensure_str() + ext)
             debug_artifacts.append((name, artifact))

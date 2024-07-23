@@ -52,7 +52,7 @@ def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
         return convert_list(list(data), ob = "{", cb = "}")
     elif isinstance(data, dict):
         return convert_dict(data)
-    elif isinstance(data, str):
+    elif type(data) == "string":
         return convert_string(data)
     elif isinstance(data, cmd_args):
         return data
