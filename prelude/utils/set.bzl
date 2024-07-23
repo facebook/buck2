@@ -39,6 +39,8 @@ set_record = record(
     update = field(typing.Callable),
     # Returns whether the value is in the set
     contains = field(typing.Callable),
+    # Returns a set containing items in this set that are not in the other set (passed in as an arg)
+    difference = field(typing.Callable),
     size = field(typing.Callable),
 )
 
@@ -46,7 +48,7 @@ set_record = record(
 # encouraged to avoid leaking the underlying implementation.
 set_type = set_record
 
-def set(initial_entries: list[typing.Any] = []) -> set_type:
+def set(initial_entries: list[typing.Any] | set_type = []) -> set_type:
     def set_list():
         return self._entries.keys()
 
@@ -71,6 +73,13 @@ def set(initial_entries: list[typing.Any] = []) -> set_type:
     def set_size() -> int:
         return len(self._entries)
 
+    def set_difference(other: set_type) -> set_type:
+        result = set()
+        for item in self.list():
+            if not other.contains(item):
+                result.add(item)
+        return result
+
     self = set_record(
         _entries = {},
         list = set_list,
@@ -79,8 +88,39 @@ def set(initial_entries: list[typing.Any] = []) -> set_type:
         update = set_update,
         contains = set_contains,
         size = set_size,
+        difference = set_difference,
     )
 
-    self.update(initial_entries)
+    if isinstance(initial_entries, set_type):
+        self.update(initial_entries.list())
+    else:
+        self.update(initial_entries)
 
     return self
+
+# Returns a set containing the intersection (common items) of all sets in the array
+def set_intersect(sets: list[set_type]) -> set_type:
+    if not sets:
+        return set()
+
+    # we need a copy of the set so we don't modify it below
+    result = set(sets[0])
+
+    for other_set in sets[1:]:
+        for item in result.list():
+            if not other_set.contains(item):
+                result.remove(item)
+
+    return result
+
+# Returns a set containing the union of all sets in the array
+def set_union(sets: list[set_type]) -> set_type:
+    result = set()
+    if not sets:
+        return result
+
+    for set_item in sets:
+        for item in set_item.list():
+            result.add(item)
+
+    return result
