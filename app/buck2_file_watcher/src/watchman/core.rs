@@ -152,11 +152,11 @@ async fn with_timeout<R>(
     match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
         Ok(Ok(res)) => Ok(res),
         Ok(Err(e)) => {
-            validate_certs().await?;
+            validate_certs().await.context("Watchman Request Failed")?;
             Err(WatchmanClientError::RequestFailed(e).into())
         }
         Err(_) => {
-            validate_certs().await?;
+            validate_certs().await.context("Watchman Timed Out")?;
             Err(WatchmanClientError::Timeout(timeout).into())
         }
     }

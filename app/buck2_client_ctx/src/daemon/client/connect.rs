@@ -639,7 +639,7 @@ impl<'a> BuckdConnectOptions<'a> {
         {
             Ok(client) => Ok(client.with_subscribers(self.subscribers)),
             Err(e) => {
-                handle.await.unwrap()?;
+                handle.await.unwrap().context("Daemon Failed to Connect")?;
                 self.subscribers.handle_daemon_connection_failure(&e);
                 Err(e.into())
             }
