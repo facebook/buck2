@@ -748,7 +748,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `ignore_artifacts` - if `True`, artifacts paths are used, but artifacts are not pulled.
     /// * `hidden` - artifacts not present on the command line, but added as dependencies.
     /// * `absolute_prefix` and `absolute_suffix` - added to the start and end of each artifact.
-    /// * `parent` - for all the artifacts use their parent directory.
+    /// * `parent` - for all the artifacts use their `parent`th directory (e.g. `parent = 1` for the directory the artifact is located, `parent = 2` for that directory's parent, etc.).
     /// * `relative_to` - make all artifact paths relative to a given location.
     /// * `replace_regex` - replaces arguments with a regular expression.
     ///
