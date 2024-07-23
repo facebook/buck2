@@ -139,7 +139,7 @@ def _concat(*items):
             continue
         if res == None:
             res = item
-        elif isinstance(res, dict) and isinstance(item, dict):
+        elif type(res) == type({}) and type(item) == type({}):
             new_res = {}
             new_res.update(res)
             new_res.update(item)

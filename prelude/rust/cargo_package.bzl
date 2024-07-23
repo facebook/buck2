@@ -81,7 +81,7 @@ def apply_platform_attrs(
         template = templates.get(platform, None)
         if template:
             for attr, value in attrs.items():
-                default_value = {} if isinstance(value, dict) else [] if isinstance(value, list) else None
+                default_value = {} if type(value) == type({}) else [] if isinstance(value, list) else None
                 conditional_value = selects.apply(template, lambda cond: value if cond else default_value)
                 if attr in combined_attrs:
                     combined_attrs[attr] = combined_attrs[attr] + conditional_value

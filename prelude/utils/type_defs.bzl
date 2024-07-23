@@ -47,6 +47,8 @@ def is_list(arg):
     """
     return isinstance(arg, list)
 
+_DICT_TYPE = type({})
+
 def is_dict(arg):
     """Checks if provided instance has a dict type.
 
@@ -56,7 +58,7 @@ def is_dict(arg):
     Returns:
       True for dict instances, False otherwise. rtype: bool
     """
-    return isinstance(arg, dict)
+    return type(arg) == _DICT_TYPE
 
 def is_tuple(arg):
     """Checks if provided instance has a tuple type.

@@ -44,7 +44,7 @@ HASKELL_EXTENSIONS = [
 # We take a named_set for srcs, which is sometimes a list, sometimes a dict.
 # In future we should only accept a list, but for now, cope with both.
 def srcs_to_pairs(srcs) -> list[(str, Artifact)]:
-    if isinstance(srcs, dict):
+    if type(srcs) == type({}):
         return srcs.items()
     else:
         return [(src.short_path, src) for src in srcs]

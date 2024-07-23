@@ -48,7 +48,7 @@ def cxx_populate_xcode_attributes(
     return data
 
 def _get_artifacts_with_owners(files: typing.Any) -> dict[Artifact, dict[str, Label]]:
-    if isinstance(files, dict):
+    if type(files) == "dict":
         return {artifact: _get_artifact_owner(artifact) for _, artifact in files.items()}
     else:
         return {file: _get_artifact_owner(file) for file in files}

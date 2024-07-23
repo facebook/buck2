@@ -15,7 +15,7 @@ def filegroup_impl(ctx):
     is based on the `short_path` for the provided `src`.
     """
 
-    if isinstance(ctx.attrs.srcs, dict):
+    if type(ctx.attrs.srcs) == type({}):
         srcs = ctx.attrs.srcs
     else:
         srcs = {}

@@ -50,7 +50,7 @@ def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
         return convert_list(data)
     elif isinstance(data, tuple):
         return convert_list(list(data), ob = "{", cb = "}")
-    elif isinstance(data, dict):
+    elif type(data) == "dict":
         return convert_dict(data)
     elif type(data) == "string":
         return convert_string(data)
