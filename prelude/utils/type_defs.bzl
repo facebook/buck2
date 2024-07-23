@@ -107,6 +107,9 @@ def is_struct(arg):
     """
     return isinstance(arg, struct)
 
+def _func():
+    pass
+
 def is_function(args):
     """Checks if provided instance is a function value.
 
