@@ -7,24 +7,33 @@
  * of this source tree.
  */
 
+use std::ffi::OsString;
+
 use buck2_util::process::async_background_command;
 
-use crate::certs::find_internal_cert;
+use crate::certs;
 use crate::certs::load_certs;
-use crate::certs::supports_vpnless;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input, tag = NoValidCerts)]
-#[error("Could not find any valid certs. Please refresh your internal or SKS certs and try again.")]
-struct InvalidCertsError;
+enum InvalidCertsError {
+    #[error(
+        "Could not find valid root certs. Please check your machine certificate settings.\nFailure Reason: {0}"
+    )]
+    SystemCerts(String),
+    #[error(
+        "Could not find valid client certs. Try refreshing your internal certs or re-login and try again.\nFailure Reason: {0}"
+    )]
+    ClientCerts(String),
+    #[error(
+        "Could not find valid certs for VPNless. Please refresh/renew certs with SKS agent and try again."
+    )]
+    VPNlessCerts,
+}
 
 /// Use SKS Agent to check the status of the VPNless cert in the scenario that VPNless is supported.
 /// SKS Agent is different in Windows so we need to use the appropriate command for the OS.
 async fn is_vpnless_cert_valid() -> bool {
-    if !supports_vpnless() {
-        return false;
-    }
-
     let sks_agent = if cfg!(target_os = "windows") {
         "sks-agent"
     } else {
@@ -45,97 +54,124 @@ async fn is_vpnless_cert_valid() -> bool {
 }
 
 /// Check if the provided certs exists and if it is still valid at the current time.
-fn is_cert_valid(certs: Vec<Vec<u8>>) -> bool {
-    certs.iter().any(|bytes| {
+async fn verify(path: &OsString) -> anyhow::Result<()> {
+    let certs = load_certs(path).await?;
+    if certs.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Could not find any certs to validate at '{}'",
+            path.to_string_lossy()
+        ));
+    }
+
+    let valid = certs.iter().any(|bytes| {
         let x509_cert = match x509_parser::parse_x509_certificate(bytes) {
             Ok((_, x509_cert)) => x509_cert,
             Err(_) => return false,
         };
 
         x509_cert.validity().is_valid()
-    })
+    });
+
+    if !valid {
+        return Err(anyhow::anyhow!(
+            "Certificate Expired: expired certs found at '{}'",
+            path.to_string_lossy()
+        ));
+    }
+
+    Ok(())
 }
 
 pub async fn validate_certs() -> anyhow::Result<()> {
-    if cfg!(fbcode_build) {
-        let tls_certs_valid = match find_internal_cert() {
-            Some(cert_path) => {
-                let certs = load_certs(cert_path).await?;
-                is_cert_valid(certs)
-            }
-            None => false,
-        };
+    if cfg!(not(fbcode_build)) {
+        return Ok(());
+    }
 
-        if !tls_certs_valid && !is_vpnless_cert_valid().await {
-            return Err(InvalidCertsError.into());
+    if certs::supports_vpnless() {
+        if is_vpnless_cert_valid().await {
+            return Ok(());
+        }
+
+        return Err(InvalidCertsError::VPNlessCerts.into());
+    } else {
+        let err_msg = "Could not find any files that may contain certificates";
+        // System certs are unlikely to be invalid, but if it is, it's a bigger issue than invalid client certs so we check it first
+        match certs::find_internal_cert() {
+            Some(root_certs) => {
+                if let Err(e) = verify(&root_certs).await {
+                    return Err(InvalidCertsError::SystemCerts(e.to_string()).into());
+                }
+            }
+            None => return Err(InvalidCertsError::SystemCerts(err_msg.to_owned()).into()),
+        }
+
+        match certs::find_root_ca_certs() {
+            Some(client_certs) => {
+                if let Err(e) = verify(&client_certs).await {
+                    return Err(InvalidCertsError::ClientCerts(e.to_string()).into());
+                }
+            }
+            None => return Err(InvalidCertsError::ClientCerts(err_msg.to_owned()).into()),
         }
     }
 
     Ok(())
 }
 
+#[cfg(fbcode_build)]
 #[cfg(test)]
 mod tests {
-    use x509_parser::pem::parse_x509_pem;
+    use std::env;
+    use std::ffi::OsString;
 
-    use crate::validate::is_cert_valid;
+    use crate::validate::verify;
 
-    fn x509_str_to_der(pem: &str) -> Vec<u8> {
-        let der = parse_x509_pem(pem.as_bytes()).unwrap();
-        der.1.contents
-    }
+    #[tokio::test]
+    async fn invalid_certs_test() {
+        let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
 
-    #[test]
-    fn invalid_certs_test() {
-        let empty_certs = vec![vec![]];
-        let invalid_certs = vec![vec![4, 9, 7, 0, 8, 42]];
+        let empty_path = format!("{}/test_empty.pem", base_path);
+        let empty_res = verify(&OsString::from(empty_path)).await;
+        assert_eq!(true, empty_res.is_err());
+        let err_msg = empty_res.unwrap_err().to_string();
+        assert!(
+            err_msg.starts_with("Could not find any certs to validate"),
+            "{}",
+            format!("Actual: {}", err_msg)
+        );
+
+        let invalid_path = format!("{}/test_invalid.pem", base_path);
+        let invalid_res = verify(&OsString::from(invalid_path)).await;
+        assert_eq!(true, invalid_res.is_err());
+        let err_msg = invalid_res.unwrap_err().to_string();
+        assert!(
+            err_msg.starts_with("Could not find any certs to validate"),
+            "{}",
+            format!("Actual: {}", err_msg)
+        );
 
         // Self-signed cert for testing. Expired 05/31/2024
-        let expired_cert = "-----BEGIN CERTIFICATE-----
-MIICRjCCAa+gAwIBAgIBADANBgkqhkiG9w0BAQ0FADBAMQswCQYDVQQGEwJ1czET
-MBEGA1UECAwKV2FzaGluZ3RvbjENMAsGA1UECgwETWV0YTENMAsGA1UEAwwEQnVj
-azAeFw0yNDA1MzExODMzMjFaFw0yNDA2MDExODMzMjFaMEAxCzAJBgNVBAYTAnVz
-MRMwEQYDVQQIDApXYXNoaW5ndG9uMQ0wCwYDVQQKDARNZXRhMQ0wCwYDVQQDDARC
-dWNrMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHgu9ZYLZCd6MdI3mLTwCD
-La8u8Qqt10rlyUZ7PxivRHVKKa7MtFD9GniYq3KxeSmUG2MCZaqlMRWsef+4tXXy
-6jXalPZKEQEqupc9QCBcAeQvWL+wpzRPG4eYambnhMbI+I7qUwb0LKZssV9kxTzm
-ulA+OPR78NBOuP2a7HECVwIDAQABo1AwTjAdBgNVHQ4EFgQUvH8Of9v7NJPpufEf
-MYigdGf4QCowHwYDVR0jBBgwFoAUvH8Of9v7NJPpufEfMYigdGf4QCowDAYDVR0T
-BAUwAwEB/zANBgkqhkiG9w0BAQ0FAAOBgQCCovywmK/CpX/a6Uy/p0NoVBk/Mv7S
-rZDz0fxhm4ae0KLTXZVKQb/gHCbbZwfurv1wu2gcYrxSlHOPAC9EhWBq7BSOowZ6
-lXKnDGs/z5T+p7fuwjNj2qqBc3Ap/v430KvLQo5NH3nX0ur3R7J4zFOO2a/uwtpw
-Bx4/wCWapqMUyw==
------END CERTIFICATE-----";
-
-        assert_eq!(false, is_cert_valid(empty_certs));
-        assert_eq!(false, is_cert_valid(invalid_certs));
-        assert_eq!(false, is_cert_valid(vec![x509_str_to_der(expired_cert)]));
+        let expired_path = format!("{}/test_expired.pem", base_path);
+        let expired_res = verify(&OsString::from(expired_path)).await;
+        assert_eq!(true, expired_res.is_err());
+        let err_msg = expired_res.unwrap_err().to_string();
+        assert!(
+            err_msg.starts_with("Certificate Expired"),
+            "{}",
+            format!("Actual: {}", err_msg)
+        );
     }
 
-    #[test]
-    fn valid_cert_test() {
+    #[tokio::test]
+    async fn valid_cert_test() {
         // Self-signed cert for testing. Should expire in 100 years if this is around for that long!
         // Generated using:
         // 1. openssl genrsa -out mykey.pem 2048
         // 2. openssl req -new -key mykey.pem -out mycsr.csr
         // 3. openssl x509 -req -in mycsr.csr -signkey mykey.pem -out x509.crt -days 36500
         // Copy content in x509.crt
-        let valid_cert = "-----BEGIN CERTIFICATE-----
-MIICSDCCAbGgAwIBAgIBADANBgkqhkiG9w0BAQ0FADBAMQswCQYDVQQGEwJ1czET
-MBEGA1UECAwKV2FzaGluZ3RvbjENMAsGA1UECgwETWV0YTENMAsGA1UEAwwEQnVj
-azAgFw0yNDA1MzExODM2NTFaGA8yMTI0MDUwNzE4MzY1MVowQDELMAkGA1UEBhMC
-dXMxEzARBgNVBAgMCldhc2hpbmd0b24xDTALBgNVBAoMBE1ldGExDTALBgNVBAMM
-BEJ1Y2swgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBAL3zwyj19w2+Q3WR7S0Y
-oZiHp+Yv6YIj824PPyVV/vFQr43BAScCic1nSZynHLmQEQA8EDrdNdQt/XvSW1hk
-/IAV+h/9tnt5IlJ4f+GtNDVvYm749N45vnbeIghGqi9a2O5Rq8UbODQxN1dp6/JA
-0M2RGIWFuC7J0XyugmZYQ0s1AgMBAAGjUDBOMB0GA1UdDgQWBBSUKFZzjdxaHECE
-INHhx66lztPozTAfBgNVHSMEGDAWgBSUKFZzjdxaHECEINHhx66lztPozTAMBgNV
-HRMEBTADAQH/MA0GCSqGSIb3DQEBDQUAA4GBAJUtNrGWSCe2B3oh0xTN7ovieFXw
-tw4vIDXD37nIRxw3hJEUOy6+/IsyvMK8zKSG1gDfFWsFtFtI1F/g3gqUornjvpHA
-E4miAiU9J+PZbNobBKzhYcb6DppuNFr0Q1mNq0oxmodDCR4+pSCZJJETorhtF96z
-nzcrwb6QVFOKt510
------END CERTIFICATE-----";
-
-        assert_eq!(true, is_cert_valid(vec![x509_str_to_der(valid_cert)]));
+        let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
+        let valid_path = format!("{}/test_valid.pem", base_path);
+        assert_eq!(true, verify(&OsString::from(valid_path)).await.is_ok());
     }
 }

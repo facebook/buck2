@@ -6,6 +6,7 @@ oncall("build_infra")
 rust_library(
     name = "buck2_certs",
     srcs = glob(["src/**/*.rs"]),
+    test_env = {"TEST_CERT_LOCATIONS": "$(source test/testdata)"},
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:rustls",
