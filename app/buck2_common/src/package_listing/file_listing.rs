@@ -91,7 +91,6 @@ pub mod testing {
 
     use crate::package_listing::file_listing::PackageFileListing;
 
-    #[allow(clippy::from_iter_instead_of_collect)]
     impl PackageFileListing {
         pub fn testing_new(files: &[&str]) -> PackageFileListing {
             let files = files

@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::from_iter_instead_of_collect)]
-
 use std::borrow::Borrow;
 use std::hash::Hash;
 use std::ops::Deref;

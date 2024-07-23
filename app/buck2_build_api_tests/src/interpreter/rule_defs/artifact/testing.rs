@@ -193,7 +193,6 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
     // Mainly tests get_or_declare_output function that can transfer associated artifacts
     // artifact parameter can be either string or artifact
-    #[allow(clippy::from_iter_instead_of_collect)]
     fn declared_bound_artifact_with_associated_artifacts<'v>(
         // TODO(nga): parameters should be either positional or named, not both.
         artifact: OutputArtifactArg<'v>,

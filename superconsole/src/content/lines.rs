@@ -551,7 +551,6 @@ mod tests {
         assert_eq!(test, expected);
     }
 
-    #[allow(clippy::from_iter_instead_of_collect)] // More readable this way.
     #[test]
     fn test_colored_from_multiline_string() {
         // Lots of little things we check in here, including that we persist state

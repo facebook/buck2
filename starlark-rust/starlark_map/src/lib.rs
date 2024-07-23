@@ -18,7 +18,6 @@
 //! Ordered map optimized for starlark-rust use cases.
 
 // Hints we disagree with
-#![allow(clippy::from_iter_instead_of_collect)]
 #![allow(clippy::missing_safety_doc)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]

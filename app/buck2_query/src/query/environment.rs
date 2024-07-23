@@ -185,7 +185,6 @@ pub trait QueryEnvironment: Send + Sync {
         self.rdeps(from, to, None).await
     }
 
-    #[allow(clippy::from_iter_instead_of_collect)]
     async fn somepath(
         &self,
         from: &TargetSet<Self::Target>,

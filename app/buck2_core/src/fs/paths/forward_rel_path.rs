@@ -1408,7 +1408,6 @@ mod tests {
         );
     }
 
-    #[allow(clippy::from_iter_instead_of_collect)]
     #[test]
     fn test_from_iter() {
         let parts = &["foo", "bar", "baz"]

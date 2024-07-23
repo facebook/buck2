@@ -21,6 +21,7 @@ CLIPPY_ALLOW = [
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
     "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
+    "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
     "clippy::implicit-hasher",  # Makes code more complex for little benefit
     "clippy::len-without-is-empty",  # len() == 0 is perfectly clear
     "clippy::manual-range-contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
@@ -61,7 +62,6 @@ CLIPPY_DENY = [
     "clippy::empty_enum",
     "clippy::filter_map_next",
     "clippy::flat_map_option",
-    "clippy::from_iter_instead_of_collect",
     "clippy::large_stack_arrays",
     "clippy::linkedlist",
     "clippy::macro_use_imports",

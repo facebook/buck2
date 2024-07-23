@@ -65,7 +65,6 @@ impl FlameGraph {
         self.node_size += size;
     }
 
-    #[allow(clippy::from_iter_instead_of_collect)]
     fn write_flame_graph_impl(&self, stack: &[&str], w: &mut String) {
         if self.node_size != 0 {
             if !stack.is_empty() {

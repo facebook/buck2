@@ -124,7 +124,6 @@ pub mod testing {
             Self::testing_new(files, "BUCK")
         }
 
-        #[allow(clippy::from_iter_instead_of_collect)]
         fn testing_new(files: &[&str], buildfile: &str) -> Self {
             let files = files.iter().map(|f| {
                 PackageRelativePathBuf::try_from((*f).to_owned())

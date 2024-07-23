@@ -109,7 +109,6 @@ impl<'a, T> IntoIterator for &'a ThinArcSlice<T> {
 }
 
 impl<T> FromIterator<T> for ThinArcSlice<T> {
-    #[allow(clippy::from_iter_instead_of_collect)]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower, upper) = iter.size_hint();
@@ -145,7 +144,6 @@ mod tests {
         assert_eq!(["a".to_owned(), "b".to_owned()], *slice);
     }
 
-    #[allow(clippy::from_iter_instead_of_collect)]
     #[test]
     fn test_from_iter() {
         // Iterator without size hint.

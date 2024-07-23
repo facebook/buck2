@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(clippy::from_iter_instead_of_collect)]
-
 use std::alloc;
 use std::alloc::Layout;
 use std::fmt::Debug;
