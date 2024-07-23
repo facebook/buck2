@@ -87,6 +87,8 @@ def is_bool(arg):
     """
     return type(arg) == _BOOL_TYPE
 
+_NUMBER_TYPE = type(1)
+
 def is_number(arg):
     """Checks if provided instance is a number value.
 
@@ -96,7 +98,7 @@ def is_number(arg):
     Returns:
       True for number values, False otherwise. rtype: bool
     """
-    return isinstance(arg, int)
+    return type(arg) == _NUMBER_TYPE
 
 def is_struct(arg):
     """Checks if provided instance is a struct value.
