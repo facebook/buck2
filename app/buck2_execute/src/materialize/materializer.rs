@@ -604,6 +604,7 @@ pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
 pub struct DeferredMaterializerIterItem {
     pub artifact_path: ProjectRelativePathBuf,
     pub artifact_display: Box<dyn DeferredMaterializerEntry>,
+    pub deps: Vec<(ProjectRelativePathBuf, &'static str)>,
 }
 
 /// Obtain notifications for entries as they are materialized, and request eager materialization of

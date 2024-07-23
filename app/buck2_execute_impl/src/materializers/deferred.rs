@@ -2338,49 +2338,100 @@ impl ArtifactTree {
     }
 }
 
+enum FoundArtifact {
+    /// Proper artifact.
+    Found,
+    /// Found a directory artifact with dependencies inside it.
+    FoundForDir,
+    // TODO(nga): figure the meaning of remaining. Are these bugs?
+    /// Dependency dir not found in tree.
+    DirNotFound,
+    /// Leaf pointing to a dir.
+    LeafPointsToDir,
+}
+
 impl<V: 'static> FileTree<V> {
     /// Finds all the paths in `deps` that are artifacts in `self`
     fn find_artifacts<D>(&self, deps: &D) -> Vec<ProjectRelativePathBuf>
     where
         D: ActionDirectory + ?Sized,
     {
+        let mut artifacts = Vec::new();
+        self.find_artifacts_impl(deps, |path, found| match found {
+            FoundArtifact::Found | FoundArtifact::FoundForDir => {
+                artifacts.push(path.to_buf());
+            }
+            FoundArtifact::DirNotFound | FoundArtifact::LeafPointsToDir => {}
+        });
+        artifacts
+    }
+
+    fn find_artifacts_for_debug<D>(&self, deps: &D) -> Vec<(ProjectRelativePathBuf, &'static str)>
+    where
+        D: ActionDirectory + ?Sized,
+    {
+        let mut result = Vec::new();
+        self.find_artifacts_impl(deps, |path, found| {
+            let found = match found {
+                FoundArtifact::Found => "Found",
+                FoundArtifact::FoundForDir => "FoundForDir",
+                FoundArtifact::DirNotFound => "DirNotFound",
+                FoundArtifact::LeafPointsToDir => "LeafPointsToDir",
+            };
+            result.push((path.to_buf(), found));
+        });
+        result
+    }
+
+    fn find_artifacts_impl<D>(
+        &self,
+        deps: &D,
+        mut listener: impl FnMut(&ProjectRelativePath, FoundArtifact),
+    ) where
+        D: ActionDirectory + ?Sized,
+    {
         fn walk_deps<V, D>(
             tree: &FileTree<V>,
             entry: DirectoryEntry<&D, &ActionDirectoryMember>,
             path: &mut ProjectRelativePathBuf,
-            found_artifacts: &mut Vec<ProjectRelativePathBuf>,
+            listener: &mut impl FnMut(&ProjectRelativePath, FoundArtifact),
         ) where
             D: ActionDirectory + ?Sized,
         {
             match (tree, entry) {
-                (FileTree::Data(_), DirectoryEntry::Dir(_) | DirectoryEntry::Leaf(_)) => {
-                    found_artifacts.push(path.clone());
+                (FileTree::Data(_), DirectoryEntry::Leaf(_)) => {
+                    listener(path, FoundArtifact::Found);
+                }
+                (FileTree::Data(_), DirectoryEntry::Dir(_)) => {
+                    listener(path, FoundArtifact::FoundForDir);
                 }
                 (FileTree::Tree(tree_children), DirectoryEntry::Dir(d)) => {
                     // Not an artifact, but if entry is a directory we can search deeper within
                     for (name, child) in d.entries() {
+                        path.push(name);
                         if let Some(subtree) = tree_children.get(name) {
-                            path.push(name);
-                            walk_deps(subtree, child, path, found_artifacts);
-                            let popped = path.pop();
-                            assert!(popped);
+                            walk_deps(subtree, child, path, listener);
+                        } else {
+                            listener(path, FoundArtifact::DirNotFound);
                         }
+                        let popped = path.pop();
+                        assert!(popped);
                     }
                 }
-                (FileTree::Tree(_), DirectoryEntry::Leaf(_)) => {}
+                (FileTree::Tree(_), DirectoryEntry::Leaf(_)) => {
+                    listener(path, FoundArtifact::LeafPointsToDir);
+                }
             }
         }
 
-        let mut artifacts = Vec::new();
         let mut path_buf = ProjectRelativePathBuf::default();
         walk_deps(
             self,
             DirectoryEntry::Dir(deps),
             &mut path_buf,
-            &mut artifacts,
+            &mut listener,
         );
         assert!(path_buf.is_empty());
-        artifacts
     }
 
     /// Removes path from FileTree. Returns an iterator of pairs of path and entry removed

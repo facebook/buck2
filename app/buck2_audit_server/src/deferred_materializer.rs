@@ -45,9 +45,14 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                 while let Some(DeferredMaterializerIterItem {
                     artifact_path,
                     artifact_display,
+                    deps,
                 }) = stream.next().await
                 {
                     writeln!(stdout, "{artifact_path}\t{artifact_display}")?;
+                    writeln!(stdout, "  deps: {}", deps.len())?;
+                    for (dep_path, dep_kind) in deps {
+                        writeln!(stdout, "    {dep_path} {dep_kind}")?;
+                    }
                 }
             }
             DeferredMaterializerSubcommand::ListSubscriptions => {

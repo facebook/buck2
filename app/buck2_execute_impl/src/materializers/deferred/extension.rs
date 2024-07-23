@@ -167,9 +167,15 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
 
             let path = ProjectRelativePathBuf::from(path);
 
+            let deps = match &data.deps {
+                Some(deps) => processor.tree.find_artifacts_for_debug(deps),
+                None => Vec::new(),
+            };
+
             match self.sender.send(DeferredMaterializerIterItem {
                 artifact_path: path,
                 artifact_display: Box::new(path_data) as _,
+                deps,
             }) {
                 Ok(..) => {}
                 Err(..) => break, // No use sending more if the client disconnected.
