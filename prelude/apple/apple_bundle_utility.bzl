@@ -28,7 +28,7 @@ def get_extension_attr(ctx: AnalysisContext) -> typing.Any:
     return ctx.attrs.extension
 
 def get_default_binary_dep(binary_deps: [dict[str, Dependency], Dependency, None]) -> [Dependency, None]:
-    if not type(binary_deps) == "dict":
+    if not isinstance(binary_deps, dict):
         return binary_deps
 
     if len(binary_deps.items()) == 1:

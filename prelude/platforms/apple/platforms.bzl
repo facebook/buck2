@@ -220,7 +220,7 @@ def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms):
     return _DEFAULT_ANALYSIS_IOS_PLATFORM
 
 def _validate_cxx_platforms_constraint_values(base_name, cxx_platforms_constraint_values, supported_cxx_platforms):
-    if type(cxx_platforms_constraint_values) != type({}):
+    if not isinstance(cxx_platforms_constraint_values, dict):
         fail("cxx_platforms_constraint_values must be a map of platform to constraint values!")
     for platform, platform_values in cxx_platforms_constraint_values.items():
         if platform not in supported_cxx_platforms:
@@ -232,7 +232,7 @@ def _validate_cxx_platforms_constraint_values(base_name, cxx_platforms_constrain
             ))
 
 def _validate_build_mode_constraint_values(base_name, build_mode_constraint_values, supported_build_modes):
-    if type(build_mode_constraint_values) != type({}):
+    if not isinstance(build_mode_constraint_values, dict):
         fail("build_mode_constraint_values must be a map of build mode to constraint values!")
     for build_mode, build_mode_values in build_mode_constraint_values.items():
         if build_mode not in supported_build_modes:
