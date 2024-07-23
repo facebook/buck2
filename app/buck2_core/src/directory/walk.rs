@@ -27,16 +27,14 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub trait WalkType<'a> {
     type Leaf: 'a;
     type Directory: Copy + 'a;
-    type UnorderedEntries;
-    type Entries: From<Self::UnorderedEntries>
-        + Iterator<
-            Item = (
-                &'a FileName,
-                DirectoryEntry<Self::Directory, &'a Self::Leaf>,
-            ),
-        >;
+    type Entries: Iterator<
+        Item = (
+            &'a FileName,
+            DirectoryEntry<Self::Directory, &'a Self::Leaf>,
+        ),
+    >;
 
-    fn directory_entries(directory: Self::Directory) -> Self::UnorderedEntries;
+    fn directory_entries(directory: Self::Directory) -> Self::Entries;
 }
 
 pub(crate) struct WalkFrame<'a, T: WalkType<'a>> {
@@ -46,10 +44,10 @@ pub(crate) struct WalkFrame<'a, T: WalkType<'a>> {
 }
 
 impl<'a, T: WalkType<'a>> WalkFrame<'a, T> {
-    pub(crate) fn new(entries: T::UnorderedEntries) -> Self {
+    pub(crate) fn new(entries: T::Entries) -> Self {
         Self {
             name: None,
-            entries: T::Entries::from(entries),
+            entries,
             _phantom: PhantomData,
         }
     }
@@ -213,10 +211,9 @@ pub struct OrderedDirectoryWalkType<'a, L, H>(PhantomData<&'a (L, H)>);
 impl<'a, L, H> WalkType<'a> for FingerprintedUnorderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn FingerprintedDirectory<L, H>;
-    type UnorderedEntries = FingerprintedDirectoryEntries<'a, L, H>;
     type Entries = FingerprintedDirectoryEntries<'a, L, H>;
 
-    fn directory_entries(directory: Self::Directory) -> Self::UnorderedEntries {
+    fn directory_entries(directory: Self::Directory) -> Self::Entries {
         directory.fingerprinted_entries()
     }
 }
@@ -224,10 +221,9 @@ impl<'a, L, H> WalkType<'a> for FingerprintedUnorderedDirectoryWalkType<'a, L, H
 impl<'a, L, H> WalkType<'a> for UnorderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn Directory<L, H>;
-    type UnorderedEntries = DirectoryEntries<'a, L, H>;
     type Entries = DirectoryEntries<'a, L, H>;
 
-    fn directory_entries(directory: Self::Directory) -> Self::UnorderedEntries {
+    fn directory_entries(directory: Self::Directory) -> Self::Entries {
         directory.entries()
     }
 }
@@ -235,21 +231,19 @@ impl<'a, L, H> WalkType<'a> for UnorderedDirectoryWalkType<'a, L, H> {
 impl<'a, L, H> WalkType<'a> for FingerprintedOrderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn FingerprintedDirectory<L, H>;
-    type UnorderedEntries = FingerprintedDirectoryEntries<'a, L, H>;
     type Entries = FingerprintedOrderedDirectoryEntries<'a, L, H>;
 
-    fn directory_entries(directory: Self::Directory) -> Self::UnorderedEntries {
-        directory.fingerprinted_entries()
+    fn directory_entries(directory: Self::Directory) -> Self::Entries {
+        directory.fingerprinted_entries().into()
     }
 }
 
 impl<'a, L, H> WalkType<'a> for OrderedDirectoryWalkType<'a, L, H> {
     type Leaf = L;
     type Directory = &'a dyn Directory<L, H>;
-    type UnorderedEntries = DirectoryEntries<'a, L, H>;
     type Entries = OrderedDirectoryEntries<'a, L, H>;
 
-    fn directory_entries(directory: Self::Directory) -> Self::UnorderedEntries {
-        directory.entries()
+    fn directory_entries(directory: Self::Directory) -> Self::Entries {
+        directory.entries().into()
     }
 }
