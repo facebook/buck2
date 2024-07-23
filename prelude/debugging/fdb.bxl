@@ -84,7 +84,7 @@ def inspect(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTa
 
     # when getting ExecInfo based on external action it's not possible to provide result as ExecInfo
     # in this case we'll return the artifact which is assumed to have ExecInfo serialized in it
-    if type(result) == "artifact":
+    if isinstance(result, Artifact):
         return result
     return actions.write_json("out.json", result)
 

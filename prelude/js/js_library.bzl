@@ -24,7 +24,7 @@ def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource]:
     for src in ctx.attrs.srcs:
         # TODO(ianc) also support sources with an "inner path".
         expect(
-            type(src) == "artifact",
+            isinstance(src, Artifact),
             "src {} is not an artifact, its type is: {}".format(src, type(src)),
         )
         canonical_src_name = get_canonical_src_name(src.short_path)
