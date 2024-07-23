@@ -106,6 +106,8 @@ def is_number(arg):
     """
     return type(arg) == _NUMBER_TYPE
 
+_STRUCT_TYPE = type(struct())  # Starlark returns the same type for all structs
+
 def is_struct(arg):
     """Checks if provided instance is a struct value.
 
@@ -115,7 +117,7 @@ def is_struct(arg):
     Returns:
       True for struct values, False otherwise. rtype: bool
     """
-    return isinstance(arg, struct)
+    return type(arg) == _STRUCT_TYPE
 
 def _func():
     pass
