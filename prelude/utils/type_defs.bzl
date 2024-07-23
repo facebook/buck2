@@ -74,6 +74,8 @@ def is_collection(arg):
     """
     return is_dict(arg) or is_list(arg) or is_tuple(arg)
 
+_BOOL_TYPE = type(True)
+
 def is_bool(arg):
     """Checks if provided instance is a boolean value.
 
@@ -83,7 +85,7 @@ def is_bool(arg):
     Returns:
       True for boolean values, False otherwise. rtype: bool
     """
-    return isinstance(arg, bool)
+    return type(arg) == _BOOL_TYPE
 
 def is_number(arg):
     """Checks if provided instance is a number value.
