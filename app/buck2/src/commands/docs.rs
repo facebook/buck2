@@ -42,6 +42,14 @@ impl DocsCommand {
         matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
+        if let DocsKind::Uquery(_) | DocsKind::Cquery(_) | DocsKind::Aquery(_) = &self.docs_kind {
+            // The docs for these are late-bound from the query impls, which is kind of hard to
+            // separate from the rest of the query graph
+            if let Some(res) = ExitResult::retry_command_with_full_binary()? {
+                return res;
+            }
+        }
+
         let submatches = match matches.subcommand().map(|s| s.1) {
             Some(submatches) => submatches,
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
