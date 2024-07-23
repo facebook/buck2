@@ -7,10 +7,7 @@
  * of this source tree.
  */
 
-use std::ffi::OsStr;
 use std::ffi::OsString;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 
 use anyhow::Context;
@@ -32,22 +29,9 @@ fn find_root_ca_certs() -> Option<OsString> {
     return None;
 }
 
-/// Load system root certificates from disk.
-fn load_system_root_certs_disk(path: &OsStr) -> anyhow::Result<Vec<Vec<u8>>> {
-    let file = File::open(path)
-        .with_context(|| format!("Opening root certs at: {}", path.to_string_lossy()))?;
-    let mut reader = BufReader::new(file);
-    let certs = rustls_pemfile::certs(&mut reader)
-        .with_context(|| format!("Loading root certs at: {}", path.to_string_lossy()))?
-        .into_iter()
-        .collect();
-
-    Ok(certs)
-}
-
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
-fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
+async fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     let native_certs = rustls_native_certs::load_native_certs()
         .context("Error loading system root certificates native frameworks");
 
@@ -61,7 +45,8 @@ fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
                   "Failed loading certs from native OS, falling back to disk at: {}",
                   path.to_string_lossy(),
               );
-              load_system_root_certs_disk(&path)
+              load_certs(&path)
+                  .await
                   .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
           } else {
               if let Err(e) = native_certs {
@@ -120,8 +105,8 @@ async fn load_cert_pair<P: AsRef<Path>>(
     Ok((certs, key))
 }
 
-pub fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
-    let system_roots = load_system_root_certs()?;
+pub async fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
+    let system_roots = load_system_root_certs().await?;
     Ok(ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(system_roots)
@@ -132,7 +117,7 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
     cert_path: P,
     key_path: P,
 ) -> anyhow::Result<ClientConfig> {
-    let system_roots = load_system_root_certs()?;
+    let system_roots = load_system_root_certs().await?;
     let (cert, key) = load_cert_pair(cert_path, key_path)
         .await
         .context("Error loading certificate pair")?;
@@ -144,15 +129,15 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
 }
 
 // Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-pub(crate) async fn load_certs<P: AsRef<Path>>(cert: P) -> anyhow::Result<Vec<Vec<u8>>> {
-    let cert = cert.as_ref();
+pub(crate) async fn load_certs<P: AsRef<Path>>(cert_path: P) -> anyhow::Result<Vec<Vec<u8>>> {
+    let cert_path = cert_path.as_ref();
 
-    let cert_data = tokio::fs::read(cert)
+    let cert_data = tokio::fs::read(cert_path)
         .await
-        .with_context(|| format!("Error reading certificate file `{}`", cert.display()))?;
+        .with_context(|| format!("Error reading certificate file `{}`", cert_path.display()))?;
 
     let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
-        .with_context(|| format!("Error parsing certificate file `{}`", cert.display()))?;
+        .with_context(|| format!("Error parsing certificate file `{}`", cert_path.display()))?;
 
     Ok(certs)
 }

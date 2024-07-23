@@ -319,7 +319,7 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let resp = client.get(&test_server.url_str("/foo")).await?;
         assert_eq!(200, resp.status().as_u16());
 
@@ -337,7 +337,7 @@ mod tests {
             .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let bytes = Bytes::from_static(b"Hello, world!");
         let resp = client
             .put(
@@ -362,7 +362,7 @@ mod tests {
             .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let bytes = Bytes::from_static(b"Hello, world!");
         let resp = client
             .post(
@@ -384,7 +384,7 @@ mod tests {
                 .respond_with(responders::status_code(404)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let url = test_server.url_str("/foo");
         let result = client.get(&url).await;
         assert!(result.is_err());
@@ -412,7 +412,7 @@ mod tests {
                 .respond_with(responders::status_code(200).body(vec![0; 100])),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let mut resp = client.get(&test_server.url_str("/foo")).await?;
 
         // Consume the stream so we trigger a count.
@@ -452,7 +452,8 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_max_redirects(10)
             .build();
         let resp = client.get(&test_server.url_str("/foo")).await?;
@@ -478,7 +479,8 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_max_redirects(10)
             .build();
         let resp = client.head(&test_server.url_str("/foo")).await?;
@@ -517,7 +519,8 @@ mod tests {
             .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_max_redirects(10)
             .build();
         let bytes = Bytes::from_static(b"Hello, world!");
@@ -564,7 +567,8 @@ mod tests {
                 .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_max_redirects(1)
             .build();
         let url = test_server.url_str("/foo");
@@ -664,7 +668,8 @@ mod tests {
             .respond_with(responders::status_code(200)),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_x2p_proxy(hyper_proxy::Proxy::new(
                 hyper_proxy::Intercept::Http,
                 hyper_unix_connector::Uri::new(proxy_server.socket, "/").into(),
@@ -690,7 +695,7 @@ mod tests {
                 ),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let result = client.get(&url.to_string()).await;
         assert!(result.is_err());
         assert!(matches!(
@@ -718,7 +723,7 @@ mod tests {
                 ),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let result = client.get(&url.to_string()).await;
         assert!(result.is_err());
         assert!(matches!(
@@ -745,7 +750,7 @@ mod tests {
                 ),
         );
 
-        let client = HttpClientBuilder::https_with_system_roots()?.build();
+        let client = HttpClientBuilder::https_with_system_roots().await?.build();
         let result = client.get(&url.to_string()).await;
         assert!(result.is_err());
         assert!(matches!(
@@ -862,7 +867,8 @@ mod proxy_tests {
         let proxy_server = ProxyServer::new().await?;
         println!("proxy_server uri: {}", proxy_server.uri()?);
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_proxy(Proxy::new(Intercept::Http, proxy_server.uri()?))
             .build();
         let resp = client.get(&test_server.url_str("/foo")).await?;
@@ -888,7 +894,8 @@ mod proxy_tests {
         let authority = proxy_server.uri()?.authority().unwrap().clone();
         let proxy_uri = format!("{}:{}", authority.host(), authority.port().unwrap());
         println!("proxy_uri: {}", proxy_uri);
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_proxy(Proxy::new(
                 Intercept::Http,
                 DefaultSchemeUri(proxy_uri.try_into()?).into(),
@@ -922,7 +929,8 @@ mod proxy_tests {
         let no_proxy = crate::proxy::NoProxy::new(http::uri::Scheme::HTTP, test_server_host);
 
         // Don't proxy connections to test_server.
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_proxy(Proxy::new(
                 no_proxy.into_proxy_intercept(),
                 proxy_server.uri()?,
@@ -952,7 +960,8 @@ mod proxy_tests {
         // Don't proxy HTTPS connections to *.foobar.com
         let no_proxy = crate::proxy::NoProxy::new(http::uri::Scheme::HTTP, ".foobar.com");
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_proxy(Proxy::new(
                 no_proxy.into_proxy_intercept(),
                 proxy_server.uri()?,
@@ -970,7 +979,8 @@ mod proxy_tests {
         let test_server = httptest::Server::run();
         let proxy_server = ProxyServer::new().await?;
 
-        let client = HttpClientBuilder::https_with_system_roots()?
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
             .with_proxy(Proxy::new(Intercept::Http, proxy_server.uri()?))
             .with_read_timeout(Some(Duration::from_millis(10)))
             .build();

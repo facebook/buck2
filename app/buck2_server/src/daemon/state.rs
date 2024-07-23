@@ -857,7 +857,7 @@ async fn http_client_from_startup_config(
     config: &DaemonStartupConfig,
 ) -> anyhow::Result<HttpClientBuilder> {
     let mut builder = if is_open_source() {
-        HttpClientBuilder::oss()?
+        HttpClientBuilder::oss().await?
     } else {
         HttpClientBuilder::internal(config.allow_vpnless).await?
     };

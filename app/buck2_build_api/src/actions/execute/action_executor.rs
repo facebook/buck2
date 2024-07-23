@@ -767,6 +767,7 @@ mod tests {
                 CasDigestConfig::testing_default(),
             )),
             HttpClientBuilder::https_with_system_roots()
+                .await
                 .unwrap()
                 .build(),
             Default::default(),

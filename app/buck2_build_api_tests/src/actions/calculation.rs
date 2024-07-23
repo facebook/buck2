@@ -220,7 +220,7 @@ async fn make_default_dice_state(
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
     extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
-    extra.set_http_client(HttpClientBuilder::https_with_system_roots()?.build());
+    extra.set_http_client(HttpClientBuilder::https_with_system_roots().await?.build());
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());

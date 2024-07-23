@@ -71,16 +71,16 @@ pub struct HttpClientBuilder {
 
 impl HttpClientBuilder {
     /// Builds an http client compatible with OSS usage.
-    pub fn oss() -> anyhow::Result<Self> {
+    pub async fn oss() -> anyhow::Result<Self> {
         tracing::debug!("Using OSS client");
-        let mut builder = Self::https_with_system_roots()?;
+        let mut builder = Self::https_with_system_roots().await?;
         builder.with_proxy_from_env()?;
         Ok(builder)
     }
 
     /// Builds an http client compatible with internal Meta usage.
     pub async fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
-        let mut builder = Self::https_with_system_roots()?;
+        let mut builder = Self::https_with_system_roots().await?;
         if allow_vpnless && supports_vpnless() {
             tracing::debug!("Using vpnless client");
             let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
@@ -100,8 +100,8 @@ impl HttpClientBuilder {
     }
 
     /// Creates a barebones https client using system roots for TLS authentication.
-    pub fn https_with_system_roots() -> anyhow::Result<Self> {
-        let tls_config = tls_config_with_system_roots()?;
+    pub async fn https_with_system_roots() -> anyhow::Result<Self> {
+        let tls_config = tls_config_with_system_roots().await?;
         Ok(Self {
             tls_config,
             proxies: Vec::new(),
@@ -361,9 +361,9 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_default_builder() -> anyhow::Result<()> {
-        let builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_default_builder() -> anyhow::Result<()> {
+        let builder = HttpClientBuilder::https_with_system_roots().await?;
 
         assert_eq!(None, builder.max_redirects);
         assert!(builder.proxies.is_empty());
@@ -371,18 +371,18 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_supports_vpnless_set_true() -> anyhow::Result<()> {
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_supports_vpnless_set_true() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_supports_vpnless();
 
         assert!(builder.supports_vpnless);
         Ok(())
     }
 
-    #[test]
-    fn test_http2_option() -> anyhow::Result<()> {
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_http2_option() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         assert!(builder.http2);
         builder.with_http2(false);
 
@@ -390,28 +390,28 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_with_max_redirects_overrides_default() -> anyhow::Result<()> {
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_with_max_redirects_overrides_default() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_max_redirects(5);
 
         assert_eq!(5, builder.max_redirects.unwrap());
         Ok(())
     }
 
-    #[test]
-    fn test_builder_with_proxy_adds_proxy() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_builder_with_proxy_adds_proxy() -> anyhow::Result<()> {
         let proxy = Proxy::new(Intercept::All, "http://localhost:12345".try_into()?);
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_proxy(proxy);
 
         assert_eq!(1, builder.proxies.len());
         Ok(())
     }
 
-    #[test]
-    fn test_set_connect_timeout() -> anyhow::Result<()> {
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_set_connect_timeout() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder.with_connect_timeout(Some(Duration::from_millis(1000)));
 
         assert_eq!(
@@ -426,9 +426,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_set_connect_and_read_timeouts() -> anyhow::Result<()> {
-        let mut builder = HttpClientBuilder::https_with_system_roots()?;
+    #[tokio::test]
+    async fn test_set_connect_and_read_timeouts() -> anyhow::Result<()> {
+        let mut builder = HttpClientBuilder::https_with_system_roots().await?;
         builder
             .with_connect_timeout(Some(Duration::from_millis(1000)))
             .with_read_timeout(Some(Duration::from_millis(2000)));
