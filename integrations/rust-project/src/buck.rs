@@ -455,6 +455,7 @@ impl Buck {
         cmd.args([
             "-c=client.id=rust-project",
             "-c=xplat.available_platforms=CXX,FBCODE",
+            "-c=rust.rust_project_build=true",
         ]);
         cmd
     }
