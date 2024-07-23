@@ -17,18 +17,19 @@ deterministic and reproducible.
 Buck2 comes with a collection of built-in build rules for many common build
 procedures. For example, compiling Java code against the Android SDK is a common
 procedure, so Buck2 provides the build rule
-[`android_library`](../../api/rules/#android_library) to do that. Similarly, the
-final product of most Android development is an APK, so you can use the build
-rule [`android_binary`](../../api/rules/#android_binary) to create an APK.
+[`android_library`](../../prelude/globals#android_library) to do that.
+Similarly, the final product of most Android development is an APK, so you can
+use the build rule [`android_binary`](../../prelude/globals#android_binary) to
+create an APK.
 
 ## Source files as inputs to build rules
 
 Most build rules specify source files as inputs. For example, a
-[`cxx_library`](../../api/rules/#cxx_library) rule would specify `.cpp` files as
-inputs. To support specifying these files, a `cxx_library` rule provides the
-`srcs` argument. Some languages, such as C++, use header files as well. To
-specify these, `cxx_library` provides a `headers` argument. In addition to
-`srcs` and `headers`, some rules provide variants of these arguments, such as
+[`cxx_library`](../../prelude/globals#cxx_library) rule would specify `.cpp`
+files as inputs. To support specifying these files, a `cxx_library` rule
+provides the `srcs` argument. Some languages, such as C++, use header files as
+well. To specify these, `cxx_library` provides a `headers` argument. In addition
+to `srcs` and `headers`, some rules provide variants of these arguments, such as
 `platform_srcs` and `platform_headers`. These arguments support groups of source
 files that should be used as inputs only when building for specific platforms.
 
@@ -43,14 +44,14 @@ An exception to this restriction exists for header files, but only if a rule in
 the package that contains the header file _exports_ that header file using the
 `exported_headers` argument. For more details, see the description for
 `exported_headers` in, for example, the
-[`cxx_library`](../../api/rules/#cxx_library) topic. More commonly though, the
-package for a BUCK file contains all the source files required for the rules
+[`cxx_library`](../../prelude/globals#cxx_library) topic. More commonly though,
+the package for a BUCK file contains all the source files required for the rules
 defined in that BUCK file. Functionality in source files from other packages is
 made available through the artifacts produced by the rules in the BUCK files for
-those packages. For example, a [`cxx_binary`](../../api/rules/#cxx_binary) might
-use the functionality in a `cxx_library` that is defined in another package. To
-access that functionality, the `cxx_binary` would take that `cxx_library` as a
-_dependency_.
+those packages. For example, a [`cxx_binary`](../../prelude/globals/#cxx_binary)
+might use the functionality in a `cxx_library` that is defined in another
+package. To access that functionality, the `cxx_binary` would take that
+`cxx_library` as a _dependency_.
 
 ##### Symlinks: Use with caution if at all
 
@@ -65,24 +66,25 @@ specifying that rule as a _dependency_. Typically, a build rule specifies its
 dependencies as a list of [build target](build_target.md)s in its `deps`
 argument. However, the rule can also specify dependencies—as build targets—in
 other arguments, such as `srcs`. **Example:** The output of a
-[`java_library`](../../api/rules/#java_library) rule is a JAR file. If a
+[`java_library`](../../prelude/globals/#java_library) rule is a JAR file. If a
 `java_library` rule specifies another `java_library` rule as a dependency, the
 JAR file produced by the specified rule is added to the classpath for the
 `java_library` that depends on it. **Example:** If a
-[`java_binary`](../../api/rules/#java_binary) rule specifies a `java_library`
-rule as a dependency, the JAR file for the specified `java_library` is available
-on the classpath for the `java_binary`. In addition, in the case of
-`java_binary`, the JAR files for any dependencies of the `java_library` rule
-_are also_ made available to the `java_binary` rule—and if those dependencies
-have dependencies of their own, they are added as well. This exhaustive cascade
-of dependencies is referred to as the rule's _transitive closure_.
+[`java_binary`](../../prelude/globals/#java_binary) rule specifies a
+`java_library` rule as a dependency, the JAR file for the specified
+`java_library` is available on the classpath for the `java_binary`. In addition,
+in the case of `java_binary`, the JAR files for any dependencies of the
+`java_library` rule _are also_ made available to the `java_binary` rule—and if
+those dependencies have dependencies of their own, they are added as well. This
+exhaustive cascade of dependencies is referred to as the rule's _transitive
+closure_.
 
 ### Required dependencies are always built first
 
 Buck2 guarantees that any dependencies that a rule lists that are required in
 order to build that rule are built successfully _before_ Buck2 builds the rule
 itself. Note though that there can be special cases—such as
-[`apple_bundle`](../../api/rules/#apple_bundle)—where a rule's listed
+[`apple_bundle`](../../prelude/globals/#apple_bundle)—where a rule's listed
 dependencies do not actually need to be built before the rule.
 
 ### Visibility
@@ -108,9 +110,9 @@ category of generic build rules called _genrules_. With genrules, you can
 perform arbitrary operations using shell scripts. The genrules supported by
 Buck2 are:
 
-- [`genrule`](../../api/rules/#genrule)
-- [`apk_genrule`](../../api/rules/#apk_genrule)
-- [`cxx_genrule`](../../api/rules/#cxx_genrule)
+- [`genrule`](../../prelude/globals/#genrule)
+- [`apk_genrule`](../../prelude/globals/#apk_genrule)
+- [`cxx_genrule`](../../prelude/globals/#cxx_genrule)
 
 ### Multiple output files with genrules
 

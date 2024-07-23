@@ -42,16 +42,16 @@ def buck_command(args):
 # produce a new name which is the destination, e.g. bxl/analysis_result
 def doc_name(x):
     if x.startswith("native/bxl/"):
-        return x[7:]  # drop the native
+        return "api/" + x[7:]  # drop the native
     elif x.endswith("/rules.bzl"):
-        return "rules"
+        return "prelude/globals"
     elif x.endswith("/function"):
         # Uninteresting docs we'd rather not have generated
         return None
     elif x.startswith("native/standard/") or x.startswith("native/extension/"):
-        return "starlark/" + x.split("/")[-1]
+        return "api/starlark/" + x.split("/")[-1]
     elif x.startswith("native/"):
-        return "build/" + x[7:]
+        return "api/build/" + x[7:]
     else:
         raise RuntimeError("Unknown name: " + x)
 
@@ -90,17 +90,17 @@ def generate_api_docs(buck):
                 continue
 
             prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
-            if name == "rules":
+            if name == "prelude/globals":
                 prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
                 src = "\n".join(src.splitlines()[1:])
 
-            dest = "docs/api/" + name + ".generated.md"
+            dest = "docs/" + name + ".generated.md"
             os.makedirs(Path(dest).parent, exist_ok=True)
             write_file(dest, prefix + src)
 
             # copy build APIs to BXL
-            if name.startswith("build/"):
-                name_without_build = "/".join(name.split("/")[1:])
+            if name.startswith("api/build/"):
+                name_without_build = "/".join(name.split("/")[2:])
                 bxl_dest = "docs/api/bxl/" + name_without_build + ".generated.md"
                 os.makedirs(Path(bxl_dest).parent, exist_ok=True)
                 write_file(bxl_dest, prefix + src)

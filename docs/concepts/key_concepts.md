@@ -12,9 +12,10 @@ Buck2 has a number of fundamental concepts:
 - A [**_build rule_**](build_rule.md) describes how to produce an output file
   from a set of input files. Most build rules are specific to a particular
   language or platform. For example, you would use the
-  [`cxx_binary`](../../api/rules/#cxx_binary) rule to create a C++ binary, but
-  you would use the [`android_binary`](../../api/rules/#android_binary) rule to
-  create an Android APK.
+  [`cxx_binary`](../../prelude/globals/#cxx_binary) rule to create a C++ binary,
+  but you would use the
+  [`android_binary`](../../prelude/globals/#android_binary) rule to create an
+  Android APK.
 - A [**_build target_**](build_target.md) is a string that uniquely identifies a
   build rule. It can be thought of as a URI for the build rule within the Buck2
   project.

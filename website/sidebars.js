@@ -226,7 +226,7 @@ const manualSidebar = [
     items: [
       {
         type: 'doc',
-        id: 'api/rules',
+        id: 'prelude/globals',
         label: 'Rules',
       },
       {

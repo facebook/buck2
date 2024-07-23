@@ -85,8 +85,8 @@ $(query_targets_and_outputs [SEPARATOR] "queryfunction(//:foo)")
 ```
 
 Note, however, that the query macros are supported only for
-[`genrule`](../../api/rules/#genrule) and
-[`apk_genrule`](../../api/rules/#apk_genrule).
+[`genrule`](../../prelude/globals/#genrule) and
+[`apk_genrule`](../../prelude/globals/#apk_genrule).
 
 ### How do I find the dependencies for a target?
 

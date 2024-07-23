@@ -83,6 +83,10 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             to: '/docs/about/bootstrapping',
             from: '/docs/bootstrapping',
           },
+          {
+            to: '/docs/prelude/globals',
+            from: '/docs/api/rules',
+          },
         ] + (!isInternal()) ? [] : [
           // Internal-only redirects
           {
@@ -127,7 +131,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
           },
           {
             type: 'doc',
-            docId: 'api/rules',
+            docId: 'prelude/globals',
             position: 'left',
             label: 'Rules',
           },
