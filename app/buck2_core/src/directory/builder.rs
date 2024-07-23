@@ -9,7 +9,6 @@
 
 use allocative::Allocative;
 use derivative::Derivative;
-use either::Either;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
@@ -68,22 +67,6 @@ where
 {
     pub fn empty() -> Self {
         Self::Mutable(Default::default())
-    }
-
-    fn entries(
-        &self,
-    ) -> impl Iterator<Item = (&'_ FileName, DirectoryEntry<&'_ dyn Directory<L, H>, &'_ L>)> {
-        match self {
-            Self::Mutable(e) => {
-                let it = e.iter().map(|(k, v)| {
-                    let k = k.as_ref();
-                    let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
-                    (k, v)
-                });
-                Either::Left(it)
-            }
-            Self::Immutable(e) => Either::Right(Directory::entries(e)),
-        }
     }
 }
 
@@ -253,7 +236,17 @@ where
     H: DirectoryDigest,
 {
     fn entries(&self) -> DirectoryEntries<'_, L, H> {
-        Box::new(self.entries())
+        match self {
+            Self::Mutable(e) => {
+                let it = e.iter().map(|(k, v)| {
+                    let k = k.as_ref();
+                    let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
+                    (k, v)
+                });
+                Box::new(it)
+            }
+            Self::Immutable(e) => Directory::entries(e),
+        }
     }
 
     fn get<'a>(
