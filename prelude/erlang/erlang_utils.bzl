@@ -54,7 +54,7 @@ def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
         return convert_dict(data)
     elif type(data) == "string":
         return convert_string(data)
-    elif type(data) == "cmd_args":
+    elif isinstance(data, cmd_args):
         return data
     elif type(data) == "bool":
         return convert_bool(data)

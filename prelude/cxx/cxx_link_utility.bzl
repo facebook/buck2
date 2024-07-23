@@ -283,12 +283,12 @@ def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
     toolchain_post_linker_flags = toolchain.linker_info.post_linker_flags
     if toolchain_linker_flags == None:
         toolchain_linker_flags = cmd_args()
-    elif not type(toolchain_linker_flags) == "cmd_args":
+    elif not isinstance(toolchain_linker_flags, cmd_args):
         toolchain_linker_flags = cmd_args(toolchain_linker_flags)
 
     if toolchain_post_linker_flags == None:
         toolchain_post_linker_flags = cmd_args()
-    elif not type(toolchain_post_linker_flags) == "cmd_args":
+    elif not isinstance(toolchain_post_linker_flags, cmd_args):
         toolchain_post_linker_flags = cmd_args(toolchain_post_linker_flags)
 
     link_cmd = cmd_args(toolchain.linker_info.linker)
