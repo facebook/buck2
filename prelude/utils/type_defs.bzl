@@ -36,6 +36,8 @@ def is_string(arg):
     """
     return type(arg) == _STRING_TYPE
 
+_LIST_TYPE = type([])
+
 def is_list(arg):
     """Checks if provided instance has a list type.
 
@@ -45,7 +47,7 @@ def is_list(arg):
     Returns:
       True for list instances, False otherwise. rtype: bool
     """
-    return isinstance(arg, list)
+    return type(arg) == _LIST_TYPE
 
 _DICT_TYPE = type({})
 

@@ -197,7 +197,7 @@ def process_genrule(
 
     cmd = cmd_args(cmd, ignore_artifacts = _ignore_artifacts(ctx), replace_regex = replace_regex)
 
-    if isinstance(ctx.attrs.srcs, list):
+    if type(ctx.attrs.srcs) == type([]):
         # FIXME: We should always use the short_path, but currently that is sometimes blank.
         # See fbcode//buck2/tests/targets/rules/genrule:genrule-dot-input for a test that exposes it.
         symlinks = {src.short_path: src for src in ctx.attrs.srcs}
