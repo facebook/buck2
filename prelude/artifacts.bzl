@@ -164,7 +164,7 @@ def artifact_ext(
     )
 
 def to_artifact_ext(src: Artifact | Dependency) -> ArtifactExt:
-    if type(src) == "dependency":
+    if isinstance(src, Dependency):
         ext = src.get(DefaultOutputExt)
         if ext != None:
             return ext.default_output
