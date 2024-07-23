@@ -237,7 +237,7 @@ def py_resources(
     hidden = []
     for name, resource in resources.items():
         for o in resource.nondebug_runtime_files:
-            if isinstance(o, Artifact) and o.basename == shared_libs_symlink_tree_name(resource.default_output):
+            if type(o) == "artifact" and o.basename == shared_libs_symlink_tree_name(resource.default_output):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
                 d[paths.join(paths.dirname(name), o.basename)] = o

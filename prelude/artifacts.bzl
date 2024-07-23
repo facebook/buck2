@@ -57,7 +57,7 @@ DefaultOutputExt = provider(
 )
 
 def single_artifact(dep: Artifact | Dependency) -> ArtifactOutputs:
-    if isinstance(dep, Artifact):
+    if type(dep) == "artifact":
         return ArtifactOutputs(
             default_output = dep,
             nondebug_runtime_files = [],
@@ -94,7 +94,7 @@ def unpack_artifacts(artifacts: list[Artifact | Dependency]) -> list[ArtifactOut
     out = []
 
     for artifact in artifacts:
-        if isinstance(artifact, Artifact):
+        if type(artifact) == "artifact":
             out.append(ArtifactOutputs(
                 default_output = artifact,
                 nondebug_runtime_files = [],
@@ -124,7 +124,7 @@ def unpack_artifact_map(artifacts: dict[str, Artifact | Dependency]) -> dict[str
     out = {}
 
     for name, artifact in artifacts.items():
-        if isinstance(artifact, Artifact):
+        if type(artifact) == "artifact":
             out[name] = ArtifactOutputs(
                 default_output = artifact,
                 nondebug_runtime_files = [],
