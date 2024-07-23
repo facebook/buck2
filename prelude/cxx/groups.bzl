@@ -81,7 +81,7 @@ def create_group(
     )
 
 def get_roots_from_mapping(mapping):
-    deps = mapping[0] if type(mapping[0]) == "list" else [mapping[0]]
+    deps = mapping[0] if isinstance(mapping[0], list) else [mapping[0]]
     return filter(None, deps)
 
 def parse_groups_definitions(
@@ -172,7 +172,7 @@ def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter, TargetRegexFil
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, `target_regex` or `pattern:`.".format(entry))
 
 def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]]:
-    if type(entry) == type([]):
+    if isinstance(entry, list):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):
         return [_parse_filter(entry)]

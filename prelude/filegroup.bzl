@@ -36,7 +36,7 @@ def filegroup_impl(ctx):
     else:
         output = ctx.actions.symlinked_dir(ctx.label.name, srcs)
 
-    if type(ctx.attrs.srcs) == type([]):
+    if isinstance(ctx.attrs.srcs, list):
         artifacts = ctx.attrs.srcs
     else:
         artifacts = [output.project(name, hide_prefix = True) for name in srcs]

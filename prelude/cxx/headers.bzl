@@ -130,7 +130,7 @@ def cxx_attr_exported_header_style(ctx: AnalysisContext) -> HeaderStyle:
     return HeaderStyle(ctx.attrs.exported_header_style)
 
 def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) -> list[CHeader]:
-    if type(xs) == type([]):
+    if isinstance(xs, list):
         return [CHeader(artifact = x, name = _get_list_header_name(x, naming), namespace = namespace, named = False) for x in xs]
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]

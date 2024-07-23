@@ -33,7 +33,7 @@ def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Depe
     explicitly provided.
     """
 
-    if type(srcs) == type([]):
+    if isinstance(srcs, list):
         srcs_dict = {}
         for src in srcs:
             if type(src) == "artifact":

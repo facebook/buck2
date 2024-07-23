@@ -46,7 +46,7 @@ build_paths = struct(
 def convert(data: typing.Any, ignore_artifacts: bool = False) -> cmd_args:
     """ converts a lists/tuple/map data structure to a sub-term that can be embedded in another to_term_args or convert
     """
-    if type(data) == "list":
+    if isinstance(data, list):
         return convert_list(data)
     elif type(data) == "tuple":
         return convert_list(list(data), ob = "{", cb = "}")
