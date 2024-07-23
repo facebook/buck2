@@ -30,7 +30,7 @@ def _build_dependencies_file(
     )
     job_args = {
         "command": "dependencies",
-        "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
+        "entryPoints": [ctx.attrs.entry] if isinstance(ctx.attrs.entry, str) else list(ctx.attrs.entry),
         "extraData": extra_data_args,
         "flavors": flavors,
         "libraries": transitive_js_library_outputs,
@@ -87,7 +87,7 @@ def _build_js_bundle(
             delimiter = "/",
         ),
         "command": "bundle",
-        "entryPoints": [ctx.attrs.entry] if type(ctx.attrs.entry) == "string" else list(ctx.attrs.entry),
+        "entryPoints": [ctx.attrs.entry] if isinstance(ctx.attrs.entry, str) else list(ctx.attrs.entry),
         "extraData": extra_data_args,
         "flavors": flavors,
         "libraries": transitive_js_library_outputs,

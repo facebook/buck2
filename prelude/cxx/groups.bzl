@@ -174,7 +174,7 @@ def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter, TargetRegexFil
 def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]]:
     if isinstance(entry, list):
         return [_parse_filter(e) for e in entry]
-    if type(entry) == type(""):
+    if isinstance(entry, str):
         return [_parse_filter(entry)]
     return []
 

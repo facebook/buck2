@@ -45,16 +45,16 @@ SharedLibrary = record(
 )
 
 def _ensure_str(soname: str | Artifact) -> str:
-    expect(type(soname) == type(""), "SONAME is not a `str`: {}", soname)
+    expect(isinstance(soname, str), "SONAME is not a `str`: {}", soname)
     return soname
 
 def to_soname(soname: str | Artifact | Soname) -> Soname:
     if isinstance(soname, Soname):
         return soname
     return Soname(
-        as_str = lambda: soname if type(soname) == type("") else None,
+        as_str = lambda: soname if isinstance(soname, str) else None,
         ensure_str = lambda: _ensure_str(soname),
-        is_str = lambda: type(soname) == type(""),
+        is_str = lambda: isinstance(soname, str),
         _soname = soname,
     )
 

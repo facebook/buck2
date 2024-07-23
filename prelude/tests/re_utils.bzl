@@ -15,7 +15,7 @@ def _get_re_arg(ctx: AnalysisContext):
 
     if ctx.attrs.remote_execution != None:
         # If this is a string, look up the profile on the RE toolchain.
-        if type(ctx.attrs.remote_execution) == type(""):
+        if isinstance(ctx.attrs.remote_execution, str):
             expect_non_none(ctx.attrs._remote_test_execution_toolchain)
             return ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution]
 
