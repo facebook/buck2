@@ -276,6 +276,10 @@ impl ActiveCommand {
 mod tests {
     use std::time::SystemTime;
 
+    use assert_matches::assert_matches;
+    use buck2_events::source::ChannelEventSource;
+    use buck2_events::Event;
+
     use super::*;
 
     #[test]
@@ -406,6 +410,65 @@ mod tests {
                 closed: 1,
                 pending: 2
             }
+        );
+    }
+
+    fn create_dispatcher() -> (EventDispatcher, ChannelEventSource, TraceId) {
+        let (daemon_dispatcher_events, daemon_dispatcher_sink) =
+            buck2_events::create_source_sink_pair();
+        let trace_id = TraceId::new();
+        let dispatcher = EventDispatcher::new(trace_id.dupe(), daemon_dispatcher_sink);
+
+        (dispatcher, daemon_dispatcher_events, trace_id)
+    }
+
+    fn check_concurrent_command_trace_ids_eq(event: Option<Event>, expected_trace_ids: &[String]) {
+        assert_matches!(event, Some(Event::Buck(event)) => {
+            assert_matches!(
+                event.data(),
+                buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                    data: Some(buck2_data::instant_event::Data::ConcurrentCommands(
+                        buck2_data::ConcurrentCommands {
+                            trace_ids,
+                        }
+                    ))
+                }) => {
+                    // Use HashSets because  trace ids may not be reported in the same order that we specified.
+                    let trace_ids: HashSet<&String> = trace_ids.iter().collect();
+                    let expected_trace_ids: HashSet<&String> = expected_trace_ids.iter().collect();
+                    assert_eq!(trace_ids, expected_trace_ids);
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn test_multiple_active_commands_are_undercounting() {
+        // When two commands are running concurrently, we currently do not report this as a concurrent command.
+        let (dispatcher1, mut source1, id1) = create_dispatcher();
+        let _active1 = ActiveCommand::new(&dispatcher1, Vec::new());
+
+        let (dispatcher2, mut source2, id2) = create_dispatcher();
+        let _active2 = ActiveCommand::new(&dispatcher2, Vec::new());
+
+        assert!(
+            source1.try_receive().is_none(),
+            "Expected no events from source1 because concurrent command reporting is broken"
+        );
+        assert!(
+            source2.try_receive().is_none(),
+            "Expected no events from source2 because concurrent command reporting is broken"
+        );
+
+        // Third command that is concurrent should be accurately reported
+        let (dispatcher3, mut source3, id3) = create_dispatcher();
+        let _active3 = ActiveCommand::new(&dispatcher3, Vec::new());
+
+        check_concurrent_command_trace_ids_eq(source1.try_receive(), &[id3.to_string()]);
+        check_concurrent_command_trace_ids_eq(source2.try_receive(), &[id3.to_string()]);
+        check_concurrent_command_trace_ids_eq(
+            source3.try_receive(),
+            &[id1.to_string(), id2.to_string()],
         );
     }
 }
