@@ -43,7 +43,7 @@ from typing import List
 def _get_argsfile(args) -> str:
     # go through the flags passed to linker and find the index argsfile
     argsfiles = list(
-        filter(lambda arg: arg.endswith("thinlto.index.argsfile"), args.index_args)
+        filter(lambda arg: arg.endswith("thinlto_index_argsfile"), args.index_args)
     )
     assert (
         len(argsfiles) == 1
