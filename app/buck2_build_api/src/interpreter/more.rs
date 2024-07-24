@@ -28,6 +28,7 @@ use crate::interpreter::rule_defs::register_rule_defs;
 use crate::interpreter::rule_defs::resolved_macro::register_string_with_macros;
 use crate::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
+use crate::interpreter::rule_defs::validation_spec::register_validation_spec;
 
 fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_builtin_providers(globals);
@@ -46,6 +47,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_artifact_value(globals);
     register_output_artifact(globals);
     register_action_error_types(globals);
+    register_validation_spec(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {

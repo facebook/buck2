@@ -23,6 +23,7 @@ pub mod provider;
 pub mod resolve_query_macro;
 pub mod resolved_macro;
 pub mod transitive_set;
+pub mod validation_spec;
 
 pub fn register_rule_defs(globals: &mut GlobalsBuilder) {
     cmd_args::register_cmd_args(globals);
