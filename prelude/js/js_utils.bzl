@@ -154,7 +154,7 @@ def run_worker_commands(
         worker_tool_info.command.copy(),
         at_argfile(
             actions = ctx.actions,
-            name = paths.join(identifier, "worker_{}.argsfile".format(category)),
+            name = paths.join(identifier, "{}.js_worker_argsfile".format(category)),
             args = worker_args,
         ),
         hidden = [
