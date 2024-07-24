@@ -18,7 +18,9 @@
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
+use std::iter;
 use std::ops::Deref;
+use std::slice;
 
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
@@ -67,7 +69,7 @@ impl<'v> ListRef<'v> {
     }
 
     /// Iterate over the elements in the list.
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a
+    pub fn iter<'a>(&'a self) -> iter::Copied<slice::Iter<'a, Value<'v>>>
     where
         'v: 'a,
     {

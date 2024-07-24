@@ -16,6 +16,8 @@
  */
 
 use std::convert::Infallible;
+use std::iter;
+use std::slice;
 
 use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
@@ -72,7 +74,7 @@ impl<'v> TupleRef<'v> {
     }
 
     /// Iterate over the contents.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = Value<'v>> + '_ {
+    pub fn iter<'a>(&'a self) -> iter::Copied<slice::Iter<'a, Value<'v>>> {
         self.content().iter().copied()
     }
 }
