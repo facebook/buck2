@@ -31,7 +31,7 @@ pub trait FingerprintedDirectory<L, H> {
 
     fn fingerprinted_entries(&self) -> FingerprintedDirectoryEntries<'_, L, H>;
 
-    fn get<'a>(
+    fn fingerprinted_get<'a>(
         &'a self,
         needle: &'_ FileName,
     ) -> Option<DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>>;

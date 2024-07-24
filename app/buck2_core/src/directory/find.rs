@@ -154,7 +154,7 @@ macro_rules! impl_find {
 
 impl_find!(
     FingerprintedDirectory,
-    get,
+    fingerprinted_get,
     find_fingerprinted,
     find_prefix_fingerprinted,
     impl_find_fingerprinted,

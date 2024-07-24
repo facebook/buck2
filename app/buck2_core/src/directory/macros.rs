@@ -30,7 +30,7 @@ macro_rules! impl_fingerprinted_directory {
                 Box::new(it)
             }
 
-            fn get<'a>(
+            fn fingerprinted_get<'a>(
                 &'a self,
                 needle: &'_ FileName,
             ) -> Option<DirectoryEntry<&'a dyn $crate::directory::fingerprinted_directory::FingerprintedDirectory<L, H>, &'a L>> {
