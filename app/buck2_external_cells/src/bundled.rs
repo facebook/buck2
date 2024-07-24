@@ -36,7 +36,6 @@ use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;
 use buck2_core::directory::find::DirectoryFindError;
 use buck2_core::directory::immutable_directory::ImmutableDirectory;
-use buck2_core::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -167,11 +166,6 @@ impl BundledFileOpsDelegate {
             >,
         >,
     > {
-        if path.is_empty() {
-            return Ok(Some(DirectoryEntry::Dir(
-                ImmutableOrExclusiveDirectoryRef::from_immutable(&self.dir),
-            )));
-        }
         match find(self.dir.as_ref(), path.iter()) {
             Ok(entry) => Ok(entry),
             Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
