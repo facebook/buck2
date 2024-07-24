@@ -354,18 +354,6 @@ where
         DirectoryBuilderDirectoryRef::Mutable(self)
     }
 
-    fn get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>> {
-        match self {
-            Self::Mutable(ref dir) => dir
-                .get(needle)
-                .map(|v| v.as_ref().map_dir(|d| d as &dyn Directory<L, H>)),
-            Self::Immutable(ref dir) => Directory::get(dir, needle),
-        }
-    }
-
     fn to_builder(&self) -> DirectoryBuilder<L, H>
     where
         L: Clone,

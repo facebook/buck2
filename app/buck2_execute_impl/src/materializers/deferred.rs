@@ -36,6 +36,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_core::buck2_env;
 use buck2_core::directory::directory::Directory;
+use buck2_core::directory::directory_ref::DirectoryRef;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::walk::unordered_entry_walk;
 use buck2_core::fs::project::ProjectRoot;
@@ -2212,8 +2213,8 @@ impl ArtifactTree {
             ArtifactMaterializationMethod::CasDownload { info } => {
                 let path_iter = path_iter.peekable();
 
-                let root_entry = entry.dupe();
-                let mut entry = Some(entry.as_ref().map_dir(|d| d as &dyn ActionDirectory));
+                let root_entry: ActionDirectoryEntry<ActionSharedDirectory> = entry.dupe();
+                let mut entry = Some(entry.as_ref());
 
                 // Check if the path we are asking for exists in this entry.
                 for name in path_iter {
@@ -2229,7 +2230,8 @@ impl ArtifactTree {
                         // TODO (@torozco): A nicer API to get an Immutable directory here.
                         entry: entry
                             .map_dir(|d| {
-                                d.to_builder()
+                                d.as_dyn()
+                                    .to_builder()
                                     .fingerprint(digest_config.as_directory_serializer())
                             })
                             .map_leaf(|l| l.dupe()),

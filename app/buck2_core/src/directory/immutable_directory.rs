@@ -22,7 +22,6 @@ use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::shared_directory::SharedDirectory;
-use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 
 #[derive(Derivative, Display, Allocative)]
@@ -90,16 +89,6 @@ where
         Self: Sized + 'a,
     {
         ImmutableOrExclusiveDirectoryRef::from_immutable(self)
-    }
-
-    fn get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>> {
-        match self {
-            Self::Exclusive(dir) => Directory::get(dir, needle),
-            Self::Shared(dir) => Directory::get(dir, needle),
-        }
     }
 
     fn to_builder(&self) -> DirectoryBuilder<L, H>

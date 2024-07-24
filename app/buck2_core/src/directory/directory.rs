@@ -33,11 +33,6 @@ pub trait Directory<L, H> {
     where
         Self: Sized + 'a;
 
-    fn get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>>;
-
     fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
     where
         Self: Sized,

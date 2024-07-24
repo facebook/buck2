@@ -120,14 +120,6 @@ where
         ImmutableOrExclusiveDirectoryRef::Exclusive(self)
     }
 
-    fn get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>> {
-        self.get(needle)
-            .map(|v| v.map_dir(|d| d as &dyn Directory<L, H>))
-    }
-
     fn to_builder(&self) -> DirectoryBuilder<L, H>
     where
         L: Clone,
