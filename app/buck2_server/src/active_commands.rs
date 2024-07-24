@@ -231,7 +231,7 @@ impl ActiveCommand {
             // Scope the guard so it's locked as little as possible
             let mut active_commands = ACTIVE_COMMANDS.lock();
 
-            let existing_active_commands = if active_commands.len() > 1 {
+            let existing_active_commands = if active_commands.len() > 0 {
                 Some(active_commands.clone())
             } else {
                 None
@@ -443,24 +443,16 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_active_commands_are_undercounting() {
-        // When two commands are running concurrently, we currently do not report this as a concurrent command.
+    fn test_multiple_active_commands() {
         let (dispatcher1, mut source1, id1) = create_dispatcher();
         let _active1 = ActiveCommand::new(&dispatcher1, Vec::new());
 
         let (dispatcher2, mut source2, id2) = create_dispatcher();
         let _active2 = ActiveCommand::new(&dispatcher2, Vec::new());
 
-        assert!(
-            source1.try_receive().is_none(),
-            "Expected no events from source1 because concurrent command reporting is broken"
-        );
-        assert!(
-            source2.try_receive().is_none(),
-            "Expected no events from source2 because concurrent command reporting is broken"
-        );
+        check_concurrent_command_trace_ids_eq(source1.try_receive(), &[id2.to_string()]);
+        check_concurrent_command_trace_ids_eq(source2.try_receive(), &[id1.to_string()]);
 
-        // Third command that is concurrent should be accurately reported
         let (dispatcher3, mut source3, id3) = create_dispatcher();
         let _active3 = ActiveCommand::new(&dispatcher3, Vec::new());
 
