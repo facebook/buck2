@@ -168,7 +168,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ),
             )
     if inferred_cxx_header_dirs != None:
-        pp_argsfile = ctx.actions.declare_output("__cxx_header_dirs__.argsfile")
+        pp_argsfile = ctx.actions.declare_output("__cxx_header_dirs__.py_cxx_header_argsfile")
 
         def write_argsfile(actions, header_dirs, output):
             lines = []
