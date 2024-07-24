@@ -38,9 +38,10 @@ pub(crate) async fn eval_cquery(
     query: &str,
     query_args: &[String],
     target_universe: Option<&[String]>,
+    collect_universes: bool,
 ) -> anyhow::Result<(
     QueryEvaluationResult<ConfiguredTargetNode>,
-    Vec<Arc<CqueryUniverse>>,
+    Option<Vec<Arc<CqueryUniverse>>>,
 )> {
     let dispatcher = dice_query_delegate
         .ctx()
@@ -66,15 +67,22 @@ pub(crate) async fn eval_cquery(
     // This is ugly, but I (Stiopa) cannot figure out how to do it in a better way,
     // without introducing a lot of complexity (generics, downcasting)
     // through query evaluation stack.
-    let (universes_tx_value, universes_rx) = std::sync::mpsc::channel();
+    let (universes_tx_value, universes_rx) = if collect_universes {
+        let (universes_tx_value, universes_rx) = std::sync::mpsc::channel();
+        (Some(universes_tx_value), Some(universes_rx))
+    } else {
+        (None, None)
+    };
 
-    if let Some(target_universe) = &target_universe {
+    if let (Some(target_universe), Some(universes_tx_value)) =
+        (&target_universe, &universes_tx_value)
+    {
         universes_tx_value
             .send(target_universe.dupe())
             .internal_error("Must be open")?;
     }
 
-    let universes_tx = &universes_tx_value;
+    let universes_tx = universes_tx_value.as_ref();
 
     let target_universe = &target_universe;
 
@@ -105,7 +113,9 @@ pub(crate) async fn eval_cquery(
 
                     let universe = Arc::new(universe);
 
-                    universes_tx.send(universe.dupe()).internal_error("Must be open")?;
+                    if let Some(universes_tx) = universes_tx {
+                        universes_tx.send(universe.dupe()).internal_error("Must be open")?;
+                    }
 
                     (
                         resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
@@ -130,14 +140,19 @@ pub(crate) async fn eval_cquery(
 
     drop(universes_tx_value);
 
-    let universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
-    match universes_rx.try_recv() {
-        Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
-        Err(std::sync::mpsc::TryRecvError::Empty) => {
-            return Err(internal_error!("tx must be closed at this moment"));
+    let universes = if let Some(universes_rx) = universes_rx {
+        let universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
+        match universes_rx.try_recv() {
+            Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
+            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                return Err(internal_error!("tx must be closed at this moment"));
+            }
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
         }
-        Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
-    }
+        Some(universes)
+    } else {
+        None
+    };
 
     Ok((result, universes))
 }

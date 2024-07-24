@@ -39,9 +39,10 @@ pub trait QueryFrontend: Send + Sync + 'static {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
+        collect_universes: bool,
     ) -> anyhow::Result<(
         QueryEvaluationResult<ConfiguredTargetNode>,
-        Vec<Arc<CqueryUniverse>>,
+        Option<Vec<Arc<CqueryUniverse>>>,
     )>;
 
     async fn eval_aquery(

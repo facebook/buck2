@@ -63,9 +63,10 @@ impl QueryFrontend for QueryFrontendImpl {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
+        collect_universes: bool,
     ) -> anyhow::Result<(
         QueryEvaluationResult<ConfiguredTargetNode>,
-        Vec<Arc<CqueryUniverse>>,
+        Option<Vec<Arc<CqueryUniverse>>>,
     )> {
         ctx.with_linear_recompute(|ctx| async move {
             let dice_query_delegate =
@@ -82,6 +83,7 @@ impl QueryFrontend for QueryFrontendImpl {
                 query,
                 query_args,
                 target_universe.as_ref().map(|v| &v[..]),
+                collect_universes,
             )
             .await
         })

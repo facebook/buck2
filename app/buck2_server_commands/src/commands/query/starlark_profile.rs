@@ -19,24 +19,21 @@ use buck2_profile::write_starlark_profile;
 use dice::DiceComputations;
 use futures::FutureExt;
 
-pub(crate) async fn maybe_write_query_profile_for_targets<'a>(
+pub(crate) async fn write_query_profile_for_targets<'a>(
     ctx: &mut DiceComputations<'_>,
-    profile_mode: Option<buck2_cli_proto::ProfileMode>,
+    _profile_mode: buck2_cli_proto::ProfileMode,
     output_path: Option<&str>,
     targets: impl IntoIterator<Item = PackageLabel>,
 ) -> anyhow::Result<()> {
-    if profile_mode.is_none() {
-        return Ok(());
-    }
     let output_path = output_path.internal_error("Outut path must be set for profile mode")?;
     let output_path = AbsPath::new(Path::new(output_path))
         .internal_error("Output path must be set to absolute path by the client")?;
-    write_query_profile_for_targets(ctx, output_path, Vec::from_iter(targets))
+    do_write_query_profile_for_targets(ctx, output_path, Vec::from_iter(targets))
         .boxed()
         .await
 }
 
-async fn write_query_profile_for_targets<'a>(
+async fn do_write_query_profile_for_targets<'a>(
     ctx: &mut DiceComputations<'_>,
     output_path: &AbsPath,
     mut targets: Vec<PackageLabel>,

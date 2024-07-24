@@ -529,6 +529,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 &query_args,
                                 this.global_cfg_options_override.clone(),
                                 target_universe.into_option().as_ref().map(|v| &v.items[..]),
+                                false,
                             )
                             .await?
                             .0,
