@@ -12,20 +12,18 @@ use std::vec;
 
 use derivative::Derivative;
 
-use crate::directory::directory::Directory;
-use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
+use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
-use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 pub trait WalkType<'a> {
     type Leaf: 'a;
-    type Directory: Copy + 'a;
+    type Directory: DirectoryRef<'a, Leaf = Self::Leaf>;
     type Entries: Iterator<
         Item = (
             &'a FileName,
@@ -117,34 +115,34 @@ fn entry_walk_impl<'a, T: WalkType<'a>>(
 }
 
 pub type FingerprintedUnorderedDirectoryWalk<'a, L, H> =
-    Walk<'a, FingerprintedUnorderedDirectoryWalkType<'a, L, H>>;
-pub type UnorderedDirectoryWalk<'a, L, H> = Walk<'a, UnorderedDirectoryWalkType<'a, L, H>>;
+    Walk<'a, UnorderedDirectoryWalkType<'a, &'a dyn FingerprintedDirectory<L, H>>>;
+pub type UnorderedDirectoryWalk<'a, D> = Walk<'a, UnorderedDirectoryWalkType<'a, D>>;
 pub type FingerprintedOrderedDirectoryWalk<'a, L, H> =
-    Walk<'a, FingerprintedOrderedDirectoryWalkType<'a, L, H>>;
-pub type OrderedDirectoryWalk<'a, L, H> = Walk<'a, OrderedDirectoryWalkType<'a, L, H>>;
+    Walk<'a, OrderedDirectoryWalkType<'a, &'a dyn FingerprintedDirectory<L, H>>>;
+pub type OrderedDirectoryWalk<'a, D> = Walk<'a, OrderedDirectoryWalkType<'a, D>>;
 
 pub fn fingerprinted_unordered_entry_walk<'a, L, H>(
     entry: DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
 ) -> DirectoryEntryWalk<'a, L, FingerprintedUnorderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<FingerprintedUnorderedDirectoryWalkType<L, H>>(entry)
+    entry_walk_impl::<UnorderedDirectoryWalkType<&dyn FingerprintedDirectory<L, H>>>(entry)
 }
 
-pub fn unordered_entry_walk<'a, L, H>(
-    entry: DirectoryEntry<&'a dyn Directory<L, H>, &'a L>,
-) -> DirectoryEntryWalk<'a, L, UnorderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<UnorderedDirectoryWalkType<L, H>>(entry)
+pub fn unordered_entry_walk<'a, D: DirectoryRef<'a>>(
+    entry: DirectoryEntry<D, &'a D::Leaf>,
+) -> DirectoryEntryWalk<'a, D::Leaf, UnorderedDirectoryWalk<'a, D>> {
+    entry_walk_impl::<UnorderedDirectoryWalkType<D>>(entry)
 }
 
 pub fn fingerprinted_ordered_entry_walk<'a, L, H>(
     entry: DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
 ) -> DirectoryEntryWalk<'a, L, FingerprintedOrderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<FingerprintedOrderedDirectoryWalkType<L, H>>(entry)
+    entry_walk_impl::<OrderedDirectoryWalkType<&dyn FingerprintedDirectory<L, H>>>(entry)
 }
 
-pub fn ordered_entry_walk<'a, L, H>(
-    entry: DirectoryEntry<&'a dyn Directory<L, H>, &'a L>,
-) -> DirectoryEntryWalk<'a, L, OrderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<OrderedDirectoryWalkType<L, H>>(entry)
+pub fn ordered_entry_walk<'a, D: DirectoryRef<'a>>(
+    entry: DirectoryEntry<D, &'a D::Leaf>,
+) -> DirectoryEntryWalk<'a, D::Leaf, OrderedDirectoryWalk<'a, D>> {
+    entry_walk_impl::<OrderedDirectoryWalkType<D>>(entry)
 }
 
 pub enum DirectoryEntryWalk<'a, L, I> {
@@ -202,50 +200,23 @@ where
     }
 }
 
-pub struct FingerprintedUnorderedDirectoryWalkType<'a, L, H>(PhantomData<&'a (L, H)>);
-pub struct UnorderedDirectoryWalkType<'a, L, H>(PhantomData<&'a (L, H)>);
-pub struct FingerprintedOrderedDirectoryWalkType<'a, L, H>(PhantomData<&'a (L, H)>);
-pub struct OrderedDirectoryWalkType<'a, L, H>(PhantomData<&'a (L, H)>);
+pub struct UnorderedDirectoryWalkType<'a, D: DirectoryRef<'a>>(PhantomData<&'a D>);
+pub struct OrderedDirectoryWalkType<'a, D: DirectoryRef<'a>>(PhantomData<&'a D>);
 
-impl<'a, L, H> WalkType<'a> for FingerprintedUnorderedDirectoryWalkType<'a, L, H> {
-    type Leaf = L;
-    type Directory = &'a dyn FingerprintedDirectory<L, H>;
-    type Entries = FingerprintedDirectoryEntries<'a, L, H>;
-
-    fn directory_entries(directory: Self::Directory) -> Self::Entries {
-        directory.fingerprinted_entries()
-    }
-}
-
-impl<'a, L, H> WalkType<'a> for UnorderedDirectoryWalkType<'a, L, H> {
-    type Leaf = L;
-    type Directory = &'a dyn Directory<L, H>;
-    type Entries = DirectoryEntries<'a, L, H>;
+impl<'a, D: DirectoryRef<'a>> WalkType<'a> for UnorderedDirectoryWalkType<'a, D> {
+    type Leaf = D::Leaf;
+    type Directory = D;
+    type Entries = D::Entries;
 
     fn directory_entries(directory: Self::Directory) -> Self::Entries {
         directory.entries()
     }
 }
 
-impl<'a, L, H> WalkType<'a> for FingerprintedOrderedDirectoryWalkType<'a, L, H> {
-    type Leaf = L;
-    type Directory = &'a dyn FingerprintedDirectory<L, H>;
-    type Entries = vec::IntoIter<(
-        &'a FileName,
-        DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
-    )>;
-
-    fn directory_entries(directory: Self::Directory) -> Self::Entries {
-        let mut entries = Vec::from_iter(directory.fingerprinted_entries());
-        entries.sort_by_key(|(name, _)| *name);
-        entries.into_iter()
-    }
-}
-
-impl<'a, L, H> WalkType<'a> for OrderedDirectoryWalkType<'a, L, H> {
-    type Leaf = L;
-    type Directory = &'a dyn Directory<L, H>;
-    type Entries = vec::IntoIter<(&'a FileName, DirectoryEntry<&'a dyn Directory<L, H>, &'a L>)>;
+impl<'a, D: DirectoryRef<'a>> WalkType<'a> for OrderedDirectoryWalkType<'a, D> {
+    type Leaf = D::Leaf;
+    type Directory = D;
+    type Entries = vec::IntoIter<(&'a FileName, DirectoryEntry<D, &'a D::Leaf>)>;
 
     fn directory_entries(directory: Self::Directory) -> Self::Entries {
         let mut entries = Vec::from_iter(directory.entries());

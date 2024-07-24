@@ -13,11 +13,14 @@ use derive_more::Display;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+use crate::directory::directory::Directory;
+use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::immutable_directory::ImmutableDirectory;
+use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::macros::impl_fingerprinted_directory;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::fs::paths::file_name::FileName;
@@ -99,6 +102,47 @@ where
 
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         DirectoryBuilder::Immutable(ImmutableDirectory::Exclusive(self))
+    }
+}
+
+impl<L, H> Directory<L, H> for ExclusiveDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
+    type DirectoryRef<'a> = ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    where
+        Self: Sized + 'a,
+        L: 'a;
+
+    fn as_ref<'a>(&'a self) -> ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    where
+        Self: Sized + 'a,
+    {
+        ImmutableOrExclusiveDirectoryRef::Exclusive(self)
+    }
+
+    fn entries<'a>(&'a self) -> DirectoryEntries<'a, L, H> {
+        let it = self.entries().into_iter().map(|(k, v)| {
+            let k = k.as_ref();
+            let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
+            (k, v)
+        });
+        Box::new(it)
+    }
+
+    fn get<'a>(
+        &'a self,
+        needle: &'_ FileName,
+    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>> {
+        self.get(needle)
+            .map(|v| v.map_dir(|d| d as &dyn Directory<L, H>))
+    }
+
+    fn to_builder(&self) -> DirectoryBuilder<L, H>
+    where
+        L: Clone,
+    {
+        self.clone().into_builder()
     }
 }
 

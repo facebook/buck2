@@ -17,8 +17,11 @@ use dupe::Dupe_;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+use crate::directory::directory::Directory;
+use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
+use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::macros::impl_fingerprinted_directory;
@@ -112,6 +115,86 @@ where
             .into_iter()
             .map(|(k, v)| (k.clone(), v.clone().map_dir(|v| v.into_builder())))
             .collect()
+    }
+}
+
+pub struct SharedDirectoryEntries<'a, L, H>(
+    sorted_vector_map::map::Iter<'a, FileNameBuf, DirectoryEntry<SharedDirectory<L, H>, L>>,
+)
+where
+    H: DirectoryDigest;
+
+impl<'a, L, H> Iterator for SharedDirectoryEntries<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    type Item = (
+        &'a FileName,
+        DirectoryEntry<&'a SharedDirectory<L, H>, &'a L>,
+    );
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (name, entry) = self.0.next()?;
+        Some((name, entry.as_ref()))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl<'a, L, H> DirectoryRef<'a> for &'a SharedDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
+    type Leaf = L;
+    type DirectoryDigest = H;
+    type Entries = SharedDirectoryEntries<'a, L, H>;
+
+    fn entries(self) -> Self::Entries {
+        SharedDirectoryEntries(self.inner.data.entries.iter())
+    }
+
+    fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
+        self
+    }
+}
+
+impl<L, H> Directory<L, H> for SharedDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
+    type DirectoryRef<'a> = &'a SharedDirectory<L, H> where Self: Sized + 'a;
+
+    fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
+    where
+        Self: Sized + 'a,
+    {
+        self
+    }
+
+    fn entries<'a>(&'a self) -> DirectoryEntries<'a, L, H> {
+        let it = self.entries().into_iter().map(|(k, v)| {
+            let k = k.as_ref();
+            let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
+            (k, v)
+        });
+        Box::new(it)
+    }
+
+    fn get<'a>(
+        &'a self,
+        needle: &'_ FileName,
+    ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>> {
+        self.get(needle)
+            .map(|v| v.map_dir(|d| d as &dyn Directory<L, H>))
+    }
+
+    fn to_builder(&self) -> DirectoryBuilder<L, H>
+    where
+        L: Clone,
+    {
+        self.clone().into_builder()
     }
 }
 

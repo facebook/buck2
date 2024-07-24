@@ -9,6 +9,8 @@
 
 use allocative::Allocative;
 use derivative::Derivative;
+use dupe::Clone_;
+use dupe::Copy_;
 use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
@@ -18,10 +20,13 @@ use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::DirectoryHasher;
 use crate::directory::directory_mut::DirectoryMut;
+use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
+use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryEntries;
+use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::path_accumulator::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -231,10 +236,104 @@ where
     }
 }
 
+pub enum DirectoryBuilderDirectoryEntries<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    Immutable(ImmutableOrExclusiveDirectoryEntries<'a, L, H>),
+    Mutable(
+        starlark_map::small_map::Iter<'a, FileNameBuf, DirectoryEntry<DirectoryBuilder<L, H>, L>>,
+    ),
+}
+
+impl<'a, L, H> Iterator for DirectoryBuilderDirectoryEntries<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    type Item = (
+        &'a FileName,
+        DirectoryEntry<DirectoryBuilderDirectoryRef<'a, L, H>, &'a L>,
+    );
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Immutable(iter) => {
+                let (name, entry) = iter.next()?;
+                Some((name, entry.map_dir(DirectoryBuilderDirectoryRef::Immutable)))
+            }
+            Self::Mutable(iter) => {
+                let (name, entry) = iter.next()?;
+                Some((
+                    name,
+                    entry
+                        .as_ref()
+                        .map_dir(DirectoryBuilderDirectoryRef::Mutable),
+                ))
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Immutable(iter) => iter.size_hint(),
+            Self::Mutable(iter) => iter.size_hint(),
+        }
+    }
+}
+
+#[derive(Copy_, Clone_, Derivative)]
+#[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
+pub enum DirectoryBuilderDirectoryRef<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    Immutable(ImmutableOrExclusiveDirectoryRef<'a, L, H>),
+    Mutable(&'a DirectoryBuilder<L, H>),
+}
+
+impl<'a, L, H> DirectoryRef<'a> for DirectoryBuilderDirectoryRef<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    type Leaf = L;
+    type DirectoryDigest = H;
+    type Entries = DirectoryBuilderDirectoryEntries<'a, L, H>;
+
+    fn entries(self) -> Self::Entries {
+        match self {
+            Self::Immutable(d) => DirectoryBuilderDirectoryEntries::Immutable(d.entries()),
+            Self::Mutable(d) => match d {
+                DirectoryBuilder::Mutable(d) => DirectoryBuilderDirectoryEntries::Mutable(d.iter()),
+                DirectoryBuilder::Immutable(d) => DirectoryBuilderDirectoryEntries::Immutable(
+                    ImmutableOrExclusiveDirectoryRef::from_immutable(d).entries(),
+                ),
+            },
+        }
+    }
+
+    fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
+        match self {
+            Self::Immutable(d) => d.as_dyn(),
+            Self::Mutable(d) => d,
+        }
+    }
+}
+
 impl<L, H> Directory<L, H> for DirectoryBuilder<L, H>
 where
     H: DirectoryDigest,
 {
+    type DirectoryRef<'a> = DirectoryBuilderDirectoryRef<'a, L, H>
+    where Self: Sized + 'a,
+          L: 'a;
+
+    fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
+    where
+        Self: Sized + 'a,
+    {
+        DirectoryBuilderDirectoryRef::Mutable(self)
+    }
+
     fn entries(&self) -> DirectoryEntries<'_, L, H> {
         match self {
             Self::Mutable(e) => {

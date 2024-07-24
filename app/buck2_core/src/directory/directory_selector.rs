@@ -13,13 +13,13 @@ use either::Either;
 use starlark_map::small_map::SmallMap;
 
 use crate::directory::builder::DirectoryBuilder;
+use crate::directory::directory::Directory;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
 use crate::directory::entry::DirectoryEntry;
-use crate::directory::walk::FingerprintedOrderedDirectoryWalkType;
-use crate::directory::walk::FingerprintedUnorderedDirectoryWalkType;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::walk::OrderedDirectoryWalkType;
 use crate::directory::walk::UnorderedDirectoryWalkType;
 use crate::directory::walk::WalkType;
@@ -258,39 +258,38 @@ impl<'a, 'b, T: WalkType<'b>> DirectoryIteratorPathStack for Search<'a, 'b, T> {
     }
 }
 
-pub type UnorderedDirectorySearch<'a, 'b, L, H> =
-    Search<'a, 'b, UnorderedDirectoryWalkType<'b, L, H>>;
-pub type OrderedDirectorySearch<'a, 'b, L, H> = Search<'a, 'b, OrderedDirectoryWalkType<'b, L, H>>;
+pub type UnorderedDirectorySearch<'a, 'b, D> = Search<'a, 'b, UnorderedDirectoryWalkType<'b, D>>;
+pub type OrderedDirectorySearch<'a, 'b, D> = Search<'a, 'b, OrderedDirectoryWalkType<'b, D>>;
 pub type FingerprintedUnorderedDirectorySearch<'a, 'b, L, H> =
-    Search<'a, 'b, FingerprintedUnorderedDirectoryWalkType<'b, L, H>>;
+    Search<'a, 'b, UnorderedDirectoryWalkType<'b, &'b dyn FingerprintedDirectory<L, H>>>;
 pub type FingerprintedOrderedDirectorySearch<'a, 'b, L, H> =
-    Search<'a, 'b, FingerprintedOrderedDirectoryWalkType<'b, L, H>>;
+    Search<'a, 'b, OrderedDirectoryWalkType<'b, &'b dyn FingerprintedDirectory<L, H>>>;
 
 impl DirectorySelector {
-    pub fn unordered_search<'a, 'b, L, H>(
+    pub fn unordered_search<'a, 'b, L, H, D: Directory<L, H>>(
         &'a self,
-        dir: <UnorderedDirectoryWalkType<'b, L, H> as WalkType<'b>>::Directory,
-    ) -> UnorderedDirectorySearch<'a, 'b, L, H> {
-        UnorderedDirectorySearch::new(self, dir)
+        dir: &'b D,
+    ) -> UnorderedDirectorySearch<'a, 'b, D::DirectoryRef<'b>> {
+        UnorderedDirectorySearch::new(self, dir.as_ref())
     }
 
-    pub fn ordered_search<'a, 'b, L, H>(
+    pub fn ordered_search<'a, 'b, L, H, D: Directory<L, H>>(
         &'a self,
-        dir: <OrderedDirectoryWalkType<'b, L, H> as WalkType<'b>>::Directory,
-    ) -> OrderedDirectorySearch<'a, 'b, L, H> {
-        OrderedDirectorySearch::new(self, dir)
+        dir: &'b D,
+    ) -> OrderedDirectorySearch<'a, 'b, D::DirectoryRef<'b>> {
+        OrderedDirectorySearch::new(self, dir.as_ref())
     }
 
     pub fn fingerprinted_unordered_search<'a, 'b, L, H>(
         &'a self,
-        dir: <FingerprintedUnorderedDirectoryWalkType<'b, L, H> as WalkType<'b>>::Directory,
+        dir: &'b dyn FingerprintedDirectory<L, H>,
     ) -> FingerprintedUnorderedDirectorySearch<'a, 'b, L, H> {
         FingerprintedUnorderedDirectorySearch::new(self, dir)
     }
 
     pub fn fingerprinted_ordered_search<'a, 'b, L, H>(
         &'a self,
-        dir: <FingerprintedOrderedDirectoryWalkType<'b, L, H> as WalkType<'b>>::Directory,
+        dir: &'b dyn FingerprintedDirectory<L, H>,
     ) -> FingerprintedOrderedDirectorySearch<'a, 'b, L, H> {
         FingerprintedOrderedDirectorySearch::new(self, dir)
     }

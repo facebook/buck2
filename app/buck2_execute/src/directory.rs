@@ -28,6 +28,7 @@ use buck2_core::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_hasher::DirectoryHasher;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
+use buck2_core::directory::directory_ref::DirectoryRef;
 use buck2_core::directory::directory_selector::DirectorySelector;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;

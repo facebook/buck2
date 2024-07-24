@@ -11,38 +11,14 @@ macro_rules! impl_fingerprinted_directory {
     (
         $this: ident
     ) => {
-        impl<L, H> $crate::directory::directory::Directory<L, H> for $this<L, H>
-        where
-            H: DirectoryDigest,
-        {
-            fn entries<'a>(&'a self) -> $crate::directory::directory::DirectoryEntries<'a, L, H> {
-                let it = self.entries().into_iter().map(|(k, v)| {
-                    let k = k.as_ref();
-                    let v = v.as_ref().map_dir(|v| v as &dyn $crate::directory::directory::Directory<L, H>);
-                    (k, v)
-                });
-                Box::new(it)
-            }
-
-            fn get<'a>(
-                &'a self,
-                needle: &'_ FileName,
-            ) -> Option<$crate::directory::entry::DirectoryEntry<&'a dyn $crate::directory::directory::Directory<L, H>, &'a L>> {
-                $this::get(self, needle).map(|v| v.map_dir(|d| d as &dyn $crate::directory::directory::Directory<L, H>))
-            }
-
-            fn to_builder(&self) -> DirectoryBuilder<L, H>
-            where
-                L: Clone,
-            {
-                self.clone().into_builder()
-            }
-        }
-
         impl<L, H> $crate::directory::fingerprinted_directory::FingerprintedDirectory<L, H> for $this<L, H>
         where
             H: DirectoryDigest,
         {
+            fn as_directory(&self) -> &dyn $crate::directory::directory::Directory<L, H> {
+                self
+            }
+
             fn fingerprinted_entries<'a>(&'a self) -> crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries<'a, L, H> {
                 let it = self.entries().into_iter().map(|(k, v)| {
                     let k = k.as_ref();

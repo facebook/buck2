@@ -9,6 +9,7 @@
 
 use std::fmt;
 
+use crate::directory::directory::Directory;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::entry::DirectoryEntry;
@@ -26,6 +27,8 @@ pub type FingerprintedDirectoryEntries<'a, L, H> = Box<
 >;
 
 pub trait FingerprintedDirectory<L, H> {
+    fn as_directory(&self) -> &dyn Directory<L, H>;
+
     fn fingerprinted_entries(&self) -> FingerprintedDirectoryEntries<'_, L, H>;
 
     fn get<'a>(

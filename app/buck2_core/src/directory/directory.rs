@@ -12,6 +12,7 @@ use std::fmt;
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
+use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::walk::OrderedDirectoryWalk;
 use crate::directory::walk::UnorderedDirectoryWalk;
@@ -23,6 +24,15 @@ pub type DirectoryEntries<'a, L, H> =
 /// A Directory that may or may not be fingerprinted. This means it only exposes the common
 /// denominator of operations available on such Directories, which is to access entries in them.
 pub trait Directory<L, H> {
+    type DirectoryRef<'a>: DirectoryRef<'a, Leaf = L, DirectoryDigest = H>
+    where
+        Self: Sized + 'a,
+        L: 'a;
+
+    fn as_ref<'a>(&'a self) -> Self::DirectoryRef<'a>
+    where
+        Self: Sized + 'a;
+
     fn entries(&self) -> DirectoryEntries<'_, L, H>;
 
     fn get<'a>(
@@ -30,11 +40,11 @@ pub trait Directory<L, H> {
         needle: &'_ FileName,
     ) -> Option<DirectoryEntry<&'a dyn Directory<L, H>, &'a L>>;
 
-    fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, L, H>
+    fn unordered_walk<'a>(&'a self) -> UnorderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
     where
         Self: Sized,
     {
-        UnorderedDirectoryWalk::new(self)
+        UnorderedDirectoryWalk::new(self.as_ref())
     }
 
     fn unordered_walk_leaves<'a>(&'a self) -> impl DirectoryIterator<Item = &'a L>
@@ -49,11 +59,11 @@ pub trait Directory<L, H> {
         })
     }
 
-    fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, L, H>
+    fn ordered_walk<'a>(&'a self) -> OrderedDirectoryWalk<'a, Self::DirectoryRef<'a>>
     where
         Self: Sized,
     {
-        OrderedDirectoryWalk::new(self)
+        OrderedDirectoryWalk::new(self.as_ref())
     }
 
     fn ordered_walk_leaves<'a>(&'a self) -> impl DirectoryIterator<Item = &'a L>
