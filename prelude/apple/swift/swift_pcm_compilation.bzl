@@ -54,7 +54,7 @@ def _compile_with_argsfile(
         args: cmd_args,
         additional_cmd: cmd_args):
     shell_quoted_cmd = cmd_args(args, quote = "shell")
-    argfile, _ = ctx.actions.write(module_name + ".pcm.argsfile", shell_quoted_cmd, allow_args = True)
+    argfile, _ = ctx.actions.write(module_name + ".swift_pcm_argsfile", shell_quoted_cmd, allow_args = True)
 
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args(

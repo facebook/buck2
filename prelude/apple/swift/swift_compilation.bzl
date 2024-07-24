@@ -456,7 +456,7 @@ def _compile_with_argsfile(
         additional_flags: cmd_args,
         toolchain: SwiftToolchainInfo) -> CompileArgsfiles:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argsfile, _ = ctx.actions.write(extension + ".argsfile", shell_quoted_args, allow_args = True)
+    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
     cmd_form = cmd_args(cmd_args(argsfile, format = "@{}", delimiter = ""), hidden = input_args)
     cmd_form.add([s.file for s in srcs])
@@ -874,10 +874,10 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
         return DefaultInfo()
     mk_swift_interface = swift_toolchain.mk_swift_interface
 
-    identifier = module_name + ".interface.swift"
+    identifier = module_name + ".swift_interface"
 
     argsfile, _ = ctx.actions.write(
-        identifier + ".argsfile",
+        identifier + "_argsfile",
         shared_flags,
         allow_args = True,
     )
