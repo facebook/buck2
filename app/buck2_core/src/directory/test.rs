@@ -266,6 +266,11 @@ fn test_find() -> anyhow::Result<()> {
         Ok(Some(DirectoryEntry::Dir(..)))
     );
 
+    assert_matches!(
+        find(a.as_ref(), path("")),
+        Ok(Some(DirectoryEntry::Dir(..)))
+    );
+
     Ok(())
 }
 

@@ -174,7 +174,6 @@ impl BundledFileOpsDelegate {
         }
         match find(self.dir.as_ref(), path.iter()) {
             Ok(entry) => Ok(entry),
-            Err(DirectoryFindError::EmptyPath) => Ok(None),
             Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
                 Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into())
             }

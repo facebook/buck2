@@ -17,9 +17,6 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum DirectoryFindError {
-    #[error("Path is empty")]
-    EmptyPath,
-
     #[error("Find would traverse a leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },
 }
@@ -72,7 +69,7 @@ pub fn find<'a, 'b, D: DirectoryRef<'a>>(
 
     let path_needle = match path.next() {
         Some(path_needle) => path_needle,
-        None => return Err(DirectoryFindError::EmptyPath),
+        None => return Ok(Some(DirectoryEntry::Dir(dir))),
     };
 
     find_inner::<_, PathAccumulator>(dir, path_needle, path)
@@ -94,7 +91,12 @@ pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
 
     let path_needle = match path.next() {
         Some(path_needle) => path_needle,
-        None => return Err(DirectoryFindError::EmptyPath),
+        None => {
+            return Ok(Some((
+                DirectoryEntry::Dir(dir),
+                ForwardRelativePathBuf::default(),
+            )));
+        }
     };
 
     match find_inner::<_, PrefixLookupContainer<&'a D::Leaf>>(dir, path_needle, path) {
