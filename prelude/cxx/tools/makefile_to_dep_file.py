@@ -8,7 +8,6 @@
 
 # pyre-unsafe
 
-import os
 import subprocess
 import sys
 
