@@ -13,7 +13,6 @@ use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
-use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
 use crate::fs::paths::file_name::FileName;
 
 pub trait DirectoryRef<'a>: Copy + 'a + Sized {
@@ -52,27 +51,6 @@ impl<'a, L, H> DirectoryRef<'a> for &'a dyn Directory<L, H> {
     }
 
     fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
-        self
-    }
-}
-
-impl<'a, L, H> DirectoryRef<'a> for &'a dyn FingerprintedDirectory<L, H> {
-    type Leaf = L;
-    type DirectoryDigest = H;
-
-    type Entries = FingerprintedDirectoryEntries<'a, L, H>;
-
-    fn entries(self) -> Self::Entries {
-        self.fingerprinted_entries()
-    }
-
-    fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
-        self.as_directory()
-    }
-}
-
-impl<'a, L, H> FingerprintedDirectoryRef<'a> for &'a dyn FingerprintedDirectory<L, H> {
-    fn as_fingerprinted_dyn(self) -> &'a dyn FingerprintedDirectory<L, H> {
         self
     }
 }
