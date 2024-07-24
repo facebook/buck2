@@ -266,30 +266,27 @@ def buck2_e2e_test(
             require_nano_prelude = require_nano_prelude,
         )
 
-    # TODO(T176595052): reenable `with_reverted_buck2` tests
     if test_with_reverted_buck2:
-        pass
-
-    #     env = dict(env)
-    #     env["BUCK2_CHANNEL"] = "previous"
-    #     buck_e2e_test(
-    #         name = name + "_with_reverted_buck2",
-    #         executable_type = "buck2",
-    #         executable = "buck2",
-    #         base_module = base_module,
-    #         data = data,
-    #         data_dir = data_dir,
-    #         conftest = conftest,
-    #         srcs = srcs,
-    #         tags = tags,
-    #         deps = deps,
-    #         env = env,
-    #         resources = resources,
-    #         skip_for_os = skip_for_os,
-    #         pytest_config = pytest_config,
-    #         pytest_marks = pytest_marks,
-    #         pytest_expr = pytest_expr,
-    #         pytest_confcutdir = pytest_confcutdir,
-    #         serialize_test_cases = serialize_test_cases,
-    #         require_nano_prelude = require_nano_prelude,
-    #     )
+        env = dict(env)
+        env["BUCK2_CHANNEL"] = "previous"
+        buck_e2e_test(
+            name = name + "_with_reverted_buck2",
+            executable_type = "buck2",
+            executable = "buck2",
+            base_module = base_module,
+            data = data,
+            data_dir = data_dir,
+            conftest = conftest,
+            srcs = srcs,
+            tags = tags,
+            deps = deps,
+            env = env,
+            resources = resources,
+            skip_for_os = skip_for_os,
+            pytest_config = pytest_config,
+            pytest_marks = pytest_marks,
+            pytest_expr = pytest_expr,
+            pytest_confcutdir = pytest_confcutdir,
+            serialize_test_cases = serialize_test_cases,
+            require_nano_prelude = require_nano_prelude,
+        )
