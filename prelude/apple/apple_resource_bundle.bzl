@@ -80,7 +80,10 @@ def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, st
 
     resource_bundle_name = kwargs["name"] + "__ResourceBundle_Private"
     resource_bundle_kwargs = {
+        "compatible_with": kwargs.get("compatible_with"),
+        "exec_compatible_with": kwargs.get("exec_compatible_with"),
         "labels": ["generated"],
+        "target_compatible_with": kwargs.get("target_compatible_with"),
         "_bundle_target_name": kwargs["name"],
         "_compile_resources_locally_override": kwargs["_compile_resources_locally_override"],
     }
