@@ -153,6 +153,10 @@ where
     type DirectoryDigest = H;
     type Entries = SharedDirectoryEntries<'a, L, H>;
 
+    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>> {
+        self.get(name)
+    }
+
     fn entries(self) -> Self::Entries {
         SharedDirectoryEntries(self.inner.data.entries.iter())
     }

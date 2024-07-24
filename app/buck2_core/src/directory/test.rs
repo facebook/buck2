@@ -256,9 +256,15 @@ fn test_find() -> anyhow::Result<()> {
     let mut a = TestDirectoryBuilder::empty();
     a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
-    assert_matches!(find(&a, path("a/b/c")), Ok(Some(DirectoryEntry::Leaf(..))));
+    assert_matches!(
+        find(a.as_ref(), path("a/b/c")),
+        Ok(Some(DirectoryEntry::Leaf(..)))
+    );
 
-    assert_matches!(find(&a, path("a/b")), Ok(Some(DirectoryEntry::Dir(..))));
+    assert_matches!(
+        find(a.as_ref(), path("a/b")),
+        Ok(Some(DirectoryEntry::Dir(..)))
+    );
 
     Ok(())
 }
@@ -269,22 +275,22 @@ fn test_find_prefix() -> anyhow::Result<()> {
     a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
     assert_matches!(
-        find_prefix(&a, path("a/b/c")),
+        find_prefix(a.as_ref(), path("a/b/c")),
         Ok(Some((DirectoryEntry::Leaf(..), None)))
     );
     assert_matches!(
-        find_prefix(&a, path("a/b")),
+        find_prefix(a.as_ref(), path("a/b")),
         Ok(Some((DirectoryEntry::Dir(..), None)))
     );
 
     assert_matches!(
-        find_prefix(&a, path("a/b/c/d")),
+        find_prefix(a.as_ref(), path("a/b/c/d")),
         Ok(Some((DirectoryEntry::Leaf(..), Some(rest)))) => {
             assert_eq!(rest, path("d"));
         }
     );
     assert_matches!(
-        find_prefix(&a, path("a/b/c/d/e")),
+        find_prefix(a.as_ref(), path("a/b/c/d/e")),
         Ok(Some((DirectoryEntry::Leaf(..), Some(rest)))) => {
             assert_eq!(rest, path("d/e"));
         }

@@ -9,9 +9,8 @@
 
 use std::iter;
 
-use crate::directory::directory::Directory;
+use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
-use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::path_accumulator::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -65,96 +64,67 @@ impl<T> FindConflict<T> for PrefixLookupContainer<T> {
     }
 }
 
-macro_rules! impl_find {
-    (
-        $dir_ty: ident,
-        $getter: ident,
-        $find_name: ident,
-        $find_prefix_name: ident,
-        $mod: ident,
-    ) => {
-        mod $mod {
-            use super::*;
+pub fn find<'a, 'b, D: DirectoryRef<'a>>(
+    dir: D,
+    path: impl IntoIterator<Item = &'b FileName>,
+) -> Result<Option<DirectoryEntry<D, &'a D::Leaf>>, DirectoryFindError> {
+    let mut path = path.into_iter();
 
-            pub fn $find_name<'a, 'b, L, H, D: $dir_ty<L, H>>(
-                dir: &'a D,
-                path: impl IntoIterator<Item = &'b FileName>,
-            ) -> Result<Option<DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>>, DirectoryFindError>
-            {
-                let mut path = path.into_iter();
-
-                let path_needle = match path.next() {
-                    Some(path_needle) => path_needle,
-                    None => return Err(DirectoryFindError::EmptyPath),
-                };
-
-                find_inner::<_, _, PathAccumulator>(dir, path_needle, path)
-                    .map_err(|path| DirectoryFindError::CannotTraverseLeaf { path })
-            }
-
-            pub fn $find_prefix_name<'a, 'b, L, H, D: $dir_ty<L, H>>(
-                dir: &'a D,
-                path: impl IntoIterator<Item = &'b FileName>,
-            ) -> Result<
-                Option<(
-                    DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>,
-                    Option<ForwardRelativePathBuf>,
-                )>,
-                DirectoryFindError,
-            > {
-                let mut path = path.into_iter();
-
-                let path_needle = match path.next() {
-                    Some(path_needle) => path_needle,
-                    None => return Err(DirectoryFindError::EmptyPath),
-                };
-
-                match find_inner::<_, _, PrefixLookupContainer<&'a L>>(dir, path_needle, path) {
-                    Ok(maybe_leaf) => Ok((maybe_leaf.map(|l| (l, None)))),
-                    Err(PrefixLookupContainer { leaf, path }) => {
-                        Ok(Some((DirectoryEntry::Leaf(leaf), Some(path))))
-                    }
-                }
-            }
-
-            fn find_inner<'a, 'b, L, H, A>(
-                dir: &'a dyn $dir_ty<L, H>,
-                path_needle: &'b FileName,
-                mut path_rest: impl Iterator<Item = &'b FileName>,
-            ) -> Result<Option<DirectoryEntry<&'a dyn $dir_ty<L, H>, &'a L>>, A>
-            where
-                A: FindConflict<&'a L>,
-            {
-                let entry = match dir.$getter(path_needle) {
-                    Some(entry) => entry,
-                    None => return Ok(None),
-                };
-
-                let next_path_needle = match path_rest.next() {
-                    Some(next_path_needle) => next_path_needle,
-                    None => return Ok(Some(entry)),
-                };
-
-                match entry {
-                    DirectoryEntry::Dir(dir) => {
-                        find_inner::<_, _, A>(dir, next_path_needle, path_rest)
-                            .map_err(|acc| acc.with(path_needle))
-                    }
-                    DirectoryEntry::Leaf(leaf) => Err(A::new(next_path_needle, path_rest, leaf)),
-                }
-            }
-        }
-
-        pub use $mod::$find_name;
-        pub use $mod::$find_prefix_name;
+    let path_needle = match path.next() {
+        Some(path_needle) => path_needle,
+        None => return Err(DirectoryFindError::EmptyPath),
     };
+
+    find_inner::<_, PathAccumulator>(dir, path_needle, path)
+        .map_err(move |path| DirectoryFindError::CannotTraverseLeaf { path })
 }
 
-impl_find!(
-    FingerprintedDirectory,
-    fingerprinted_get,
-    find_fingerprinted,
-    find_prefix_fingerprinted,
-    impl_find_fingerprinted,
-);
-impl_find!(Directory, get, find, find_prefix, impl_find,);
+pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
+    dir: D,
+    path: impl IntoIterator<Item = &'b FileName>,
+) -> Result<
+    Option<(
+        DirectoryEntry<D, &'a D::Leaf>,
+        Option<ForwardRelativePathBuf>,
+    )>,
+    DirectoryFindError,
+> {
+    let mut path = path.into_iter();
+
+    let path_needle = match path.next() {
+        Some(path_needle) => path_needle,
+        None => return Err(DirectoryFindError::EmptyPath),
+    };
+
+    match find_inner::<_, PrefixLookupContainer<&'a D::Leaf>>(dir, path_needle, path) {
+        Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| (l, None))),
+        Err(PrefixLookupContainer { leaf, path }) => {
+            Ok(Some((DirectoryEntry::Leaf(leaf), Some(path))))
+        }
+    }
+}
+
+fn find_inner<'a, 'b, D: DirectoryRef<'a>, A>(
+    dir: D,
+    path_needle: &'b FileName,
+    mut path_rest: impl Iterator<Item = &'b FileName>,
+) -> Result<Option<DirectoryEntry<D, &'a D::Leaf>>, A>
+where
+    A: FindConflict<&'a D::Leaf>,
+{
+    let entry = match dir.get(path_needle) {
+        Some(entry) => entry,
+        None => return Ok(None),
+    };
+
+    let next_path_needle = match path_rest.next() {
+        Some(next_path_needle) => next_path_needle,
+        None => return Ok(Some(entry)),
+    };
+
+    match entry {
+        DirectoryEntry::Dir(dir) => find_inner::<_, A>(dir, next_path_needle, path_rest)
+            .map_err(|acc| acc.with(path_needle)),
+        DirectoryEntry::Leaf(leaf) => Err(A::new(next_path_needle, path_rest, leaf)),
+    }
+}

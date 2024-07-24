@@ -299,6 +299,27 @@ where
     type DirectoryDigest = H;
     type Entries = DirectoryBuilderDirectoryEntries<'a, L, H>;
 
+    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>> {
+        match self {
+            DirectoryBuilderDirectoryRef::Immutable(d) => Some(
+                d.get(name)?
+                    .map_dir(DirectoryBuilderDirectoryRef::Immutable),
+            ),
+            DirectoryBuilderDirectoryRef::Mutable(d) => match d {
+                DirectoryBuilder::Mutable(d) => Some(
+                    d.get(name)?
+                        .as_ref()
+                        .map_dir(|v| DirectoryBuilderDirectoryRef::Mutable(v)),
+                ),
+                DirectoryBuilder::Immutable(d) => Some(
+                    d.as_ref()
+                        .get(name)?
+                        .map_dir(|v| DirectoryBuilderDirectoryRef::Immutable(v)),
+                ),
+            },
+        }
+    }
+
     fn entries(self) -> Self::Entries {
         match self {
             Self::Immutable(d) => DirectoryBuilderDirectoryEntries::Immutable(d.entries()),

@@ -128,10 +128,11 @@ impl ActionsRegistry {
                 Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
             }
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
-                let location = match directory::find::find(&self.claimed_output_paths, &conflict) {
-                    Ok(Some(DirectoryEntry::Leaf(l))) => l.as_ref(),
-                    _ => None,
-                };
+                let location =
+                    match directory::find::find(self.claimed_output_paths.as_ref(), &conflict) {
+                        Ok(Some(DirectoryEntry::Leaf(l))) => l.as_ref(),
+                        _ => None,
+                    };
 
                 let conflict = format!(
                     "{} declared at {}",

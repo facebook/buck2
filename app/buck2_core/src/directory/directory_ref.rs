@@ -21,6 +21,8 @@ pub trait DirectoryRef<'a>: Copy + 'a + Sized {
 
     type Entries: Iterator<Item = (&'a FileName, DirectoryEntry<Self, &'a Self::Leaf>)>;
 
+    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>>;
+
     fn entries(self) -> Self::Entries;
 
     fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest>;
@@ -45,6 +47,10 @@ impl<'a, L, H> DirectoryRef<'a> for &'a dyn Directory<L, H> {
     type DirectoryDigest = H;
 
     type Entries = DirectoryEntries<'a, L, H>;
+
+    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>> {
+        self.get(name)
+    }
 
     fn entries(self) -> Self::Entries {
         self.entries()

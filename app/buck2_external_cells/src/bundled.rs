@@ -31,6 +31,7 @@ use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_hasher::NoDigest;
 use buck2_core::directory::directory_hasher::NoDigestDigester;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
+use buck2_core::directory::directory_ref::DirectoryRef;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;
 use buck2_core::directory::find::DirectoryFindError;
@@ -163,8 +164,8 @@ impl BundledFileOpsDelegate {
         if path.is_empty() {
             return Ok(Some(DirectoryEntry::Dir(&self.dir)));
         }
-        match find(&self.dir, path.iter()) {
-            Ok(entry) => Ok(entry),
+        match find(self.dir.as_ref(), path.iter()) {
+            Ok(entry) => Ok(entry.map(|e| e.map_dir(|e| e.as_dyn()))),
             Err(DirectoryFindError::EmptyPath) => Ok(None),
             Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
                 Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into())

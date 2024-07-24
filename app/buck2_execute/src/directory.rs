@@ -707,7 +707,7 @@ pub fn extract_artifact_value(
     path: &ProjectRelativePath,
     digest_config: DigestConfig,
 ) -> anyhow::Result<Option<ArtifactValue>> {
-    let entry = match find(builder, path.as_forward_relative_path())? {
+    let entry = match find(builder.as_ref(), path.as_forward_relative_path())? {
         Some(entry) => entry,
         _ => return Ok(None),
     };
@@ -932,7 +932,7 @@ mod tests {
 
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
-                let entry = find(&root, path.as_forward_relative_path())?
+                let entry = find(root.as_ref(), path.as_forward_relative_path())?
                     .with_context(|| format!("Missing {}", path))?
                     .map_dir(|d| d.to_builder())
                     .map_leaf(|l| l.dupe());

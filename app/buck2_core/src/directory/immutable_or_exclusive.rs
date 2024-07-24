@@ -103,6 +103,17 @@ where
     type DirectoryDigest = H;
     type Entries = ImmutableOrExclusiveDirectoryEntries<'a, L, H>;
 
+    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>> {
+        match self {
+            Self::Exclusive(dir) => dir
+                .get(name)
+                .map(|entry| entry.map_dir(ImmutableOrExclusiveDirectoryRef::from_immutable)),
+            Self::Shared(dir) => dir
+                .get(name)
+                .map(|entry| entry.map_dir(ImmutableOrExclusiveDirectoryRef::Shared)),
+        }
+    }
+
     fn entries(self) -> Self::Entries {
         match self {
             Self::Exclusive(dir) => {
