@@ -276,22 +276,28 @@ fn test_find_prefix() -> anyhow::Result<()> {
 
     assert_matches!(
         find_prefix(a.as_ref(), path("a/b/c")),
-        Ok(Some((DirectoryEntry::Leaf(..), None)))
+        Ok(Some((
+            DirectoryEntry::Leaf(..),
+            path
+        ))) if path.is_empty()
     );
     assert_matches!(
         find_prefix(a.as_ref(), path("a/b")),
-        Ok(Some((DirectoryEntry::Dir(..), None)))
+        Ok(Some((
+            DirectoryEntry::Dir(..),
+            path
+        ))) if path.is_empty()
     );
 
     assert_matches!(
         find_prefix(a.as_ref(), path("a/b/c/d")),
-        Ok(Some((DirectoryEntry::Leaf(..), Some(rest)))) => {
+        Ok(Some((DirectoryEntry::Leaf(..), rest))) => {
             assert_eq!(rest, path("d"));
         }
     );
     assert_matches!(
         find_prefix(a.as_ref(), path("a/b/c/d/e")),
-        Ok(Some((DirectoryEntry::Leaf(..), Some(rest)))) => {
+        Ok(Some((DirectoryEntry::Leaf(..), rest))) => {
             assert_eq!(rest, path("d/e"));
         }
     );

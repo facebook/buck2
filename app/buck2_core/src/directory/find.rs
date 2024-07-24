@@ -85,7 +85,8 @@ pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
 ) -> Result<
     Option<(
         DirectoryEntry<D, &'a D::Leaf>,
-        Option<ForwardRelativePathBuf>,
+        // Remaining path.
+        ForwardRelativePathBuf,
     )>,
     DirectoryFindError,
 > {
@@ -97,10 +98,8 @@ pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
     };
 
     match find_inner::<_, PrefixLookupContainer<&'a D::Leaf>>(dir, path_needle, path) {
-        Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| (l, None))),
-        Err(PrefixLookupContainer { leaf, path }) => {
-            Ok(Some((DirectoryEntry::Leaf(leaf), Some(path))))
-        }
+        Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| (l, ForwardRelativePathBuf::default()))),
+        Err(PrefixLookupContainer { leaf, path }) => Ok(Some((DirectoryEntry::Leaf(leaf), path))),
     }
 }
 
