@@ -96,7 +96,7 @@ pub async fn validate_certs() -> anyhow::Result<()> {
     } else {
         let err_msg = "Could not find any files that may contain certificates";
         // System certs are unlikely to be invalid, but if it is, it's a bigger issue than invalid client certs so we check it first
-        match certs::find_internal_cert() {
+        match certs::find_root_ca_certs() {
             Some(root_certs) => {
                 if let Err(e) = verify(&root_certs).await {
                     return Err(InvalidCertsError::SystemCerts(e.to_string()).into());
@@ -105,7 +105,7 @@ pub async fn validate_certs() -> anyhow::Result<()> {
             None => return Err(InvalidCertsError::SystemCerts(err_msg.to_owned()).into()),
         }
 
-        match certs::find_root_ca_certs() {
+        match certs::find_internal_cert() {
             Some(client_certs) => {
                 if let Err(e) = verify(&client_certs).await {
                     return Err(InvalidCertsError::ClientCerts(e.to_string()).into());
