@@ -28,11 +28,6 @@ pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
 
     fn fingerprinted_entries(&self) -> FingerprintedDirectoryEntries<'_, L, H>;
 
-    fn fingerprinted_get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>>;
-
     fn fingerprint(&self) -> &H
     where
         H: DirectoryDigest;

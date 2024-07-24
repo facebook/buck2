@@ -133,16 +133,6 @@ where
         }
     }
 
-    fn fingerprinted_get<'a>(
-        &'a self,
-        needle: &'_ FileName,
-    ) -> Option<DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>> {
-        match self {
-            Self::Exclusive(dir) => FingerprintedDirectory::fingerprinted_get(dir, needle),
-            Self::Shared(dir) => FingerprintedDirectory::fingerprinted_get(dir, needle),
-        }
-    }
-
     fn fingerprint(&self) -> &H {
         match self {
             Self::Exclusive(dir) => FingerprintedDirectory::fingerprint(dir),
