@@ -327,7 +327,7 @@ fn test_search() -> anyhow::Result<()> {
         let mut selector = DirectorySelector::empty();
         selector.select(path("a/b"));
 
-        let mut it = selector.fingerprinted_ordered_search(&d).with_paths();
+        let mut it = selector.ordered_search(&d).with_paths();
 
         assert_matches!(
             it.next(),
@@ -341,7 +341,7 @@ fn test_search() -> anyhow::Result<()> {
         selector.select(path("a/b/c"));
         selector.select(path("b/c"));
 
-        let mut it = selector.fingerprinted_ordered_search(&d).with_paths();
+        let mut it = selector.ordered_search(&d).with_paths();
 
         assert_matches!(
             it.next(),
@@ -358,7 +358,7 @@ fn test_search() -> anyhow::Result<()> {
         let mut selector = DirectorySelector::empty();
         selector.select(path("a"));
 
-        let mut it = selector.fingerprinted_ordered_search(&d).with_paths();
+        let mut it = selector.ordered_search(&d).with_paths();
         assert_matches!(
             it.next(),
             Some((p, Ok(DirectoryEntry::Dir(..)))) => assert_eq!(p, path("a"))
