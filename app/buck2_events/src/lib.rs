@@ -192,7 +192,7 @@ impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
 }
 
 /// The set of events that can flow out of an EventSource.
-#[derive(Clone, From, UnpackVariants)]
+#[derive(Debug, Clone, From, UnpackVariants)]
 #[allow(clippy::large_enum_variant)]
 pub enum Event {
     /// A command result, produced upon completion of a command.
