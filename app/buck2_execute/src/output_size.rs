@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::walk::unordered_entry_walk;
 
@@ -35,7 +36,7 @@ where
     fn calc_output_count_and_bytes(&self) -> OutputCountAndBytes {
         let mut bytes = 0;
         let mut count = 0;
-        let mut walk = unordered_entry_walk(self.as_ref_dyn());
+        let mut walk = unordered_entry_walk(self.as_ref().map_dir(|d| Directory::as_ref(d)));
         while let Some((_path, entry)) = walk.next() {
             match entry {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {

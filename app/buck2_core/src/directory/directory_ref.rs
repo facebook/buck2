@@ -9,7 +9,6 @@
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory::Directory;
-use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
@@ -40,23 +39,4 @@ pub trait FingerprintedDirectoryRef<'a>: DirectoryRef<'a> {
     fn as_fingerprinted_dyn(
         self,
     ) -> &'a dyn FingerprintedDirectory<Self::Leaf, Self::DirectoryDigest>;
-}
-
-impl<'a, L, H> DirectoryRef<'a> for &'a dyn Directory<L, H> {
-    type Leaf = L;
-    type DirectoryDigest = H;
-
-    type Entries = DirectoryEntries<'a, L, H>;
-
-    fn get(self, name: &FileName) -> Option<DirectoryEntry<Self, &'a Self::Leaf>> {
-        self.get(name)
-    }
-
-    fn entries(self) -> Self::Entries {
-        self.entries()
-    }
-
-    fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
-        self
-    }
 }

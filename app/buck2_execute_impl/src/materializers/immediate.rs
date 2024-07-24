@@ -14,6 +14,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::walk::unordered_entry_walk;
 use buck2_core::fs::project::ProjectRoot;
@@ -303,7 +304,7 @@ pub async fn cas_download<'a, 'b>(
 
     let mut files = Vec::new();
     for (path, value) in artifacts.iter() {
-        let mut walk = unordered_entry_walk(value.entry().as_ref_dyn());
+        let mut walk = unordered_entry_walk(value.entry().as_ref().map_dir(Directory::as_ref));
         while let Some((entry_path, entry)) = walk.next() {
             if let DirectoryEntry::Leaf(ActionDirectoryMember::File(m)) = entry {
                 files.push(NamedDigestWithPermissions {

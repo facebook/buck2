@@ -35,6 +35,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_core::buck2_env;
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::walk::unordered_entry_walk;
 use buck2_core::fs::project::ProjectRoot;
@@ -748,7 +749,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             let dest = copied_artifact.dest.strip_prefix(&path)?;
 
             {
-                let mut walk = unordered_entry_walk(copied_artifact.dest_entry.as_ref_dyn());
+                let mut walk = unordered_entry_walk(
+                    copied_artifact
+                        .dest_entry
+                        .as_ref()
+                        .map_dir(Directory::as_ref),
+                );
                 while let Some((path, entry)) = walk.next() {
                     if let DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) = entry {
                         let path = path.get();

@@ -17,6 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
 use buck2_core::buck2_env;
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::walk::unordered_entry_walk;
 use buck2_core::fs::fs_util;
@@ -186,7 +187,7 @@ impl DefaultIoHandler {
                 let mut files = Vec::new();
 
                 {
-                    let mut walk = unordered_entry_walk(entry.as_ref_dyn());
+                    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
 
                     while let Some((entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
@@ -505,7 +506,7 @@ pub(super) fn create_ttl_refresh(
         match &data.stage {
             ArtifactMaterializationStage::Declared { entry, method } => match method.as_ref() {
                 ArtifactMaterializationMethod::CasDownload { info } => {
-                    let mut walk = unordered_entry_walk(entry.as_ref_dyn());
+                    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
                     while let Some((_entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
                             let needs_refresh = file.digest.expires() < ttl_deadline;
