@@ -15,10 +15,6 @@ macro_rules! impl_fingerprinted_directory {
         where
             H: DirectoryDigest,
         {
-            fn as_directory(&self) -> &dyn $crate::directory::directory::Directory<L, H> {
-                self
-            }
-
             fn fingerprinted_entries<'a>(&'a self) -> crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries<'a, L, H> {
                 let it = self.entries().into_iter().map(|(k, v)| {
                     let k = k.as_ref();

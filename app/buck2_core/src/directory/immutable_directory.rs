@@ -103,10 +103,6 @@ impl<L, H> FingerprintedDirectory<L, H> for ImmutableDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    fn as_directory(&self) -> &dyn Directory<L, H> {
-        self
-    }
-
     fn fingerprinted_entries<'a>(&'a self) -> FingerprintedDirectoryEntries<'a, L, H> {
         match self {
             Self::Exclusive(dir) => FingerprintedDirectory::fingerprinted_entries(dir),

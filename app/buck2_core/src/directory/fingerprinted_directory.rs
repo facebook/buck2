@@ -24,8 +24,6 @@ pub type FingerprintedDirectoryEntries<'a, L, H> = Box<
 >;
 
 pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
-    fn as_directory(&self) -> &dyn Directory<L, H>;
-
     fn fingerprinted_entries(&self) -> FingerprintedDirectoryEntries<'_, L, H>;
 
     fn fingerprint(&self) -> &H
