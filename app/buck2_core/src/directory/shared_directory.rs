@@ -22,7 +22,9 @@ use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_ref::DirectoryRef;
+use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::macros::impl_fingerprinted_directory;
 use crate::fs::paths::file_name::FileName;
@@ -156,6 +158,17 @@ where
     }
 
     fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
+        self
+    }
+}
+
+impl<'a, L, H> FingerprintedDirectoryRef<'a> for &'a SharedDirectory<L, H>
+where
+    H: DirectoryDigest,
+{
+    fn as_fingerprinted_dyn(
+        self,
+    ) -> &'a dyn FingerprintedDirectory<Self::Leaf, Self::DirectoryDigest> {
         self
     }
 }

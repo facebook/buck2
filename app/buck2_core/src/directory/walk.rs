@@ -17,7 +17,6 @@ use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
-use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
@@ -114,29 +113,13 @@ fn entry_walk_impl<'a, T: WalkType<'a>>(
     }
 }
 
-pub type FingerprintedUnorderedDirectoryWalk<'a, L, H> =
-    Walk<'a, UnorderedDirectoryWalkType<'a, &'a dyn FingerprintedDirectory<L, H>>>;
 pub type UnorderedDirectoryWalk<'a, D> = Walk<'a, UnorderedDirectoryWalkType<'a, D>>;
-pub type FingerprintedOrderedDirectoryWalk<'a, L, H> =
-    Walk<'a, OrderedDirectoryWalkType<'a, &'a dyn FingerprintedDirectory<L, H>>>;
 pub type OrderedDirectoryWalk<'a, D> = Walk<'a, OrderedDirectoryWalkType<'a, D>>;
-
-pub fn fingerprinted_unordered_entry_walk<'a, L, H>(
-    entry: DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
-) -> DirectoryEntryWalk<'a, L, FingerprintedUnorderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<UnorderedDirectoryWalkType<&dyn FingerprintedDirectory<L, H>>>(entry)
-}
 
 pub fn unordered_entry_walk<'a, D: DirectoryRef<'a>>(
     entry: DirectoryEntry<D, &'a D::Leaf>,
 ) -> DirectoryEntryWalk<'a, D::Leaf, UnorderedDirectoryWalk<'a, D>> {
     entry_walk_impl::<UnorderedDirectoryWalkType<D>>(entry)
-}
-
-pub fn fingerprinted_ordered_entry_walk<'a, L, H>(
-    entry: DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
-) -> DirectoryEntryWalk<'a, L, FingerprintedOrderedDirectoryWalk<'a, L, H>> {
-    entry_walk_impl::<OrderedDirectoryWalkType<&dyn FingerprintedDirectory<L, H>>>(entry)
 }
 
 pub fn ordered_entry_walk<'a, D: DirectoryRef<'a>>(

@@ -19,7 +19,9 @@ use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::buck2_env;
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
+use buck2_core::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -87,9 +89,9 @@ impl Uploader {
         let mut input_digests = blobs.keys().collect::<HashSet<_>>();
         let digest_ttls = {
             // Collect the digests we need to upload
-            for entry in input_dir.fingerprinted_unordered_walk().without_paths() {
+            for entry in input_dir.unordered_walk().without_paths() {
                 let digest = match entry {
-                    DirectoryEntry::Dir(d) => d.fingerprint(),
+                    DirectoryEntry::Dir(d) => d.as_fingerprinted_dyn().fingerprint(),
                     DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => &f.digest,
                     DirectoryEntry::Leaf(..) => continue,
                 };
@@ -198,10 +200,10 @@ impl Uploader {
             let mut upload_file_digests = Vec::new();
 
             {
-                let mut walk = input_dir.fingerprinted_unordered_walk();
+                let mut walk = input_dir.unordered_walk();
                 while let Some((path, entry)) = walk.next() {
                     let digest = match entry {
-                        DirectoryEntry::Dir(d) => d.fingerprint(),
+                        DirectoryEntry::Dir(d) => d.as_fingerprinted_dyn().fingerprint(),
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => &f.digest,
                         DirectoryEntry::Leaf(..) => continue,
                     };
@@ -212,7 +214,7 @@ impl Uploader {
 
                     match entry {
                         DirectoryEntry::Dir(d) => {
-                            upload_blobs.push(directory_to_blob(d));
+                            upload_blobs.push(directory_to_blob(d.as_fingerprinted_dyn()));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) => {
                             upload_file_paths.push(dir_path.join(path.get()));

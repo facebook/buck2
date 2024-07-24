@@ -14,8 +14,10 @@ use dupe::Copy_;
 use crate::directory::directory::Directory;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_ref::DirectoryRef;
+use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
+use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::fs::paths::file_name::FileName;
@@ -113,6 +115,20 @@ where
     }
 
     fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
+        match self {
+            Self::Exclusive(dir) => dir,
+            Self::Shared(dir) => dir,
+        }
+    }
+}
+
+impl<'a, L, H> FingerprintedDirectoryRef<'a> for ImmutableOrExclusiveDirectoryRef<'a, L, H>
+where
+    H: DirectoryDigest,
+{
+    fn as_fingerprinted_dyn(
+        self,
+    ) -> &'a dyn FingerprintedDirectory<Self::Leaf, Self::DirectoryDigest> {
         match self {
             Self::Exclusive(dir) => dir,
             Self::Shared(dir) => dir,

@@ -29,6 +29,7 @@ use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_hasher::DirectoryHasher;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
 use buck2_core::directory::directory_ref::DirectoryRef;
+use buck2_core::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_core::directory::directory_selector::DirectorySelector;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;
@@ -228,15 +229,23 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> anyhow::Result<ActionDirectoryM
     }
 }
 
-pub fn directory_to_re_tree(directory: &impl ActionFingerprintedDirectory) -> RE::Tree {
+pub fn directory_to_re_tree<T>(directory: &T) -> RE::Tree
+where
+    T: ActionFingerprintedDirectory,
+    for<'a> T::DirectoryRef<'a>: FingerprintedDirectoryRef<'a>,
+{
     let children = directory
-        .fingerprinted_ordered_walk()
+        .ordered_walk()
         .without_paths()
         .filter_map(|entry| match entry {
             DirectoryEntry::Dir(d) => Some(d),
             DirectoryEntry::Leaf(..) => None,
         })
-        .map(|d| ReDirectorySerializer::create_re_directory(d.fingerprinted_entries()))
+        .map(|d| {
+            ReDirectorySerializer::create_re_directory(
+                d.as_fingerprinted_dyn().fingerprinted_entries(),
+            )
+        })
         .collect();
 
     let root = ReDirectorySerializer::create_re_directory(directory.fingerprinted_entries());

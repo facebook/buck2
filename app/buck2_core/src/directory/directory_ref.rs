@@ -35,6 +35,12 @@ pub trait DirectoryRef<'a>: Copy + 'a + Sized {
     }
 }
 
+pub trait FingerprintedDirectoryRef<'a>: DirectoryRef<'a> {
+    fn as_fingerprinted_dyn(
+        self,
+    ) -> &'a dyn FingerprintedDirectory<Self::Leaf, Self::DirectoryDigest>;
+}
+
 impl<'a, L, H> DirectoryRef<'a> for &'a dyn Directory<L, H> {
     type Leaf = L;
     type DirectoryDigest = H;
@@ -62,5 +68,11 @@ impl<'a, L, H> DirectoryRef<'a> for &'a dyn FingerprintedDirectory<L, H> {
 
     fn as_dyn(self) -> &'a dyn Directory<Self::Leaf, Self::DirectoryDigest> {
         self.as_directory()
+    }
+}
+
+impl<'a, L, H> FingerprintedDirectoryRef<'a> for &'a dyn FingerprintedDirectory<L, H> {
+    fn as_fingerprinted_dyn(self) -> &'a dyn FingerprintedDirectory<L, H> {
+        self
     }
 }

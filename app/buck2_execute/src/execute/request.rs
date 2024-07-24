@@ -14,9 +14,9 @@ use allocative::Allocative;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::directory_iterator::DirectoryIterator;
 use buck2_core::directory::entry::DirectoryEntry;
-use buck2_core::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -241,10 +241,7 @@ impl CommandExecutionPaths {
 
         let mut input_files_bytes = 0;
 
-        for entry in input_directory
-            .fingerprinted_unordered_walk_leaves()
-            .without_paths()
-        {
+        for entry in input_directory.unordered_walk_leaves().without_paths() {
             match entry {
                 ActionDirectoryMember::File(f) => {
                     input_files_bytes += f.digest.size();
