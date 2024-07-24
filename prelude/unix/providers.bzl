@@ -25,6 +25,7 @@ UnixEnv = record(
     binaries = field(list[ManifestInfo], []),
     # Raw paths to install.
     paths = field(list[(str, ArtifactExt)], []),
+    patterns = field(list[(str, ArtifactExt, str)], []),
 )
 
 UnixEnvTSet = transitive_set()
