@@ -352,7 +352,7 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
         # We don't care about the header contents -- just their names.
         header_args.add(cmd_args(path, format = fmt, ignore_artifacts = True))
 
-    hmap_args_file = ctx.actions.write(output.basename + ".argsfile", cmd_args(header_args, quote = "shell"))
+    hmap_args_file = ctx.actions.write(output.basename + ".cxx_hmap_argsfile", cmd_args(header_args, quote = "shell"))
 
     cmd = cmd_args(
         [get_cxx_toolchain_info(ctx).mk_hmap] +

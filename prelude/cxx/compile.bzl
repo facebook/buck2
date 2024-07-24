@@ -707,7 +707,7 @@ def _mk_argsfile(
         args = cmd_args(args_list)
         file_args = cmd_args(args) if compiler_info.compiler_type == "nasm" else cmd_args(args, quote = "shell")
 
-    file_name = ext.value + ("-xcode.argsfile" if is_xcode_argsfile else ".argsfile")
+    file_name = ext.value + ("-xcode" if is_xcode_argsfile else "") + ".cxx_compile_argsfile"
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
 
     input_args = [args]

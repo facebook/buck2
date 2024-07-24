@@ -70,7 +70,7 @@ def create_compilation_database(
     cmd.add(cmd_args(db.as_output(), format = "--output={}"))
     cmd.add(at_argfile(
         actions = ctx.actions,
-        name = paths.join(identifier, "comp_db.argsfile"),
+        name = identifier + ".cxx_comp_db_argsfile",
         args = entries.values(),
     ))
 

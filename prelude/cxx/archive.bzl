@@ -71,7 +71,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
 
         command.add(at_argfile(
             actions = ctx.actions,
-            name = name + ".argsfile",
+            name = name + ".cxx_archive_argsfile",
             args = shell_quoted_args,
             allow_args = True,
         ))

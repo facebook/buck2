@@ -231,7 +231,7 @@ def cxx_link_into(
         shell_quoted_args = cmd_args(all_link_args, quote = "shell")
 
     argfile, _ = ctx.actions.write(
-        output.short_path + ".linker.argsfile",
+        output.short_path + ".cxx_link_argsfile",
         shell_quoted_args,
         allow_args = True,
     )

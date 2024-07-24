@@ -38,7 +38,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
 
     command = at_argfile(
         actions = ctx.actions,
-        name = name + ".argsfile",
+        name = name + ".cxx_bitcode_argsfile",
         args = args,
         allow_args = True,
     )
