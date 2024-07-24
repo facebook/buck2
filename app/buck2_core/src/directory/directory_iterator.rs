@@ -42,6 +42,11 @@ pub trait DirectoryIterator: Sized {
         DirectoryIteratorWithoutPaths { inner: self }
     }
 
+    /// Only take the paths from this iterator.
+    fn paths(self) -> impl Iterator<Item = ForwardRelativePathBuf> {
+        self.with_paths().map(|(path, _)| path)
+    }
+
     fn filter_map<F, B>(self, f: F) -> impl DirectoryIterator<Item = B, PathStack = Self::PathStack>
     where
         F: FnMut(Self::Item) -> Option<B>,
