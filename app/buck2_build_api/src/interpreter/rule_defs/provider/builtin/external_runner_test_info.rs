@@ -204,13 +204,9 @@ impl<'v> TestCommandMember<'v> {
 }
 
 fn iter_value<'v>(value: Value<'v>) -> anyhow::Result<impl Iterator<Item = Value<'v>> + 'v> {
-    match (ListRef::from_value(value), TupleRef::from_value(value)) {
-        (Some(list), None) => Ok(Either::Left(list.iter())),
-        (None, Some(tuple)) => Ok(Either::Right(tuple.iter())),
-        _ => Err(anyhow::anyhow!(
-            "Expected a list or a tuple, got `{}`",
-            value
-        )),
+    match Either::<&ListRef, &TupleRef>::unpack_value_err(value)? {
+        Either::Left(list) => Ok(list.iter()),
+        Either::Right(tuple) => Ok(tuple.iter()),
     }
 }
 
