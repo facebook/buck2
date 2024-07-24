@@ -15,8 +15,8 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
+use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
-use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::fs::paths::file_name::FileName;
 
 pub trait DirectoryDigest:
@@ -34,8 +34,8 @@ pub trait InternableDirectoryDigest: DirectoryDigest {}
 pub trait DirectoryHasher<L, H> {
     fn hash_entries<'a, D, I>(&self, entries: I) -> H
     where
-        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
-        D: FingerprintedDirectory<L, H> + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a L>)>,
+        D: FingerprintedDirectoryRef<'a, Leaf = L, DirectoryDigest = H> + 'a,
         L: 'a,
         Self: Sized;
 }
@@ -53,8 +53,8 @@ pub struct NoDigestDigester;
 impl<L> DirectoryHasher<L, NoDigest> for NoDigestDigester {
     fn hash_entries<'a, D, I>(&self, _entries: I) -> NoDigest
     where
-        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a L>)>,
-        D: FingerprintedDirectory<L, NoDigest> + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a L>)>,
+        D: FingerprintedDirectoryRef<'a, Leaf = L, DirectoryDigest = NoDigest>,
         L: 'a,
         Self: Sized,
     {

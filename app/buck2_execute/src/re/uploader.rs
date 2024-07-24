@@ -46,7 +46,7 @@ use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::directory::ActionDirectoryMember;
-use crate::directory::ActionFingerprintedDirectory;
+use crate::directory::ActionFingerprintedDirectoryRef;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ReDirectorySerializer;
 use crate::execute::blobs::ActionBlobs;
@@ -214,7 +214,7 @@ impl Uploader {
 
                     match entry {
                         DirectoryEntry::Dir(d) => {
-                            upload_blobs.push(directory_to_blob(d.as_fingerprinted_dyn()));
+                            upload_blobs.push(directory_to_blob(d));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) => {
                             upload_file_paths.push(dir_path.join(path.get()));
@@ -226,7 +226,7 @@ impl Uploader {
             }
 
             if missing_digests.remove(input_dir.fingerprint()) {
-                upload_blobs.push(directory_to_blob(input_dir));
+                upload_blobs.push(directory_to_blob(input_dir.as_fingerprinted_ref()));
             }
 
             assert!(
@@ -421,13 +421,13 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     }
 }
 
-fn directory_to_blob<D>(d: &D) -> InlinedBlobWithDigest
+fn directory_to_blob<'a, D>(d: D) -> InlinedBlobWithDigest
 where
-    D: ActionFingerprintedDirectory + ?Sized,
+    D: ActionFingerprintedDirectoryRef<'a>,
 {
     InlinedBlobWithDigest {
-        digest: d.fingerprint().to_re(),
-        blob: ReDirectorySerializer::serialize_entries(d.fingerprinted_entries()),
+        digest: d.as_fingerprinted_dyn().fingerprint().to_re(),
+        blob: ReDirectorySerializer::serialize_entries(d.entries()),
         ..Default::default()
     }
 }

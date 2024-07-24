@@ -91,6 +91,8 @@ pub trait ActionDirectoryRef<'a> =
 pub trait ActionFingerprintedDirectory =
     FingerprintedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
+pub trait ActionFingerprintedDirectoryRef<'a> = FingerprintedDirectoryRef<'a, Leaf = ActionDirectoryMember, DirectoryDigest = TrackedFileDigest>;
+
 #[derive(Allocative, RefCast)]
 #[repr(transparent)]
 pub struct ReDirectorySerializer {
@@ -100,13 +102,8 @@ pub struct ReDirectorySerializer {
 impl ReDirectorySerializer {
     fn create_re_directory<'a, D, I>(entries: I) -> RE::Directory
     where
-        I: IntoIterator<
-            Item = (
-                &'a FileName,
-                DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
-            ),
-        >,
-        D: ActionFingerprintedDirectory + ?Sized + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+        D: ActionFingerprintedDirectoryRef<'a>,
     {
         let mut files: Vec<RE::FileNode> = Vec::new();
         let mut directories: Vec<RE::DirectoryNode> = Vec::new();
@@ -119,7 +116,7 @@ impl ReDirectorySerializer {
                 DirectoryEntry::Dir(d) => {
                     directories.push(RE::DirectoryNode {
                         name,
-                        digest: Some(d.fingerprint().to_grpc()),
+                        digest: Some(d.as_fingerprinted_dyn().fingerprint().to_grpc()),
                     });
                 }
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
@@ -161,13 +158,8 @@ impl ReDirectorySerializer {
 
     pub fn serialize_entries<'a, D, I>(entries: I) -> Vec<u8>
     where
-        I: IntoIterator<
-            Item = (
-                &'a FileName,
-                DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
-            ),
-        >,
-        D: ActionFingerprintedDirectory + ?Sized + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+        D: ActionFingerprintedDirectoryRef<'a>,
     {
         proto_serialize(&Self::create_re_directory(entries))
     }
@@ -182,13 +174,8 @@ fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
 impl DirectoryHasher<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TrackedFileDigest
     where
-        I: IntoIterator<
-            Item = (
-                &'a FileName,
-                DirectoryEntry<&'a D, &'a ActionDirectoryMember>,
-            ),
-        >,
-        D: ActionFingerprintedDirectory + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
+        D: ActionFingerprintedDirectoryRef<'a>,
     {
         TrackedFileDigest::from_content(&Self::serialize_entries(entries), self.cas_digest_config)
     }
@@ -244,14 +231,10 @@ where
             DirectoryEntry::Dir(d) => Some(d),
             DirectoryEntry::Leaf(..) => None,
         })
-        .map(|d| {
-            ReDirectorySerializer::create_re_directory(
-                d.as_fingerprinted_dyn().fingerprinted_entries(),
-            )
-        })
+        .map(|d| ReDirectorySerializer::create_re_directory(d.entries()))
         .collect();
 
-    let root = ReDirectorySerializer::create_re_directory(directory.fingerprinted_entries());
+    let root = ReDirectorySerializer::create_re_directory(directory.as_ref().entries());
 
     RE::Tree {
         root: Some(root),

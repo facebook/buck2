@@ -19,7 +19,6 @@ use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
-use crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::fs::paths::file_name::FileNameBuf;
@@ -103,11 +102,16 @@ impl<L, H> FingerprintedDirectory<L, H> for ImmutableDirectory<L, H>
 where
     H: DirectoryDigest,
 {
-    fn fingerprinted_entries<'a>(&'a self) -> FingerprintedDirectoryEntries<'a, L, H> {
-        match self {
-            Self::Exclusive(dir) => FingerprintedDirectory::fingerprinted_entries(dir),
-            Self::Shared(dir) => FingerprintedDirectory::fingerprinted_entries(dir),
-        }
+    type FingerprintedDirectoryRef<'a> = ImmutableOrExclusiveDirectoryRef<'a, L, H>
+    where
+        Self: Sized + 'a,
+        L: 'a;
+
+    fn as_fingerprinted_ref<'a>(&'a self) -> Self::FingerprintedDirectoryRef<'a>
+    where
+        Self: Sized + 'a,
+    {
+        self.as_ref()
     }
 
     fn fingerprint(&self) -> &H {

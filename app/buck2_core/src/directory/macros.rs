@@ -15,15 +15,13 @@ macro_rules! impl_fingerprinted_directory {
         where
             H: DirectoryDigest,
         {
-            fn fingerprinted_entries<'a>(&'a self) -> crate::directory::fingerprinted_directory::FingerprintedDirectoryEntries<'a, L, H> {
-                let it = self.entries().into_iter().map(|(k, v)| {
-                    let k = k.as_ref();
-                    let v = v
-                        .as_ref()
-                        .map_dir(|v| v as &dyn $crate::directory::fingerprinted_directory::FingerprintedDirectory<L, H>);
-                    (k, v)
-                });
-                Box::new(it)
+            type FingerprintedDirectoryRef<'a> = <Self as $crate::directory::directory::Directory<L, H>>::DirectoryRef<'a>
+                where
+                    Self: Sized + 'a,
+                    L: 'a;
+
+            fn as_fingerprinted_ref<'a>(&'a self) -> Self::FingerprintedDirectoryRef<'a> where Self: Sized + 'a {
+                self.as_ref()
             }
 
             fn fingerprint(&self) -> &H {

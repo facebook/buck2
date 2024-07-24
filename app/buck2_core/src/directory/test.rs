@@ -29,13 +29,13 @@ use crate::directory::directory_hasher::DirectoryHasher;
 use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::directory_hasher::NoDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
+use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::directory_selector::DirectorySearchError;
 use crate::directory::directory_selector::DirectorySelector;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::find::find;
 use crate::directory::find::find_prefix;
-use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::directory::walk::ordered_entry_walk;
@@ -57,15 +57,15 @@ impl InternableDirectoryDigest for TestDigest {}
 impl DirectoryHasher<NopEntry, TestDigest> for TestHasher {
     fn hash_entries<'a, D, I>(&self, entries: I) -> TestDigest
     where
-        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<&'a D, &'a NopEntry>)>,
-        D: FingerprintedDirectory<NopEntry, TestDigest> + 'a,
+        I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a NopEntry>)>,
+        D: FingerprintedDirectoryRef<'a, Leaf = NopEntry, DirectoryDigest = TestDigest>,
     {
         let mut hasher = DefaultHasher::new();
 
         let mut entries = entries
             .into_iter()
             .map(|(name, entry)| {
-                let entry = entry.map_dir(|d| d.fingerprint());
+                let entry = entry.map_dir(|d| d.as_fingerprinted_dyn().fingerprint());
                 (name, entry)
             })
             .collect::<Vec<_>>();

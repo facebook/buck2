@@ -56,8 +56,11 @@ where
         entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
         hasher: &impl DirectoryHasher<L, H>,
     ) -> Self {
-        let fingerprint =
-            hasher.hash_entries(entries.iter().map(|(k, e)| (k.as_ref(), e.as_ref())));
+        let fingerprint = hasher.hash_entries(
+            entries
+                .iter()
+                .map(|(k, e)| (k.as_ref(), e.as_ref().map_dir(|d| d.as_fingerprinted_ref()))),
+        );
         Self {
             entries,
             fingerprint,

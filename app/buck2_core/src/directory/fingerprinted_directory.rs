@@ -11,20 +11,17 @@ use std::fmt;
 
 use crate::directory::directory::Directory;
 use crate::directory::directory_hasher::DirectoryDigest;
-use crate::directory::entry::DirectoryEntry;
-use crate::fs::paths::file_name::FileName;
-
-pub type FingerprintedDirectoryEntries<'a, L, H> = Box<
-    dyn Iterator<
-            Item = (
-                &'a FileName,
-                DirectoryEntry<&'a dyn FingerprintedDirectory<L, H>, &'a L>,
-            ),
-        > + 'a,
->;
+use crate::directory::directory_ref::FingerprintedDirectoryRef;
 
 pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
-    fn fingerprinted_entries(&self) -> FingerprintedDirectoryEntries<'_, L, H>;
+    type FingerprintedDirectoryRef<'a>: FingerprintedDirectoryRef<'a, Leaf = L, DirectoryDigest = H>
+    where
+        Self: Sized + 'a,
+        L: 'a;
+
+    fn as_fingerprinted_ref<'a>(&'a self) -> Self::FingerprintedDirectoryRef<'a>
+    where
+        Self: Sized + 'a;
 
     fn fingerprint(&self) -> &H
     where
