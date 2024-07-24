@@ -308,7 +308,10 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 };
                 Ok(format!("dep_files({},{})", detail, location))
             }
-            Data::SharedTask(..) => Ok("Waiting on task from another command".to_owned()),
+            Data::SharedTask(buck2_data::SharedTaskStart { owner_trace_id }) => Ok(format!(
+                "Waiting on task from another command: {}",
+                owner_trace_id
+            )),
             Data::CacheUpload(upload) => {
                 let reason = match buck2_data::CacheUploadReason::from_i32(upload.reason) {
                     Some(buck2_data::CacheUploadReason::DepFile) => "dep_file",
