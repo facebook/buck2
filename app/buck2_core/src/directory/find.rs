@@ -7,13 +7,10 @@
  * of this source tree.
  */
 
-use std::iter;
-
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::path_accumulator::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum DirectoryFindError {
@@ -41,18 +38,18 @@ impl<T> FindConflict<T> for PathAccumulator {
     }
 }
 
+#[cfg(test)]
 struct PrefixLookupContainer<T> {
     leaf: T,
-    path: ForwardRelativePathBuf,
+    path: crate::fs::paths::forward_rel_path::ForwardRelativePathBuf,
 }
 
+#[cfg(test)]
 impl<T> FindConflict<T> for PrefixLookupContainer<T> {
     fn new<'b>(path: &'b FileName, remaining: impl Iterator<Item = &'b FileName>, leaf: T) -> Self {
         Self {
             leaf,
-            path: iter::once(path)
-                .chain(remaining)
-                .collect::<ForwardRelativePathBuf>(),
+            path: std::iter::once(path).chain(remaining).collect(),
         }
     }
 
@@ -76,14 +73,15 @@ pub fn find<'a, 'b, D: DirectoryRef<'a>>(
         .map_err(move |path| DirectoryFindError::CannotTraverseLeaf { path })
 }
 
-pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
+#[cfg(test)] // Dead code.
+pub(crate) fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
     dir: D,
     path: impl IntoIterator<Item = &'b FileName>,
 ) -> Result<
     Option<(
         DirectoryEntry<D, &'a D::Leaf>,
         // Remaining path.
-        ForwardRelativePathBuf,
+        crate::fs::paths::forward_rel_path::ForwardRelativePathBuf,
     )>,
     DirectoryFindError,
 > {
@@ -94,13 +92,18 @@ pub fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
         None => {
             return Ok(Some((
                 DirectoryEntry::Dir(dir),
-                ForwardRelativePathBuf::default(),
+                crate::fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
             )));
         }
     };
 
     match find_inner::<_, PrefixLookupContainer<&'a D::Leaf>>(dir, path_needle, path) {
-        Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| (l, ForwardRelativePathBuf::default()))),
+        Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| {
+            (
+                l,
+                crate::fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
+            )
+        })),
         Err(PrefixLookupContainer { leaf, path }) => Ok(Some((DirectoryEntry::Leaf(leaf), path))),
     }
 }
