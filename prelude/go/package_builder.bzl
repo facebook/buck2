@@ -64,8 +64,8 @@ def build_package(
 
     go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests, asan = asan)
 
-    srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.argsfile")
-    coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.argsfile")
+    srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.go_package_argsfile")
+    coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")
     dynamic_outputs = [out, srcs_list_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
