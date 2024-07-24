@@ -243,7 +243,7 @@ def compile(
         if haskell_toolchain.use_argsfile:
             compile_cmd.add(at_argfile(
                 actions = ctx.actions,
-                name = "haskell_compile_" + artifact_suffix + ".argsfile",
+                name = artifact_suffix + ".haskell_compile_argsfile",
                 args = [args.args_for_file, args.srcs],
                 allow_args = True,
             ))

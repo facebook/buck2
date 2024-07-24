@@ -74,7 +74,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
             ghcargs = cmd_args(args.args_for_file, format = "--optghc={}")
             cmd.add(at_argfile(
                 actions = ctx.actions,
-                name = "haskell_haddock.argsfile",
+                name = "args.haskell_haddock_argsfile",
                 args = [ghcargs, args.srcs],
                 allow_args = True,
             ))

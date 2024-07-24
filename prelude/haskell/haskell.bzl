@@ -1088,7 +1088,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link.add(at_argfile(
         actions = ctx.actions,
-        name = "haskell_link.argsfile",
+        name = "args.haskell_link_argsfile",
         args = link_args,
         allow_args = True,
     ))
