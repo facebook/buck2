@@ -420,7 +420,7 @@ impl BuckdServer {
             guard,
             daemon_shutdown_channel,
             state,
-        } = ActiveCommand::new(&dispatch, client_ctx);
+        } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
         let data = daemon_state.data()?;
 
         // Fire off a system-wide event to record the memory usage of this process.
@@ -1252,7 +1252,7 @@ impl DaemonApi for BuckdServer {
             let client_ctx = req.get_ref().client_context()?;
             let trace_id = client_ctx.trace_id.parse()?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
-            let active_command = ActiveCommand::new(&dispatcher, client_ctx);
+            let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
             (event_source, dispatcher, active_command)
         };
 

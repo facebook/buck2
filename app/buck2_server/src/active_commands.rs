@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use buck2_cli_proto::ClientContext;
 use buck2_event_observer::dice_state::DiceState;
 use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker;
@@ -222,10 +221,10 @@ pub struct ActiveCommand {
 }
 
 impl ActiveCommand {
-    pub fn new(event_dispatcher: &EventDispatcher, client_ctx: &ClientContext) -> Self {
+    pub fn new(event_dispatcher: &EventDispatcher, sanitized_argv: Vec<String>) -> Self {
         let (sender, receiver) = oneshot::channel();
 
-        let state = Arc::new(ActiveCommandState::new(client_ctx.sanitized_argv.clone()));
+        let state = Arc::new(ActiveCommandState::new(sanitized_argv));
 
         let trace_id = event_dispatcher.trace_id().dupe();
         let result = {
