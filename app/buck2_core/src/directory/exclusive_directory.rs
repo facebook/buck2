@@ -14,7 +14,6 @@ use derive_more::Display;
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
-use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::InternableDirectoryDigest;
@@ -119,15 +118,6 @@ where
         Self: Sized + 'a,
     {
         ImmutableOrExclusiveDirectoryRef::Exclusive(self)
-    }
-
-    fn entries<'a>(&'a self) -> DirectoryEntries<'a, L, H> {
-        let it = self.entries().into_iter().map(|(k, v)| {
-            let k = k.as_ref();
-            let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
-            (k, v)
-        });
-        Box::new(it)
     }
 
     fn get<'a>(

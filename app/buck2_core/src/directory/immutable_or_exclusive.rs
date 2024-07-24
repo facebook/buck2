@@ -87,7 +87,7 @@ impl<'a, L, H> ImmutableOrExclusiveDirectoryRef<'a, L, H>
 where
     H: DirectoryDigest,
 {
-    pub(crate) fn from_immutable(dir: &'a ImmutableDirectory<L, H>) -> Self {
+    pub fn from_immutable(dir: &'a ImmutableDirectory<L, H>) -> Self {
         match dir {
             ImmutableDirectory::Exclusive(d) => Self::Exclusive(d),
             ImmutableDirectory::Shared(d) => Self::Shared(d),

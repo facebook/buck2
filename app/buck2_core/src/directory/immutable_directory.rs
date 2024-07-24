@@ -14,7 +14,6 @@ use derive_more::Display;
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
-use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
@@ -91,13 +90,6 @@ where
         Self: Sized + 'a,
     {
         ImmutableOrExclusiveDirectoryRef::from_immutable(self)
-    }
-
-    fn entries(&self) -> DirectoryEntries<'_, L, H> {
-        match self {
-            Self::Exclusive(dir) => Directory::entries(dir),
-            Self::Shared(dir) => Directory::entries(dir),
-        }
     }
 
     fn get<'a>(

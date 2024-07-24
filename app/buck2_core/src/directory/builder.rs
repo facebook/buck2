@@ -15,7 +15,6 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 
 use crate::directory::directory::Directory;
-use crate::directory::directory::DirectoryEntries;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::DirectoryHasher;
@@ -353,20 +352,6 @@ where
         Self: Sized + 'a,
     {
         DirectoryBuilderDirectoryRef::Mutable(self)
-    }
-
-    fn entries(&self) -> DirectoryEntries<'_, L, H> {
-        match self {
-            Self::Mutable(e) => {
-                let it = e.iter().map(|(k, v)| {
-                    let k = k.as_ref();
-                    let v = v.as_ref().map_dir(|v| v as &dyn Directory<L, H>);
-                    (k, v)
-                });
-                Box::new(it)
-            }
-            Self::Immutable(e) => Directory::entries(e),
-        }
     }
 
     fn get<'a>(

@@ -36,6 +36,7 @@ use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;
 use buck2_core::directory::find::DirectoryFindError;
 use buck2_core::directory::immutable_directory::ImmutableDirectory;
+use buck2_core::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -159,13 +160,20 @@ impl BundledFileOpsDelegate {
         &self,
         path: &CellRelativePath,
     ) -> anyhow::Result<
-        Option<DirectoryEntry<&dyn Directory<ContentsAndMetadata, NoDigest>, &ContentsAndMetadata>>,
+        Option<
+            DirectoryEntry<
+                impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
+                &ContentsAndMetadata,
+            >,
+        >,
     > {
         if path.is_empty() {
-            return Ok(Some(DirectoryEntry::Dir(&self.dir)));
+            return Ok(Some(DirectoryEntry::Dir(
+                ImmutableOrExclusiveDirectoryRef::from_immutable(&self.dir),
+            )));
         }
         match find(self.dir.as_ref(), path.iter()) {
-            Ok(entry) => Ok(entry.map(|e| e.map_dir(|e| e.as_dyn()))),
+            Ok(entry) => Ok(entry),
             Err(DirectoryFindError::EmptyPath) => Ok(None),
             Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
                 Err(BundledPathSearchError::ExpectedDirectory(path.to_string()).into())
@@ -177,7 +185,10 @@ impl BundledFileOpsDelegate {
         &self,
         path: &CellRelativePath,
     ) -> anyhow::Result<
-        DirectoryEntry<&dyn Directory<ContentsAndMetadata, NoDigest>, &ContentsAndMetadata>,
+        DirectoryEntry<
+            impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
+            &ContentsAndMetadata,
+        >,
     > {
         self.get_entry_at_path_if_exists(path)?
             .ok_or_else(|| BundledPathSearchError::MissingFile(path.to_owned()).into())

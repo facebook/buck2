@@ -85,6 +85,9 @@ pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, Tracke
 
 pub trait ActionDirectory = Directory<ActionDirectoryMember, TrackedFileDigest>;
 
+pub trait ActionDirectoryRef<'a> =
+    DirectoryRef<'a, Leaf = ActionDirectoryMember, DirectoryDigest = TrackedFileDigest>;
+
 pub trait ActionFingerprintedDirectory =
     FingerprintedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 

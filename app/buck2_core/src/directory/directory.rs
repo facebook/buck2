@@ -33,8 +33,6 @@ pub trait Directory<L, H> {
     where
         Self: Sized + 'a;
 
-    fn entries(&self) -> DirectoryEntries<'_, L, H>;
-
     fn get<'a>(
         &'a self,
         needle: &'_ FileName,

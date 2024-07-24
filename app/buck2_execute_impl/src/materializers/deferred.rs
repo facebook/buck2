@@ -56,6 +56,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
@@ -2360,7 +2361,7 @@ impl<V: 'static> FileTree<V> {
     /// Finds all the paths in `deps` that are artifacts in `self`
     fn find_artifacts<D>(&self, deps: &D) -> Vec<ProjectRelativePathBuf>
     where
-        D: ActionDirectory + ?Sized,
+        D: ActionDirectory,
     {
         let mut artifacts = Vec::new();
         self.find_artifacts_impl(deps, |path, found| match found {
@@ -2374,7 +2375,7 @@ impl<V: 'static> FileTree<V> {
 
     fn find_artifacts_for_debug<D>(&self, deps: &D) -> Vec<(ProjectRelativePathBuf, &'static str)>
     where
-        D: ActionDirectory + ?Sized,
+        D: ActionDirectory,
     {
         let mut result = Vec::new();
         self.find_artifacts_impl(deps, |path, found| {
@@ -2394,15 +2395,15 @@ impl<V: 'static> FileTree<V> {
         deps: &D,
         mut listener: impl FnMut(&ProjectRelativePath, FoundArtifact),
     ) where
-        D: ActionDirectory + ?Sized,
+        D: ActionDirectory,
     {
-        fn walk_deps<V, D>(
+        fn walk_deps<'a, V, D>(
             tree: &FileTree<V>,
-            entry: DirectoryEntry<&D, &ActionDirectoryMember>,
+            entry: DirectoryEntry<D, &ActionDirectoryMember>,
             path: &mut ProjectRelativePathBuf,
             listener: &mut impl FnMut(&ProjectRelativePath, FoundArtifact),
         ) where
-            D: ActionDirectory + ?Sized,
+            D: ActionDirectoryRef<'a>,
         {
             match (tree, entry) {
                 (FileTree::Data(_), DirectoryEntry::Leaf(_)) => {
@@ -2433,7 +2434,7 @@ impl<V: 'static> FileTree<V> {
         let mut path_buf = ProjectRelativePathBuf::default();
         walk_deps(
             self,
-            DirectoryEntry::Dir(deps),
+            DirectoryEntry::Dir(Directory::as_ref(deps)),
             &mut path_buf,
             &mut listener,
         );

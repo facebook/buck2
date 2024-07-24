@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 
+use buck2_core::directory::directory::Directory;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -18,6 +19,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::IoRequest;
 
@@ -58,7 +60,12 @@ where
             fs_util::create_dir_all(parent)?;
         }
     }
-    materialize_recursively(entry, &mut dest, materialize_dirs_and_syms, &mut file_src)
+    materialize_recursively(
+        entry.map_dir(|d| Directory::as_ref(d)),
+        &mut dest,
+        materialize_dirs_and_syms,
+        &mut file_src,
+    )
 }
 
 /// Materializes the directories and symlinks of an entry at `dest`. Files
@@ -121,15 +128,15 @@ where
     materialize(entry, dest.as_ref(), false, file_src)
 }
 
-fn materialize_recursively<F, D>(
-    entry: DirectoryEntry<&D, &ActionDirectoryMember>,
+fn materialize_recursively<'a, F, D>(
+    entry: DirectoryEntry<D, &ActionDirectoryMember>,
     dest: &mut AbsNormPathBuf,
     materialize_dirs_and_syms: bool,
     file_src: &mut F,
 ) -> anyhow::Result<()>
 where
     F: FnMut(&AbsNormPath) -> Option<AbsNormPathBuf>,
-    D: ActionDirectory + ?Sized,
+    D: ActionDirectoryRef<'a>,
 {
     match entry {
         DirectoryEntry::Dir(d) => {
