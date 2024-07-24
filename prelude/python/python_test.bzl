@@ -14,6 +14,11 @@ load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":interface.bzl", "EntryPointKind")
 load(":make_py_package.bzl", "PexProviders", "make_default_info")
+load(
+    ":manifest.bzl",
+    "get_srcs_from_manifest",
+)
+load(":python.bzl", "PythonLibraryInfo")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 
@@ -38,8 +43,10 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
     main_module = value_or(ctx.attrs.main_module, "__test_main__")
 
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.srcs))
+    if ctx.attrs.implicit_test_library != None:
+        top_level_manifest = list(ctx.attrs.implicit_test_library[PythonLibraryInfo].manifests.traverse(ordering = "preorder"))[0]
+        srcs.update(qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(get_srcs_from_manifest(top_level_manifest.srcs))))
 
-    # Generate the test modules file and add it to sources.
     test_modules_name, test_modules_path = _write_test_modules_list(ctx, srcs)
     srcs[test_modules_name] = test_modules_path
 

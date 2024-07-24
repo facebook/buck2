@@ -87,6 +87,10 @@ def create_manifest_for_source_map(
         [(dest, artifact, origin) for dest, artifact in srcs.items()],
     )
 
+def get_srcs_from_manifest(
+        src_manifest: [ManifestInfo, None]) -> list[Artifact]:
+    return [a for (a, _) in src_manifest.artifacts] if src_manifest else []
+
 def create_manifest_for_shared_libs(
         actions: AnalysisActions,
         name: str,

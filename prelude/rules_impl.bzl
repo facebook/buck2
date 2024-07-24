@@ -49,6 +49,7 @@ load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attribu
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
 load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
+load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:python_binary.bzl", "python_binary_impl")
 load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
@@ -341,6 +342,7 @@ def _python_executable_attrs():
 def _python_test_attrs():
     test_attrs = _python_executable_attrs()
     test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
+    test_attrs["implicit_test_library"] = attrs.option(attrs.dep(providers = [PythonLibraryInfo]), default = None)
     test_attrs.update(re_test_common.test_args())
     return test_attrs
 
