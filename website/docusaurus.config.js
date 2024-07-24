@@ -124,16 +124,16 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             label: 'Docs',
           },
           {
-            type: 'doc',
-            docId: 'api',
+            to: '/docs/api',
             position: 'left',
             label: 'API',
+            activeBaseRegex: '/docs/api',
           },
           {
-            type: 'doc',
-            docId: 'prelude/globals',
+            to: '/docs/prelude/globals',
             position: 'left',
             label: 'Rules',
+            activeBasePath: '/docs/prelude',
           },
           {
             href: fbContent({
