@@ -20,6 +20,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -492,11 +493,22 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        self.lock()?
-            .get()
-            .await?
-            .write_action_result(digest, result, use_case, platform)
-            .await
+        if buck2_env!(
+            "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
+            bool,
+            applicability = testing
+        )? {
+            Ok(WriteActionResultResponse {
+                actual_action_result: result,
+                ..Default::default()
+            })
+        } else {
+            self.lock()?
+                .get()
+                .await?
+                .write_action_result(digest, result, use_case, platform)
+                .await
+        }
     }
 
     pub async fn get_session_id(&self) -> anyhow::Result<String> {
