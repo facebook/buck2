@@ -41,6 +41,7 @@ use crate::directory::shared_directory::SharedDirectory;
 use crate::directory::walk::ordered_entry_walk;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 pub struct NopEntry;
@@ -574,4 +575,62 @@ fn test_filter_continues_on_error() -> anyhow::Result<()> {
     assert_matches!(it.next(), None);
 
     Ok(())
+}
+
+#[test]
+fn test_remove_prefix_empty() {
+    let mut b = TestDirectoryBuilder::empty();
+    assert_eq!(
+        Vec::<ForwardRelativePathBuf>::new(),
+        b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+    );
+    b.remove_prefix(path("")).unwrap();
+    b.remove_prefix(path("a")).unwrap();
+    b.remove_prefix(path("b/c")).unwrap();
+    assert_eq!(
+        Vec::<ForwardRelativePathBuf>::new(),
+        b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_remove_prefix_error() {
+    let mut b = TestDirectoryBuilder::empty();
+    b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    assert!(b.remove_prefix(path("a/b/c")).is_err());
+    assert_eq!(
+        vec![path("a/b")],
+        b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_remove_prefix_leaf() {
+    let mut b = TestDirectoryBuilder::empty();
+    b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    b.insert(path("a/x"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    b.remove_prefix(path("a/b")).unwrap();
+    assert_eq!(
+        vec![path("a/x")],
+        b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_remove_prefix_tree() {
+    let mut b = TestDirectoryBuilder::empty();
+    b.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    b.insert(path("a/b/d"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    b.insert(path("a/x"), DirectoryEntry::Leaf(NopEntry))
+        .unwrap();
+    b.remove_prefix(path("a/b")).unwrap();
+    assert_eq!(
+        vec![path("a/x")],
+        b.ordered_walk_leaves().paths().collect::<Vec<_>>()
+    );
 }

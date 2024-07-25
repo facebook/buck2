@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::mem;
+
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Clone_;
@@ -22,6 +24,8 @@ use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
+use crate::directory::find::find;
+use crate::directory::find::DirectoryFindError;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryEntries;
@@ -29,6 +33,7 @@ use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::path_accumulator::PathAccumulator;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
+use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::IntoFileNameBufIterator;
 
 #[derive(Debug, buck2_error::Error)]
@@ -232,6 +237,36 @@ where
             }
             Self::Immutable(..) => unreachable!(),
         }
+    }
+
+    /// Remove everything under `path`.
+    pub fn remove_prefix(
+        &mut self,
+        path: &ForwardRelativePath,
+    ) -> Result<Option<DirectoryEntry<DirectoryBuilder<L, H>, L>>, DirectoryFindError> {
+        // If this is already mut, we could skip `find` to avoid traversing twice.
+        match find(self.as_ref(), path)? {
+            None => Ok(None),
+            Some(_) => Ok(Some(self.do_remove_prefix(path))),
+        }
+    }
+
+    fn do_remove_prefix(
+        &mut self,
+        path: &ForwardRelativePath,
+    ) -> DirectoryEntry<DirectoryBuilder<L, H>, L> {
+        let Some((path, last)) = path.split_last() else {
+            return DirectoryEntry::Dir(mem::replace(self, DirectoryBuilder::empty()));
+        };
+        let mut this = self;
+        for name in path {
+            this = match this.as_mut().get_mut(name).unwrap() {
+                DirectoryEntry::Dir(d) => d,
+                DirectoryEntry::Leaf(_) => unreachable!(),
+            }
+        }
+        let removed = this.as_mut().remove(last);
+        removed.unwrap()
     }
 }
 
