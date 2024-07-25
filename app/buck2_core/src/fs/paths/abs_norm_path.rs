@@ -808,6 +808,30 @@ impl Deref for AbsNormPathBuf {
     }
 }
 
+impl PartialEq<AbsNormPath> for AbsNormPathBuf {
+    fn eq(&self, other: &AbsNormPath) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<&'_ AbsNormPath> for AbsNormPathBuf {
+    fn eq(&self, other: &&AbsNormPath) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<AbsNormPathBuf> for AbsNormPath {
+    fn eq(&self, other: &AbsNormPathBuf) -> bool {
+        other == self
+    }
+}
+
+impl PartialEq<AbsNormPathBuf> for &'_ AbsNormPath {
+    fn eq(&self, other: &AbsNormPathBuf) -> bool {
+        other == self
+    }
+}
+
 // Separate function so windows path verification can be tested on Unix.
 fn verify_abs_path_windows_part(path: &str) -> bool {
     // UNC device path.
@@ -925,36 +949,11 @@ mod tests {
         let path2 = AbsNormPath::new(foo_string.as_str())?;
         let path3 = AbsNormPath::new(bar_string.as_str())?;
 
-        let str2 = foo_string.as_str();
-        let str3 = bar_string.as_str();
-        let str_not_abs = "ble";
-
-        let string_not_abs = "ble".to_owned();
-
         assert_eq!(path1_buf, path2_buf);
         assert_ne!(path1_buf, path3_buf);
 
         assert_eq!(path1, path2);
         assert_ne!(path1, path3);
-
-        assert_eq!(path1_buf, path2);
-        assert_ne!(path1, path3_buf);
-
-        assert_eq!(path1_buf, str2);
-        assert_ne!(path1_buf, str3);
-        assert_ne!(path1_buf, str_not_abs);
-
-        assert_eq!(path1, str2);
-        assert_ne!(path1, str3);
-        assert_ne!(path1, str_not_abs);
-
-        assert_eq!(path1_buf, foo_string);
-        assert_ne!(path1_buf, bar_string);
-        assert_ne!(path1_buf, string_not_abs);
-
-        assert_eq!(path1, foo_string);
-        assert_ne!(path1, bar_string);
-        assert_ne!(path1, string_not_abs);
 
         Ok(())
     }

@@ -166,6 +166,20 @@ impl AsRef<ForwardRelativePathBuf> for ProjectRelativePathBuf {
     }
 }
 
+impl AsRef<str> for ProjectRelativePath {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl AsRef<str> for ProjectRelativePathBuf {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl ProjectRelativePath {
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         ProjectRelativePath::ref_cast(ForwardRelativePath::unchecked_new(s))

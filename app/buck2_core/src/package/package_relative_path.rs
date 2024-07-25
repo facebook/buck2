@@ -110,6 +110,20 @@ impl AsRef<ForwardRelativePathBuf> for PackageRelativePathBuf {
     }
 }
 
+impl AsRef<str> for PackageRelativePath {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl AsRef<str> for PackageRelativePathBuf {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl Clone for Box<PackageRelativePath> {
     #[inline]
     fn clone(&self) -> Self {

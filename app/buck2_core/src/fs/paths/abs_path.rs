@@ -114,6 +114,30 @@ impl ToOwned for AbsPath {
     }
 }
 
+impl PartialEq<AbsPath> for AbsPathBuf {
+    fn eq(&self, other: &AbsPath) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<&'_ AbsPath> for AbsPathBuf {
+    fn eq(&self, other: &&AbsPath) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<AbsPathBuf> for AbsPath {
+    fn eq(&self, other: &AbsPathBuf) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<AbsPathBuf> for &'_ AbsPath {
+    fn eq(&self, other: &AbsPathBuf) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl AbsPath {
     pub fn new<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> anyhow::Result<&'a AbsPath> {
         // Wrapper function to make sure the lifetimes are right

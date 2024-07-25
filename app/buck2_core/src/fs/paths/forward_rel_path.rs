@@ -77,6 +77,20 @@ impl AsRef<RelativePath> for ForwardRelativePathBuf {
     }
 }
 
+impl AsRef<str> for ForwardRelativePath {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl AsRef<str> for ForwardRelativePathBuf {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 pub struct ForwardRelativePathIter<'a>(&'a ForwardRelativePath);
 
 impl<'a> ForwardRelativePathIter<'a> {

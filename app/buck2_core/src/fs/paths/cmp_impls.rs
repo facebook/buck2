@@ -47,6 +47,16 @@ macro_rules! impl_cmp {
     };
 }
 
+#[inline]
+fn eq_as_ref(a: impl AsRef<str>, b: impl AsRef<str>) -> bool {
+    a.as_ref() == b.as_ref()
+}
+
+#[inline]
+fn partial_cmp_as_ref(a: impl AsRef<str>, b: impl AsRef<str>) -> Option<cmp::Ordering> {
+    a.as_ref().partial_cmp(b.as_ref())
+}
+
 ///
 /// Generates ['cmp::PartialEq'] and ['cmp::PartialOrd'] for the `lhs` and `rhs`
 /// string types, where `ty` is the unowned, reference path type.
@@ -55,40 +65,28 @@ macro_rules! impl_cmp_str {
         impl cmp::PartialEq<$rhs> for $lhs {
             #[inline]
             fn eq(&self, other: &$rhs) -> bool {
-                match <$ty>::new(other) {
-                    Ok(other) => <$ty as cmp::PartialEq>::eq(self, other),
-                    _ => false,
-                }
+                eq_as_ref(self, other)
             }
         }
 
         impl cmp::PartialEq<$lhs> for $rhs {
             #[inline]
             fn eq(&self, other: &$lhs) -> bool {
-                match <$ty>::new(self) {
-                    Ok(this) => <$ty as cmp::PartialEq>::eq(this, other),
-                    _ => false,
-                }
+                eq_as_ref(self, other)
             }
         }
 
         impl cmp::PartialOrd<$rhs> for $lhs {
             #[inline]
             fn partial_cmp(&self, other: &$rhs) -> Option<cmp::Ordering> {
-                match <$ty>::new(other) {
-                    Ok(other) => <$ty as cmp::PartialOrd>::partial_cmp(self, other),
-                    _ => None,
-                }
+                partial_cmp_as_ref(self, other)
             }
         }
 
         impl cmp::PartialOrd<$lhs> for $rhs {
             #[inline]
             fn partial_cmp(&self, other: &$lhs) -> Option<cmp::Ordering> {
-                match <$ty>::new(self) {
-                    Ok(this) => <$ty as cmp::PartialOrd>::partial_cmp(this, other),
-                    _ => None,
-                }
+                partial_cmp_as_ref(self, other)
             }
         }
     };
@@ -116,21 +114,6 @@ impl_cmp_str!(ForwardRelativePath, &'_ str, ForwardRelativePath);
 impl_cmp_str!(ForwardRelativePath, String, ForwardRelativePath);
 impl_cmp_str!(&'_ ForwardRelativePath, str, ForwardRelativePath);
 impl_cmp_str!(&'_ ForwardRelativePath, String, ForwardRelativePath);
-
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-
-impl_cmp!(AbsNormPathBuf, AbsNormPath, AbsNormPath);
-impl_cmp!(AbsNormPathBuf, &'_ AbsNormPath, AbsNormPath);
-
-impl_cmp_str!(AbsNormPathBuf, str, AbsNormPath);
-impl_cmp_str!(AbsNormPathBuf, &'_ str, AbsNormPath);
-impl_cmp_str!(AbsNormPathBuf, String, AbsNormPath);
-impl_cmp_str!(AbsNormPath, str, AbsNormPath);
-impl_cmp_str!(AbsNormPath, &'_ str, AbsNormPath);
-impl_cmp_str!(AbsNormPath, String, AbsNormPath);
-impl_cmp_str!(&'_ AbsNormPath, str, AbsNormPath);
-impl_cmp_str!(&'_ AbsNormPath, String, AbsNormPath);
 
 use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::package_relative_path::PackageRelativePathBuf;
