@@ -78,6 +78,7 @@ members = [
     "app/buck2_build_signals",
     "app/buck2_build_signals_impl",
     "app/buck2_eden",
+    "app/buck2_validation",
     "dice/dice",
     "dice/dice_examples",
     "dice/dice_tests",
@@ -247,7 +248,7 @@ rustyline = "11.0"
 scopeguard = "1.0.0"
 sequence_trie = "0.3.6"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0.48"
+serde_json = { version = "1.0.48", features = ["raw_value"] }
 sha1 = "0.10"
 sha2 = "0.10"
 shlex = "1.3"
@@ -395,6 +396,7 @@ buck2_test_proto = { path = "app/buck2_test_proto" }
 buck2_test_runner = { path = "app/buck2_test_runner" }
 buck2_transition = { path = "app/buck2_transition" }
 buck2_util = { path = "app/buck2_util" }
+buck2_validation = { path = "app/buck2_validation" }
 buck2_worker_proto = { path = "app/buck2_worker_proto" }
 buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 
