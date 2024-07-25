@@ -129,23 +129,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
     }
 
-    /// Create a symlink to a directory.
-    fn symlink_dir<'v>(
-        this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
-        #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        copy_file_impl(
-            eval,
-            this,
-            dest,
-            src,
-            CopyMode::Symlink,
-            OutputType::Directory,
-        )
-    }
-
     /// Returns an `artifact` that is a directory containing symlinks.
     /// The srcs must be a dictionary of path (as string, relative to the result directory) to bound `artifact`, which will be laid out in the directory.
     fn symlinked_dir<'v>(
