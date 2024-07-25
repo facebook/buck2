@@ -64,10 +64,21 @@ impl StreamingCommand for ExplainCommand {
 
         // Get the most recent log
         let paths = ctx.paths()?;
-        let mut logs = get_local_logs(&paths.log_dir())?; // oldest first
-        let build_log = match logs.pop() {
+        let logs = get_local_logs(&paths.log_dir())?; // oldest first
+        let mut logs = logs
+            .into_iter()
+            .filter(|l| match l.command_from_filename().ok() {
+                Some(c) => c == "build" || c == "test" || c == "run" || c == "install",
+                None => false,
+            });
+
+        let build_log = match logs.next_back() {
             Some(log) => log,
-            None => return ExitResult::bail("No build logs found"),
+            None => {
+                return ExitResult::bail(
+                    "No recent build commands found, did you try building something first?",
+                );
+            }
         };
 
         // Check things are the same as last build

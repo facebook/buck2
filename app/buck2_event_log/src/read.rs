@@ -160,6 +160,16 @@ impl EventLogPathBuf {
         TraceId::from_str(uuid).context("Failed to create TraceId from uuid")
     }
 
+    // TODO iguridi: this should be done by parsing file header
+    pub fn command_from_filename(&self) -> anyhow::Result<&str> {
+        let file_name = Self::file_name(&self.path)?;
+        // format is of the form "{ts}_{command}_{uuid}_events{ext}"
+        match file_name.split('_').nth(1) {
+            Some(command) => Ok(command),
+            None => Err(anyhow::anyhow!("No command in filename")),
+        }
+    }
+
     pub(crate) fn infer_opt(path: &AbsPathBuf) -> anyhow::Result<Option<Self>> {
         let name = Self::file_name(path)?;
 
