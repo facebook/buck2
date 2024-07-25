@@ -314,6 +314,7 @@ def _xcode_populate_attributes(
     data[XcodeDataInfoKeys.OUTPUT] = xctest_bundle
     if ctx.attrs.ui_test_target_app:
         data[XcodeDataInfoKeys.TEST_TYPE] = "ui-test"
+        data[XcodeDataInfoKeys.TEST_TARGET] = ctx.attrs.ui_test_target_app.label.raw_target()
         data[XcodeDataInfoKeys.TEST_TARGET_NAME] = ctx.attrs.ui_test_target_app.label.name
     else:
         data[XcodeDataInfoKeys.TEST_TYPE] = "unit-test"
