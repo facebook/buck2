@@ -178,11 +178,17 @@ def buck2_e2e_test(
     env = env or {}
     if not test_with_compiled_buck2 and not test_with_deployed_buck2:
         fail("Must set one of `test_with_compiled_buck2` or `test_with_deployed_buck2` for " + name)
+
+    compiled_env = dict(env)
+    compiled_env["BUCK2_HARD_ERROR"] = "true"
+    if test_with_compiled_buck2_tpx:
+        compiled_env["BUCK2_TPX"] = "$(location fbcode//buck2/buck2_tpx_cli:buck2_tpx_cli)"
+
+    # soft errors should always be allowed on tests with deployed buck2, or with reverted buck
+    deployed_env = dict(env)
+    deployed_env["BUCK2_HARD_ERROR"] = "false"
+
     if test_with_compiled_buck2:
-        compiled_env = dict(env)
-        compiled_env["BUCK2_HARD_ERROR"] = "true"
-        if test_with_compiled_buck2_tpx:
-            compiled_env["BUCK2_TPX"] = "$(location fbcode//buck2/buck2_tpx_cli:buck2_tpx_cli)"
         buck_e2e_test(
             name = name + ("_with_compiled_buck2" if test_with_deployed_buck2 else ""),
             executable_type = "buck2",
@@ -206,34 +212,33 @@ def buck2_e2e_test(
             serialize_test_cases = serialize_test_cases,
             require_nano_prelude = require_nano_prelude,
         )
-        if test_with_resource_control:
-            compiled_rc_env, compiled_rc_skip_for_os = _resource_control_test_config(compiled_env, skip_for_os)
-            buck_e2e_test(
-                name = name + ("_with_compiled_buck2_with_resource_control" if test_with_deployed_buck2 else "_with_resource_control"),
-                executable_type = "buck2",
-                executable = "$(location fbcode//buck2:buck2)",
-                use_buck_api = use_buck_api,
-                base_module = base_module,
-                data = data,
-                data_dir = data_dir,
-                conftest = conftest,
-                srcs = srcs,
-                tags = tags,
-                deps = deps,
-                contacts = contacts,
-                env = compiled_rc_env,
-                resources = resources,
-                skip_for_os = compiled_rc_skip_for_os,
-                pytest_config = pytest_config,
-                pytest_marks = pytest_marks,
-                pytest_expr = pytest_expr,
-                pytest_confcutdir = pytest_confcutdir,
-                serialize_test_cases = serialize_test_cases,
-                require_nano_prelude = require_nano_prelude,
-            )
 
-    # soft errors should always be allowed on tests with deployed buck2, or with reverted buck
-    env["BUCK2_HARD_ERROR"] = "false"
+    if test_with_resource_control:
+        compiled_rc_env, compiled_rc_skip_for_os = _resource_control_test_config(compiled_env, skip_for_os)
+        buck_e2e_test(
+            name = name + ("_with_compiled_buck2_with_resource_control" if test_with_deployed_buck2 else "_with_resource_control"),
+            executable_type = "buck2",
+            executable = "$(location fbcode//buck2:buck2)",
+            use_buck_api = use_buck_api,
+            base_module = base_module,
+            data = data,
+            data_dir = data_dir,
+            conftest = conftest,
+            srcs = srcs,
+            tags = tags,
+            deps = deps,
+            contacts = contacts,
+            env = compiled_rc_env,
+            resources = resources,
+            skip_for_os = compiled_rc_skip_for_os,
+            pytest_config = pytest_config,
+            pytest_marks = pytest_marks,
+            pytest_expr = pytest_expr,
+            pytest_confcutdir = pytest_confcutdir,
+            serialize_test_cases = serialize_test_cases,
+            require_nano_prelude = require_nano_prelude,
+        )
+
     if test_with_deployed_buck2:
         deps = deps or []
 
@@ -255,7 +260,7 @@ def buck2_e2e_test(
             tags = tags,
             deps = deps,
             contacts = contacts,
-            env = env,
+            env = deployed_env,
             resources = resources,
             skip_for_os = skip_for_os,
             pytest_config = pytest_config,
@@ -267,8 +272,8 @@ def buck2_e2e_test(
         )
 
     if test_with_reverted_buck2:
-        env = dict(env)
-        env["BUCK2_CHANNEL"] = "previous"
+        previous_env = dict(deployed_env)
+        previous_env["BUCK2_CHANNEL"] = "previous"
         buck_e2e_test(
             name = name + "_with_reverted_buck2",
             executable_type = "buck2",
@@ -280,7 +285,7 @@ def buck2_e2e_test(
             srcs = srcs,
             tags = tags,
             deps = deps,
-            env = env,
+            env = previous_env,
             resources = resources,
             skip_for_os = skip_for_os,
             pytest_config = pytest_config,
