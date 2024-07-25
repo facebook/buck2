@@ -41,9 +41,11 @@ use superconsole::SuperConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
+use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
 use crate::subscribers::system_warning::low_disk_space_msg;
+use crate::subscribers::system_warning::slow_download_speed_smg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
@@ -569,16 +571,25 @@ where
                         remaining
                     )?;
 
+                    let first_snapshot = self.observer().re_state().first_snapshot();
                     let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
-                    if let Some(memory_pressure) =
-                        check_memory_pressure(last_snapshot, &self.observer().system_info())
-                    {
+                    let sysinfo = self.observer().system_info();
+                    let avg_re_download_speed =
+                        self.observer().re_avg_download_speed().avg_per_second();
+                    if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
                         echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
                     }
-                    if let Some(low_disk_space) =
-                        check_remaining_disk_space(last_snapshot, &self.observer().system_info())
+                    if let Some(low_disk_space) = check_remaining_disk_space(last_snapshot, sysinfo)
                     {
                         echo!("{}", low_disk_space_msg(&low_disk_space))?;
+                    }
+                    if check_download_speed(
+                        first_snapshot,
+                        last_snapshot,
+                        sysinfo,
+                        avg_re_download_speed,
+                    ) {
+                        echo!("{}", slow_download_speed_smg())?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
