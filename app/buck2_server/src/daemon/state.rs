@@ -258,7 +258,9 @@ impl DaemonState {
             tracing::info!("Starting...");
 
             let cells = &legacy_cells.cell_resolver;
-            let root_config = &legacy_cells.root_config;
+            let root_config = &legacy_cells
+                .parse_single_cell(cells.root_cell(), &fs)
+                .await?;
 
             let buffer_size = root_config
                 .parse(BuckconfigKeyRef {
