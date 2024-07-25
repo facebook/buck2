@@ -33,6 +33,7 @@ use buck2_core::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_core::directory::directory_selector::DirectorySelector;
 use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::directory::find::find;
+use buck2_core::directory::find::DirectoryFindError;
 use buck2_core::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_core::directory::immutable_directory::ImmutableDirectory;
 use buck2_core::directory::shared_directory::SharedDirectory;
@@ -45,6 +46,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::internal_error;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
@@ -740,6 +742,17 @@ pub fn extract_artifact_value(
             .fingerprint(digest_config.as_directory_serializer())
             .shared(&*INTERNER)
     });
+
+    // Do not depend on the artifact itself.
+    match deps.remove_prefix(path.as_forward_relative_path()) {
+        Ok(_) => {}
+        Err(DirectoryFindError::CannotTraverseLeaf { .. }) => {
+            return Err(internal_error!(
+                "Dependency artifact is parent of output artifact: {}",
+                path
+            ));
+        }
+    }
 
     let deps = if has_deps {
         Some(
