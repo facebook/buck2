@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_data::Snapshot;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
@@ -36,6 +37,10 @@ impl ReState {
         if self.first_snapshot.is_none() {
             self.first_snapshot = Some(snapshot.clone());
         }
+    }
+
+    pub fn first_snapshot(&self) -> &Option<Snapshot> {
+        &self.first_snapshot
     }
 
     pub fn render_header(

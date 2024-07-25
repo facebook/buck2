@@ -27,6 +27,8 @@ pub(crate) struct LowDiskSpace {
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
 
+pub const DOWNLOAD_SPEED_LOW_LINK: &str = "https://fburl.com/buck2_slow_download";
+
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
         "High memory pressure: buck2 is using {} out of {}{}",
@@ -51,6 +53,15 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
             DISK_REMEDIATION_LINK
         }
     )
+}
+
+pub(crate) fn slow_download_speed_smg() -> String {
+    let msg = "Slow download speed is detected. This may significantly impact build speed.";
+    if !is_open_source() {
+        format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")
+    } else {
+        msg.to_owned()
+    }
 }
 
 pub(crate) fn check_memory_pressure(
@@ -88,6 +99,43 @@ pub(crate) fn check_remaining_disk_space(
             total_disk_space,
             used_disk_space,
         })
+    } else {
+        None
+    }
+}
+
+// This check uses average RE download speed calculated as a number of bytes downloaded divided on time between two snapshots.
+// This speed calculation is not precisely correct as we don't know how much time we've been downloading between two snapshots.
+// TODO(yurysamkevich): compute average download speed in RE/HTTP client
+pub(crate) fn check_download_speed(
+    first_snapshot: &Option<buck2_data::Snapshot>,
+    last_snapshot: Option<&buck2_data::Snapshot>,
+    system_info: &buck2_data::SystemInfo,
+    avg_re_download_speed: Option<u64>,
+) -> bool {
+    inner_check_download_speed(
+        first_snapshot,
+        last_snapshot,
+        system_info,
+        avg_re_download_speed,
+    )
+    .is_some()
+}
+
+fn inner_check_download_speed(
+    first_snapshot: &Option<buck2_data::Snapshot>,
+    last_snapshot: Option<&buck2_data::Snapshot>,
+    system_info: &buck2_data::SystemInfo,
+    avg_re_download_speed: Option<u64>,
+) -> Option<()> {
+    let re_download_bytes =
+        last_snapshot?.re_download_bytes - first_snapshot.as_ref()?.re_download_bytes;
+    let avg_re_download_speed = avg_re_download_speed?;
+
+    if re_download_bytes >= system_info.min_re_download_bytes_threshold?
+        && avg_re_download_speed < system_info.avg_re_download_bytes_per_sec_threshold?
+    {
+        Some(())
     } else {
         None
     }

@@ -15,15 +15,19 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 
+use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
 use crate::subscribers::system_warning::low_disk_space_msg;
+use crate::subscribers::system_warning::slow_download_speed_smg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
 pub(crate) struct SystemWarningComponent<'a> {
+    pub(crate) first_snapshot: &'a Option<buck2_data::Snapshot>,
     pub(crate) last_snapshot: Option<&'a buck2_data::Snapshot>,
     pub(crate) system_info: &'a buck2_data::SystemInfo,
+    pub(crate) avg_re_download_speed: Option<u64>,
 }
 
 fn warning_styled(text: &str) -> anyhow::Result<Line> {
@@ -45,6 +49,14 @@ impl<'a> Component for SystemWarningComponent<'a> {
             check_remaining_disk_space(self.last_snapshot, self.system_info)
         {
             lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
+        }
+        if check_download_speed(
+            self.first_snapshot,
+            self.last_snapshot,
+            self.system_info,
+            self.avg_re_download_speed,
+        ) {
+            lines.push(warning_styled(&slow_download_speed_smg())?);
         }
         Ok(Lines(lines))
     }

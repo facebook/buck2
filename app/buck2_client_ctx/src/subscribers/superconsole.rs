@@ -188,12 +188,26 @@ impl<'s> Component for BuckRootComponent<'s> {
             .last
             .as_ref()
             .map(|s| &s.1);
+        let first_snapshot = self
+            .state
+            .simple_console
+            .observer
+            .re_state()
+            .first_snapshot();
+        let avg_re_download_speed = self
+            .state
+            .simple_console
+            .observer
+            .re_avg_download_speed()
+            .avg_per_second();
         let system_info = &self.state.simple_console.observer.system_info();
         {
             draw.draw(
                 &SystemWarningComponent {
                     last_snapshot,
+                    first_snapshot,
                     system_info,
+                    avg_re_download_speed,
                 },
                 mode,
             )?;

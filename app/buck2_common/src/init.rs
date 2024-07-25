@@ -136,6 +136,14 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.remaining_disk_space_threshold`.
     pub remaining_disk_space_threshold_gb: Option<u64>,
+    /// Minimum number of bytes downloaded to measure average download speed.
+    /// If None, we don't warn the user.
+    /// The corresponding buckconfig is `buck2_system_warning.min_re_download_bytes_threshold`.
+    pub min_re_download_bytes_threshold: Option<u64>,
+    /// A threshold that is used to determine if download speed is too low and display a warning.
+    /// If None, we don't warn the user.
+    /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
+    pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
 }
 
 impl SystemWarningConfig {
@@ -148,9 +156,19 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "remaining_disk_space_threshold_gb",
         })?;
+        let min_re_download_bytes_threshold = config.parse(BuckconfigKeyRef {
+            section: "buck2_system_warning",
+            property: "min_re_download_bytes_threshold",
+        })?;
+        let avg_re_download_bytes_per_sec_threshold = config.parse(BuckconfigKeyRef {
+            section: "buck2_system_warning",
+            property: "avg_re_download_bytes_per_sec_threshold",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
+            min_re_download_bytes_threshold,
+            avg_re_download_bytes_per_sec_threshold,
         })
     }
 

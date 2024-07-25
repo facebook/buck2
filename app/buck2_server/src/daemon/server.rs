@@ -435,6 +435,9 @@ impl BuckdServer {
                 .map(|DiskSpaceStats { total_space, .. }| total_space),
             remaining_disk_space_threshold_gb: system_warning_config
                 .remaining_disk_space_threshold_gb,
+            min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
+            avg_re_download_bytes_per_sec_threshold: system_warning_config
+                .avg_re_download_bytes_per_sec_threshold,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
@@ -777,6 +780,7 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
 
 type ResponseStream =
     Pin<Box<dyn Stream<Item = Result<MultiCommandProgress, Status>> + Send + Sync>>;
+
 #[async_trait]
 impl DaemonApi for BuckdServer {
     async fn kill(&self, req: Request<KillRequest>) -> Result<Response<CommandResult>, Status> {
@@ -1534,4 +1538,5 @@ async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duratio
 struct DefaultCommandOptions;
 
 impl OneshotCommandOptions for DefaultCommandOptions {}
+
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}

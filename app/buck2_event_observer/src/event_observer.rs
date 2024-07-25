@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 use buck2_events::BuckEvent;
+use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
@@ -34,6 +35,7 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
+    re_avg_download_speed: NetworkSpeedAverage,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -57,6 +59,7 @@ where
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
+            re_avg_download_speed: NetworkSpeedAverage::default(),
             extra: E::new(),
         }
     }
@@ -92,6 +95,8 @@ where
                         Snapshot(snapshot) => {
                             self.re_state.update(snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
+                            self.re_avg_download_speed
+                                .update(event.timestamp(), snapshot.re_download_bytes);
                         }
                         TestDiscovery(discovery) => {
                             use buck2_data::test_discovery::Data::*;
@@ -166,6 +171,10 @@ where
 
     pub fn test_state(&self) -> &TestState {
         &self.test_state
+    }
+
+    pub fn re_avg_download_speed(&self) -> &NetworkSpeedAverage {
+        &self.re_avg_download_speed
     }
 
     pub fn extra(&self) -> &E {
