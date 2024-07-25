@@ -30,7 +30,6 @@ def buck_e2e_test(
         base_module = None,
         data = None,
         data_dir = None,
-        conftest = "fbcode//buck2/tests/e2e_util:conftest.py",
         srcs = (),
         tags = (),
         deps = (),
@@ -106,7 +105,7 @@ def buck_e2e_test(
     if use_buck_api:
         deps.append("fbcode//buck2/tests/e2e_util/api:api")
     resources = resources or {}
-    resources[conftest] = "conftest.py"
+    resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
     labels = []
     if "darwin" not in skip_for_os:
@@ -144,7 +143,6 @@ def buck2_e2e_test(
         base_module = None,
         data = None,
         data_dir = None,
-        conftest = "fbcode//buck2/tests/e2e_util:conftest.py",
         srcs = (),
         tags = (),
         deps = (),
@@ -197,7 +195,6 @@ def buck2_e2e_test(
             base_module = base_module,
             data = data,
             data_dir = data_dir,
-            conftest = conftest,
             srcs = srcs,
             tags = tags,
             deps = deps,
@@ -223,7 +220,6 @@ def buck2_e2e_test(
             base_module = base_module,
             data = data,
             data_dir = data_dir,
-            conftest = conftest,
             srcs = srcs,
             tags = tags,
             deps = deps,
@@ -255,7 +251,6 @@ def buck2_e2e_test(
             base_module = base_module,
             data = data,
             data_dir = data_dir,
-            conftest = conftest,
             srcs = srcs,
             tags = tags,
             deps = deps,
@@ -281,7 +276,6 @@ def buck2_e2e_test(
             base_module = base_module,
             data = data,
             data_dir = data_dir,
-            conftest = conftest,
             srcs = srcs,
             tags = tags,
             deps = deps,
