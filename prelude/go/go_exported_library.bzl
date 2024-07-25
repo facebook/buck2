@@ -18,7 +18,7 @@ load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    lib = build_package(
+    lib, pkg_info = build_package(
         ctx,
         "main",
         ctx.attrs.srcs,
@@ -49,4 +49,5 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = bin,
             other_outputs = runtime_files,
         ),
+        pkg_info,
     ]

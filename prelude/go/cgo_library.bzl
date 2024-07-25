@@ -34,7 +34,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     # Build Go library.
-    compiled_pkg = build_package(
+    compiled_pkg, pkg_info = build_package(
         ctx,
         pkg_name,
         ctx.attrs.go_srcs + ctx.attrs.srcs + ctx.attrs.headers,
@@ -70,4 +70,5 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         ),
+        pkg_info,
     ]

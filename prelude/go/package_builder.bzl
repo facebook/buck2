@@ -14,7 +14,7 @@ load(
     "GoCoverageMode",  # @Unused used as type
 )
 load(":go_list.bzl", "go_list", "parse_go_list_out")
-load(":packages.bzl", "GoPkg", "make_importcfg", "merge_pkgs", "pkg_artifacts")
+load(":packages.bzl", "GoPackageInfo", "GoPkg", "make_importcfg", "merge_pkgs", "pkg_artifacts")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 def build_package(
@@ -36,7 +36,7 @@ def build_package(
         # If you change this dir or naming convention, please
         # update the corresponding logic in `fbgolist`.
         # Otherwise editing and linting for Go will break.
-        cgo_gen_dir_name: str = "cgo_gen") -> GoPkg:
+        cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
@@ -93,6 +93,10 @@ def build_package(
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         srcs_list = cmd_args(srcs_list_argsfile, format = "@{}", hidden = srcs),
         cgo_gen_dir = cgo_gen_dir,
+    ), GoPackageInfo(
+        package_name = pkg_name,
+        package_root = package_root,
+        go_list_out = go_list_out,
     )
 
 def _compile(

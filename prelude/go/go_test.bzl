@@ -75,7 +75,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
 
     # Compile all tests into a package.
-    tests = build_package(
+    tests, tests_pkg_info = build_package(
         ctx,
         pkg_name,
         srcs = srcs,
@@ -106,7 +106,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Generate a main function which runs the tests and build that into another
     # package.
     gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.srcs_list)
-    main = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, asan = ctx.attrs._asan, cgo_gen_dir_name = "cgo_gen_test_main")
+    main, _ = build_package(ctx, "main", [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, asan = ctx.attrs._asan, cgo_gen_dir_name = "cgo_gen_test_main")
 
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
@@ -150,4 +150,5 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = bin,
             other_outputs = [gen_main] + runtime_files + external_debug_info,
         ),
+        tests_pkg_info,
     ]

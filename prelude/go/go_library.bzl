@@ -38,7 +38,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     asan = ctx.attrs._asan
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
-    pkg = build_package(
+    pkg, pkg_info = build_package(
         ctx,
         pkg_name,
         srcs = ctx.attrs.srcs,
@@ -79,4 +79,5 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         ),
+        pkg_info,
     ]
