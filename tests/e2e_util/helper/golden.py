@@ -20,9 +20,13 @@ def _prepend_header(content: str) -> str:
 
 def _remove_ci_labels(content: str) -> str:
     # this label is only added for CI jobs, causing inconsistenty between local test and ci test.
+    # Examples:
+    #  "ci:overwrite",
+    #  "ci:diff:linux:@fbcode//mode/dev-lg",
+    #  "ci:continuous:linux:@fbcode//mode/dev-lg",
     new_content = []
     for line in content.splitlines():
-        if "ci:overwrite" in line:
+        if "ci:" in line:
             continue
         new_content.append(line)
     return "\n".join(new_content)
