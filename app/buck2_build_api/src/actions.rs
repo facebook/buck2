@@ -63,6 +63,7 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use remote_execution::TActionResult2;
 use starlark::values::OwnedFrozenValue;
 use static_assertions::_core::ops::Deref;
 
@@ -230,6 +231,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         &mut self,
         action: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
+        re_result: Option<TActionResult2>,
         dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<CacheUploadResult>;
 

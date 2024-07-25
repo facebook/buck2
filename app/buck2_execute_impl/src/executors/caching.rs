@@ -551,7 +551,8 @@ impl UploadCache for CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
-        mut dep_file_entry: Option<DepFileEntry>,
+        re_result: Option<TActionResult2>,
+        dep_file_entry: Option<DepFileEntry>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
@@ -580,16 +581,13 @@ impl UploadCache for CacheUploader {
                     None
                 },
             )
-        } else if let Some(ref mut dep_file_entry) = dep_file_entry {
-            let action_result = dep_file_entry.action_result.take();
-            if action_result.is_none()
-                && (res.was_remotely_executed() || res.was_action_cache_hit())
-            {
+        } else if dep_file_entry.is_some() {
+            if re_result.is_none() && (res.was_remotely_executed() || res.was_action_cache_hit()) {
                 return Err(
                     DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
                 );
             }
-            (false, action_result)
+            (false, re_result)
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",

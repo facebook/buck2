@@ -22,6 +22,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
+use remote_execution::TActionResult2;
 use sorted_vector_map::SortedVectorMap;
 
 use super::cache_uploader::CacheUploadResult;
@@ -128,6 +129,7 @@ impl CommandExecutor {
         &self,
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
+        re_result: Option<TActionResult2>,
         dep_file_entry: Option<DepFileEntry>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
@@ -136,6 +138,7 @@ impl CommandExecutor {
             .upload(
                 info,
                 execution_result,
+                re_result,
                 dep_file_entry,
                 action_digest_and_blobs,
             )

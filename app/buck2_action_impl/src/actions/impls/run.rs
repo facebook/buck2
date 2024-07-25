@@ -764,16 +764,19 @@ impl IncrementalActionExecutable for RunAction {
         {
             let dep_file_entry = match &mut dep_file_bundle {
                 Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
-                    let action_result = result.action_result.take();
-                    let entry = dep_file_bundle
-                        .make_remote_dep_file_entry(ctx, action_result)
-                        .await?;
+                    let entry = dep_file_bundle.make_remote_dep_file_entry(ctx).await?;
                     Some(entry)
                 }
                 _ => None,
             };
+            let re_result = result.action_result.take();
             let upload_result = ctx
-                .cache_upload(&prepared_action.action_and_blobs, &result, dep_file_entry)
+                .cache_upload(
+                    &prepared_action.action_and_blobs,
+                    &result,
+                    re_result,
+                    dep_file_entry,
+                )
                 .await?;
 
             result.did_cache_upload = upload_result.did_cache_upload;

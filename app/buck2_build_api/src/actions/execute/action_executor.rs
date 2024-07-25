@@ -64,6 +64,7 @@ use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use remote_execution::TActionResult2;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
@@ -488,6 +489,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &mut self,
         action_digest_and_blobs: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
+        re_result: Option<TActionResult2>,
         dep_file_entry: Option<DepFileEntry>,
     ) -> anyhow::Result<CacheUploadResult> {
         let action = self.target();
@@ -499,6 +501,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     digest_config: self.digest_config(),
                 },
                 execution_result,
+                re_result,
                 dep_file_entry,
                 action_digest_and_blobs,
             )

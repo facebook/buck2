@@ -25,9 +25,6 @@ pub struct CacheUploadInfo<'a> {
 pub struct DepFileEntry {
     pub action: ActionDigestAndBlobs,
     pub entry: RemoteDepFile,
-    // The action result from RE, if executed on RE.
-    // If local, this is generated while uploading outputs.
-    pub action_result: Option<TActionResult2>,
 }
 
 pub struct CacheUploadResult {
@@ -54,6 +51,7 @@ pub trait UploadCache: Send + Sync {
         &self,
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
+        re_result: Option<TActionResult2>,
         dep_file_entry: Option<DepFileEntry>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
@@ -68,6 +66,7 @@ impl UploadCache for NoOpCacheUploader {
         &self,
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
+        _re_result: Option<TActionResult2>,
         _dep_file_entry: Option<DepFileEntry>,
         _action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
