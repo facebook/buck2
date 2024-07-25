@@ -740,6 +740,7 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc]) + [d.get(MergedLinkInfo) for d in ocaml_toolchain_runtime_deps]
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     link_args_output = make_link_args(
+        ctx,
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],
@@ -832,6 +833,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     dep_link_infos = _attr_deps_merged_link_infos(ctx)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     link_args_output = make_link_args(
+        ctx,
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],
@@ -931,6 +933,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
     dep_link_infos = _attr_deps_merged_link_infos(ctx) + filter(None, [ocaml_toolchain.libc])
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     link_args_output = make_link_args(
+        ctx,
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(ctx, dep_link_infos, LinkStrategy("static_pic"))],

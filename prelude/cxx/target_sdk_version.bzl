@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+
 def _version_is_greater(left: str, right: str) -> bool:
     # Assumes version strings are in dotted format 1.2.4.
     # After comparing components the longer remainder is
@@ -35,3 +37,56 @@ def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
         return min_version
     else:
         return target_version
+
+def _get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
+    toolchain_target_sdk_version = get_cxx_toolchain_info(ctx).target_sdk_version
+    target_sdk_version = getattr(ctx.attrs, "target_sdk_version", None)
+    if toolchain_target_sdk_version == None and target_sdk_version == None:
+        return None
+    elif toolchain_target_sdk_version != None and target_sdk_version == None:
+        return toolchain_target_sdk_version
+    elif toolchain_target_sdk_version == None and target_sdk_version != None:
+        return target_sdk_version
+    elif _version_is_greater(target_sdk_version, toolchain_target_sdk_version):
+        # The requested target_sdk_version on the toolchain must be >=
+        # the version set on the target, which should be the minimum
+        # allowed for this version to build.
+        fail("{} has target_sdk_version {}, which is larger than the toolchain target_sdk_version of {}".format(
+            ctx.label,
+            target_sdk_version,
+            toolchain_target_sdk_version,
+        ))
+    else:
+        return toolchain_target_sdk_version
+
+_PLATFORM_TARGET_TRIPLE_MAP = {
+    "appletvos": "{architecture}-apple-tvos{version}",
+    "appletvsimulator": "{architecture}-apple-tvos{version}-simulator",
+    "iphoneos": "{architecture}-apple-ios{version}",
+    "iphonesimulator": "{architecture}-apple-ios{version}-simulator",
+    "maccatalyst": "{architecture}-apple-ios{version}-macabi",
+    "macosx": "{architecture}-apple-macosx{version}",
+    "visionos": "{architecture}-apple-xros{version}",
+    "visionsimulator": "{architecture}-apple-xros{version}-simulator",
+    "watchos": "{architecture}-apple-watchos{version}",
+    "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
+}
+
+def _get_target_triple(platform_name: str, version: str) -> str:
+    platform_components = platform_name.split("-")
+    if platform_components[0] not in _PLATFORM_TARGET_TRIPLE_MAP:
+        fail("missing target triple for {}".format(platform_components[0]))
+
+    triple_format_str = _PLATFORM_TARGET_TRIPLE_MAP[platform_components[0]]
+    return triple_format_str.format(architecture = platform_components[1], version = version)
+
+def get_target_sdk_version_linker_flags(ctx: AnalysisContext) -> list[str]:
+    if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
+        return []
+
+    target_sdk_version = _get_target_sdk_version(ctx)
+    if target_sdk_version == None:
+        return []
+
+    platform_info = get_cxx_platform_info(ctx)
+    return ["-target", _get_target_triple(platform_info.name, target_sdk_version)]
