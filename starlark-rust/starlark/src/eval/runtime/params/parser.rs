@@ -17,6 +17,8 @@
 
 use std::cell::Cell;
 
+use starlark_syntax::other_error;
+
 use crate::values::UnpackValue;
 use crate::values::Value;
 
@@ -32,12 +34,11 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
         Self(slots.iter())
     }
 
-    fn get_next(&mut self) -> Option<Value<'v>> {
-        let v = self
-            .0
-            .next()
-            .expect("ParametersParser: wrong number of requested arguments");
-        v.get()
+    fn get_next(&mut self, name: &str) -> anyhow::Result<Option<Value<'v>>> {
+        let Some(v) = self.0.next() else {
+            return Err(other_error!("Requested parameter `{name}`, which is after the number of parameters in provided signature").into_anyhow());
+        };
+        Ok(v.get())
     }
 
     /// Obtain the next parameter, corresponding to
@@ -45,7 +46,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
     /// It is an error to request more parameters than were specified.
     /// The `name` is only used for error messages.
     pub fn next_opt<T: UnpackValue<'v>>(&mut self, name: &str) -> anyhow::Result<Option<T>> {
-        match self.get_next() {
+        match self.get_next(name)? {
             None => Ok(None),
             Some(v) => Ok(Some(T::unpack_named_param(v, name)?)),
         }
@@ -56,13 +57,12 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
     /// It is an error to request more parameters than were specified.
     /// The `name` is only used for error messages.
     pub fn next<T: UnpackValue<'v>>(&mut self, name: &str) -> anyhow::Result<T> {
-        // After ParametersCollect.done() all variables will be Some,
-        // apart from those where we called ParametersSpec.optional(),
-        // and for those we should call next_opt()
-
-        // This is definitely not unassigned because ParametersCollect.done checked
-        // that.
-        let v = self.get_next().unwrap();
+        let Some(v) = self.get_next(name)? else {
+            return Err(other_error!(
+                "Requested non-optional param {name} which was declared optional in signature"
+            )
+            .into_anyhow());
+        };
         T::unpack_named_param(v, name)
     }
 }

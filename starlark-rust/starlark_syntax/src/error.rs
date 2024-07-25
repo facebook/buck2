@@ -268,3 +268,20 @@ macro_rules! internal_error {
         )
     };
 }
+
+#[macro_export]
+macro_rules! other_error {
+    ($format:literal) => {
+        other_error!($format,)
+    };
+    ($format:literal, $($args:expr),*) => {
+        $crate::Error::new(
+            $crate::ErrorKind::Other(
+                anyhow::anyhow!(
+                    $format,
+                    $($args),*
+                )
+            )
+        )
+    };
+}
