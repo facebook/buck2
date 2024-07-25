@@ -10,8 +10,8 @@ load("@prelude//utils:utils.bzl", "value_or")
 
 GoPkg = record(
     pkg = field(Artifact),
-    coverage_vars = field(cmd_args | None, default = None),
-    srcs_list = field(cmd_args | None, default = None),
+    coverage_vars = field(cmd_args),
+    srcs_list = field(cmd_args),
     cgo_gen_dir = field(Artifact),
 )
 

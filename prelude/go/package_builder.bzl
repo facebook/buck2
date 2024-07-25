@@ -46,20 +46,6 @@ def build_package(
 
     srcs = dedupe_by_value(srcs)
 
-    has_go_files = False
-    for src in srcs:
-        if src.extension == ".go":
-            has_go_files = True
-            break
-
-    if not has_go_files:
-        return GoPkg(
-            pkg = ctx.actions.write(out.as_output(), ""),
-            coverage_vars = cmd_args(),
-            srcs_list = cmd_args(),
-            cgo_gen_dir = ctx.actions.copied_dir(cgo_gen_dir.as_output(), {}),
-        )
-
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
     go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests, asan = asan)
