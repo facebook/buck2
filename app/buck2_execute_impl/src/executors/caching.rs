@@ -14,7 +14,6 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
-use buck2_common::cas_digest::CasDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::directory::entry::DirectoryEntry;
@@ -26,7 +25,6 @@ use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::directory_to_re_tree;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
@@ -211,7 +209,7 @@ impl CacheUploader {
     async fn upload_dep_file(
         &self,
         info: &CacheUploadInfo<'_>,
-        mut action_result: TActionResult2,
+        action_result: Option<TActionResult2>,
         dep_file_bundle: &mut dyn IntoRemoteDepFile,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
@@ -225,6 +223,10 @@ impl CacheUploader {
             },
             async {
                 let outcome = async {
+                    let mut action_result = action_result.ok_or(
+                        DepFileReActionResultMissingError(remote_dep_file_key.clone()),
+                    )?;
+
                     if let Err(rejected) = self.check_upload_permission().await? {
                         return Ok(rejected);
                     }
@@ -540,8 +542,8 @@ enum CacheUploadRejectionReason {
 }
 
 #[derive(Debug, buck2_error::Error)]
-#[error("Missing action result for RE action `{0}`")]
-struct DepFileReActionResultMissingError(CasDigest<ActionDigestKind>);
+#[error("Missing action result for dep file key `{0}`")]
+struct DepFileReActionResultMissingError(String);
 
 #[async_trait]
 impl UploadCache for CacheUploader {
@@ -580,11 +582,6 @@ impl UploadCache for CacheUploader {
                 },
             )
         } else if dep_file_bundle.is_some() {
-            if re_result.is_none() && (res.was_remotely_executed() || res.was_action_cache_hit()) {
-                return Err(
-                    DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
-                );
-            }
             (false, re_result)
         } else {
             tracing::info!(
@@ -594,18 +591,22 @@ impl UploadCache for CacheUploader {
             (false, None)
         };
 
-        let did_dep_file_cache_upload = match (action_result, dep_file_bundle) {
-            (Some(action_result), Some(dep_file_bundle)) => self
-                .upload_dep_file(info, action_result, dep_file_bundle, error_on_cache_upload)
+        // note uploads aren't attempted for local worker actions because we don't upload outputs for them so there is no action result
+        let should_upload_dep_file =
+            res.was_locally_executed() || res.was_remotely_executed() || res.was_action_cache_hit();
+
+        let did_dep_file_cache_upload = if let Some(dep_file_bundle) = dep_file_bundle
+            && should_upload_dep_file
+        {
+            self.upload_dep_file(info, action_result, dep_file_bundle, error_on_cache_upload)
                 .await?
-                .uploaded(),
-            (_, _) => {
-                tracing::info!(
-                    "Dep file cache upload for `{}` not attempted",
-                    action_digest_and_blobs.action
-                );
-                false
-            }
+                .uploaded()
+        } else {
+            tracing::info!(
+                "Dep file cache upload for `{}` not attempted",
+                action_digest_and_blobs.action
+            );
+            false
         };
 
         Ok(CacheUploadResult {

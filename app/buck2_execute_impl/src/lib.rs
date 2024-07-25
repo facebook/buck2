@@ -13,6 +13,7 @@
 #![feature(try_trait_v2)]
 #![feature(control_flow_enum)]
 #![feature(used_with_arg)]
+#![feature(let_chains)]
 
 pub mod executors;
 pub mod low_pass_filter;
