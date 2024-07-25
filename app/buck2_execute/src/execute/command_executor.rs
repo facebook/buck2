@@ -32,7 +32,7 @@ use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
 use crate::execute::cache_uploader::CacheUploadInfo;
-use crate::execute::cache_uploader::DepFileEntry;
+use crate::execute::cache_uploader::IntoRemoteDepFile;
 use crate::execute::cache_uploader::UploadCache;
 use crate::execute::executor_stage;
 use crate::execute::manager::CommandExecutionManager;
@@ -130,7 +130,7 @@ impl CommandExecutor {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
-        dep_file_entry: Option<DepFileEntry>,
+        dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         self.0
@@ -139,7 +139,7 @@ impl CommandExecutor {
                 info,
                 execution_result,
                 re_result,
-                dep_file_entry,
+                dep_file_bundle,
                 action_digest_and_blobs,
             )
             .await

@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use async_trait::async_trait;
 use buck2_action_metadata_proto::DepFileInputs;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -54,6 +55,7 @@ use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
+use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::OutputType;
@@ -392,19 +394,21 @@ pub(crate) struct DepFileBundle {
     common_digests: CommonDigests,
 }
 
-impl DepFileBundle {
-    pub(crate) async fn make_remote_dep_file_entry(
+#[async_trait]
+impl IntoRemoteDepFile for DepFileBundle {
+    async fn make_remote_dep_file_entry(
         &mut self,
-        ctx: &dyn ActionExecutionCtx,
+        digest_config: DigestConfig,
+        fs: &ArtifactFs,
+        materializer: &dyn Materializer,
     ) -> anyhow::Result<DepFileEntry> {
-        let digest_config = ctx.digest_config();
         // Compute the input fingerprint digest if it hasn't been computed already.
         if self.filtered_input_fingerprints.is_none() {
             self.filtered_input_fingerprints = Some(
                 eagerly_compute_fingerprints(
                     digest_config,
-                    ctx.fs(),
-                    ctx.materializer(),
+                    fs,
+                    materializer,
                     &self.shared_declared_inputs,
                     &self.declared_dep_files,
                 )
@@ -423,7 +427,9 @@ impl DepFileBundle {
 
         Ok(res)
     }
+}
 
+impl DepFileBundle {
     pub(crate) async fn check_local_dep_file_cache_for_identical_action(
         &self,
         ctx: &mut dyn ActionExecutionCtx,

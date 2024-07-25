@@ -47,7 +47,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
-use buck2_execute::execute::cache_uploader::DepFileEntry;
+use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -232,7 +232,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         action: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
-        dep_file_entry: Option<DepFileEntry>,
+        dep_file_entry: Option<&mut dyn IntoRemoteDepFile>,
     ) -> anyhow::Result<CacheUploadResult>;
 
     /// Executes a command

@@ -32,6 +32,7 @@ use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
 use buck2_execute::execute::cache_uploader::DepFileEntry;
+use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
@@ -552,7 +553,7 @@ impl UploadCache for CacheUploader {
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
-        dep_file_entry: Option<DepFileEntry>,
+        dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         let error_on_cache_upload = error_on_cache_upload().context("cache_upload")?;
@@ -569,7 +570,7 @@ impl UploadCache for CacheUploader {
                     res,
                     &action_digest_and_blobs,
                     error_on_cache_upload,
-                    dep_file_entry.is_some(),
+                    dep_file_bundle.is_some(),
                 )
                 .await?;
 
@@ -581,7 +582,7 @@ impl UploadCache for CacheUploader {
                     None
                 },
             )
-        } else if dep_file_entry.is_some() {
+        } else if dep_file_bundle.is_some() {
             if re_result.is_none() && (res.was_remotely_executed() || res.was_action_cache_hit()) {
                 return Err(
                     DepFileReActionResultMissingError(action_digest_and_blobs.action).into(),
@@ -596,8 +597,15 @@ impl UploadCache for CacheUploader {
             (false, None)
         };
 
-        let did_dep_file_cache_upload = match (action_result, dep_file_entry) {
-            (Some(action_result), Some(dep_file_entry)) => {
+        let did_dep_file_cache_upload = match (action_result, dep_file_bundle) {
+            (Some(action_result), Some(dep_file_bundle)) => {
+                let dep_file_entry = dep_file_bundle
+                    .make_remote_dep_file_entry(
+                        info.digest_config,
+                        &self.artifact_fs,
+                        self.materializer.as_ref(),
+                    )
+                    .await?;
                 tracing::debug!(
                     "Uploading dep file entry for action `{}` with dep file key `{}`",
                     action_digest_and_blobs.action,

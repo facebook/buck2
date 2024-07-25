@@ -33,7 +33,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
-use buck2_execute::execute::cache_uploader::DepFileEntry;
+use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -490,7 +490,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         action_digest_and_blobs: &ActionDigestAndBlobs,
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
-        dep_file_entry: Option<DepFileEntry>,
+        dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
     ) -> anyhow::Result<CacheUploadResult> {
         let action = self.target();
         self.executor
@@ -502,7 +502,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 },
                 execution_result,
                 re_result,
-                dep_file_entry,
+                dep_file_bundle,
                 action_digest_and_blobs,
             )
             .await

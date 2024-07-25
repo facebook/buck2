@@ -10,12 +10,14 @@
 use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::buck2_env;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use remote_execution::TActionResult2;
 
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
+use crate::materialize::materializer::Materializer;
 
 pub struct CacheUploadInfo<'a> {
     pub target: &'a dyn CommandExecutionTarget,
@@ -25,6 +27,16 @@ pub struct CacheUploadInfo<'a> {
 pub struct DepFileEntry {
     pub action: ActionDigestAndBlobs,
     pub entry: RemoteDepFile,
+}
+
+#[async_trait]
+pub trait IntoRemoteDepFile: Send {
+    async fn make_remote_dep_file_entry(
+        &mut self,
+        digest_config: DigestConfig,
+        fs: &ArtifactFs,
+        materializer: &dyn Materializer,
+    ) -> anyhow::Result<DepFileEntry>;
 }
 
 pub struct CacheUploadResult {
@@ -52,7 +64,7 @@ pub trait UploadCache: Send + Sync {
         info: &CacheUploadInfo<'_>,
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
-        dep_file_entry: Option<DepFileEntry>,
+        dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult>;
 }
@@ -67,7 +79,7 @@ impl UploadCache for NoOpCacheUploader {
         _info: &CacheUploadInfo<'_>,
         _execution_result: &CommandExecutionResult,
         _re_result: Option<TActionResult2>,
-        _dep_file_entry: Option<DepFileEntry>,
+        _dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         _action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> anyhow::Result<CacheUploadResult> {
         Ok(CacheUploadResult {
