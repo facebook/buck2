@@ -83,6 +83,11 @@ impl StreamingCommand for ExplainCommand {
 
         // Check things are the same as last build
         let (invocation, _) = build_log.unpack_stream().await?;
+        buck2_client_ctx::eprintln!(
+            "\nUsing last build invocation `buck2 {}`\n",
+            invocation.command_line_args[1..].join(" ")
+        )?;
+
         if invocation.working_dir != ctx.working_dir.to_string() {
             return ExitResult::bail(format!(
                 "working dir mismatch {} and {}",
