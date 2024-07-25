@@ -111,7 +111,6 @@ impl CacheUploader {
         has_depfile_entry: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
         let digest = action_digest_and_blobs.action;
-        let reason = buck2_data::CacheUploadReason::LocalExecution;
         let digest_str = digest.to_string();
         let output_bytes = result.calc_output_size_bytes();
 
@@ -120,7 +119,6 @@ impl CacheUploader {
                 key: Some(info.target.as_proto_action_key()),
                 name: Some(info.target.as_proto_action_name()),
                 action_digest: digest_str.clone(),
-                reason: reason.into(),
             },
             async {
                 let mut file_digests = Vec::new();
@@ -197,7 +195,6 @@ impl CacheUploader {
                     file_digests: file_digests.into_map(|d| d.to_string()),
                     tree_digests: tree_digests.into_map(|d| d.to_string()),
                     output_bytes: Some(output_bytes),
-                    reason: reason.into(),
                 };
                 (
                     outcome.log_and_create_result(&digest_str, error_on_cache_upload),
@@ -218,15 +215,13 @@ impl CacheUploader {
         dep_file_bundle: &mut dyn IntoRemoteDepFile,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
-        let reason = buck2_data::CacheUploadReason::DepFile;
         let remote_dep_file_action = dep_file_bundle.remote_dep_file_action().clone();
         let remote_dep_file_key = remote_dep_file_action.action.to_string();
         span_async(
-            buck2_data::CacheUploadStart {
+            buck2_data::DepFileUploadStart {
                 key: Some(info.target.as_proto_action_key()),
                 name: Some(info.target.as_proto_action_name()),
-                action_digest: remote_dep_file_key.clone(),
-                reason: reason.into(),
+                remote_dep_file_key: remote_dep_file_key.clone(),
             },
             async {
                 let outcome = async {
@@ -275,21 +270,17 @@ impl CacheUploader {
                 .await
                 .unwrap_or_else(CacheUploadOutcome::Failed);
 
-                let cache_upload_end_event = buck2_data::CacheUploadEnd {
+                let end_event = buck2_data::DepFileUploadEnd {
                     key: Some(info.target.as_proto_action_key()),
                     name: Some(info.target.as_proto_action_name()),
-                    action_digest: remote_dep_file_key.clone(),
+                    remote_dep_file_key: remote_dep_file_key.clone(),
                     success: outcome.uploaded(),
                     error: outcome.error(),
                     re_error_code: outcome.re_error_code(),
-                    file_digests: Vec::new(),
-                    tree_digests: Vec::new(),
-                    output_bytes: None,
-                    reason: reason.into(),
                 };
                 (
                     outcome.log_and_create_result(&remote_dep_file_key, error_on_cache_upload),
-                    Box::new(cache_upload_end_event),
+                    end_event,
                 )
             },
         )

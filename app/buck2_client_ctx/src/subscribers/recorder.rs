@@ -104,6 +104,8 @@ pub(crate) struct InvocationRecorder<'a> {
     min_build_count_since_rebase: u64,
     cache_upload_count: u64,
     cache_upload_attempt_count: u64,
+    dep_file_upload_count: u64,
+    dep_file_upload_attempt_count: u64,
     parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
     filesystem: String,
     watchman_version: Option<String>,
@@ -213,6 +215,8 @@ impl<'a> InvocationRecorder<'a> {
             min_build_count_since_rebase: 0,
             cache_upload_count: 0,
             cache_upload_attempt_count: 0,
+            dep_file_upload_count: 0,
+            dep_file_upload_attempt_count: 0,
             parsed_target_patterns: None,
             filesystem,
             watchman_version: None,
@@ -428,6 +432,8 @@ impl<'a> InvocationRecorder<'a> {
             min_build_count_since_rebase: self.min_build_count_since_rebase,
             cache_upload_count: self.cache_upload_count,
             cache_upload_attempt_count: self.cache_upload_attempt_count,
+            dep_file_upload_count: self.dep_file_upload_count,
+            dep_file_upload_attempt_count: self.dep_file_upload_attempt_count,
             parsed_target_patterns: self.parsed_target_patterns.take(),
             filesystem: std::mem::take(&mut self.filesystem),
             watchman_version: self.watchman_version.take(),
@@ -791,6 +797,18 @@ impl<'a> InvocationRecorder<'a> {
         Ok(())
     }
 
+    fn handle_dep_file_upload_end(
+        &mut self,
+        upload: &buck2_data::DepFileUploadEnd,
+        _event: &BuckEvent,
+    ) -> anyhow::Result<()> {
+        if upload.success {
+            self.dep_file_upload_count += 1;
+        }
+        self.dep_file_upload_attempt_count += 1;
+        Ok(())
+    }
+
     fn handle_re_session_created(
         &mut self,
         session: &buck2_data::RemoteExecutionSessionCreated,
@@ -1127,6 +1145,9 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::span_end_event::Data::CacheUpload(cache_upload) => {
                         self.handle_cache_upload_end(cache_upload, event)
+                    }
+                    buck2_data::span_end_event::Data::DepFileUpload(dep_file_upload) => {
+                        self.handle_dep_file_upload_end(dep_file_upload, event)
                     }
                     buck2_data::span_end_event::Data::Materialization(materialization) => {
                         self.handle_materialization_end(materialization, event)

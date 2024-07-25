@@ -225,6 +225,7 @@ mod fbcode {
                     Some(Data::Analysis(..)) => true,
                     Some(Data::Load(..)) => true,
                     Some(Data::CacheUpload(..)) => true,
+                    Some(Data::DepFileUpload(..)) => true,
                     Some(Data::Materialization(..)) => true,
                     Some(Data::TestDiscovery(..)) => true,
                     Some(Data::TestEnd(..)) => true,

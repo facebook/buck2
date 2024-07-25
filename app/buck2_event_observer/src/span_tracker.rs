@@ -530,6 +530,7 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::ExecutorStage(..)
             | Data::MatchDepFiles(..)
             | Data::CacheUpload(..)
+            | Data::DepFileUpload(..)
             | Data::DiceBlockConcurrentCommand(..)
             | Data::DiceSynchronizeSection(..)
             | Data::DiceCleanup(..)

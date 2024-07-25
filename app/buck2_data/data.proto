@@ -87,6 +87,7 @@ message SpanStartEvent {
     CreateOutputHashesFileStart create_output_hashes_file = 84;
     ActionErrorHandlerExecutionStart action_error_handler_execution = 85;
     CqueryUniverseBuildStart cquery_universe_build = 87;
+    DepFileUploadStart dep_file_upload = 88;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -138,6 +139,7 @@ message SpanEndEvent {
     CreateOutputHashesFileEnd create_output_hashes_file = 85;
     ActionErrorHandlerExecutionEnd action_error_handler_execution = 86;
     CqueryUniverseBuildEnd cquery_universe_build = 87;
+    DepFileUploadEnd dep_file_upload = 88;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -1942,6 +1944,10 @@ message InvocationRecord {
   optional uint64 re_avg_download_speed = 94;
   // Average RE upload speed
   optional uint64 re_avg_upload_speed = 95;
+  // The number of dep file uploads done by this build.
+  uint64 dep_file_upload_count = 96;
+  // The number of dep file uploads attempted by this build.
+  uint64 dep_file_upload_attempt_count = 97;
 }
 
 // Record event sent directly to scribe.
@@ -1962,25 +1968,18 @@ message ClientMetadata {
   string value = 2;
 }
 
-enum CacheUploadReason {
-  // The action was executed locally
-  LOCAL_EXECUTION = 0;
-  // The action has dep files that can be cached
-  DEP_FILE = 1;
-}
-
 message CacheUploadStart {
+  reserved 4;
   // A unique key identifying this action within the build.
   ActionKey key = 1;
   // A pair of category and identifier describing this action.
   ActionName name = 2;
   // The digest of the action being uploaded.
   string action_digest = 3;
-  // Reason for why this upload took place
-  CacheUploadReason reason = 4;
 }
 
 message CacheUploadEnd {
+  reserved 10;
   // A unique key identifying this action within the build.
   ActionKey key = 1;
   // A pair of category and identifier describing this action.
@@ -1999,8 +1998,31 @@ message CacheUploadEnd {
   optional uint64 output_bytes = 8;
   // If a RE error occurred, the error code.
   optional string re_error_code = 9;
-  // Reason for why this upload took place
-  CacheUploadReason reason = 10;
+}
+
+message DepFileUploadStart {
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // A pair of category and identifier describing this action.
+  ActionName name = 2;
+  // The dep file key, or digest of the dep file action
+  string remote_dep_file_key = 3;
+}
+
+message DepFileUploadEnd {
+  // A unique key identifying this action within the build.
+  ActionKey key = 1;
+  // A pair of category and identifier describing this action.
+  ActionName name = 2;
+  // The dep file key, or digest of the dep file action
+  string remote_dep_file_key = 3;
+  // Whether the upload was actually completed. This may be false if it wasn't
+  // representable in RE, or if an error occurred.
+  bool success = 4;
+  // An error, if any occurred.
+  string error = 5;
+  // If a RE error occurred, the error code.
+  optional string re_error_code = 9;
 }
 
 message CreateOutputSymlinksStart {};

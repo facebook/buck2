@@ -312,14 +312,8 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> anyhow::R
                 "Waiting on task from another command: {}",
                 owner_trace_id
             )),
-            Data::CacheUpload(upload) => {
-                let reason = match buck2_data::CacheUploadReason::from_i32(upload.reason) {
-                    Some(buck2_data::CacheUploadReason::DepFile) => "dep_file",
-                    Some(buck2_data::CacheUploadReason::LocalExecution) => "action",
-                    None => "unknown",
-                };
-                Ok(format!("upload ({})", reason))
-            }
+            Data::CacheUpload(_) => Ok("upload (action)".to_owned()),
+            Data::DepFileUpload(_) => Ok("upload (dep_file)".to_owned()),
             Data::CreateOutputSymlinks(..) => Ok("Creating output symlinks".to_owned()),
             Data::InstallEventInfo(info) => Ok(format!(
                 "Sending {} at path {}",
