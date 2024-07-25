@@ -13,6 +13,7 @@ use std::fmt::Formatter;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_data::ReUploadMetrics;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -36,16 +37,21 @@ pub struct WhatUploadedCommand {
         value_enum
     )]
     pub output: LogCommandOutputFormat,
+    #[clap(
+        long = "aggregate-by-ext",
+        help = "Aggregates the output by file extension"
+    )]
+    aggregate_by_extension: bool,
 }
 
 #[derive(serde::Serialize)]
-struct Record {
+struct ActionRecord {
     action: String,
     digests_uploaded: u64,
     bytes_uploaded: u64,
 }
 
-impl Display for Record {
+impl Display for ActionRecord {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -55,10 +61,27 @@ impl Display for Record {
     }
 }
 
-fn get_record(
+#[derive(serde::Serialize)]
+struct ExtensionRecord {
+    extension: String,
+    digests_uploaded: u64,
+    bytes_uploaded: u64,
+}
+
+impl Display for ExtensionRecord {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}",
+            self.extension, self.digests_uploaded, self.bytes_uploaded
+        )
+    }
+}
+
+fn get_action_record(
     state: &HashMap<u64, buck2_data::ActionExecutionStart>,
     upload: &ReUploadEvent,
-) -> Record {
+) -> ActionRecord {
     let digests_uploaded = upload.inner.digests_uploaded.unwrap_or_default();
     let bytes_uploaded = upload.inner.bytes_uploaded.unwrap_or_default();
     let unknown = "unknown action".to_owned();
@@ -72,7 +95,7 @@ fn get_record(
     } else {
         unknown
     };
-    Record {
+    ActionRecord {
         action: action_str,
         digests_uploaded,
         bytes_uploaded,
@@ -81,7 +104,7 @@ fn get_record(
 
 fn print_uploads(
     output: &mut LogCommandOutputFormatWithWriter,
-    record: &Record,
+    record: &ActionRecord,
 ) -> anyhow::Result<()> {
     match output {
         LogCommandOutputFormatWithWriter::Tabulated(w) => {
@@ -95,6 +118,34 @@ fn print_uploads(
     }
 }
 
+fn print_extension_stats(
+    output: &mut LogCommandOutputFormatWithWriter,
+    stats_by_extension: &HashMap<String, ReUploadMetrics>,
+) -> anyhow::Result<()> {
+    let mut records: Vec<ExtensionRecord> = stats_by_extension
+        .iter()
+        .map(|(ext, m)| ExtensionRecord {
+            extension: ext.to_owned(),
+            bytes_uploaded: m.bytes_uploaded,
+            digests_uploaded: m.digests_uploaded,
+        })
+        .collect();
+    records.sort_by(|a, b| a.bytes_uploaded.cmp(&b.bytes_uploaded));
+    for record in records {
+        match output {
+            LogCommandOutputFormatWithWriter::Tabulated(w) => {
+                w.write_all(format!("{}\n", record).as_bytes())?;
+            }
+            LogCommandOutputFormatWithWriter::Csv(writer) => writer.serialize(record)?,
+            LogCommandOutputFormatWithWriter::Json(w) => {
+                serde_json::to_writer(w, &record)?;
+                buck2_client_ctx::println!("")?;
+            }
+        }
+    }
+    Ok(())
+}
+
 struct ReUploadEvent<'a> {
     pub parent_span_id: u64,
     pub inner: &'a buck2_data::ReUploadEnd,
@@ -102,7 +153,11 @@ struct ReUploadEvent<'a> {
 
 impl WhatUploadedCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let Self { event_log, output } = self;
+        let Self {
+            event_log,
+            output,
+            aggregate_by_extension,
+        } = self;
 
         buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
             {
@@ -119,6 +174,7 @@ impl WhatUploadedCommand {
                     let mut total_digests_uploaded = 0;
                     let mut total_bytes_uploaded = 0;
                     let mut state = HashMap::new();
+                    let mut stats_by_extension: HashMap<String, ReUploadMetrics> = HashMap::new();
                     while let Some(event) = events.try_next().await? {
                         match event {
                             // Insert parent span information so we can refer back to it later.
@@ -141,10 +197,23 @@ impl WhatUploadedCommand {
                                                 parent_span_id: event.parent_id,
                                                 inner: u,
                                             };
-                                            let record = get_record(&state, &upload);
-                                            total_digests_uploaded += record.digests_uploaded;
-                                            total_bytes_uploaded += record.bytes_uploaded;
-                                            print_uploads(&mut output, &record)?;
+                                            if aggregate_by_extension {
+                                                for (extension, metrics) in
+                                                    &upload.inner.stats_by_extension
+                                                {
+                                                    let entry = stats_by_extension
+                                                        .entry(extension.to_owned())
+                                                        .or_default();
+                                                    entry.bytes_uploaded += metrics.bytes_uploaded;
+                                                    entry.digests_uploaded +=
+                                                        metrics.digests_uploaded;
+                                                }
+                                            } else {
+                                                let record = get_action_record(&state, &upload);
+                                                total_digests_uploaded += record.digests_uploaded;
+                                                total_bytes_uploaded += record.bytes_uploaded;
+                                                print_uploads(&mut output, &record)?;
+                                            }
                                         }
                                         _ => {}
                                     }
@@ -154,11 +223,15 @@ impl WhatUploadedCommand {
                             StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
                         }
                     }
-                    buck2_client_ctx::eprintln!(
-                        "total: digests: {}, bytes: {}",
-                        total_digests_uploaded,
-                        total_bytes_uploaded
-                    )?;
+                    if aggregate_by_extension {
+                        print_extension_stats(&mut output, &stats_by_extension)?;
+                    } else {
+                        buck2_client_ctx::eprintln!(
+                            "total: digests: {}, bytes: {}",
+                            total_digests_uploaded,
+                            total_bytes_uploaded
+                        )?;
+                    }
 
                     anyhow::Ok(())
                 })?;
