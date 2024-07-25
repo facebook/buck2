@@ -34,7 +34,6 @@ use crate::user_event_types::try_get_user_event;
 use crate::utils::Encoding;
 use crate::utils::EventLogErrors;
 use crate::utils::Invocation;
-use crate::utils::NoInference;
 use crate::wait_for_child_and_log;
 use crate::writer::EventLogType;
 use crate::writer::NamedEventLogWriter;
@@ -174,12 +173,10 @@ impl WriteEventLog {
         if let Some(extra_path) = maybe_extra_path {
             writers.push(
                 open_event_log_for_writing(
-                    EventLogPathBuf::infer_opt(extra_path.clone())?.unwrap_or_else(
-                        |NoInference(path)| EventLogPathBuf {
-                            path,
-                            encoding: Encoding::JSON_GZIP,
-                        },
-                    ),
+                    EventLogPathBuf::infer_opt(&extra_path)?.unwrap_or_else(|| EventLogPathBuf {
+                        path: extra_path.clone(),
+                        encoding: Encoding::JSON_GZIP,
+                    }),
                     self.log_size_counter_bytes.clone(),
                     EventLogType::System,
                 )
@@ -191,12 +188,12 @@ impl WriteEventLog {
         if let Some(extra_user_event_log_path) = maybe_extra_user_event_log_path {
             writers.push(
                 open_event_log_for_writing(
-                    EventLogPathBuf::infer_opt(extra_user_event_log_path.clone())?.unwrap_or_else(
-                        |NoInference(path)| EventLogPathBuf {
-                            path,
+                    EventLogPathBuf::infer_opt(&extra_user_event_log_path)?.unwrap_or_else(|| {
+                        EventLogPathBuf {
+                            path: extra_user_event_log_path.clone(),
                             encoding: Encoding::JSON,
-                        },
-                    ),
+                        }
+                    }),
                     self.log_size_counter_bytes.clone(),
                     EventLogType::User,
                 )

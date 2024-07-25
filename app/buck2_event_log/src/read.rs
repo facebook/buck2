@@ -47,7 +47,6 @@ use crate::utils::EventLogErrors;
 use crate::utils::EventLogInferenceError;
 use crate::utils::Invocation;
 use crate::utils::LogMode;
-use crate::utils::NoInference;
 use crate::utils::KNOWN_ENCODINGS;
 
 type EventLogReader<'a> = Box<dyn AsyncRead + Send + Sync + Unpin + 'a>;
@@ -130,8 +129,10 @@ pub struct EventLogSummary {
 
 impl EventLogPathBuf {
     pub fn infer(path: AbsPathBuf) -> anyhow::Result<Self> {
-        Self::infer_opt(path)?
-            .map_err(|NoInference(path)| EventLogInferenceError::InvalidExtension(path).into())
+        match Self::infer_opt(&path)? {
+            Some(v) => Ok(v),
+            None => Err(EventLogInferenceError::InvalidExtension(path).into()),
+        }
     }
 
     pub fn path(&self) -> &AbsPath {
@@ -159,21 +160,21 @@ impl EventLogPathBuf {
         TraceId::from_str(uuid).context("Failed to create TraceId from uuid")
     }
 
-    pub(crate) fn infer_opt(path: AbsPathBuf) -> anyhow::Result<Result<Self, NoInference>> {
-        let name = Self::file_name(&path)?;
+    pub(crate) fn infer_opt(path: &AbsPathBuf) -> anyhow::Result<Option<Self>> {
+        let name = Self::file_name(path)?;
 
         for encoding in KNOWN_ENCODINGS {
             for extension in encoding.extensions {
                 if name.ends_with(extension) {
-                    return Ok(Ok(Self {
-                        path,
+                    return Ok(Some(Self {
+                        path: path.clone(),
                         encoding: *encoding,
                     }));
                 }
             }
         }
 
-        Ok(Err(NoInference(path)))
+        Ok(None)
     }
 
     async fn unpack_stream_json<'a>(

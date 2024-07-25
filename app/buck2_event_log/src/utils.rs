@@ -114,8 +114,6 @@ fn display_valid_extensions() -> String {
     exts.join(", ")
 }
 
-pub(crate) struct NoInference(pub(crate) AbsPathBuf);
-
 #[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
 pub(crate) enum LogMode {
     Json,
