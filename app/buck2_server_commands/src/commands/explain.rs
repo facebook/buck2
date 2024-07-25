@@ -9,14 +9,14 @@
 
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
-use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::target::label::label::TargetLabel;
+use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
@@ -69,16 +69,21 @@ pub(crate) async fn explain(
     req: &ExplainRequest,
 ) -> anyhow::Result<ExplainResponse> {
     let configured_target = {
-        let cell_resolver = ctx.get_cell_resolver().await?;
-        let cell_alias_resolver = ctx
-            .get_cell_alias_resolver(cell_resolver.root_cell())
-            .await?;
-        let target_label = TargetLabel::parse(
-            &req.target,
-            cell_resolver.root_cell(),
-            &cell_resolver,
-            &cell_alias_resolver,
-        )?;
+        // TODO iguridi: this is hacky
+        let target_pattern = parse_and_resolve_patterns_to_targets_from_cli_args::<
+            ConfiguredTargetPatternExtra,
+        >(&mut ctx, &[req.target.clone()], server_ctx.working_dir())
+        .await?;
+
+        let target_label = match target_pattern.as_slice() {
+            [p] => &p.target_label,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Expected exactly one target, got {}",
+                    target_pattern.len()
+                ));
+            }
+        };
 
         let target_resolution_config = TargetResolutionConfig::from_args(
             &mut ctx,
@@ -89,7 +94,7 @@ pub(crate) async fn explain(
         .await?;
 
         let configured_targets = target_resolution_config
-            .get_configured_target(&mut ctx, &target_label)
+            .get_configured_target(&mut ctx, target_label)
             .await?;
         if configured_targets.len() != 1 {
             return Err(anyhow::anyhow!(
