@@ -54,7 +54,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
-use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -396,12 +395,16 @@ pub(crate) struct DepFileBundle {
 
 #[async_trait]
 impl IntoRemoteDepFile for DepFileBundle {
-    async fn make_remote_dep_file_entry(
+    fn remote_dep_file_action(&self) -> &ActionDigestAndBlobs {
+        &self.remote_dep_file_action
+    }
+
+    async fn make_remote_dep_file(
         &mut self,
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
-    ) -> anyhow::Result<DepFileEntry> {
+    ) -> anyhow::Result<RemoteDepFile> {
         // Compute the input fingerprint digest if it hasn't been computed already.
         if self.filtered_input_fingerprints.is_none() {
             self.filtered_input_fingerprints = Some(
@@ -416,16 +419,10 @@ impl IntoRemoteDepFile for DepFileBundle {
             );
         }
 
-        let entry = self.common_digests.make_dep_file_entry_proto(
+        Ok(self.common_digests.make_dep_file_entry_proto(
             &self.declared_dep_files,
             self.filtered_input_fingerprints.as_ref().unwrap(),
-        );
-        let res = DepFileEntry {
-            action: self.remote_dep_file_action.clone(),
-            entry,
-        };
-
-        Ok(res)
+        ))
     }
 }
 

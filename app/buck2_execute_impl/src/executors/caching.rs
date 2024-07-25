@@ -31,7 +31,6 @@ use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::CacheUploadResult;
-use buck2_execute::execute::cache_uploader::DepFileEntry;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -216,24 +215,17 @@ impl CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         mut action_result: TActionResult2,
-        dep_file_entry: DepFileEntry,
+        dep_file_bundle: &mut dyn IntoRemoteDepFile,
         error_on_cache_upload: bool,
     ) -> anyhow::Result<CacheUploadOutcome> {
-        let digest = dep_file_entry.action.action;
         let reason = buck2_data::CacheUploadReason::DepFile;
-        let dep_file_tany = TAny {
-            type_url: REMOTE_DEP_FILE_KEY.to_owned(),
-            value: dep_file_entry.entry.encode_to_vec(),
-            ..Default::default()
-        };
-        action_result.execution_metadata.auxiliary_metadata = vec![dep_file_tany];
-
-        let digest_str = digest.to_string();
+        let remote_dep_file_action = dep_file_bundle.remote_dep_file_action().clone();
+        let remote_dep_file_key = remote_dep_file_action.action.to_string();
         span_async(
             buck2_data::CacheUploadStart {
                 key: Some(info.target.as_proto_action_key()),
                 name: Some(info.target.as_proto_action_name()),
-                action_digest: digest_str.clone(),
+                action_digest: remote_dep_file_key.clone(),
                 reason: reason.into(),
             },
             async {
@@ -241,6 +233,20 @@ impl CacheUploader {
                     if let Err(rejected) = self.check_upload_permission().await? {
                         return Ok(rejected);
                     }
+                    let remote_dep_file = dep_file_bundle
+                        .make_remote_dep_file(
+                            info.digest_config,
+                            &self.artifact_fs,
+                            self.materializer.as_ref(),
+                        )
+                        .await?;
+                    let digest = remote_dep_file_action.action;
+                    let dep_file_tany = TAny {
+                        type_url: REMOTE_DEP_FILE_KEY.to_owned(),
+                        value: remote_dep_file.encode_to_vec(),
+                        ..Default::default()
+                    };
+                    action_result.execution_metadata.auxiliary_metadata = vec![dep_file_tany];
 
                     // upload Action to CAS.
                     // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
@@ -249,7 +255,7 @@ impl CacheUploader {
                         .upload_files_and_directories(
                             vec![],
                             vec![],
-                            dep_file_entry.action.blobs.to_inlined_blobs(),
+                            remote_dep_file_action.blobs.to_inlined_blobs(),
                             self.re_use_case,
                         )
                         .await?;
@@ -272,7 +278,7 @@ impl CacheUploader {
                 let cache_upload_end_event = buck2_data::CacheUploadEnd {
                     key: Some(info.target.as_proto_action_key()),
                     name: Some(info.target.as_proto_action_name()),
-                    action_digest: digest_str.clone(),
+                    action_digest: remote_dep_file_key.clone(),
                     success: outcome.uploaded(),
                     error: outcome.error(),
                     re_error_code: outcome.re_error_code(),
@@ -282,7 +288,7 @@ impl CacheUploader {
                     reason: reason.into(),
                 };
                 (
-                    outcome.log_and_create_result(&digest_str, error_on_cache_upload),
+                    outcome.log_and_create_result(&remote_dep_file_key, error_on_cache_upload),
                     Box::new(cache_upload_end_event),
                 )
             },
@@ -598,23 +604,10 @@ impl UploadCache for CacheUploader {
         };
 
         let did_dep_file_cache_upload = match (action_result, dep_file_bundle) {
-            (Some(action_result), Some(dep_file_bundle)) => {
-                let dep_file_entry = dep_file_bundle
-                    .make_remote_dep_file_entry(
-                        info.digest_config,
-                        &self.artifact_fs,
-                        self.materializer.as_ref(),
-                    )
-                    .await?;
-                tracing::debug!(
-                    "Uploading dep file entry for action `{}` with dep file key `{}`",
-                    action_digest_and_blobs.action,
-                    dep_file_entry.action.action,
-                );
-                self.upload_dep_file(info, action_result, dep_file_entry, error_on_cache_upload)
-                    .await?
-                    .uploaded()
-            }
+            (Some(action_result), Some(dep_file_bundle)) => self
+                .upload_dep_file(info, action_result, dep_file_bundle, error_on_cache_upload)
+                .await?
+                .uploaded(),
             (_, _) => {
                 tracing::info!(
                     "Dep file cache upload for `{}` not attempted",

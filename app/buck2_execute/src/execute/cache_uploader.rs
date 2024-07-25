@@ -24,19 +24,16 @@ pub struct CacheUploadInfo<'a> {
     pub digest_config: DigestConfig,
 }
 
-pub struct DepFileEntry {
-    pub action: ActionDigestAndBlobs,
-    pub entry: RemoteDepFile,
-}
-
 #[async_trait]
 pub trait IntoRemoteDepFile: Send {
-    async fn make_remote_dep_file_entry(
+    fn remote_dep_file_action(&self) -> &ActionDigestAndBlobs;
+
+    async fn make_remote_dep_file(
         &mut self,
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
-    ) -> anyhow::Result<DepFileEntry>;
+    ) -> anyhow::Result<RemoteDepFile>;
 }
 
 pub struct CacheUploadResult {
