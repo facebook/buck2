@@ -338,8 +338,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(node.rule_kind)
     /// ```
     #[starlark(attribute)]
-    fn rule_kind(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<String> {
-        Ok(this.0.rule_kind().to_string())
+    fn rule_kind<'v>(
+        this: &'v StarlarkConfiguredTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
 
     /// Returns a List of all the sources used by this node.
