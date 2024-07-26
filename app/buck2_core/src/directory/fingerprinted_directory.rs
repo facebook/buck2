@@ -10,8 +10,8 @@
 use std::fmt;
 
 use crate::directory::directory::Directory;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
+use crate::directory_digest::DirectoryDigest;
 
 pub trait FingerprintedDirectory<L, H>: Directory<L, H> {
     type FingerprintedDirectoryRef<'a>: FingerprintedDirectoryRef<'a, Leaf = L, DirectoryDigest = H>

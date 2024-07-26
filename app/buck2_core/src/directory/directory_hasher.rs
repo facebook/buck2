@@ -8,7 +8,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
@@ -17,18 +16,8 @@ use dupe::Dupe;
 
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
-
-pub trait DirectoryDigest:
-    Allocative + PartialEq + Eq + Hash + Clone + Dupe + Debug + Display
-{
-}
-
-/// Indicates that this type of digest is suitable for use for interning.
-///
-/// Specifically, this is not implemented for `NoDigest`, as that returns the same `()` digest for
-/// all directories.
-pub trait InternableDirectoryDigest: DirectoryDigest {}
 
 // TODO: Rename to DirectoryDigester
 pub trait DirectoryHasher<L, H> {

@@ -15,13 +15,13 @@ use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
 use crate::directory::directory_data::DirectoryData;
-use crate::directory::directory_hasher::DirectoryDigest;
-use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::macros::impl_fingerprinted_directory;
 use crate::directory::shared_directory::SharedDirectory;
+use crate::directory_digest::DirectoryDigest;
+use crate::directory_digest::InternableDirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 

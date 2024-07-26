@@ -14,7 +14,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory::Directory;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
@@ -22,6 +21,7 @@ use crate::directory::entry::DirectoryEntry;
 use crate::directory::walk::OrderedDirectoryWalkType;
 use crate::directory::walk::UnorderedDirectoryWalkType;
 use crate::directory::walk::WalkType;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::IntoFileNameBufIterator;

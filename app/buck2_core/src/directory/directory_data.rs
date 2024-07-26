@@ -14,10 +14,10 @@ use derivative::Derivative;
 use derive_more::Display;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::DirectoryHasher;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileNameBuf;
 
 #[derive(Derivative, Display, Allocative)]

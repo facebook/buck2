@@ -34,6 +34,7 @@ pub mod ci;
 pub mod client_only;
 pub mod configuration;
 pub mod directory;
+pub mod directory_digest;
 pub mod env;
 pub mod execution_types;
 pub mod fs;

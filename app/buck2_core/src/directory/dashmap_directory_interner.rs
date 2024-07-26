@@ -18,11 +18,11 @@ use dupe::Clone_;
 use dupe::Dupe;
 use dupe::Dupe_;
 
-use crate::directory::directory_hasher::DirectoryDigest;
-use crate::directory::directory_hasher::InternableDirectoryDigest;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::directory::shared_directory::SharedDirectoryData;
 use crate::directory::shared_directory::SharedDirectoryInner;
+use crate::directory_digest::DirectoryDigest;
+use crate::directory_digest::InternableDirectoryDigest;
 
 #[derive(Dupe_, Clone_, Allocative)]
 pub struct DashMapDirectoryInterner<L, H>

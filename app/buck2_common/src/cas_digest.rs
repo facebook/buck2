@@ -768,12 +768,9 @@ impl<Kind: CasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind: CasDigestKind> buck2_core::directory::directory_hasher::DirectoryDigest
-    for TrackedCasDigest<Kind>
-{
-}
+impl<Kind: CasDigestKind> buck2_core::directory_digest::DirectoryDigest for TrackedCasDigest<Kind> {}
 
-impl<Kind: CasDigestKind> buck2_core::directory::directory_hasher::InternableDirectoryDigest
+impl<Kind: CasDigestKind> buck2_core::directory_digest::InternableDirectoryDigest
     for TrackedCasDigest<Kind>
 {
 }

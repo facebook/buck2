@@ -18,7 +18,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::directory::directory::Directory;
 use crate::directory::directory_data::DirectoryData;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_hasher::DirectoryHasher;
 use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::directory_ref::DirectoryRef;
@@ -31,6 +30,7 @@ use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryEntries;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::path_accumulator::PathAccumulator;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;

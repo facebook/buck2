@@ -12,7 +12,6 @@ use dupe::Clone_;
 use dupe::Copy_;
 
 use crate::directory::directory::Directory;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
@@ -20,6 +19,7 @@ use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::shared_directory::SharedDirectory;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::file_name::FileNameBuf;
 

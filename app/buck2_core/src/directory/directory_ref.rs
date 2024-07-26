@@ -9,9 +9,9 @@
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::directory::Directory;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 
 pub trait DirectoryRef<'a>: Copy + 'a + Sized {

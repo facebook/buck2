@@ -10,12 +10,12 @@
 use std::fmt;
 
 use crate::directory::builder::DirectoryBuilder;
-use crate::directory::directory_hasher::DirectoryDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::walk::OrderedDirectoryWalk;
 use crate::directory::walk::UnorderedDirectoryWalk;
+use crate::directory_digest::DirectoryDigest;
 use crate::fs::paths::file_name::FileName;
 
 pub type DirectoryEntries<'a, L, H> =
