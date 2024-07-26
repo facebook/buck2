@@ -124,7 +124,7 @@ def buck2_e2e_test(
         test_with_compiled_buck2 = True,
         test_with_deployed_buck2 = False,
         test_with_reverted_buck2 = False,
-        test_with_compiled_buck2_tpx = False,
+        use_compiled_buck2_client_and_tpx = False,
         deps = (),
         env = None,
         skip_for_os = (),
@@ -151,16 +151,16 @@ def buck2_e2e_test(
         Should typically be unset when testing things that are not expected to be disproportionately
         sensitive to buck2 core changes. Unsetting this also simplifies the CI setup, as testing
         with buck2 core requires always using opt mode.
-    test_with_compiled_buck2_tpx:
-        A boolean for whether to run tests with buck2_tpx compiled in-repo or deployed buck2_tpx.
-        Default is False.
-        Deployed buck2 tests will ignore this field and always use deployed buck2_tpx.
     test_with_deployed_buck2:
         A boolean for whether to run tests with the deployed buck2.
         Default is False.
         Should typically be set for tests of UDRs and other things that are not "core buck2 functionality"
     test_with_reverted_buck2:
         Like `test_with_deployed_buck2`, but for the previous version
+    use_compiled_buck2_client_and_tpx:
+        A full prod archive is distinct from a normal build of buck2 in that it uses a client-only
+        binary and additionally makes TPX available. Needed if you want to be able to `buck.test`
+        Default is False.
     """
     kwargs = {
         "base_module": base_module,
@@ -192,7 +192,7 @@ def buck2_e2e_test(
         compiled_env["BUCK2_HARD_ERROR"] = "true"
         compiled_env["BUCK2_TPX"] = "$BUCK2_BINARY_DIR/buck2-tpx"
 
-        if test_with_compiled_buck2_tpx:
+        if use_compiled_buck2_client_and_tpx:
             base_exe = "$(location fbcode//buck2:symlinked_buck2_and_tpx)/buck2"
             exe = select({
                 "DEFAULT": base_exe,
