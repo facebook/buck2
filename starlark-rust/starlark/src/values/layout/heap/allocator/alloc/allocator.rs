@@ -115,7 +115,8 @@ impl ChunkAllocator {
 
         self.replace_chain(next_chain);
 
-        self.try_alloc_fast(len).unwrap()
+        self.try_alloc_fast(len)
+            .expect("try_allow_fast must not fail in alloc_slow")
     }
 }
 
