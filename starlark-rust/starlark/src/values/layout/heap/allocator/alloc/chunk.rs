@@ -145,7 +145,7 @@ impl Chunk {
     pub(crate) fn alloc_at_least(len: AlignedSize) -> Chunk {
         if len == AlignedSize::ZERO {
             Chunk {
-                ptr: NonNull::new(&EMPTY_ALLOC as *const ChunkDataEmpty as *mut ChunkData).unwrap(),
+                ptr: NonNull::<ChunkDataEmpty>::from(&EMPTY_ALLOC).cast::<ChunkData>(),
             }
         } else {
             Self::alloc_at_least_not_empty(len)
