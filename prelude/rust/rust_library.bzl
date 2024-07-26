@@ -43,6 +43,7 @@ load(
     "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "legacy_output_style_to_link_style",
+    "set_link_info_link_whole",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -619,7 +620,6 @@ def _advanced_unstable_link_providers(
     providers = []
 
     dep_ctx = compile_ctx.dep_ctx
-    linker_info = compile_ctx.cxx_toolchain_info.linker_info
 
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
@@ -697,16 +697,7 @@ def _advanced_unstable_link_providers(
         label = ctx.label,
         name = shlib_name,
         link_infos = LinkInfos(
-            default = LinkInfo(
-                linkables = [ArchiveLinkable(
-                    archive = Archive(
-                        artifact = shared_lib_output,
-                    ),
-                    linker_type = linker_info.type,
-                    link_whole = True,
-                )],
-                external_debug_info = link_infos[LibOutputStyle("pic_archive")].default.external_debug_info,
-            ),
+            default = set_link_info_link_whole(link_infos[LibOutputStyle("pic_archive")].default),
         ),
         deps = inherited_graphs,
     )
@@ -804,9 +795,6 @@ def _native_link_providers(
     inherited_link_graphs = rust_link_info.linkable_graphs
     inherited_exported_deps = rust_link_info.exported_link_deps
 
-    linker_info = compile_ctx.cxx_toolchain_info.linker_info
-    linker_type = linker_info.type
-
     providers = []
 
     shared_lib_params = lang_style_param[(LinkageLang("native"), LibOutputStyle("shared_lib"))]
@@ -853,16 +841,7 @@ def _native_link_providers(
         label = ctx.label,
         name = shlib_name,
         link_infos = LinkInfos(
-            default = LinkInfo(
-                linkables = [ArchiveLinkable(
-                    archive = Archive(
-                        artifact = shared_lib_output,
-                    ),
-                    linker_type = linker_type,
-                    link_whole = True,
-                )],
-                external_debug_info = link_infos[LibOutputStyle("pic_archive")].default.external_debug_info,
-            ),
+            default = set_link_info_link_whole(link_infos[LibOutputStyle("pic_archive")].default),
         ),
         deps = inherited_link_graphs,
     )
