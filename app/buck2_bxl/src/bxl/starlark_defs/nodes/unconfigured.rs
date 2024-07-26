@@ -26,6 +26,7 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
@@ -127,8 +128,11 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.rule_type)
     /// ```
     #[starlark(attribute)]
-    fn rule_type(this: &StarlarkTargetNode) -> anyhow::Result<String> {
-        Ok(this.0.rule_type().to_string())
+    fn rule_type<'v>(
+        this: &'v StarlarkTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
 
     /// Gets the targets' corresponding rule's kind which is one of
@@ -143,7 +147,10 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.rule_kind)
     /// ```
     #[starlark(attribute)]
-    fn rule_kind(this: &StarlarkTargetNode) -> anyhow::Result<String> {
-        Ok(this.0.rule_kind().to_string())
+    fn rule_kind<'v>(
+        this: &'v StarlarkTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
 }
