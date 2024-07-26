@@ -9,6 +9,10 @@
 
 use std::iter;
 
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::IntoFileNameBufIterator;
 use either::Either;
 use starlark_map::small_map::SmallMap;
 
@@ -21,10 +25,6 @@ use crate::directory::entry::DirectoryEntry;
 use crate::directory::walk::OrderedDirectoryWalkType;
 use crate::directory::walk::UnorderedDirectoryWalkType;
 use crate::directory::walk::WalkType;
-use crate::directory_digest::DirectoryDigest;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::IntoFileNameBufIterator;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum DirectorySearchError<L> {

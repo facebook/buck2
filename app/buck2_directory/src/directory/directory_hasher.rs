@@ -11,13 +11,13 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::file_name::FileName;
 use derive_more::Display;
 use dupe::Dupe;
 
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
-use crate::directory_digest::DirectoryDigest;
-use crate::fs::paths::file_name::FileName;
 
 // TODO: Rename to DirectoryDigester
 pub trait DirectoryHasher<L, H> {

@@ -8,6 +8,9 @@
  */
 
 use allocative::Allocative;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::directory_digest::InternableDirectoryDigest;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
 
@@ -19,9 +22,6 @@ use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::shared_directory::SharedDirectory;
-use crate::directory_digest::DirectoryDigest;
-use crate::directory_digest::InternableDirectoryDigest;
-use crate::fs::paths::file_name::FileNameBuf;
 
 #[derive(Derivative, Display, Allocative)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]

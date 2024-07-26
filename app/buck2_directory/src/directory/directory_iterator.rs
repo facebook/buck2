@@ -10,8 +10,8 @@
 use std::fmt;
 use std::mem;
 
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 /// A trait shared by iterators on Directories. Unlike a regular Iterator, this returns an accessor
 /// to give us the current path in addition to the current item (which borrows from the iterator

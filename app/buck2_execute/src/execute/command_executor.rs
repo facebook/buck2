@@ -13,12 +13,12 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;

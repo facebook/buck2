@@ -10,6 +10,9 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
@@ -25,9 +28,6 @@ use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::macros::impl_fingerprinted_directory;
-use crate::directory_digest::DirectoryDigest;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
 
 pub type SharedDirectoryData<L, H> = DirectoryData<SharedDirectory<L, H>, L, H>;
 

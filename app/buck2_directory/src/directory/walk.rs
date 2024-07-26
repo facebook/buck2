@@ -10,6 +10,8 @@
 use std::marker::PhantomData;
 use std::vec;
 
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derivative::Derivative;
 
 use crate::directory::directory_iterator::DirectoryIterator;
@@ -17,8 +19,6 @@ use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
 use crate::directory::directory_iterator::DirectoryIteratorPathStack;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 pub trait WalkType<'a> {
     type Leaf: 'a;

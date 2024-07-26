@@ -9,9 +9,9 @@
 
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::directory::directory::Directory;
-use buck2_core::directory::directory_iterator::DirectoryIterator;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;

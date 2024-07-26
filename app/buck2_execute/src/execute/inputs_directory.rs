@@ -8,8 +8,8 @@
  */
 
 use buck2_common::file_ops::FileMetadata;
-use buck2_core::directory::entry::DirectoryEntry;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_directory::directory::entry::DirectoryEntry;
 use dupe::Dupe;
 
 use crate::directory::ActionDirectoryBuilder;

@@ -15,6 +15,11 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::directory_digest::InternableDirectoryDigest;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 
@@ -37,11 +42,6 @@ use crate::directory::find::find_prefix;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::directory::walk::ordered_entry_walk;
-use crate::directory_digest::DirectoryDigest;
-use crate::directory_digest::InternableDirectoryDigest;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 pub struct NopEntry;

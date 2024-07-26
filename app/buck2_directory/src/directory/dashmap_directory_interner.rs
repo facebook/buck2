@@ -11,6 +11,8 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use allocative::Allocative;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::directory_digest::InternableDirectoryDigest;
 use buck2_util::hash::BuckHasherBuilder;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
@@ -21,8 +23,6 @@ use dupe::Dupe_;
 use crate::directory::shared_directory::SharedDirectory;
 use crate::directory::shared_directory::SharedDirectoryData;
 use crate::directory::shared_directory::SharedDirectoryInner;
-use crate::directory_digest::DirectoryDigest;
-use crate::directory_digest::InternableDirectoryDigest;
 
 #[derive(Dupe_, Clone_, Allocative)]
 pub struct DashMapDirectoryInterner<L, H>

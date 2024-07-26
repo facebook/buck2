@@ -1,0 +1,26 @@
+[package]
+edition = "2021"
+license = { workspace = true }
+name = "buck2_directory"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+dashmap = { workspace = true }
+derivative = { workspace = true }
+derive_more = { workspace = true }
+either = { workspace = true }
+
+allocative = { workspace = true }
+dupe = { workspace = true }
+gazebo = { workspace = true }
+sorted_vector_map = { workspace = true }
+starlark_map = { workspace = true }
+
+buck2_core = { workspace = true }
+buck2_error = { workspace = true }
+buck2_util = { workspace = true }
+
+[dev-dependencies]
+assert_matches = "1.5"

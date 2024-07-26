@@ -10,6 +10,11 @@
 use std::mem;
 
 use allocative::Allocative;
+use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::IntoFileNameBufIterator;
 use derivative::Derivative;
 use dupe::Clone_;
 use dupe::Copy_;
@@ -30,11 +35,6 @@ use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryEntries;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::path_accumulator::PathAccumulator;
-use crate::directory_digest::DirectoryDigest;
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::IntoFileNameBufIterator;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum DirectoryInsertError {

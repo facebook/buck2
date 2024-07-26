@@ -9,8 +9,8 @@
 
 use std::fmt;
 
-use crate::fs::paths::file_name::FileName;
-use crate::fs::paths::file_name::FileNameBuf;
+use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 
 /// Accumulate path components in reverse order. This is used to show the path where an issue
 /// occurred in Directory operations.

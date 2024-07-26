@@ -10,11 +10,9 @@ anyhow = { workspace = true }
 arc-swap = { workspace = true }
 blake3 = { workspace = true }
 compact_str = { workspace = true }
-dashmap = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 dunce = { workspace = true }
-either = { workspace = true }
 equivalent = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }
@@ -46,7 +44,6 @@ cmp_any = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 lock_free_hashtable = { workspace = true }
-sorted_vector_map = { workspace = true }
 static_interner = { workspace = true }
 
 buck2_data = { workspace = true }
