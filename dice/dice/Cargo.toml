@@ -34,7 +34,6 @@ static_assertions = { workspace = true }
 take_mut = { workspace = true }
 thiserror = "1.0.36"
 tokio = { version = "1.5", features = ["full"] }
-tokio-stream = { workspace = true }
 tracing = "0.1.22"
 triomphe = { workspace = true }
 typed-arena = { workspace = true }

@@ -187,7 +187,7 @@ pub struct Dice {
 
 impl Dice {
     pub fn builder() -> DiceDataBuilder {
-        DiceDataBuilder(DiceDataBuilderImpl::new_legacy())
+        DiceDataBuilder(DiceDataBuilderImpl::new_modern())
     }
 
     pub fn modern() -> DiceDataBuilder {
@@ -232,7 +232,6 @@ impl Dice {
 
     pub fn which_dice(&self) -> WhichDice {
         match self.implementation {
-            DiceImplementation::Legacy(_) => WhichDice::Legacy,
             DiceImplementation::Modern(_) => WhichDice::Modern,
         }
     }

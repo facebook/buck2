@@ -206,11 +206,6 @@ pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;
 pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>;
 use futures::future::Future;
-use futures::FutureExt;
-use legacy::dice_futures::future_handle::WeakDiceFutureHandle;
-use legacy::incremental::graph::GraphNode;
-use legacy::incremental::transaction_ctx::TransactionCtx;
-use legacy::key::StoragePropertiesForKey;
 use metrics::Metrics;
 use serde::Serializer;
 
@@ -243,21 +238,17 @@ use crate::impls::dice::DiceModernDataBuilder;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::introspection::serialize_dense_graph;
 use crate::introspection::serialize_graph;
-use crate::legacy::DiceLegacy;
-use crate::legacy::DiceLegacyDataBuilder;
 pub use crate::stats::GlobalStats;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 #[derive(Allocative, Debug)]
 pub(crate) enum DiceImplementation {
-    Legacy(Arc<DiceLegacy>),
     Modern(Arc<DiceModern>),
 }
 
 impl DiceImplementation {
     pub fn updater(&self) -> DiceTransactionUpdater {
         match self {
-            DiceImplementation::Legacy(dice) => dice.updater(),
             DiceImplementation::Modern(dice) => {
                 DiceTransactionUpdater(DiceTransactionUpdaterImpl::Modern(dice.updater()))
             }
@@ -266,7 +257,6 @@ impl DiceImplementation {
 
     pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
         match self {
-            DiceImplementation::Legacy(dice) => dice.updater_with_data(extra),
             DiceImplementation::Modern(dice) => DiceTransactionUpdater(
                 DiceTransactionUpdaterImpl::Modern(dice.updater_with_data(extra)),
             ),
@@ -297,21 +287,18 @@ impl DiceImplementation {
 
     fn to_introspectable(&self) -> GraphIntrospectable {
         match self {
-            DiceImplementation::Legacy(dice) => dice.to_introspectable(),
             DiceImplementation::Modern(dice) => dice.to_introspectable(),
         }
     }
 
     pub fn detect_cycles(&self) -> &DetectCycles {
         match self {
-            DiceImplementation::Legacy(dice) => dice.detect_cycles(),
             DiceImplementation::Modern(dice) => dice.detect_cycles(),
         }
     }
 
     pub fn metrics(&self) -> Metrics {
         match self {
-            DiceImplementation::Legacy(dice) => dice.metrics(),
             DiceImplementation::Modern(dice) => dice.metrics(),
         }
     }
@@ -319,43 +306,34 @@ impl DiceImplementation {
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static {
         match self {
-            DiceImplementation::Legacy(dice) => dice.wait_for_idle().left_future(),
-            DiceImplementation::Modern(dice) => dice.wait_for_idle().right_future(),
+            DiceImplementation::Modern(dice) => dice.wait_for_idle(),
         }
     }
 
     pub async fn is_idle(&self) -> bool {
         match self {
-            DiceImplementation::Legacy(dice) => dice.is_idle(),
             DiceImplementation::Modern(dice) => dice.is_idle().await,
         }
     }
 }
 
 pub(crate) enum DiceDataBuilderImpl {
-    Legacy(DiceLegacyDataBuilder),
     Modern(DiceModernDataBuilder),
 }
 
 impl DiceDataBuilderImpl {
-    pub(crate) fn new_legacy() -> Self {
-        Self::Legacy(DiceLegacyDataBuilder::new())
-    }
-
     pub(crate) fn new_modern() -> Self {
         Self::Modern(DiceModernDataBuilder::new())
     }
 
     pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
         match self {
-            DiceDataBuilderImpl::Legacy(d) => d.set(val),
             DiceDataBuilderImpl::Modern(d) => d.set(val),
         }
     }
 
     pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
         Dice::new(match self {
-            DiceDataBuilderImpl::Legacy(d) => DiceImplementation::Legacy(d.build(detect_cycles)),
             DiceDataBuilderImpl::Modern(d) => DiceImplementation::Modern(d.build(detect_cycles)),
         })
     }

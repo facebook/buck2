@@ -181,7 +181,7 @@ impl CoreStateHandle {
 
         // Modern dice can just run on a blocking runtime and block waiting for the channel.
         // This is safe since the processing dice thread is dedicated, and never awaits any other tasks.
-        recv.blocking_recv().unwrap()
+        tokio::task::block_in_place(|| recv.blocking_recv().unwrap())
     }
 }
 

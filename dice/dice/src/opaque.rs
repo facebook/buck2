@@ -13,7 +13,6 @@ use std::fmt::Formatter;
 
 use crate::api::key::Key;
 use crate::impls::opaque::OpaqueValueModern;
-use crate::legacy::opaque::OpaqueValueImplLegacy;
 
 /// Computed value which is not directly visible to user.
 ///
@@ -22,7 +21,6 @@ use crate::legacy::opaque::OpaqueValueImplLegacy;
 /// of a computation which requested the opaqued value,
 /// but the opaque value key is not.
 pub(crate) enum OpaqueValueImpl<K: Key> {
-    Legacy(OpaqueValueImplLegacy<K>),
     Modern(OpaqueValueModern<K>),
 }
 
@@ -33,7 +31,6 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            OpaqueValueImpl::Legacy(delegate) => delegate.fmt(f),
             OpaqueValueImpl::Modern(delegate) => delegate.fmt(f),
         }
     }

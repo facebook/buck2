@@ -69,9 +69,6 @@ impl AsyncEvaluator {
                     .compute(&mut new_ctx, &state.cancellation_ctx().into_compatible())
                     .await;
                 let (recorded_deps, evaluation_data, cycles) = match new_ctx.0 {
-                    DiceComputationsImpl::Legacy(_) => {
-                        unreachable!("modern dice created above")
-                    }
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 

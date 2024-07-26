@@ -14,15 +14,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use cmp_any::PartialEqAny;
-use dupe::IterDupedExt;
-use indexmap::set::IndexSet;
 
-use crate::api::error::DiceError;
-use crate::api::error::DiceResult;
 use crate::api::key::Key;
 
 /// A `Key` that has been requested within Dice.
@@ -68,106 +63,3 @@ impl PartialEq for dyn RequestedKey {
 }
 
 impl Eq for dyn RequestedKey {}
-
-#[derive(Allocative)]
-pub(crate) struct CycleDetector {
-    stack: IndexSet<Arc<dyn RequestedKey>>,
-}
-
-impl CycleDetector {
-    pub(crate) fn new() -> Self {
-        Self {
-            stack: IndexSet::new(),
-        }
-    }
-
-    pub(crate) fn visit<K>(&self, key: &K) -> DiceResult<Self>
-    where
-        K: Allocative + Clone + Debug + Display + Eq + Hash + Send + Sync + 'static,
-    {
-        // quick and dirty cycle detection. we will have to make this more efficient
-        // TODO(bobyf)
-        let mut stack = self.stack.clone();
-        if !stack.insert(Arc::new(key.clone())) {
-            Err(DiceError::cycle(
-                Arc::new(key.clone()),
-                stack.iter().duped().collect(),
-            ))
-        } else {
-            Ok(Self { stack })
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use allocative::Allocative;
-    use derive_more::Display;
-    use dupe::Dupe;
-    use indexmap::indexset;
-
-    use crate::api::error::DiceErrorImpl;
-    use crate::legacy::cycles::CycleDetector;
-    use crate::legacy::cycles::RequestedKey;
-
-    #[derive(Clone, Dupe, Display, Debug, PartialEq, Eq, Hash, Allocative)]
-    struct K(usize);
-
-    #[test]
-    fn cycle_detection_when_no_cycles() -> anyhow::Result<()> {
-        let detector = CycleDetector::new();
-        let detector1 = detector.visit(&K(1))?;
-        let detector12 = detector1.visit(&K(2))?;
-        let detector123 = detector12.visit(&K(3))?;
-        let _detector1234 = detector123.visit(&K(4))?;
-
-        let detector13 = detector1.visit(&K(3))?;
-        let _detector132 = detector13.visit(&K(2))?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn cycle_detection_when_cycles() -> anyhow::Result<()> {
-        let detector = CycleDetector::new();
-        let detector = detector.visit(&K(1))?;
-        let detector = detector.visit(&K(2))?;
-        let detector = detector.visit(&K(3))?;
-        let detector = detector.visit(&K(4))?;
-
-        match detector.visit(&K(1)) {
-            Ok(_) => {
-                panic!("should have cycle error")
-            }
-            Err(e) => match &*e.0 {
-                DiceErrorImpl::Cycle {
-                    cyclic_keys,
-                    trigger,
-                } => {
-                    assert!(
-                        (**trigger).get_key_equality() == K(1).get_key_equality(),
-                        "expected trigger key to be `{}` but was `{}`",
-                        K(1),
-                        trigger
-                    );
-                    assert_eq!(
-                        cyclic_keys,
-                        &indexset![
-                            Arc::new(K(1)) as Arc<dyn RequestedKey>,
-                            Arc::new(K(2)) as Arc<dyn RequestedKey>,
-                            Arc::new(K(3)) as Arc<dyn RequestedKey>,
-                            Arc::new(K(4)) as Arc<dyn RequestedKey>
-                        ]
-                    )
-                }
-                _ => {
-                    panic!("wrong error type")
-                }
-            },
-        }
-
-        Ok(())
-    }
-}

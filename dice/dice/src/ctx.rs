@@ -13,7 +13,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use gazebo::prelude::VecExt;
 use gazebo::variants::UnpackVariants;
 
 use crate::api::computations::DiceComputations;
@@ -25,8 +24,6 @@ use crate::api::user_data::UserComputationData;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::ctx::LinearRecomputeModern;
 use crate::impls::ctx::ModernComputeCtx;
-use crate::legacy::ctx::DiceComputationsImplLegacy;
-use crate::legacy::ctx::LinearRecomputeLegacy;
 use crate::opaque::OpaqueValueImpl;
 use crate::versions::VersionNumber;
 use crate::LinearRecomputeDiceComputations;
@@ -39,7 +36,6 @@ use crate::ProjectionKey;
 /// just forwards calls along.
 #[derive(Allocative, UnpackVariants)]
 pub(crate) enum DiceComputationsImpl<'a> {
-    Legacy(DiceComputationsImplLegacy<'a>),
     Modern(ModernComputeCtx<'a>),
 }
 
@@ -55,8 +51,7 @@ impl<'d> DiceComputationsImpl<'d> {
         K: Key,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.compute(key).left_future(),
-            DiceComputationsImpl::Modern(delegate) => delegate.compute(key).right_future(),
+            DiceComputationsImpl::Modern(delegate) => delegate.compute(key),
         }
     }
 
@@ -72,14 +67,9 @@ impl<'d> DiceComputationsImpl<'d> {
         K: Key,
     {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate
-                .compute_opaque(key)
-                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Legacy(x))))
-                .left_future(),
             DiceComputationsImpl::Modern(delegate) => delegate
                 .compute_opaque(key)
-                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x))))
-                .right_future(),
+                .map(|r| r.map(|x| OpaqueValue::new(OpaqueValueImpl::Modern(x)))),
         }
     }
 
@@ -89,10 +79,6 @@ impl<'d> DiceComputationsImpl<'d> {
         projection_key: &P,
     ) -> DiceResult<P::Value> {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.projection(
-                derive_from.unpack_legacy().expect("engine type mismatch"),
-                projection_key,
-            ),
             DiceComputationsImpl::Modern(delegate) => delegate.projection(
                 derive_from.unpack_modern().expect("engine type mismatch"),
                 projection_key,
@@ -105,8 +91,6 @@ impl<'d> DiceComputationsImpl<'d> {
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => Ok(delegate
-                .opaque_into_value(derive_from.into_legacy().expect("engine type mismatch"))),
             DiceComputationsImpl::Modern(delegate) => Ok(delegate
                 .opaque_into_value(derive_from.into_modern().expect("engine type mismatch"))),
         }
@@ -120,12 +104,7 @@ impl<'d> DiceComputationsImpl<'d> {
         >,
     ) -> Vec<impl Future<Output = T> + 'a> {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate
-                .compute_many(computes)
-                .into_map(|v| v.left_future()),
-            DiceComputationsImpl::Modern(delegate) => delegate
-                .compute_many(computes)
-                .into_map(|v| v.right_future()),
+            DiceComputationsImpl::Modern(delegate) => delegate.compute_many(computes),
         }
     }
 
@@ -135,14 +114,7 @@ impl<'d> DiceComputationsImpl<'d> {
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     ) -> (impl Future<Output = T> + 'a, impl Future<Output = U> + 'a) {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => {
-                let (a, b) = delegate.compute2(compute1, compute2);
-                (a.left_future(), b.left_future())
-            }
-            DiceComputationsImpl::Modern(delegate) => {
-                let (a, b) = delegate.compute2(compute1, compute2);
-                (a.right_future(), b.right_future())
-            }
+            DiceComputationsImpl::Modern(delegate) => delegate.compute2(compute1, compute2),
         }
     }
 
@@ -157,13 +129,8 @@ impl<'d> DiceComputationsImpl<'d> {
         impl Future<Output = V> + 'a,
     ) {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => {
-                let (a, b, c) = delegate.compute3(compute1, compute2, compute3);
-                (a.left_future(), b.left_future(), c.left_future())
-            }
             DiceComputationsImpl::Modern(delegate) => {
-                let (a, b, c) = delegate.compute3(compute1, compute2, compute3);
-                (a.right_future(), b.right_future(), c.right_future())
+                delegate.compute3(compute1, compute2, compute3)
             }
         }
     }
@@ -173,12 +140,7 @@ impl<'d> DiceComputationsImpl<'d> {
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => {
-                delegate.with_linear_recompute(func).left_future()
-            }
-            DiceComputationsImpl::Modern(delegate) => {
-                delegate.with_linear_recompute(func).right_future()
-            }
+            DiceComputationsImpl::Modern(delegate) => delegate.with_linear_recompute(func),
         }
     }
 
@@ -186,7 +148,6 @@ impl<'d> DiceComputationsImpl<'d> {
     /// time that Dice is initialized via the constructor.
     pub(crate) fn global_data(&self) -> &DiceData {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.global_data(),
             DiceComputationsImpl::Modern(delegate) => delegate.global_data(),
         }
     }
@@ -197,42 +158,36 @@ impl<'d> DiceComputationsImpl<'d> {
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.per_transaction_data(),
             DiceComputationsImpl::Modern(delegate) => delegate.per_transaction_data(),
         }
     }
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.cycle_guard(),
             DiceComputationsImpl::Modern(delegate) => delegate.cycle_guard(),
         }
     }
 
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.store_evaluation_data(value),
             DiceComputationsImpl::Modern(delegate) => delegate.store_evaluation_data(value),
         }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         match self {
-            DiceComputationsImpl::Legacy(delegate) => delegate.get_version(),
             DiceComputationsImpl::Modern(delegate) => delegate.get_version(),
         }
     }
 }
 
 pub(crate) enum LinearRecomputeDiceComputationsImpl<'a> {
-    Legacy(LinearRecomputeLegacy<'a>),
     Modern(LinearRecomputeModern<'a>),
 }
 
 impl LinearRecomputeDiceComputationsImpl<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
         match self {
-            LinearRecomputeDiceComputationsImpl::Legacy(delegate) => delegate.get(),
             LinearRecomputeDiceComputationsImpl::Modern(delegate) => delegate.get(),
         }
     }

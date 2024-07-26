@@ -13,12 +13,10 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter;
-use std::sync::Arc;
 
 use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use dupe::Dupe;
-use itertools::Either;
 use serde::de::Error;
 use serde::de::Unexpected;
 use serde::de::Visitor;
@@ -32,34 +30,22 @@ use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::key::DiceKey;
 use crate::introspection::serialize_dense_graph;
 use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
-use crate::legacy::incremental::ErasedEngine;
 use crate::HashMap;
 use crate::HashSet;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub enum GraphIntrospectable {
-    Legacy {
-        #[derivative(Debug = "ignore")]
-        introspectables: LegacyIntrospectable,
-    },
     Modern {
         #[derivative(Debug = "ignore")]
         introspection: ModernIntrospectable,
     },
 }
 
-pub struct LegacyIntrospectable(pub(crate) Vec<Arc<dyn ErasedEngine + Send + Sync + 'static>>);
-
 impl GraphIntrospectable {
     pub(crate) fn introspectables(&self) -> impl Iterator<Item = &dyn EngineForIntrospection> {
         match self {
-            GraphIntrospectable::Legacy { introspectables } => {
-                Either::Left(introspectables.0.iter().map(|e| e.introspect()))
-            }
-            GraphIntrospectable::Modern { introspection } => {
-                Either::Right(iter::once(introspection as _))
-            }
+            GraphIntrospectable::Modern { introspection } => iter::once(introspection as _),
         }
     }
 }
@@ -117,10 +103,6 @@ impl EngineForIntrospection for ModernIntrospectable {
 
     fn len_for_introspection(&self) -> usize {
         self.graph.len_for_introspection()
-    }
-
-    fn currently_running_key_count(&self) -> usize {
-        self.version_data.currently_running_key_count()
     }
 }
 
@@ -253,7 +235,6 @@ pub(crate) trait EngineForIntrospection {
         keys: &'a mut HashMap<AnyKey, KeyID>,
     ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a>;
     fn len_for_introspection(&self) -> usize;
-    fn currently_running_key_count(&self) -> usize;
 }
 
 pub(crate) trait KeyForIntrospection: Display + Send + 'static {

@@ -7,7 +7,4 @@
  * of this source tree.
  */
 
-pub mod dice_future;
 pub mod dice_task;
-pub mod future_handle;
-pub mod sync_handle;

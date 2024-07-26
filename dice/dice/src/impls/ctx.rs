@@ -80,9 +80,6 @@ pub(crate) struct BaseComputeCtx {
 impl Clone for BaseComputeCtx {
     fn clone(&self) -> Self {
         match &self.data.0 {
-            DiceComputationsImpl::Legacy(_) => {
-                unreachable!("wrong dice")
-            }
             DiceComputationsImpl::Modern(modern) => {
                 BaseComputeCtx::clone_for(modern, self.live_version_guard.dupe())
             }
@@ -133,7 +130,6 @@ impl BaseComputeCtx {
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
         DiceTransactionUpdater(match self.data.0 {
-            DiceComputationsImpl::Legacy(_) => unreachable!("modern dice"),
             DiceComputationsImpl::Modern(delegate) => {
                 DiceTransactionUpdaterImpl::Modern(delegate.into_updater())
             }
@@ -154,9 +150,6 @@ impl Deref for BaseComputeCtx {
 
     fn deref(&self) -> &Self::Target {
         match &self.data.0 {
-            DiceComputationsImpl::Legacy(_) => {
-                unreachable!("legacy dice instead of modern")
-            }
             DiceComputationsImpl::Modern(ctx) => ctx,
         }
     }
@@ -165,9 +158,6 @@ impl Deref for BaseComputeCtx {
 impl DerefMut for BaseComputeCtx {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match &mut self.data.0 {
-            DiceComputationsImpl::Legacy(_) => {
-                unreachable!("legacy dice instead of modern")
-            }
             DiceComputationsImpl::Modern(ctx) => ctx,
         }
     }

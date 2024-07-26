@@ -13,7 +13,6 @@ use std::fmt::Formatter;
 
 use crate::api::key::Key;
 use crate::impls::opaque::OpaqueValueModern;
-use crate::legacy::opaque::OpaqueValueImplLegacy;
 use crate::opaque::OpaqueValueImpl;
 
 /// Computed value which is not directly visible to user.
@@ -41,30 +40,14 @@ impl<K: Key> OpaqueValue<K> {
         Self { implementation }
     }
 
-    pub(crate) fn unpack_legacy(&self) -> Option<&OpaqueValueImplLegacy<K>> {
-        match &self.implementation {
-            OpaqueValueImpl::Legacy(v) => Some(v),
-            OpaqueValueImpl::Modern(_) => None,
-        }
-    }
-
     pub(crate) fn unpack_modern(&self) -> Option<&OpaqueValueModern<K>> {
         match &self.implementation {
-            OpaqueValueImpl::Legacy(_) => None,
             OpaqueValueImpl::Modern(v) => Some(v),
-        }
-    }
-
-    pub(crate) fn into_legacy(self) -> Option<OpaqueValueImplLegacy<K>> {
-        match self.implementation {
-            OpaqueValueImpl::Legacy(v) => Some(v),
-            OpaqueValueImpl::Modern(_) => None,
         }
     }
 
     pub(crate) fn into_modern(self) -> Option<OpaqueValueModern<K>> {
         match self.implementation {
-            OpaqueValueImpl::Legacy(_) => None,
             OpaqueValueImpl::Modern(v) => Some(v),
         }
     }

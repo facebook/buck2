@@ -221,19 +221,6 @@ pub(crate) mod introspection {
                 })
                 .collect()
         }
-
-        pub(crate) fn currently_running_key_count(&self) -> usize {
-            self.0
-                .iter()
-                .flat_map(|(_, cache)| {
-                    cache.iter().filter(|(_, state)| match state {
-                        DiceTaskStateForDebugging::AsyncInProgress => true,
-                        DiceTaskStateForDebugging::SyncInProgress => true,
-                        _ => false,
-                    })
-                })
-                .count()
-        }
     }
 
     impl VersionTracker {

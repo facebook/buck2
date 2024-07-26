@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use allocative::Allocative;
 use dupe::Dupe;
 
 #[derive(Debug, Clone, Copy, Dupe)]
@@ -18,13 +17,6 @@ pub(crate) enum DiceTaskStateForDebugging {
     AsyncInProgress,
     /// Weak handle is empty.
     AsyncDropped,
-    /// Sync task finished.
-    SyncReady,
     /// Sync in progress.
     SyncInProgress,
-}
-
-/// Marker trait for a task currently executed in `IncrementalEngine`.
-pub(crate) trait DiceTask: Allocative + Send + Sync + 'static {
-    fn state_for_debugging(&self) -> DiceTaskStateForDebugging;
 }

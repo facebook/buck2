@@ -265,10 +265,6 @@ impl Display for VersionRanges {
 }
 
 impl VersionRanges {
-    pub(crate) fn new() -> Self {
-        Self(Default::default())
-    }
-
     /// Returns the last range if this is non-empty.
     pub(crate) fn last(&self) -> Option<VersionRange> {
         self.0.last().copied()
@@ -553,12 +549,12 @@ impl VersionRanges {
 
 #[cfg(test)]
 impl VersionRanges {
-    pub(crate) fn testing_new(ranges: Vec<VersionRange>) -> Self {
-        Self(ranges)
+    pub(crate) fn new() -> Self {
+        Self(Default::default())
     }
 
-    pub(crate) fn ranges(&self) -> &Vec<VersionRange> {
-        &self.0
+    pub(crate) fn testing_new(ranges: Vec<VersionRange>) -> Self {
+        Self(ranges)
     }
 }
 

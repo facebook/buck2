@@ -10,16 +10,12 @@
 use std::future::Future;
 
 use allocative::Allocative;
-use dupe::Dupe;
 use futures::FutureExt;
 
-use crate::api::computations::DiceComputations;
 use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationsImpl;
 use crate::impls::transaction::TransactionUpdater;
-use crate::legacy::ctx::DiceComputationsImplLegacy;
 use crate::transaction::DiceTransactionImpl;
 use crate::DiceTransaction;
 
@@ -27,24 +23,15 @@ use crate::DiceTransaction;
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
 pub(crate) enum DiceTransactionUpdaterImpl {
-    Legacy(DiceComputationsImplLegacy<'static>),
-    #[allow(unused)]
     Modern(TransactionUpdater),
 }
 
 impl DiceTransactionUpdaterImpl {
     pub(crate) fn existing_state(&self) -> impl Future<Output = DiceTransaction> + '_ {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => {
-                futures::future::ready(DiceTransaction(DiceTransactionImpl::Legacy(
-                    DiceComputations(DiceComputationsImpl::Legacy(ctx.dupe())),
-                )))
-                .left_future()
-            }
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .existing_state()
-                .map(|d| DiceTransaction(DiceTransactionImpl::Modern(d)))
-                .right_future(),
+                .map(|d| DiceTransaction(DiceTransactionImpl::Modern(d))),
         }
     }
 
@@ -56,7 +43,6 @@ impl DiceTransactionUpdaterImpl {
         I: IntoIterator<Item = K> + Send + Sync + 'static,
     {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => ctx.changed(changed),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed(changed),
         }
     }
@@ -74,7 +60,6 @@ impl DiceTransactionUpdaterImpl {
         I: IntoIterator<Item = (K, K::Value)> + Send + Sync + 'static,
     {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(ctx) => ctx.changed_to(changed),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate.changed_to(changed),
         }
     }
@@ -82,14 +67,9 @@ impl DiceTransactionUpdaterImpl {
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub(crate) fn commit(self) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(delegate) => delegate
-                .commit()
-                .map(|x| DiceTransaction(DiceTransactionImpl::Legacy(x)))
-                .left_future(),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit()
-                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
-                .right_future(),
+                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x))),
         }
     }
 
@@ -100,14 +80,9 @@ impl DiceTransactionUpdaterImpl {
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(delegate) => delegate
-                .commit_with_data(extra)
-                .map(|x| DiceTransaction(DiceTransactionImpl::Legacy(x)))
-                .left_future(),
             DiceTransactionUpdaterImpl::Modern(delegate) => delegate
                 .commit_with_data(extra)
-                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x)))
-                .right_future(),
+                .map(|x| DiceTransaction(DiceTransactionImpl::Modern(x))),
         }
     }
 
@@ -118,10 +93,6 @@ impl DiceTransactionUpdaterImpl {
     // TODO(cjhopman): Why is this named take when it doesn't return the taken data? It should be named clear.
     pub fn unstable_take(self) -> Self {
         match self {
-            DiceTransactionUpdaterImpl::Legacy(delegate) => {
-                delegate.unstable_clear();
-                DiceTransactionUpdaterImpl::Legacy(delegate)
-            }
             DiceTransactionUpdaterImpl::Modern(delegate) => {
                 delegate.unstable_take();
                 DiceTransactionUpdaterImpl::Modern(delegate)

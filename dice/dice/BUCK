@@ -35,7 +35,6 @@ rust_library(
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:triomphe",
         "fbsource//third-party/rust:typed-arena",
