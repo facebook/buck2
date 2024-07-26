@@ -194,8 +194,6 @@ CxxRuleConstructorParams = record(
     extra_linker_outputs_factory = field(typing.Callable, lambda _context: ([], {})),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
-    # The target triple to use when generating shared library interfaces
-    shared_library_interface_target = field([str, None], None),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.
     extra_shared_library_interfaces = field([list[Artifact], None], None),
     # Compiler flags

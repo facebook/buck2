@@ -8,6 +8,7 @@
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet", "make_artifact_tset", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorInfo")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_triple")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:lazy.bzl", "lazy")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -92,7 +93,7 @@ def shared_library_interface(
             identifier = shared_lib.short_path,
         )
 
-def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHeader], exported_preprocessor: CPreprocessor, transitive_preprocessor: list[CPreprocessorInfo], target: str) -> Artifact:
+def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHeader], exported_preprocessor: CPreprocessor, transitive_preprocessor: list[CPreprocessorInfo]) -> Artifact:
     # Use the c++ compiler to correctly generate c++ symbols.
     compiler_info = get_cxx_toolchain_info(ctx).cxx_compiler_info
 
@@ -141,7 +142,7 @@ def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHead
         "-o",
         output_file.as_output(),
         "--target",
-        target,
+        get_target_triple(ctx),
     ])
     args.add(cmd_args(compiler_info.preprocessor_flags, prepend = "-Xparser"))
     args.add(cmd_args(compiler_info.compiler_flags, prepend = "-Xparser"))
@@ -162,7 +163,7 @@ def generate_exported_symbols(ctx: AnalysisContext, exported_headers: list[CHead
 
     return output_file
 
-def generate_tbd_with_symbols(ctx: AnalysisContext, soname: str, exported_symbol_inputs: ArtifactTSet, links: list[ArgLike], target: str) -> Artifact:
+def generate_tbd_with_symbols(ctx: AnalysisContext, soname: str, exported_symbol_inputs: ArtifactTSet, links: list[ArgLike]) -> Artifact:
     # Use arglists for the inputs, otherwise we will overflow ARGMAX
     symbol_args = project_artifacts(ctx.actions, [exported_symbol_inputs])
     input_argfile, _ = ctx.actions.write("__tbd__/" + ctx.attrs.name + ".symbols.filelist", symbol_args, allow_args = True)
@@ -179,7 +180,7 @@ def generate_tbd_with_symbols(ctx: AnalysisContext, soname: str, exported_symbol
         "--symbols-filelist",
         input_argfile,
         "--target",
-        target,
+        get_target_triple(ctx),
         "-o",
         tbd_file.as_output(),
         hidden = symbol_args,

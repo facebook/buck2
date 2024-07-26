@@ -449,8 +449,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Shared library interfaces are partial lists of exported symbols that are merged at link time.
     exported_symbol_outputs = impl_params.extra_shared_library_interfaces if impl_params.extra_shared_library_interfaces else []
-    if impl_params.shared_library_interface_target and \
-       cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
+    if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         transitive_pp = inherited_exported_preprocessor_infos
         if _attr_reexport_all_header_dependencies(ctx):
             transitive_pp += inherited_non_exported_preprocessor_infos
@@ -460,7 +459,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             cxx_attr_exported_headers(ctx, impl_params.headers_layout),
             own_exported_preprocessor_info,
             transitive_pp,
-            impl_params.shared_library_interface_target,
         )
         exported_symbol_outputs.append(cxx_exported_symbols)
         sub_targets["exported-symbols"] = [DefaultInfo(default_outputs = exported_symbol_outputs)]
@@ -1536,11 +1534,11 @@ def _shared_library(
             # to wait for dependent libraries to link.
             # If the provider is missing this is a non apple_library target,
             # so skip producing the interface.
-            if shared_interface_info != None and impl_params.shared_library_interface_target != None:
+            if shared_interface_info != None:
                 # collect the linker args which are required
                 # to correctly set symbol visibility.
                 link_args = [unpack_link_args(link) for link in links]
-                exported_shlib = generate_tbd_with_symbols(ctx, soname, shared_interface_info.interfaces, link_args, impl_params.shared_library_interface_target)
+                exported_shlib = generate_tbd_with_symbols(ctx, soname, shared_interface_info.interfaces, link_args)
         elif not gnu_use_link_groups:
             # TODO(agallagher): There's a bug in shlib intfs interacting with link
             # groups, where we don't include the symbols we're meant to export from
