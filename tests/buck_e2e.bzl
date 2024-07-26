@@ -133,22 +133,22 @@ def buck_e2e_test(
 
 def buck2_e2e_test(
         name,
-        contacts = None,
-        use_buck_api = True,
         test_with_compiled_buck2 = True,
         test_with_deployed_buck2 = False,
         test_with_reverted_buck2 = False,
         test_with_compiled_buck2_tpx = False,
         test_with_resource_control = False,
+        deps = (),
+        env = None,
+        skip_for_os = (),
+        use_buck_api = True,
+        contacts = None,
         base_module = None,
         data = None,
         data_dir = None,
         srcs = (),
         tags = (),
-        deps = (),
-        env = None,
         resources = None,
-        skip_for_os = (),
         pytest_config = None,
         pytest_marks = None,
         pytest_expr = None,
@@ -173,6 +173,23 @@ def buck2_e2e_test(
         Default is False.
         Deployed buck2 tests will ignore this field and always use deployed buck2_tpx.
     """
+    kwargs = {
+        "base_module": base_module,
+        "contacts": contacts,
+        "data": data,
+        "data_dir": data_dir,
+        "pytest_confcutdir": pytest_confcutdir,
+        "pytest_config": pytest_config,
+        "pytest_expr": pytest_expr,
+        "pytest_marks": pytest_marks,
+        "require_nano_prelude": require_nano_prelude,
+        "resources": resources,
+        "serialize_test_cases": serialize_test_cases,
+        "srcs": srcs,
+        "tags": tags,
+        "use_buck_api": use_buck_api,
+    }
+
     env = env or {}
     if not test_with_compiled_buck2 and not test_with_deployed_buck2:
         fail("Must set one of `test_with_compiled_buck2` or `test_with_deployed_buck2` for " + name)
@@ -188,51 +205,28 @@ def buck2_e2e_test(
 
     if test_with_compiled_buck2:
         buck_e2e_test(
+            # deployed buck2 test target retains the original target name so that when user runs `buck test <test target>`,
+            # it only runs the deployed buck2 tests and not the compiled buck2 tests.
+            # This will make it much quicker for rule writers to run their tests locally.
             name = name + ("_with_compiled_buck2" if test_with_deployed_buck2 else ""),
-            executable_type = "buck2",
-            executable = "$(location fbcode//buck2:buck2)",
-            use_buck_api = use_buck_api,
-            base_module = base_module,
-            data = data,
-            data_dir = data_dir,
-            srcs = srcs,
-            tags = tags,
-            deps = deps,
-            contacts = contacts,
             env = compiled_env,
-            resources = resources,
+            executable = "$(location fbcode//buck2:buck2)",
+            executable_type = "buck2",
             skip_for_os = skip_for_os,
-            pytest_config = pytest_config,
-            pytest_marks = pytest_marks,
-            pytest_expr = pytest_expr,
-            pytest_confcutdir = pytest_confcutdir,
-            serialize_test_cases = serialize_test_cases,
-            require_nano_prelude = require_nano_prelude,
+            deps = deps,
+            **kwargs
         )
 
     if test_with_resource_control:
         compiled_rc_env, compiled_rc_skip_for_os = _resource_control_test_config(compiled_env, skip_for_os)
         buck_e2e_test(
             name = name + ("_with_compiled_buck2_with_resource_control" if test_with_deployed_buck2 else "_with_resource_control"),
-            executable_type = "buck2",
-            executable = "$(location fbcode//buck2:buck2)",
-            use_buck_api = use_buck_api,
-            base_module = base_module,
-            data = data,
-            data_dir = data_dir,
-            srcs = srcs,
-            tags = tags,
-            deps = deps,
-            contacts = contacts,
             env = compiled_rc_env,
-            resources = resources,
+            executable = "$(location fbcode//buck2:buck2)",
+            executable_type = "buck2",
             skip_for_os = compiled_rc_skip_for_os,
-            pytest_config = pytest_config,
-            pytest_marks = pytest_marks,
-            pytest_expr = pytest_expr,
-            pytest_confcutdir = pytest_confcutdir,
-            serialize_test_cases = serialize_test_cases,
-            require_nano_prelude = require_nano_prelude,
+            deps = deps,
+            **kwargs
         )
 
     if test_with_deployed_buck2:
@@ -241,29 +235,13 @@ def buck2_e2e_test(
         # Add a buck2 version file as dep so we can run deployed buck2 tests on version bumps.
         deps.append("fbsource//tools/buck2-versions:stable")
         buck_e2e_test(
-            # deployed buck2 test target retains the original target name so that when user runs `buck test <test target>`,
-            # it only runs the deployed buck2 tests and not the compiled buck2 tests.
-            # This will make it much quicker for rule writers to run their tests locally.
             name = name,
-            executable_type = "buck2",
-            executable = "buck2",
-            use_buck_api = use_buck_api,
-            base_module = base_module,
-            data = data,
-            data_dir = data_dir,
-            srcs = srcs,
-            tags = tags,
-            deps = deps,
-            contacts = contacts,
             env = deployed_env,
-            resources = resources,
+            executable = "buck2",
+            executable_type = "buck2",
             skip_for_os = skip_for_os,
-            pytest_config = pytest_config,
-            pytest_marks = pytest_marks,
-            pytest_expr = pytest_expr,
-            pytest_confcutdir = pytest_confcutdir,
-            serialize_test_cases = serialize_test_cases,
-            require_nano_prelude = require_nano_prelude,
+            deps = deps,
+            **kwargs
         )
 
     if test_with_reverted_buck2:
@@ -271,21 +249,10 @@ def buck2_e2e_test(
         previous_env["BUCK2_CHANNEL"] = "previous"
         buck_e2e_test(
             name = name + "_with_reverted_buck2",
-            executable_type = "buck2",
-            executable = "buck2",
-            base_module = base_module,
-            data = data,
-            data_dir = data_dir,
-            srcs = srcs,
-            tags = tags,
-            deps = deps,
             env = previous_env,
-            resources = resources,
+            executable = "buck2",
+            executable_type = "buck2",
             skip_for_os = skip_for_os,
-            pytest_config = pytest_config,
-            pytest_marks = pytest_marks,
-            pytest_expr = pytest_expr,
-            pytest_confcutdir = pytest_confcutdir,
-            serialize_test_cases = serialize_test_cases,
-            require_nano_prelude = require_nano_prelude,
+            deps = deps,
+            **kwargs
         )
