@@ -706,6 +706,21 @@ pub fn open_file<P: AsRef<AbsPath>>(path: P) -> Result<FileReadGuard, IoError> {
     })
 }
 
+pub fn open_file_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<FileReadGuard>, IoError> {
+    let guard = IoCounterKey::Read.guard();
+    let Some(file) = make_error!(
+        if_exists(File::open(path.as_ref().as_maybe_relativized())),
+        format!("open_file({})", P::as_ref(&path).display()),
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(FileReadGuard {
+        file,
+        _guard: guard,
+    }))
+}
+
 // Create a relative path in a cross-patform way, we need this since RelativePath fails when
 // converting backslashes which means windows paths end up failing. RelativePathBuf doesn't have
 // this problem and we can easily coerce it into a RelativePath.
