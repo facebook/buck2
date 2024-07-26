@@ -122,15 +122,18 @@ impl AlignedSize {
 impl Add for AlignedSize {
     type Output = AlignedSize;
 
+    #[track_caller]
     #[inline]
     fn add(self, rhs: AlignedSize) -> AlignedSize {
-        AlignedSize::new_bytes(self.bytes.checked_add(rhs.bytes).unwrap() as usize)
+        let bytes = self.bytes.checked_add(rhs.bytes).unwrap();
+        AlignedSize { bytes }
     }
 }
 
 impl Sub for AlignedSize {
     type Output = AlignedSize;
 
+    #[track_caller]
     #[inline]
     fn sub(self, rhs: AlignedSize) -> AlignedSize {
         let bytes = self.bytes.checked_sub(rhs.bytes).unwrap();
@@ -141,6 +144,7 @@ impl Sub for AlignedSize {
 impl Mul<u32> for AlignedSize {
     type Output = AlignedSize;
 
+    #[track_caller]
     #[inline]
     fn mul(self, rhs: u32) -> Self::Output {
         let bytes = self.bytes.checked_mul(rhs).unwrap();
