@@ -25,6 +25,7 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 use either::Either;
+use starlark_syntax::value_error;
 
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -64,6 +65,19 @@ where
             Some(ValueTypedComplex(value, PhantomData))
         } else {
             None
+        }
+    }
+
+    /// Downcast.
+    pub fn new_err(value: Value<'v>) -> anyhow::Result<Self> {
+        match Self::new(value) {
+            Some(v) => Ok(v),
+            None => Err(value_error!(
+                "Expected value of type `{}`, got: `{}`",
+                T::TYPE,
+                value.to_string_for_type_error()
+            )
+            .into_anyhow()),
         }
     }
 

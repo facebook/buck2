@@ -285,3 +285,20 @@ macro_rules! other_error {
         )
     };
 }
+
+#[macro_export]
+macro_rules! value_error {
+    ($format:literal) => {
+        value_error!($format,)
+    };
+    ($format:literal, $($args:expr),*) => {
+        $crate::Error::new(
+            $crate::ErrorKind::Value(
+                anyhow::anyhow!(
+                    $format,
+                    $($args),*
+                )
+            )
+        )
+    };
+}
