@@ -23,6 +23,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 
 use crate::analysis::registry::AnalysisValueStorage;
 use crate::analysis::registry::FrozenAnalysisValueStorage;
@@ -32,7 +33,7 @@ use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 #[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct AnalysisExtraValue<'v> {
     /// Populated after running rule function to get the providers frozen.
-    pub provider_collection: OnceCell<ValueTyped<'v, ProviderCollection<'v>>>,
+    pub provider_collection: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
     pub(crate) analysis_value_storage: OnceCell<ValueTyped<'v, AnalysisValueStorage<'v>>>,
 }
 

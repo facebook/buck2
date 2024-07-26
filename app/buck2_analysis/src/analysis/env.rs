@@ -49,6 +49,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
 use crate::analysis::plugins::plugins_to_starlark_value;
@@ -336,9 +337,11 @@ async fn run_analysis_with_env_underlying(
         if extra_v.provider_collection.get().is_some() {
             return Err(internal_error!("provider_collection already set"));
         }
+        let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
+            .internal_error("Just allocated provider collection")?;
         extra_v
             .provider_collection
-            .get_or_init(|| env.heap().alloc_typed(res_typed));
+            .get_or_init(|| provider_collection);
     }
 
     // Pull the ctx object back out, and steal ctx.action's state back
