@@ -103,7 +103,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
         path: &ConfigPath,
     ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>> {
         let path = path.resolve_absolute(&self.project_fs);
-        let f = std::fs::File::open(&path).with_context(|| format!("Reading file `{:?}`", path))?;
+        let f = fs_util::open_file(&path).with_context(|| format!("Reading file `{:?}`", path))?;
         let file = std::io::BufReader::new(f);
         Ok(Box::new(file.lines()))
     }
