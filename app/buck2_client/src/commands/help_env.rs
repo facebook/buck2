@@ -31,6 +31,11 @@ impl HelpEnvCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
         // TODO(nga): print special buckconfigs too.
 
+        // This command depends on `linkme` aggregating all the environment variables.
+        if let Some(res) = ExitResult::retry_command_with_full_binary()? {
+            return res;
+        }
+
         let mut env_info: Vec<EnvInfoEntry> = ENV_INFO
             .iter()
             .copied()
