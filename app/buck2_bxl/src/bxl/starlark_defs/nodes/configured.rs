@@ -65,6 +65,7 @@ use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -318,8 +319,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(node.rule_type)
     /// ```
     #[starlark(attribute)]
-    fn rule_type(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<String> {
-        Ok(this.0.rule_type().to_string())
+    fn rule_type<'v>(
+        this: &'v StarlarkConfiguredTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
 
     /// Gets the targets' corresponding rule's kind which is one of
