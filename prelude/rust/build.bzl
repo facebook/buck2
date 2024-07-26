@@ -28,8 +28,11 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
+    "LinkInfos",  # @unused Used as a type
     "LinkStrategy",  # @unused Used as a type
+    "create_merged_link_info",
     "get_link_args_for_strategy",
 )
 load(
@@ -38,6 +41,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
+load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
@@ -276,8 +280,8 @@ def generate_rustdoc_coverage(
 def generate_rustdoc_test(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        link_strategy: LinkStrategy,
         rlib: Artifact,
+        link_infos: dict[LibOutputStyle, LinkInfos],
         params: BuildParams,
         default_roots: list[str]) -> cmd_args:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
@@ -304,7 +308,7 @@ def generate_rustdoc_test(
 
     # Gather and setup symlink tree of transitive shared library deps.
     shared_libs = []
-    if link_strategy == LinkStrategy("shared"):
+    if params.dep_link_strategy == LinkStrategy("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
@@ -337,8 +341,17 @@ def generate_rustdoc_test(
             LinkArgs(flags = executable_args.extra_link_args),
             get_link_args_for_strategy(
                 ctx,
-                inherited_merged_link_infos(ctx, doc_dep_ctx),
-                link_strategy,
+                # Since we pass the rlib in and treat it as a dependency to the rustdoc test harness,
+                # we need to ensure that the rlib's link info is added to the linker, otherwise we may
+                # end up with missing symbols that are defined within the crate.
+                [create_merged_link_info(
+                    ctx,
+                    compile_ctx.cxx_toolchain_info.pic_behavior,
+                    link_infos,
+                    deps = inherited_merged_link_infos(ctx, doc_dep_ctx),
+                    preferred_linkage = Linkage("static"),
+                )],
+                params.dep_link_strategy,
             ),
         ],
         "{}-{}".format(common_args.subdir, common_args.tempfile),

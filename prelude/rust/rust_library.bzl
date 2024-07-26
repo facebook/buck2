@@ -176,6 +176,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rust_param_artifact = rust_param_artifact,
     )
 
+    link_infos = _link_infos(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        lang_style_param = lang_style_param,
+        param_artifact = native_param_artifact,
+    )
+
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
     # target are handled
@@ -257,8 +264,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     rustdoc_test = generate_rustdoc_test(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        link_strategy = rustdoc_test_params.dep_link_strategy,
         rlib = rust_param_artifact[static_library_params][MetadataKind("link")].output,
+        link_infos = link_infos,
         params = rustdoc_test_params,
         default_roots = default_roots,
     )
@@ -314,32 +321,24 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx = ctx,
             rust_artifacts = rust_artifacts,
         )
-    else:
-        link_infos = _link_infos(
+    elif toolchain_info.advanced_unstable_linking:
+        providers += _advanced_unstable_link_providers(
             ctx = ctx,
             compile_ctx = compile_ctx,
             lang_style_param = lang_style_param,
-            param_artifact = native_param_artifact,
+            rust_artifacts = rust_artifacts,
+            native_param_artifact = native_param_artifact,
+            link_infos = link_infos,
         )
-
-        if toolchain_info.advanced_unstable_linking:
-            providers += _advanced_unstable_link_providers(
-                ctx = ctx,
-                compile_ctx = compile_ctx,
-                lang_style_param = lang_style_param,
-                rust_artifacts = rust_artifacts,
-                native_param_artifact = native_param_artifact,
-                link_infos = link_infos,
-            )
-        else:
-            providers += _stable_link_providers(
-                ctx = ctx,
-                compile_ctx = compile_ctx,
-                lang_style_param = lang_style_param,
-                rust_artifacts = rust_artifacts,
-                native_param_artifact = native_param_artifact,
-                link_infos = link_infos,
-            )
+    else:
+        providers += _stable_link_providers(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            lang_style_param = lang_style_param,
+            rust_artifacts = rust_artifacts,
+            native_param_artifact = native_param_artifact,
+            link_infos = link_infos,
+        )
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(ResourceInfo(resources = gather_resources(
