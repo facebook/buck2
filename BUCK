@@ -17,4 +17,5 @@ symlinked_buck2_and_tpx(
     buck2 = "//buck2:buck2",
     buck2_client = "//buck2/app/buck2:buck2_client-bin",
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
+    visibility = ["PUBLIC"],
 ) if is_buck2() else None

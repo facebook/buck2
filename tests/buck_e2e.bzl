@@ -183,23 +183,31 @@ def buck2_e2e_test(
     if not test_with_compiled_buck2 and not test_with_deployed_buck2:
         fail("Must set one of `test_with_compiled_buck2` or `test_with_deployed_buck2` for " + name)
 
-    compiled_env = dict(env)
-    compiled_env["BUCK2_HARD_ERROR"] = "true"
-    if test_with_compiled_buck2_tpx:
-        compiled_env["BUCK2_TPX"] = "$(location fbcode//buck2/buck2_tpx_cli:buck2_tpx_cli)"
-
     # soft errors should always be allowed on tests with deployed buck2, or with reverted buck
     deployed_env = dict(env)
     deployed_env["BUCK2_HARD_ERROR"] = "false"
 
     if test_with_compiled_buck2:
+        compiled_env = dict(env)
+        compiled_env["BUCK2_HARD_ERROR"] = "true"
+        compiled_env["BUCK2_TPX"] = "$BUCK2_BINARY_DIR/buck2-tpx"
+
+        if test_with_compiled_buck2_tpx:
+            base_exe = "$(location fbcode//buck2:symlinked_buck2_and_tpx)/buck2"
+            exe = select({
+                "DEFAULT": base_exe,
+                "ovr_config//os:windows": base_exe + ".exe",
+            })
+        else:
+            exe = "$(location fbcode//buck2:buck2)"
+
         buck_e2e_test(
             # deployed buck2 test target retains the original target name so that when user runs `buck test <test target>`,
             # it only runs the deployed buck2 tests and not the compiled buck2 tests.
             # This will make it much quicker for rule writers to run their tests locally.
             name = name + ("_with_compiled_buck2" if test_with_deployed_buck2 else ""),
             env = compiled_env,
-            executable = "$(location fbcode//buck2:buck2)",
+            executable = exe,
             executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
