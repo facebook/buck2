@@ -85,7 +85,7 @@ impl DiceFileComputations {
     /// Does not check if the path is ignored
     ///
     /// TODO(cjhopman): error on ignored paths, maybe.
-    async fn read_file_if_exists(
+    pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> anyhow::Result<Option<String>> {

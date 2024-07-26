@@ -115,15 +115,14 @@ impl LegacyConfigParser {
         follow_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
     ) -> anyhow::Result<()> {
-        if file_ops.file_exists(path).await? {
-            let mut file_parser = LegacyConfigFileParser::new(self);
-            file_parser.start_file(path, source)?;
-            file_parser
-                .parse_file_on_stack(path, follow_includes, file_ops)
-                .await
-                .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
-            file_parser.finish_file();
-        }
+        let mut file_parser = LegacyConfigFileParser::new(self);
+        file_parser.start_file(path, source)?;
+        file_parser
+            .parse_file_on_stack(path, follow_includes, file_ops)
+            .await
+            .with_context(|| format!("Error parsing buckconfig `{}`", path))?;
+        file_parser.finish_file();
+
         Ok(())
     }
 
@@ -240,16 +239,20 @@ impl<'p> LegacyConfigFileParser<'p> {
         }
     }
 
+    /// Return value indicates whether the file existed or not
     fn parse_file_on_stack<'a>(
         &'a mut self,
         config_path: &'a ConfigPath,
         parse_includes: bool,
         file_ops: &'a mut dyn ConfigParserFileOps,
-    ) -> BoxFuture<'a, anyhow::Result<()>> {
+    ) -> BoxFuture<'a, anyhow::Result<bool>> {
         async move {
-            let file_lines = file_ops.read_file_lines(config_path).await?;
+            let Some(file_lines) = file_ops.read_file_lines_if_exists(config_path).await? else {
+                return Ok(false);
+            };
             self.parse_lines(config_path, file_lines, parse_includes, file_ops)
-                .await
+                .await?;
+            Ok(true)
         }
         .boxed()
     }
@@ -352,21 +355,16 @@ impl<'p> LegacyConfigFileParser<'p> {
                         }
                     };
 
-                    match (optional, file_ops.file_exists(&include_file).await?) {
-                        (_, true) => {
-                            self.push_file(i, &include_file)?;
-                            self.parse_file_on_stack(&include_file, parse_includes, file_ops)
-                                .await?;
-                            self.pop_file();
-                        }
-                        (false, false) => {
-                            return Err(anyhow::anyhow!(ConfigError::MissingInclude(
-                                include.to_owned()
-                            )));
-                        }
-                        (true, _) => {
-                            // optional case, missing is okay.
-                        }
+                    self.push_file(i, &include_file)?;
+                    let exists = self
+                        .parse_file_on_stack(&include_file, parse_includes, file_ops)
+                        .await?;
+                    self.pop_file();
+
+                    if !exists && !optional {
+                        return Err(anyhow::anyhow!(ConfigError::MissingInclude(
+                            include.to_owned()
+                        )));
                     }
                 }
             } else {

@@ -199,17 +199,19 @@ impl BuckConfigBasedCells {
 
         #[async_trait::async_trait]
         impl ConfigParserFileOps for TracingFileOps<'_> {
-            async fn read_file_lines(
+            async fn read_file_lines_if_exists(
                 &mut self,
                 path: &ConfigPath,
-            ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>
-            {
-                self.trace.insert(path.clone());
-                self.inner.read_file_lines(path).await
-            }
+            ) -> anyhow::Result<
+                Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>,
+            > {
+                let res = self.inner.read_file_lines_if_exists(path).await?;
 
-            async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
-                self.inner.file_exists(path).await
+                if res.is_some() {
+                    self.trace.insert(path.clone());
+                }
+
+                Ok(res)
             }
 
             async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {

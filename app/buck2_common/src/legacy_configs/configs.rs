@@ -358,30 +358,26 @@ pub mod testing {
     #[async_trait::async_trait]
     #[allow(private_interfaces)]
     impl ConfigParserFileOps for TestConfigParserFileOps {
-        async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
-            let ConfigPath::Project(path) = path else {
-                return Ok(false);
-            };
-            Ok(self.data.contains_key(path))
-        }
-
-        async fn read_file_lines(
+        async fn read_file_lines_if_exists(
             &mut self,
             path: &ConfigPath,
         ) -> anyhow::Result<
-            Box<(dyn std::iter::Iterator<Item = Result<String, std::io::Error>> + Send + 'static)>,
+            Option<
+                Box<
+                    (
+                        dyn std::iter::Iterator<Item = Result<String, std::io::Error>>
+                            + Send
+                            + 'static
+                    ),
+                >,
+            >,
         > {
             let ConfigPath::Project(path) = path else {
-                return Err(anyhow::anyhow!(
-                    "Tests only have project paths, not {}",
-                    path
-                ));
+                return Ok(None);
             };
-            let content = self
-                .data
-                .get(path)
-                .ok_or_else(|| anyhow::anyhow!("didn't have data for {:?}", path))?
-                .to_owned();
+            let Some(content) = self.data.get(path) else {
+                return Ok(None);
+            };
             // Need a Read implementation that owns the bytes.
             struct StringReader(Vec<u8>, usize);
             impl std::io::Read for StringReader {
@@ -393,8 +389,8 @@ pub mod testing {
                     Ok(to_return)
                 }
             }
-            let file = std::io::BufReader::new(StringReader(content.into_bytes(), 0));
-            Ok(Box::new(file.lines()))
+            let file = std::io::BufReader::new(StringReader(content.to_owned().into_bytes(), 0));
+            Ok(Some(Box::new(file.lines())))
         }
 
         async fn read_dir(&mut self, _path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {

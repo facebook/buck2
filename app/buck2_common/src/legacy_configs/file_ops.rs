@@ -76,12 +76,10 @@ pub struct ConfigDirEntry {
 #[async_trait::async_trait]
 #[allow(private_interfaces)]
 pub trait ConfigParserFileOps: Send + Sync {
-    async fn read_file_lines(
+    async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>;
-
-    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool>;
+    ) -> anyhow::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>;
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>>;
 }
@@ -98,18 +96,19 @@ pub(crate) struct DefaultConfigParserFileOps {
 
 #[async_trait::async_trait]
 impl ConfigParserFileOps for DefaultConfigParserFileOps {
-    async fn read_file_lines(
+    async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>> {
+    ) -> anyhow::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>
+    {
         let path = path.resolve_absolute(&self.project_fs);
-        let f = fs_util::open_file(&path).with_context(|| format!("Reading file `{:?}`", path))?;
+        let Some(f) = fs_util::open_file_if_exists(&path)
+            .with_context(|| format!("Reading file `{:?}`", path))?
+        else {
+            return Ok(None);
+        };
         let file = std::io::BufReader::new(f);
-        Ok(Box::new(file.lines()))
-    }
-
-    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
-        fs_util::try_exists(path.resolve_absolute(&self.project_fs)).map_err(Into::into)
+        Ok(Some(Box::new(file.lines())))
     }
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
@@ -178,32 +177,22 @@ impl<'a, 'b> DiceConfigFileOps<'a, 'b> {
 
 #[async_trait::async_trait]
 impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
-    async fn file_exists(&mut self, path: &ConfigPath) -> anyhow::Result<bool> {
-        let ConfigPath::Project(path) = path else {
-            // File is outside of project root, for example, /etc/buckconfigs.d/experiments
-            return self.io_ops.file_exists(path).await;
-        };
-        let path = self.cell_resolver.get_cell_path(path)?;
-
-        Ok(
-            DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref())
-                .await?
-                .is_some(),
-        )
-    }
-
-    async fn read_file_lines(
+    async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> anyhow::Result<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>
-    {
+    ) -> anyhow::Result<
+        Option<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>,
+    > {
         let ConfigPath::Project(path) = path else {
-            return self.io_ops.read_file_lines(path).await;
+            return self.io_ops.read_file_lines_if_exists(path).await;
         };
         let path = self.cell_resolver.get_cell_path(path)?;
-        let data = DiceFileComputations::read_file(self.ctx, path.as_ref()).await?;
+        let Some(data) = DiceFileComputations::read_file_if_exists(self.ctx, path.as_ref()).await?
+        else {
+            return Ok(None);
+        };
         let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
-        Ok(Box::new(lines.into_iter().map(Ok)))
+        Ok(Some(Box::new(lines.into_iter().map(Ok))))
     }
 
     async fn read_dir(&mut self, path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
