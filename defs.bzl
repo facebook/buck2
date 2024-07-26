@@ -9,7 +9,7 @@ load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 
-def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
+def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     """
     Produce a directory layout that is similar to the one our release binary
     uses, this allows setting a path for Tpx relative to BUCK2_BINARY_DIR.
@@ -27,8 +27,8 @@ def _symlinked_buck2_and_tpx_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(out), RunInfo(cmd_args(out.project("buck2" + binary_extension)))]
 
-_symlinked_buck2_and_tpx = rule(
-    impl = _symlinked_buck2_and_tpx_impl,
+_buck2_bundle = rule(
+    impl = _buck2_bundle_impl,
     attrs = {
         "buck2": attrs.dep(),
         "buck2_client": attrs.dep(),
@@ -38,7 +38,7 @@ _symlinked_buck2_and_tpx = rule(
     },
 )
 
-def symlinked_buck2_and_tpx(**kwargs):
+def buck2_bundle(**kwargs):
     cxx_platform = platform_utils.get_cxx_platform_for_base_path(native.package_name())
     kwargs["default_target_platform"] = cxx_platform.target_platform
-    _symlinked_buck2_and_tpx(**kwargs)
+    _buck2_bundle(**kwargs)
