@@ -218,7 +218,7 @@ impl Develop {
         info!("building generated code");
         let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
 
-        info!("fetching sysroot");
+        info!("resolving aliased libraries");
         let aliased_libraries =
             buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
 
