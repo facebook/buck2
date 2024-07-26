@@ -38,7 +38,7 @@ def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     else:
         return target_version
 
-def _get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
+def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     toolchain_target_sdk_version = get_cxx_toolchain_info(ctx).target_sdk_version
     target_sdk_version = getattr(ctx.attrs, "target_sdk_version", None)
     if toolchain_target_sdk_version == None and target_sdk_version == None:
@@ -73,7 +73,7 @@ _PLATFORM_TARGET_TRIPLE_MAP = {
 }
 
 def get_target_triple(ctx: AnalysisContext) -> [None, str]:
-    target_sdk_version = _get_target_sdk_version(ctx)
+    target_sdk_version = get_target_sdk_version(ctx)
     if target_sdk_version == None:
         return None
 

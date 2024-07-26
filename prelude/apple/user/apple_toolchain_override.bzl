@@ -30,7 +30,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             installer = base.installer,
             libtool = base.libtool,
             lipo = base.lipo,
-            min_version = base.min_version,
             mapc = base.mapc,
             momc = base.momc,
             objdump = base.objdump,

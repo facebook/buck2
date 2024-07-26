@@ -7,6 +7,7 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor", "CPreprocessorArgs")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 
 _TARGET_TRIPLE_MAP = {
@@ -33,41 +34,14 @@ _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
     "watchsimulator": "-mwatchsimulator-version-min",
 }
 
-_APPLE_MIN_VERSION_CLAMP_MAP = {
-    "maccatalyst": "13.1",  # Earliest possible Catalyst version
-}
-
-# Compares and returns the the maximum of two version numbers. Assumes
-# they are both formatted as dot-separted strings (e.g "14.0.3").
-# If they are otherwise equal but one is longer, the longer is returned.
-def max_sdk_version(left: str, right: str):
-    left_components = left.split(".")
-    right_components = right.split(".")
-    for component in zip(left_components, right_components):
-        diff = int(component[0]) - int(component[1])
-        if diff < 0:
-            return right
-        if diff > 0:
-            return left
-
-    length_diff = len(left_components) - len(right_components)
-    if length_diff < 0:
-        return right
-    else:
-        return left
-
-# Returns the target SDK version for apple_(binary|library) and uses
-# apple_toolchain() min version as a fallback. This is the central place
-# where the version for a particular node is defined, no other places
-# should be accessing `attrs.target_sdk_version` or `attrs.min_version`.
+# Returns the target_sdk_version specified for this build, falling
+# back to the toolchain version when unset.
 def get_min_deployment_version_for_node(ctx: AnalysisContext) -> str:
-    toolchain_min_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].min_version
-    min_version = getattr(ctx.attrs, "target_sdk_version", None) or toolchain_min_version
-    clamp_version = _APPLE_MIN_VERSION_CLAMP_MAP.get(get_apple_sdk_name(ctx))
-    if clamp_version:
-        min_version = max_sdk_version(min_version, clamp_version)
+    version = get_target_sdk_version(ctx)
+    if version == None:
+        fail("No target_sdk_version set on target or toolchain")
 
-    return min_version
+    return version
 
 def get_versioned_target_triple(ctx: AnalysisContext) -> str:
     target_sdk_version = get_min_deployment_version_for_node(ctx) or ""
