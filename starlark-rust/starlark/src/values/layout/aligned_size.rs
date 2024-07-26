@@ -54,17 +54,28 @@ impl AlignedSize {
     const MAX_SIZE: AlignedSize =
         AlignedSize::new_bytes(u32::MAX as usize - AValueHeader::ALIGN + 1);
 
+    #[track_caller]
     #[inline]
     pub(crate) const fn new_bytes(bytes: usize) -> AlignedSize {
-        assert!(bytes % AValueHeader::ALIGN == 0);
-        assert!(bytes as u32 as usize == bytes);
+        assert!(
+            bytes % AValueHeader::ALIGN == 0,
+            "AlignedSize must be aligned"
+        );
+        assert!(
+            bytes as u32 as usize == bytes,
+            "AlignedSize must not exceed u32::MAX"
+        );
         let bytes = bytes as u32;
         AlignedSize { bytes }
     }
 
+    #[track_caller]
     #[inline]
     pub(crate) const fn align_up(bytes: usize) -> AlignedSize {
-        assert!(bytes <= AlignedSize::MAX_SIZE.bytes() as usize);
+        assert!(
+            bytes <= AlignedSize::MAX_SIZE.bytes() as usize,
+            "AlignedSize must not exceed u32::MAX"
+        );
         let bytes = (bytes + AValueHeader::ALIGN - 1) & !(AValueHeader::ALIGN - 1);
         let bytes = bytes as u32;
         AlignedSize { bytes }
