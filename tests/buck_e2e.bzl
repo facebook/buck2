@@ -9,18 +9,6 @@ load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 
-def _resource_control_test_config(env, skip_for_os):
-    rc_env = dict(env)
-    rc_env["BUCK2_TEST_RESOURCE_CONTROL_CONFIG"] = '{"status":"Required","memory_max":"infinity"}'
-    rc_skip_for_os = list(skip_for_os)
-
-    # Resource control is only available for linux
-    if "windows" not in skip_for_os:
-        rc_skip_for_os.append("windows")
-    if "darwin" not in skip_for_os:
-        rc_skip_for_os.append("darwin")
-    return rc_env, tuple(rc_skip_for_os)
-
 def buck_e2e_test(
         name,
         executable_type,
@@ -137,7 +125,6 @@ def buck2_e2e_test(
         test_with_deployed_buck2 = False,
         test_with_reverted_buck2 = False,
         test_with_compiled_buck2_tpx = False,
-        test_with_resource_control = False,
         deps = (),
         env = None,
         skip_for_os = (),
@@ -158,10 +145,6 @@ def buck2_e2e_test(
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
-    test_with_deployed_buck2:
-        A boolean for whether to run tests with the deployed buck2.
-        Default is False.
-        Should typically be set for tests of UDRs and other things that are not "core buck2 functionality"
     test_with_compiled_buck2:
         A boolean for whether to run tests with the compiled buck2.
         Default is True.
@@ -172,6 +155,12 @@ def buck2_e2e_test(
         A boolean for whether to run tests with buck2_tpx compiled in-repo or deployed buck2_tpx.
         Default is False.
         Deployed buck2 tests will ignore this field and always use deployed buck2_tpx.
+    test_with_deployed_buck2:
+        A boolean for whether to run tests with the deployed buck2.
+        Default is False.
+        Should typically be set for tests of UDRs and other things that are not "core buck2 functionality"
+    test_with_reverted_buck2:
+        Like `test_with_deployed_buck2`, but for the previous version
     """
     kwargs = {
         "base_module": base_module,
@@ -213,18 +202,6 @@ def buck2_e2e_test(
             executable = "$(location fbcode//buck2:buck2)",
             executable_type = "buck2",
             skip_for_os = skip_for_os,
-            deps = deps,
-            **kwargs
-        )
-
-    if test_with_resource_control:
-        compiled_rc_env, compiled_rc_skip_for_os = _resource_control_test_config(compiled_env, skip_for_os)
-        buck_e2e_test(
-            name = name + ("_with_compiled_buck2_with_resource_control" if test_with_deployed_buck2 else "_with_resource_control"),
-            env = compiled_rc_env,
-            executable = "$(location fbcode//buck2:buck2)",
-            executable_type = "buck2",
-            skip_for_os = compiled_rc_skip_for_os,
             deps = deps,
             **kwargs
         )
