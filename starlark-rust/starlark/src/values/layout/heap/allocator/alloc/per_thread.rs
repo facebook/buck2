@@ -70,6 +70,22 @@ thread_local! {
     static PER_THREAD_ALLOCATOR: RefCell<PerThreadChunkCache> = RefCell::new(PerThreadChunkCache::default());
 }
 
+fn next_chunk_size(chunk_count_in_bump: usize) -> AlignedSize {
+    // Replicate `bumpalo` behavior: 512 in the first chunk, double each next,
+    // but not greater than 2G.
+    // TODO(nga): we should stop doubling after 1M or so.
+    let size = AlignedSize::new_bytes(
+        512u32
+            .checked_shl(chunk_count_in_bump.try_into().unwrap())
+            .unwrap() as usize,
+    );
+    if size.bytes() == 0 {
+        AlignedSize::new_bytes(1 << 31)
+    } else {
+        size
+    }
+}
+
 /// Allocate chunk which is large enough for given number of words.
 pub(crate) fn thread_local_alloc_at_least(
     len: AlignedSize,
@@ -80,15 +96,8 @@ pub(crate) fn thread_local_alloc_at_least(
     {
         chunk
     } else {
-        // Replicate `bumpalo` behavior: 512 in the first chunk, double each next.
-        let len = cmp::max(
-            len,
-            AlignedSize::new_bytes(
-                512usize
-                    .checked_shl(chunk_count_in_bump.try_into().unwrap())
-                    .unwrap(),
-            ) - Chunk::HEADER_SIZE,
-        );
+        let next_chunk_size = next_chunk_size(chunk_count_in_bump) - Chunk::HEADER_SIZE;
+        let len = cmp::max(len, next_chunk_size);
         ChunkPart::alloc_at_least(len)
     };
     debug_assert!(chunk.len() >= len);
