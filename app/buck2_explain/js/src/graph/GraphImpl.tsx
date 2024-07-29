@@ -130,32 +130,35 @@ export function GraphImpl(props: {
     <>
       <div className="grid">
         <div className="cell">
-          <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
-        </div>
-        <div className="cell">
           <div className="field">
-            <label className="label">Include labels containing:</label>
+            <label className="label">Filter by labels:</label>
             <div className="control">
-              <input id="includeContaining" className="input" type="text" />
+              <input
+                id="includeContaining"
+                className="input"
+                type="text"
+                placeholder="Include containing"
+              />
+            </div>
+            <div className="control">
+              <input
+                id="excludeContaining"
+                className="input"
+                type="text"
+                placeholder="Exclude containing"
+              />
             </div>
           </div>
-        </div>
-        <div className="cell">
-          <div className="field">
-            <label className="label">Exclude labels containing:</label>
-            <div className="control">
-              <input id="excludeContaining" className="input" type="text" />
-            </div>
-          </div>
-        </div>
-        <div className="cell">
           <button
             type="submit"
             onClick={setIncludeExclude}
             onPointerDown={setIncludeExclude}
             className="button is-dark">
-            <span>Apply include/exclude</span>
+            <span>Apply</span>
           </button>
+        </div>
+        <div className="cell">
+          <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
         </div>
       </div>
       <article className="message">
