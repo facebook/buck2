@@ -23,7 +23,7 @@ load(
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
-load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeWatchApp")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeExtensionKitExtension", "AppleBundleTypeWatchApp")
 load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
@@ -284,7 +284,23 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         destination = AppleBundleDestination(app_destination_type)
         codesign_on_copy = False
     elif bundle_extension == ".appex":
-        destination = AppleBundleDestination("plugins")
+        # We have two types of extensions: App Extensions and ExtensionKit Extensions
+        #
+        # +----------------------+-------------------------------+-------------------------------+
+        # |                      |        App Extension          |   ExtensionKit Extension      |
+        # +----------------------+-------------------------------+-------------------------------+
+        # | xcode project type   | com.apple.product-type.app-   | com.apple.product-type.       |
+        # |                      | extension                     | extensionkit-extension        |
+        # +----------------------+-------------------------------+-------------------------------+
+        # | Info.plist           | NSExtensions                  | EXAppExtensionAttributes      |
+        # +----------------------+-------------------------------+-------------------------------+
+        # | bundle folder        | *.app/PlugIns                 | *.app/Extensions              |
+        # +----------------------+-------------------------------+-------------------------------+
+        #
+        if bundle_info.bundle_type == AppleBundleTypeExtensionKitExtension:
+            destination = AppleBundleDestination("extensionkit_extensions")
+        else:
+            destination = AppleBundleDestination("plugins")
         codesign_on_copy = False
     elif bundle_extension == ".qlgenerator":
         destination = AppleBundleDestination("quicklook")

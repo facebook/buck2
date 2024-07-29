@@ -26,6 +26,7 @@ class SwiftSupportArguments:
     binary_destination: Path
     appclips_destination: Path
     frameworks_destination: Path
+    extensionkit_extensions_destination: Path
     plugins_destination: Path
     platform: str
     sdk_root: Path
@@ -72,6 +73,8 @@ def _execution_command(
         bundle_path / args.appclips_destination,
         "--scan-folder",
         bundle_path / args.frameworks_destination,
+        "--scan-folder",
+        bundle_path / args.extensionkit_extensions_destination,
         "--scan-folder",
         bundle_path / args.plugins_destination,
         "--destination",

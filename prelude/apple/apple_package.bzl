@@ -128,6 +128,7 @@ def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundl
                         delimiter = "/",
                     ),
                     _get_scan_folder_args(AppleBundleDestination("plugins"), bundle_output, sdk_name, extension),
+                    _get_scan_folder_args(AppleBundleDestination("extensionkit_extensions"), bundle_output, sdk_name, extension),
                     _get_scan_folder_args(AppleBundleDestination("frameworks"), bundle_output, sdk_name, extension),
                     _get_scan_folder_args(AppleBundleDestination("appclips"), bundle_output, sdk_name, extension),
                     "--destination",

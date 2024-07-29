@@ -105,6 +105,8 @@ def assemble_bundle(
             bundle_relative_path_for_destination(AppleBundleDestination("frameworks"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--plugins-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("plugins"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
+            "--extensionkit-extensions-destination",
+            bundle_relative_path_for_destination(AppleBundleDestination("extensionkit_extensions"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--appclips-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("appclips"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--swift-stdlib-command",

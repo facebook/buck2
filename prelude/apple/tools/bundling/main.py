@@ -223,6 +223,13 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Required if swift support was requested. Bundle relative destination path to frameworks directory.",
     )
     parser.add_argument(
+        "--extensionkit-extensions-destination",
+        metavar="<ExtensionKitExtensions>",
+        type=Path,
+        required=False,
+        help="Required if swift support was requested. Bundle relative destination path to ExtensionKit Extensions directory.",
+    )
+    parser.add_argument(
         "--plugins-destination",
         metavar="<Plugins>",
         type=Path,
@@ -540,6 +547,10 @@ def _swift_support_arguments(
         parser.error(
             "Expected `--frameworks-destination` argument to be specified when `--swift-stdlib-command` is present."
         )
+    if not args.extensionkit_extensions_destination:
+        parser.error(
+            "Expected `--extensionkit-extensions-destination` argument to be specified when `--swift-stdlib-command` is present."
+        )
     if not args.plugins_destination:
         parser.error(
             "Expected `--plugins-destination` argument to be specified when `--swift-stdlib-command` is present."
@@ -557,6 +568,7 @@ def _swift_support_arguments(
         binary_destination=args.binary_destination,
         appclips_destination=args.appclips_destination,
         frameworks_destination=args.frameworks_destination,
+        extensionkit_extensions_destination=args.extensionkit_extensions_destination,
         plugins_destination=args.plugins_destination,
         platform=args.platform,
         sdk_root=args.sdk_root,
