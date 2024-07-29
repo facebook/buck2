@@ -1,0 +1,14 @@
+[package]
+description = "Load resource paths from a resources.json produced by Buck"
+edition = "2021"
+license = { workspace = true }
+name = "buck-resources"
+repository = { workspace = true }
+version = "1.0.0"
+
+[dependencies]
+dunce = { workspace = true }
+once_cell = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

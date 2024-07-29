@@ -91,6 +91,7 @@ members = [
     "gazebo/cmp_any",
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
+    "integrations/resources/rust",
     "integrations/rust-project",
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
