@@ -88,7 +88,7 @@ fn target_to_fbs<'a>(
     // defined attrs
     let attrs = node
         .attrs(AttrInspectOptions::DefinedOnly)
-        .filter(|a| a.name != NAME_ATTRIBUTE_FIELD)
+        .filter(|a| a.name != NAME_ATTRIBUTE_FIELD && a.name != "srcs")
         .map(|a| categorize(a.value, a.name));
 
     let list: Vec<_> = attrs
