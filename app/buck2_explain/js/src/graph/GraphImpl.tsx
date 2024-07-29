@@ -158,6 +158,12 @@ export function GraphImpl(props: {
           </button>
         </div>
       </div>
+      <article className="message">
+        <div className="message-body">
+          Number of nodes: {data.length} <br />
+          Number of edges: {edges.length}
+        </div>
+      </article>
       <ForceGraph2D
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
