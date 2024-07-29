@@ -237,10 +237,18 @@ impl<'v> Array<'v> {
         }
     }
 
-    pub(crate) fn extend(&self, iter: impl IntoIterator<Item = Value<'v>>) {
+    /// Extend with given elements.
+    ///
+    /// Return `Err` if any of the elements is an error.
+    /// Panic if there's not enough capacity.
+    pub(crate) fn try_extend<E>(
+        &self,
+        iter: impl IntoIterator<Item = Result<Value<'v>, E>>,
+    ) -> Result<(), E> {
         for item in iter {
-            self.push(item);
+            self.push(item?);
         }
+        Ok(())
     }
 
     pub(crate) fn extend_from_slice(&self, slice: &[Value<'v>]) {

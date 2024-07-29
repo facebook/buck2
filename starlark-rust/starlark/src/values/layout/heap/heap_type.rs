@@ -20,6 +20,7 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::cmp;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -783,11 +784,25 @@ impl Heap {
         &'v self,
         elems: impl IntoIterator<Item = Value<'v>>,
     ) -> Value<'v> {
+        match self.try_alloc_list_iter(elems.into_iter().map(Ok)) {
+            Ok(value) => value,
+            Err(e) => {
+                let e: Infallible = e;
+                match e {}
+            }
+        }
+    }
+
+    /// Allocate a list with the given elements.
+    pub(crate) fn try_alloc_list_iter<'v, E>(
+        &'v self,
+        elems: impl IntoIterator<Item = Result<Value<'v>, E>>,
+    ) -> Result<Value<'v>, E> {
         let elems = elems.into_iter();
         let array = self.alloc_array(0);
         let list = self.alloc_raw_typed(list_avalue(array));
-        list.0.extend(elems, self);
-        list.to_value()
+        list.0.try_extend(elems, self)?;
+        Ok(list.to_value())
     }
 
     /// Allocate a list by concatenating two slices.

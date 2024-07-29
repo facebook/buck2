@@ -19,6 +19,7 @@ use std::any::TypeId;
 use std::cell::Cell;
 use std::cmp;
 use std::cmp::Ordering;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -193,6 +194,21 @@ impl<'v> ListData<'v> {
 
     #[inline]
     pub(crate) fn extend<I: IntoIterator<Item = Value<'v>>>(&self, iter: I, heap: &'v Heap) {
+        match self.try_extend(iter.into_iter().map(Ok), heap) {
+            Ok(()) => {}
+            Err(e) => {
+                let e: Infallible = e;
+                match e {}
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn try_extend<E, I: IntoIterator<Item = Result<Value<'v>, E>>>(
+        &self,
+        iter: I,
+        heap: &'v Heap,
+    ) -> Result<(), E> {
         let iter = iter.into_iter();
         let (lo, hi) = iter.size_hint();
         match hi {
@@ -200,21 +216,22 @@ impl<'v> ListData<'v> {
                 // Exact size iterator.
                 self.reserve_additional(lo, heap);
                 // Extend will panic if upper bound is provided incorrectly.
-                self.content.get().extend(iter);
+                self.content.get().try_extend(iter)?;
             }
             Some(hi) if self.content.get().remaining_capacity() >= hi => {
                 // Enough capacity for upper bound.
                 // Extend will panic if upper bound is provided incorrectly.
-                self.content.get().extend(iter);
+                self.content.get().try_extend(iter)?;
             }
             _ => {
                 // Default slow version.
                 self.reserve_additional(iter.size_hint().0, heap);
                 for item in iter {
-                    self.push(item, heap);
+                    self.push(item?, heap);
                 }
             }
         }
+        Ok(())
     }
 
     pub(crate) fn push(&self, value: Value<'v>, heap: &'v Heap) {
