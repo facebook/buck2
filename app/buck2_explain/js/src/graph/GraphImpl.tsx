@@ -168,6 +168,12 @@ export function GraphImpl(props: {
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
         onNodeClick={(node, _event) => console.log(node.nodeVal, 'click!')}
+        onNodeRightClick={(node, _event) => {
+          const url = new URL(window.location.href)
+          url.searchParams.set('target', node.name)
+          url.searchParams.delete('graph')
+          window.open(url.toString(), '_blank')
+        }}
         onEngineTick={graphRef?.current?.zoomToFit}
         // cooldown + warmup ticks make the graph render already in its final form
         cooldownTicks={1}
