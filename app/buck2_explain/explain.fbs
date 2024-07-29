@@ -41,6 +41,7 @@ table ConfiguredTargetNode {
     attrs: [TargetField];
     // extras
     configured_target_label: string;
+    srcs: long;
 }
 
 table Build {

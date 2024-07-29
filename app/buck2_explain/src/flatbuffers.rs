@@ -85,6 +85,15 @@ fn target_to_fbs<'a>(
             .collect(),
     );
 
+    let srcs = node
+        .get("srcs", AttrInspectOptions::DefinedOnly)
+        .map(|v| match categorize(v.value, v.name) {
+            AttrField::StringList(_, v) => v.len(),
+            AttrField::StringDict(_, v) => v.len(),
+            _ => 0,
+        })
+        .unwrap_or(0) as i64;
+
     // defined attrs
     let attrs = node
         .attrs(AttrInspectOptions::DefinedOnly)
@@ -195,6 +204,7 @@ fn target_to_fbs<'a>(
             plugins,
             // defined attrs
             attrs: all_attrs,
+            srcs,
         },
     );
     Ok(target)
@@ -546,6 +556,33 @@ mod tests {
             target.attrs().unwrap().get(0).value().string_value(),
             Some("foo/bar")
         );
+    }
+
+    #[test]
+    fn test_srcs_count() {
+        let data = gen_data(
+            vec![(
+                "srcs",
+                Attribute::new(None, "", AttrType::list(AttrType::source(false))),
+                CoercedAttr::List(ListLiteral(ArcSlice::new([
+                    CoercedAttr::SourceFile(CoercedPath::File(
+                        PackageRelativePath::new("foo/bar").unwrap().to_arc(),
+                    )),
+                    CoercedAttr::SourceFile(CoercedPath::File(
+                        PackageRelativePath::new("foo/bar2").unwrap().to_arc(),
+                    )),
+                ]))),
+            )],
+            vec![],
+        );
+
+        let fbs = gen_fbs(data).unwrap();
+        let fbs = fbs.finished_data();
+        let build = flatbuffers::root::<Build>(fbs).unwrap();
+        let target = build.targets().unwrap().get(0);
+
+        assert_things(target, build);
+        assert_eq!(target.srcs(), 2);
     }
 
     #[test]
