@@ -15,11 +15,16 @@ import {Node} from './GraphView'
 
 // Here it goes everything that should reload on user interaction
 export function GraphImpl(props: {
-  nodeMap: Map<number, Node>
+  nodes: Map<number, Node>
   build: Build
   categoryOptions: {category: string; count: number; checked: boolean}[]
 }) {
-  const {nodeMap, build, categoryOptions} = props
+  const {nodes, build, categoryOptions} = props
+
+  const nodeMap = new Map()
+  for (const [k, node] of nodes) {
+    nodeMap.set(k, {...node, allowedDeps: new Set(), allow: false})
+  }
 
   const [categories, setCategories] = useState(categoryOptions)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
@@ -48,11 +53,7 @@ export function GraphImpl(props: {
         node.allow = false
       }
     }
-
-    // Reset allowed deps
-    node.allowedDeps.clear()
   }
-
   // Always set root node
   nodeMap.get(0)!.allow = true
 

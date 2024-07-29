@@ -16,9 +16,6 @@ export type Node = {
   value: number
   deps: number[]
   rdeps: number[]
-  allowedDeps: Set<number>
-  allow: boolean
-  leave: boolean
 }
 
 function defaultNode(): Node {
@@ -26,9 +23,6 @@ function defaultNode(): Node {
     value: 0,
     deps: [],
     rdeps: [],
-    allowedDeps: new Set(),
-    allow: false,
-    leave: false,
   }
 }
 
@@ -57,9 +51,6 @@ export function GraphView(props: {view: string}) {
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
 
-    // Record if leave
-    node.leave = target.depsLength() === 0
-
     for (let i = 0; i < target.depsLength(); i++) {
       const dep = target.deps(i)!
       const d = allTargets[dep]
@@ -87,5 +78,5 @@ export function GraphView(props: {view: string}) {
     categoryOptions.push({category, count, checked: false})
   }
 
-  return <GraphImpl nodeMap={nodeMap} build={build} categoryOptions={categoryOptions} />
+  return <GraphImpl nodes={nodeMap} build={build} categoryOptions={categoryOptions} />
 }
