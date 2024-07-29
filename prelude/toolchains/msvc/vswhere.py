@@ -75,6 +75,7 @@ def find_with_vswhere_exe():
             "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
             "-format",
             "json",
+            "-utf8",
             "-nologo",
         ],
         encoding="utf-8",
