@@ -29,6 +29,7 @@ use starlark::typing::Ty;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
+use starlark::values::type_repr::DictType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
@@ -43,7 +44,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
@@ -56,11 +56,11 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
             Param::name_only("actions", AnalysisActions::starlark_type_repr()),
             Param::name_only(
                 "artifacts",
-                SmallMap::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
+                DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
             ),
             Param::name_only(
                 "outputs",
-                SmallMap::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
+                DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
             ),
             Param::name_only("arg", Ty::any()),
         ])
