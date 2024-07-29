@@ -171,6 +171,7 @@ function GraphImpl(props: {
         edges.push({
           source: k,
           target: d,
+          color: 'rgba(20, 20, 20, 0.5)',
         })
       }
     }
@@ -185,14 +186,15 @@ function GraphImpl(props: {
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
         onNodeClick={(node, _event) => console.log(node.nodeVal, 'click!')}
-        linkDirectionalArrowLength={1}
-        enableNodeDrag={false}
+        onEngineTick={graphRef?.current?.zoomToFit}
+        // cooldown + warmup ticks make the graph render already in its final form
+        cooldownTicks={1}
+        warmupTicks={filteredNodes.size / 4}
+        // looks
+        linkDirectionalArrowLength={3.5}
         linkDirectionalArrowRelPos={1}
-        linkCurvature={0.1}
-        onEngineTick={() => {
-          if (Math.random() < 0.3) graphRef?.current?.zoomToFit()
-        }}
-        cooldownTime={2000}
+        linkCurvature={0.2}
+        linkWidth={2}
       />
     </>
   )
