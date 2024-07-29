@@ -6,7 +6,8 @@
     "flatbuffers": "23.5.26",
     "flexsearch-ts": "^0.7.35",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-force-graph-2d": "^1.25.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.1",
