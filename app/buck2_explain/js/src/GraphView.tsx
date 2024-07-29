@@ -16,14 +16,18 @@ import {Build} from './fbs/explain'
 type Node = {
   value: number
   deps: number[]
+  rdeps: number[]
   allow: boolean
+  leave: boolean
 }
 
 function defaultNode(): Node {
   return {
     value: 0,
     deps: [],
+    rdeps: [],
     allow: false,
+    leave: false,
   }
 }
 
@@ -46,14 +50,24 @@ export function GraphView(props: {view: string}) {
         value: i,
       })
     }
+  }
 
-    // Set deps
+  // Set options
+  for (const [k, node] of nodeMap) {
+    const target = build.targets(k)!
+
+    // Record if leave
+    node.leave = target.depsLength() === 0
+
     for (let d = 0; d < target.depsLength(); d++) {
       const dep = target.deps(d)!
       const j = allTargets[dep]
-      if (nodeMap.has(j)) {
-        nodeMap.get(i)!.deps.push(j)
-      }
+
+      // Record deps
+      node.deps.push(j)
+
+      // Record rdeps
+      nodeMap.get(j)!.rdeps.push(k)
     }
   }
 
