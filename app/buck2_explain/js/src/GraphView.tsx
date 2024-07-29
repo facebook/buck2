@@ -17,6 +17,7 @@ type Node = {
   value: number
   deps: number[]
   rdeps: number[]
+  allowedDeps: Set<number>
   allow: boolean
   leave: boolean
 }
@@ -26,6 +27,7 @@ function defaultNode(): Node {
     value: 0,
     deps: [],
     rdeps: [],
+    allowedDeps: new Set(),
     allow: false,
     leave: false,
   }
@@ -59,15 +61,18 @@ export function GraphView(props: {view: string}) {
     // Record if leave
     node.leave = target.depsLength() === 0
 
-    for (let d = 0; d < target.depsLength(); d++) {
-      const dep = target.deps(d)!
-      const j = allTargets[dep]
+    for (let i = 0; i < target.depsLength(); i++) {
+      const dep = target.deps(i)!
+      const d = allTargets[dep]
 
       // Record deps
-      node.deps.push(j)
+      node.deps.push(d)
 
       // Record rdeps
-      nodeMap.get(j)!.rdeps.push(k)
+      if (d === k) {
+        throw Error('wth')
+      }
+      nodeMap.get(d)!.rdeps.push(k)
     }
   }
 
@@ -107,7 +112,12 @@ function GraphImpl(props: {
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
     node.allow = activeCategories.includes(target.type()!)
+    // Reset allowed deps
+    node.allowedDeps.clear()
   }
+
+  // Always set root node
+  nodeMap.get(0)!.allow = true
 
   let filteredNodes = new Map()
   for (const [k, node] of nodeMap) {
@@ -116,6 +126,28 @@ function GraphImpl(props: {
     }
   }
 
+  // For each node A that goes, traverse the graph bottom up
+  // until another node that goes is found, then add node A as allowedDep
+  for (const [k, node] of filteredNodes) {
+    let visited = new Set()
+    let stack = [...node.rdeps]
+    while (stack.length > 0) {
+      const n1 = stack.pop()
+
+      if (visited.has(n1)) {
+        continue
+      }
+      visited.add(n1)
+
+      if (nodeMap.get(n1)!.allow) {
+        nodeMap.get(n1)!.allowedDeps.add(k)
+      } else {
+        stack = stack.concat(nodeMap.get(n1)!.rdeps)
+      }
+    }
+  }
+
+  // Build graph in a format that the graph library understands
   const data: NodeObject[] = []
   const edges: LinkObject[] = []
 
@@ -134,7 +166,7 @@ function GraphImpl(props: {
 
   for (const [k, node] of filteredNodes) {
     // Add edges
-    for (const d of node.deps) {
+    for (const d of node.allowedDeps) {
       if (filteredNodes.has(d)) {
         edges.push({
           source: k,
@@ -150,18 +182,18 @@ function GraphImpl(props: {
     <>
       <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
       <ForceGraph2D
-      ref={graphRef}
-      graphData={{nodes: data, links: edges}}
-      onNodeClick={(node, _event) => console.log(node.nodeVal, 'click!')}
-      linkDirectionalArrowLength={1}
-      enableNodeDrag={false}
-      linkDirectionalArrowRelPos={1}
-      linkCurvature={0.1}
-      onEngineTick={() => {
-        if (Math.random() < 0.3) graphRef?.current?.zoomToFit()
-      }}
-      cooldownTime={2000}
-    />
+        ref={graphRef}
+        graphData={{nodes: data, links: edges}}
+        onNodeClick={(node, _event) => console.log(node.nodeVal, 'click!')}
+        linkDirectionalArrowLength={1}
+        enableNodeDrag={false}
+        linkDirectionalArrowRelPos={1}
+        linkCurvature={0.1}
+        onEngineTick={() => {
+          if (Math.random() < 0.3) graphRef?.current?.zoomToFit()
+        }}
+        cooldownTime={2000}
+      />
     </>
   )
 }
