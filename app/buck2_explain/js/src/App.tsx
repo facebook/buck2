@@ -20,7 +20,7 @@ import {GRAPH_VIEW, ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
-import {GraphView} from './GraphView'
+import {GraphView} from './graph/GraphView'
 import {Header} from './Header'
 
 const INITIAL_STATE = {

@@ -56,7 +56,7 @@ buck_filegroup(
     name = "files",
     srcs = glob(
         [
-            "js/src/*",
+            "js/src/**",
             "js/*",
         ],
         exclude = [
