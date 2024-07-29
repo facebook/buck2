@@ -23,6 +23,7 @@ NAMED_CONSTRAINT_SETTINGS = {
     "ovr_config//os/sdk/android/ndk/constraints:version": None,
     "ovr_config//toolchain/clang/constraints:clang-toolchain-version": (lambda label: "clang" + str(label.name)),
     "ovr_config//build_mode/constraints:san": None,
+    "fbcode//fdo/constraints:fdo": (lambda label: str(label.name)),
 }
 
 # Mark all modifier generated configurations with a `cfg:` prefix.
