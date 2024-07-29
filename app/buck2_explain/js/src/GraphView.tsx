@@ -189,12 +189,13 @@ function GraphImpl(props: {
         onEngineTick={graphRef?.current?.zoomToFit}
         // cooldown + warmup ticks make the graph render already in its final form
         cooldownTicks={1}
+        enableNodeDrag={false}
         warmupTicks={filteredNodes.size / 4}
         // looks
-        linkDirectionalArrowLength={3.5}
+        linkDirectionalArrowLength={5 / Math.pow(filteredNodes.size, 0.2)}
         linkDirectionalArrowRelPos={1}
         linkCurvature={0.2}
-        linkWidth={2}
+        linkWidth={3 / Math.pow(filteredNodes.size, 0.5)}
       />
     </>
   )
