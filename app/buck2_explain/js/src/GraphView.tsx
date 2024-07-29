@@ -11,6 +11,7 @@ import React, {useContext, useRef} from 'react'
 import {Target} from './Target'
 import {DataContext} from './App'
 import ForceGraph2D, {LinkObject, NodeObject} from 'react-force-graph-2d'
+import {Build} from './fbs/explain'
 
 type Node = {
   value: number
@@ -53,6 +54,13 @@ export function GraphView(props: {view: string}) {
       }
     }
   }
+
+  return <GraphImpl nodeMap={nodeMap} build={build} />
+}
+
+// Here it goes everything that should reload on user interaction
+function GraphImpl(props: {nodeMap: Map<number, Node>; build: Build}) {
+  const {nodeMap, build} = props
 
   const data: NodeObject[] = []
   const edges: LinkObject[] = []
