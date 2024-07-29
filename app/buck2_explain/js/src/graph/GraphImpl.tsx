@@ -22,6 +22,8 @@ export function GraphImpl(props: {
   const {nodeMap, build, categoryOptions} = props
 
   const [categories, setCategories] = useState(categoryOptions)
+  const [includeContaining, setIncludeContaining] = useState<string[]>([])
+  const [excludeContaining, setExcludeContaining] = useState<string[]>([])
 
   const toggleCategory = (id: number) => {
     const c = [...categories]
@@ -33,7 +35,20 @@ export function GraphImpl(props: {
 
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
+    const label = target.configuredTargetLabel()!
+
     node.allow = activeCategories.includes(target.type()!)
+    for (const v of includeContaining) {
+      if (label.includes(v)) {
+        node.allow = true
+      }
+    }
+    for (const v of excludeContaining) {
+      if (label.includes(v)) {
+        node.allow = false
+      }
+    }
+
     // Reset allowed deps
     node.allowedDeps.clear()
   }
@@ -99,11 +114,49 @@ export function GraphImpl(props: {
     }
   }
 
+  function setIncludeExclude() {
+    const inputValue = (id: string) => (document.getElementById(id) as HTMLInputElement).value
+
+    const inc = inputValue('includeContaining')
+    setIncludeContaining(inc ? inc.split(',') : [])
+    const exc = inputValue('excludeContaining')
+    setExcludeContaining(exc ? exc.split(',') : [])
+  }
+
   const graphRef = useRef<any>(null)
 
   return (
     <>
-      <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
+      <div className="grid">
+        <div className="cell">
+          <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
+        </div>
+        <div className="cell">
+          <div className="field">
+            <label className="label">Include labels containing:</label>
+            <div className="control">
+              <input id="includeContaining" className="input" type="text" />
+            </div>
+          </div>
+        </div>
+        <div className="cell">
+          <div className="field">
+            <label className="label">Exclude labels containing:</label>
+            <div className="control">
+              <input id="excludeContaining" className="input" type="text" />
+            </div>
+          </div>
+        </div>
+        <div className="cell">
+          <button
+            type="submit"
+            onClick={setIncludeExclude}
+            onPointerDown={setIncludeExclude}
+            className="button is-dark">
+            <span>Apply include/exclude</span>
+          </button>
+        </div>
+      </div>
       <ForceGraph2D
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
