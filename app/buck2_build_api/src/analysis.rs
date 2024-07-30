@@ -39,7 +39,7 @@ pub struct AnalysisResult {
     /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
     pub provider_collection: FrozenProviderCollectionValue,
     deferred: Arc<DeferredTable>,
-    analysis_values: RecordedAnalysisValues,
+    analysis_values: Arc<RecordedAnalysisValues>,
     /// Profiling data after running analysis, for this analysis only, without dependencies.
     /// `None` when profiling is disabled.
     /// For forward node, this value is shared with underlying analysis (including this field).
@@ -63,7 +63,7 @@ impl AnalysisResult {
         Self {
             provider_collection,
             deferred: Arc::new(deferred),
-            analysis_values,
+            analysis_values: Arc::new(analysis_values),
             profile_data,
             promise_artifact_map: Arc::new(promise_artifact_map),
             num_declared_actions,
@@ -99,7 +99,7 @@ impl AnalysisResult {
         &self.deferred
     }
 
-    pub(crate) fn analysis_values(&self) -> &RecordedAnalysisValues {
+    pub fn analysis_values(&self) -> &RecordedAnalysisValues {
         &self.analysis_values
     }
 }

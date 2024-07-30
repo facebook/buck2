@@ -137,7 +137,7 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
     }
 
     fn get_action_key(&self) -> String {
-        self.key.action_key()
+        self.key.action_key(None)
     }
 
     fn get_deferred_data(&self, key: &DeferredKey) -> anyhow::Result<DeferredValueAnyReady> {
@@ -619,15 +619,6 @@ impl DeferredValueAnyReady {
 pub struct DeferredValueReady<T> {
     inner: DeferredValueAnyReady,
     _type: PhantomData<T>,
-}
-
-impl<T> DeferredValueReady<T> {
-    pub(crate) fn downcast(self) -> Arc<T>
-    where
-        T: Send + 'static,
-    {
-        self.inner.downcast_into_arc().unwrap()
-    }
 }
 
 impl<T> std::ops::Deref for DeferredValueReady<T>

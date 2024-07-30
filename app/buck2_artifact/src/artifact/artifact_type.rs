@@ -509,12 +509,12 @@ pub mod testing {
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
 
+    use crate::actions::key::ActionIndex;
     use crate::actions::key::ActionKey;
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
-    use crate::deferred::id::DeferredId;
-    use crate::deferred::key::DeferredKey;
+    use crate::deferred::key::DeferredHolderKey;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -552,7 +552,7 @@ pub mod testing {
         fn testing_new(
             target: ConfiguredTargetLabel,
             path: ForwardRelativePathBuf,
-            id: DeferredId,
+            id: ActionIndex,
         ) -> BuildArtifact;
     }
 
@@ -560,14 +560,14 @@ pub mod testing {
         fn testing_new(
             target: ConfiguredTargetLabel,
             path: ForwardRelativePathBuf,
-            id: DeferredId,
+            id: ActionIndex,
         ) -> BuildArtifact {
             BuildArtifact::new(
                 BuckOutPath::new(BaseDeferredKey::TargetLabel(target.dupe()), path),
-                ActionKey::unchecked_new(DeferredKey::Base(
-                    BaseDeferredKey::TargetLabel(target),
+                ActionKey::unchecked_new(
+                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     id,
-                )),
+                ),
                 OutputType::File,
             )
         }
@@ -603,6 +603,7 @@ mod tests {
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
 
+    use crate::actions::key::ActionIndex;
     use crate::actions::key::ActionKey;
     use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::artifact_type::Artifact;
@@ -610,8 +611,7 @@ mod tests {
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
     use crate::artifact::source_artifact::SourceArtifact;
-    use crate::deferred::id::DeferredId;
-    use crate::deferred::key::DeferredKey;
+    use crate::deferred::key::DeferredHolderKey;
 
     #[test]
     fn artifact_binding() -> anyhow::Result<()> {
@@ -625,10 +625,10 @@ mod tests {
             OutputType::File,
             0,
         );
-        let key = ActionKey::unchecked_new(DeferredKey::Base(
-            BaseDeferredKey::TargetLabel(target.dupe()),
-            DeferredId::testing_new(0),
-        ));
+        let key = ActionKey::unchecked_new(
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
+            ActionIndex::new(0),
+        );
 
         let out = declared.as_output();
         let bound = out.bind(key.dupe())?;
@@ -647,10 +647,10 @@ mod tests {
         out.bind(key)?;
 
         // Binding again to a different key should fail
-        let other_key = ActionKey::unchecked_new(DeferredKey::Base(
-            BaseDeferredKey::TargetLabel(target),
-            DeferredId::testing_new(1),
-        ));
+        let other_key = ActionKey::unchecked_new(
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
+            ActionIndex::new(1),
+        );
 
         assert_matches!(out.bind(other_key), Err(..));
 
@@ -695,17 +695,17 @@ mod tests {
         let artifact1 = BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         );
         let artifact2 = BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar.h".to_owned()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         );
         let artifact3 = BuildArtifact::testing_new(
             target,
             ForwardRelativePathBuf::unchecked_new("foo/bar.cpp/invalid_file.txt".to_owned()),
-            DeferredId::testing_new(1),
+            ActionIndex::new(1),
         );
 
         let fs = ArtifactFs::new(
@@ -759,7 +759,7 @@ mod tests {
         let artifact = BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         );
 
         let full = Artifact::new(artifact.clone(), None, 0);
@@ -792,7 +792,7 @@ mod tests {
         let artifact = BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         );
 
         let full = Artifact::new(artifact.clone(), None, 0);

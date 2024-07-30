@@ -32,8 +32,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::artifact::provide_outputs::ProvideActionKey;
-use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_common::io::IoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
@@ -59,7 +57,6 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
-use dupe::Dupe;
 use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -74,9 +71,6 @@ use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::deferred::types::AnyValue;
-use crate::deferred::types::DeferredOutput;
-use crate::deferred::types::TrivialDeferred;
 
 pub mod artifact;
 pub mod box_slice_set;
@@ -85,7 +79,6 @@ mod error;
 pub mod error_handler;
 pub mod execute;
 pub mod impls;
-pub mod key;
 pub mod query;
 pub mod registry;
 
@@ -318,22 +311,6 @@ pub struct RegisteredAction {
     executor_config: Arc<CommandExecutorConfig>,
 }
 
-/// Output is when registered action is produced by dynamic output.
-impl DeferredOutput for RegisteredAction {}
-
-impl TrivialDeferred for RegisteredAction {
-    fn as_any_value(&self) -> &dyn AnyValue {
-        self
-    }
-
-    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
-        demand.provide_value_with(|| {
-            ProvideOutputs(Ok(self.action.outputs().iter().cloned().collect()))
-        });
-        demand.provide_value_with(|| ProvideActionKey(self.key.dupe()));
-    }
-}
-
 impl RegisteredAction {
     pub fn new(
         key: ActionKey,
@@ -353,7 +330,7 @@ impl RegisteredAction {
 
     /// Gets the target label to the rule that created this action.
     pub fn owner(&self) -> &BaseDeferredKey {
-        self.key.deferred_key().owner()
+        self.key.owner()
     }
 
     /// Gets the action key, uniquely identifying this action in a target.
@@ -368,7 +345,7 @@ impl RegisteredAction {
                 None => output_path.path().to_string(),
             }
         } else {
-            self.key.deferred_key().action_key()
+            self.key.action_key()
         }
     }
 
@@ -401,6 +378,7 @@ impl Deref for RegisteredAction {
 /// The stored inputs have not yet been validated as bound, but will be validated upon registering.
 #[derive(Allocative)]
 struct ActionToBeRegistered {
+    key: ActionKey,
     inputs: IndexSet<ArtifactGroup>,
     outputs: IndexSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
@@ -408,15 +386,21 @@ struct ActionToBeRegistered {
 
 impl ActionToBeRegistered {
     fn new<A: UnregisteredAction + 'static>(
+        key: ActionKey,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         a: A,
     ) -> Self {
         Self {
+            key,
             inputs,
             outputs,
             action: Box::new(a),
         }
+    }
+
+    pub fn key(&self) -> &ActionKey {
+        &self.key
     }
 
     fn register(

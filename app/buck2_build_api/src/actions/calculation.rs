@@ -40,7 +40,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use futures::future;
+use futures::future::BoxFuture;
+use futures::future::{self};
 use futures::FutureExt;
 use indexmap::IndexMap;
 use ref_cast::RefCast;
@@ -55,10 +56,10 @@ use crate::actions::error_handler::ActionSubErrorResult;
 use crate::actions::error_handler::StarlarkActionErrorContext;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
-use crate::actions::key::ActionKeyExt;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
-use crate::deferred::calculation::DeferredCalculation;
+use crate::deferred::calculation::lookup_deferred_holder;
+use crate::deferred::calculation::ActionLookup;
 use crate::keep_going::KeepGoing;
 use crate::starlark::values::type_repr::StarlarkTypeRepr;
 use crate::starlark::values::UnpackValue;
@@ -138,7 +139,7 @@ async fn build_action_no_redirect(
     let now = Instant::now();
     let action = &action;
 
-    let target = match action.key().deferred_key().owner() {
+    let target = match action.key().owner() {
         BaseDeferredKey::TargetLabel(target_label) => Some(target_label.dupe()),
         _ => None,
     };
@@ -453,11 +454,28 @@ impl ActionCalculation {
         ctx: &mut DiceComputations<'_>,
         action_key: &ActionKey,
     ) -> anyhow::Result<Arc<RegisteredAction>> {
-        // TODO add async/deferred stuff
-        ctx.compute_deferred_data(action_key.deferred_data())
-            .await
-            .map(|a| a.dupe().downcast())
-            .with_context(|| format!("for action key `{}`", action_key))
+        // In the typical case, this lookup is only going to require a single deferred holder lookup. There's three cases:
+        // 1. a normal action defined in analysis: lookup the holder for that analysis, get the action
+        // 2. an action bound to a dynamic_output and then bound to an action there: the initial holder_key will actually
+        //    point to the dynamic_output (not the analysis that first created the action key) and then the action will be found there
+        // 3. an action bound to a dynamic_output, and then in that dynamic_output bound to another dynamic_output: only in this case
+        //    will the initial lookup not find the key and we'll recurse.
+        //
+        // We could introduce a dice key to cache the recursive resolution, but that would only be valuable if we had long nested chains
+        // of dynamic_output that were re-binding artifacts. In practice we've not yet encountered that.
+        let deferred_holder = lookup_deferred_holder(ctx, action_key.holder_key()).await?;
+        match deferred_holder.lookup_action(action_key)? {
+            ActionLookup::Action(action) => Ok(action),
+            ActionLookup::Deferred(action_key) => {
+                fn get_action_recurse<'a>(
+                    ctx: &'a mut DiceComputations<'_>,
+                    action_key: &'a ActionKey,
+                ) -> BoxFuture<'a, anyhow::Result<Arc<RegisteredAction>>> {
+                    async move { ActionCalculation::get_action(ctx, action_key).await }.boxed()
+                }
+                get_action_recurse(ctx, &action_key).await
+            }
+        }
     }
 
     pub fn build_action<'a>(

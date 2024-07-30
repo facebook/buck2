@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
-use buck2_build_api::actions::key::ActionKeyExt;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::ReservedDeferredData;
@@ -24,7 +27,6 @@ use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
 
-use crate::dynamic::deferred::DynamicAction;
 use crate::dynamic::deferred::DynamicLambda;
 use crate::dynamic::deferred::DynamicLambdaOutput;
 
@@ -55,10 +57,22 @@ impl DynamicRegistryDyn for DynamicRegistry {
             .iter()
             .enumerate()
             .map(|(output_artifact_index, output)| {
-                let output_id =
-                    registry.defer(DynamicAction::new(reserved.data(), output_artifact_index));
+                // We create ActionKeys that point directly to the dynamic_lambda's
+                // output rather than our own. This saves the resolution of the key from
+                // needing to first lookup our result just to get forwarded to the lambda's result.
+                //
+                // This means that we are creating ActionKeys for the lambda and it needs to offset
+                // its key's index to account for this (see ActionRegistry where this is done).
+                //
+                // TODO(cjhopman): We should probably combine ActionRegistry and DynamicRegistry (and
+                // probably ArtifactGroupRegistry too).
                 let bound = output
-                    .bind(ActionKey::new(output_id))?
+                    .bind(ActionKey::new(
+                        DeferredHolderKey::Deferred(Arc::new(
+                            reserved.data().deferred_key().dupe(),
+                        )),
+                        ActionIndex::new(output_artifact_index as u32),
+                    ))?
                     .as_base_artifact()
                     .dupe();
                 Ok(bound)

@@ -39,7 +39,7 @@ use starlark::values::OwnedFrozenValue;
 ///
 /// This action is for testing, and bypasses the need to create starlark values and frozen
 /// modules
-#[derive(Allocative)]
+#[derive(Allocative, Clone, PartialEq)]
 pub(crate) struct SimpleUnregisteredAction {
     cmd: Vec<String>,
     category: Category,

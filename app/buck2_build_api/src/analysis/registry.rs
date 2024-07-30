@@ -13,14 +13,15 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::internal_error;
@@ -56,6 +57,8 @@ use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
 use crate::actions::registry::ActionsRegistry;
+use crate::actions::registry::RecordedActions;
+use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::anon_promises_dyn::AnonPromisesDyn;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
@@ -68,6 +71,7 @@ use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::calculation::ActionLookup;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::DynamicRegistryDyn;
 use crate::dynamic::DYNAMIC_REGISTRY_NEW;
@@ -146,10 +150,9 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn declare_dynamic_output(
         &mut self,
-        path: BuckOutPath,
-        output_type: OutputType,
-    ) -> DeclaredArtifact {
-        self.actions.declare_dynamic_output(path, output_type)
+        artifact: &BuildArtifact,
+    ) -> anyhow::Result<DeclaredArtifact> {
+        self.actions.declare_dynamic_output(artifact)
     }
 
     pub fn declare_output(
@@ -235,13 +238,8 @@ impl<'v> AnalysisRegistry<'v> {
         let id = self
             .actions
             .register(&mut self.deferred, inputs, outputs, action)?;
-        if let Some(value) = associated_value {
-            self.analysis_value_storage.set_value(id, value);
-        }
-
-        if let Some(value) = error_handler {
-            self.analysis_value_storage.set_error_handler(id, value);
-        }
+        self.analysis_value_storage
+            .set_action_data(id, (associated_value, error_handler));
         Ok(())
     }
 
@@ -329,10 +327,10 @@ impl<'v> AnalysisRegistry<'v> {
             let analysis_value_fetcher = AnalysisValueFetcher {
                 frozen_module: Some(frozen_env.dupe()),
             };
-            actions.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
+            let actions = actions.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            deferred.register_values(analysis_value_fetcher.get_recorded_values()?)?;
+            deferred.register_values(analysis_value_fetcher.get_recorded_values(actions)?)?;
             Ok((frozen_env, deferred))
         })
     }
@@ -382,7 +380,7 @@ impl<'v> ArtifactDeclaration<'v> {
 #[display(fmt = "{:?}", "self")]
 pub(crate) struct AnalysisValueStorage<'v> {
     values: SmallMap<DeferredId, Value<'v>>,
-    error_handlers: SmallMap<DeferredId, StarlarkCallable<'v>>,
+    action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
 }
 
@@ -396,7 +394,7 @@ pub(crate) struct AnalysisValueStorage<'v> {
 #[display(fmt = "{:?}", "self")]
 pub(crate) struct FrozenAnalysisValueStorage {
     values: SmallMap<DeferredId, FrozenValue>,
-    error_handlers: SmallMap<DeferredId, FrozenStarlarkCallable>,
+    action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
 }
 
@@ -410,14 +408,14 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         let AnalysisValueStorage {
             values,
-            error_handlers,
+            action_data,
             transitive_sets,
         } = self;
         for (k, v) in values.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
         }
-        for (k, v) in error_handlers.iter_mut() {
+        for (k, v) in action_data.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
         }
@@ -434,7 +432,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let AnalysisValueStorage {
             values,
-            error_handlers,
+            action_data,
             transitive_sets,
         } = self;
 
@@ -443,7 +441,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
                 .collect::<anyhow::Result<_>>()?,
-            error_handlers: error_handlers
+            action_data: action_data
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
                 .collect::<anyhow::Result<_>>()?,
@@ -477,7 +475,7 @@ impl<'v> AnalysisValueStorage<'v> {
     fn new() -> Self {
         Self {
             values: SmallMap::new(),
-            error_handlers: SmallMap::new(),
+            action_data: SmallMap::new(),
             transitive_sets: SmallMap::new(),
         }
     }
@@ -499,11 +497,6 @@ impl<'v> AnalysisValueStorage<'v> {
         self.values.insert(id, value);
     }
 
-    /// Add a error handler value to the internal hash map that maps ids -> error handlers
-    fn set_error_handler(&mut self, id: DeferredId, value: StarlarkCallable<'v>) {
-        self.error_handlers.insert(id, value);
-    }
-
     pub(crate) fn register_transitive_set<
         F: FnOnce(TransitiveSetKey) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>>,
     >(
@@ -518,6 +511,14 @@ impl<'v> AnalysisValueStorage<'v> {
         let set = func(key.dupe())?;
         self.transitive_sets.insert(key, set.dupe());
         Ok(set)
+    }
+
+    fn set_action_data(
+        &mut self,
+        id: ActionKey,
+        action_data: (Option<Value<'v>>, Option<StarlarkCallable<'v>>),
+    ) {
+        self.action_data.insert(id, action_data);
     }
 }
 
@@ -548,21 +549,30 @@ impl AnalysisValueFetcher {
     }
 
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
-    pub(crate) fn get_error_handler(
+    pub fn get_action_data(
         &self,
-        id: DeferredId,
-    ) -> anyhow::Result<Option<OwnedFrozenValue>> {
+        id: &ActionKey,
+    ) -> anyhow::Result<(Option<OwnedFrozenValue>, Option<OwnedFrozenValue>)> {
         let Some((storage, heap_ref)) = self.extra_value()? else {
-            return Ok(None);
+            return Ok((None, None));
         };
-        let Some(value) = storage.error_handlers.get(&id) else {
-            return Ok(None);
+        let Some(value) = storage.action_data.get(id) else {
+            return Ok((None, None));
         };
-        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), value.0))) }
+
+        unsafe {
+            Ok((
+                value.0.map(|v| OwnedFrozenValue::new(heap_ref.dupe(), v)),
+                value.1.map(|v| OwnedFrozenValue::new(heap_ref.dupe(), v.0)),
+            ))
+        }
     }
 
-    pub(crate) fn get_recorded_values(&self) -> anyhow::Result<RecordedAnalysisValues> {
-        let storage = match &self.frozen_module {
+    pub(crate) fn get_recorded_values(
+        &self,
+        actions: RecordedActions,
+    ) -> anyhow::Result<RecordedAnalysisValues> {
+        let analysis_storage = match &self.frozen_module {
             None => None,
             Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
                 v.value
@@ -571,21 +581,31 @@ impl AnalysisValueFetcher {
             })?),
         };
 
-        Ok(RecordedAnalysisValues(storage))
+        Ok(RecordedAnalysisValues {
+            analysis_storage,
+            actions,
+        })
     }
 }
 
 /// The analysis values stored in DeferredHolder.
-#[derive(Debug, Clone, Dupe, Allocative)]
-pub struct RecordedAnalysisValues(Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>);
+#[derive(Debug, Allocative)]
+pub struct RecordedAnalysisValues {
+    analysis_storage: Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>,
+    actions: RecordedActions,
+}
 
 impl RecordedAnalysisValues {
     pub fn new_empty() -> Self {
-        Self(None)
+        Self {
+            analysis_storage: None,
+            actions: RecordedActions::new(),
+        }
     }
 
     pub fn testing_new(
         transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+        actions: RecordedActions,
     ) -> Self {
         let heap = FrozenHeap::new();
         let mut alloced_tsets = SmallMap::new();
@@ -597,14 +617,17 @@ impl RecordedAnalysisValues {
 
         let value = heap.alloc_simple(FrozenAnalysisValueStorage {
             values: SmallMap::new(),
-            error_handlers: SmallMap::new(),
+            action_data: SmallMap::new(),
             transitive_sets: alloced_tsets,
         });
-        Self(Some(
-            unsafe { OwnedFrozenValue::new(heap.into_ref(), value) }
-                .downcast()
-                .unwrap(),
-        ))
+        Self {
+            analysis_storage: Some(
+                unsafe { OwnedFrozenValue::new(heap.into_ref(), value) }
+                    .downcast()
+                    .unwrap(),
+            ),
+            actions,
+        }
     }
 
     pub(crate) fn lookup_transitive_set(
@@ -612,9 +635,18 @@ impl RecordedAnalysisValues {
         key: &TransitiveSetKey,
     ) -> Option<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         // TODO(cjhopman): verify that key matches this.
-        match &self.0 {
+        match &self.analysis_storage {
             Some(values) => values.maybe_map(|v| v.transitive_sets.get(key).copied()),
             None => None,
         }
+    }
+
+    pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+        self.actions.lookup(key)
+    }
+
+    /// Iterates over the actions created in this analysis.
+    pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
+        self.actions.iter_actions()
     }
 }

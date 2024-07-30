@@ -23,7 +23,6 @@ use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::DynamicLambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
-use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -522,7 +521,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
     dice_ctx: &'v mut DiceComputations<'_>,
-) -> anyhow::Result<Vec<ActionKey>> {
+) -> anyhow::Result<()> {
     // TODO(wendyy) emit telemetry, support profiler
     let liveness = deferred_ctx.liveness();
     let dynamic_key =
@@ -597,10 +596,10 @@ impl BxlEvalContext<'_> {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Vec<ActionKey>> {
+    ) -> anyhow::Result<()> {
         let env = Module::new();
 
-        let (analysis_registry, declared_outputs) = {
+        let analysis_registry = {
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
@@ -644,19 +643,12 @@ impl BxlEvalContext<'_> {
                 args,
             )?;
 
-            (
-                ctx.take_state_dynamic()?,
-                dynamic_lambda_ctx_data.declared_outputs,
-            )
+            ctx.take_state_dynamic()?
         };
 
         let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
         let _fake_registry = std::mem::replace(self.deferred_ctx.registry(), deferred);
-        let output: anyhow::Result<Vec<_>> = declared_outputs
-            .into_iter()
-            .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-            .collect();
-        output
+        Ok(())
     }
 }
 

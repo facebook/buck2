@@ -654,14 +654,13 @@ mod tests {
 
     use allocative::Allocative;
     use async_trait::async_trait;
+    use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::actions::key::ActionKey;
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
-    use buck2_artifact::deferred::data::DeferredData;
-    use buck2_artifact::deferred::id::DeferredId;
-    use buck2_artifact::deferred::key::DeferredKey;
+    use buck2_artifact::deferred::key::DeferredHolderKey;
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -715,7 +714,6 @@ mod tests {
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::execute::action_executor::BuckActionExecutor;
-    use crate::actions::key::ActionKeyExt;
     use crate::actions::Action;
     use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
@@ -899,14 +897,14 @@ mod tests {
         let outputs = indexset![BuildArtifact::testing_new(
             label.dupe(),
             ForwardRelativePathBuf::unchecked_new("output".into()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         )];
 
         let action = RegisteredAction::new(
-            ActionKey::new(DeferredData::unchecked_new(DeferredKey::Base(
-                BaseDeferredKey::TargetLabel(label.dupe()),
-                DeferredId::testing_new(0),
-            ))),
+            ActionKey::new(
+                DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(label.dupe())),
+                ActionIndex::new(0),
+            ),
             Box::new(TestingAction {
                 inputs: BoxSliceSet::from(inputs),
                 outputs: BoxSliceSet::from(outputs.clone()),

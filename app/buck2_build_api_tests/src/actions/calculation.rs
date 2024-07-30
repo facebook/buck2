@@ -7,16 +7,20 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use assert_matches::assert_matches;
+use buck2_analysis::analysis::calculation::AnalysisKey;
+use buck2_artifact::actions::key::ActionIndex;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::calculation::command_details;
 use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
@@ -25,14 +29,17 @@ use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
+use buck2_build_api::actions::registry::RecordedActions;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::RegisteredAction;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::deferred::types::DeferredOutput;
-use buck2_build_api::deferred::types::DeferredValueAnyReady;
+use buck2_build_api::deferred::types::DeferredTable;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::cells::SetCellResolver;
@@ -43,6 +50,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -96,6 +104,8 @@ use dupe::Dupe;
 use indexmap::indexset;
 use maplit::btreemap;
 use sorted_vector_map::sorted_vector_map;
+use starlark::values::FrozenHeap;
+use starlark::values::OwnedFrozenValue;
 
 use crate::actions::testings::SimpleAction;
 
@@ -110,7 +120,7 @@ fn create_test_configured_target_label() -> ConfiguredTargetLabel {
 fn create_test_build_artifact() -> BuildArtifact {
     let configured_target_label = create_test_configured_target_label();
     let forward_relative_path_buf = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-    let deferred_id = DeferredId::testing_new(0);
+    let deferred_id = ActionIndex::new(0);
     BuildArtifact::testing_new(
         configured_target_label,
         forward_relative_path_buf,
@@ -141,31 +151,50 @@ fn registered_action(
     Arc::new(registered_action)
 }
 
-fn mock_deferred_resolution_calculation(
-    dice_builder: DiceBuilder,
-    deferred_resolve: DeferredResolve,
+fn mock_analysis_for_action_resolution(
+    mut dice_builder: DiceBuilder,
+    action_key: &ActionKey,
     registered_action_arc: Arc<RegisteredAction>,
 ) -> DiceBuilder {
-    let arc_any: Arc<dyn DeferredOutput> = registered_action_arc;
-    let an_any = DeferredValueAnyReady::AnyValue(arc_any);
-
     let configured_target_label = create_test_configured_target_label();
     let configured_node_key = ConfiguredTargetNodeKey(configured_target_label.dupe());
 
-    dice_builder
-        .mock_and_return(deferred_resolve, buck2_error::Ok(an_any))
-        .mock_and_return(
-            configured_node_key,
-            Ok(MaybeCompatible::Compatible(
-                ConfiguredTargetNode::testing_new(
-                    configured_target_label,
-                    "foo_lib",
-                    ExecutionPlatformResolution::new(None, Vec::new()),
-                    vec![],
-                    vec![],
-                ),
-            )),
-        )
+    assert_eq!(
+        &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(configured_target_label.dupe())),
+        action_key.holder_key()
+    );
+
+    let mut actions = RecordedActions::new();
+    actions.insert(action_key.dupe(), registered_action_arc);
+
+    let heap = FrozenHeap::new();
+    let providers = FrozenProviderCollection::testing_new_default(&heap);
+    let providers = unsafe { OwnedFrozenValue::new(heap.into_ref(), providers.to_frozen_value()) };
+    dice_builder = dice_builder.mock_and_return(
+        AnalysisKey(configured_target_label.dupe()),
+        buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+            FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
+            DeferredTable::new(Vec::new()),
+            RecordedAnalysisValues::testing_new(Vec::new(), actions),
+            None,
+            HashMap::new(),
+            0,
+            0,
+        ))),
+    );
+
+    dice_builder.mock_and_return(
+        configured_node_key,
+        Ok(MaybeCompatible::Compatible(
+            ConfiguredTargetNode::testing_new(
+                configured_target_label,
+                "foo_lib",
+                ExecutionPlatformResolution::new(None, Vec::new()),
+                vec![],
+                vec![],
+            ),
+        )),
+    )
 }
 
 async fn make_default_dice_state(
@@ -236,7 +265,6 @@ async fn make_default_dice_state(
 #[tokio::test]
 async fn test_get_action_for_artifact() -> anyhow::Result<()> {
     let build_artifact = create_test_build_artifact();
-    let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
         Box::new(SimpleAction::new(
@@ -249,9 +277,9 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
     );
 
     let mut dice_builder = DiceBuilder::new();
-    dice_builder = mock_deferred_resolution_calculation(
+    dice_builder = mock_analysis_for_action_resolution(
         dice_builder,
-        deferred_resolve,
+        build_artifact.key(),
         registered_action.dupe(),
     );
     let mut dice_computations = dice_builder
@@ -272,7 +300,6 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
 async fn test_build_action() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
-    let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
         Box::new(SimpleAction::new(
@@ -290,8 +317,9 @@ async fn test_build_action() -> anyhow::Result<()> {
         &temp_fs,
         vec![{
             let action = registered_action.dupe();
+            let action_key = build_artifact.key().dupe();
             Box::new(move |builder| {
-                mock_deferred_resolution_calculation(builder, deferred_resolve, action)
+                mock_analysis_for_action_resolution(builder, &action_key, action)
             })
         }],
     )
@@ -321,7 +349,6 @@ async fn test_build_action() -> anyhow::Result<()> {
 async fn test_build_artifact() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
-    let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
         Box::new(SimpleAction::new(
@@ -336,8 +363,9 @@ async fn test_build_artifact() -> anyhow::Result<()> {
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
     let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
+        let action_key = build_artifact.key().dupe();
         vec![Box::new(move |builder| {
-            mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
+            mock_analysis_for_action_resolution(builder, &action_key, registered_action)
         })]
     })
     .await?;
@@ -368,7 +396,6 @@ async fn test_build_artifact() -> anyhow::Result<()> {
 async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
-    let deferred_resolve = DeferredResolve(build_artifact.key().deferred_key().dupe());
     let registered_action = registered_action(
         build_artifact.dupe(),
         Box::new(SimpleAction::new(
@@ -383,8 +410,9 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
     let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
+        let action_key = build_artifact.key().dupe();
         vec![Box::new(move |builder| {
-            mock_deferred_resolution_calculation(builder, deferred_resolve, registered_action)
+            mock_analysis_for_action_resolution(builder, &action_key, registered_action)
         })]
     })
     .await?;

@@ -47,17 +47,20 @@ impl DeferredKey {
 
     /// Create action_key information from the ids, uniquely
     /// identifying this action within this target.
-    pub fn action_key(&self) -> String {
+    pub fn action_key(&self, additional_id: Option<u32>) -> String {
         let mut ids = Vec::new();
+        if let Some(v) = additional_id {
+            ids.push(v as usize);
+        }
         let mut x = self;
         loop {
             match x {
                 DeferredKey::Base(_, id) => {
-                    ids.push(id);
+                    ids.push(id.as_usize());
                     break;
                 }
                 DeferredKey::Deferred(base, id) => {
-                    ids.push(id);
+                    ids.push(id.as_usize());
                     x = base
                 }
             }
@@ -65,7 +68,7 @@ impl DeferredKey {
         // FIXME(ndmitchell): We'd like to have some kind of user supplied name/category here,
         // rather than using the usize ids, so things are a bit more stable and as these strings
         // are likely to come up in error messages users might see (e.g. with paths).
-        ids.iter().rev().map(|x| x.as_usize().to_string()).join("_")
+        ids.iter().rev().map(|x| x.to_string()).join("_")
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
@@ -105,6 +108,27 @@ impl DeferredHolderKey {
         match self {
             DeferredHolderKey::Base(base) => DeferredKey::Base(base.dupe(), id),
             DeferredHolderKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
+        }
+    }
+
+    pub fn owner(&self) -> &BaseDeferredKey {
+        match self {
+            DeferredHolderKey::Base(base) => base,
+            DeferredHolderKey::Deferred(base) => base.owner(),
+        }
+    }
+
+    /// Create action_key information from the ids, uniquely
+    /// identifying this action within this target.
+    pub fn action_key(&self, additional_id: u32) -> String {
+        // FIXME(ndmitchell): We'd like to have some kind of user supplied name/category here,
+        // rather than using the usize ids, so things are a bit more stable and as these strings
+        // are likely to come up in error messages users might see (e.g. with paths).
+        match self {
+            DeferredHolderKey::Base(x) => {
+                format!("{}_{}", x, additional_id)
+            }
+            DeferredHolderKey::Deferred(x) => x.action_key(Some(additional_id)),
         }
     }
 }

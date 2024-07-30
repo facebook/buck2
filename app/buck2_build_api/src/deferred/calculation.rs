@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
@@ -46,7 +47,9 @@ use once_cell::sync::Lazy;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
+use crate::actions::RegisteredAction;
 use crate::analysis::calculation::RuleAnalysisCalculation;
+use crate::analysis::registry::RecordedAnalysisValues;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::artifact_groups::deferred::TransitiveSetKey;
@@ -421,14 +424,26 @@ impl DeferredHolder {
         &self,
         key: &TransitiveSetKey,
     ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
-        let analysis_values = match self {
-            DeferredHolder::Analysis(result) => result.analysis_values(),
-            DeferredHolder::Bxl(result) => result.analysis_values(),
-            DeferredHolder::Deferred(result) => result.analysis_values(),
-        };
-
-        analysis_values
+        self.analysis_values()
             .lookup_transitive_set(key)
             .ok_or_else(|| internal_error!("Missing transitive set `{}`", key))
     }
+
+    pub(crate) fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+        self.analysis_values().lookup_action(key)
+    }
+
+    fn analysis_values(&self) -> &RecordedAnalysisValues {
+        match self {
+            DeferredHolder::Analysis(result) => result.analysis_values(),
+            DeferredHolder::Bxl(result) => result.analysis_values(),
+            DeferredHolder::Deferred(result) => result.analysis_values(),
+        }
+    }
+}
+
+#[derive(Debug, Allocative, Clone, Dupe)]
+pub enum ActionLookup {
+    Action(Arc<RegisteredAction>),
+    Deferred(ActionKey),
 }

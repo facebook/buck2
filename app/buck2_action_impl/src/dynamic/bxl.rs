@@ -10,7 +10,6 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
-use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_util::late_binding::LateBinding;
@@ -25,7 +24,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v DynamicLambda,
         &'v mut dyn DeferredCtx,
         &'v mut DiceComputations,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Vec<ActionKey>>> + Send + 'v>>,
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'v>>,
 > = LateBinding::new("EVAL_BXL_FOR_DYNAMIC_OUTPUT");
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
@@ -33,7 +32,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: &'v DynamicLambda,
     deferred_ctx: &'v mut dyn DeferredCtx,
     dice_ctx: &'v mut DiceComputations<'_>,
-) -> anyhow::Result<Vec<ActionKey>> {
+) -> anyhow::Result<()> {
     (EVAL_BXL_FOR_DYNAMIC_OUTPUT.get()?)(base_deferred_key, dynamic_lambda, deferred_ctx, dice_ctx)
         .await
 }

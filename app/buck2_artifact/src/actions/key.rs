@@ -12,7 +12,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 
-use crate::deferred::key::DeferredKey;
+use crate::deferred::key::DeferredHolderKey;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
 /// Since 'Action's are registered as 'Deferred's
@@ -26,22 +26,54 @@ use crate::deferred::key::DeferredKey;
     derive_more::Display,
     Allocative
 )]
-pub struct ActionKey(
-    /// `DeferredData<Arc<RegisteredAction>>`.
-    DeferredKey,
-);
+#[display(fmt = "(target: `{parent}`, id: `{id}`)")]
+pub struct ActionKey {
+    parent: DeferredHolderKey,
+    id: ActionIndex,
+}
+
+/// An unique identifier for different actions with the same parent.
+#[derive(
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Dupe,
+    Copy,
+    derive_more::Display,
+    Allocative
+)]
+pub struct ActionIndex(u32);
+impl ActionIndex {
+    pub fn new(v: u32) -> ActionIndex {
+        Self(v)
+    }
+}
 
 impl ActionKey {
-    pub fn unchecked_new(key: DeferredKey) -> ActionKey {
-        ActionKey(key)
+    pub fn unchecked_new(parent: DeferredHolderKey, id: ActionIndex) -> ActionKey {
+        ActionKey { parent, id }
     }
 
-    pub fn deferred_key(&self) -> &DeferredKey {
-        &self.0
+    pub fn new(parent: DeferredHolderKey, id: ActionIndex) -> ActionKey {
+        ActionKey { parent, id }
+    }
+
+    pub fn holder_key(&self) -> &DeferredHolderKey {
+        &self.parent
+    }
+
+    pub fn action_index(&self) -> ActionIndex {
+        self.id
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
-        self.deferred_key().owner()
+        self.parent.owner()
+    }
+
+    pub fn action_key(&self) -> String {
+        self.parent.action_key(self.action_index().0)
     }
 }
 
@@ -50,9 +82,9 @@ impl ToProtoMessage for ActionKey {
 
     fn as_proto(&self) -> Self::Message {
         buck2_data::ActionKey {
-            id: self.deferred_key().id().as_usize().to_ne_bytes().to_vec(),
-            owner: Some(self.deferred_key().owner().to_proto().into()),
-            key: self.deferred_key().action_key(),
+            id: (self.id.0 as usize).to_ne_bytes().to_vec(),
+            owner: Some(self.owner().to_proto().into()),
+            key: self.action_key(),
         }
     }
 }

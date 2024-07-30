@@ -12,10 +12,11 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -29,20 +30,25 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::NoDigest;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
+use gazebo::prelude::SliceExt;
 use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
+use starlark::collections::SmallMap;
+use starlark_map::Hashed;
 
-use crate::actions::key::ActionKeyExt;
 use crate::actions::ActionErrors;
 use crate::actions::ActionToBeRegistered;
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
+use crate::deferred::calculation::ActionLookup;
 use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ReservedTrivialDeferredData;
 
 /// The actions registry for a particular analysis of a rule implementation
 #[derive(Allocative)]
@@ -50,10 +56,11 @@ pub struct ActionsRegistry {
     owner: BaseDeferredKey,
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
-    pending: Vec<(
-        ReservedTrivialDeferredData<RegisteredAction>,
-        ActionToBeRegistered,
-    )>,
+
+    // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
+    // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
+    declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact>,
+    pending: Vec<ActionToBeRegistered>,
     execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
 }
@@ -64,6 +71,7 @@ impl ActionsRegistry {
             owner,
             action_key: None,
             artifacts: Default::default(),
+            declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
             execution_platform,
             claimed_output_paths: DirectoryBuilder::empty(),
@@ -76,13 +84,31 @@ impl ActionsRegistry {
 
     pub fn declare_dynamic_output(
         &mut self,
-        path: BuckOutPath,
-        output_type: OutputType,
-    ) -> DeclaredArtifact {
-        // We don't want to claim path, because the output belongs to different (outer) context. We
-        // also don't care to keep track of the hidden components count since this output will
+        artifact: &BuildArtifact,
+    ) -> anyhow::Result<DeclaredArtifact> {
+        if !self.pending.is_empty() {
+            return Err(internal_error!(
+                "output for dynamic_output/actions declared after actions: {}, {:?}",
+                artifact,
+                self.pending.map(|v| v.key())
+            ));
+        }
+
+        // We don't want to claim path, because the output belongs to different (outer) context.
+
+        // We also don't care to keep track of the hidden components count since this output will
         // never escape the dynamic lambda.
-        DeclaredArtifact::new(path, output_type, 0)
+        // TODO(cjhopman): dynamic values mean this can escape. does this need to be updated for that?
+        let new_artifact =
+            DeclaredArtifact::new(artifact.get_path().dupe(), artifact.output_type(), 0);
+
+        assert!(
+            self.declared_dynamic_outputs
+                .insert(artifact.key().dupe(), new_artifact.dupe())
+                .is_none()
+        );
+
+        Ok(new_artifact)
     }
 
     pub fn claim_output_path(
@@ -177,45 +203,54 @@ impl ActionsRegistry {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
-    ) -> anyhow::Result<DeferredId> {
-        let reserved = registry.reserve_trivial::<RegisteredAction>();
-
+    ) -> anyhow::Result<ActionKey> {
+        let key = ActionKey::new(
+            registry.key().dupe(),
+            // If there are declared_dynamic_outputs, then the analysis that created this one has
+            // already created ActionKeys for each of those declared outputs and so we offset the
+            // index by that number.
+            ActionIndex::new(
+                (self.declared_dynamic_outputs.len() + self.pending.len()).try_into()?,
+            ),
+        );
         let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
-            let bound = output
-                .bind(ActionKey::new(reserved.data().dupe()))?
-                .as_base_artifact()
-                .dupe();
+            let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);
         }
-        let id = reserved.data().deferred_key().id();
-        self.pending.push((
-            reserved,
-            ActionToBeRegistered::new(inputs, bound_outputs, action),
+        self.pending.push(ActionToBeRegistered::new(
+            key.dupe(),
+            inputs,
+            bound_outputs,
+            action,
         ));
 
-        Ok(id)
+        Ok(key)
     }
 
     /// Consumes the registry so no more 'Action's can be registered. This returns
     /// an 'ActionAnalysisResult' that holds all the registered 'Action's
     pub fn ensure_bound(
         self,
-        registry: &mut DeferredRegistry,
+        _registry: &mut DeferredRegistry,
         analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<RecordedActions> {
         for artifact in self.artifacts {
             artifact.ensure_bound()?;
+        }
+
+        let mut actions = RecordedActions::new();
+
+        for (key, artifact) in self.declared_dynamic_outputs.into_iter_hashed() {
+            actions.insert_dynamic_output(key, artifact.ensure_bound()?.action_key().dupe());
         }
 
         // Buck2 has an invariant that pairs of categories and identifiers are unique throughout a build. That
         // invariant is enforced here, using observed_names to keep track of the categories and identifiers that we've seen.
         let mut observed_names: HashMap<Category, HashSet<String>> = HashMap::new();
-        for (key, a) in self.pending.into_iter() {
-            let deferred_id = key.data().deferred_key().id();
-            let starlark_data = analysis_value_fetcher.get(deferred_id)?;
-            let error_handler = analysis_value_fetcher.get_error_handler(deferred_id)?;
-            let action_key = ActionKey::new(key.data().dupe());
+        for a in self.pending.into_iter() {
+            let key = a.key().dupe();
+            let (starlark_data, error_handler) = analysis_value_fetcher.get_action_data(&key)?;
             let action = a.register(starlark_data, error_handler)?;
             match (action.category(), action.identifier()) {
                 (category, Some(identifier)) => {
@@ -244,27 +279,25 @@ impl ActionsRegistry {
                 }
             }
 
-            registry.bind_trivial(
-                key,
-                RegisteredAction::new(
-                    action_key,
+            actions.insert(
+                key.dupe(),
+                Arc::new(RegisteredAction::new(
+                    key,
                     action,
                     (*self.execution_platform.executor_config()?).dupe(),
-                ),
+                )),
             );
         }
 
-        Ok(())
+        Ok(actions)
     }
 
     pub fn testing_artifacts(&self) -> &IndexSet<DeclaredArtifact> {
         &self.artifacts
     }
 
-    pub fn testing_pending(
-        &self,
-    ) -> impl Iterator<Item = &ReservedTrivialDeferredData<RegisteredAction>> {
-        self.pending.iter().map(|(reserved, _)| reserved)
+    pub fn testing_pending_action_keys(&self) -> Vec<ActionKey> {
+        self.pending.map(|a| a.key().dupe())
     }
 
     pub(crate) fn execution_platform(&self) -> &ExecutionPlatformResolution {
@@ -277,5 +310,74 @@ impl ActionsRegistry {
 
     pub(crate) fn artifacts_len(&self) -> usize {
         self.artifacts.len()
+    }
+}
+
+#[derive(Debug, Allocative)]
+pub struct RecordedActions {
+    /// ActionLookup::Action would indicate that this analysis created the action.
+    ///
+    /// It's possible for an Action to appear in this map multiple times. That can
+    /// happen for a dynamic_outputs' "outputs" argument when the output is bound to
+    /// an action created in that dynamic_output.
+    ///
+    /// ActionLookup::Deferred is only used for a dynamic_outputs "outputs" argument
+    /// that has been re-bound to another dynamic_output.
+    actions: SmallMap<ActionKey, ActionLookup>,
+}
+
+impl RecordedActions {
+    pub fn new() -> Self {
+        Self {
+            actions: SmallMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, key: ActionKey, action: Arc<RegisteredAction>) {
+        assert!(
+            self.actions
+                .insert(key, ActionLookup::Action(action))
+                .is_none()
+        );
+    }
+
+    /// Inserts a binding for a dynamic_outputs' "outputs" arg.
+    pub(crate) fn insert_dynamic_output(
+        &mut self,
+        key: Hashed<ActionKey>,
+        bound_to_key: ActionKey,
+    ) {
+        match self.actions.get(&bound_to_key) {
+            Some(ActionLookup::Action(v)) => {
+                // indicates that a dynamic_output "outputs" has been bound to an action it created
+                assert!(
+                    self.actions
+                        .insert_hashed(key, ActionLookup::Action(v.dupe()))
+                        .is_none()
+                );
+            }
+            _ => {
+                assert!(
+                    self.actions
+                        .insert_hashed(key, ActionLookup::Deferred(bound_to_key))
+                        .is_none()
+                );
+            }
+        }
+    }
+
+    pub fn lookup(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+        self.actions
+            .get(key)
+            .duped()
+            .with_internal_error(|| format!("action key missing in recorded actions {}", key))
+    }
+
+    /// Iterates over the actions created in this analysis.
+    pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
+        self.actions.values().filter_map(|v| match v {
+            ActionLookup::Action(a) => Some(a),
+            ActionLookup::Deferred(_) => None,
+        })
     }
 }

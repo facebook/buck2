@@ -240,9 +240,9 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
 
 #[cfg(test)]
 mod tests {
+    use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
-    use buck2_artifact::deferred::id::DeferredId;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -256,7 +256,7 @@ mod tests {
         let artifact = BuildArtifact::testing_new(
             target.dupe(),
             ForwardRelativePathBuf::unchecked_new(name.to_owned()),
-            DeferredId::testing_new(0),
+            ActionIndex::new(0),
         );
 
         let value = ArtifactValue::file(DigestConfig::testing_default().empty_file());

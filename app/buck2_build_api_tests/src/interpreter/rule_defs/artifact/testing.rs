@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
+use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -99,7 +99,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkArtifact> {
         let target_label = get_label(eval, target)?;
-        let id = DeferredId::testing_new(0);
+        let id = ActionIndex::new(0);
         let artifact = Artifact::from(BuildArtifact::testing_new(
             target_label,
             ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),

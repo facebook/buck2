@@ -8,12 +8,11 @@
  */
 
 use assert_matches::assert_matches;
+use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::artifact::artifact_type::testing::ArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::actions::ActionErrors;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
@@ -33,6 +32,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
 use indexmap::indexset;
+use itertools::Itertools;
 
 use crate::actions::testings::SimpleUnregisteredAction;
 
@@ -150,7 +150,7 @@ fn register_actions() -> anyhow::Result<()> {
         BuildArtifact::testing_new(
             base.unpack_target_label().unwrap().dupe(),
             ForwardRelativePathBuf::unchecked_new("input".into()),
-            DeferredId::testing_new(1),
+            ActionIndex::new(1),
         )
         .into()
     )];
@@ -161,22 +161,11 @@ fn register_actions() -> anyhow::Result<()> {
         CategoryRef::new("fake_action").unwrap().to_owned(),
         None,
     );
-    assert_eq!(
-        actions
-            .register(&mut deferreds, inputs, outputs, unregistered_action)
-            .is_ok(),
-        true
-    );
 
-    assert_eq!(actions.testing_pending().count(), 1);
+    let key = actions.register(&mut deferreds, inputs, outputs, unregistered_action.clone())?;
+
+    assert_eq!(actions.testing_pending_action_keys(), vec![key]);
     assert_eq!(declared.testing_is_bound(), true);
-    assert_eq!(
-        actions
-            .testing_pending()
-            .any(|reserved| reserved.data()
-                == declared.testing_action_key().unwrap().deferred_data()),
-        true
-    );
 
     Ok(())
 }
@@ -205,7 +194,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
         BuildArtifact::testing_new(
             base.unpack_target_label().unwrap().dupe(),
             ForwardRelativePathBuf::unchecked_new("input".into()),
-            DeferredId::testing_new(1),
+            ActionIndex::new(1),
         )
         .into()
     )];
@@ -218,18 +207,16 @@ fn finalizing_actions() -> anyhow::Result<()> {
     );
     actions.register(&mut deferreds, inputs, outputs, unregistered_action)?;
 
-    let result = actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default());
-    assert_eq!(result.is_ok(), true, "Expected Ok(_), got `{:?}`", result);
-
-    let (registered_deferreds, _) = deferreds.take_result()?;
-
-    assert_eq!(registered_deferreds.len(), 1);
+    let result = actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default())?;
 
     assert_eq!(
-        registered_deferreds
-            .lookup_deferred(declared.testing_action_key().unwrap().deferred_key().id())
+        result
+            .lookup(&declared.testing_action_key().unwrap())
             .is_ok(),
-        true
+        true,
+        "Expected results to contain `{}`, had `[{}]`",
+        declared.testing_action_key().unwrap(),
+        result.iter_actions().map(|v| v.key()).join(", ")
     );
 
     Ok(())
@@ -298,5 +285,6 @@ fn category_identifier_test(
         )?;
     }
 
-    actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default())
+    actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default())?;
+    Ok(())
 }

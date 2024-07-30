@@ -8,19 +8,13 @@
  */
 
 use std::mem;
-use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
-use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_build_api::actions::key::ActionKeyExt;
-use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
@@ -59,24 +53,6 @@ use starlark::values::ValueTyped;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
 use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
-
-/// The artifacts that are returned are dynamic actions, which depend on the `DynamicLambda`
-/// to get their real `RegisteredAction`.
-#[derive(Clone, Debug, Allocative)]
-pub(crate) struct DynamicAction {
-    // Points at a DynamicLambda
-    input: DeferredInput,
-    output_artifact_index: usize,
-}
-
-impl DynamicAction {
-    pub fn new(deferred: &DeferredData<DynamicLambdaOutput>, output_artifact_index: usize) -> Self {
-        Self {
-            input: DeferredInput::Deferred(deferred.deferred_key().dupe()),
-            output_artifact_index,
-        }
-    }
-}
 
 pub enum DynamicLambdaArgs<'v> {
     OldPositional {
@@ -191,47 +167,9 @@ impl DynamicLambda {
 
 /// The `Output` from `DynamicLambda`.
 #[derive(Clone, Debug, Allocative)]
-pub struct DynamicLambdaOutput {
-    /// The actions the DynamicLambda produces, in the right order.
-    /// `DynamicAction.index` is an index into this Vec.
-    output: Box<[ActionKey]>,
-}
+pub struct DynamicLambdaOutput {}
 
 impl DeferredOutput for DynamicLambdaOutput {}
-
-impl provider::Provider for DynamicAction {
-    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {}
-}
-
-impl Deferred for DynamicAction {
-    type Output = RegisteredAction;
-
-    fn inputs(&self) -> DeferredInputsRef<'_> {
-        DeferredInputsRef::Slice(slice::from_ref(&self.input))
-    }
-
-    async fn execute(
-        &self,
-        ctx: &mut dyn DeferredCtx,
-        _dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let id = match &self.input {
-            DeferredInput::Deferred(x) => x,
-            _ => {
-                return Err(internal_error!(
-                    "DynamicAction must have a single Deferred as as inputs"
-                ));
-            }
-        };
-        let val = ctx.get_deferred_data(id)?;
-        let key = val
-            .downcast::<DynamicLambdaOutput>()?
-            .output
-            .get(self.output_artifact_index)
-            .internal_error("Unexpected index in DynamicAction")?;
-        Ok(DeferredValue::Deferred(key.deferred_data().dupe()))
-    }
-}
 
 #[derive(Debug, buck2_error::Error)]
 enum DynamicLambdaError {
@@ -259,7 +197,7 @@ impl Deferred for DynamicLambda {
         deferred_ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        let output = if let BaseDeferredKey::BxlLabel(key) = &self.owner {
+        if let BaseDeferredKey::BxlLabel(key) = &self.owner {
             eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await?
         } else {
             let proto_rule = "dynamic_lambda".to_owned();
@@ -275,10 +213,10 @@ impl Deferred for DynamicLambda {
                 let mut declared_actions = None;
                 let mut declared_artifacts = None;
 
-                let output: anyhow::Result<_> = try {
+                let output: anyhow::Result<()> = try {
                     let env = Module::new();
 
-                    let (analysis_registry, declared_outputs) = {
+                    let analysis_registry = {
                         let heap = env.heap();
                         let print = EventDispatcherPrintHandler(get_dispatcher());
                         let mut eval = Evaluator::new(&env);
@@ -319,18 +257,13 @@ impl Deferred for DynamicLambda {
 
                         ctx.assert_no_promises()?;
 
-                        (ctx.take_state(), dynamic_lambda_ctx_data.declared_outputs)
+                        ctx.take_state()
                     };
 
                     declared_actions = Some(analysis_registry.num_declared_actions());
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
                     let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
                     let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
-
-                    declared_outputs
-                        .into_iter()
-                        .map(|x| anyhow::Ok(x.ensure_bound()?.action_key().dupe()))
-                        .collect::<anyhow::Result<Vec<_>>>()?
                 };
 
                 (
@@ -347,10 +280,9 @@ impl Deferred for DynamicLambda {
                 )
             })
             .await?
-        };
-        Ok(DeferredValue::Ready(DynamicLambdaOutput {
-            output: output.into_boxed_slice(),
-        }))
+        }
+
+        Ok(DeferredValue::Ready(DynamicLambdaOutput {}))
     }
 
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -366,7 +298,6 @@ pub struct DynamicLambdaCtxData<'v> {
     pub artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     pub key: &'v BaseDeferredKey,
     pub digest_config: DigestConfig,
-    pub declared_outputs: IndexSet<DeclaredArtifact>,
     pub registry: AnalysisRegistry<'v>,
 }
 
@@ -378,7 +309,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
     let heap = env.heap();
     let mut outputs = Vec::with_capacity(dynamic_lambda.outputs.len());
-    let mut declared_outputs = IndexSet::with_capacity(dynamic_lambda.outputs.len());
 
     let attributes_lambda = &dynamic_lambda
         .attributes_lambda
@@ -432,8 +362,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     for x in &*dynamic_lambda.outputs {
         let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
-        let declared = registry.declare_dynamic_output(x.get_path().dupe(), x.output_type());
-        declared_outputs.insert(declared.dupe());
+        let declared = registry.declare_dynamic_output(x)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
         outputs.push((k, v));
     }
@@ -447,7 +376,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
         artifacts,
         key: &dynamic_lambda.owner,
         digest_config: deferred_ctx.digest_config(),
-        declared_outputs,
         registry,
     })
 }

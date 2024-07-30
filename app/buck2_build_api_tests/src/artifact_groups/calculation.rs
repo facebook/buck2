@@ -13,6 +13,7 @@ use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_build_api::actions::registry::RecordedActions;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -89,7 +90,7 @@ fn mock_analysis_for_tsets(
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
                 DeferredTable::new(Vec::new()),
-                RecordedAnalysisValues::testing_new(tsets),
+                RecordedAnalysisValues::testing_new(tsets, RecordedActions::new()),
                 None,
                 HashMap::new(),
                 0,
