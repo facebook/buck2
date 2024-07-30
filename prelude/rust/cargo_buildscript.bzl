@@ -64,8 +64,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         )
 
         null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "/dev/null"
-        dep_args = cmd_args("--sysroot=" + null_path, dep_args)
-        dep_args = cmd_args("-Zunstable-options", dep_args, relative_to = cwd)
+        dep_args = cmd_args("--sysroot=" + null_path, dep_args, relative_to = cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
         sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)
     else:
