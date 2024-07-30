@@ -910,7 +910,6 @@ prebuilt_apple_framework = prelude_rule(
                  `static` will copy the resources of the framework into
                  an Apple bundle.
             """),
-            "code_sign_on_copy": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
