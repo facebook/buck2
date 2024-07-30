@@ -17,7 +17,6 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
@@ -46,99 +45,19 @@ pub trait Deferred: Debug + Allocative + provider::Provider + Send + Sync + Any 
     /// executes this 'Deferred', assuming all inputs and input artifacts are already computed
     async fn execute(
         &self,
-        ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations,
+        action_key: String,
+        configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+        materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+        registry: &mut DeferredRegistry,
+        project_filesystem: ProjectRoot,
+        digest_config: DigestConfig,
+        liveness: CancellationObserver,
     ) -> anyhow::Result<()>;
 
     /// An optional stage to wrap execution in.
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
         None
-    }
-}
-
-/// The context for executing a 'Deferred'.
-pub trait DeferredCtx: Send {
-    fn get_configured_target(&self, label: &ConfiguredTargetLabel)
-    -> Option<&ConfiguredTargetNode>;
-
-    fn get_action_key(&self) -> String;
-
-    fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath>;
-
-    fn registry(&mut self) -> &mut DeferredRegistry;
-
-    fn project_filesystem(&self) -> &ProjectRoot;
-
-    fn digest_config(&self) -> DigestConfig;
-
-    fn liveness(&self) -> CancellationObserver;
-}
-
-/// DeferredCtx with already resolved values
-pub struct ResolveDeferredCtx<'a> {
-    action_key: String,
-    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
-    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-    registry: &'a mut DeferredRegistry,
-    project_filesystem: ProjectRoot,
-    digest_config: DigestConfig,
-    liveness: CancellationObserver,
-}
-
-impl<'a> ResolveDeferredCtx<'a> {
-    pub fn new(
-        action_key: String,
-        configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
-        materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-        registry: &'a mut DeferredRegistry,
-        project_filesystem: ProjectRoot,
-        digest_config: DigestConfig,
-        liveness: CancellationObserver,
-    ) -> Self {
-        Self {
-            action_key,
-            configured_targets,
-            materialized_artifacts,
-            registry,
-            project_filesystem,
-            digest_config,
-            liveness,
-        }
-    }
-}
-
-impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
-    fn get_configured_target(
-        &self,
-        label: &ConfiguredTargetLabel,
-    ) -> Option<&ConfiguredTargetNode> {
-        self.configured_targets.get(label)
-    }
-
-    fn get_action_key(&self) -> String {
-        self.action_key.clone()
-    }
-
-    fn get_materialized_artifact(&self, artifact: &Artifact) -> Option<&ProjectRelativePath> {
-        self.materialized_artifacts
-            .get(artifact)
-            .map(|x| x.as_ref())
-    }
-
-    fn registry(&mut self) -> &mut DeferredRegistry {
-        self.registry
-    }
-
-    fn project_filesystem(&self) -> &ProjectRoot {
-        &self.project_filesystem
-    }
-
-    fn digest_config(&self) -> DigestConfig {
-        self.digest_config
-    }
-
-    fn liveness(&self) -> CancellationObserver {
-        self.liveness.dupe()
     }
 }
 

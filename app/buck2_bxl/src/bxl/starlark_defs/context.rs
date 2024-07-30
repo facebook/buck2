@@ -10,6 +10,7 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::io::Write;
 use std::iter;
@@ -23,11 +24,12 @@ use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::DeferredCtx;
+use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
@@ -54,6 +56,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
@@ -520,11 +523,16 @@ impl<'v> BxlContextNoDice<'v> {
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     dynamic_lambda: &'v DynamicLambda,
-    deferred_ctx: &'v mut dyn DeferredCtx,
     dice_ctx: &'v mut DiceComputations<'_>,
+    action_key: String,
+    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    registry: &'v mut DeferredRegistry,
+    project_filesystem: ProjectRoot,
+    _digest_config: DigestConfig,
+    liveness: CancellationObserver,
 ) -> anyhow::Result<()> {
     // TODO(wendyy) emit telemetry, support profiler
-    let liveness = deferred_ctx.liveness();
     let dynamic_key =
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
     let key = dynamic_key.key();
@@ -532,6 +540,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         exec_deps: dynamic_key.0.exec_deps.clone(),
         toolchains: dynamic_key.0.toolchains.clone(),
     };
+    // TODO(cjhopman): Why does this get the digest_config from dice???
     let digest_config = dice_ctx.global_data().get_digest_config();
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
     let eval_ctx = BxlEvalContext {
@@ -540,7 +549,12 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_lambda,
         dynamic_data,
         digest_config,
-        deferred_ctx,
+        action_key,
+        configured_targets,
+        materialized_artifacts,
+        registry,
+        project_filesystem,
+
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
     };
 
@@ -588,7 +602,11 @@ struct BxlEvalContext<'v> {
     dynamic_lambda: &'v DynamicLambda,
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
-    deferred_ctx: &'v mut dyn DeferredCtx,
+    action_key: String,
+    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    registry: &'v mut DeferredRegistry,
+    project_filesystem: ProjectRoot,
     print: EventDispatcherPrintHandler,
 }
 
@@ -606,8 +624,16 @@ impl BxlEvalContext<'_> {
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
             eval.extra = Some(&BxlEvalExtraTag);
 
-            let dynamic_lambda_ctx_data =
-                dynamic_lambda_ctx_data(self.dynamic_lambda, self.deferred_ctx, &env)?;
+            let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+                self.dynamic_lambda,
+                &self.action_key,
+                &self.configured_targets,
+                &self.materialized_artifacts,
+                self.registry,
+                &self.project_filesystem,
+                self.digest_config,
+                &env,
+            )?;
 
             let async_ctx = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
                 dice,
@@ -644,19 +670,34 @@ impl BxlEvalContext<'_> {
         };
 
         let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-        let _fake_registry = std::mem::replace(self.deferred_ctx.registry(), deferred);
+        let _fake_registry = std::mem::replace(self.registry, deferred);
         Ok(())
     }
 }
 
 pub(crate) fn init_eval_bxl_for_dynamic_output() {
     EVAL_BXL_FOR_DYNAMIC_OUTPUT.init(
-        |base_deferred_key, dynamic_lambda, deferred_ctx, dice_ctx| {
+        |base_deferred_key,
+         dynamic_lambda,
+         dice_ctx,
+         action_key,
+         configured_targets,
+         materialized_artifacts,
+         registry,
+         project_filesystem,
+         digest_config,
+         liveness| {
             Box::pin(eval_bxl_for_dynamic_output(
                 base_deferred_key,
                 dynamic_lambda,
-                deferred_ctx,
                 dice_ctx,
+                action_key,
+                configured_targets,
+                materialized_artifacts,
+                registry,
+                project_filesystem,
+                digest_config,
+                liveness,
             ))
         },
     );

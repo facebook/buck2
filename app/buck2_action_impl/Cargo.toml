@@ -46,8 +46,10 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_file_watcher = { workspace = true }
+buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
+buck2_node = { workspace = true }
 buck2_util = { workspace = true }
 host_sharing = { workspace = true }
 remote_execution = { workspace = true }

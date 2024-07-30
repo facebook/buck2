@@ -55,7 +55,6 @@ use crate::deferred::arc_borrow::ArcBorrow;
 use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ResolveDeferredCtx;
 use crate::dynamic::calculation::compute_dynamic_lambda;
 use crate::dynamic::calculation::DynamicLambdaResult;
 use crate::dynamic::lambda::DynamicLambda;
@@ -170,7 +169,8 @@ pub async fn prepare_and_execute_deferred(
     cancellation
         .with_structured_cancellation(|observer| {
             async move {
-                let mut deferred_ctx = ResolveDeferredCtx::new(
+                let execute = deferred.execute(
+                    ctx,
                     action_key,
                     targets.into_iter().collect(),
                     materialized_artifacts,
@@ -179,8 +179,6 @@ pub async fn prepare_and_execute_deferred(
                     ctx.global_data().get_digest_config(),
                     observer,
                 );
-
-                let execute = deferred.execute(&mut deferred_ctx, ctx);
 
                 match Lazy::into_value(span).unwrap_or_else(|init| init()) {
                     Some(span) => {

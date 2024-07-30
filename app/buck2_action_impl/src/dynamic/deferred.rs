@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 
@@ -16,7 +17,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::deferred::types::Deferred;
-use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredRegistry;
@@ -30,13 +30,18 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::environment::Module;
@@ -125,11 +130,29 @@ impl Deferred for DynamicLambdaAsDeferred {
 
     async fn execute(
         &self,
-        deferred_ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations,
+        action_key: String,
+        configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+        materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+        registry: &mut DeferredRegistry,
+        project_filesystem: ProjectRoot,
+        digest_config: DigestConfig,
+        liveness: CancellationObserver,
     ) -> anyhow::Result<()> {
         if let BaseDeferredKey::BxlLabel(key) = &self.0.owner {
-            eval_bxl_for_dynamic_output(key, &self.0, deferred_ctx, dice).await?
+            eval_bxl_for_dynamic_output(
+                key,
+                &self.0,
+                dice,
+                action_key,
+                configured_targets,
+                materialized_artifacts,
+                registry,
+                project_filesystem,
+                digest_config,
+                liveness,
+            )
+            .await?
         } else {
             let proto_rule = "dynamic_lambda".to_owned();
 
@@ -153,8 +176,16 @@ impl Deferred for DynamicLambdaAsDeferred {
                         let mut eval = Evaluator::new(&env);
                         eval.set_print_handler(&print);
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                        let dynamic_lambda_ctx_data =
-                            dynamic_lambda_ctx_data(&self.0, deferred_ctx, &env)?;
+                        let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+                            &self.0,
+                            &action_key,
+                            &configured_targets,
+                            &materialized_artifacts,
+                            registry,
+                            &project_filesystem,
+                            digest_config,
+                            &env,
+                        )?;
                         let ctx = AnalysisContext::prepare(
                             heap,
                             dynamic_lambda_ctx_data.lambda.attributes()?,
@@ -194,7 +225,7 @@ impl Deferred for DynamicLambdaAsDeferred {
                     declared_actions = Some(analysis_registry.num_declared_actions());
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
                     let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-                    let _fake_registry = mem::replace(deferred_ctx.registry(), deferred);
+                    let _fake_registry = mem::replace(registry, deferred);
                 };
 
                 (
@@ -235,7 +266,12 @@ pub struct DynamicLambdaCtxData<'v> {
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v DynamicLambda,
-    deferred_ctx: &mut dyn DeferredCtx,
+    action_key: &str,
+    configured_targets: &HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
+    registry: &mut DeferredRegistry,
+    project_filesystem: &ProjectRoot,
+    digest_config: DigestConfig,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
     let heap = env.heap();
@@ -251,8 +287,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let execution_platform = {
         match &dynamic_lambda.owner {
             BaseDeferredKey::TargetLabel(target) => {
-                let configured_target = deferred_ctx.get_configured_target(target).unwrap();
-
+                let configured_target = configured_targets.get(target).unwrap();
                 configured_target.execution_platform_resolution().dupe()
             }
             BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
@@ -269,23 +304,23 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let fake_registry = DeferredRegistry::new(DeferredHolderKey::Base(dynamic_lambda.owner.dupe()));
 
-    let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
+    let deferred = mem::replace(registry, fake_registry);
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.owner.dupe(),
         execution_platform,
         deferred,
     )?;
-    registry.set_action_key(Arc::from(deferred_ctx.get_action_key()));
+    registry.set_action_key(Arc::from(action_key));
 
     let mut artifacts = Vec::with_capacity(dynamic_lambda.dynamic.len());
-    let fs = deferred_ctx.project_filesystem();
+    let fs = project_filesystem;
     for x in &dynamic_lambda.dynamic {
         let x = match x {
             DeferredInput::MaterializedArtifact(x) => x,
             DeferredInput::ConfiguredTarget(_) => continue,
         };
         let k = StarlarkArtifact::new(x.dupe());
-        let path = deferred_ctx.get_materialized_artifact(x).unwrap();
+        let path = materialized_artifacts.get(x).unwrap();
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
         artifacts.push((k, v));
     }
@@ -305,7 +340,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         outputs,
         artifacts,
         key: &dynamic_lambda.owner,
-        digest_config: deferred_ctx.digest_config(),
+        digest_config,
         registry,
     })
 }
