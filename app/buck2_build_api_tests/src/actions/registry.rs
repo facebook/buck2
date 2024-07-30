@@ -12,12 +12,12 @@ use buck2_artifact::artifact::artifact_type::testing::ArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::actions::ActionErrors;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
@@ -141,7 +141,7 @@ fn register_actions() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
+    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
     let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
@@ -187,7 +187,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
+    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(
@@ -272,7 +272,7 @@ fn category_identifier_test(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(BaseKey::Base(base.dupe()));
+    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(

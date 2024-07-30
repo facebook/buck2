@@ -12,10 +12,10 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
@@ -136,9 +136,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, target)?;
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(
-            target_label.dupe(),
-        )));
+        let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
+            BaseDeferredKey::TargetLabel(target_label.dupe()),
+        ));
         let mut registry = ActionsRegistry::new(
             BaseDeferredKey::TargetLabel(target_label),
             ExecutionPlatformResolution::unspecified(),
@@ -208,9 +208,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             BaseDeferredKey::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(
-            target_label.dupe(),
-        )));
+        let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
+            BaseDeferredKey::TargetLabel(target_label.dupe()),
+        ));
 
         let associated_artifacts = AssociatedArtifacts::from(
             associated_artifacts

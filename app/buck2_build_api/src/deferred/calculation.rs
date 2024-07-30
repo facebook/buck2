@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::deferred::key::DeferredKey;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -55,7 +56,6 @@ use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::deferred::arc_borrow::ArcBorrow;
 use crate::deferred::types::deferred_execute;
-use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredRegistry;
@@ -156,11 +156,13 @@ impl PartialLookup {
 
 pub(crate) async fn lookup_deferred_holder(
     dice: &mut DiceComputations<'_>,
-    key: &BaseKey,
+    key: &DeferredHolderKey,
 ) -> anyhow::Result<DeferredHolder> {
     Ok(match key {
-        BaseKey::Base(key) => lookup_deferred_inner(key, dice).await?,
-        BaseKey::Deferred(key) => DeferredHolder::Deferred(compute_deferred(dice, key).await?),
+        DeferredHolderKey::Base(key) => lookup_deferred_inner(key, dice).await?,
+        DeferredHolderKey::Deferred(key) => {
+            DeferredHolder::Deferred(compute_deferred(dice, key).await?)
+        }
     })
 }
 
@@ -292,7 +294,8 @@ impl Key for DeferredCompute {
             .await?
         };
 
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(self.0.dupe())));
+        let mut registry =
+            DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(self.0.dupe())));
 
         cancellation
             .with_structured_cancellation(|observer| {

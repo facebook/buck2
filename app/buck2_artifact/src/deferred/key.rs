@@ -78,3 +78,33 @@ impl DeferredKey {
         }
     }
 }
+
+/// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
+/// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or
+/// 'DeferredKey::Base' type.
+#[derive(
+    Hash,
+    Eq,
+    PartialEq,
+    Clone,
+    Dupe,
+    derive_more::Display,
+    Debug,
+    Allocative
+)]
+
+pub enum DeferredHolderKey {
+    Base(BaseDeferredKey),
+    // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
+    // Maybe not?
+    Deferred(Arc<DeferredKey>),
+}
+
+impl DeferredHolderKey {
+    pub fn make_key(&self, id: DeferredId) -> DeferredKey {
+        match self {
+            DeferredHolderKey::Base(base) => DeferredKey::Base(base.dupe(), id),
+            DeferredHolderKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
+        }
+    }
+}

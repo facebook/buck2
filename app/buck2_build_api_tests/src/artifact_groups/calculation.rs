@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -19,7 +20,6 @@ use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -68,8 +68,8 @@ fn mock_analysis_for_tsets(
 
     for value in tsets {
         let key = value.key().dupe();
-        match key.base_key() {
-            BaseKey::Base(BaseDeferredKey::TargetLabel(target)) => {
+        match key.holder_key() {
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)) => {
                 by_target
                     .entry(target.dupe())
                     .or_insert(Vec::new())

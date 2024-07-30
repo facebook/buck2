@@ -18,10 +18,10 @@ use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::data::DeferredData;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::key::ActionKeyExt;
 use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
-use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
@@ -406,7 +406,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     // To overcome the difference, we create a fake registry, swap it with the one in deferred,
     // and swap back after AnalysisRegistry completes.
 
-    let fake_registry = DeferredRegistry::new(BaseKey::Base(dynamic_lambda.owner.dupe()));
+    let fake_registry = DeferredRegistry::new(DeferredHolderKey::Base(dynamic_lambda.owner.dupe()));
 
     let deferred = mem::replace(deferred_ctx.registry(), fake_registry);
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(

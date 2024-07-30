@@ -15,12 +15,12 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use buck2_artifact::deferred::key::DeferredHolderKey;
     use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
     use buck2_build_api::bxl::calculation::BxlComputeResult;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::deferred::calculation::DeferredCalculation;
-    use buck2_build_api::deferred::types::BaseKey;
     use buck2_build_api::deferred::types::Deferred;
     use buck2_build_api::deferred::types::DeferredCtx;
     use buck2_build_api::deferred::types::DeferredInput;
@@ -89,13 +89,13 @@ mod tests {
             GlobalCfgOptions::default(),
         );
 
-        let mut deferred = DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::BxlLabel(
-            bxl.dupe().into_base_deferred_key_dyn_impl(
+        let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
+            BaseDeferredKey::BxlLabel(bxl.dupe().into_base_deferred_key_dyn_impl(
                 ExecutionPlatformResolution::unspecified(),
                 Vec::new(),
                 Vec::new(),
-            ),
-        )));
+            )),
+        ));
 
         let executed0 = Arc::new(AtomicBool::new(false));
         let executed1 = Arc::new(AtomicBool::new(false));

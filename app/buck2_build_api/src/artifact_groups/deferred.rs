@@ -8,25 +8,25 @@
  */
 
 use allocative::Allocative;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::deferred::calculation::lookup_deferred_holder;
-use crate::deferred::types::BaseKey;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
 #[display(fmt = "{:?}", self)]
-pub struct TransitiveSetKey(BaseKey, TransitiveSetIndex);
+pub struct TransitiveSetKey(DeferredHolderKey, TransitiveSetIndex);
 
 impl TransitiveSetKey {
-    pub fn new(key: BaseKey, id: TransitiveSetIndex) -> Self {
+    pub fn new(key: DeferredHolderKey, id: TransitiveSetIndex) -> Self {
         Self(key, id)
     }
 
-    pub fn base_key(&self) -> &BaseKey {
+    pub fn holder_key(&self) -> &DeferredHolderKey {
         &self.0
     }
 

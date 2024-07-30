@@ -14,10 +14,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_analysis::analysis::calculation::AnalysisKey;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::deferred::calculation::DeferredCalculation;
-use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
@@ -89,8 +89,9 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
         "#
     ));
 
-    let mut deferred =
-        DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
+    let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
+        BaseDeferredKey::TargetLabel(target.dupe()),
+    ));
 
     let executed0 = Arc::new(AtomicBool::new(false));
     let executed1 = Arc::new(AtomicBool::new(false));
@@ -193,8 +194,9 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
         "#
     ));
 
-    let mut deferred =
-        DeferredRegistry::new(BaseKey::Base(BaseDeferredKey::TargetLabel(target.dupe())));
+    let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
+        BaseDeferredKey::TargetLabel(target.dupe()),
+    ));
 
     let executed = Arc::new(AtomicBool::new(false));
     let data = deferred.defer(TestDeferringDeferred(8, IndexSet::new(), executed.dupe()));

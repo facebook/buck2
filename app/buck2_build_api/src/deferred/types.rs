@@ -23,8 +23,8 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::deferred::key::DeferredKey;
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -34,7 +34,6 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Clone_;
 use dupe::Dupe;
@@ -199,27 +198,6 @@ impl<'a> IntoIterator for DeferredInputsRef<'a> {
     }
 }
 
-/// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
-/// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or
-/// 'DeferredKey::Base' type.
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
-
-pub enum BaseKey {
-    Base(BaseDeferredKey),
-    // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
-    // Maybe not?
-    Deferred(Arc<DeferredKey>),
-}
-
-impl BaseKey {
-    fn make_key(&self, id: DeferredId) -> DeferredKey {
-        match self {
-            BaseKey::Base(base) => DeferredKey::Base(base.dupe(), id),
-            BaseKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
-        }
-    }
-}
-
 /// Implemented by all trivial deferreds.
 pub trait TrivialDeferred: Allocative + AnyValue + Debug + Send + Sync {
     /// Convert the object to an AnyValue object
@@ -290,7 +268,7 @@ enum DeferredRegistryEntry {
 /// The registry for creating 'DeferredData's and registering 'Deferred's
 #[derive(Allocative)]
 pub struct DeferredRegistry {
-    base_key: BaseKey,
+    base_key: DeferredHolderKey,
     registry: Vec<DeferredRegistryEntry>,
     recorded_values: Option<RecordedAnalysisValues>,
 }
@@ -330,7 +308,7 @@ where
 }
 
 impl DeferredRegistry {
-    pub fn new(base_key: BaseKey) -> Self {
+    pub fn new(base_key: DeferredHolderKey) -> Self {
         Self {
             base_key,
             registry: Vec::new(),
@@ -338,7 +316,7 @@ impl DeferredRegistry {
         }
     }
 
-    pub fn key(&self) -> &BaseKey {
+    pub fn key(&self) -> &DeferredHolderKey {
         &self.base_key
     }
 
@@ -507,7 +485,7 @@ struct DeferredResultData {
     value: DeferredValueAny,
 }
 
-/// All direct deferreds for some `BaseKey`.
+/// All direct deferreds for some `DeferredHolderKey`.
 #[derive(Allocative)]
 pub struct DeferredTable(
     /// Indexed by `DeferredId`.
@@ -895,6 +873,7 @@ mod tests {
 
     use allocative::Allocative;
     use buck2_artifact::deferred::id::DeferredId;
+    use buck2_artifact::deferred::key::DeferredHolderKey;
     use buck2_artifact::deferred::key::DeferredKey;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::configuration::data::ConfigurationData;
@@ -917,7 +896,6 @@ mod tests {
     use super::TrivialDeferred;
     use crate::deferred::arc_borrow::ArcBorrow;
     use crate::deferred::types::testing::DeferredValueAnyExt;
-    use crate::deferred::types::BaseKey;
     use crate::deferred::types::Deferred;
     use crate::deferred::types::DeferredCtx;
     use crate::deferred::types::DeferredInput;
@@ -1031,7 +1009,7 @@ mod tests {
     #[tokio::test]
     async fn register_deferred() -> anyhow::Result<()> {
         let target = dummy_base();
-        let mut registry = DeferredRegistry::new(BaseKey::Base(target.dupe()));
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Base(target.dupe()));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1042,7 +1020,7 @@ mod tests {
 
         let (result, _) = registry.take_result()?;
 
-        let mut ctx = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
+        let mut ctx = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(
             deferred_data.deferred_key().dupe(),
         )));
 
@@ -1090,7 +1068,7 @@ mod tests {
         };
 
         let base = DeferredKey::Base(BaseDeferredKey::TargetLabel(target.dupe()), id);
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(base)));
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(base)));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1105,7 +1083,7 @@ mod tests {
         let deferring_deferred_data = registry.defer(deferring_deferred);
         let (result, _) = registry.take_result()?;
 
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(
             deferring_deferred_data.deferred_key().dupe(),
         )));
 
@@ -1152,8 +1130,9 @@ mod tests {
                 let (result, _) = registry.take_result()?;
                 let deferred = result.lookup_deferred(deferred_key.id()).unwrap();
 
-                let mut registry =
-                    DeferredRegistry::new(BaseKey::Deferred(Arc::new(deferred_key.dupe())));
+                let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(
+                    deferred_key.dupe(),
+                )));
                 assert_eq!(
                     deferred_execute(
                         deferred.any,
@@ -1188,7 +1167,7 @@ mod tests {
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base));
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Base(base));
 
         let deferred = FakeDeferred {
             inputs: IndexSet::new(),
@@ -1204,7 +1183,7 @@ mod tests {
 
         let (result, _) = registry.take_result()?;
 
-        let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(
             deferred_data.deferred_key().dupe(),
         )));
 
@@ -1250,7 +1229,7 @@ mod tests {
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base));
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Base(base));
 
         let _reserved = registry.reserve::<FakeDeferred<()>>();
         let _reserved1 = registry.reserve::<FakeDeferred<()>>();
@@ -1264,7 +1243,7 @@ mod tests {
             "cell//pkg:foo",
             ConfigurationData::testing_new(),
         ));
-        let mut registry = DeferredRegistry::new(BaseKey::Base(base));
+        let mut registry = DeferredRegistry::new(DeferredHolderKey::Base(base));
 
         let deferred0 = FakeDeferred {
             inputs: IndexSet::new(),

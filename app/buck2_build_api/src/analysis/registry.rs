@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -67,7 +68,6 @@ use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
-use crate::deferred::types::BaseKey;
 use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::DynamicRegistryDyn;
 use crate::dynamic::DYNAMIC_REGISTRY_NEW;
@@ -108,7 +108,7 @@ impl<'v> AnalysisRegistry<'v> {
         Self::new_from_owner_and_deferred(
             owner.dupe(),
             execution_platform,
-            DeferredRegistry::new(BaseKey::Base(owner)),
+            DeferredRegistry::new(DeferredHolderKey::Base(owner)),
         )
     }
 
@@ -508,7 +508,7 @@ impl<'v> AnalysisValueStorage<'v> {
         F: FnOnce(TransitiveSetKey) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>>,
     >(
         &mut self,
-        self_key: BaseKey,
+        self_key: DeferredHolderKey,
         func: F,
     ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let key = TransitiveSetKey::new(
