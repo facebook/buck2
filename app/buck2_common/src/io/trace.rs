@@ -117,8 +117,11 @@ impl IoProvider for TracingIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
-        self.add_project_path(path.clone());
-        self.io.read_file_if_exists_impl(path).await
+        let res = self.io.read_file_if_exists_impl(path.clone()).await?;
+        if res.is_some() {
+            self.add_project_path(path);
+        }
+        Ok(res)
     }
 
     /// Combination of read_file_if_exists from underlying fs struct and reading
