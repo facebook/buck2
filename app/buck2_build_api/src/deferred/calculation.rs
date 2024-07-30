@@ -288,7 +288,7 @@ impl Key for DeferredCompute {
                 },
                 |ctx| {
                     async move {
-                        self.create_materializer_futs(&materialized_artifacts, ctx, span)
+                        create_materializer_futs(&materialized_artifacts, ctx, span)
                             .await
                     }
                     .boxed()
@@ -344,53 +344,50 @@ impl Key for DeferredCompute {
     }
 }
 
-impl DeferredCompute {
-    async fn create_materializer_futs(
-        &self,
-        materialized_artifacts: &[ArtifactGroup],
-        ctx: &mut DiceComputations<'_>,
-        span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
-    ) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
-        if materialized_artifacts.is_empty() {
-            return Ok(HashMap::new());
-        }
-        // This is a bit suboptimal: we wait for all artifacts to be ready in order to
-        // materialize any of them. However that is how we execute *all* local actions so in
-        // the grand scheme of things that's probably not a huge deal.
+async fn create_materializer_futs(
+    materialized_artifacts: &[ArtifactGroup],
+    ctx: &mut DiceComputations<'_>,
+    span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
+) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
+    if materialized_artifacts.is_empty() {
+        return Ok(HashMap::new());
+    }
+    // This is a bit suboptimal: we wait for all artifacts to be ready in order to
+    // materialize any of them. However that is how we execute *all* local actions so in
+    // the grand scheme of things that's probably not a huge deal.
 
-        ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
-            ctx.ensure_artifact_group(artifact).boxed()
+    ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
+        ctx.ensure_artifact_group(artifact).boxed()
+    })
+    .await?;
+
+    let materializer = ctx.per_transaction_data().get_materializer();
+    let artifact_fs = ctx.get_artifact_fs().await?;
+
+    let fut = materialized_artifacts
+        .iter()
+        .map(|artifact| async {
+            let artifact = artifact
+                .unpack_artifact()
+                .expect("we only put Artifacts into this list")
+                .dupe();
+            let path = artifact.resolve_path(&artifact_fs)?;
+            materializer.ensure_materialized(vec![path.clone()]).await?;
+
+            anyhow::Ok((artifact, path))
         })
-        .await?;
+        .collect::<FuturesUnordered<_>>()
+        .try_collect::<HashMap<_, _>>();
 
-        let materializer = ctx.per_transaction_data().get_materializer();
-        let artifact_fs = ctx.get_artifact_fs().await?;
-
-        let fut = materialized_artifacts
-            .iter()
-            .map(|artifact| async {
-                let artifact = artifact
-                    .unpack_artifact()
-                    .expect("we only put Artifacts into this list")
-                    .dupe();
-                let path = artifact.resolve_path(&artifact_fs)?;
-                materializer.ensure_materialized(vec![path.clone()]).await?;
-
-                anyhow::Ok((artifact, path))
+    match span.as_ref() {
+        Some(span) => {
+            span.create_child(buck2_data::DeferredPreparationStageStart {
+                stage: Some(buck2_data::MaterializedArtifacts {}.into()),
             })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<HashMap<_, _>>();
-
-        match span.as_ref() {
-            Some(span) => {
-                span.create_child(buck2_data::DeferredPreparationStageStart {
-                    stage: Some(buck2_data::MaterializedArtifacts {}.into()),
-                })
-                .wrap_future(fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})))
-                .await
-            }
-            None => fut.await,
+            .wrap_future(fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})))
+            .await
         }
+        None => fut.await,
     }
 }
 
