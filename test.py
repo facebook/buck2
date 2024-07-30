@@ -80,6 +80,7 @@ def run(
     args: Iterable[str],
     capture_output: bool = False,
     env: Optional[Dict[str, str]] = None,
+    timeout: Optional[int] = None,
 ) -> subprocess.CompletedProcess:
     """
     Runs a command (args) in a new process.
@@ -101,6 +102,7 @@ def run(
             check=True,
             encoding="utf-8",
             env=env or os.environ.copy(),
+            timeout=timeout,
         )
         return result
     except subprocess.CalledProcessError as e:
@@ -375,9 +377,11 @@ def test(package_args: List[str]) -> None:
     # Limit number of parallel jobs to prevent OOMs
     if is_windows():
         extra_args = ["--jobs", str(os.cpu_count() // 2)]
-    run(["cargo", "test", "--lib", *extra_args, *package_args])
+    # Hour should be enough for all tests to run
+    timeout_sec = 60 * 60
+    run(["cargo", "test", "--lib", *extra_args, *package_args], timeout=timeout_sec)
     print_running("cargo test --doc")
-    run(["cargo", "test", "--doc", *extra_args, *package_args])
+    run(["cargo", "test", "--doc", *extra_args, *package_args], timeout=timeout_sec)
 
 
 def main() -> None:
