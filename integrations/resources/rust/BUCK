@@ -9,6 +9,9 @@ rust_library(
         "src/lib.rs",
         "src/manifest.rs",
     ],
+    # Prefer to use the published version of this library through crates.io,
+    # instead of this target. fbsource//third-party/rust:buck-resources
+    visibility = [],
     deps = [
         "fbsource//third-party/rust:dunce",
         "fbsource//third-party/rust:once_cell",
