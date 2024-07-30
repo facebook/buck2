@@ -16,12 +16,11 @@ use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::deferred::arc_borrow::ArcBorrow;
 use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::deferred::calculation::prepare_and_execute_deferred;
-use buck2_build_api::deferred::types::DeferredAny;
+use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
 use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_api::dynamic::calculation::DYNAMIC_LAMBDA_CALCULATION_IMPL;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
-use buck2_error::internal_error;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
@@ -62,8 +61,8 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                 let lambda: Arc<DynamicLambda> = lookup_deferred_holder(ctx, self.0.holder_key())
                     .await?
                     .lookup_lambda(&self.0)?;
-                let lambda: Arc<dyn DeferredAny> = Arc::new(DynamicLambdaAsDeferred(lambda));
-                let deferred_result = prepare_and_execute_deferred(
+                let lambda: Arc<dyn Deferred> = Arc::new(DynamicLambdaAsDeferred(lambda));
+                let analysis_values = prepare_and_execute_deferred(
                     ctx,
                     cancellation,
                     ArcBorrow::borrow(&lambda),
@@ -71,13 +70,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                     self.0.action_key(),
                 )
                 .await?;
-                let (deferreds, analysis_values) = deferred_result
-                    .try_into_parts()
-                    .map_err(|_| internal_error!("something already copied the deferred result"))?;
-                Ok(Arc::new(DynamicLambdaResult {
-                    deferreds,
-                    analysis_values,
-                }))
+                Ok(Arc::new(DynamicLambdaResult { analysis_values }))
             }
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

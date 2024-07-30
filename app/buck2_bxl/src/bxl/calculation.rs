@@ -93,8 +93,3 @@ mod internal {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     pub(crate) struct BxlComputeKey(pub(crate) BxlKey);
 }
-
-#[cfg(test)]
-pub(crate) mod testing {
-    pub(crate) use crate::bxl::calculation::internal::BxlComputeKey;
-}

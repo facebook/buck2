@@ -11,6 +11,7 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -18,9 +19,7 @@ use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredCtx;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
-use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
-use buck2_build_api::deferred::types::DeferredValue;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
@@ -109,12 +108,6 @@ pub fn invoke_dynamic_output_lambda<'v>(
     Ok(())
 }
 
-/// The `Output` from `DynamicLambda`.
-#[derive(Clone, Debug, Allocative)]
-pub struct DynamicLambdaOutput {}
-
-impl DeferredOutput for DynamicLambdaOutput {}
-
 #[derive(Debug, Allocative)]
 pub(crate) struct DynamicLambdaAsDeferred(pub(crate) Arc<DynamicLambda>);
 
@@ -124,9 +117,8 @@ impl provider::Provider for DynamicLambdaAsDeferred {
     }
 }
 
+#[async_trait]
 impl Deferred for DynamicLambdaAsDeferred {
-    type Output = DynamicLambdaOutput;
-
     fn inputs(&self) -> DeferredInputsRef<'_> {
         DeferredInputsRef::IndexSet(&self.0.dynamic)
     }
@@ -134,8 +126,8 @@ impl Deferred for DynamicLambdaAsDeferred {
     async fn execute(
         &self,
         deferred_ctx: &mut dyn DeferredCtx,
-        dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<DeferredValue<Self::Output>> {
+        dice: &mut DiceComputations,
+    ) -> anyhow::Result<()> {
         if let BaseDeferredKey::BxlLabel(key) = &self.0.owner {
             eval_bxl_for_dynamic_output(key, &self.0, deferred_ctx, dice).await?
         } else {
@@ -221,7 +213,7 @@ impl Deferred for DynamicLambdaAsDeferred {
             .await?
         }
 
-        Ok(DeferredValue::Ready(DynamicLambdaOutput {}))
+        Ok(())
     }
 
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -291,7 +283,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
         let x = match x {
             DeferredInput::MaterializedArtifact(x) => x,
             DeferredInput::ConfiguredTarget(_) => continue,
-            _ => unreachable!("DynamicLambda only depends on artifact and target"),
         };
         let k = StarlarkArtifact::new(x.dupe());
         let path = deferred_ctx.get_materialized_artifact(x).unwrap();

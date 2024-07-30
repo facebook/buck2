@@ -8,7 +8,6 @@
  */
 
 pub(crate) mod calculation;
-mod deferred;
 pub(crate) mod eval;
 pub(crate) mod key;
 pub(crate) mod starlark_defs;

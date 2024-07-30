@@ -15,7 +15,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::deferred::types::DeferredTable;
 use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
@@ -252,7 +251,7 @@ impl BxlInnerEvaluator {
                 // this bxl registered actions, so extract the deferreds from it
                 let (module, deferred_registry) = actions_finalizer(env)?;
 
-                let (deferred_table, recorded_values) = deferred_registry.take_result()?;
+                let recorded_values = deferred_registry.take_result()?;
 
                 (
                     module,
@@ -260,7 +259,6 @@ impl BxlInnerEvaluator {
                         output_stream,
                         error_stream,
                         ensured_artifacts,
-                        deferred_table,
                         recorded_values,
                     ),
                 )
@@ -275,7 +273,6 @@ impl BxlInnerEvaluator {
                         output_stream,
                         error_stream,
                         ensured_artifacts,
-                        DeferredTable::new(Vec::new()),
                         RecordedAnalysisValues::new_empty(),
                     ),
                 )

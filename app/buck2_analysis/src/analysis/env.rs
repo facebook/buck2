@@ -367,11 +367,9 @@ async fn run_analysis_with_env_underlying(
     })?;
     let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
 
-    // this could look nicer if we had the entire analysis be a deferred
-    let (deferred, recorded_values) = deferreds.take_result()?;
+    let recorded_values = deferreds.take_result()?;
     Ok(AnalysisResult::new(
         provider_collection,
-        deferred,
         recorded_values,
         profile_data,
         HashMap::new(),

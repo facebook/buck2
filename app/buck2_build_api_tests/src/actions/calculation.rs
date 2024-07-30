@@ -37,7 +37,6 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::types::DeferredTable;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::keep_going::HasKeepGoing;
@@ -174,7 +173,6 @@ fn mock_analysis_for_action_resolution(
         AnalysisKey(configured_target_label.dupe()),
         buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
             FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
-            DeferredTable::new(Vec::new()),
             RecordedAnalysisValues::testing_new(Vec::new(), actions),
             None,
             HashMap::new(),

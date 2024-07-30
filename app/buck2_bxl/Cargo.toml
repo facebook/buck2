@@ -54,7 +54,5 @@ buck2_server_ctx = { workspace = true }
 buck2_util = { workspace = true }
 
 [dev-dependencies]
-provider = { workspace = true }
-
 ctor = { workspace = true }
 maplit = { workspace = true }

@@ -32,8 +32,6 @@ use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use buck2_build_api::build_signals::BuildSignals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
-use buck2_build_api::deferred::calculation::DeferredCompute;
-use buck2_build_api::deferred::calculation::DeferredResolve;
 use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::DeferredBuildSignals;
@@ -80,8 +78,7 @@ enum NodeKey {
     AnalysisKey(AnalysisKey),
     EnsureProjectedArtifactKey(EnsureProjectedArtifactKey),
     EnsureTransitiveSetProjectionKey(EnsureTransitiveSetProjectionKey),
-    DeferredCompute(DeferredCompute),
-    DeferredResolve(DeferredResolve),
+    // todo!()
     ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
     PackageListingKey(PackageListingKey),
@@ -98,8 +95,6 @@ assert_eq_size!(BuildKey, [usize; 4]);
 assert_eq_size!(AnalysisKey, [usize; 2]);
 assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 5]);
 assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
-assert_eq_size!(DeferredCompute, [usize; 4]);
-assert_eq_size!(DeferredResolve, [usize; 4]);
 assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(PackageListingKey, [usize; 1]);
@@ -117,10 +112,6 @@ impl NodeKey {
             Self::EnsureProjectedArtifactKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<EnsureTransitiveSetProjectionKey>() {
             Self::EnsureTransitiveSetProjectionKey(key.dupe())
-        } else if let Some(key) = key.downcast_ref::<DeferredCompute>() {
-            Self::DeferredCompute(key.dupe())
-        } else if let Some(key) = key.downcast_ref::<DeferredResolve>() {
-            Self::DeferredResolve(key.dupe())
         } else if let Some(key) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
             Self::ConfiguredTargetNodeKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<InterpreterResultsKey>() {
@@ -146,8 +137,6 @@ impl fmt::Display for NodeKey {
             Self::EnsureTransitiveSetProjectionKey(k) => {
                 write!(f, "EnsureTransitiveSetProjectionKey({})", k)
             }
-            Self::DeferredCompute(k) => write!(f, "DeferredCompute({})", k),
-            Self::DeferredResolve(k) => write!(f, "DeferredResolve({})", k),
             Self::ConfiguredTargetNodeKey(k) => write!(f, "ConfiguredTargetNodeKey({})", k),
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
@@ -495,8 +484,6 @@ where
                     .into(),
                     NodeKey::EnsureProjectedArtifactKey(..) => return None,
                     NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
-                    NodeKey::DeferredCompute(..) => return None,
-                    NodeKey::DeferredResolve(..) => return None,
                     NodeKey::DynamicLambda(..) => return None,
                     NodeKey::ConfiguredTargetNodeKey(..) => return None,
                 };

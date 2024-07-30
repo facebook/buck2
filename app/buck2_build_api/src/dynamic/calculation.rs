@@ -11,27 +11,18 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
 use crate::analysis::registry::RecordedAnalysisValues;
-use crate::deferred::types::DeferredLookup;
-use crate::deferred::types::DeferredTable;
 
 #[derive(Allocative)]
 pub struct DynamicLambdaResult {
-    pub deferreds: DeferredTable,
     pub analysis_values: RecordedAnalysisValues,
 }
 
 impl DynamicLambdaResult {
-    /// looks up an 'Deferred' given the id
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
-        self.deferreds.lookup_deferred(id)
-    }
-
     pub(crate) fn analysis_values(&self) -> &crate::analysis::registry::RecordedAnalysisValues {
         &self.analysis_values
     }

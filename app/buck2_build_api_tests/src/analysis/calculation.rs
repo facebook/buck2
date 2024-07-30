@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::deferred::types::testing::DeferredAnalysisResultExt;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
@@ -176,7 +175,8 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .await?
         .require_compatible()?;
 
-    assert_eq!(analysis.testing_deferred().get_registered().len(), 0);
+    assert_eq!(analysis.analysis_values().iter_actions().count(), 0);
+    assert_eq!(analysis.analysis_values().iter_dynamic_lambdas().count(), 0);
 
     assert_eq!(
         analysis

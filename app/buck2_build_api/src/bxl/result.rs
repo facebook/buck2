@@ -8,15 +8,12 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::deferred::id::DeferredId;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use indexmap::IndexSet;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::build_result::BxlBuildResult;
-use crate::deferred::types::DeferredLookup;
-use crate::deferred::types::DeferredTable;
 
 /// The result of evaluating a bxl function
 #[derive(Allocative)]
@@ -33,7 +30,6 @@ pub enum BxlResult {
         error_loc: BuckOutPath,
         built: Vec<BxlBuildResult>,
         artifacts: Vec<ArtifactGroup>,
-        deferred: DeferredTable,
         analysis_values: RecordedAnalysisValues,
     },
 }
@@ -43,7 +39,6 @@ impl BxlResult {
         output_loc: BuckOutPath,
         error_loc: BuckOutPath,
         ensured_artifacts: IndexSet<ArtifactGroup>,
-        deferred: DeferredTable,
         analysis_values: RecordedAnalysisValues,
     ) -> Self {
         if ensured_artifacts.is_empty() {
@@ -58,17 +53,8 @@ impl BxlResult {
                 error_loc,
                 built: vec![],
                 artifacts: ensured_artifacts.into_iter().collect(),
-                deferred,
                 analysis_values,
             }
-        }
-    }
-
-    /// looks up an 'Deferred' given the id
-    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
-        match self {
-            BxlResult::None { .. } => Err(anyhow::anyhow!("Bxl never attempted to build anything")),
-            BxlResult::BuildsArtifacts { deferred, .. } => deferred.lookup_deferred(id),
         }
     }
 

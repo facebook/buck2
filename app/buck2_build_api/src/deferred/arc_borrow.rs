@@ -53,6 +53,7 @@ impl<'a, T: ?Sized> ArcBorrow<'a, T> {
 
     /// Upgrade to `Arc`.
     #[inline]
+    #[allow(unused)]
     pub(crate) fn clone_arc(borrow: Self) -> Arc<T> {
         // Documentation of `Arc::from_raw` says we can call `from_raw` on a pointer
         // previously constructed by `Arc::into_raw`.

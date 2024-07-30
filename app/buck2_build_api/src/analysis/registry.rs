@@ -18,7 +18,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -368,9 +367,6 @@ impl<'v> ArtifactDeclaration<'v> {
 
 /// Store `Value<'v>` values for actions registered in an implementation function
 ///
-/// Threading lifetimes through the various action registries is kind of a pain. So instead,
-/// store the starlark values in this struct, using the `DeferredId` as the key.
-///
 /// These values eventually are written into the mutable `Module`, and a wrapper is
 /// made available to get the `OwnedFrozenValue` back out after that `Module` is frozen.
 ///
@@ -388,7 +384,6 @@ impl<'v> ArtifactDeclaration<'v> {
 )]
 #[display(fmt = "{:?}", "self")]
 pub struct AnalysisValueStorage<'v> {
-    values: SmallMap<DeferredId, Value<'v>>,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
     lambda_params: SmallMap<
@@ -406,7 +401,6 @@ pub struct AnalysisValueStorage<'v> {
 )]
 #[display(fmt = "{:?}", "self")]
 pub struct FrozenAnalysisValueStorage {
-    values: SmallMap<DeferredId, FrozenValue>,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
     lambda_params: SmallMap<
@@ -424,15 +418,10 @@ impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         let AnalysisValueStorage {
-            values,
             action_data,
             transitive_sets,
             lambda_params,
         } = self;
-        for (k, v) in values.iter_mut() {
-            tracer.trace_static(k);
-            v.trace(tracer);
-        }
         for (k, v) in action_data.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
@@ -453,17 +442,12 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let AnalysisValueStorage {
-            values,
             action_data,
             transitive_sets,
             lambda_params,
         } = self;
 
         Ok(FrozenAnalysisValueStorage {
-            values: values
-                .into_iter()
-                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-                .collect::<anyhow::Result<_>>()?,
             action_data: action_data
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
@@ -501,7 +485,6 @@ pub struct AnalysisValueFetcher {
 impl<'v> AnalysisValueStorage<'v> {
     fn new() -> Self {
         Self {
-            values: SmallMap::new(),
             action_data: SmallMap::new(),
             transitive_sets: SmallMap::new(),
             lambda_params: SmallMap::new(),
@@ -518,11 +501,6 @@ impl<'v> AnalysisValueStorage<'v> {
             return Err(internal_error!("analysis_value_storage is already set"));
         }
         Ok(())
-    }
-
-    /// Add a value to the internal hash map that maps ids -> values
-    pub fn set_value(&mut self, id: DeferredId, value: Value<'v>) {
-        self.values.insert(id, value);
     }
 
     pub(crate) fn register_transitive_set<
@@ -571,17 +549,6 @@ impl AnalysisValueFetcher {
                 Ok(Some((analysis_extra_value, module.frozen_heap())))
             }
         }
-    }
-
-    /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
-    pub fn get(&self, id: DeferredId) -> anyhow::Result<Option<OwnedFrozenValue>> {
-        let Some((storage, heap_ref)) = self.extra_value()? else {
-            return Ok(None);
-        };
-        let Some(value) = storage.values.get(&id) else {
-            return Ok(None);
-        };
-        unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), *value))) }
     }
 
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
@@ -671,7 +638,6 @@ impl RecordedAnalysisValues {
         }
 
         let value = heap.alloc_simple(FrozenAnalysisValueStorage {
-            values: SmallMap::new(),
             action_data: SmallMap::new(),
             transitive_sets: alloced_tsets,
             lambda_params: SmallMap::new(),
