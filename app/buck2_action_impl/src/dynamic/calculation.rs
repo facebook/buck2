@@ -13,19 +13,16 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
-use buck2_build_api::deferred::arc_borrow::ArcBorrow;
 use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
 use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_api::dynamic::calculation::DYNAMIC_LAMBDA_CALCULATION_IMPL;
-use buck2_build_api::dynamic::lambda::DynamicLambda;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 
-use crate::dynamic::deferred::prepare_and_execute_deferred;
-use crate::dynamic::deferred::DynamicLambdaAsDeferred;
+use crate::dynamic::deferred::prepare_and_execute_lambda;
 
 struct DynamicLambdaCalculationImpl;
 
@@ -57,14 +54,14 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                 ctx: &mut DiceComputations,
                 cancellation: &CancellationContext,
             ) -> Self::Value {
-                let lambda: Arc<DynamicLambda> = lookup_deferred_holder(ctx, self.0.holder_key())
+                let lambda = lookup_deferred_holder(ctx, self.0.holder_key())
                     .await?
                     .lookup_lambda(&self.0)?;
-                let lambda = Arc::new(DynamicLambdaAsDeferred(lambda));
-                let analysis_values = prepare_and_execute_deferred(
+
+                let analysis_values = prepare_and_execute_lambda(
                     ctx,
                     cancellation,
-                    ArcBorrow::borrow(&lambda),
+                    &lambda,
                     DeferredHolderKey::DynamicLambda(Arc::new(self.0.dupe())),
                     self.0.action_key(),
                 )

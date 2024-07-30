@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -18,7 +17,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::arc_borrow::ArcBorrow;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
@@ -119,144 +117,135 @@ pub fn invoke_dynamic_output_lambda<'v>(
     Ok(())
 }
 
-#[derive(Debug, Allocative)]
-pub(crate) struct DynamicLambdaAsDeferred(pub(crate) Arc<DynamicLambda>);
+async fn execute_lambda(
+    lambda: &DynamicLambda,
+    dice: &mut DiceComputations<'_>,
+    self_key: DeferredHolderKey,
+    action_key: String,
+    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    project_filesystem: ProjectRoot,
+    digest_config: DigestConfig,
+    liveness: CancellationObserver,
+) -> anyhow::Result<RecordedAnalysisValues> {
+    if let BaseDeferredKey::BxlLabel(key) = &lambda.owner {
+        eval_bxl_for_dynamic_output(
+            key,
+            self_key,
+            &lambda,
+            dice,
+            action_key,
+            materialized_artifacts,
+            project_filesystem,
+            digest_config,
+            liveness,
+        )
+        .await
+    } else {
+        let proto_rule = "dynamic_lambda".to_owned();
 
-impl DynamicLambdaAsDeferred {
-    fn dynamic_inputs(&self) -> &IndexSet<Artifact> {
-        &self.0.dynamic
-    }
+        let start_event = buck2_data::AnalysisStart {
+            target: Some(buck2_data::analysis_start::Target::DynamicLambda(
+                lambda.owner.to_proto().into(),
+            )),
+            rule: proto_rule.clone(),
+        };
 
-    async fn execute(
-        &self,
-        dice: &mut DiceComputations<'_>,
-        self_key: DeferredHolderKey,
-        action_key: String,
-        materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-        project_filesystem: ProjectRoot,
-        digest_config: DigestConfig,
-        liveness: CancellationObserver,
-    ) -> anyhow::Result<RecordedAnalysisValues> {
-        if let BaseDeferredKey::BxlLabel(key) = &self.0.owner {
-            eval_bxl_for_dynamic_output(
-                key,
-                self_key,
-                &self.0,
-                dice,
-                action_key,
-                materialized_artifacts,
-                project_filesystem,
-                digest_config,
-                liveness,
-            )
-            .await
-        } else {
-            let proto_rule = "dynamic_lambda".to_owned();
+        span_async(start_event, async {
+            let mut declared_actions = None;
+            let mut declared_artifacts = None;
 
-            let start_event = buck2_data::AnalysisStart {
-                target: Some(buck2_data::analysis_start::Target::DynamicLambda(
-                    self.0.owner.to_proto().into(),
-                )),
-                rule: proto_rule.clone(),
-            };
+            let output: anyhow::Result<_> = try {
+                let env = Module::new();
 
-            span_async(start_event, async {
-                let mut declared_actions = None;
-                let mut declared_artifacts = None;
+                let analysis_registry = {
+                    let heap = env.heap();
+                    let print = EventDispatcherPrintHandler(get_dispatcher());
+                    let mut eval = Evaluator::new(&env);
+                    eval.set_print_handler(&print);
+                    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+                        &lambda,
+                        self_key,
+                        &action_key,
+                        &materialized_artifacts,
+                        &project_filesystem,
+                        digest_config,
+                        &env,
+                    )?;
+                    let ctx = AnalysisContext::prepare(
+                        heap,
+                        dynamic_lambda_ctx_data.lambda.attributes()?,
+                        lambda.owner.configured_label(),
+                        dynamic_lambda_ctx_data.lambda.plugins()?,
+                        dynamic_lambda_ctx_data.registry,
+                        dynamic_lambda_ctx_data.digest_config,
+                    );
 
-                let output: anyhow::Result<_> = try {
-                    let env = Module::new();
-
-                    let analysis_registry = {
-                        let heap = env.heap();
-                        let print = EventDispatcherPrintHandler(get_dispatcher());
-                        let mut eval = Evaluator::new(&env);
-                        eval.set_print_handler(&print);
-                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                        let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                            &self.0,
-                            self_key,
-                            &action_key,
-                            &materialized_artifacts,
-                            &project_filesystem,
-                            digest_config,
-                            &env,
-                        )?;
-                        let ctx = AnalysisContext::prepare(
-                            heap,
-                            dynamic_lambda_ctx_data.lambda.attributes()?,
-                            self.0.owner.configured_label(),
-                            dynamic_lambda_ctx_data.lambda.plugins()?,
-                            dynamic_lambda_ctx_data.registry,
-                            dynamic_lambda_ctx_data.digest_config,
-                        );
-
-                        let args = match dynamic_lambda_ctx_data.lambda.arg() {
-                            None => DynamicLambdaArgs::OldPositional {
-                                ctx: ctx.to_value(),
-                                artifacts: dynamic_lambda_ctx_data.artifacts,
-                                outputs: dynamic_lambda_ctx_data.outputs,
-                            },
-                            Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
-                                // TODO(nga): no need to create `ctx`
-                                //   because we only need `actions` here.
-                                actions: ctx.actions,
-                                artifacts: dynamic_lambda_ctx_data.artifacts,
-                                outputs: dynamic_lambda_ctx_data.outputs,
-                                arg,
-                            },
-                        };
-
-                        invoke_dynamic_output_lambda(
-                            &mut eval,
-                            dynamic_lambda_ctx_data.lambda.lambda(),
-                            args,
-                        )?;
-
-                        ctx.assert_no_promises()?;
-
-                        ctx.take_state()
+                    let args = match dynamic_lambda_ctx_data.lambda.arg() {
+                        None => DynamicLambdaArgs::OldPositional {
+                            ctx: ctx.to_value(),
+                            artifacts: dynamic_lambda_ctx_data.artifacts,
+                            outputs: dynamic_lambda_ctx_data.outputs,
+                        },
+                        Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
+                            // TODO(nga): no need to create `ctx`
+                            //   because we only need `actions` here.
+                            actions: ctx.actions,
+                            artifacts: dynamic_lambda_ctx_data.artifacts,
+                            outputs: dynamic_lambda_ctx_data.outputs,
+                            arg,
+                        },
                     };
 
-                    declared_actions = Some(analysis_registry.num_declared_actions());
-                    declared_artifacts = Some(analysis_registry.num_declared_artifacts());
-                    let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
-                    recorded_values
+                    invoke_dynamic_output_lambda(
+                        &mut eval,
+                        dynamic_lambda_ctx_data.lambda.lambda(),
+                        args,
+                    )?;
+
+                    ctx.assert_no_promises()?;
+
+                    ctx.take_state()
                 };
 
-                (
-                    output,
-                    buck2_data::AnalysisEnd {
-                        target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                            self.0.owner.to_proto().into(),
-                        )),
-                        rule: proto_rule,
-                        profile: None,
-                        declared_actions,
-                        declared_artifacts,
-                    },
-                )
-            })
-            .await
-        }
+                declared_actions = Some(analysis_registry.num_declared_actions());
+                declared_artifacts = Some(analysis_registry.num_declared_artifacts());
+                let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+                recorded_values
+            };
+
+            (
+                output,
+                buck2_data::AnalysisEnd {
+                    target: Some(buck2_data::analysis_end::Target::DynamicLambda(
+                        lambda.owner.to_proto().into(),
+                    )),
+                    rule: proto_rule,
+                    profile: None,
+                    declared_actions,
+                    declared_artifacts,
+                },
+            )
+        })
+        .await
     }
 }
 
-pub(crate) async fn prepare_and_execute_deferred(
+pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
-    deferred: ArcBorrow<'_, DynamicLambdaAsDeferred>,
+    lambda: &DynamicLambda,
     self_holder_key: DeferredHolderKey,
     action_key: String,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
-    ensure_artifacts_built(deferred.dynamic_inputs(), ctx).await?;
+    ensure_artifacts_built(&lambda.dynamic, ctx).await?;
 
     Ok(span_async(
         buck2_data::DynamicLambdaStart {
-            owner: Some(deferred.0.owner.to_proto().into()),
+            owner: Some(lambda.owner.to_proto().into()),
         },
         async move {
             let res: anyhow::Result<_> = try {
@@ -266,7 +255,7 @@ pub(crate) async fn prepare_and_execute_deferred(
                     },
                     async {
                         (
-                            materialize_inputs(deferred.dynamic_inputs(), ctx).await,
+                            materialize_inputs(&lambda.dynamic, ctx).await,
                             buck2_data::DeferredPreparationStageEnd {},
                         )
                     },
@@ -276,17 +265,17 @@ pub(crate) async fn prepare_and_execute_deferred(
                 cancellation
                     .with_structured_cancellation(|observer| {
                         async move {
-                            deferred
-                                .execute(
-                                    ctx,
-                                    self_holder_key,
-                                    action_key,
-                                    materialized_artifacts,
-                                    ctx.global_data().get_io_provider().project_root().dupe(),
-                                    ctx.global_data().get_digest_config(),
-                                    observer,
-                                )
-                                .await
+                            execute_lambda(
+                                lambda,
+                                ctx,
+                                self_holder_key,
+                                action_key,
+                                materialized_artifacts,
+                                ctx.global_data().get_io_provider().project_root().dupe(),
+                                ctx.global_data().get_digest_config(),
+                                observer,
+                            )
+                            .await
                         }
                         .boxed()
                     })
