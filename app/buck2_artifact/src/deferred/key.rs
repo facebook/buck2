@@ -7,14 +7,15 @@
  * of this source tree.
  */
 
+use std::fmt::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use dupe::Dupe;
-use itertools::Itertools;
 
 use crate::deferred::id::DeferredId;
+use crate::dynamic::DynamicLambdaResultsKey;
 
 /// A key to lookup a 'Deferred' of any result type
 #[derive(
@@ -36,39 +37,38 @@ pub enum DeferredKey {
     /// be looked up based on the results of executing the deferred at 'DeferredKey'
     #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
     Deferred(Arc<DeferredKey>, DeferredId),
+    #[display(fmt = "(target: `{}`, id: `{}`)", _0, _1)]
+    DynamicLambda(Arc<DynamicLambdaResultsKey>, DeferredId),
 }
 
 impl DeferredKey {
     pub fn id(&self) -> DeferredId {
         *match self {
-            DeferredKey::Base(_, id) | DeferredKey::Deferred(_, id) => id,
+            DeferredKey::Base(_, id)
+            | DeferredKey::Deferred(_, id)
+            | DeferredKey::DynamicLambda(_, id) => id,
         }
     }
 
     /// Create action_key information from the ids, uniquely
     /// identifying this action within this target.
-    pub fn action_key(&self, additional_id: Option<u32>) -> String {
-        let mut ids = Vec::new();
-        if let Some(v) = additional_id {
-            ids.push(v as usize);
-        }
-        let mut x = self;
-        loop {
-            match x {
-                DeferredKey::Base(_, id) => {
-                    ids.push(id.as_usize());
-                    break;
-                }
-                DeferredKey::Deferred(base, id) => {
-                    ids.push(id.as_usize());
-                    x = base
-                }
-            }
-        }
+    pub fn action_key(&self) -> String {
         // FIXME(ndmitchell): We'd like to have some kind of user supplied name/category here,
         // rather than using the usize ids, so things are a bit more stable and as these strings
         // are likely to come up in error messages users might see (e.g. with paths).
-        ids.iter().rev().map(|x| x.to_string()).join("_")
+        match self {
+            DeferredKey::Base(_, id) => id.to_string(),
+            DeferredKey::DynamicLambda(lambda, id) => {
+                let mut v = lambda.action_key();
+                write!(&mut v, "_{}", id).unwrap();
+                v
+            }
+            DeferredKey::Deferred(base, id) => {
+                let mut v = base.action_key();
+                write!(&mut v, "_{}", id).unwrap();
+                v
+            }
+        }
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
@@ -77,6 +77,9 @@ impl DeferredKey {
             match x {
                 DeferredKey::Base(base, _) => return base,
                 DeferredKey::Deferred(base, _) => x = base,
+                DeferredKey::DynamicLambda(lambda, _) => {
+                    return lambda.owner();
+                }
             }
         }
     }
@@ -98,6 +101,7 @@ impl DeferredKey {
 
 pub enum DeferredHolderKey {
     Base(BaseDeferredKey),
+    DynamicLambda(Arc<DynamicLambdaResultsKey>),
     // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
     // Maybe not?
     Deferred(Arc<DeferredKey>),
@@ -107,6 +111,7 @@ impl DeferredHolderKey {
     pub fn make_key(&self, id: DeferredId) -> DeferredKey {
         match self {
             DeferredHolderKey::Base(base) => DeferredKey::Base(base.dupe(), id),
+            DeferredHolderKey::DynamicLambda(base) => DeferredKey::DynamicLambda(base.dupe(), id),
             DeferredHolderKey::Deferred(base) => DeferredKey::Deferred(base.dupe(), id),
         }
     }
@@ -115,20 +120,20 @@ impl DeferredHolderKey {
         match self {
             DeferredHolderKey::Base(base) => base,
             DeferredHolderKey::Deferred(base) => base.owner(),
+            DeferredHolderKey::DynamicLambda(lambda) => lambda.owner(),
         }
     }
 
     /// Create action_key information from the ids, uniquely
     /// identifying this action within this target.
-    pub fn action_key(&self, additional_id: u32) -> String {
+    pub fn action_key(&self) -> String {
         // FIXME(ndmitchell): We'd like to have some kind of user supplied name/category here,
         // rather than using the usize ids, so things are a bit more stable and as these strings
         // are likely to come up in error messages users might see (e.g. with paths).
         match self {
-            DeferredHolderKey::Base(x) => {
-                format!("{}_{}", x, additional_id)
-            }
-            DeferredHolderKey::Deferred(x) => x.action_key(Some(additional_id)),
+            DeferredHolderKey::Base(_) => String::new(),
+            DeferredHolderKey::Deferred(x) => x.action_key(),
+            DeferredHolderKey::DynamicLambda(lambda) => lambda.action_key(),
         }
     }
 }

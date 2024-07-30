@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+use std::sync::Arc;
+
+use allocative::Allocative;
+use async_trait::async_trait;
+use buck2_artifact::deferred::id::DeferredId;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_util::late_binding::LateBinding;
+use dice::DiceComputations;
+
+use crate::analysis::registry::RecordedAnalysisValues;
+use crate::deferred::types::DeferredLookup;
+use crate::deferred::types::DeferredTable;
+
+#[derive(Allocative)]
+pub struct DynamicLambdaResult {
+    pub deferreds: DeferredTable,
+    pub analysis_values: RecordedAnalysisValues,
+}
+
+impl DynamicLambdaResult {
+    /// looks up an 'Deferred' given the id
+    pub fn lookup_deferred(&self, id: DeferredId) -> anyhow::Result<DeferredLookup<'_>> {
+        self.deferreds.lookup_deferred(id)
+    }
+
+    pub(crate) fn analysis_values(&self) -> &crate::analysis::registry::RecordedAnalysisValues {
+        &self.analysis_values
+    }
+}
+
+#[async_trait]
+pub trait DynamicLambdaCalculation: Sync + 'static {
+    async fn compute_dynamic_lambda(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        key: &DynamicLambdaResultsKey,
+    ) -> anyhow::Result<Arc<DynamicLambdaResult>>;
+}
+
+pub static DYNAMIC_LAMBDA_CALCULATION_IMPL: LateBinding<&'static dyn DynamicLambdaCalculation> =
+    LateBinding::new("DYNAMIC_LAMBDA_CALCULATION_IMPL");
+
+pub(crate) async fn compute_dynamic_lambda(
+    dice: &mut DiceComputations<'_>,
+    key: &DynamicLambdaResultsKey,
+) -> anyhow::Result<Arc<DynamicLambdaResult>> {
+    DYNAMIC_LAMBDA_CALCULATION_IMPL
+        .get()?
+        .compute_dynamic_lambda(dice, key)
+        .await
+}

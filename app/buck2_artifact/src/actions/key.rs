@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::fmt::Write;
+
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_data::ToProtoMessage;
@@ -73,7 +75,9 @@ impl ActionKey {
     }
 
     pub fn action_key(&self) -> String {
-        self.parent.action_key(self.action_index().0)
+        let mut v = self.parent.action_key();
+        write!(&mut v, "_{}", self.id).unwrap();
+        v
     }
 }
 

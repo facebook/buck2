@@ -18,6 +18,6 @@
 //! 'DeferredData' will hold an 'DeferredKey'. That key that maps to an implementation of
 //! 'Deferred', which is the actual work to be ran when execution of the deferred is needed.
 
-pub(crate) mod arc_borrow;
+pub mod arc_borrow;
 pub mod calculation;
 pub mod types;

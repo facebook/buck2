@@ -21,13 +21,14 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
-use buck2_action_impl::dynamic::deferred::DynamicLambda;
+use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::types::DeferredCtx;
+use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
@@ -637,11 +638,7 @@ impl BxlEvalContext<'_> {
                 }
             };
 
-            DynamicLambda::invoke_dynamic_output_lambda(
-                &mut eval,
-                dynamic_lambda_ctx_data.lambda.lambda(),
-                args,
-            )?;
+            invoke_dynamic_output_lambda(&mut eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
 
             ctx.take_state_dynamic()?
         };

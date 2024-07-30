@@ -20,6 +20,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -35,6 +36,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
@@ -73,6 +75,9 @@ use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
 use crate::deferred::types::DeferredRegistry;
+use crate::dynamic::lambda::DynamicLambda;
+use crate::dynamic::params::DynamicLambdaParams;
+use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::dynamic::registry::DynamicRegistryDyn;
 use crate::dynamic::registry::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -264,13 +269,15 @@ impl<'v> AnalysisRegistry<'v> {
         &mut self,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
-        attributes_plugins_lambda: Value<'v>,
+        lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
     ) -> anyhow::Result<()> {
-        let id = self
-            .dynamic
-            .register(dynamic, outputs, &mut self.deferred)?;
-        self.analysis_value_storage
-            .set_value(id, attributes_plugins_lambda);
+        self.dynamic.register(
+            dynamic,
+            outputs,
+            lambda_params,
+            &mut self.deferred,
+            &mut self.analysis_value_storage,
+        )?;
         Ok(())
     }
 
@@ -329,8 +336,10 @@ impl<'v> AnalysisRegistry<'v> {
             };
             let actions = actions.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            deferred.register_values(analysis_value_fetcher.get_recorded_values(actions)?)?;
+            let dynamic_lambdas = dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
+            deferred.register_values(
+                analysis_value_fetcher.get_recorded_values(actions, dynamic_lambdas)?,
+            )?;
             Ok((frozen_env, deferred))
         })
     }
@@ -378,10 +387,14 @@ impl<'v> ArtifactDeclaration<'v> {
     NoSerialize
 )]
 #[display(fmt = "{:?}", "self")]
-pub(crate) struct AnalysisValueStorage<'v> {
+pub struct AnalysisValueStorage<'v> {
     values: SmallMap<DeferredId, Value<'v>>,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
+    lambda_params: SmallMap<
+        DynamicLambdaResultsKey,
+        ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
+    >,
 }
 
 #[derive(
@@ -392,10 +405,14 @@ pub(crate) struct AnalysisValueStorage<'v> {
     NoSerialize
 )]
 #[display(fmt = "{:?}", "self")]
-pub(crate) struct FrozenAnalysisValueStorage {
+pub struct FrozenAnalysisValueStorage {
     values: SmallMap<DeferredId, FrozenValue>,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    lambda_params: SmallMap<
+        DynamicLambdaResultsKey,
+        FrozenValueTyped<'static, StarlarkAnyComplex<FrozenDynamicLambdaParams>>,
+    >,
 }
 
 impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
@@ -410,6 +427,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             values,
             action_data,
             transitive_sets,
+            lambda_params,
         } = self;
         for (k, v) in values.iter_mut() {
             tracer.trace_static(k);
@@ -420,6 +438,10 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             v.trace(tracer);
         }
         for (k, v) in transitive_sets.iter_mut() {
+            tracer.trace_static(k);
+            v.trace(tracer);
+        }
+        for (k, v) in lambda_params.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
         }
@@ -434,6 +456,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             values,
             action_data,
             transitive_sets,
+            lambda_params,
         } = self;
 
         Ok(FrozenAnalysisValueStorage {
@@ -447,6 +470,10 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .collect::<anyhow::Result<_>>()?,
             transitive_sets: transitive_sets
                 .into_iter()
+                .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
+                .collect::<anyhow::Result<_>>()?,
+            lambda_params: lambda_params
+                .into_iter_hashed()
                 .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
                 .collect::<anyhow::Result<_>>()?,
         })
@@ -477,6 +504,7 @@ impl<'v> AnalysisValueStorage<'v> {
             values: SmallMap::new(),
             action_data: SmallMap::new(),
             transitive_sets: SmallMap::new(),
+            lambda_params: SmallMap::new(),
         }
     }
 
@@ -519,6 +547,14 @@ impl<'v> AnalysisValueStorage<'v> {
         action_data: (Option<Value<'v>>, Option<StarlarkCallable<'v>>),
     ) {
         self.action_data.insert(id, action_data);
+    }
+
+    pub fn set_lambda_params(
+        &mut self,
+        key: DynamicLambdaResultsKey,
+        lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
+    ) {
+        self.lambda_params.insert(key, lambda_params);
     }
 }
 
@@ -571,6 +607,7 @@ impl AnalysisValueFetcher {
     pub(crate) fn get_recorded_values(
         &self,
         actions: RecordedActions,
+        dynamic_lambdas: SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>,
     ) -> anyhow::Result<RecordedAnalysisValues> {
         let analysis_storage = match &self.frozen_module {
             None => None,
@@ -584,7 +621,23 @@ impl AnalysisValueFetcher {
         Ok(RecordedAnalysisValues {
             analysis_storage,
             actions,
+            dynamic_lambdas,
         })
+    }
+
+    pub fn get_lambda_params(
+        &self,
+        key: &DynamicLambdaResultsKey,
+    ) -> anyhow::Result<Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>>>
+    {
+        let Some((storage, heap_ref)) = self.extra_value()? else {
+            return Ok(None);
+        };
+        let Some(value) = storage.lambda_params.get(key) else {
+            return Ok(None);
+        };
+
+        unsafe { Ok(Some(OwnedFrozenValueTyped::new(heap_ref.dupe(), *value))) }
     }
 }
 
@@ -593,6 +646,7 @@ impl AnalysisValueFetcher {
 pub struct RecordedAnalysisValues {
     analysis_storage: Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>,
     actions: RecordedActions,
+    dynamic_lambdas: SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>,
 }
 
 impl RecordedAnalysisValues {
@@ -600,6 +654,7 @@ impl RecordedAnalysisValues {
         Self {
             analysis_storage: None,
             actions: RecordedActions::new(),
+            dynamic_lambdas: SmallMap::new(),
         }
     }
 
@@ -619,6 +674,7 @@ impl RecordedAnalysisValues {
             values: SmallMap::new(),
             action_data: SmallMap::new(),
             transitive_sets: alloced_tsets,
+            lambda_params: SmallMap::new(),
         });
         Self {
             analysis_storage: Some(
@@ -627,6 +683,7 @@ impl RecordedAnalysisValues {
                     .unwrap(),
             ),
             actions,
+            dynamic_lambdas: SmallMap::new(),
         }
     }
 
@@ -648,5 +705,20 @@ impl RecordedAnalysisValues {
     /// Iterates over the actions created in this analysis.
     pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
         self.actions.iter_actions()
+    }
+
+    pub(crate) fn lookup_lambda(
+        &self,
+        key: &DynamicLambdaResultsKey,
+    ) -> anyhow::Result<Arc<DynamicLambda>> {
+        self.dynamic_lambdas
+            .get(key)
+            .cloned()
+            .with_internal_error(|| format!("missing lambda `{}`", key))
+    }
+
+    /// Iterates over the declared dynamic_output/actions.
+    pub fn iter_dynamic_lambdas(&self) -> impl Iterator<Item = &Arc<DynamicLambda>> {
+        self.dynamic_lambdas.values()
     }
 }

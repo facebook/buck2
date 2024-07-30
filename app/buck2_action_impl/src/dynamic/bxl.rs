@@ -11,12 +11,11 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_build_api::deferred::types::DeferredCtx;
+use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::Future;
-
-use super::deferred::DynamicLambda;
 
 pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(

@@ -7,5 +7,7 @@
  * of this source tree.
  */
 
+pub mod calculation;
+pub mod lambda;
 pub mod params;
 pub mod registry;

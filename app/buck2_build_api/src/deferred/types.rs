@@ -94,7 +94,7 @@ pub trait DeferredCtx: Send {
 
 /// DeferredCtx with already resolved values
 pub struct ResolveDeferredCtx<'a> {
-    key: DeferredKey,
+    action_key: String,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -106,7 +106,7 @@ pub struct ResolveDeferredCtx<'a> {
 
 impl<'a> ResolveDeferredCtx<'a> {
     pub fn new(
-        key: DeferredKey,
+        action_key: String,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
         deferreds: HashMap<DeferredKey, DeferredValueAnyReady>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -116,7 +116,7 @@ impl<'a> ResolveDeferredCtx<'a> {
         liveness: CancellationObserver,
     ) -> Self {
         Self {
-            key,
+            action_key,
             configured_targets,
             deferreds,
             materialized_artifacts,
@@ -137,7 +137,7 @@ impl<'a> DeferredCtx for ResolveDeferredCtx<'a> {
     }
 
     fn get_action_key(&self) -> String {
-        self.key.action_key(None)
+        self.action_key.clone()
     }
 
     fn get_deferred_data(&self, key: &DeferredKey) -> anyhow::Result<DeferredValueAnyReady> {
@@ -560,6 +560,13 @@ impl DeferredResult {
 
     pub(crate) fn analysis_values(&self) -> &crate::analysis::registry::RecordedAnalysisValues {
         &self.0.analysis_values
+    }
+
+    pub fn try_into_parts(self) -> Result<(DeferredTable, RecordedAnalysisValues), Self> {
+        match Arc::try_unwrap(self.0) {
+            Ok(data) => Ok((data.deferreds, data.analysis_values)),
+            Err(e) => Err(Self(e)),
+        }
     }
 }
 
@@ -1026,7 +1033,7 @@ mod tests {
                             .unwrap()
                             .any,
                         &mut ResolveDeferredCtx::new(
-                            deferred_data.deferred_key().dupe(),
+                            deferred_data.deferred_key().action_key(),
                             Default::default(),
                             Default::default(),
                             Default::default(),
@@ -1088,7 +1095,7 @@ mod tests {
                         .unwrap()
                         .any,
                     &mut ResolveDeferredCtx::new(
-                        deferring_deferred_data.deferred_key().dupe(),
+                        deferring_deferred_data.deferred_key().action_key(),
                         Default::default(),
                         Default::default(),
                         Default::default(),
@@ -1128,7 +1135,7 @@ mod tests {
                     deferred_execute(
                         deferred.any,
                         &mut ResolveDeferredCtx::new(
-                            deferred_key,
+                            deferred_key.action_key(),
                             Default::default(),
                             Default::default(),
                             Default::default(),
@@ -1191,7 +1198,7 @@ mod tests {
                             .unwrap()
                             .any,
                         &mut ResolveDeferredCtx::new(
-                            key,
+                            key.action_key(),
                             Default::default(),
                             Default::default(),
                             Default::default(),

@@ -109,14 +109,14 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let outputs = outputs.items.iter().map(|x| x.artifact()).collect();
 
         // Registration
-        let attributes_plugins_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {
+        let lambda_params = heap.alloc_typed(StarlarkAnyComplex::new(DynamicLambdaParams {
             attributes: this.attributes,
             plugins: this.plugins,
             lambda: f.erase(),
             arg: None,
         }));
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, outputs, attributes_plugins_lambda)?;
+        this.register_dynamic_output(dynamic, outputs, lambda_params)?;
         Ok(NoneType)
     }
 
@@ -139,7 +139,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             arg,
             callable,
         } = dynamic_actions;
-        let attributes_plugin_lambda = heap.alloc(StarlarkAnyComplex::new(DynamicLambdaParams {
+        let lambda_params = heap.alloc_typed(StarlarkAnyComplex::new(DynamicLambdaParams {
             lambda: callable.implementation.erase().to_callable(),
             attributes: this.attributes,
             plugins: this.plugins,
@@ -147,7 +147,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         }));
 
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, outputs, attributes_plugin_lambda)?;
+        this.register_dynamic_output(dynamic, outputs, lambda_params)?;
 
         Ok(NoneType)
     }

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use dupe::Dupe;
 
 /// Like `triomphe::ArcBorrow`, but works with DST.
-pub(crate) struct ArcBorrow<'a, T: ?Sized> {
+pub struct ArcBorrow<'a, T: ?Sized> {
     data: *const T,
     _phantom: PhantomData<&'a T>,
 }
@@ -44,7 +44,7 @@ impl<'a, T: ?Sized> Deref for ArcBorrow<'a, T> {
 
 impl<'a, T: ?Sized> ArcBorrow<'a, T> {
     #[inline]
-    pub(crate) fn borrow(arc: &'a Arc<T>) -> Self {
+    pub fn borrow(arc: &'a Arc<T>) -> Self {
         ArcBorrow {
             data: Arc::as_ptr(arc),
             _phantom: PhantomData,

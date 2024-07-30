@@ -22,6 +22,7 @@ use buck2_artifact::deferred::data::DeferredData;
 use buck2_artifact::deferred::id::DeferredId;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::deferred::key::DeferredKey;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
@@ -68,6 +69,9 @@ use crate::deferred::types::DeferredValueAny;
 use crate::deferred::types::DeferredValueAnyReady;
 use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
+use crate::dynamic::calculation::compute_dynamic_lambda;
+use crate::dynamic::calculation::DynamicLambdaResult;
+use crate::dynamic::lambda::DynamicLambda;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -158,7 +162,7 @@ impl PartialLookup {
     }
 }
 
-pub(crate) async fn lookup_deferred_holder(
+pub async fn lookup_deferred_holder(
     dice: &mut DiceComputations<'_>,
     key: &DeferredHolderKey,
 ) -> anyhow::Result<DeferredHolder> {
@@ -166,6 +170,9 @@ pub(crate) async fn lookup_deferred_holder(
         DeferredHolderKey::Base(key) => lookup_deferred_inner(key, dice).await?,
         DeferredHolderKey::Deferred(key) => {
             DeferredHolder::Deferred(compute_deferred(dice, key).await?)
+        }
+        DeferredHolderKey::DynamicLambda(lambda) => {
+            DeferredHolder::DynamicLambda(compute_dynamic_lambda(dice, lambda).await?)
         }
     })
 }
@@ -184,6 +191,13 @@ async fn lookup_deferred(
             let deferred = compute_deferred(dice, key).await?;
             PartialLookup {
                 holder: DeferredHolder::Deferred(deferred),
+                id: *id,
+            }
+        }
+        DeferredKey::DynamicLambda(lambda, id) => {
+            let dynamic_lambda_results = compute_dynamic_lambda(dice, lambda).await?;
+            PartialLookup {
+                holder: DeferredHolder::DynamicLambda(dynamic_lambda_results),
                 id: *id,
             }
         }
@@ -236,7 +250,14 @@ impl Key for DeferredCompute {
     ) -> Self::Value {
         let deferred = lookup_deferred(ctx, &self.0).await?;
         let deferred = deferred.get()?.any;
-        prepare_and_execute_deferred(ctx, cancellation, deferred, &self.0).await
+        prepare_and_execute_deferred(
+            ctx,
+            cancellation,
+            deferred,
+            DeferredHolderKey::Deferred(Arc::new(self.0.dupe())),
+            self.0.action_key(),
+        )
+        .await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -248,11 +269,12 @@ impl Key for DeferredCompute {
     }
 }
 
-async fn prepare_and_execute_deferred(
+pub async fn prepare_and_execute_deferred(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     deferred: ArcBorrow<'_, dyn DeferredAny>,
-    key: &DeferredKey,
+    self_holder_key: DeferredHolderKey,
+    action_key: String,
 ) -> buck2_error::Result<DeferredResult> {
     // We'll create the Span lazily when materialization hits it.
     let span = Lazy::new(|| deferred.span().map(create_span));
@@ -312,13 +334,13 @@ async fn prepare_and_execute_deferred(
         .await?
     };
 
-    let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(key.dupe())));
+    let mut registry = DeferredRegistry::new(self_holder_key);
 
     cancellation
         .with_structured_cancellation(|observer| {
             async move {
                 let mut deferred_ctx = ResolveDeferredCtx::new(
-                    key.dupe(),
+                    action_key,
                     targets.into_iter().collect(),
                     deferreds.into_iter().collect(),
                     materialized_artifacts,
@@ -407,9 +429,10 @@ async fn compute_deferred(
 
 /// Represents an Analysis or Deferred result. Technically, we can treat analysis as a 'Deferred'
 /// and get rid of this enum
-pub(crate) enum DeferredHolder {
+pub enum DeferredHolder {
     Analysis(AnalysisResult),
     Bxl(Arc<BxlResult>),
+    DynamicLambda(Arc<DynamicLambdaResult>),
     Deferred(DeferredResult),
 }
 
@@ -418,6 +441,7 @@ impl DeferredHolder {
         match self {
             DeferredHolder::Analysis(result) => result.lookup_deferred(id),
             DeferredHolder::Deferred(result) => result.lookup_deferred(id),
+            DeferredHolder::DynamicLambda(result) => result.lookup_deferred(id),
             DeferredHolder::Bxl(result) => result.lookup_deferred(id),
         }
     }
@@ -435,10 +459,18 @@ impl DeferredHolder {
         self.analysis_values().lookup_action(key)
     }
 
+    pub fn lookup_lambda(
+        &self,
+        key: &DynamicLambdaResultsKey,
+    ) -> anyhow::Result<Arc<DynamicLambda>> {
+        self.analysis_values().lookup_lambda(key)
+    }
+
     fn analysis_values(&self) -> &RecordedAnalysisValues {
         match self {
             DeferredHolder::Analysis(result) => result.analysis_values(),
             DeferredHolder::Bxl(result) => result.analysis_values(),
+            DeferredHolder::DynamicLambda(result) => result.analysis_values(),
             DeferredHolder::Deferred(result) => result.analysis_values(),
         }
     }

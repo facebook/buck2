@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::artifact::provide_outputs::ProvideOutputs;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::deferred::types::Deferred;
@@ -23,6 +21,8 @@ use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredValue;
+use buck2_build_api::dynamic::lambda::DynamicLambda;
+use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -31,7 +31,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -41,13 +40,10 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::DiceComputations;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::AllocDict;
 use starlark::values::type_repr::DictType;
-use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -68,101 +64,49 @@ pub enum DynamicLambdaArgs<'v> {
     },
 }
 
-/// The lambda captured by `dynamic_output`, alongside the other required data.
-#[derive(Debug, Allocative)]
-pub struct DynamicLambda {
-    /// the owner that defined this lambda
-    owner: BaseDeferredKey,
-    /// Things required by the lambda (wrapped in DeferredInput)
-    dynamic: IndexSet<DeferredInput>,
-    /// Things I produce
-    outputs: Box<[BuildArtifact]>,
-    /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
-    attributes_lambda: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>>,
-}
-
-impl DynamicLambda {
-    pub(crate) fn new(
-        owner: BaseDeferredKey,
-        dynamic: IndexSet<Artifact>,
-        outputs: Box<[BuildArtifact]>,
-    ) -> Self {
-        let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
-        match &owner {
-            BaseDeferredKey::TargetLabel(target) => {
-                depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
-            }
-            BaseDeferredKey::BxlLabel(_) => {
-                // Execution platform resolution is handled when we execute the DynamicLambda
-            }
-            BaseDeferredKey::AnonTarget(_) => {
-                // This will return an error later, so doesn't need to have the dependency
-            }
-        }
-        depends.extend(dynamic.into_iter().map(DeferredInput::MaterializedArtifact));
-        Self {
-            owner,
-            dynamic: depends,
+pub fn invoke_dynamic_output_lambda<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
+    lambda: Value<'v>,
+    args: DynamicLambdaArgs<'v>,
+) -> anyhow::Result<()> {
+    let pos;
+    let named;
+    let (pos, named): (&[_], &[(_, _)]) = match args {
+        DynamicLambdaArgs::OldPositional {
+            ctx,
+            artifacts,
             outputs,
-            attributes_lambda: None,
+        } => {
+            pos = [ctx, artifacts.get(), outputs.get()];
+            (&pos, &[])
         }
+        DynamicLambdaArgs::DynamicActionsNamed {
+            actions,
+            artifacts,
+            outputs,
+            arg,
+        } => {
+            named = [
+                ("actions", actions.to_value()),
+                ("artifacts", artifacts.get()),
+                ("outputs", outputs.get()),
+                ("arg", arg),
+            ];
+            (&[], &named)
+        }
+    };
+    let return_value = eval
+        .eval_function(lambda, pos, named)
+        .map_err(BuckStarlarkError::new)?;
+
+    if !return_value.is_none() {
+        return Err(DynamicLambdaError::LambdaMustReturnNone(
+            return_value.to_string_for_type_error(),
+        )
+        .into());
     }
 
-    pub(crate) fn bind(
-        &mut self,
-        attributes_lambda: OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>,
-    ) -> anyhow::Result<()> {
-        if self.attributes_lambda.is_some() {
-            return Err(internal_error!("`attributes_lambda` field already set"));
-        }
-        self.attributes_lambda = Some(attributes_lambda);
-        Ok(())
-    }
-
-    pub fn invoke_dynamic_output_lambda<'v>(
-        eval: &mut Evaluator<'v, '_, '_>,
-        lambda: Value<'v>,
-        args: DynamicLambdaArgs<'v>,
-    ) -> anyhow::Result<()> {
-        let pos;
-        let named;
-        let (pos, named): (&[_], &[(_, _)]) = match args {
-            DynamicLambdaArgs::OldPositional {
-                ctx,
-                artifacts,
-                outputs,
-            } => {
-                pos = [ctx, artifacts.get(), outputs.get()];
-                (&pos, &[])
-            }
-            DynamicLambdaArgs::DynamicActionsNamed {
-                actions,
-                artifacts,
-                outputs,
-                arg,
-            } => {
-                named = [
-                    ("actions", actions.to_value()),
-                    ("artifacts", artifacts.get()),
-                    ("outputs", outputs.get()),
-                    ("arg", arg),
-                ];
-                (&[], &named)
-            }
-        };
-        let return_value = eval
-            .eval_function(lambda, pos, named)
-            .map_err(BuckStarlarkError::new)?;
-
-        if !return_value.is_none() {
-            return Err(DynamicLambdaError::LambdaMustReturnNone(
-                return_value.to_string_for_type_error(),
-            )
-            .into());
-        }
-
-        Ok(())
-    }
+    Ok(())
 }
 
 /// The `Output` from `DynamicLambda`.
@@ -171,25 +115,20 @@ pub struct DynamicLambdaOutput {}
 
 impl DeferredOutput for DynamicLambdaOutput {}
 
-#[derive(Debug, buck2_error::Error)]
-enum DynamicLambdaError {
-    #[error("dynamic_output and anon_target cannot be used together (yet)")]
-    AnonTargetIncompatible,
-    #[error("dynamic_output lambda must return `None`, got: `{0}`")]
-    LambdaMustReturnNone(String),
-}
+#[derive(Debug, Allocative)]
+pub(crate) struct DynamicLambdaAsDeferred(pub(crate) Arc<DynamicLambda>);
 
-impl provider::Provider for DynamicLambda {
-    fn provide<'a>(&'a self, demand: &mut provider::Demand<'a>) {
-        demand.provide_value_with(|| ProvideOutputs(Ok(self.outputs.to_vec())));
+impl provider::Provider for DynamicLambdaAsDeferred {
+    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {
+        panic!("dynamic lambda is not really a deferred, it shoudln't reach here")
     }
 }
 
-impl Deferred for DynamicLambda {
+impl Deferred for DynamicLambdaAsDeferred {
     type Output = DynamicLambdaOutput;
 
     fn inputs(&self) -> DeferredInputsRef<'_> {
-        DeferredInputsRef::IndexSet(&self.dynamic)
+        DeferredInputsRef::IndexSet(&self.0.dynamic)
     }
 
     async fn execute(
@@ -197,14 +136,14 @@ impl Deferred for DynamicLambda {
         deferred_ctx: &mut dyn DeferredCtx,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<DeferredValue<Self::Output>> {
-        if let BaseDeferredKey::BxlLabel(key) = &self.owner {
-            eval_bxl_for_dynamic_output(key, self, deferred_ctx, dice).await?
+        if let BaseDeferredKey::BxlLabel(key) = &self.0.owner {
+            eval_bxl_for_dynamic_output(key, &self.0, deferred_ctx, dice).await?
         } else {
             let proto_rule = "dynamic_lambda".to_owned();
 
             let start_event = buck2_data::AnalysisStart {
                 target: Some(buck2_data::analysis_start::Target::DynamicLambda(
-                    self.owner.to_proto().into(),
+                    self.0.owner.to_proto().into(),
                 )),
                 rule: proto_rule.clone(),
             };
@@ -223,11 +162,11 @@ impl Deferred for DynamicLambda {
                         eval.set_print_handler(&print);
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                         let dynamic_lambda_ctx_data =
-                            dynamic_lambda_ctx_data(self, deferred_ctx, &env)?;
+                            dynamic_lambda_ctx_data(&self.0, deferred_ctx, &env)?;
                         let ctx = AnalysisContext::prepare(
                             heap,
                             dynamic_lambda_ctx_data.lambda.attributes()?,
-                            self.owner.configured_label(),
+                            self.0.owner.configured_label(),
                             dynamic_lambda_ctx_data.lambda.plugins()?,
                             dynamic_lambda_ctx_data.registry,
                             dynamic_lambda_ctx_data.digest_config,
@@ -249,7 +188,7 @@ impl Deferred for DynamicLambda {
                             },
                         };
 
-                        DynamicLambda::invoke_dynamic_output_lambda(
+                        invoke_dynamic_output_lambda(
                             &mut eval,
                             dynamic_lambda_ctx_data.lambda.lambda(),
                             args,
@@ -270,7 +209,7 @@ impl Deferred for DynamicLambda {
                     output,
                     buck2_data::AnalysisEnd {
                         target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                            self.owner.to_proto().into(),
+                            self.0.owner.to_proto().into(),
                         )),
                         rule: proto_rule,
                         profile: None,
@@ -286,7 +225,7 @@ impl Deferred for DynamicLambda {
     }
 
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
-        let owner = self.owner.to_proto().into();
+        let owner = self.0.owner.to_proto().into();
         Some(buck2_data::DynamicLambdaStart { owner: Some(owner) }.into())
     }
 }
