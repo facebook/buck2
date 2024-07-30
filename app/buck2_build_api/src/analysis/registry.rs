@@ -127,7 +127,7 @@ impl<'v> AnalysisRegistry<'v> {
             self_key,
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
-            dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe()),
+            dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe(), execution_platform.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(),
             short_path_assertions: HashMap::new(),

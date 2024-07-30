@@ -20,7 +20,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::Future;
@@ -32,7 +31,6 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v DynamicLambda,
         &'v mut DiceComputations,
         String,
-        Option<ConfiguredTargetNode>,
         HashMap<Artifact, ProjectRelativePathBuf>,
         ProjectRoot,
         DigestConfig,
@@ -47,7 +45,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: &'v DynamicLambda,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
-    maybe_configured_target_owner: Option<ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: ProjectRoot,
     digest_config: DigestConfig,
@@ -59,7 +56,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_lambda,
         dice_ctx,
         action_key,
-        maybe_configured_target_owner,
         materialized_artifacts,
         project_filesystem,
         digest_config,

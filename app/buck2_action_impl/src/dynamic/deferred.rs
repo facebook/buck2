@@ -45,8 +45,6 @@ use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -128,10 +126,6 @@ pub fn invoke_dynamic_output_lambda<'v>(
 pub(crate) struct DynamicLambdaAsDeferred(pub(crate) Arc<DynamicLambda>);
 
 impl DynamicLambdaAsDeferred {
-    fn owner(&self) -> &BaseDeferredKey {
-        &self.0.owner
-    }
-
     fn dynamic_inputs(&self) -> &IndexSet<Artifact> {
         &self.0.dynamic
     }
@@ -141,8 +135,6 @@ impl DynamicLambdaAsDeferred {
         dice: &mut DiceComputations<'_>,
         self_key: DeferredHolderKey,
         action_key: String,
-        // TODO(cjhopman): This is weird, it's used to get the execution platform resolution only when owned by a target (not bxl).
-        maybe_configured_target_owner: Option<ConfiguredTargetNode>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         project_filesystem: ProjectRoot,
         digest_config: DigestConfig,
@@ -155,7 +147,6 @@ impl DynamicLambdaAsDeferred {
                 &self.0,
                 dice,
                 action_key,
-                maybe_configured_target_owner,
                 materialized_artifacts,
                 project_filesystem,
                 digest_config,
@@ -189,7 +180,6 @@ impl DynamicLambdaAsDeferred {
                             &self.0,
                             self_key,
                             &action_key,
-                            &maybe_configured_target_owner,
                             &materialized_artifacts,
                             &project_filesystem,
                             digest_config,
@@ -270,37 +260,8 @@ pub(crate) async fn prepare_and_execute_deferred(
     // We'll create the Span lazily when materialization hits it.
     let span = Lazy::new(|| deferred.span().map(create_span));
 
-    let (configured_target_owner, materialized_artifacts) = {
-        // don't move span
-        let span = &span;
-        ctx.try_compute2(
-            |ctx| {
-                async move {
-                    match deferred.owner() {
-                        BaseDeferredKey::TargetLabel(target) => Ok(Some(
-                            ctx.get_configured_target_node(target)
-                                .await?
-                                .require_compatible()?,
-                        )),
-                        BaseDeferredKey::BxlLabel(_) => {
-                            // Execution platform resolution is handled when we execute the DynamicLambda
-                            Ok(None)
-                        }
-                        BaseDeferredKey::AnonTarget(_) => {
-                            // This will return an error later, so doesn't need to have the dependency
-                            Ok(None)
-                        }
-                    }
-                }
-                .boxed()
-            },
-            |ctx| {
-                async move { create_materializer_futs(deferred.dynamic_inputs(), ctx, span).await }
-                    .boxed()
-            },
-        )
-        .await?
-    };
+    let materialized_artifacts =
+        create_materializer_futs(deferred.dynamic_inputs(), ctx, &span).await?;
 
     cancellation
         .with_structured_cancellation(|observer| {
@@ -309,7 +270,6 @@ pub(crate) async fn prepare_and_execute_deferred(
                     ctx,
                     self_holder_key,
                     action_key,
-                    configured_target_owner,
                     materialized_artifacts,
                     ctx.global_data().get_io_provider().project_root().dupe(),
                     ctx.global_data().get_digest_config(),
@@ -396,7 +356,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v DynamicLambda,
     self_key: DeferredHolderKey,
     action_key: &str,
-    maybe_configured_target_owner: &Option<ConfiguredTargetNode>,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: &ProjectRoot,
     digest_config: DigestConfig,
@@ -412,18 +371,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         .owned_as_ref(env.frozen_heap())
         .value;
 
-    let execution_platform = {
-        match &dynamic_lambda.owner {
-            BaseDeferredKey::TargetLabel(_) => {
-                let configured_target = maybe_configured_target_owner.as_ref().unwrap();
-                configured_target.execution_platform_resolution().dupe()
-            }
-            BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
-            BaseDeferredKey::AnonTarget(_) => {
-                return Err(DynamicLambdaError::AnonTargetIncompatible.into());
-            }
-        }
-    };
+    let execution_platform = dynamic_lambda.execution_platform.dupe();
 
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.owner.dupe(),

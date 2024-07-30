@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_error::internal_error;
 use indexmap::IndexSet;
 use starlark::values::any_complex::StarlarkAnyComplex;
@@ -27,6 +28,8 @@ pub struct DynamicLambda {
     pub dynamic: IndexSet<Artifact>,
     /// Things I produce
     pub outputs: Box<[BuildArtifact]>,
+    /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
+    pub execution_platform: ExecutionPlatformResolution,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
     pub attributes_lambda:
         Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>>,
@@ -37,11 +40,13 @@ impl DynamicLambda {
         owner: BaseDeferredKey,
         dynamic: IndexSet<Artifact>,
         outputs: Box<[BuildArtifact]>,
+        execution_platform: ExecutionPlatformResolution,
     ) -> Self {
         Self {
             owner,
             dynamic,
             outputs,
+            execution_platform,
             attributes_lambda: None,
         }
     }

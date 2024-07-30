@@ -15,6 +15,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_util::late_binding::LateBinding;
 use indexmap::IndexSet;
 use starlark::collections::SmallMap;
@@ -42,5 +43,6 @@ pub trait DynamicRegistryDyn: Allocative + 'static {
     ) -> anyhow::Result<SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>>;
 }
 
-pub static DYNAMIC_REGISTRY_NEW: LateBinding<fn(BaseDeferredKey) -> Box<dyn DynamicRegistryDyn>> =
-    LateBinding::new("DYNAMIC_REGISTRY_NEW");
+pub static DYNAMIC_REGISTRY_NEW: LateBinding<
+    fn(BaseDeferredKey, ExecutionPlatformResolution) -> Box<dyn DynamicRegistryDyn>,
+> = LateBinding::new("DYNAMIC_REGISTRY_NEW");

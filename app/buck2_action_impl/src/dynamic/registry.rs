@@ -25,6 +25,7 @@ use buck2_build_api::dynamic::params::DynamicLambdaParams;
 use buck2_build_api::dynamic::registry::DynamicRegistryDyn;
 use buck2_build_api::dynamic::registry::DYNAMIC_REGISTRY_NEW;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::collections::SmallMap;
@@ -34,13 +35,15 @@ use starlark::values::ValueTyped;
 #[derive(Allocative)]
 pub(crate) struct DynamicRegistry {
     owner: BaseDeferredKey,
+    execution_platform: ExecutionPlatformResolution,
     pending: SmallMap<DynamicLambdaResultsKey, DynamicLambda>,
 }
 
 pub(crate) fn init_dynamic_registry_new() {
-    DYNAMIC_REGISTRY_NEW.init(|owner| {
+    DYNAMIC_REGISTRY_NEW.init(|owner, execution_platform| {
         Box::new(DynamicRegistry {
             owner,
+            execution_platform,
             pending: SmallMap::new(),
         })
     });
@@ -83,7 +86,12 @@ impl DynamicRegistryDyn for DynamicRegistry {
                 Ok(bound)
             })
             .collect::<anyhow::Result<_>>()?;
-        let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, outputs);
+        let lambda = DynamicLambda::new(
+            self.owner.dupe(),
+            dynamic,
+            outputs,
+            self.execution_platform.dupe(),
+        );
         self.pending.insert(dynamic_key.dupe(), lambda);
         storage.set_lambda_params(dynamic_key, lambda_params);
         Ok(())
