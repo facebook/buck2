@@ -14,8 +14,12 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
+use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
+use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::deferred::arc_borrow::ArcBorrow;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
@@ -28,21 +32,33 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::Span;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::digest_config::HasDigestConfig;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use dice::CancellationContext;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::stream::FuturesUnordered;
+use futures::FutureExt;
+use futures::TryStreamExt;
+use once_cell::sync::Lazy;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
@@ -247,6 +263,134 @@ impl Deferred for DynamicLambdaAsDeferred {
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
         let owner = self.0.owner.to_proto().into();
         Some(buck2_data::DynamicLambdaStart { owner: Some(owner) }.into())
+    }
+}
+
+pub(crate) async fn prepare_and_execute_deferred(
+    ctx: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext<'_>,
+    deferred: ArcBorrow<'_, DynamicLambdaAsDeferred>,
+    self_holder_key: DeferredHolderKey,
+    action_key: String,
+) -> buck2_error::Result<RecordedAnalysisValues> {
+    // We'll create the Span lazily when materialization hits it.
+    let span = Lazy::new(|| deferred.span().map(create_span));
+
+    let mut target_deps = Vec::new();
+    let mut materialized_artifacts = Vec::new();
+
+    for input in deferred.inputs() {
+        match input {
+            DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
+            DeferredInput::MaterializedArtifact(artifact) => {
+                materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()))
+            }
+        }
+    }
+
+    let (targets, materialized_artifacts) = {
+        // don't move span
+        let span = &span;
+        ctx.try_compute2(
+            |ctx| {
+                async move {
+                    ctx.try_compute_join(target_deps, |ctx, target| {
+                        async move {
+                            let res = ctx
+                                .get_configured_target_node(target)
+                                .await?
+                                .require_compatible()?;
+                            anyhow::Ok((target.dupe(), res))
+                        }
+                        .boxed()
+                    })
+                    .await
+                }
+                .boxed()
+            },
+            |ctx| {
+                async move { create_materializer_futs(&materialized_artifacts, ctx, span).await }
+                    .boxed()
+            },
+        )
+        .await?
+    };
+
+    cancellation
+        .with_structured_cancellation(|observer| {
+            async move {
+                let execute = deferred.execute(
+                    ctx,
+                    self_holder_key,
+                    action_key,
+                    targets.into_iter().collect(),
+                    materialized_artifacts,
+                    ctx.global_data().get_io_provider().project_root().dupe(),
+                    ctx.global_data().get_digest_config(),
+                    observer,
+                );
+
+                let recorded_values = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
+                    Some(span) => {
+                        span.wrap_future(async {
+                            (execute.await, buck2_data::DeferredEvaluationEnd {})
+                        })
+                        .await
+                    }
+                    None => execute.await,
+                }?;
+
+                Ok(recorded_values)
+            }
+            .boxed()
+        })
+        .await
+}
+
+async fn create_materializer_futs(
+    materialized_artifacts: &[ArtifactGroup],
+    ctx: &mut DiceComputations<'_>,
+    span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
+) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
+    if materialized_artifacts.is_empty() {
+        return Ok(HashMap::new());
+    }
+    // This is a bit suboptimal: we wait for all artifacts to be ready in order to
+    // materialize any of them. However that is how we execute *all* local actions so in
+    // the grand scheme of things that's probably not a huge deal.
+
+    ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
+        ctx.ensure_artifact_group(artifact).boxed()
+    })
+    .await?;
+
+    let materializer = ctx.per_transaction_data().get_materializer();
+    let artifact_fs = ctx.get_artifact_fs().await?;
+
+    let fut = materialized_artifacts
+        .iter()
+        .map(|artifact| async {
+            let artifact = artifact
+                .unpack_artifact()
+                .expect("we only put Artifacts into this list")
+                .dupe();
+            let path = artifact.resolve_path(&artifact_fs)?;
+            materializer.ensure_materialized(vec![path.clone()]).await?;
+
+            anyhow::Ok((artifact, path))
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect::<HashMap<_, _>>();
+
+    match span.as_ref() {
+        Some(span) => {
+            span.create_child(buck2_data::DeferredPreparationStageStart {
+                stage: Some(buck2_data::MaterializedArtifacts {}.into()),
+            })
+            .wrap_future(fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})))
+            .await
+        }
+        None => fut.await,
     }
 }
 
