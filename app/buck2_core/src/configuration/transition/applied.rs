@@ -14,9 +14,7 @@ use crate::configuration::data::ConfigurationData;
 
 #[derive(buck2_error::Error, Debug)]
 enum TransitionAppliedError {
-    #[error(
-        "Transition object is declared split, but transition to one is needed in this context"
-    )]
+    #[error("Transition object is declared split, but transition to one is needed in this context")]
     SplitWhereSingleExpected,
     #[error(
         "Transition object is declared non-split, but split transition is needed in this context"

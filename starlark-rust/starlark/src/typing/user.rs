@@ -39,17 +39,13 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 
 #[derive(Debug, thiserror::Error)]
 enum TyUserError {
-    #[error(
-        "Type `{0}` specifies custom callable, but underlying `StarlarkValue` is not callable"
-    )]
+    #[error("Type `{0}` specifies custom callable, but underlying `StarlarkValue` is not callable")]
     CallableNotCallable(String),
     #[error(
         "Type `{0}` specifies custom indexable, but underlying `StarlarkValue` is not indexable"
     )]
     IndexableNotIndexable(String),
-    #[error(
-        "Type `{0}` specifies custom iterable, but underlying `StarlarkValue` is not iterable"
-    )]
+    #[error("Type `{0}` specifies custom iterable, but underlying `StarlarkValue` is not iterable")]
     IterableNotIterable(String),
 }
 

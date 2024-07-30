@@ -30,9 +30,7 @@ enum ImportParseError {
     EmptyFileName(String),
     #[error("Unexpected relative import spec. Got `{0}`")]
     ProhibitedRelativeImport(String),
-    #[error(
-        "Invalid path `{0}` for file relative import path. Should be a forward relative path."
-    )]
+    #[error("Invalid path `{0}` for file relative import path. Should be a forward relative path.")]
     InvalidCurrentPathWhenFileRelativeImport(String),
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`, but got a path. Got `{0}`"

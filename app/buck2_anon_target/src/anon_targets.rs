@@ -106,9 +106,7 @@ pub struct AnonTargetsRegistry<'v> {
 pub enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,
-    #[error(
-        "Invalid `name` attribute, must be a label or a string, got `{value}` of type `{typ}`"
-    )]
+    #[error("Invalid `name` attribute, must be a label or a string, got `{value}` of type `{typ}`")]
     InvalidNameType { typ: String, value: String },
     #[error("`name` attribute must be a valid target label, got `{0}`")]
     NotTargetLabel(String),
