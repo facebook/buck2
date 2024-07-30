@@ -22,7 +22,7 @@ use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::materialize::ConvertMaterializationContext;
+use buck2_build_api::materialize::MaterializationStrategy;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -191,7 +191,7 @@ pub(crate) fn build<'v>(
     >,
 > {
     let materializations =
-        ConvertMaterializationContext::with_existing_map(materializations, materializations_map);
+        MaterializationStrategy::with_existing_map(materializations, materializations_map);
 
     let target_platform = target_platform.parse_target_platforms(
         ctx.target_alias_resolver(),

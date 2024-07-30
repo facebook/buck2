@@ -50,7 +50,7 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
 use crate::materialize::materialize_artifact_group;
-use crate::materialize::MaterializationContext;
+use crate::materialize::MaterializationStrategy;
 
 mod action_error;
 pub mod build_report;
@@ -251,7 +251,7 @@ pub struct BuildConfiguredLabelOptions {
 
 pub async fn build_configured_label<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization_context: &MaterializationContext,
+    materialization: &'a MaterializationStrategy,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -259,7 +259,7 @@ pub async fn build_configured_label<'a>(
     let providers_label = Arc::new(providers_label);
     build_configured_label_inner(
         ctx,
-        materialization_context,
+        materialization,
         providers_label.clone(),
         providers_to_build,
         opts,
@@ -276,7 +276,7 @@ pub async fn build_configured_label<'a>(
 
 async fn build_configured_label_inner<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization_context: &MaterializationContext,
+    materialization: &'a MaterializationStrategy,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -415,21 +415,18 @@ async fn build_configured_label_inner<'a>(
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
-                let materialization_context = materialization_context.dupe();
+                let materialization = &materialization.build_context;
                 async move {
-                    let res = match materialize_artifact_group(
-                        &mut ctx.get(),
-                        &output,
-                        &materialization_context,
-                    )
-                    .await
-                    {
-                        Ok(values) => Ok(ProviderArtifacts {
-                            values,
-                            provider_type,
-                        }),
-                        Err(e) => Err(buck2_error::Error::from(e)),
-                    };
+                    let res =
+                        match materialize_artifact_group(&mut ctx.get(), &output, materialization)
+                            .await
+                        {
+                            Ok(values) => Ok(ProviderArtifacts {
+                                values,
+                                provider_type,
+                            }),
+                            Err(e) => Err(buck2_error::Error::from(e)),
+                        };
                     (index, res)
                 }
             }

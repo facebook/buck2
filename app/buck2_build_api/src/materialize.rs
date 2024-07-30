@@ -77,40 +77,53 @@ impl MaterializationContext {
             force: true,
         }
     }
-}
 
-pub trait ConvertMaterializationContext {
-    fn from(self) -> MaterializationContext;
-
-    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext;
-}
-
-impl ConvertMaterializationContext for Materializations {
-    fn from(self) -> MaterializationContext {
-        match self {
-            Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: false,
-            },
-            Materializations::Materialize => MaterializationContext::Materialize {
-                map: Arc::new(DashMap::new()),
-                force: true,
-            },
-        }
+    pub fn build_context(behavior: Materializations) -> Self {
+        Self::build_context_with_existing_map(behavior, Arc::new(DashMap::new()))
     }
 
-    fn with_existing_map(self, map: &Arc<DashMap<BuildArtifact, ()>>) -> MaterializationContext {
-        match self {
+    pub fn build_context_with_existing_map(
+        behavior: Materializations,
+        map: Arc<DashMap<BuildArtifact, ()>>,
+    ) -> Self {
+        match behavior {
             Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize {
-                map: map.dupe(),
-                force: false,
-            },
-            Materializations::Materialize => MaterializationContext::Materialize {
-                map: map.dupe(),
-                force: true,
-            },
+            Materializations::Default => MaterializationContext::Materialize { map, force: false },
+            Materializations::Materialize => {
+                MaterializationContext::Materialize { map, force: true }
+            }
+        }
+    }
+}
+
+/// Contains contexts which share the same materialization map, but might have different behavior.
+pub struct MaterializationStrategy {
+    /// Context to handle build artifacts
+    pub build_context: MaterializationContext,
+    /// Context to handle validation artifacts
+    pub validation_context: MaterializationContext,
+}
+
+impl MaterializationStrategy {
+    pub fn new(build_behavior: Materializations) -> Self {
+        Self::with_existing_map(build_behavior, &Arc::new(DashMap::new()))
+    }
+
+    pub fn with_existing_map(
+        build_behavior: Materializations,
+        map: &Arc<DashMap<BuildArtifact, ()>>,
+    ) -> Self {
+        let build_context =
+            MaterializationContext::build_context_with_existing_map(build_behavior, map.dupe());
+        // Force materialization of validation results as we need to parse
+        // them in order to decide whether the build is successful or not.
+        let validation_context = MaterializationContext::Materialize {
+            map: map.dupe(),
+            force: true,
+        };
+        MaterializationStrategy {
+            build_context,
+            validation_context,
         }
     }
 }

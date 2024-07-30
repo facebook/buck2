@@ -23,7 +23,6 @@ use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::materialize::materialize_artifact_group;
-use buck2_build_api::materialize::ConvertMaterializationContext;
 use buck2_build_api::materialize::MaterializationContext;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::BxlRequest;
@@ -193,13 +192,13 @@ async fn bxl(
         }
     };
 
-    let materialization_context = ConvertMaterializationContext::with_existing_map(
+    // Note: even though we have an Arc of the materialization map, we must actually clone the map
+    // so that we don't mutate the materialization state stored when materializing the ensured
+    // artifacts. We need to clone it so that we don't re-materialize what was already done, but
+    // in a separate instance of the map.
+    let materialization_context = MaterializationContext::build_context_with_existing_map(
         final_artifact_materializations,
-        // Note: even though we have an Arc of the materialization map, we must actually clone the map
-        // so that we don't mutate the materialization state stored when materializing the ensured
-        // artifacts. We need to clone it so that we don't re-materialize what was already done, but
-        // in a separate instance of the map.
-        &Arc::new((*materializations).clone()),
+        Arc::new((*materializations).clone()),
     );
     let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
