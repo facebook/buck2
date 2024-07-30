@@ -227,6 +227,23 @@ impl<T: StarlarkValue<'static>> Deref for OwnedFrozenValueTyped<T> {
 }
 
 impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
+    /// Create an [`OwnedFrozenValueTyped`] - generally [`OwnedFrozenValueTyped`]s are obtained
+    /// from downcasting [`OwnedFrozenValue`].
+    ///
+    /// Safe provided the `value` (and any values it points at) are kept alive by the
+    /// `owner`, typically because the value was created on the heap.
+    ///
+    /// ```
+    /// use starlark::values::FrozenHeap;
+    /// use starlark::values::OwnedFrozenValue;
+    /// let heap = FrozenHeap::new();
+    /// let value = heap.alloc("test");
+    /// unsafe { OwnedFrozenValue::new(heap.into_ref(), value) };
+    /// ```
+    pub unsafe fn new(owner: FrozenHeapRef, value: FrozenValueTyped<'static, T>) -> Self {
+        Self { owner, value }
+    }
+
     /// Erase the type.
     ///
     /// This operation is unsafe because returned value is not bound by the heap lifetime.
