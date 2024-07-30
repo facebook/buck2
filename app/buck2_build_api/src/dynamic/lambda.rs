@@ -12,12 +12,10 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_error::internal_error;
-use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::OwnedFrozenValueTyped;
 
-use crate::deferred::types::DeferredInput;
 use crate::dynamic::params::FrozenDynamicLambdaParams;
 
 /// The lambda captured by `dynamic_output`, alongside the other required data.
@@ -25,8 +23,8 @@ use crate::dynamic::params::FrozenDynamicLambdaParams;
 pub struct DynamicLambda {
     /// the owner that defined this lambda
     pub owner: BaseDeferredKey,
-    /// Things required by the lambda (wrapped in DeferredInput)
-    pub dynamic: IndexSet<DeferredInput>,
+    /// Input artifacts required to be materialized by the lambda.
+    pub dynamic: IndexSet<Artifact>,
     /// Things I produce
     pub outputs: Box<[BuildArtifact]>,
     /// A Starlark pair of the attributes and a lambda function that binds the outputs given a context
@@ -40,22 +38,9 @@ impl DynamicLambda {
         dynamic: IndexSet<Artifact>,
         outputs: Box<[BuildArtifact]>,
     ) -> Self {
-        let mut depends = IndexSet::with_capacity(dynamic.len() + 1);
-        match &owner {
-            BaseDeferredKey::TargetLabel(target) => {
-                depends.insert(DeferredInput::ConfiguredTarget(target.dupe()));
-            }
-            BaseDeferredKey::BxlLabel(_) => {
-                // Execution platform resolution is handled when we execute the DynamicLambda
-            }
-            BaseDeferredKey::AnonTarget(_) => {
-                // This will return an error later, so doesn't need to have the dependency
-            }
-        }
-        depends.extend(dynamic.into_iter().map(DeferredInput::MaterializedArtifact));
         Self {
             owner,
-            dynamic: depends,
+            dynamic,
             outputs,
             attributes_lambda: None,
         }

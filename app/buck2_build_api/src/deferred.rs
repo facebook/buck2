@@ -20,4 +20,3 @@
 
 pub mod arc_borrow;
 pub mod calculation;
-pub mod types;

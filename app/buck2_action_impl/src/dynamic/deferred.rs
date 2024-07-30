@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -20,9 +19,6 @@ use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::deferred::arc_borrow::ArcBorrow;
-use buck2_build_api::deferred::types::Deferred;
-use buck2_build_api::deferred::types::DeferredInput;
-use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
@@ -36,7 +32,6 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -58,6 +53,7 @@ use dupe::Dupe;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::TryStreamExt;
+use indexmap::IndexSet;
 use once_cell::sync::Lazy;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -131,24 +127,22 @@ pub fn invoke_dynamic_output_lambda<'v>(
 #[derive(Debug, Allocative)]
 pub(crate) struct DynamicLambdaAsDeferred(pub(crate) Arc<DynamicLambda>);
 
-impl provider::Provider for DynamicLambdaAsDeferred {
-    fn provide<'a>(&'a self, _demand: &mut provider::Demand<'a>) {
-        panic!("dynamic lambda is not really a deferred, it shoudln't reach here")
+impl DynamicLambdaAsDeferred {
+    fn owner(&self) -> &BaseDeferredKey {
+        &self.0.owner
     }
-}
 
-#[async_trait]
-impl Deferred for DynamicLambdaAsDeferred {
-    fn inputs(&self) -> DeferredInputsRef<'_> {
-        DeferredInputsRef::IndexSet(&self.0.dynamic)
+    fn dynamic_inputs(&self) -> &IndexSet<Artifact> {
+        &self.0.dynamic
     }
 
     async fn execute(
         &self,
-        dice: &mut DiceComputations,
+        dice: &mut DiceComputations<'_>,
         self_key: DeferredHolderKey,
         action_key: String,
-        configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+        // TODO(cjhopman): This is weird, it's used to get the execution platform resolution only when owned by a target (not bxl).
+        maybe_configured_target_owner: Option<ConfiguredTargetNode>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
         project_filesystem: ProjectRoot,
         digest_config: DigestConfig,
@@ -161,7 +155,7 @@ impl Deferred for DynamicLambdaAsDeferred {
                 &self.0,
                 dice,
                 action_key,
-                configured_targets,
+                maybe_configured_target_owner,
                 materialized_artifacts,
                 project_filesystem,
                 digest_config,
@@ -195,7 +189,7 @@ impl Deferred for DynamicLambdaAsDeferred {
                             &self.0,
                             self_key,
                             &action_key,
-                            &configured_targets,
+                            &maybe_configured_target_owner,
                             &materialized_artifacts,
                             &project_filesystem,
                             digest_config,
@@ -276,40 +270,32 @@ pub(crate) async fn prepare_and_execute_deferred(
     // We'll create the Span lazily when materialization hits it.
     let span = Lazy::new(|| deferred.span().map(create_span));
 
-    let mut target_deps = Vec::new();
-    let mut materialized_artifacts = Vec::new();
-
-    for input in deferred.inputs() {
-        match input {
-            DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
-            DeferredInput::MaterializedArtifact(artifact) => {
-                materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()))
-            }
-        }
-    }
-
-    let (targets, materialized_artifacts) = {
+    let (configured_target_owner, materialized_artifacts) = {
         // don't move span
         let span = &span;
         ctx.try_compute2(
             |ctx| {
                 async move {
-                    ctx.try_compute_join(target_deps, |ctx, target| {
-                        async move {
-                            let res = ctx
-                                .get_configured_target_node(target)
+                    match deferred.owner() {
+                        BaseDeferredKey::TargetLabel(target) => Ok(Some(
+                            ctx.get_configured_target_node(target)
                                 .await?
-                                .require_compatible()?;
-                            anyhow::Ok((target.dupe(), res))
+                                .require_compatible()?,
+                        )),
+                        BaseDeferredKey::BxlLabel(_) => {
+                            // Execution platform resolution is handled when we execute the DynamicLambda
+                            Ok(None)
                         }
-                        .boxed()
-                    })
-                    .await
+                        BaseDeferredKey::AnonTarget(_) => {
+                            // This will return an error later, so doesn't need to have the dependency
+                            Ok(None)
+                        }
+                    }
                 }
                 .boxed()
             },
             |ctx| {
-                async move { create_materializer_futs(&materialized_artifacts, ctx, span).await }
+                async move { create_materializer_futs(deferred.dynamic_inputs(), ctx, span).await }
                     .boxed()
             },
         )
@@ -323,7 +309,7 @@ pub(crate) async fn prepare_and_execute_deferred(
                     ctx,
                     self_holder_key,
                     action_key,
-                    targets.into_iter().collect(),
+                    configured_target_owner,
                     materialized_artifacts,
                     ctx.global_data().get_io_provider().project_root().dupe(),
                     ctx.global_data().get_digest_config(),
@@ -348,7 +334,7 @@ pub(crate) async fn prepare_and_execute_deferred(
 }
 
 async fn create_materializer_futs(
-    materialized_artifacts: &[ArtifactGroup],
+    materialized_artifacts: &IndexSet<Artifact>,
     ctx: &mut DiceComputations<'_>,
     span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
 ) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
@@ -360,7 +346,11 @@ async fn create_materializer_futs(
     // the grand scheme of things that's probably not a huge deal.
 
     ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
-        ctx.ensure_artifact_group(artifact).boxed()
+        async move {
+            ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
+                .await
+        }
+        .boxed()
     })
     .await?;
 
@@ -370,10 +360,7 @@ async fn create_materializer_futs(
     let fut = materialized_artifacts
         .iter()
         .map(|artifact| async {
-            let artifact = artifact
-                .unpack_artifact()
-                .expect("we only put Artifacts into this list")
-                .dupe();
+            let artifact = artifact.dupe();
             let path = artifact.resolve_path(&artifact_fs)?;
             materializer.ensure_materialized(vec![path.clone()]).await?;
 
@@ -409,7 +396,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v DynamicLambda,
     self_key: DeferredHolderKey,
     action_key: &str,
-    configured_targets: &HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    maybe_configured_target_owner: &Option<ConfiguredTargetNode>,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: &ProjectRoot,
     digest_config: DigestConfig,
@@ -427,8 +414,8 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let execution_platform = {
         match &dynamic_lambda.owner {
-            BaseDeferredKey::TargetLabel(target) => {
-                let configured_target = configured_targets.get(target).unwrap();
+            BaseDeferredKey::TargetLabel(_) => {
+                let configured_target = maybe_configured_target_owner.as_ref().unwrap();
                 configured_target.execution_platform_resolution().dupe()
             }
             BaseDeferredKey::BxlLabel(k) => k.execution_platform_resolution().clone(),
@@ -448,10 +435,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut artifacts = Vec::with_capacity(dynamic_lambda.dynamic.len());
     let fs = project_filesystem;
     for x in &dynamic_lambda.dynamic {
-        let x = match x {
-            DeferredInput::MaterializedArtifact(x) => x,
-            DeferredInput::ConfiguredTarget(_) => continue,
-        };
         let k = StarlarkArtifact::new(x.dupe());
         let path = materialized_artifacts.get(x).unwrap();
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());

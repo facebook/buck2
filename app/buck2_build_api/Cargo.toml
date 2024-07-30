@@ -37,7 +37,6 @@ dice = { workspace = true }
 display_container = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
-provider = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }

@@ -18,7 +18,6 @@ use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -33,7 +32,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v DynamicLambda,
         &'v mut DiceComputations,
         String,
-        HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+        Option<ConfiguredTargetNode>,
         HashMap<Artifact, ProjectRelativePathBuf>,
         ProjectRoot,
         DigestConfig,
@@ -48,7 +47,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: &'v DynamicLambda,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
-    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    maybe_configured_target_owner: Option<ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: ProjectRoot,
     digest_config: DigestConfig,
@@ -60,7 +59,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_lambda,
         dice_ctx,
         action_key,
-        configured_targets,
+        maybe_configured_target_owner,
         materialized_artifacts,
         project_filesystem,
         digest_config,

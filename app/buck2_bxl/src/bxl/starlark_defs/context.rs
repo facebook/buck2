@@ -57,7 +57,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
@@ -527,7 +526,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: &'v DynamicLambda,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
-    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    maybe_configured_target_owner: Option<ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: ProjectRoot,
     _digest_config: DigestConfig,
@@ -552,7 +551,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_data,
         digest_config,
         action_key,
-        configured_targets,
+        maybe_configured_target_owner,
         materialized_artifacts,
         project_filesystem,
 
@@ -605,7 +604,7 @@ struct BxlEvalContext<'v> {
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     action_key: String,
-    configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
+    maybe_configured_target_owner: Option<ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: ProjectRoot,
     print: EventDispatcherPrintHandler,
@@ -629,7 +628,7 @@ impl BxlEvalContext<'_> {
                 self.dynamic_lambda,
                 self.self_key.dupe(),
                 &self.action_key,
-                &self.configured_targets,
+                &self.maybe_configured_target_owner,
                 &self.materialized_artifacts,
                 &self.project_filesystem,
                 self.digest_config,
@@ -682,7 +681,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
          dynamic_lambda,
          dice_ctx,
          action_key,
-         configured_targets,
+         maybe_configured_target_owner,
          materialized_artifacts,
          project_filesystem,
          digest_config,
@@ -693,7 +692,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
                 dynamic_lambda,
                 dice_ctx,
                 action_key,
-                configured_targets,
+                maybe_configured_target_owner,
                 materialized_artifacts,
                 project_filesystem,
                 digest_config,
