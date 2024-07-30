@@ -24,6 +24,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::internal_error;
 use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::Span;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -41,11 +42,13 @@ use futures::Future;
 use futures::FutureExt;
 use futures::TryStreamExt;
 use once_cell::sync::Lazy;
+use starlark::values::OwnedFrozenValueTyped;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::analysis::AnalysisResult;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::ArtifactGroup;
 use crate::bxl::calculation::BXL_CALCULATION_IMPL;
@@ -61,6 +64,7 @@ use crate::deferred::types::DeferredValueAny;
 use crate::deferred::types::DeferredValueAnyReady;
 use crate::deferred::types::DeferredValueReady;
 use crate::deferred::types::ResolveDeferredCtx;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(fmt = "ResolveDeferred({})", _0)]
@@ -148,6 +152,16 @@ impl PartialLookup {
     fn get(&self) -> anyhow::Result<DeferredLookup<'_>> {
         self.holder.lookup_deferred(self.id)
     }
+}
+
+pub(crate) async fn lookup_deferred_holder(
+    dice: &mut DiceComputations<'_>,
+    key: &BaseKey,
+) -> anyhow::Result<DeferredHolder> {
+    Ok(match key {
+        BaseKey::Base(key) => lookup_deferred_inner(key, dice).await?,
+        BaseKey::Deferred(key) => DeferredHolder::Deferred(compute_deferred(dice, key).await?),
+    })
 }
 
 /// looks up an deferred
@@ -307,7 +321,8 @@ impl Key for DeferredCompute {
                     };
 
                     // TODO populate the deferred map
-                    Ok(DeferredResult::new(res?, registry.take_result()?))
+                    let (deferred, recorded_values) = registry.take_result()?;
+                    Ok(DeferredResult::new(res?, deferred, recorded_values))
                 }
                 .boxed()
             })
@@ -384,7 +399,7 @@ async fn compute_deferred(
 
 /// Represents an Analysis or Deferred result. Technically, we can treat analysis as a 'Deferred'
 /// and get rid of this enum
-enum DeferredHolder {
+pub(crate) enum DeferredHolder {
     Analysis(AnalysisResult),
     Bxl(Arc<BxlResult>),
     Deferred(DeferredResult),
@@ -397,5 +412,20 @@ impl DeferredHolder {
             DeferredHolder::Deferred(result) => result.lookup_deferred(id),
             DeferredHolder::Bxl(result) => result.lookup_deferred(id),
         }
+    }
+
+    pub(crate) fn lookup_transitive_set(
+        &self,
+        key: &TransitiveSetKey,
+    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+        let analysis_values = match self {
+            DeferredHolder::Analysis(result) => result.analysis_values(),
+            DeferredHolder::Bxl(result) => result.analysis_values(),
+            DeferredHolder::Deferred(result) => result.analysis_values(),
+        };
+
+        analysis_values
+            .lookup_transitive_set(key)
+            .ok_or_else(|| internal_error!("Missing transitive set `{}`", key))
     }
 }

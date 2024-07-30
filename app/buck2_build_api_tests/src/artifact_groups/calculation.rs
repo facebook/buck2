@@ -7,20 +7,23 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
+use std::collections::HashMap;
 
+use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
-use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
+use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::deferred::calculation::DeferredResolve;
-use buck2_build_api::deferred::types::DeferredAny;
-use buck2_build_api::deferred::types::DeferredValueAnyReady;
-use buck2_build_api::deferred::types::TrivialDeferredValue;
-use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
+use buck2_build_api::deferred::types::BaseKey;
+use buck2_build_api::deferred::types::DeferredTable;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
@@ -28,15 +31,18 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellResolver;
+use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
@@ -45,19 +51,54 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::btreemap;
+use starlark::values::FrozenHeap;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
 
 use crate::interpreter::transitive_set::testing::new_transitive_set;
 
-fn mock_deferred_tset(dice_builder: DiceBuilder, value: OwnedFrozenValue) -> DiceBuilder {
-    let tset = TransitiveSet::from_value(value.value()).unwrap();
-    let resolve = DeferredResolve(tset.key().deferred_key().dupe());
+fn mock_analysis_for_tsets(
+    mut dice_builder: DiceBuilder,
+    tsets: Vec<OwnedFrozenValueTyped<FrozenTransitiveSet>>,
+) -> DiceBuilder {
+    let mut by_target: HashMap<
+        ConfiguredTargetLabel,
+        Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+    > = HashMap::new();
 
-    let data: Arc<dyn DeferredAny> = Arc::new(TrivialDeferredValue(
-        DeferredTransitiveSetData::testing_new(value),
-    ));
-    let any = DeferredValueAnyReady::TrivialDeferred(data);
-    dice_builder.mock_and_return(resolve, anyhow::Ok(any).map_err(buck2_error::Error::from))
+    for value in tsets {
+        let key = value.key().dupe();
+        match key.base_key() {
+            BaseKey::Base(BaseDeferredKey::TargetLabel(target)) => {
+                by_target
+                    .entry(target.dupe())
+                    .or_insert(Vec::new())
+                    .push((key, value.dupe()));
+            }
+            _ => unreachable!("we only make fake tsets with configured targets `{}`", key),
+        }
+    }
+
+    for (target, tsets) in by_target.into_iter() {
+        let heap = FrozenHeap::new();
+        let providers = FrozenProviderCollection::testing_new_default(&heap);
+        let providers =
+            unsafe { OwnedFrozenValue::new(heap.into_ref(), providers.to_frozen_value()) };
+        dice_builder = dice_builder.mock_and_return(
+            AnalysisKey(target),
+            buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+                FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
+                DeferredTable::new(Vec::new()),
+                RecordedAnalysisValues::testing_new(tsets),
+                None,
+                HashMap::new(),
+                0,
+                0,
+            ))),
+        );
+    }
+
+    dice_builder
 }
 
 #[tokio::test]
@@ -141,18 +182,19 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
         data.set_digest_config(DigestConfig::testing_default());
     });
 
-    // Register all the sets as deferreds.
-    dice_builder = mock_deferred_tset(dice_builder, set.to_owned_frozen_value());
-
+    let mut all_tsets = vec![set.dupe()];
     // This is kinda clowny, but we can't upcast the TransitiveSetGen back to a Value so we
     // have to access Values from their parents.
     for set in set.as_ref().iter(TransitiveSetOrdering::Preorder) {
         for child in set.children.iter() {
             // Safety: We know the entire set came from the same heap.
             let child = unsafe { OwnedFrozenValue::new(heap.dupe(), *child) };
-            dice_builder = mock_deferred_tset(dice_builder, child);
+            all_tsets.push(child.downcast().unwrap());
         }
     }
+
+    // Register all the sets as deferreds.
+    dice_builder = mock_analysis_for_tsets(dice_builder, all_tsets);
 
     let mut extra = UserComputationData::new();
     extra.set_keep_going(true);

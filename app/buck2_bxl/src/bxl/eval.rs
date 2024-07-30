@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::deferred::types::DeferredTable;
@@ -243,20 +244,24 @@ impl BxlInnerEvaluator {
             }
         };
 
+        // TODO(cjhopman): Why is there so much divergence in code here for whether we created actions or
+        // not? It seems to just make this unnecessarily complex.
+
         let (frozen_module, bxl_result) = match actions_finalizer {
             Some(actions_finalizer) => {
                 // this bxl registered actions, so extract the deferreds from it
-                let (frozen_module, deferred) = actions_finalizer(env)?;
+                let (module, deferred_registry) = actions_finalizer(env)?;
 
-                let deferred_table = deferred.take_result()?;
+                let (deferred_table, recorded_values) = deferred_registry.take_result()?;
 
                 (
-                    frozen_module,
+                    module,
                     BxlResult::new(
                         output_stream,
                         error_stream,
                         ensured_artifacts,
                         deferred_table,
+                        recorded_values,
                     ),
                 )
             }
@@ -271,6 +276,7 @@ impl BxlInnerEvaluator {
                         error_stream,
                         ensured_artifacts,
                         DeferredTable::new(Vec::new()),
+                        RecordedAnalysisValues::new_empty(),
                     ),
                 )
             }

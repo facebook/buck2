@@ -39,12 +39,14 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
@@ -59,6 +61,8 @@ use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use crate::analysis::extra_v::AnalysisExtraValue;
 use crate::analysis::extra_v::FrozenAnalysisExtraValue;
+use crate::artifact_groups::deferred::TransitiveSetIndex;
+use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
@@ -70,6 +74,7 @@ use crate::dynamic::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -327,6 +332,7 @@ impl<'v> AnalysisRegistry<'v> {
             actions.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
             dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
+            deferred.register_values(analysis_value_fetcher.get_recorded_values()?)?;
             Ok((frozen_env, deferred))
         })
     }
@@ -377,6 +383,7 @@ impl<'v> ArtifactDeclaration<'v> {
 pub(crate) struct AnalysisValueStorage<'v> {
     values: SmallMap<DeferredId, Value<'v>>,
     error_handlers: SmallMap<DeferredId, StarlarkCallable<'v>>,
+    transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
 }
 
 #[derive(
@@ -390,6 +397,7 @@ pub(crate) struct AnalysisValueStorage<'v> {
 pub(crate) struct FrozenAnalysisValueStorage {
     values: SmallMap<DeferredId, FrozenValue>,
     error_handlers: SmallMap<DeferredId, FrozenStarlarkCallable>,
+    transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
 }
 
 impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
@@ -403,12 +411,17 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
         let AnalysisValueStorage {
             values,
             error_handlers,
+            transitive_sets,
         } = self;
         for (k, v) in values.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
         }
         for (k, v) in error_handlers.iter_mut() {
+            tracer.trace_static(k);
+            v.trace(tracer);
+        }
+        for (k, v) in transitive_sets.iter_mut() {
             tracer.trace_static(k);
             v.trace(tracer);
         }
@@ -422,6 +435,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
         let AnalysisValueStorage {
             values,
             error_handlers,
+            transitive_sets,
         } = self;
 
         Ok(FrozenAnalysisValueStorage {
@@ -432,6 +446,10 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             error_handlers: error_handlers
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
+                .collect::<anyhow::Result<_>>()?,
+            transitive_sets: transitive_sets
+                .into_iter()
+                .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
                 .collect::<anyhow::Result<_>>()?,
         })
     }
@@ -460,6 +478,7 @@ impl<'v> AnalysisValueStorage<'v> {
         Self {
             values: SmallMap::new(),
             error_handlers: SmallMap::new(),
+            transitive_sets: SmallMap::new(),
         }
     }
 
@@ -483,6 +502,22 @@ impl<'v> AnalysisValueStorage<'v> {
     /// Add a error handler value to the internal hash map that maps ids -> error handlers
     fn set_error_handler(&mut self, id: DeferredId, value: StarlarkCallable<'v>) {
         self.error_handlers.insert(id, value);
+    }
+
+    pub(crate) fn register_transitive_set<
+        F: FnOnce(TransitiveSetKey) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>>,
+    >(
+        &mut self,
+        self_key: BaseKey,
+        func: F,
+    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
+        let key = TransitiveSetKey::new(
+            self_key,
+            TransitiveSetIndex(self.transitive_sets.len().try_into()?),
+        );
+        let set = func(key.dupe())?;
+        self.transitive_sets.insert(key, set.dupe());
+        Ok(set)
     }
 }
 
@@ -524,5 +559,62 @@ impl AnalysisValueFetcher {
             return Ok(None);
         };
         unsafe { Ok(Some(OwnedFrozenValue::new(heap_ref.dupe(), value.0))) }
+    }
+
+    pub(crate) fn get_recorded_values(&self) -> anyhow::Result<RecordedAnalysisValues> {
+        let storage = match &self.frozen_module {
+            None => None,
+            Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
+                v.value
+                    .analysis_value_storage
+                    .internal_error("analysis_value_storage not set")
+            })?),
+        };
+
+        Ok(RecordedAnalysisValues(storage))
+    }
+}
+
+/// The analysis values stored in DeferredHolder.
+#[derive(Debug, Clone, Dupe, Allocative)]
+pub struct RecordedAnalysisValues(Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>);
+
+impl RecordedAnalysisValues {
+    pub fn new_empty() -> Self {
+        Self(None)
+    }
+
+    pub fn testing_new(
+        transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+    ) -> Self {
+        let heap = FrozenHeap::new();
+        let mut alloced_tsets = SmallMap::new();
+        for (key, tset) in transitive_sets {
+            heap.add_reference(tset.owner());
+            let tset = tset.owned_frozen_value_typed(&heap);
+            alloced_tsets.insert(key, tset);
+        }
+
+        let value = heap.alloc_simple(FrozenAnalysisValueStorage {
+            values: SmallMap::new(),
+            error_handlers: SmallMap::new(),
+            transitive_sets: alloced_tsets,
+        });
+        Self(Some(
+            unsafe { OwnedFrozenValue::new(heap.into_ref(), value) }
+                .downcast()
+                .unwrap(),
+        ))
+    }
+
+    pub(crate) fn lookup_transitive_set(
+        &self,
+        key: &TransitiveSetKey,
+    ) -> Option<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+        // TODO(cjhopman): verify that key matches this.
+        match &self.0 {
+            Some(values) => values.maybe_map(|v| v.transitive_sets.get(key).copied()),
+            None => None,
+        }
     }
 }

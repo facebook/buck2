@@ -221,7 +221,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
     let result = actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default());
     assert_eq!(result.is_ok(), true, "Expected Ok(_), got `{:?}`", result);
 
-    let registered_deferreds = deferreds.take_result()?;
+    let (registered_deferreds, _) = deferreds.take_result()?;
 
     assert_eq!(registered_deferreds.len(), 1);
 

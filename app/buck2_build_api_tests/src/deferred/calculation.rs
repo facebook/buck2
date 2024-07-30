@@ -96,7 +96,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
     let executed1 = Arc::new(AtomicBool::new(false));
     let data0 = deferred.defer(FakeDeferred(1, IndexSet::new(), executed0.dupe()));
     let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
-    let deferred_result = deferred.take_result()?;
+    let (deferred_result, analysis_values) = deferred.take_result()?;
 
     let fs = ProjectRootTemp::new()?;
     let dice = DiceBuilder::new()
@@ -109,6 +109,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 provider_collection,
                 deferred_result,
+                analysis_values,
                 None,
                 HashMap::new(),
                 0,
@@ -197,7 +198,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
 
     let executed = Arc::new(AtomicBool::new(false));
     let data = deferred.defer(TestDeferringDeferred(8, IndexSet::new(), executed.dupe()));
-    let deferred_result = deferred.take_result()?;
+    let (deferred_result, analysis_values) = deferred.take_result()?;
 
     let fs = ProjectRootTemp::new()?;
     let dice = DiceBuilder::new()
@@ -210,6 +211,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 provider_collection,
                 deferred_result,
+                analysis_values,
                 None,
                 HashMap::new(),
                 0,

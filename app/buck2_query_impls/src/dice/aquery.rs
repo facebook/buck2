@@ -11,7 +11,6 @@ use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -26,7 +25,6 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
-use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -200,14 +198,9 @@ fn compute_tset_node<'c>(
     key: TransitiveSetProjectionKey,
 ) -> BoxFuture<'c, buck2_error::Result<SetProjectionInputs>> {
     async move {
-        let set = ctx
-            .compute_deferred_data(&key.key)
-            .await
-            .context("Failed to compute deferred")?;
+        let set = key.key.lookup(ctx).await?;
 
-        let sub_inputs = set
-            .as_transitive_set()
-            .get_projection_sub_inputs(key.projection)?;
+        let sub_inputs = set.get_projection_sub_inputs(key.projection)?;
 
         let inputs = convert_inputs(ctx, node_cache, sub_inputs.iter()).await?;
 

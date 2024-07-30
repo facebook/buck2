@@ -11,9 +11,9 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_artifact::deferred::data::DeferredData;
-use buck2_artifact::deferred::id::DeferredId;
-use buck2_artifact::deferred::key::DeferredKey;
+use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
+use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
+use buck2_build_api::deferred::types::BaseKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
@@ -48,11 +48,11 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
             "cell//path:target",
             ConfigurationData::testing_new(),
         );
-        let deferred_id = DeferredId::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
-        let deferred_key = DeferredKey::Base(BaseDeferredKey::TargetLabel(target), deferred_id);
+        let tset_id = TransitiveSetIndex::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
+        let deferred_key = BaseDeferredKey::TargetLabel(target);
 
         let set = TransitiveSet::new_from_values(
-            DeferredData::unchecked_new(deferred_key),
+            TransitiveSetKey::new(BaseKey::Base(deferred_key), tset_id),
             definition,
             value,
             children,

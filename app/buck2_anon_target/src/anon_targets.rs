@@ -397,10 +397,11 @@ impl AnonTargetKey {
                     .expect("just created this, this shouldn't happen");
 
                 // this could look nicer if we had the entire analysis be a deferred
-                let deferred = deferreds.take_result()?;
+                let (deferred, recorded_values) = deferreds.take_result()?;
                 Ok(AnalysisResult::new(
                     provider_collection,
                     deferred,
+                    recorded_values,
                     None,
                     fulfilled_artifact_mappings,
                     num_declared_actions,

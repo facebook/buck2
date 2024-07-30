@@ -53,7 +53,6 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
 use crate::artifact_groups::TransitiveSetProjectionKey;
-use crate::deferred::calculation::DeferredCalculation;
 use crate::keep_going::KeepGoing;
 
 #[async_trait]
@@ -426,16 +425,11 @@ impl Key for EnsureTransitiveSetProjectionKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let set = ctx
-            .compute_deferred_data(&self.0.key)
-            .await
-            .context("Failed to compute deferred")?;
+        let set = self.0.key.lookup(ctx).await?;
 
         let artifact_fs = ctx.get_artifact_fs().await?;
 
-        let projection_sub_inputs = set
-            .as_transitive_set()
-            .get_projection_sub_inputs(self.0.projection)?;
+        let projection_sub_inputs = set.get_projection_sub_inputs(self.0.projection)?;
 
         let sub_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
             ctx,

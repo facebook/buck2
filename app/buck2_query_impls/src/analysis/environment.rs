@@ -19,12 +19,8 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::artifact_groups::deferred::DeferredTransitiveSetData;
-use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
-use buck2_build_api::deferred::calculation::DeferredCalculation;
-use buck2_build_api::deferred::types::DeferredValueReady;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -279,13 +275,6 @@ impl<'a> QueryEnvironment for ConfiguredGraphQueryEnvironment<'a> {
     }
 }
 
-async fn dice_lookup_transitive_set(
-    ctx: &mut DiceComputations<'_>,
-    key: TransitiveSetKey,
-) -> anyhow::Result<DeferredValueReady<DeferredTransitiveSetData>> {
-    ctx.compute_deferred_data(&key).await
-}
-
 async fn get_template_info_provider_artifacts(
     ctx: &mut DiceComputations<'_>,
     configured_label: &ConfiguredTargetLabel,
@@ -409,7 +398,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
             ResolvedArtifactGroup::TransitiveSetProjection(tset_key) => {
                 // We've encountered a "top-level" tset node that we haven't yet seen (as either a top-level or intermediate node, doesn't matter).
                 if seen.insert(tset_key.dupe()) {
-                    let tset_value = dice_lookup_transitive_set(ctx, tset_key.key.dupe()).await?;
+                    let tset_value = tset_key.key.lookup(ctx).await?;
 
                     // Now we can traverse this tset from that node. This is a different traversal than our top-level one as we will
                     // be accessing tset internals directly and so we can actually traverse the starlark objects without going back through
@@ -418,7 +407,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                     // We can't use tset's normal traverse because we need to avoid retraversing parts of the tset graph that we've already
                     // traversed (through other top-level tset nodes).
                     let mut queue = VecDeque::new();
-                    queue.push_back(tset_value.as_value());
+                    queue.push_back(tset_value.to_value());
                     while let Some(v) = queue.pop_front() {
                         let as_tset =
                             TransitiveSet::from_value(v).context("invalid tset structure")?;

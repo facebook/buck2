@@ -15,10 +15,8 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
-use buck2_build_api::deferred::calculation::DeferredCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -92,13 +90,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
                 visitor(a.get_path(), abs)?;
             }
             ResolvedArtifactGroup::TransitiveSetProjection(t) => {
-                let set = ctx
-                    .compute_deferred_data(&t.key)
-                    .await
-                    .context("Failed to compute deferred for transitive set projection key")?;
-
-                let set = set.as_transitive_set();
-
+                let set = t.key.lookup(ctx).await?;
                 todo.extend(set.get_projection_sub_inputs(t.projection)?);
             }
         }

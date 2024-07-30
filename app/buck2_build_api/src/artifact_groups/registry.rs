@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
@@ -17,23 +16,16 @@ use starlark::values::ValueTyped;
 
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::analysis::registry::AnalysisValueStorage;
-use crate::artifact_groups::deferred::DeferredTransitiveSetData;
 use crate::deferred::types::DeferredRegistry;
-use crate::deferred::types::ReservedTrivialDeferredData;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Allocative)]
-pub struct ArtifactGroupRegistry {
-    pending: Vec<ReservedTrivialDeferredData<DeferredTransitiveSetData>>,
-}
+pub struct ArtifactGroupRegistry;
 
 impl ArtifactGroupRegistry {
     pub fn new() -> Self {
-        Self {
-            pending: Vec::new(),
-        }
+        Self
     }
 
     pub(crate) fn create_transitive_set<'v>(
@@ -45,41 +37,21 @@ impl ArtifactGroupRegistry {
         analysis_value_storage: &mut AnalysisValueStorage<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        let reserved = deferred.reserve_trivial::<DeferredTransitiveSetData>();
-        let set = TransitiveSet::new_from_values(
-            reserved.data().dupe(),
-            definition,
-            value,
-            children,
-            eval,
-        )?;
-        self.pending.push(reserved);
-
-        let key = set.key().deferred_key().id();
-        let set = eval.heap().alloc_complex(set);
-        let set = ValueTyped::<TransitiveSet>::new_err(set)?;
-
-        analysis_value_storage.set_value(key, set.to_value());
-
-        Ok(set)
+        Ok(
+            analysis_value_storage.register_transitive_set(deferred.key().dupe(), move |key| {
+                let set =
+                    TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)
+                        .map_err(|e| e.into_anyhow())?;
+                Ok(eval.heap().alloc_typed(set))
+            })?,
+        )
     }
 
     pub(crate) fn ensure_bound(
         self,
-        registry: &mut DeferredRegistry,
-        analysis_value_fetcher: &AnalysisValueFetcher,
+        _registry: &mut DeferredRegistry,
+        _analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<()> {
-        for key in self.pending {
-            let id = key.data().deferred_key().id();
-
-            let set = analysis_value_fetcher
-                .get(id)?
-                .with_context(|| format!("Key is missing in AnalysisValueFetcher: {:?}", id))?;
-
-            let set = set.downcast_anyhow::<FrozenTransitiveSet>()?;
-            registry.bind_trivial(key, DeferredTransitiveSetData(set));
-        }
-
         Ok(())
     }
 }

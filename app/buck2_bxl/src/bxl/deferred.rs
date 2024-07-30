@@ -101,7 +101,7 @@ mod tests {
         let executed1 = Arc::new(AtomicBool::new(false));
         let data0 = deferred.defer(FakeDeferred(1, IndexSet::new(), executed0.dupe()));
         let data1 = deferred.defer(FakeDeferred(5, IndexSet::new(), executed1.dupe()));
-        let deferred_result = deferred.take_result()?;
+        let (deferred_result, analysis_values) = deferred.take_result()?;
 
         let fs = ProjectRootTemp::new()?;
         let dice = DiceBuilder::new()
@@ -118,6 +118,7 @@ mod tests {
                         built: vec![],
                         artifacts: vec![],
                         deferred: deferred_result,
+                        analysis_values,
                     }),
                     materializations: Arc::new(Default::default()),
                 }),

@@ -29,10 +29,12 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Clone_;
 use dupe::Dupe;
@@ -42,6 +44,7 @@ use either::Either;
 use gazebo::variants::VariantName;
 use indexmap::IndexSet;
 
+use crate::analysis::registry::RecordedAnalysisValues;
 use crate::deferred::arc_borrow::ArcBorrow;
 
 /// An asynchronous chunk of work that will be executed when requested.
@@ -199,7 +202,8 @@ impl<'a> IntoIterator for DeferredInputsRef<'a> {
 /// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
 /// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or
 /// 'DeferredKey::Base' type.
-#[derive(Allocative)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
+
 pub enum BaseKey {
     Base(BaseDeferredKey),
     // While DeferredKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
@@ -288,6 +292,7 @@ enum DeferredRegistryEntry {
 pub struct DeferredRegistry {
     base_key: BaseKey,
     registry: Vec<DeferredRegistryEntry>,
+    recorded_values: Option<RecordedAnalysisValues>,
 }
 
 #[derive(Allocative)]
@@ -329,7 +334,12 @@ impl DeferredRegistry {
         Self {
             base_key,
             registry: Vec::new(),
+            recorded_values: None,
         }
+    }
+
+    pub fn key(&self) -> &BaseKey {
+        &self.base_key
     }
 
     /// Reserves a 'DeferredData', with it's underlying key, on the promise that it should be bound
@@ -437,8 +447,8 @@ impl DeferredRegistry {
         DeferredData::unchecked_new(self.base_key.make_key(id))
     }
 
-    pub fn take_result(self) -> anyhow::Result<DeferredTable> {
-        Ok(DeferredTable::new(
+    pub fn take_result(self) -> anyhow::Result<(DeferredTable, RecordedAnalysisValues)> {
+        let table = DeferredTable::new(
             self.registry
                 .into_iter()
                 .enumerate()
@@ -449,7 +459,22 @@ impl DeferredRegistry {
                     }
                 })
                 .collect::<anyhow::Result<_>>()?,
-        ))
+        );
+
+        let values = self
+            .recorded_values
+            // TODO(cjhopman): We should require this to be set, but a bunch of non-analysis things still use deferreds.
+            .unwrap_or_else(RecordedAnalysisValues::new_empty);
+
+        Ok((table, values))
+    }
+
+    pub(crate) fn register_values(&mut self, values: RecordedAnalysisValues) -> anyhow::Result<()> {
+        match self.recorded_values.replace(values) {
+            // TODO(cjhopman): delete this error in this stack
+            Some(_) => Err(internal_error!("recorded analysis values already set")),
+            None => Ok(()),
+        }
     }
 }
 
@@ -478,6 +503,7 @@ pub struct DeferredResult(Arc<DeferredResultData>);
 #[derive(Allocative)]
 struct DeferredResultData {
     deferreds: DeferredTable,
+    analysis_values: RecordedAnalysisValues,
     value: DeferredValueAny,
 }
 
@@ -533,8 +559,16 @@ impl DeferredTable {
 }
 
 impl DeferredResult {
-    pub fn new(value: DeferredValueAny, deferreds: DeferredTable) -> Self {
-        Self(Arc::new(DeferredResultData { deferreds, value }))
+    pub fn new(
+        value: DeferredValueAny,
+        deferreds: DeferredTable,
+        analysis_values: RecordedAnalysisValues,
+    ) -> Self {
+        Self(Arc::new(DeferredResultData {
+            deferreds,
+            value,
+            analysis_values,
+        }))
     }
 
     /// looks up an 'Deferred' given the id
@@ -544,6 +578,10 @@ impl DeferredResult {
 
     pub fn value(&self) -> &DeferredValueAny {
         &self.0.value
+    }
+
+    pub(crate) fn analysis_values(&self) -> &crate::analysis::registry::RecordedAnalysisValues {
+        &self.0.analysis_values
     }
 }
 
@@ -1002,7 +1040,7 @@ mod tests {
 
         let deferred_data = registry.defer(deferred);
 
-        let result = registry.take_result()?;
+        let (result, _) = registry.take_result()?;
 
         let mut ctx = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
             deferred_data.deferred_key().dupe(),
@@ -1065,7 +1103,7 @@ mod tests {
         };
 
         let deferring_deferred_data = registry.defer(deferring_deferred);
-        let result = registry.take_result()?;
+        let (result, _) = registry.take_result()?;
 
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
             deferring_deferred_data.deferred_key().dupe(),
@@ -1111,7 +1149,7 @@ mod tests {
                     )
                 );
 
-                let result = registry.take_result()?;
+                let (result, _) = registry.take_result()?;
                 let deferred = result.lookup_deferred(deferred_key.id()).unwrap();
 
                 let mut registry =
@@ -1164,7 +1202,7 @@ mod tests {
 
         assert_eq!(deferred_data, reserved_deferred_data);
 
-        let result = registry.take_result()?;
+        let (result, _) = registry.take_result()?;
 
         let mut registry = DeferredRegistry::new(BaseKey::Deferred(Arc::new(
             deferred_data.deferred_key().dupe(),
@@ -1241,7 +1279,7 @@ mod tests {
         let deferred_data1 = registry.reserve_trivial();
         let deferred_data1 = registry.bind_trivial(deferred_data1, deferred1.clone());
 
-        let result = registry.take_result()?;
+        let (result, _) = registry.take_result()?;
 
         assert_eq!(
             *DeferredValueAnyReady::TrivialDeferred(ArcBorrow::clone_arc(
