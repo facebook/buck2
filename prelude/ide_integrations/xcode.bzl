@@ -27,6 +27,7 @@ XcodeDataInfoKeys = struct(
     INFO_PLIST = "info_plist",
     OUTPUT = "output",
     PROCESSED_INFO_PLIST = "processed_info_plist",
+    INFO_PLIST_RELATIVE_PATH = "info_plist_relative_path",
     PRODUCT_NAME = "product_name",
     RULE_TYPE = "rule_type",
     SDK = "sdk",

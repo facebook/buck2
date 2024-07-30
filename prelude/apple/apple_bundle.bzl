@@ -346,10 +346,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
     # Define the xcode data sub target
-    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source)
+    plist_bundle_relative_path = get_apple_bundle_part_relative_destination_path(ctx, apple_bundle_part_list_output.info_plist_part)
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source, info_plist_relative_path = plist_bundle_relative_path)
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
-    plist_bundle_relative_path = get_apple_bundle_part_relative_destination_path(ctx, apple_bundle_part_list_output.info_plist_part)
     install_data = generate_install_data(ctx, plist_bundle_relative_path)
 
     # Collect extra bundle outputs
@@ -397,11 +397,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         link_cmd_debug_info,
     ] + bundle_result.providers
 
-def _xcode_populate_attributes(ctx, processed_info_plist: Artifact) -> dict[str, typing.Any]:
+def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
     data = {
         XcodeDataInfoKeys.DEPLOYMENT_VERSION: get_bundle_min_target_version(ctx, get_default_binary_dep(ctx.attrs.binary)),
         XcodeDataInfoKeys.INFO_PLIST: ctx.attrs.info_plist,
         XcodeDataInfoKeys.PROCESSED_INFO_PLIST: processed_info_plist,
+        XcodeDataInfoKeys.INFO_PLIST_RELATIVE_PATH: info_plist_relative_path,
         XcodeDataInfoKeys.PRODUCT_NAME: get_product_name(ctx),
         XcodeDataInfoKeys.SDK: get_apple_sdk_name(ctx),
     }
