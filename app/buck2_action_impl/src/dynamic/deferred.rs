@@ -33,10 +33,8 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_events::dispatch::create_span;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
-use buck2_events::dispatch::Span;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -52,7 +50,6 @@ use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use futures::TryStreamExt;
 use indexmap::IndexSet;
-use once_cell::sync::Lazy;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
@@ -243,11 +240,6 @@ impl DynamicLambdaAsDeferred {
             .await
         }
     }
-
-    fn span(&self) -> Option<buck2_data::span_start_event::Data> {
-        let owner = self.0.owner.to_proto().into();
-        Some(buck2_data::DynamicLambdaStart { owner: Some(owner) }.into())
-    }
 }
 
 pub(crate) async fn prepare_and_execute_deferred(
@@ -257,54 +249,63 @@ pub(crate) async fn prepare_and_execute_deferred(
     self_holder_key: DeferredHolderKey,
     action_key: String,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
-    // We'll create the Span lazily when materialization hits it.
-    let span = Lazy::new(|| deferred.span().map(create_span));
-
-    let materialized_artifacts =
-        create_materializer_futs(deferred.dynamic_inputs(), ctx, &span).await?;
-
-    cancellation
-        .with_structured_cancellation(|observer| {
-            async move {
-                let execute = deferred.execute(
-                    ctx,
-                    self_holder_key,
-                    action_key,
-                    materialized_artifacts,
-                    ctx.global_data().get_io_provider().project_root().dupe(),
-                    ctx.global_data().get_digest_config(),
-                    observer,
-                );
-
-                let recorded_values = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
-                    Some(span) => {
-                        span.wrap_future(async {
-                            (execute.await, buck2_data::DeferredEvaluationEnd {})
-                        })
-                        .await
-                    }
-                    None => execute.await,
-                }?;
-
-                Ok(recorded_values)
-            }
-            .boxed()
-        })
-        .await
-}
-
-async fn create_materializer_futs(
-    materialized_artifacts: &IndexSet<Artifact>,
-    ctx: &mut DiceComputations<'_>,
-    span: &Lazy<Option<Span>, impl FnOnce() -> Option<Span>>,
-) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
-    if materialized_artifacts.is_empty() {
-        return Ok(HashMap::new());
-    }
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
+    ensure_artifacts_built(deferred.dynamic_inputs(), ctx).await?;
 
+    Ok(span_async(
+        buck2_data::DynamicLambdaStart {
+            owner: Some(deferred.0.owner.to_proto().into()),
+        },
+        async move {
+            let res: anyhow::Result<_> = try {
+                let materialized_artifacts = span_async(
+                    buck2_data::DeferredPreparationStageStart {
+                        stage: Some(buck2_data::MaterializedArtifacts {}.into()),
+                    },
+                    async {
+                        (
+                            materialize_inputs(deferred.dynamic_inputs(), ctx).await,
+                            buck2_data::DeferredPreparationStageEnd {},
+                        )
+                    },
+                )
+                .await?;
+
+                cancellation
+                    .with_structured_cancellation(|observer| {
+                        async move {
+                            deferred
+                                .execute(
+                                    ctx,
+                                    self_holder_key,
+                                    action_key,
+                                    materialized_artifacts,
+                                    ctx.global_data().get_io_provider().project_root().dupe(),
+                                    ctx.global_data().get_digest_config(),
+                                    observer,
+                                )
+                                .await
+                        }
+                        .boxed()
+                    })
+                    .await?
+            };
+
+            (res, buck2_data::DeferredEvaluationEnd {})
+        },
+    )
+    .await?)
+}
+
+async fn ensure_artifacts_built(
+    materialized_artifacts: &IndexSet<Artifact>,
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<()> {
+    if materialized_artifacts.is_empty() {
+        return Ok(());
+    }
     ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
         async move {
             ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
@@ -314,10 +315,21 @@ async fn create_materializer_futs(
     })
     .await?;
 
+    Ok(())
+}
+
+async fn materialize_inputs(
+    materialized_artifacts: &IndexSet<Artifact>,
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
+    if materialized_artifacts.is_empty() {
+        return Ok(HashMap::new());
+    }
+
     let materializer = ctx.per_transaction_data().get_materializer();
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let fut = materialized_artifacts
+    materialized_artifacts
         .iter()
         .map(|artifact| async {
             let artifact = artifact.dupe();
@@ -327,18 +339,8 @@ async fn create_materializer_futs(
             anyhow::Ok((artifact, path))
         })
         .collect::<FuturesUnordered<_>>()
-        .try_collect::<HashMap<_, _>>();
-
-    match span.as_ref() {
-        Some(span) => {
-            span.create_child(buck2_data::DeferredPreparationStageStart {
-                stage: Some(buck2_data::MaterializedArtifacts {}.into()),
-            })
-            .wrap_future(fut.map(|r| (r, buck2_data::DeferredPreparationStageEnd {})))
-            .await
-        }
-        None => fut.await,
-    }
+        .try_collect::<HashMap<_, _>>()
+        .await
 }
 
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
