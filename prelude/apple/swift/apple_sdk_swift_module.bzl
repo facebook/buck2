@@ -37,6 +37,7 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
         overlays = [SdkSwiftOverlayInfo(overlays = ctx.attrs.overlays)]
 
     module_info = SdkUncompiledModuleInfo(
+        cxx_deps = ctx.attrs.cxx_deps,
         deps = ctx.attrs.deps,
         input_relative_path = ctx.attrs.swiftinterface_relative_path,
         is_framework = ctx.attrs.is_framework,
@@ -55,6 +56,7 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
 apple_sdk_swift_module = rule(
     impl = apple_sdk_swift_module_impl,
     attrs = {
+        "cxx_deps": attrs.list(attrs.dep(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "is_framework": attrs.bool(default = False),
         # This is a real module name, contrary to `name`

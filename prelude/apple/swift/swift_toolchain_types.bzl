@@ -45,6 +45,7 @@ SwiftToolchainInfo = provider(
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
 # and doesn't contain any artifacts because Swift toolchain isn't resolved yet.
 SdkUncompiledModuleInfo = provider(fields = {
+    "cxx_deps": provider_field(typing.Any, default = None),  # [Dependency]
     "deps": provider_field(typing.Any, default = None),  # [Dependency]
     "input_relative_path": provider_field(typing.Any, default = None),  # A relative prefixed path to a textual swiftinterface/modulemap file within an SDK.
     "is_framework": provider_field(typing.Any, default = None),  # This is mostly needed for the generated Swift module map file.

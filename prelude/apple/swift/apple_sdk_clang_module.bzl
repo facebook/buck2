@@ -21,6 +21,7 @@ def apple_sdk_clang_module_impl(ctx: AnalysisContext) -> list[Provider]:
         partial_cmd = cmd,
         input_relative_path = ctx.attrs.modulemap_relative_path,
         deps = ctx.attrs.deps,
+        cxx_deps = ctx.attrs.cxx_deps,
     )
 
     return [
@@ -32,6 +33,7 @@ def apple_sdk_clang_module_impl(ctx: AnalysisContext) -> list[Provider]:
 apple_sdk_clang_module = rule(
     impl = apple_sdk_clang_module_impl,
     attrs = {
+        "cxx_deps": attrs.list(attrs.dep(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "is_framework": attrs.bool(default = False),
         # This is a real module name, contrary to `name`
