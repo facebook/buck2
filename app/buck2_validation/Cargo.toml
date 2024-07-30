@@ -10,7 +10,11 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+dice = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+buck2_build_api = { workspace = true }
 buck2_error = { workspace = true }
+buck2_node = { workspace = true }

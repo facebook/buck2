@@ -18,13 +18,17 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use futures::stream;
 use futures::stream::BoxStream;
 use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
@@ -51,10 +55,12 @@ use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
 use crate::materialize::materialize_artifact_group;
 use crate::materialize::MaterializationStrategy;
+use crate::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
 pub mod build_report;
 mod graph_size;
+
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub enum BuildProviderType {
@@ -119,6 +125,19 @@ impl BuildTargetResult {
                             configured_graph_size: None,
                             errors: Vec::new(),
                         }));
+                }
+                ConfiguredBuildEventVariant::Validation { result } => {
+                    if let Err(e) = result {
+                        res.get_mut(label.as_ref())
+                            .with_internal_error(|| format!("BuildEventVariant::Validation before BuildEventVariant::Prepared for `{}`", label))?
+                            .as_mut()
+                            .with_internal_error(|| format!("BuildEventVariant::Validation for a skipped target: `{}`", label))?
+                            .errors
+                            .push(e);
+                        if fail_fast {
+                            break;
+                        }
+                    }
                 }
                 ConfiguredBuildEventVariant::Output { index, output } => {
                     let is_err = output.is_err();
@@ -218,6 +237,9 @@ enum ConfiguredBuildEventVariant {
         output: buck2_error::Result<ProviderArtifacts>,
         /// Ensure a stable ordering of outputs.
         index: usize,
+    },
+    Validation {
+        result: buck2_error::Result<()>,
     },
     GraphSize {
         configured_graph_size: buck2_error::Result<MaybeCompatible<u64>>,
@@ -410,6 +432,32 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
+    let configured_node: MaybeCompatible<ConfiguredTargetNode> = ctx
+        .get()
+        .get_configured_target_node(providers_label.target())
+        .await?;
+    let validation_result = match configured_node {
+        MaybeCompatible::Compatible(target_node) => VALIDATION_IMPL
+            .get()?
+            .validate_target_node_transitively(
+                ctx,
+                &materialization.validation_context,
+                target_node,
+            )
+            .map({
+                let providers_label = providers_label.dupe();
+                move |result| ConfiguredBuildEvent {
+                    label: providers_label,
+                    variant: ConfiguredBuildEventVariant::Validation { result },
+                }
+            }),
+        MaybeCompatible::Incompatible(..) => {
+            return Err(internal_error!(
+                "Incompatible node unexpected as compatibility should have been checked earlier"
+            ));
+        }
+    };
+
     let outputs = outputs
         .into_iter()
         .enumerate()
@@ -447,7 +495,8 @@ async fn build_configured_label_inner<'a>(
             target_rule_type_name,
         },
     }))
-    .chain(outputs);
+    .chain(outputs)
+    .chain(stream::once(validation_result));
 
     if opts.want_configured_graph_size {
         let stream = stream.chain(futures::stream::once(async move {

@@ -10,4 +10,10 @@
 #![feature(error_generic_member_access)]
 #![feature(assert_matches)]
 
+mod late_bindings;
+
 mod validator_api;
+
+pub fn init_late_bindings() {
+    late_bindings::init();
+}

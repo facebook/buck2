@@ -113,6 +113,7 @@ buck_rust_binary(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_event_log:buck2_event_log",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_validation:buck2_validation",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
         # @oss-disable: "//common/rust/folly/logging:logging", 
