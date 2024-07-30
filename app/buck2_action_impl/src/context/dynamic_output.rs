@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_build_api::dynamic::params::DynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -27,7 +28,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
-use crate::dynamic::dynamic_lambda_params::DynamicLambdaParams;
 
 #[derive(buck2_error::Error, Debug)]
 enum DynamicOutputError {

@@ -8,8 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
-use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
@@ -26,12 +24,15 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
+use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
+use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
+
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
-pub(crate) struct DynamicLambdaParams<'v> {
-    pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
-    pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
-    pub(crate) lambda: StarlarkCallable<'v>,
-    pub(crate) arg: Option<Value<'v>>,
+pub struct DynamicLambdaParams<'v> {
+    pub attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
+    pub plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+    pub lambda: StarlarkCallable<'v>,
+    pub arg: Option<Value<'v>>,
 }
 
 #[derive(Allocative, Debug, ProvidesStaticType)]
@@ -43,7 +44,7 @@ pub struct FrozenDynamicLambdaParams {
 }
 
 impl FrozenDynamicLambdaParams {
-    pub(crate) fn attributes<'v>(
+    pub fn attributes<'v>(
         &'v self,
     ) -> anyhow::Result<Option<ValueOfUnchecked<'v, StructRef<'static>>>> {
         let Some(attributes) = self.attributes else {
@@ -52,7 +53,7 @@ impl FrozenDynamicLambdaParams {
         Ok(Some(attributes.to_value().cast()))
     }
 
-    pub(crate) fn plugins<'v>(
+    pub fn plugins<'v>(
         &'v self,
     ) -> anyhow::Result<Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>> {
         let Some(plugins) = self.plugins else {

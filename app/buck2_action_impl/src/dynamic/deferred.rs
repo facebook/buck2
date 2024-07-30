@@ -23,6 +23,7 @@ use buck2_build_api::deferred::types::DeferredInputsRef;
 use buck2_build_api::deferred::types::DeferredOutput;
 use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::deferred::types::DeferredValue;
+use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -52,7 +53,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
-use crate::dynamic::dynamic_lambda_params::FrozenDynamicLambdaParams;
 
 pub enum DynamicLambdaArgs<'v> {
     OldPositional {

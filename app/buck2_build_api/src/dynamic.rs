@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod params;
 pub mod registry;
