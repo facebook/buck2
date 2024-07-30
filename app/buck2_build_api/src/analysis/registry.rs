@@ -73,7 +73,6 @@ use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
-use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::lambda::DynamicLambda;
 use crate::dynamic::params::DynamicLambdaParams;
 use crate::dynamic::params::FrozenDynamicLambdaParams;
@@ -89,8 +88,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 #[derive(Derivative, Trace, Allocative)]
 #[derivative(Debug)]
 pub struct AnalysisRegistry<'v> {
-    #[derivative(Debug = "ignore")]
-    deferred: DeferredRegistry,
+    self_key: DeferredHolderKey,
     #[derivative(Debug = "ignore")]
     actions: ActionsRegistry,
     #[derivative(Debug = "ignore")]
@@ -116,17 +114,17 @@ impl<'v> AnalysisRegistry<'v> {
         Self::new_from_owner_and_deferred(
             owner.dupe(),
             execution_platform,
-            DeferredRegistry::new(DeferredHolderKey::Base(owner)),
+            DeferredHolderKey::Base(owner),
         )
     }
 
     pub fn new_from_owner_and_deferred(
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
-        deferred: DeferredRegistry,
+        self_key: DeferredHolderKey,
     ) -> anyhow::Result<Self> {
         Ok(AnalysisRegistry {
-            deferred,
+            self_key,
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
             dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe()),
@@ -241,7 +239,7 @@ impl<'v> AnalysisRegistry<'v> {
     ) -> anyhow::Result<()> {
         let id = self
             .actions
-            .register(&mut self.deferred, inputs, outputs, action)?;
+            .register(&self.self_key, inputs, outputs, action)?;
         self.analysis_value_storage
             .set_action_data(id, (associated_value, error_handler));
         Ok(())
@@ -255,10 +253,10 @@ impl<'v> AnalysisRegistry<'v> {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         self.artifact_groups.create_transitive_set(
+            &self.self_key,
             definition,
             value,
             children,
-            &mut self.deferred,
             &mut self.analysis_value_storage,
             eval,
         )
@@ -271,10 +269,10 @@ impl<'v> AnalysisRegistry<'v> {
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
     ) -> anyhow::Result<()> {
         self.dynamic.register(
+            &self.self_key,
             dynamic,
             outputs,
             lambda_params,
-            &mut self.deferred,
             &mut self.analysis_value_storage,
         )?;
         Ok(())
@@ -315,10 +313,10 @@ impl<'v> AnalysisRegistry<'v> {
         self,
         env: &'v Module,
     ) -> anyhow::Result<
-        impl FnOnce(Module) -> anyhow::Result<(FrozenModule, DeferredRegistry)> + 'static,
+        impl FnOnce(Module) -> anyhow::Result<(FrozenModule, RecordedAnalysisValues)> + 'static,
     > {
         let AnalysisRegistry {
-            mut deferred,
+            self_key: _,
             dynamic,
             actions,
             artifact_groups,
@@ -333,13 +331,13 @@ impl<'v> AnalysisRegistry<'v> {
             let analysis_value_fetcher = AnalysisValueFetcher {
                 frozen_module: Some(frozen_env.dupe()),
             };
-            let actions = actions.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            artifact_groups.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            let dynamic_lambdas = dynamic.ensure_bound(&mut deferred, &analysis_value_fetcher)?;
-            deferred.register_values(
-                analysis_value_fetcher.get_recorded_values(actions, dynamic_lambdas)?,
-            )?;
-            Ok((frozen_env, deferred))
+            let actions = actions.ensure_bound(&analysis_value_fetcher)?;
+            artifact_groups.ensure_bound(&analysis_value_fetcher)?;
+            let dynamic_lambdas = dynamic.ensure_bound(&analysis_value_fetcher)?;
+            let recorded_values =
+                analysis_value_fetcher.get_recorded_values(actions, dynamic_lambdas)?;
+
+            Ok((frozen_env, recorded_values))
         })
     }
 

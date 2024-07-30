@@ -350,7 +350,7 @@ async fn run_analysis_with_env_underlying(
 
     let declared_actions = analysis_registry.num_declared_actions();
     let declared_artifacts = analysis_registry.num_declared_artifacts();
-    let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
+    let (frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
 
     profiler
         .visit_frozen_module(Some(&frozen_env))
@@ -367,7 +367,6 @@ async fn run_analysis_with_env_underlying(
     })?;
     let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
 
-    let recorded_values = deferreds.take_result()?;
     Ok(AnalysisResult::new(
         provider_collection,
         recorded_values,

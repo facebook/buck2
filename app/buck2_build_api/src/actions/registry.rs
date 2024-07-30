@@ -17,6 +17,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -48,7 +49,6 @@ use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
-use crate::deferred::types::DeferredRegistry;
 
 /// The actions registry for a particular analysis of a rule implementation
 #[derive(Allocative)]
@@ -199,13 +199,13 @@ impl ActionsRegistry {
     /// Registers the supplied action
     pub fn register<A: UnregisteredAction + 'static>(
         &mut self,
-        registry: &mut DeferredRegistry,
+        self_key: &DeferredHolderKey,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
     ) -> anyhow::Result<ActionKey> {
         let key = ActionKey::new(
-            registry.key().dupe(),
+            self_key.dupe(),
             // If there are declared_dynamic_outputs, then the analysis that created this one has
             // already created ActionKeys for each of those declared outputs and so we offset the
             // index by that number.
@@ -232,7 +232,6 @@ impl ActionsRegistry {
     /// an 'ActionAnalysisResult' that holds all the registered 'Action's
     pub fn ensure_bound(
         self,
-        _registry: &mut DeferredRegistry,
         analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<RecordedActions> {
         for artifact in self.artifacts {

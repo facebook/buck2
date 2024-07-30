@@ -16,7 +16,6 @@ use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -136,11 +135,8 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, target)?;
-        let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
-        ));
         let mut registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label),
+            BaseDeferredKey::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
         let artifact = registry.declare_artifact(
@@ -151,7 +147,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         )?;
         let outputs = indexset![artifact.as_output()];
         registry.register(
-            &mut deferred,
+            &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             IndexSet::new(),
             outputs,
             SimpleUnregisteredAction::new(
@@ -208,9 +204,6 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             BaseDeferredKey::TargetLabel(target_label.dupe()),
             ExecutionPlatformResolution::unspecified(),
         );
-        let mut deferred = DeferredRegistry::new(DeferredHolderKey::Base(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
-        ));
 
         let associated_artifacts = AssociatedArtifacts::from(
             associated_artifacts
@@ -222,7 +215,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             analysis_registry.get_or_declare_output(eval, artifact, OutputType::File)?;
 
         actions_registry.register(
-            &mut deferred,
+            &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             IndexSet::new(),
             indexset![output_artifact],
             SimpleUnregisteredAction::new(

@@ -249,9 +249,7 @@ impl BxlInnerEvaluator {
         let (frozen_module, bxl_result) = match actions_finalizer {
             Some(actions_finalizer) => {
                 // this bxl registered actions, so extract the deferreds from it
-                let (module, deferred_registry) = actions_finalizer(env)?;
-
-                let recorded_values = deferred_registry.take_result()?;
+                let (module, recorded_values) = actions_finalizer(env)?;
 
                 (
                     module,

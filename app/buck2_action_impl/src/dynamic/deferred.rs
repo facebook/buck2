@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -16,10 +15,10 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::deferred::types::Deferred;
 use buck2_build_api::deferred::types::DeferredInput;
 use buck2_build_api::deferred::types::DeferredInputsRef;
-use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
@@ -131,28 +130,28 @@ impl Deferred for DynamicLambdaAsDeferred {
     async fn execute(
         &self,
         dice: &mut DiceComputations,
+        self_key: DeferredHolderKey,
         action_key: String,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-        registry: &mut DeferredRegistry,
         project_filesystem: ProjectRoot,
         digest_config: DigestConfig,
         liveness: CancellationObserver,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<RecordedAnalysisValues> {
         if let BaseDeferredKey::BxlLabel(key) = &self.0.owner {
             eval_bxl_for_dynamic_output(
                 key,
+                self_key,
                 &self.0,
                 dice,
                 action_key,
                 configured_targets,
                 materialized_artifacts,
-                registry,
                 project_filesystem,
                 digest_config,
                 liveness,
             )
-            .await?
+            .await
         } else {
             let proto_rule = "dynamic_lambda".to_owned();
 
@@ -167,7 +166,7 @@ impl Deferred for DynamicLambdaAsDeferred {
                 let mut declared_actions = None;
                 let mut declared_artifacts = None;
 
-                let output: anyhow::Result<()> = try {
+                let output: anyhow::Result<_> = try {
                     let env = Module::new();
 
                     let analysis_registry = {
@@ -178,10 +177,10 @@ impl Deferred for DynamicLambdaAsDeferred {
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                         let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                             &self.0,
+                            self_key,
                             &action_key,
                             &configured_targets,
                             &materialized_artifacts,
-                            registry,
                             &project_filesystem,
                             digest_config,
                             &env,
@@ -224,8 +223,8 @@ impl Deferred for DynamicLambdaAsDeferred {
 
                     declared_actions = Some(analysis_registry.num_declared_actions());
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
-                    let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-                    let _fake_registry = mem::replace(registry, deferred);
+                    let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+                    recorded_values
                 };
 
                 (
@@ -241,10 +240,8 @@ impl Deferred for DynamicLambdaAsDeferred {
                     },
                 )
             })
-            .await?
+            .await
         }
-
-        Ok(())
     }
 
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -266,10 +263,10 @@ pub struct DynamicLambdaCtxData<'v> {
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v DynamicLambda,
+    self_key: DeferredHolderKey,
     action_key: &str,
     configured_targets: &HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
-    registry: &mut DeferredRegistry,
     project_filesystem: &ProjectRoot,
     digest_config: DigestConfig,
     env: &'v Module,
@@ -297,18 +294,10 @@ pub fn dynamic_lambda_ctx_data<'v>(
         }
     };
 
-    // The DeferredCtx has a registry it wants us to use as &mut.
-    // The AnalysisRegistry wants ownership of a registry.
-    // To overcome the difference, we create a fake registry, swap it with the one in deferred,
-    // and swap back after AnalysisRegistry completes.
-
-    let fake_registry = DeferredRegistry::new(DeferredHolderKey::Base(dynamic_lambda.owner.dupe()));
-
-    let deferred = mem::replace(registry, fake_registry);
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.owner.dupe(),
         execution_platform,
-        deferred,
+        self_key,
     )?;
     registry.set_action_key(Arc::from(action_key));
 

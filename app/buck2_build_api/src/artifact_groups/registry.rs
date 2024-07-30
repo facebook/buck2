@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
@@ -16,7 +17,6 @@ use starlark::values::ValueTyped;
 
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::analysis::registry::AnalysisValueStorage;
-use crate::deferred::types::DeferredRegistry;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -30,15 +30,15 @@ impl ArtifactGroupRegistry {
 
     pub(crate) fn create_transitive_set<'v>(
         &mut self,
+        self_key: &DeferredHolderKey,
         definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
-        deferred: &mut DeferredRegistry,
         analysis_value_storage: &mut AnalysisValueStorage<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         Ok(
-            analysis_value_storage.register_transitive_set(deferred.key().dupe(), move |key| {
+            analysis_value_storage.register_transitive_set(self_key.dupe(), move |key| {
                 let set =
                     TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)
                         .map_err(|e| e.into_anyhow())?;
@@ -49,7 +49,6 @@ impl ArtifactGroupRegistry {
 
     pub(crate) fn ensure_bound(
         self,
-        _registry: &mut DeferredRegistry,
         _analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<()> {
         Ok(())

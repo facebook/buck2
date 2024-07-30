@@ -54,7 +54,6 @@ use crate::bxl::result::BxlResult;
 use crate::deferred::arc_borrow::ArcBorrow;
 use crate::deferred::types::Deferred;
 use crate::deferred::types::DeferredInput;
-use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::calculation::compute_dynamic_lambda;
 use crate::dynamic::calculation::DynamicLambdaResult;
 use crate::dynamic::lambda::DynamicLambda;
@@ -164,23 +163,21 @@ pub async fn prepare_and_execute_deferred(
         .await?
     };
 
-    let mut registry = DeferredRegistry::new(self_holder_key);
-
     cancellation
         .with_structured_cancellation(|observer| {
             async move {
                 let execute = deferred.execute(
                     ctx,
+                    self_holder_key,
                     action_key,
                     targets.into_iter().collect(),
                     materialized_artifacts,
-                    &mut registry,
                     ctx.global_data().get_io_provider().project_root().dupe(),
                     ctx.global_data().get_digest_config(),
                     observer,
                 );
 
-                match Lazy::into_value(span).unwrap_or_else(|init| init()) {
+                let recorded_values = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
                     Some(span) => {
                         span.wrap_future(async {
                             (execute.await, buck2_data::DeferredEvaluationEnd {})
@@ -190,8 +187,6 @@ pub async fn prepare_and_execute_deferred(
                     None => execute.await,
                 }?;
 
-                // TODO populate the deferred map
-                let recorded_values = registry.take_result()?;
                 Ok(recorded_values)
             }
             .boxed()

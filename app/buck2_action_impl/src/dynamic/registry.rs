@@ -20,7 +20,6 @@ use buck2_artifact::dynamic::DynamicLambdaIndex;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::analysis::registry::AnalysisValueStorage;
-use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::params::DynamicLambdaParams;
 use buck2_build_api::dynamic::registry::DynamicRegistryDyn;
@@ -50,14 +49,14 @@ pub(crate) fn init_dynamic_registry_new() {
 impl DynamicRegistryDyn for DynamicRegistry {
     fn register<'v>(
         &mut self,
+        self_key: &DeferredHolderKey,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
-        registry: &mut DeferredRegistry,
         storage: &mut AnalysisValueStorage<'v>,
     ) -> anyhow::Result<()> {
-        let key = DynamicLambdaResultsKey::new(
-            registry.key().dupe(),
+        let dynamic_key = DynamicLambdaResultsKey::new(
+            self_key.dupe(),
             DynamicLambdaIndex::new(self.pending.len().try_into()?),
         );
 
@@ -76,7 +75,7 @@ impl DynamicRegistryDyn for DynamicRegistry {
                 // probably ArtifactGroupRegistry too).
                 let bound = output
                     .bind(ActionKey::new(
-                        DeferredHolderKey::DynamicLambda(Arc::new(key.dupe())),
+                        DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe())),
                         ActionIndex::new(output_artifact_index.try_into()?),
                     ))?
                     .as_base_artifact()
@@ -85,14 +84,13 @@ impl DynamicRegistryDyn for DynamicRegistry {
             })
             .collect::<anyhow::Result<_>>()?;
         let lambda = DynamicLambda::new(self.owner.dupe(), dynamic, outputs);
-        self.pending.insert(key.dupe(), lambda);
-        storage.set_lambda_params(key, lambda_params);
+        self.pending.insert(dynamic_key.dupe(), lambda);
+        storage.set_lambda_params(dynamic_key, lambda_params);
         Ok(())
     }
 
     fn ensure_bound(
         self: Box<Self>,
-        _registry: &mut DeferredRegistry,
         analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>> {
         let mut result = SmallMap::with_capacity(self.pending.len());

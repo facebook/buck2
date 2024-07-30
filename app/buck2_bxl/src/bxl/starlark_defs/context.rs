@@ -26,10 +26,11 @@ use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
@@ -522,16 +523,16 @@ impl<'v> BxlContextNoDice<'v> {
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
+    self_key: DeferredHolderKey,
     dynamic_lambda: &'v DynamicLambda,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-    registry: &'v mut DeferredRegistry,
     project_filesystem: ProjectRoot,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<RecordedAnalysisValues> {
     // TODO(wendyy) emit telemetry, support profiler
     let dynamic_key =
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
@@ -545,6 +546,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
     let eval_ctx = BxlEvalContext {
         data: BxlContextCoreData::new(key, dice_ctx).await?,
+        self_key,
         liveness,
         dynamic_lambda,
         dynamic_data,
@@ -552,7 +554,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         action_key,
         configured_targets,
         materialized_artifacts,
-        registry,
         project_filesystem,
 
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
@@ -598,6 +599,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
 
 struct BxlEvalContext<'v> {
     data: BxlContextCoreData,
+    self_key: DeferredHolderKey,
     liveness: CancellationObserver,
     dynamic_lambda: &'v DynamicLambda,
     dynamic_data: DynamicBxlContextData,
@@ -605,7 +607,6 @@ struct BxlEvalContext<'v> {
     action_key: String,
     configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-    registry: &'v mut DeferredRegistry,
     project_filesystem: ProjectRoot,
     print: EventDispatcherPrintHandler,
 }
@@ -615,7 +616,7 @@ impl BxlEvalContext<'_> {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<RecordedAnalysisValues> {
         let env = Module::new();
 
         let analysis_registry = {
@@ -626,10 +627,10 @@ impl BxlEvalContext<'_> {
 
             let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                 self.dynamic_lambda,
+                self.self_key.dupe(),
                 &self.action_key,
                 &self.configured_targets,
                 &self.materialized_artifacts,
-                self.registry,
                 &self.project_filesystem,
                 self.digest_config,
                 &env,
@@ -669,32 +670,31 @@ impl BxlEvalContext<'_> {
             ctx.take_state_dynamic()?
         };
 
-        let (_frozen_env, deferred) = analysis_registry.finalize(&env)?(env)?;
-        let _fake_registry = std::mem::replace(self.registry, deferred);
-        Ok(())
+        let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+        Ok(recorded_values)
     }
 }
 
 pub(crate) fn init_eval_bxl_for_dynamic_output() {
     EVAL_BXL_FOR_DYNAMIC_OUTPUT.init(
         |base_deferred_key,
+         self_key,
          dynamic_lambda,
          dice_ctx,
          action_key,
          configured_targets,
          materialized_artifacts,
-         registry,
          project_filesystem,
          digest_config,
          liveness| {
             Box::pin(eval_bxl_for_dynamic_output(
                 base_deferred_key,
+                self_key,
                 dynamic_lambda,
                 dice_ctx,
                 action_key,
                 configured_targets,
                 materialized_artifacts,
-                registry,
                 project_filesystem,
                 digest_config,
                 liveness,

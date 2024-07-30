@@ -19,7 +19,6 @@ use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -46,14 +45,14 @@ pub trait Deferred: Debug + Allocative + provider::Provider + Send + Sync + Any 
     async fn execute(
         &self,
         dice: &mut DiceComputations,
+        self_key: DeferredHolderKey,
         action_key: String,
         configured_targets: HashMap<ConfiguredTargetLabel, ConfiguredTargetNode>,
         materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
-        registry: &mut DeferredRegistry,
         project_filesystem: ProjectRoot,
         digest_config: DigestConfig,
         liveness: CancellationObserver,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<RecordedAnalysisValues>;
 
     /// An optional stage to wrap execution in.
     fn span(&self) -> Option<buck2_data::span_start_event::Data> {
@@ -84,42 +83,6 @@ impl<'a> IntoIterator for DeferredInputsRef<'a> {
         match self {
             DeferredInputsRef::IndexSet(set) => Either::Left(set.iter()),
             DeferredInputsRef::Slice(slice) => Either::Right(slice.iter()),
-        }
-    }
-}
-
-/// The registry for creating 'DeferredData's and registering 'Deferred's
-#[derive(Allocative)]
-pub struct DeferredRegistry {
-    base_key: DeferredHolderKey,
-    recorded_values: Option<RecordedAnalysisValues>,
-}
-
-impl DeferredRegistry {
-    pub fn new(base_key: DeferredHolderKey) -> Self {
-        Self {
-            base_key,
-            recorded_values: None,
-        }
-    }
-
-    pub fn key(&self) -> &DeferredHolderKey {
-        &self.base_key
-    }
-
-    pub fn take_result(self) -> anyhow::Result<RecordedAnalysisValues> {
-        let values = self
-            .recorded_values
-            // TODO(cjhopman): We should require this to be set, but a bunch of non-analysis things still use deferreds.
-            .unwrap_or_else(RecordedAnalysisValues::new_empty);
-        Ok(values)
-    }
-
-    pub(crate) fn register_values(&mut self, values: RecordedAnalysisValues) -> anyhow::Result<()> {
-        match self.recorded_values.replace(values) {
-            // TODO(cjhopman): delete this error in this stack
-            Some(_) => Err(internal_error!("recorded analysis values already set")),
-            None => Ok(()),
         }
     }
 }

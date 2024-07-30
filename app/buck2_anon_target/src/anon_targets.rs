@@ -390,14 +390,12 @@ impl AnonTargetKey {
                 std::mem::drop(eval);
                 let num_declared_actions = analysis_registry.num_declared_actions();
                 let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-                let (frozen_env, deferreds) = analysis_registry.finalize(&env)?(env)?;
+                let (frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
 
                 let res = frozen_env.get("").unwrap();
                 let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
                     .expect("just created this, this shouldn't happen");
 
-                // this could look nicer if we had the entire analysis be a deferred
-                let recorded_values = deferreds.take_result()?;
                 Ok(AnalysisResult::new(
                     provider_collection,
                     recorded_values,

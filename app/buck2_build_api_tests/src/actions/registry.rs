@@ -17,7 +17,6 @@ use buck2_build_api::actions::registry::ActionsRegistry;
 use buck2_build_api::actions::ActionErrors;
 use buck2_build_api::analysis::registry::AnalysisValueFetcher;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::deferred::types::DeferredRegistry;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
@@ -141,7 +140,6 @@ fn register_actions() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
     let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
@@ -162,7 +160,12 @@ fn register_actions() -> anyhow::Result<()> {
         None,
     );
 
-    let key = actions.register(&mut deferreds, inputs, outputs, unregistered_action.clone())?;
+    let key = actions.register(
+        &DeferredHolderKey::Base(base.dupe()),
+        inputs,
+        outputs,
+        unregistered_action.clone(),
+    )?;
 
     assert_eq!(actions.testing_pending_action_keys(), vec![key]);
     assert_eq!(declared.testing_is_bound(), true);
@@ -176,7 +179,6 @@ fn finalizing_actions() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(
@@ -205,9 +207,14 @@ fn finalizing_actions() -> anyhow::Result<()> {
         CategoryRef::new("fake_action").unwrap().to_owned(),
         None,
     );
-    actions.register(&mut deferreds, inputs, outputs, unregistered_action)?;
+    actions.register(
+        &DeferredHolderKey::Base(base.dupe()),
+        inputs,
+        outputs,
+        unregistered_action,
+    )?;
 
-    let result = actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default())?;
+    let result = actions.ensure_bound(&AnalysisValueFetcher::default())?;
 
     assert_eq!(
         result
@@ -259,7 +266,6 @@ fn category_identifier_test(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut deferreds = DeferredRegistry::new(DeferredHolderKey::Base(base.dupe()));
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(
@@ -278,13 +284,13 @@ fn category_identifier_test(
         );
 
         actions.register(
-            &mut deferreds,
+            &DeferredHolderKey::Base(base.dupe()),
             indexset![],
             indexset![],
             unregistered_action,
         )?;
     }
 
-    actions.ensure_bound(&mut deferreds, &AnalysisValueFetcher::default())?;
+    actions.ensure_bound(&AnalysisValueFetcher::default())?;
     Ok(())
 }

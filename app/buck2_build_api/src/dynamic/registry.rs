@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_util::late_binding::LateBinding;
@@ -22,23 +23,21 @@ use starlark::values::ValueTyped;
 
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::analysis::registry::AnalysisValueStorage;
-use crate::deferred::types::DeferredRegistry;
 use crate::dynamic::lambda::DynamicLambda;
 use crate::dynamic::params::DynamicLambdaParams;
 
 pub trait DynamicRegistryDyn: Allocative + 'static {
     fn register<'v>(
         &mut self,
+        self_key: &DeferredHolderKey,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
-        registry: &mut DeferredRegistry,
         storage: &mut AnalysisValueStorage<'v>,
     ) -> anyhow::Result<()>;
 
     fn ensure_bound(
         self: Box<Self>,
-        registry: &mut DeferredRegistry,
         analysis_value_fetcher: &AnalysisValueFetcher,
     ) -> anyhow::Result<SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>>;
 }
