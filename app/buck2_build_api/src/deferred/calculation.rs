@@ -59,6 +59,7 @@ use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::deferred::arc_borrow::ArcBorrow;
 use crate::deferred::types::deferred_execute;
+use crate::deferred::types::DeferredAny;
 use crate::deferred::types::DeferredInput;
 use crate::deferred::types::DeferredLookup;
 use crate::deferred::types::DeferredRegistry;
@@ -235,104 +236,7 @@ impl Key for DeferredCompute {
     ) -> Self::Value {
         let deferred = lookup_deferred(ctx, &self.0).await?;
         let deferred = deferred.get()?.any;
-
-        // We'll create the Span lazily when materialization hits it.
-        let span = Lazy::new(|| deferred.span().map(create_span));
-
-        let mut target_deps = Vec::new();
-        let mut deferred_deps = Vec::new();
-        let mut materialized_artifacts = Vec::new();
-
-        for input in deferred.inputs() {
-            match input {
-                DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
-                DeferredInput::Deferred(deferred_key) => deferred_deps.push(deferred_key),
-                DeferredInput::MaterializedArtifact(artifact) => {
-                    materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()))
-                }
-            }
-        }
-
-        let (targets, deferreds, materialized_artifacts) = {
-            // don't move span
-            let span = &span;
-            ctx.try_compute3(
-                |ctx| {
-                    async move {
-                        ctx.try_compute_join(target_deps, |ctx, target| {
-                            async move {
-                                let res = ctx
-                                    .get_configured_target_node(target)
-                                    .await?
-                                    .require_compatible()?;
-                                anyhow::Ok((target.dupe(), res))
-                            }
-                            .boxed()
-                        })
-                        .await
-                    }
-                    .boxed()
-                },
-                |ctx| {
-                    async move {
-                        ctx.try_compute_join(deferred_deps, |ctx, deferred_key| {
-                            async move {
-                                let res = resolve_deferred(ctx, deferred_key).await?;
-                                anyhow::Ok((deferred_key.dupe(), res))
-                            }
-                            .boxed()
-                        })
-                        .await
-                    }
-                    .boxed()
-                },
-                |ctx| {
-                    async move {
-                        create_materializer_futs(&materialized_artifacts, ctx, span)
-                            .await
-                    }
-                    .boxed()
-                },
-            )
-            .await?
-        };
-
-        let mut registry =
-            DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(self.0.dupe())));
-
-        cancellation
-            .with_structured_cancellation(|observer| {
-                async move {
-                    let mut deferred_ctx = ResolveDeferredCtx::new(
-                        self.0.dupe(),
-                        targets.into_iter().collect(),
-                        deferreds.into_iter().collect(),
-                        materialized_artifacts,
-                        &mut registry,
-                        ctx.global_data().get_io_provider().project_root().dupe(),
-                        ctx.global_data().get_digest_config(),
-                        observer,
-                    );
-
-                    let execute = deferred_execute(deferred, &mut deferred_ctx, ctx);
-
-                    let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
-                        Some(span) => {
-                            span.wrap_future(async {
-                                (execute.await, buck2_data::DeferredEvaluationEnd {})
-                            })
-                            .await
-                        }
-                        None => execute.await,
-                    };
-
-                    // TODO populate the deferred map
-                    let (deferred, recorded_values) = registry.take_result()?;
-                    Ok(DeferredResult::new(res?, deferred, recorded_values))
-                }
-                .boxed()
-            })
-            .await
+        prepare_and_execute_deferred(ctx, cancellation, deferred, &self.0).await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -342,6 +246,107 @@ impl Key for DeferredCompute {
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
     }
+}
+
+async fn prepare_and_execute_deferred(
+    ctx: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext<'_>,
+    deferred: ArcBorrow<'_, dyn DeferredAny>,
+    key: &DeferredKey,
+) -> buck2_error::Result<DeferredResult> {
+    // We'll create the Span lazily when materialization hits it.
+    let span = Lazy::new(|| deferred.span().map(create_span));
+
+    let mut target_deps = Vec::new();
+    let mut deferred_deps = Vec::new();
+    let mut materialized_artifacts = Vec::new();
+
+    for input in deferred.inputs() {
+        match input {
+            DeferredInput::ConfiguredTarget(target) => target_deps.push(target),
+            DeferredInput::Deferred(deferred_key) => deferred_deps.push(deferred_key),
+            DeferredInput::MaterializedArtifact(artifact) => {
+                materialized_artifacts.push(ArtifactGroup::Artifact(artifact.dupe()))
+            }
+        }
+    }
+
+    let (targets, deferreds, materialized_artifacts) = {
+        // don't move span
+        let span = &span;
+        ctx.try_compute3(
+            |ctx| {
+                async move {
+                    ctx.try_compute_join(target_deps, |ctx, target| {
+                        async move {
+                            let res = ctx
+                                .get_configured_target_node(target)
+                                .await?
+                                .require_compatible()?;
+                            anyhow::Ok((target.dupe(), res))
+                        }
+                        .boxed()
+                    })
+                    .await
+                }
+                .boxed()
+            },
+            |ctx| {
+                async move {
+                    ctx.try_compute_join(deferred_deps, |ctx, deferred_key| {
+                        async move {
+                            let res = resolve_deferred(ctx, deferred_key).await?;
+                            anyhow::Ok((deferred_key.dupe(), res))
+                        }
+                        .boxed()
+                    })
+                    .await
+                }
+                .boxed()
+            },
+            |ctx| {
+                async move { create_materializer_futs(&materialized_artifacts, ctx, span).await }
+                    .boxed()
+            },
+        )
+        .await?
+    };
+
+    let mut registry = DeferredRegistry::new(DeferredHolderKey::Deferred(Arc::new(key.dupe())));
+
+    cancellation
+        .with_structured_cancellation(|observer| {
+            async move {
+                let mut deferred_ctx = ResolveDeferredCtx::new(
+                    key.dupe(),
+                    targets.into_iter().collect(),
+                    deferreds.into_iter().collect(),
+                    materialized_artifacts,
+                    &mut registry,
+                    ctx.global_data().get_io_provider().project_root().dupe(),
+                    ctx.global_data().get_digest_config(),
+                    observer,
+                );
+
+                let execute = deferred_execute(deferred, &mut deferred_ctx, ctx);
+
+                let res = match Lazy::into_value(span).unwrap_or_else(|init| init()) {
+                    Some(span) => {
+                        span.wrap_future(async {
+                            (execute.await, buck2_data::DeferredEvaluationEnd {})
+                        })
+                        .await
+                    }
+                    None => execute.await,
+                };
+
+                // TODO populate the deferred map
+                let (deferred, recorded_values) = registry.take_result()?;
+                Ok(DeferredResult::new(res?, deferred, recorded_values))
+            }
+            .boxed()
+        })
+        .await
 }
 
 async fn create_materializer_futs(
