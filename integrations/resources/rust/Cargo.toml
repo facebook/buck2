@@ -1,4 +1,5 @@
 [package]
+autotests = false
 description = "Load resource paths from a resources.json produced by Buck"
 edition = "2021"
 license = { workspace = true }
