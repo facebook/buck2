@@ -1,5 +1,6 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 load("@fbcode//grpc_fb/codegen:buck_macros.bzl", "grpc_library")
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
@@ -25,4 +26,8 @@ grpc_library(
     languages = [
         "py",
     ],
+)
+
+export_file(
+    name = "subscription.proto",
 )

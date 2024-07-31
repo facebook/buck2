@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 
@@ -70,9 +69,3 @@ def rust_protobuf_library(
         ] + (deps or []),
         test_deps = test_deps,
     )
-
-    # For python tests only
-    for proto in protos:
-        export_file(
-            name = proto,
-        )

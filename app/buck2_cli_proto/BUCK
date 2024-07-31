@@ -1,4 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
@@ -29,4 +30,8 @@ rust_protobuf_library(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
     ],
+)
+
+export_file(
+    name = "daemon.proto",
 )
