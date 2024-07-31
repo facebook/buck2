@@ -641,8 +641,17 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             runtime_files.extend(resource.other_outputs)
 
     if binary.dwp:
-        # A `dwp` sub-target which generates the `.dwp` file for this binary.
-        sub_targets["dwp"] = [DefaultInfo(default_output = binary.dwp)]
+        # A `dwp` sub-target which generates the `.dwp` file for this binary and its shared lib dependencies.
+        sub_targets["dwp"] = [
+            DefaultInfo(
+                default_output = binary.dwp,
+                other_outputs = [
+                    shlib.lib.dwp
+                    for shlib in shared_libs
+                    if shlib.lib.dwp
+                ],
+            ),
+        ]
 
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.

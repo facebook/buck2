@@ -352,6 +352,11 @@ def _rust_binary_common(
         sub_targets["dwp"] = [
             DefaultInfo(
                 default_output = link.dwp_output,
+                other_outputs = [
+                    shlib.lib.dwp
+                    for shlib in shared_libs
+                    if shlib.lib.dwp
+                ],
             ),
         ]
 
