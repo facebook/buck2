@@ -437,31 +437,15 @@ def cxx_darwin_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
-    def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
-        opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
-
-        # Some toolchains provide separate flags for opt actions and link actions
-        if cxx_toolchain.linker_info.dist_thin_lto_codegen_flags:
-            if cxx_toolchain.linker_info.type != "darwin":
-                fail("dist_thin_lto_codegen flags is only some toolchains (e.g. Pika). Invalid linker type: {}".format(cxx_toolchain.linker_info.type))
-
-            # The "linker" is clang, the linker isn't actually involved.
-            opt_args = cmd_args(cxx_toolchain.linker_info.linker)
-            opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-            opt_args.add(common_link_flags)
-        else:
-            opt_args = opt_cmd_parts.link_cmd
-
-            # buildifier: disable=uninitialized
-            for link in link_infos:
-                for raw_flag in link.pre_flags + link.post_flags:
-                    opt_args.add(raw_flag)
-
-            opt_args.add(opt_cmd_parts.post_linker_flags)
+    def prepare_opt_flags() -> cmd_args:
+        # The "linker" is clang, the linker isn't actually involved.
+        opt_args = cmd_args(cxx_toolchain.linker_info.linker)
+        opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
+        opt_args.add(common_link_flags)
 
         return opt_args
 
-    opt_common_flags = prepare_opt_flags(link_infos)
+    opt_common_flags = prepare_opt_flags()
 
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
@@ -618,7 +602,7 @@ def cxx_darwin_dist_link(
                             new_objs.append(obj)
                             opt_objects.append(obj)
                         current_index += 1
-                elif cxx_toolchain.linker_info.type == "darwin" and isinstance(linkable, SharedLibLinkable):
+                elif isinstance(linkable, SharedLibLinkable):
                     append_linkable_args(link_args, linkable)
                     current_index += 1
                 else:
