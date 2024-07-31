@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-
 GoToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
@@ -21,7 +19,8 @@ GoToolchainInfo = provider(
         "compiler_flags": provider_field(typing.Any, default = None),
         "concat_files": provider_field(RunInfo),
         "cover": provider_field(RunInfo),
-        "cxx_toolchain_for_linking": provider_field(CxxToolchainInfo | None, default = None),
+        # Type should be (CxxToolchainInfo | None), but setting to typing.Any for now to mitigate another issue.
+        "cxx_toolchain_for_linking": provider_field(typing.Any, default = None),  # CxxToolchainInfo | None
         "env_go_arch": provider_field(str),
         "env_go_os": provider_field(str),
         "env_go_arm": provider_field(str | None, default = None),
