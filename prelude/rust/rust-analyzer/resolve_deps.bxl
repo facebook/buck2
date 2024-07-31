@@ -260,7 +260,9 @@ def expand_targets(
         # FIXME: Using `cquery deps` here is not right. It will transparently look through
         # dependency edges of all types, meaning that eg build tools written in Rust and built
         # from source will show up too
-        workspace_deps = {d.label.raw_target(): () for d in ctx.cquery().deps(workspace)}
+        target_universe = ctx.target_universe(workspace).target_set()
+        workspace_deps = {d.label.raw_target(): () for d in ctx.cquery().deps(target_universe)}
+
         for d in candidate_deps:
             if d in workspace_deps:
                 active_workspaces[workspace] = ()
@@ -274,7 +276,7 @@ def expand_targets(
                 # in the prelude are a bit hard in general
                 expanded_targets.pop(d, None)
 
-    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(active_workspaces.keys())
+    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
 
 def expand_and_resolve_impl(ctx: BxlContext) -> None:
     # equivalent of `flat_map`ing
@@ -286,7 +288,7 @@ def expand_and_resolve_impl(ctx: BxlContext) -> None:
     resolved_deps = cquery_deps(ctx, expanded_targets, workspaces, actions)
 
     ctx.output.print_json(ExpandedAndResolved(
-        expanded_targets = expanded_targets,
+        expanded_targets = dedupe(expanded_targets + workspaces),
         queried_proc_macros = queried_proc_macros,
         resolved_deps = resolved_deps,
     ))
