@@ -28,7 +28,6 @@ load(
     "run_dwp_action",
 )
 load("@prelude//cxx:link_types.bzl", "LinkOptions")
-load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
@@ -37,8 +36,6 @@ load(
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
-    "SwiftRuntimeLinkable",  # @unused Used as a type
-    "SwiftmoduleLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
     "unpack_external_debug_info",
@@ -183,10 +180,9 @@ def cxx_gnu_dist_link(
     index_link_data = []
     linkables_index = {}
     pre_post_flags = {}
-    common_link_flags = get_target_sdk_version_linker_flags(ctx)
 
     # buildifier: disable=uninitialized
-    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, ObjectsLinkable, FrameworksLinkable]):
+    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, ObjectsLinkable, FrameworksLinkable]):
         if idx not in linkables_index:
             linkables_index[idx] = [linkable]
         else:
@@ -395,7 +391,6 @@ def cxx_gnu_dist_link(
             index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
 
             index_cmd = index_cmd_parts.link_cmd
-            index_cmd.add(common_link_flags)
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
             output_as_string = cmd_args(output, ignore_artifacts = True)
@@ -437,27 +432,15 @@ def cxx_gnu_dist_link(
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
-        # Some toolchains provide separate flags for opt actions and link actions
-        if cxx_toolchain.linker_info.dist_thin_lto_codegen_flags:
-            if cxx_toolchain.linker_info.type != "darwin":
-                fail("dist_thin_lto_codegen flags is only some toolchains (e.g. Pika). Invalid linker type: {}".format(cxx_toolchain.linker_info.type))
+        opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        opt_args = opt_cmd_parts.link_cmd
 
-            # The "linker" is clang, the linker isn't actually involved.
-            opt_args = cmd_args(cxx_toolchain.linker_info.linker)
-            opt_args.add(common_link_flags)
-            opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        else:
-            opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
-            opt_args = opt_cmd_parts.link_cmd
-            opt_args.add(common_link_flags)
+        # buildifier: disable=uninitialized
+        for link in link_infos:
+            for raw_flag in link.pre_flags + link.post_flags:
+                opt_args.add(raw_flag)
 
-            # buildifier: disable=uninitialized
-            for link in link_infos:
-                for raw_flag in link.pre_flags + link.post_flags:
-                    opt_args.add(raw_flag)
-
-            opt_args.add(opt_cmd_parts.post_linker_flags)
-
+        opt_args.add(opt_cmd_parts.post_linker_flags)
         return opt_args
 
     opt_common_flags = prepare_opt_flags(link_infos)
@@ -617,16 +600,12 @@ def cxx_gnu_dist_link(
                             new_objs.append(obj)
                             opt_objects.append(obj)
                         current_index += 1
-                elif cxx_toolchain.linker_info.type == "darwin" and isinstance(linkable, SharedLibLinkable):
-                    append_linkable_args(link_args, linkable)
-                    current_index += 1
                 else:
                     current_index += 1
             link_args.add(link.post_flags)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
         link_cmd = link_cmd_parts.link_cmd
-        link_cmd.add(common_link_flags)
         link_cmd_hidden = []
 
         # buildifier: disable=uninitialized
