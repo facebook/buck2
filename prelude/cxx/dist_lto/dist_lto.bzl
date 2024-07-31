@@ -591,13 +591,10 @@ def cxx_gnu_dist_link(
             link_args.add(link.pre_flags)
             for linkable in link.linkables:
                 if isinstance(linkable, ObjectsLinkable):
-                    new_objs = []
                     for obj in linkable.objects:
                         if current_index in plan_index:
-                            new_objs.append(index_link_data[current_index].link_data.opt_object)
                             opt_objects.append(index_link_data[current_index].link_data.opt_object)
                         elif current_index in non_lto_objects:
-                            new_objs.append(obj)
                             opt_objects.append(obj)
                         current_index += 1
                 else:
