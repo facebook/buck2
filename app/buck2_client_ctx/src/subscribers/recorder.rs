@@ -36,7 +36,7 @@ use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_events::errors::create_error_report;
-use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
+use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::BuckEvent;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
@@ -568,7 +568,7 @@ impl<'a> InvocationRecorder<'a> {
         }
 
         if let Ok(Some(scribe_sink)) =
-            new_thrift_scribe_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
+            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
         {
             tracing::info!("Recording invocation to Scribe: {:?}", &event);
             Some(async move {

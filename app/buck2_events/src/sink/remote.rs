@@ -7,12 +7,11 @@
  * of this source tree.
  */
 
-//! A Sink for forwarding events directly to Scribe.
+//! A Sink for forwarding events directly to Remote service.
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use buck2_core::buck2_env;
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
@@ -21,6 +20,7 @@ mod fbcode {
     use std::time::Duration;
     use std::time::SystemTime;
 
+    use buck2_core::buck2_env;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
@@ -42,14 +42,14 @@ mod fbcode {
     // 50k characters
     static TRUNCATED_SCRIBE_MESSAGE_SIZE: usize = 50000;
 
-    /// ThriftScribeSink is a ScribeSink backed by the Thrift-based client in the `buck2_scribe_client` crate.
-    pub struct ThriftScribeSink {
+    /// RemoteEventSink is a ScribeSink backed by the Thrift-based client in the `buck2_scribe_client` crate.
+    pub struct RemoteEventSink {
         category: String,
         client: scribe_client::ScribeClient,
     }
 
-    impl ThriftScribeSink {
-        /// Creates a new ThriftScribeSink that forwards messages onto the Thrift-backed Scribe client.
+    impl RemoteEventSink {
+        /// Creates a new RemoteEventSink that forwards messages onto the Thrift-backed Scribe client.
         pub fn new(
             fb: FacebookInit,
             category: String,
@@ -57,7 +57,7 @@ mod fbcode {
             retry_backoff: Duration,
             retry_attempts: usize,
             message_batch_size: Option<usize>,
-        ) -> anyhow::Result<ThriftScribeSink> {
+        ) -> anyhow::Result<RemoteEventSink> {
             let client = scribe_client::ScribeClient::new(
                 fb,
                 buffer_size,
@@ -65,7 +65,7 @@ mod fbcode {
                 retry_attempts,
                 message_batch_size,
             )?;
-            Ok(ThriftScribeSink { category, client })
+            Ok(RemoteEventSink { category, client })
         }
 
         // Send this event now, bypassing internal message queue.
@@ -157,7 +157,7 @@ mod fbcode {
         }
     }
 
-    impl EventSink for ThriftScribeSink {
+    impl EventSink for RemoteEventSink {
         fn send(&self, event: Event) {
             match event {
                 Event::Buck(event) => {
@@ -171,7 +171,7 @@ mod fbcode {
         }
     }
 
-    impl EventSinkWithStats for ThriftScribeSink {
+    impl EventSinkWithStats for RemoteEventSink {
         fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink> {
             self as _
         }
@@ -258,6 +258,17 @@ mod fbcode {
             }
         }
     }
+
+    pub fn scribe_category() -> anyhow::Result<String> {
+        const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
+        // Note that both daemon and client are emitting events, and that changing this variable has
+        // no effect on the daemon until buckd is restarted but has effect on the client.
+        Ok(
+            buck2_env!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
+                .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
+                .to_owned(),
+        )
+    }
 }
 
 #[cfg(not(fbcode_build))]
@@ -270,18 +281,18 @@ mod fbcode {
     use crate::EventSinkStats;
     use crate::EventSinkWithStats;
 
-    pub enum ThriftScribeSink {}
+    pub enum RemoteEventSink {}
 
-    impl ThriftScribeSink {
+    impl RemoteEventSink {
         pub async fn send_now(&self, _event: BuckEvent) {}
         pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) {}
     }
 
-    impl EventSink for ThriftScribeSink {
+    impl EventSink for RemoteEventSink {
         fn send(&self, _event: Event) {}
     }
 
-    impl EventSinkWithStats for ThriftScribeSink {
+    impl EventSinkWithStats for RemoteEventSink {
         fn to_event_sync(self: Arc<Self>) -> Arc<dyn EventSink> {
             self as _
         }
@@ -294,16 +305,16 @@ mod fbcode {
 
 pub use fbcode::*;
 
-fn new_thrift_scribe_sink_if_fbcode(
+fn new_remote_event_sink_if_fbcode(
     fb: FacebookInit,
     buffer_size: usize,
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<ThriftScribeSink>> {
+) -> anyhow::Result<Option<RemoteEventSink>> {
     #[cfg(fbcode_build)]
     {
-        Ok(Some(ThriftScribeSink::new(
+        Ok(Some(RemoteEventSink::new(
             fb,
             scribe_category()?,
             buffer_size,
@@ -325,15 +336,15 @@ fn new_thrift_scribe_sink_if_fbcode(
     }
 }
 
-pub fn new_thrift_scribe_sink_if_enabled(
+pub fn new_remote_event_sink_if_enabled(
     fb: FacebookInit,
     buffer_size: usize,
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<ThriftScribeSink>> {
+) -> anyhow::Result<Option<RemoteEventSink>> {
     if is_enabled() {
-        new_thrift_scribe_sink_if_fbcode(
+        new_remote_event_sink_if_fbcode(
             fb,
             buffer_size,
             retry_backoff,
@@ -345,28 +356,17 @@ pub fn new_thrift_scribe_sink_if_enabled(
     }
 }
 
-/// Whether or not Scribe logging is enabled for this process. It must be explicitly disabled via `disable()`.
-static SCRIBE_ENABLED: AtomicBool = AtomicBool::new(true);
+/// Whether or not remote event logging is enabled for this process. It must be explicitly disabled via `disable()`.
+static REMOTE_EVENT_SINK_ENABLED: AtomicBool = AtomicBool::new(true);
 
-/// Returns whether this process should actually write to Scribe, even if it is fully supported by the platform and
+/// Returns whether this process should actually write to remote sink, even if it is fully supported by the platform and
 /// binary.
 pub fn is_enabled() -> bool {
-    SCRIBE_ENABLED.load(Ordering::Relaxed)
+    REMOTE_EVENT_SINK_ENABLED.load(Ordering::Relaxed)
 }
 
-/// Disables Scribe logging for this process. Scribe logging must be disabled explicitly on startup, otherwise it is
+/// Disables remote event logging for this process. Remote event logging must be disabled explicitly on startup, otherwise it is
 /// on by default.
 pub fn disable() {
-    SCRIBE_ENABLED.store(false, Ordering::Relaxed);
-}
-
-pub fn scribe_category() -> anyhow::Result<String> {
-    const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
-    // Note that both daemon and client are emitting events, and that changing this variable has
-    // no effect on the daemon until buckd is restarted but has effect on the client.
-    Ok(
-        buck2_env!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
-            .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
-            .to_owned(),
-    )
+    REMOTE_EVENT_SINK_ENABLED.store(false, Ordering::Relaxed);
 }

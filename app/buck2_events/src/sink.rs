@@ -11,6 +11,6 @@
 //! sink during normal operation.
 pub(crate) mod channel;
 pub(crate) mod null;
-pub mod scribe;
+pub mod remote;
 pub(crate) mod smart_truncate_event;
 pub mod tee;

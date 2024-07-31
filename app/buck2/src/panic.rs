@@ -60,7 +60,7 @@ mod imp {
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::metadata;
-    use buck2_events::sink::scribe::new_thrift_scribe_sink_if_enabled;
+    use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
     use buck2_events::BuckEvent;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
@@ -212,15 +212,15 @@ mod imp {
 
         use buck2_core::facebook_only;
         use buck2_data::InstantEvent;
-        use buck2_events::sink::scribe;
+        use buck2_events::sink::remote;
         use buck2_wrapper_common::invocation_id::TraceId;
 
         facebook_only();
-        if !scribe::is_enabled() {
+        if !remote::is_enabled() {
             return;
         }
 
-        let sink = match new_thrift_scribe_sink_if_enabled(
+        let sink = match new_remote_event_sink_if_enabled(
             fb,
             /* buffer size */ 100,
             /* retry_backoff */ Duration::from_millis(500),

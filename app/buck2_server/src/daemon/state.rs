@@ -39,7 +39,7 @@ use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::sink::scribe;
+use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::source::ChannelEventSource;
 use buck2_events::EventSinkWithStats;
@@ -667,7 +667,7 @@ impl DaemonState {
         message_batch_size: Option<usize>,
     ) -> anyhow::Result<Option<Arc<dyn EventSinkWithStats>>> {
         facebook_only();
-        scribe::new_thrift_scribe_sink_if_enabled(
+        remote::new_remote_event_sink_if_enabled(
             fb,
             buffer_size,
             retry_backoff,
