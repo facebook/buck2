@@ -289,29 +289,6 @@ def cxx_gnu_dist_link(
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def prepare_index_flags_for_debugging() -> cmd_args:
-        result = cmd_args()
-        index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
-        result.add(index_cmd_parts.linker_flags)
-        result.add(index_cmd_parts.post_linker_flags)
-
-        for idx in range(len(index_link_data)):
-            if idx in pre_post_flags:
-                for flag in pre_post_flags[idx]:
-                    result.add(flag.pre_flags)
-                    result.add(flag.post_flags)
-
-        return result
-
-    # The flags used for the thin-link action. Unlike index_args, this does not include input file, and
-    # is only used for debugging and testing, and can be determined without dynamic output.
-    index_flags_for_debugging = prepare_index_flags_for_debugging()
-    index_flags_for_debugging_argsfile, _ = ctx.actions.write(
-        output.basename + ".thinlto_index_common_argsfile",
-        index_flags_for_debugging,
-        allow_args = True,
-    )
-
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
         def plan(ctx: AnalysisContext, artifacts, outputs):
             # buildifier: disable=uninitialized
@@ -679,6 +656,6 @@ def cxx_gnu_dist_link(
         linker_filelist = None,  # DistLTO doesn't use filelists
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-        dist_thin_lto_codegen_argsfile = opt_argsfile,
-        dist_thin_lto_index_argsfile = index_flags_for_debugging_argsfile,
+        dist_thin_lto_codegen_argsfile = None,  # Only Darwin builds provide is argsfile
+        dist_thin_lto_index_argsfile = None,  # Only Darwin builds provide this argsfile
     )
