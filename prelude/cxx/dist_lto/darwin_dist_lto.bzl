@@ -238,7 +238,7 @@ def cxx_darwin_dist_link(
                     )
                     index_link_data.append(data)
                     plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
-            elif isinstance(linkable, ArchiveLinkable) and linkable.supports_lto:
+            elif isinstance(linkable, ArchiveLinkable):
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
                 # archives might still contain LTO-able bitcode, we first extract the objects within the archive into
                 # another directory and write a "manifest" containing the list of objects that the archive contained.
@@ -288,7 +288,6 @@ def cxx_darwin_dist_link(
                 plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
             else:
                 add_linkable(idx, linkable)
-                index_link_data.append(None)
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
@@ -351,37 +350,46 @@ def cxx_darwin_dist_link(
                 add_pre_flags(idx)
                 add_linkables_args(idx)
 
-                if artifact != None:
-                    link_data = artifact.link_data
+                link_data = artifact.link_data
 
-                    if artifact.data_type == _DataType("bitcode"):
-                        index_meta.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
+                if artifact.data_type == _DataType("bitcode"):
+                    index_meta.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
 
-                    elif artifact.data_type == _DataType("archive"):
-                        manifest = artifacts[link_data.manifest].read_json()
+                elif artifact.data_type == _DataType("archive"):
+                    manifest = artifacts[link_data.manifest].read_json()
 
-                        if not manifest["objects"]:
-                            # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
-                            ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
-                            cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
-                            ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
-                            continue
+                    if not manifest["objects"]:
+                        # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
+                        ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
+                        cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
+                        ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
+                        continue
 
-                        archive_args = prepend_index_args if link_data.prepend else index_args
+                    archive_args = prepend_index_args if link_data.prepend else index_args
 
-                        archive_args.add(cmd_args(hidden = link_data.objects_dir))
+                    archive_args.add(cmd_args(hidden = link_data.objects_dir))
 
-                        if not link_data.link_whole:
-                            archive_args.add("-Wl,--start-lib")
+                    if not link_data.link_whole:
+                        archive_args.add("-Wl,--start-lib")
 
-                        for obj in manifest["objects"]:
-                            index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
-                            archive_args.add(obj)
+                    for obj in manifest["objects"]:
+                        index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
+                        archive_args.add(obj)
 
-                        if not link_data.link_whole:
-                            archive_args.add("-Wl,--end-lib")
+                    if not link_data.link_whole:
+                        archive_args.add("-Wl,--end-lib")
 
                 add_post_flags(idx)
+
+            # pre and post flags are normally associated with an index into index_link_data where
+            # we store data about a linkable. In this case by linkable, we mean an input to the linker (ie. object file)
+            # In some cases, we create LinkInfo that contains only flags, no linkables. For example, we collect `-framework Foundation`
+            # style flags to deduplicate them and create a LinkInfo with only flags, no associated linkable. If this LinkInfo is
+            # last in the input, there won't be a corresponding entry in index_link_data, and these flags will be dropped
+            # from the thin-link invocation. Here we explicitly handle this case.
+            add_pre_flags(len(index_link_data))
+            add_linkables_args(len(index_link_data))
+            add_post_flags(len(index_link_data))
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
@@ -562,8 +570,6 @@ def cxx_darwin_dist_link(
         ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = optimize_archive)
 
     for artifact in index_link_data:
-        if artifact == None:
-            continue
         link_data = artifact.link_data
         if artifact.data_type == _DataType("bitcode"):
             dynamic_optimize(
@@ -599,11 +605,10 @@ def cxx_darwin_dist_link(
                         elif current_index in non_lto_objects:
                             opt_objects.append(obj)
                         current_index += 1
+                elif isinstance(linkable, ArchiveLinkable):
+                    current_index += 1
                 elif isinstance(linkable, SharedLibLinkable):
                     append_linkable_args(link_args, linkable)
-                    current_index += 1
-                else:
-                    current_index += 1
             link_args.add(link.post_flags)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
@@ -613,7 +618,7 @@ def cxx_darwin_dist_link(
 
         # buildifier: disable=uninitialized
         for artifact in index_link_data:
-            if artifact != None and artifact.data_type == _DataType("archive"):
+            if artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
         link_cmd.add(at_argfile(
             actions = ctx.actions,
