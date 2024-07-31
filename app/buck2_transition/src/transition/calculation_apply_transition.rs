@@ -12,8 +12,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
-use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
-use buck2_analysis::attrs::resolve::configured_attr::PackageLabelOption;
+use buck2_build_api::actions::query::PackageLabelOption;
+use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -154,15 +154,18 @@ async fn do_apply_transition(
                     let mut attrs = Vec::with_capacity(names.len());
                     for (name, value) in names.iter().zip(values.iter()) {
                         let value = match value {
-                            Some(value) => value
-                                .to_value(PackageLabelOption::TransitionAttr, module.heap())
-                                .with_context(|| {
-                                    format!(
-                                        "Error converting attribute `{}={}` to Starlark value",
-                                        name.as_str(),
-                                        value.as_display_no_ctx(),
-                                    )
-                                })?,
+                            Some(value) => (CONFIGURED_ATTR_TO_VALUE.get()?)(
+                                &value,
+                                PackageLabelOption::TransitionAttr,
+                                module.heap(),
+                            )
+                            .with_context(|| {
+                                format!(
+                                    "Error converting attribute `{}={}` to Starlark value",
+                                    name.as_str(),
+                                    value.as_display_no_ctx(),
+                                )
+                            })?,
                             None => Value::new_none(),
                         };
                         attrs.push((*name, value));

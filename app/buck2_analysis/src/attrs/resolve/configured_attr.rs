@@ -9,6 +9,8 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
+use buck2_build_api::actions::query::PackageLabelOption;
+use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -54,12 +56,6 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 enum ConfiguredAttrError {
     #[error("Source path `{0}` cannot be used in attributes referenced in transition")]
     SourceFileToStarlarkValue(ArcS<PackageRelativePath>),
-}
-
-#[derive(Copy, Clone)]
-pub enum PackageLabelOption {
-    PackageLabel(PackageLabel),
-    TransitionAttr,
 }
 
 pub trait ConfiguredAttrExt {
@@ -145,7 +141,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             a @ (ConfiguredAttr::Visibility(_) | ConfiguredAttr::WithinView(_)) => {
                 // TODO(nga): rule implementations should not need visibility attribute.
                 //   But adding it here to preserve existing behavior.
-                a.to_value(PackageLabelOption::PackageLabel(pkg), ctx.heap())
+                configured_attr_to_value(a, PackageLabelOption::PackageLabel(pkg), ctx.heap())
             }
             ConfiguredAttr::ExplicitConfiguredDep(d) => {
                 ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
@@ -214,86 +210,96 @@ impl ConfiguredAttrExt for ConfiguredAttr {
 
     /// Converts the configured attr to a starlark value without fully resolving
     fn to_value<'v>(&self, pkg: PackageLabelOption, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        Ok(match &self {
-            ConfiguredAttr::Bool(v) => heap.alloc(v.0),
-            ConfiguredAttr::Int(v) => heap.alloc(*v),
-            ConfiguredAttr::String(s) | ConfiguredAttr::EnumVariant(s) => heap.alloc(s.as_str()),
-            ConfiguredAttr::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg, heap))?),
-            ConfiguredAttr::Tuple(v) => {
-                heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg, heap))?))
-            }
-            ConfiguredAttr::Dict(map) => {
-                let mut res = SmallMap::with_capacity(map.len());
-
-                for (k, v) in map.iter() {
-                    res.insert_hashed(
-                        k.to_value(pkg, heap)?
-                            .get_hashed()
-                            .map_err(BuckStarlarkError::new)?,
-                        v.to_value(pkg, heap)?,
-                    );
-                }
-
-                heap.alloc(Dict::new(res))
-            }
-            ConfiguredAttr::None => Value::new_none(),
-            ConfiguredAttr::OneOf(box l, _) => l.to_value(pkg, heap)?,
-            ConfiguredAttr::Visibility(VisibilitySpecification(specs))
-            | ConfiguredAttr::WithinView(WithinViewSpecification(specs)) => match specs {
-                VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
-                VisibilityPatternList::List(specs) => {
-                    heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
-                }
-            },
-            ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
-                StarlarkConfiguredProvidersLabel::new(d.as_ref().label.clone()),
-            ),
-            ConfiguredAttr::SplitTransitionDep(t) => {
-                let mut map = SmallMap::with_capacity(t.deps.len());
-
-                for (trans, p) in t.deps.iter() {
-                    map.insert_hashed(
-                        heap.alloc(trans)
-                            .get_hashed()
-                            .map_err(BuckStarlarkError::new)?,
-                        heap.alloc(StarlarkConfiguredProvidersLabel::new(p.clone())),
-                    );
-                }
-
-                heap.alloc(Dict::new(map))
-            }
-            ConfiguredAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
-            ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
-            ConfiguredAttr::Dep(d) => {
-                heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))
-            }
-            ConfiguredAttr::SourceLabel(s) => {
-                heap.alloc(StarlarkConfiguredProvidersLabel::new(s.clone()))
-            }
-            ConfiguredAttr::Label(l) => {
-                heap.alloc(StarlarkConfiguredProvidersLabel::new(l.clone()))
-            }
-            ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
-            ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
-            ConfiguredAttr::SourceFile(f) => match pkg {
-                PackageLabelOption::PackageLabel(pkg) => {
-                    heap.alloc(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
-                        SourcePath::new(pkg.to_owned(), f.path().dupe()),
-                    ))))
-                }
-                // We don't store package label in transition key for better caching of transition between packages.
-                // (This is not inherent requirement,
-                // but it was easier to implement this ways,
-                // and probably transitions do not need access to sources anyway).
-                // So package label is not available. If the need arises, we can store package label along with source attributes.
-                // TODO(romanp): add earlier check during rule function construction to prevent using source attributes in transitions.
-                PackageLabelOption::TransitionAttr => {
-                    return Err(
-                        ConfiguredAttrError::SourceFileToStarlarkValue(f.path().dupe()).into(),
-                    );
-                }
-            },
-            ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
-        })
+        configured_attr_to_value(self, pkg, heap)
     }
+}
+
+fn configured_attr_to_value<'v>(
+    this: &ConfiguredAttr,
+    pkg: PackageLabelOption,
+    heap: &'v Heap,
+) -> anyhow::Result<Value<'v>> {
+    Ok(match this {
+        ConfiguredAttr::Bool(v) => heap.alloc(v.0),
+        ConfiguredAttr::Int(v) => heap.alloc(*v),
+        ConfiguredAttr::String(s) | ConfiguredAttr::EnumVariant(s) => heap.alloc(s.as_str()),
+        ConfiguredAttr::List(list) => {
+            heap.alloc(list.try_map(|v| configured_attr_to_value(&v, pkg, heap))?)
+        }
+        ConfiguredAttr::Tuple(v) => heap.alloc(AllocTuple(
+            v.try_map(|v| configured_attr_to_value(&v, pkg, heap))?,
+        )),
+        ConfiguredAttr::Dict(map) => {
+            let mut res = SmallMap::with_capacity(map.len());
+
+            for (k, v) in map.iter() {
+                res.insert_hashed(
+                    configured_attr_to_value(&k, pkg, heap)?
+                        .get_hashed()
+                        .map_err(BuckStarlarkError::new)?,
+                    configured_attr_to_value(&v, pkg, heap)?,
+                );
+            }
+
+            heap.alloc(Dict::new(res))
+        }
+        ConfiguredAttr::None => Value::new_none(),
+        ConfiguredAttr::OneOf(box l, _) => configured_attr_to_value(&l, pkg, heap)?,
+        ConfiguredAttr::Visibility(VisibilitySpecification(specs))
+        | ConfiguredAttr::WithinView(WithinViewSpecification(specs)) => match specs {
+            VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
+            VisibilityPatternList::List(specs) => {
+                heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+            }
+        },
+        ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
+            StarlarkConfiguredProvidersLabel::new(d.as_ref().label.clone()),
+        ),
+        ConfiguredAttr::SplitTransitionDep(t) => {
+            let mut map = SmallMap::with_capacity(t.deps.len());
+
+            for (trans, p) in t.deps.iter() {
+                map.insert_hashed(
+                    heap.alloc(trans)
+                        .get_hashed()
+                        .map_err(BuckStarlarkError::new)?,
+                    heap.alloc(StarlarkConfiguredProvidersLabel::new(p.clone())),
+                );
+            }
+
+            heap.alloc(Dict::new(map))
+        }
+        ConfiguredAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
+        ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
+        ConfiguredAttr::Dep(d) => {
+            heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))
+        }
+        ConfiguredAttr::SourceLabel(s) => {
+            heap.alloc(StarlarkConfiguredProvidersLabel::new(s.clone()))
+        }
+        ConfiguredAttr::Label(l) => heap.alloc(StarlarkConfiguredProvidersLabel::new(l.clone())),
+        ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
+        ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
+        ConfiguredAttr::SourceFile(f) => match pkg {
+            PackageLabelOption::PackageLabel(pkg) => {
+                heap.alloc(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
+                    SourcePath::new(pkg.to_owned(), f.path().dupe()),
+                ))))
+            }
+            // We don't store package label in transition key for better caching of transition between packages.
+            // (This is not inherent requirement,
+            // but it was easier to implement this ways,
+            // and probably transitions do not need access to sources anyway).
+            // So package label is not available. If the need arises, we can store package label along with source attributes.
+            // TODO(romanp): add earlier check during rule function construction to prevent using source attributes in transitions.
+            PackageLabelOption::TransitionAttr => {
+                return Err(ConfiguredAttrError::SourceFileToStarlarkValue(f.path().dupe()).into());
+            }
+        },
+        ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
+    })
+}
+
+pub(crate) fn init_configured_attr_to_value() {
+    CONFIGURED_ATTR_TO_VALUE.init(configured_attr_to_value);
 }

@@ -25,8 +25,10 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
@@ -40,6 +42,8 @@ use indexmap::IndexMap;
 use internment::ArcIntern;
 use ref_cast::RefCast;
 use serde::Serialize;
+use starlark::values::Heap;
+use starlark::values::Value;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
@@ -245,6 +249,12 @@ impl ActionData {
 pub enum ActionQueryNodeRef {
     Analysis(Arc<ConfiguredProvidersLabel>),
     Action(ActionKey),
+}
+
+#[derive(Copy, Clone)]
+pub enum PackageLabelOption {
+    PackageLabel(PackageLabel),
+    TransitionAttr,
 }
 
 impl NodeKey for ActionQueryNodeRef {}
@@ -459,3 +469,12 @@ pub static PRINT_ACTION_NODE: LateBinding<
         cell_resolver: &'a CellResolver,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>,
 > = LateBinding::new("PRINT_ACTION_NODE");
+
+/// Use of "configured_attr_to_value" in `buck2_transition` from `buck2_analysis`.
+pub static CONFIGURED_ATTR_TO_VALUE: LateBinding<
+    for<'v> fn(
+        this: &ConfiguredAttr,
+        pkg: PackageLabelOption,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Value<'v>>,
+> = LateBinding::new("CONFIGURED_ATTR_TO_VALUE");
