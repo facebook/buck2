@@ -65,7 +65,6 @@ _ArchiveLinkData = record(
     indexes_dir = Artifact,
     plan = Artifact,
     link_whole = bool,
-    prepend = bool,
 )
 
 _DataType = enum(
@@ -163,18 +162,6 @@ def cxx_darwin_dist_link(
     lto_opt = cxx_toolchain.dist_lto_tools_info.opt
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
     lto_copy = cxx_toolchain.dist_lto_tools_info.copy
-
-    PREPEND_ARCHIVE_NAMES = [
-        # T130644072: If linked with `--whole-archive`, Clang builtins must be at the
-        # front of the argument list to avoid conflicts with identically-named Rust
-        # symbols from the `compiler_builtins` crate.
-        #
-        # Once linking of C++ binaries starts to use `rlib`s, this may no longer be
-        # necessary, because our Rust `rlib`s won't need to contain copies of
-        # `compiler_builtins` to begin with, unlike our Rust `.a`s which presently do
-        # (T130789782).
-        "clang_rt.builtins",
-    ]
 
     # Information used to construct thinlto index link command:
     # Note: The index into index_link_data is important as it's how things will appear in
@@ -279,7 +266,6 @@ def cxx_darwin_dist_link(
                         indexes_dir = archive_indexes,
                         plan = archive_plan,
                         link_whole = linkable.link_whole,
-                        prepend = link_name in PREPEND_ARCHIVE_NAMES,
                     ),
                 )
                 index_link_data.append(data)
@@ -339,7 +325,6 @@ def cxx_darwin_dist_link(
                     index_args.add(object_link_arg)
 
             # index link command args
-            prepend_index_args = cmd_args()
             index_args = cmd_args()
 
             # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
@@ -365,19 +350,17 @@ def cxx_darwin_dist_link(
                         ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
                         continue
 
-                    archive_args = prepend_index_args if link_data.prepend else index_args
-
-                    archive_args.add(cmd_args(hidden = link_data.objects_dir))
+                    index_args.add(cmd_args(hidden = link_data.objects_dir))
 
                     if not link_data.link_whole:
-                        archive_args.add("-Wl,--start-lib")
+                        index_args.add("-Wl,--start-lib")
 
                     for obj in manifest["objects"]:
                         index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
-                        archive_args.add(obj)
+                        index_args.add(obj)
 
                     if not link_data.link_whole:
-                        archive_args.add("-Wl,--end-lib")
+                        index_args.add("-Wl,--end-lib")
 
                 add_post_flags(idx)
 
@@ -393,7 +376,7 @@ def cxx_darwin_dist_link(
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
-                prepend_index_args.add(index_args),
+                index_args,
                 allow_args = True,
             )
 
