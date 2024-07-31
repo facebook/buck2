@@ -84,7 +84,7 @@ _PrePostFlags = record(
     post_flags = list,
 )
 
-def cxx_gnu_dist_link(
+def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
         output: Artifact,
@@ -296,6 +296,7 @@ def cxx_gnu_dist_link(
     def prepare_index_flags_for_debugging() -> cmd_args:
         result = cmd_args()
         index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        result.add(common_link_flags)
         result.add(index_cmd_parts.linker_flags)
         result.add(index_cmd_parts.post_linker_flags)
 
@@ -437,6 +438,8 @@ def cxx_gnu_dist_link(
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
+        opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+
         # Some toolchains provide separate flags for opt actions and link actions
         if cxx_toolchain.linker_info.dist_thin_lto_codegen_flags:
             if cxx_toolchain.linker_info.type != "darwin":
@@ -444,12 +447,10 @@ def cxx_gnu_dist_link(
 
             # The "linker" is clang, the linker isn't actually involved.
             opt_args = cmd_args(cxx_toolchain.linker_info.linker)
-            opt_args.add(common_link_flags)
             opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        else:
-            opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
-            opt_args = opt_cmd_parts.link_cmd
             opt_args.add(common_link_flags)
+        else:
+            opt_args = opt_cmd_parts.link_cmd
 
             # buildifier: disable=uninitialized
             for link in link_infos:

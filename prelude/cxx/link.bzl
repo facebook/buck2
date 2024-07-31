@@ -18,8 +18,12 @@ load(
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
+    "@prelude//cxx/dist_lto:darwin_dist_lto.bzl",
+    "cxx_darwin_dist_link",
+)
+load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
-    "cxx_dist_link",
+    "cxx_gnu_dist_link",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
@@ -139,14 +143,29 @@ def cxx_link_into(
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
         if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
             fail("Cannot use distributed thinlto with sanitizer runtime")
-        exe = cxx_dist_link(
-            ctx,
-            output,
-            opts,
-            linker_map,
-            should_generate_dwp,
-            is_result_executable,
-        )
+
+        linker_type = linker_info.type
+        if linker_type == "darwin":
+            exe = cxx_darwin_dist_link(
+                ctx,
+                output,
+                opts,
+                linker_map,
+                should_generate_dwp,
+                is_result_executable,
+            )
+        elif linker_type == "gnu":
+            exe = cxx_gnu_dist_link(
+                ctx,
+                output,
+                opts,
+                linker_map,
+                should_generate_dwp,
+                is_result_executable,
+            )
+        else:
+            fail("Linker type {} not supported for distributed thin-lto".format(linker_type))
+
         return CxxLinkResult(
             linked_object = exe,
             linker_map_data = linker_map_data,
