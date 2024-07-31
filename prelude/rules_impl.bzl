@@ -439,7 +439,14 @@ inlined_extra_attributes = {
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "prefer_stripped_objects": attrs.bool(default = False),
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
+        "preferred_linkage": attrs.enum(
+            Linkage.values(),
+            default = "any",
+            doc = """
+            Determines what linkage is used when the library is depended on by another target. To
+            control how the dependencies of this library are linked, use `link_style` instead.
+            """,
+        ),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "supports_header_symlink_subtarget": attrs.bool(default = False),
         "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
@@ -554,7 +561,14 @@ inlined_extra_attributes = {
         "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
         "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
+        "preferred_linkage": attrs.enum(
+            Linkage.values(),
+            default = "any",
+            doc = """
+            Determines what linkage is used when the library is depended on by another target. To
+            control how the dependencies of this library are linked, use `link_style` instead.
+            """,
+        ),
         "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),

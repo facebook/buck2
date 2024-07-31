@@ -12,8 +12,9 @@
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//linking:link_info.bzl", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
@@ -854,6 +855,7 @@ cxx_test = prelude_rule(
         buck.test_rule_timeout_ms() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
+        native_common.link_style() |
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -879,7 +881,6 @@ cxx_test = prelude_rule(
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
-            "link_style": attrs.option(attrs.enum(LinkableDepType), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
@@ -958,7 +959,13 @@ cxx_toolchain = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "link_path_normalization_args_enabled": attrs.bool(default = False),
-            "link_style": attrs.string(default = "static"),
+            "link_style": attrs.enum(
+                LinkStyle.values(),
+                default = "static",
+                doc = """
+                The default value of the `link_style` attribute for rules that use this toolchain.
+                """,
+            ),
             "linker": attrs.source(),
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "linker_type": attrs.enum(LinkerProviderType),

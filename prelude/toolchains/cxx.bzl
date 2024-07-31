@@ -244,7 +244,13 @@ cxx_tools_info_toolchain = rule(
         })),
         "link_flags": attrs.list(attrs.string(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "link_style": attrs.string(default = "shared"),
+        "link_style": attrs.enum(
+            LinkStyle.values(),
+            default = "shared",
+            doc = """
+            The default value of the `link_style` attribute for rules that use this toolchain.
+            """,
+        ),
         "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_flags": attrs.list(attrs.string(), default = []),

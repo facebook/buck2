@@ -438,7 +438,13 @@ cxx_zig_toolchain = rule(
         "cxx_compiler_flags": attrs.list(attrs.arg(), default = []),
         "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = []),
         "distribution": attrs.exec_dep(providers = [RunInfo, ZigDistributionInfo]),
-        "link_style": attrs.enum(LinkStyle.values(), default = "static"),
+        "link_style": attrs.enum(
+            LinkStyle.values(),
+            default = "static",
+            doc = """
+            The default value of the `link_style` attribute for rules that use this toolchain.
+            """,
+        ),
         "linker_flags": attrs.list(attrs.arg(), default = []),
         "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
         "shared_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
