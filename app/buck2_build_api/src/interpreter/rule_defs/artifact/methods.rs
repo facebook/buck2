@@ -66,7 +66,7 @@ pub enum EitherStarlarkArtifact {
 /// A single input or output file for an action.
 ///
 /// There is no `.parent` method on `artifact`, but in most cases
-/// `cmd_args(my_artifact).parent()` can be used to similar effect.
+/// `cmd_args(my_artifact, parent = 1)` can be used to similar effect.
 #[starlark_module]
 pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// The base name of this artifact. e.g. for an artifact at `foo/bar`, this is `bar`
