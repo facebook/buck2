@@ -270,6 +270,8 @@ pub struct Buck2OssReConfiguration {
     pub max_decoding_message_size: Option<usize>,
     /// The max cumulative blob size for `Read` and `BatchReadBlobs` methods.
     pub max_total_batch_size: Option<usize>,
+    /// Maximum number of concurrent upload requests for each action.
+    pub max_concurrent_uploads_per_action: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -365,6 +367,10 @@ impl Buck2OssReConfiguration {
             max_total_batch_size: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_total_batch_size",
+            })?,
+            max_concurrent_uploads_per_action: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_concurrent_uploads_per_action",
             })?,
         })
     }
