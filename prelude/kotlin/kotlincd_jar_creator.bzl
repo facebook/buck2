@@ -145,6 +145,7 @@ def create_jar_artifact_kotlincd(
             extraKotlincArguments = extra_kotlinc_arguments,
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
+            shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
         )
 
     kotlin_extra_params = encode_kotlin_extra_params(kotlin_compiler_plugins)
