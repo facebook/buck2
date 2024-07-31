@@ -9,12 +9,19 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+derive_more = { workspace = true }
 dice = { workspace = true }
+dupe = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
+buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_node = { workspace = true }
+buck2_query = { workspace = true }
+buck2_util = { workspace = true }

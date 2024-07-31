@@ -10,10 +10,15 @@
 #![feature(error_generic_member_access)]
 #![feature(assert_matches)]
 
-mod late_bindings;
+use std::sync::Once;
 
+mod parse_validation_result_key;
+mod validation;
 mod validator_api;
 
 pub fn init_late_bindings() {
-    late_bindings::init();
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        validation::init_validation_impl();
+    });
 }

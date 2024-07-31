@@ -11,11 +11,18 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_artifact:buck2_artifact",
         "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_node:buck2_node",
+        "//buck2/app/buck2_query:buck2_query",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",
+        "//buck2/gazebo/dupe:dupe",
     ],
 )
