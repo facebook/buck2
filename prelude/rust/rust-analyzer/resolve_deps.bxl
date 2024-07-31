@@ -309,7 +309,7 @@ def resolve_owning_buildfile_impl(ctx: BxlContext) -> None:
         targets = [target for sublist in ctx.cli_args.targets for target in sublist]
         targets = ctx.unconfigured_targets(targets)
     else:
-        fail("`--files`, `--targets`, nor `--buildfiles` where specified; this is a bug")
+        fail("Neither `--files`, `--targets`, nor `--buildfiles` were specified; this is a bug")
 
     out = {}
 
