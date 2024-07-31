@@ -280,67 +280,39 @@ def cxx_darwin_dist_link(
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
-    def prepare_index_flags_for_debugging() -> cmd_args:
-        result = cmd_args()
-        index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
-        result.add(common_link_flags)
-        result.add(index_cmd_parts.linker_flags)
-        result.add(index_cmd_parts.post_linker_flags)
-
-        for idx in range(len(index_link_data)):
+    def prepare_index_flags(include_inputs: bool, index_args_out: cmd_args, index_meta_args_out: cmd_args, ctx: AnalysisContext, artifacts, outputs):
+        # buildifier: disable=uninitialized
+        def add_pre_flags(idx: int):
             if idx in pre_post_flags:
-                for flag in pre_post_flags[idx]:
-                    result.add(flag.pre_flags)
-                    result.add(flag.post_flags)
+                for flags in pre_post_flags[idx]:
+                    index_args_out.add(flags.pre_flags)
 
-        return result
+        # buildifier: disable=uninitialized
+        def add_post_flags(idx: int):
+            if idx in pre_post_flags:
+                for flags in pre_post_flags[idx]:
+                    index_args_out.add(flags.post_flags)
 
-    # The flags used for the thin-link action. Unlike index_args, this does not include input file, and
-    # is only used for debugging and testing, and can be determined without dynamic output.
-    index_flags_for_debugging = prepare_index_flags_for_debugging()
-    index_flags_for_debugging_argsfile, _ = ctx.actions.write(
-        output.basename + ".thinlto_index_common_argsfile",
-        index_flags_for_debugging,
-        allow_args = True,
-    )
-
-    def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
-        def plan(ctx: AnalysisContext, artifacts, outputs):
-            # buildifier: disable=uninitialized
-            def add_pre_flags(idx: int):
-                if idx in pre_post_flags:
-                    for flags in pre_post_flags[idx]:
-                        index_args.add(flags.pre_flags)
-
-            # buildifier: disable=uninitialized
-            def add_post_flags(idx: int):
-                if idx in pre_post_flags:
-                    for flags in pre_post_flags[idx]:
-                        index_args.add(flags.post_flags)
-
-            # buildifier: disable=uninitialized
-            def add_linkables_args(idx: int):
-                if idx in linkables_index:
-                    object_link_arg = cmd_args()
-                    for linkable in linkables_index[idx]:
+        # buildifier: disable=uninitialized
+        def add_linkables_args(idx: int):
+            if idx in linkables_index:
+                object_link_arg = cmd_args()
+                for linkable in linkables_index[idx]:
+                    # When we are not including inputs, dylibs we link against are the only linkables we are interested in for flag testing purposes.
+                    if include_inputs or isinstance(linkable, SharedLibLinkable):
                         append_linkable_args(object_link_arg, linkable)
-                    index_args.add(object_link_arg)
+                index_args_out.add(object_link_arg)
 
-            # index link command args
-            index_args = cmd_args()
+        # buildifier: disable=uninitialized
+        for idx, artifact in enumerate(index_link_data):
+            add_pre_flags(idx)
+            add_linkables_args(idx)
 
-            # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
-            index_meta = cmd_args()
-
-            # buildifier: disable=uninitialized
-            for idx, artifact in enumerate(index_link_data):
-                add_pre_flags(idx)
-                add_linkables_args(idx)
-
+            if include_inputs:
                 link_data = artifact.link_data
 
                 if artifact.data_type == _DataType("bitcode"):
-                    index_meta.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
+                    index_meta_args_out.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
 
                 elif artifact.data_type == _DataType("archive"):
                     manifest = artifacts[link_data.manifest].read_json()
@@ -352,29 +324,52 @@ def cxx_darwin_dist_link(
                         ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
                         continue
 
-                    index_args.add(cmd_args(hidden = link_data.objects_dir))
+                    index_args_out.add(cmd_args(hidden = link_data.objects_dir))
 
                     if not link_data.link_whole:
-                        index_args.add("-Wl,--start-lib")
+                        index_args_out.add("-Wl,--start-lib")
 
                     for obj in manifest["objects"]:
-                        index_meta.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
-                        index_args.add(obj)
+                        index_meta_args_out.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
+                        index_args_out.add(obj)
 
                     if not link_data.link_whole:
-                        index_args.add("-Wl,--end-lib")
+                        index_args_out.add("-Wl,--end-lib")
 
-                add_post_flags(idx)
+            add_post_flags(idx)
 
-            # pre and post flags are normally associated with an index into index_link_data where
-            # we store data about a linkable. In this case by linkable, we mean an input to the linker (ie. object file)
-            # In some cases, we create LinkInfo that contains only flags, no linkables. For example, we collect `-framework Foundation`
-            # style flags to deduplicate them and create a LinkInfo with only flags, no associated linkable. If this LinkInfo is
-            # last in the input, there won't be a corresponding entry in index_link_data, and these flags will be dropped
-            # from the thin-link invocation. Here we explicitly handle this case.
-            add_pre_flags(len(index_link_data))
-            add_linkables_args(len(index_link_data))
-            add_post_flags(len(index_link_data))
+        # pre and post flags are normally associated with an index into index_link_data where
+        # we store data about a linkable. In this case by linkable, we mean an input to the linker (ie. object file)
+        # In some cases, we create LinkInfo that contains only flags, no linkables. For example, we collect `-framework Foundation`
+        # style flags to deduplicate them and create a LinkInfo with only flags, no associated linkable. If this LinkInfo is
+        # last in the input, there won't be a corresponding entry in index_link_data, and these flags will be dropped
+        # from the thin-link invocation. Here we explicitly handle this case.
+        add_pre_flags(len(index_link_data))
+        add_linkables_args(len(index_link_data))
+        add_post_flags(len(index_link_data))
+
+        output_as_string = cmd_args(output, ignore_artifacts = True)
+        index_args_out.add("-o", output_as_string)
+
+    # The flags used for the thin-link action. Unlike index_args, this does not include input files, and
+    # is only used for debugging and testing, and can be determined without dynamic output.
+    index_flags_for_debugging = cmd_args()
+    index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+    index_flags_for_debugging.add(index_cmd_parts.linker_flags)
+    index_flags_for_debugging.add(common_link_flags)
+    index_flags_for_debugging.add(index_cmd_parts.post_linker_flags)
+    prepare_index_flags(include_inputs = False, index_args_out = index_flags_for_debugging, index_meta_args_out = cmd_args(), ctx = ctx, artifacts = None, outputs = None)
+    index_flags_for_debugging_argsfile, _ = ctx.actions.write(output.basename + "thinlto_index_common_argsfile", index_flags_for_debugging, allow_args = True)
+
+    def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
+        def plan(ctx: AnalysisContext, artifacts, outputs):
+            # index link command args
+            index_args = cmd_args()
+
+            # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
+            index_meta = cmd_args()
+
+            prepare_index_flags(include_inputs = True, index_args_out = index_args, index_meta_args_out = index_meta, ctx = ctx, artifacts = artifacts, outputs = outputs)
 
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
@@ -392,8 +387,6 @@ def cxx_darwin_dist_link(
             index_cmd.add(common_link_flags)
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
-            output_as_string = cmd_args(output, ignore_artifacts = True)
-            index_cmd.add("-o", output_as_string)
             index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
             index_cmd.add("-Wl,--thinlto-emit-imports-files")
             index_cmd.add("-Wl,--thinlto-full-index")
