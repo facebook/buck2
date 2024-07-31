@@ -20,6 +20,7 @@ load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
+    "get_extra_darwin_linker_flags",
     "linker_map_args",
 )
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
@@ -170,7 +171,8 @@ def cxx_darwin_dist_link(
     index_link_data = []
     linkables_index = {}
     pre_post_flags = {}
-    common_link_flags = get_target_sdk_version_linker_flags(ctx)
+    common_link_flags = cmd_args(get_target_sdk_version_linker_flags(ctx), get_extra_darwin_linker_flags())
+    extra_codegen_flags = get_target_sdk_version_linker_flags(ctx)
 
     # buildifier: disable=uninitialized
     def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, ObjectsLinkable, FrameworksLinkable]):
@@ -432,7 +434,7 @@ def cxx_darwin_dist_link(
         # The "linker" is clang, the linker isn't actually involved.
         opt_args = cmd_args(cxx_toolchain.linker_info.linker)
         opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        opt_args.add(common_link_flags)
+        opt_args.add(extra_codegen_flags)
 
         return opt_args
 

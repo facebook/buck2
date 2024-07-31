@@ -72,6 +72,12 @@ LinkArgsOutput = record(
     filelist = Artifact | None,
 )
 
+def get_extra_darwin_linker_flags() -> cmd_args:
+    """
+    Returns a cmd_args object filled with hard coded linker flags that should be used for all links with a Darwin toolchain.
+    """
+    return cmd_args("-Wl,-oso_prefix,.")
+
 def make_link_args(
         ctx: AnalysisContext,
         actions: AnalysisActions,
@@ -117,7 +123,7 @@ def make_link_args(
         # and `buck-out` is always inside the project root, we can
         # safely pass `.` as the `-oso_prefix` without having to
         # write a wrapper script to compute it dynamically.
-        args.add(["-Wl,-oso_prefix,."])
+        args.add(get_extra_darwin_linker_flags())
 
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
