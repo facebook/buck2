@@ -39,21 +39,7 @@ pub(crate) enum StdoutOrStderr {
 pub(crate) struct FileTailer {
     // This thread is periodically checking the file for new data. When a message is
     // sent on the end_signaller, the thread will do one final sync of data and then exit.
-    thread: Option<std::thread::JoinHandle<()>>,
-    end_signaller: Option<oneshot::Sender<Infallible>>,
-}
-
-impl Drop for FileTailer {
-    fn drop(&mut self) {
-        // Send signal to the thread to stop tailing the file.
-        self.end_signaller.take().unwrap();
-        match self.thread.take().unwrap().join() {
-            Ok(()) => {}
-            Err(..) => {
-                tracing::warn!("Error tailing daemon logs: panic")
-            }
-        }
-    }
+    _end_signaller: oneshot::Sender<Infallible>,
 }
 
 impl FileTailer {
@@ -74,7 +60,7 @@ impl FileTailer {
         // TODO(cjhopman): It would probably be nicer to implement this via inotify/fsevents/etc
         // rather than just repeatedly reading the file, but I tried to use each of
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
-        let thread = thread_spawn("buck2-tailer", move || {
+        thread_spawn("buck2-tailer", move || {
             let runtime = match client_tokio_runtime() {
                 Ok(runtime) => runtime,
                 Err(e) => {
@@ -91,10 +77,7 @@ impl FileTailer {
             }
         })?;
 
-        Ok(Self {
-            end_signaller: Some(tx),
-            thread: Some(thread),
-        })
+        Ok(FileTailer { _end_signaller: tx })
     }
 
     async fn tailer_loop(
