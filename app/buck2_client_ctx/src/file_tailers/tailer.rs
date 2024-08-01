@@ -78,43 +78,7 @@ impl FileTailer {
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
         let thread = thread_spawn("buck2-tailer", move || {
             let runtime = client_tokio_runtime()?;
-            let res = runtime.block_on(async move {
-                let mut interval = tokio::time::interval(Duration::from_millis(200));
-                let mut rx = rx.fuse();
-
-                let mut completing = false;
-                while !completing {
-                    tokio::select! {
-                        _ = interval.tick() => {},
-                        _ = &mut rx => {
-                            // This indicates that the FileTailer is being dropped.
-                            // drain any remaining output and return.
-                            completing = true;
-                        }
-                    }
-
-                    let mut line = Vec::new();
-                    while reader.read_until(b'\n', &mut line)? != 0 {
-                        let event = match stdout_or_stderr {
-                            StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
-                            StdoutOrStderr::Stderr => {
-                                if omit_stderr_line(&line) {
-                                    line.clear();
-                                    continue;
-                                }
-                                FileTailerEvent::Stderr(line)
-                            }
-                        };
-                        if sender.send(event).is_err() {
-                            break;
-                        }
-                        line = Vec::new();
-                    }
-                }
-
-                anyhow::Ok(())
-            });
-
+            let res = runtime.block_on(Self::tailer_loop(rx, reader, stdout_or_stderr, sender));
             res.with_context(|| format!("Failed to read from `{}`", file))
         })?;
 
@@ -122,6 +86,48 @@ impl FileTailer {
             end_signaller: Some(tx),
             thread: Some(thread),
         })
+    }
+
+    async fn tailer_loop(
+        rx: oneshot::Receiver<()>,
+        mut reader: BufReader<File>,
+        stdout_or_stderr: StdoutOrStderr,
+        sender: UnboundedSender<FileTailerEvent>,
+    ) -> anyhow::Result<()> {
+        let mut interval = tokio::time::interval(Duration::from_millis(200));
+        let mut rx = rx.fuse();
+
+        let mut completing = false;
+        while !completing {
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = &mut rx => {
+                    // This indicates that the FileTailer is being dropped.
+                    // drain any remaining output and return.
+                    completing = true;
+                }
+            }
+
+            let mut line = Vec::new();
+            while reader.read_until(b'\n', &mut line)? != 0 {
+                let event = match stdout_or_stderr {
+                    StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
+                    StdoutOrStderr::Stderr => {
+                        if omit_stderr_line(&line) {
+                            line.clear();
+                            continue;
+                        }
+                        FileTailerEvent::Stderr(line)
+                    }
+                };
+                if sender.send(event).is_err() {
+                    break;
+                }
+                line = Vec::new();
+            }
+        }
+
+        anyhow::Ok(())
     }
 }
 
