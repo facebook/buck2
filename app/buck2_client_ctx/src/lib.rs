@@ -29,7 +29,7 @@ pub mod daemon;
 pub mod daemon_constraints;
 pub mod events_ctx;
 pub mod exit_result;
-pub mod file_tailer;
+pub mod file_tailers;
 pub mod final_console;
 pub mod ide_support;
 pub mod immediate_config;
