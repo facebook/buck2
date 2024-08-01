@@ -6,6 +6,8 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 load(":cgo_builder.bzl", "build_cgo")
 load(":compile.bzl", "get_inherited_compile_pkgs", "infer_package_root")
@@ -146,8 +148,16 @@ def _compile(
         hidden = embed_files,  #  files and directories should be available for embedding
     )
 
+    # Wrap command to avoid Windows length restriction
+    compile_cmd_wrapper = cmd_script(
+        ctx = ctx,
+        name = "go_compile_wrapper",
+        cmd = compile_cmd,
+        os = ScriptOs("windows" if ctx.attrs._exec_os_type[OsLookup].platform == "windows" else "unix"),
+    )
+
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(compile_cmd, env = env, category = "go_compile", identifier = identifier)
+    ctx.actions.run(compile_cmd_wrapper, env = env, category = "go_compile", identifier = identifier)
 
     return (out, asmhdr)
 
