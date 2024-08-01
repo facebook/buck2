@@ -435,6 +435,30 @@ class RegexTestLoader(unittest.TestLoader):
                 matched.append(attrname)
         return matched
 
+    def loadTestsFromName(self, name, module=None):
+        """
+        Tries to find and import the module from `name` and discover test cases inside.
+
+        NOTE: this function is used by the unittest framework and our unittest
+        adapters to integrate with buck/tpx.
+        """
+        suite = super().loadTestsFromName(name, module)
+        for test in suite:
+            if isinstance(test, unittest.loader._FailedTest):
+                # _FailedTest means that the test module couldn't be loaded
+                # (usually, because of a bad import). Instead of pretending to
+                # execute a synthetic test case
+                # `unittest.loader._FailedTest(<failed module>)` and reporting
+                # it to the downstream consumers, we should hard fail.
+                # When static listing is used this will let TPX to associate the
+                # failure to either the main test (for bundled execution) or
+                # individual test cases (regular execution) in a test target,
+                # and not to the synthetic _FailedTest case.
+                print(test._exception, file=sys.stderr)
+                sys.exit(1)
+
+        return suite
+
 
 class Loader:
     def __init__(self, modules, regex=None):
