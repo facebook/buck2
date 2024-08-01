@@ -94,8 +94,9 @@ def build_package(
         pkg = out,
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         srcs_list = cmd_args(srcs_list_argsfile, format = "@{}", hidden = srcs),
-        cgo_gen_dir = cgo_gen_dir,
     ), GoPackageInfo(
+        build_out = out,
+        cgo_gen_dir = cgo_gen_dir,
         package_name = pkg_name,
         package_root = package_root,
         go_list_out = go_list_out,

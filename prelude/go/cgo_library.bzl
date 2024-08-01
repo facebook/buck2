@@ -56,7 +56,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # to work with cgo. And when nearly every FB service client is cgo,
     # we need to support it well.
     return [
-        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [compiled_pkg.cgo_gen_dir]),
+        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [pkg_info.cgo_gen_dir]),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),

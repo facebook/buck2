@@ -11,6 +11,8 @@ load("@prelude//utils:utils.bzl", "value_or")
 # Information about a package for GOPACKAGESDRIVER
 GoPackageInfo = provider(
     fields = {
+        "build_out": provider_field(Artifact),
+        "cgo_gen_dir": provider_field(Artifact),
         "go_list_out": provider_field(Artifact),
         "package_name": provider_field(str),
         "package_root": provider_field(str),
@@ -21,7 +23,6 @@ GoPkg = record(
     pkg = field(Artifact),
     coverage_vars = field(cmd_args),
     srcs_list = field(cmd_args),
-    cgo_gen_dir = field(Artifact),
 )
 
 GoStdlib = provider(
