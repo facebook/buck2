@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -39,13 +40,13 @@ pub(crate) struct FileTailer {
     // This thread is periodically checking the file for new data. When a message is
     // sent on the end_signaller, the thread will do one final sync of data and then exit.
     thread: Option<std::thread::JoinHandle<anyhow::Result<()>>>,
-    end_signaller: Option<oneshot::Sender<()>>,
+    end_signaller: Option<oneshot::Sender<Infallible>>,
 }
 
 impl Drop for FileTailer {
     fn drop(&mut self) {
-        // If the thread has exited then don't error here.
-        let _ignored = self.end_signaller.take().unwrap().send(());
+        // Send signal to the thread to stop tailing the file.
+        self.end_signaller.take().unwrap();
         match self.thread.take().unwrap().join() {
             Ok(Ok(())) => {}
             Ok(Err(e)) => {
@@ -89,7 +90,7 @@ impl FileTailer {
     }
 
     async fn tailer_loop(
-        rx: oneshot::Receiver<()>,
+        rx: oneshot::Receiver<Infallible>,
         mut reader: BufReader<File>,
         stdout_or_stderr: StdoutOrStderr,
         sender: UnboundedSender<FileTailerEvent>,
