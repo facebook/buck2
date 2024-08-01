@@ -191,7 +191,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
             gather.append("-warnings-as-errors")
 
     if ctx.attrs.enable_cxx_interop:
-        gather += ["-Xfrontend", "-enable-cxx-interop"]
+        gather += ["-cxx-interoperability-mode=default"]
 
     if ctx.attrs.swift_version != None:
         gather += ["-swift-version", ctx.attrs.swift_version]
