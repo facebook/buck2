@@ -39,7 +39,7 @@ pub(crate) enum StdoutOrStderr {
 pub(crate) struct FileTailer {
     // This thread is periodically checking the file for new data. When a message is
     // sent on the end_signaller, the thread will do one final sync of data and then exit.
-    thread: Option<std::thread::JoinHandle<anyhow::Result<()>>>,
+    thread: Option<std::thread::JoinHandle<()>>,
     end_signaller: Option<oneshot::Sender<Infallible>>,
 }
 
@@ -48,12 +48,9 @@ impl Drop for FileTailer {
         // Send signal to the thread to stop tailing the file.
         self.end_signaller.take().unwrap();
         match self.thread.take().unwrap().join() {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => {
-                tracing::warn!("Error tailing daemon logs: {:#}", e);
-            }
+            Ok(()) => {}
             Err(..) => {
-                tracing::warn!("Error tailing daemon logs: panic");
+                tracing::warn!("Error tailing daemon logs: panic")
             }
         }
     }
@@ -78,9 +75,20 @@ impl FileTailer {
         // rather than just repeatedly reading the file, but I tried to use each of
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
         let thread = thread_spawn("buck2-tailer", move || {
-            let runtime = client_tokio_runtime()?;
+            let runtime = match client_tokio_runtime() {
+                Ok(runtime) => runtime,
+                Err(e) => {
+                    tracing::warn!("Failed to create tokio runtime: {:?}", e);
+                    return;
+                }
+            };
             let res = runtime.block_on(Self::tailer_loop(rx, reader, stdout_or_stderr, sender));
-            res.with_context(|| format!("Failed to read from `{}`", file))
+            match res {
+                Ok(()) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to read from `{}`: {:?}", file.display(), e);
+                }
+            }
         })?;
 
         Ok(Self {
