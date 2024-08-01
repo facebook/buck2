@@ -21,7 +21,7 @@ def check_targets_impl(ctx: BxlContext) -> None:
     for a in analysis:
         o = a.providers()[RustcExtraOutputsInfo]
         if ctx.cli_args.use_clippy:
-            artifacts.append(o.clippy.diag_json)
+            artifacts.append(o.clippy_incr.diag_json)
         else:
             artifacts.append(o.metadata_incr.diag_json)
 

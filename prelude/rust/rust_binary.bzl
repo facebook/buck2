@@ -318,7 +318,7 @@ def _rust_binary_common(
         metadata = diag_artifacts[False],
         metadata_incr = diag_artifacts[True],
         clippy = clippy_artifacts[False],
-        clippy_incr = diag_artifacts[True],
+        clippy_incr = clippy_artifacts[True],
     )]
 
     incr_enabled = ctx.attrs.incremental_enabled
