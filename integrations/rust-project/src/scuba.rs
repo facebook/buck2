@@ -200,6 +200,15 @@ fn write_to_scuba(fields: Fields) {
         sample.add(k, v);
     }
     sample.add("unixname", whoami::username());
+    sample.add("hostname", whoami::hostname());
+
+    // RA_PROXY_SESSION_ID is an environment variable set by the VS Code extension when it starts
+    // rust-analyzer-proxy. rust-analyzer-proxy then starts rust-analyzer with the same
+    // environment, and rust-analyzer invokes rust-project with the inherited environment.
+    if let Ok(session_id) = std::env::var("RA_PROXY_SESSION_ID") {
+        sample.add("session_id", session_id);
+    }
+
     sample.log();
 }
 
