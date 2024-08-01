@@ -106,7 +106,11 @@ impl Develop {
             return (develop, input, out);
         }
 
-        if let crate::Command::DevelopJson { args } = command {
+        if let crate::Command::DevelopJson {
+            args,
+            log_scuba_to_stdout: _,
+        } = command
+        {
             let out = Output::Stdout;
             let sysroot = SysrootConfig::BuckConfig;
             let mode = select_mode(None);

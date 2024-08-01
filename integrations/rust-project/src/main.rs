@@ -114,7 +114,13 @@ enum Command {
     /// `DevelopJson`` is a more limited, stripped down [`Develop`].
     ///
     /// This is meant to be called by rust-analyzer directly.
-    DevelopJson { args: JsonArguments },
+    DevelopJson {
+        /// Write Scuba sample to stdout instead.
+        #[clap(long, hide = true)]
+        log_scuba_to_stdout: bool,
+
+        args: JsonArguments,
+    },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
     Check {
         /// Optional argument specifying build mode.
@@ -214,10 +220,13 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::subscriber::set_global_default(subscriber)?;
             cli::Check::new(mode, use_clippy, saved_file).run()
         }
-        c @ Command::DevelopJson { .. } => {
+        c @ Command::DevelopJson {
+            log_scuba_to_stdout,
+            ..
+        } => {
             let subscriber = tracing_subscriber::registry()
                 .with(fmt.json().with_filter(filter))
-                .with(scuba::ScubaLayer::new(true));
+                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
@@ -309,7 +318,10 @@ fn test_parse_use_clippy() {
 fn json_args_pass() {
     let args = JsonArguments::Path(PathBuf::from("buck2/integrations/rust-project/src/main.rs"));
     let expected = Opt {
-        command: Some(Command::DevelopJson { args }),
+        command: Some(Command::DevelopJson {
+            args,
+            log_scuba_to_stdout: false,
+        }),
         version: false,
     };
     let actual = Opt::try_parse_from([
@@ -322,7 +334,10 @@ fn json_args_pass() {
 
     let args = JsonArguments::Label("//buck2/integrations/rust-project:rust-project".to_owned());
     let expected = Opt {
-        command: Some(Command::DevelopJson { args }),
+        command: Some(Command::DevelopJson {
+            args,
+            log_scuba_to_stdout: false,
+        }),
         version: false,
     };
     let actual = Opt::try_parse_from([
