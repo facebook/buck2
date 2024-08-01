@@ -15,6 +15,7 @@ mod new;
 pub(crate) enum Input {
     Targets(Vec<Target>),
     Files(Vec<PathBuf>),
+    Buildfile(Vec<PathBuf>),
 }
 
 use std::path::PathBuf;

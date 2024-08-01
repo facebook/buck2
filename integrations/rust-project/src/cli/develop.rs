@@ -128,6 +128,7 @@ impl Develop {
 
             let input = match args {
                 crate::JsonArguments::Path(path) => Input::Files(vec![path]),
+                crate::JsonArguments::Buildfile(path) => Input::Buildfile(vec![path]),
                 crate::JsonArguments::Label(target) => Input::Targets(vec![Target::new(target)]),
             };
 
@@ -141,9 +142,10 @@ impl Develop {
 const DEFAULT_EXTRA_TARGETS: usize = 50;
 
 #[derive(Serialize, Deserialize)]
-struct OutputData {
-    buildfile: PathBuf,
-    project: JsonProject,
+pub(crate) struct OutputData {
+    pub(crate) buildfile: PathBuf,
+    pub(crate) project: JsonProject,
+    pub(crate) kind: String,
 }
 
 impl Develop {
@@ -162,6 +164,7 @@ impl Develop {
 
                 Input::Files(canonical_files)
             }
+            Input::Buildfile(buildfiles) => Input::Buildfile(buildfiles),
         };
         let mut writer: BufWriter<Box<dyn Write>> = match cfg.out {
             Output::Path(ref p) => {
@@ -181,10 +184,14 @@ impl Develop {
         if self.invoked_by_ra {
             for (buildfile, targets) in targets {
                 let project = self.run_inner(targets)?;
-                let output = OutputData { buildfile, project };
-                serde_json::to_writer(&mut writer, &output)?;
-                writeln!(writer)?;
-                info!("wrote rust-project.json to stdout");
+
+                let out = OutputData {
+                    buildfile,
+                    project,
+                    kind: "finished".to_owned(),
+                };
+                let out = serde_json::to_string(&out)?;
+                println!("{}", out);
             }
         } else {
             let mut targets = targets.into_values().flatten().collect::<Vec<_>>();

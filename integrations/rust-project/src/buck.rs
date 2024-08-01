@@ -130,7 +130,7 @@ pub(crate) fn to_json_project(
             build_file = path;
         }
 
-        let mut env: FxHashMap<String, String> = FxHashMap::default();
+        let mut env = FxHashMap::default();
 
         // Populate the environment variables the target configuration's environment variables,
         // but ignore OUT_DIR as we handle that later.
@@ -670,6 +670,10 @@ impl Buck {
             }
             Input::Files(files) => {
                 command.arg("--files");
+                command.args(files);
+            }
+            Input::Buildfile(files) => {
+                command.arg("--buildfiles");
                 command.args(files);
             }
         };

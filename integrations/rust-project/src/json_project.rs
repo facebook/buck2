@@ -165,7 +165,7 @@ impl From<crate::target::Kind> for TargetKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct Runnable {
     pub program: String,
@@ -174,7 +174,7 @@ pub struct Runnable {
     pub kind: RunnableKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum RunnableKind {
     Check,

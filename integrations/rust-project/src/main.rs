@@ -12,6 +12,7 @@ mod cli;
 mod diagnostics;
 mod json_project;
 mod path;
+mod progress;
 mod scuba;
 mod sysroot;
 mod target;
@@ -107,11 +108,11 @@ enum Command {
         #[clap(short = 'm', long)]
         mode: Option<String>,
 
-        /// Write Scuba sample to stdout instead.
+        /// Write Scuba sample to stdout.
         #[clap(long, hide = true)]
         log_scuba_to_stdout: bool,
     },
-    /// `DevelopJson`` is a more limited, stripped down [`Develop`].
+    /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
     /// This is meant to be called by rust-analyzer directly.
     DevelopJson {
@@ -130,7 +131,7 @@ enum Command {
         use_clippy: bool,
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
-        /// Write Scuba sample to stdout instead.
+        /// Write Scuba sample to stdout.
         #[clap(long, hide = true)]
         log_scuba_to_stdout: bool,
     },
@@ -140,6 +141,7 @@ enum Command {
 #[serde(rename_all = "camelCase")]
 enum JsonArguments {
     Path(PathBuf),
+    Buildfile(PathBuf),
     Label(String),
 }
 
@@ -196,7 +198,33 @@ fn main() -> Result<(), anyhow::Error> {
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
                         >>::as_ref(&e),
-                        source = e.source()
+                        source = e.source(),
+                        kind = "error",
+                    );
+                    Ok(())
+                }
+            }
+        }
+        c @ Command::DevelopJson {
+            log_scuba_to_stdout,
+            ..
+        } => {
+            let subscriber = tracing_subscriber::registry()
+                .with(fmt.json().with_filter(LevelFilter::INFO))
+                .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter))
+                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+            tracing::subscriber::set_global_default(subscriber)?;
+
+            let (develop, input, out) = cli::Develop::from_command(c);
+            match develop.run(input, out) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = <anyhow::Error as AsRef<
+                            dyn std::error::Error + Send + Sync + 'static,
+                        >>::as_ref(&e),
+                        source = e.source(),
+                        kind = "error",
                     );
                     Ok(())
                 }
@@ -219,29 +247,6 @@ fn main() -> Result<(), anyhow::Error> {
                 .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
             tracing::subscriber::set_global_default(subscriber)?;
             cli::Check::new(mode, use_clippy, saved_file).run()
-        }
-        c @ Command::DevelopJson {
-            log_scuba_to_stdout,
-            ..
-        } => {
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.json().with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
-            tracing::subscriber::set_global_default(subscriber)?;
-
-            let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    tracing::error!(
-                        error = <anyhow::Error as AsRef<
-                            dyn std::error::Error + Send + Sync + 'static,
-                        >>::as_ref(&e),
-                        source = e.source()
-                    );
-                    Ok(())
-                }
-            }
         }
     }
 }
@@ -344,6 +349,22 @@ fn json_args_pass() {
         "rust-project",
         "develop-json",
         "{\"label\":\"//buck2/integrations/rust-project:rust-project\"}",
+    ])
+    .expect("Unable to parse args");
+    assert_eq!(actual, expected);
+
+    let args = JsonArguments::Buildfile(PathBuf::from("buck2/integrations/rust-project/BUCK"));
+    let expected = Opt {
+        command: Some(Command::DevelopJson {
+            args,
+            log_scuba_to_stdout: false,
+        }),
+        version: false,
+    };
+    let actual = Opt::try_parse_from([
+        "rust-project",
+        "develop-json",
+        "{\"buildfile\":\"buck2/integrations/rust-project/BUCK\"}",
     ])
     .expect("Unable to parse args");
     assert_eq!(actual, expected);
