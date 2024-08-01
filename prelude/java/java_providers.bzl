@@ -158,6 +158,17 @@ JavaPackagingDepTSet = transitive_set(
     },
 )
 
+JavaGlobalCodeInfo = provider(
+    doc = """This dictionary maps a framework key to its corresponding GlobalCodeConfig. The GlobalCodeConfig specifies the dependency .jars required by the framework for global-level code generation (binary level).
+    The process responsible for generating the global_code_info provider for the target utilizes this mapping to:
+    * Retrieve the GlobalCodeConfig associated with each framework, identified by its key.
+    * Determine whether the .jar files for the library or any of its dependencies are necessary for global code generation for that particular framework.
+    * Create a mapping from each framework key to a list of the required .jars identified in the previous step.""",
+    fields = {
+        "global_code_map": provider_field(typing.Any, default = None),  # "{name: JavaCompilingDepsTSet}"
+    },
+)
+
 JavaLibraryInfo = provider(
     doc = "Information about a java library and its dependencies",
     fields = {
@@ -223,6 +234,7 @@ JavaProviders = record(
     java_library_info = JavaLibraryInfo,
     java_library_intellij_info = JavaLibraryIntellijInfo,
     java_packaging_info = JavaPackagingInfo,
+    java_global_code_info = JavaGlobalCodeInfo,
     shared_library_info = SharedLibraryInfo,
     cxx_resource_info = ResourceInfo,
     linkable_graph = LinkableGraph,
@@ -236,6 +248,7 @@ def to_list(java_providers: JavaProviders) -> list[Provider]:
         java_providers.java_library_info,
         java_providers.java_library_intellij_info,
         java_providers.java_packaging_info,
+        java_providers.java_global_code_info,
         java_providers.shared_library_info,
         java_providers.cxx_resource_info,
         java_providers.linkable_graph,
@@ -384,6 +397,72 @@ def get_java_packaging_info(
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
+# This function identifies and collects necessary dependencies that meet criteria defined in `GLOBAL_CODE_CONFIG` for global code generation across frameworks.
+# It maps framework names to their corresponding Java compiling dependency sets.
+# Example: Below configuration specifies criteria for the "di" framework:
+# GLOBAL_CODE_CONFIG = {
+#     "di": (
+#         triggers = ["//fbandroid/java/com/facebook/inject:inject"],
+#         deps = [],
+#         requires_first_order_classpath = False,
+#     ),
+# }
+# With this setup, if a target depends on "//fbandroid/java/com/facebook/inject:inject", the `global_code_info` provider for that target will have an entry under "di".
+# This entry will be a JavaCompilingDepsTSet containing the .jar files associated with that target.
+# Each framework (like "di") can use a Buck rule to identify dependencies with matching values for their framework key in the `global_code_info` provider.
+# They can then compile all the .jars needed for global code generation.
+
+def _get_global_code_info(
+        ctx: AnalysisContext,
+        declared_deps: list[Dependency],
+        packaging_deps: list[Dependency],
+        single_library_dep: [JavaCompilingDepsTSet, None],
+        library_compiling_deps: [JavaCompilingDepsTSet, None],
+        first_order_compiling_deps: [JavaCompilingDepsTSet, None],
+        global_code_config: dict) -> JavaGlobalCodeInfo:
+    def create_java_compiling_deps_tset_for_global_code(
+            actions: AnalysisActions,
+            global_code_library: [JavaCompilingDepsTSet, None],
+            name: str,
+            global_code_infos: list[JavaGlobalCodeInfo]) -> [JavaCompilingDepsTSet, None]:
+        global_code_jars_kwargs = {}
+        global_code_jars_children = filter(None, [info.global_code_map.get(name, None) for info in global_code_infos])
+        if global_code_library:
+            global_code_jars_children.append(global_code_library)
+        if global_code_jars_children:
+            global_code_jars_kwargs["children"] = global_code_jars_children
+
+        return actions.tset(JavaCompilingDepsTSet, **global_code_jars_kwargs) if global_code_jars_kwargs else None
+
+    global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
+
+    def declared_deps_contains_trigger(deps_triggers: list[TargetLabel]):
+        for deps_trigger in deps_triggers:
+            for declared_dep in declared_deps:
+                if declared_dep.label.raw_target() == deps_trigger:
+                    return True
+
+        return False
+
+    global_code_map = {}
+    for name, (config) in global_code_config.items():
+        contains_trigger = declared_deps_contains_trigger(config.triggers)
+        target_is_global_code_dep = ctx.label.raw_target() in config.deps
+        if (contains_trigger or target_is_global_code_dep) and config.requires_first_order_classpath:
+            global_code_library_compiling_deps = first_order_compiling_deps
+        elif target_is_global_code_dep:
+            global_code_library_compiling_deps = library_compiling_deps
+        elif contains_trigger:
+            global_code_library_compiling_deps = single_library_dep
+        else:
+            global_code_library_compiling_deps = None
+
+        global_code_tset = create_java_compiling_deps_tset_for_global_code(ctx.actions, global_code_library_compiling_deps, name, global_code_infos)
+        if global_code_tset:
+            global_code_map[name] = global_code_tset
+
+    return JavaGlobalCodeInfo(global_code_map = global_code_map)
+
 def create_native_providers(ctx: AnalysisContext, label: Label, packaging_deps: list[Dependency]) -> (SharedLibraryInfo, ResourceInfo, LinkableGraph):
     shared_library_info = merge_shared_libraries(
         ctx.actions,
@@ -400,6 +479,7 @@ def create_native_providers(ctx: AnalysisContext, label: Label, packaging_deps: 
 def _create_non_template_providers(
         ctx: AnalysisContext,
         library_output: [JavaClasspathEntry, None],
+        global_code_config,
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         exported_provided_deps: list[Dependency] = [],
@@ -410,7 +490,8 @@ def _create_non_template_providers(
         has_srcs: bool = True,
         sources_jar: Artifact | None = None,
         proguard_config: Artifact | None = None,
-        gwt_module: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
+        gwt_module: Artifact | None = None,
+        first_order_compiling_deps: JavaCompilingDepsTSet | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -443,14 +524,27 @@ def _create_non_template_providers(
         java_packaging_dep = java_packaging_dep,
     )
 
+    compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps)
+
+    global_code_info = _get_global_code_info(
+        ctx,
+        declared_deps,
+        packaging_deps,
+        derive_compiling_deps(ctx.actions, library_output, []),
+        compiling_deps,
+        first_order_compiling_deps,
+        global_code_config,
+    )
+
     return (
         JavaLibraryInfo(
-            compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps),
+            compiling_deps = compiling_deps,
             library_output = library_output,
             output_for_classpath_macro = output_for_classpath_macro,
             may_not_be_exported = "may_not_be_exported" in (ctx.attrs.labels or []),
         ),
         java_packaging_info,
+        global_code_info,
         shared_library_info,
         cxx_resource_info,
         linkable_graph,
@@ -466,6 +560,7 @@ def create_template_info(ctx: AnalysisContext, packaging_info: JavaPackagingInfo
 def create_java_library_providers(
         ctx: AnalysisContext,
         library_output: [JavaClasspathEntry, None],
+        global_code_config,
         declared_deps: list[Dependency] = [],
         exported_deps: list[Dependency] = [],
         provided_deps: list[Dependency] = [],
@@ -480,17 +575,19 @@ def create_java_library_providers(
         proguard_config: Artifact | None = None,
         gwt_module: Artifact | None = None,
         lint_jar: Artifact | None = None,
-        preprocessed_library: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        preprocessed_library: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
     compiling_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
+    first_order_compiling_deps = derive_compiling_deps(ctx.actions, library_output, declared_deps + exported_deps + provided_deps + exported_provided_deps) if library_output else compiling_deps
     compiling_classpath = [dep.full_library for dep in (list(compiling_deps.traverse()) if compiling_deps else [])]
     desugar_classpath = compiling_classpath if needs_desugar else []
 
-    library_info, packaging_info, shared_library_info, cxx_resource_info, linkable_graph = _create_non_template_providers(
+    library_info, packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph = _create_non_template_providers(
         ctx,
         library_output = library_output,
+        global_code_config = global_code_config,
         declared_deps = declared_deps,
         exported_deps = exported_deps,
         exported_provided_deps = exported_provided_deps,
@@ -502,6 +599,7 @@ def create_java_library_providers(
         sources_jar = sources_jar,
         proguard_config = proguard_config,
         gwt_module = gwt_module,
+        first_order_compiling_deps = first_order_compiling_deps,
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
@@ -515,4 +613,4 @@ def create_java_library_providers(
         preprocessed_library = preprocessed_library,
     )
 
-    return (library_info, packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_info, intellij_info)
+    return (library_info, packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_info, intellij_info)

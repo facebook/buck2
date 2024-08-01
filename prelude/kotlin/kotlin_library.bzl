@@ -452,9 +452,10 @@ def build_kotlin_library(
             )
             extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
-            java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, intellij_info = create_java_library_providers(
+            java_library_info, java_packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, intellij_info = create_java_library_providers(
                 ctx,
                 library_output = outputs.classpath_entry if outputs else None,
+                global_code_config = java_toolchain.global_code_config,
                 declared_deps = ctx.attrs.deps + deps_query,
                 exported_deps = ctx.attrs.exported_deps,
                 provided_deps = ctx.attrs.provided_deps + provided_deps_query,
@@ -478,6 +479,7 @@ def build_kotlin_library(
                 java_library_info = java_library_info,
                 java_library_intellij_info = intellij_info,
                 java_packaging_info = java_packaging_info,
+                java_global_code_info = global_code_info,
                 shared_library_info = shared_library_info,
                 cxx_resource_info = cxx_resource_info,
                 linkable_graph = linkable_graph,

@@ -42,8 +42,8 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.copy_file(gwt_output, ctx.attrs.source_jar if ctx.attrs.source_jar else ctx.attrs.binary_jar)
 
     abi = None
+    prebuilt_jar_toolchain = ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo]
     if ctx.attrs.generate_abi:
-        prebuilt_jar_toolchain = ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo]
         if not prebuilt_jar_toolchain.is_bootstrap_toolchain:
             abi = create_abi(ctx.actions, prebuilt_jar_toolchain.class_abi_generator, output)
 
@@ -54,9 +54,10 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
-    java_library_info, java_packaging_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = create_java_library_providers(
+    java_library_info, java_packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = create_java_library_providers(
         ctx,
         library_output = library_output_classpath_entry,
+        global_code_config = prebuilt_jar_toolchain.global_code_config,
         declared_deps = ctx.attrs.deps,
         exported_deps = ctx.attrs.deps,
         provided_deps = ctx.attrs.desugar_deps,
@@ -79,6 +80,7 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         java_library_info,
         java_packaging_info,
+        global_code_info,
         shared_library_info,
         cxx_resource_info,
         android_packageable_info,

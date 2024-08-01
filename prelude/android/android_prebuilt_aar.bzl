@@ -81,9 +81,10 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
     )
 
-    java_library_info, java_packaging_info, shared_library_info, linkable_graph, cxx_resource_info, template_placeholder_info, java_library_intellij_info = create_java_library_providers(
+    java_library_info, java_packaging_info, global_code_info, shared_library_info, linkable_graph, cxx_resource_info, template_placeholder_info, java_library_intellij_info = create_java_library_providers(
         ctx = ctx,
         library_output = library_output_classpath_entry,
+        global_code_config = java_toolchain.global_code_config,
         exported_deps = ctx.attrs.deps,
         provided_deps = ctx.attrs.desugar_deps,
         needs_desugar = True,
@@ -104,6 +105,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         java_library_info,
         java_packaging_info,
+        global_code_info,
         shared_library_info,
         cxx_resource_info,
         linkable_graph,

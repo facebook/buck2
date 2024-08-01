@@ -63,9 +63,10 @@ def build_android_library(
         ctx: AnalysisContext,
         r_dot_java: Artifact | None = None,
         extra_sub_targets = {},
-        validation_deps_outputs: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
+        validation_deps_outputs: [list[Artifact], None] = None,
+        classpath_entries: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     bootclasspath_entries = [] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
-    additional_classpath_entries = []
+    additional_classpath_entries = list(classpath_entries) if classpath_entries != None else []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     extra_sub_targets = dict(extra_sub_targets)
