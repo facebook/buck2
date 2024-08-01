@@ -39,9 +39,9 @@ use crate::command_outcome::CommandOutcome;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
 use crate::events_ctx::EventsCtx;
-use crate::events_ctx::FileTailers;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
+use crate::file_tailers::tailers::FileTailers;
 use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;

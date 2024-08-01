@@ -16,7 +16,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
 use buck2_cli_proto::CommandResult;
-use buck2_common::daemon_dir::DaemonDir;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use futures::stream;
@@ -25,8 +24,6 @@ use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
 use crate::command_outcome::CommandOutcome;
@@ -36,8 +33,7 @@ use crate::console_interaction_stream::NoopConsoleInteraction;
 use crate::daemon::client::tonic_status_to_error;
 use crate::daemon::client::NoPartialResultHandler;
 use crate::exit_result::ExitResult;
-use crate::file_tailers::tailer::FileTailer;
-use crate::file_tailers::tailer::StdoutOrStderr;
+use crate::file_tailers::tailers::FileTailers;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::subscribers::EventSubscribers;
 use crate::ticker::Ticker;
@@ -117,12 +113,6 @@ pub struct EventsCtx<'a> {
 pub enum FileTailerEvent {
     Stdout(Vec<u8>),
     Stderr(Vec<u8>),
-}
-
-pub struct FileTailers {
-    _stdout_tailer: Option<FileTailer>,
-    _stderr_tailer: Option<FileTailer>,
-    stream: UnboundedReceiver<FileTailerEvent>,
 }
 
 impl<'a> EventsCtx<'a> {
@@ -447,39 +437,6 @@ impl<'a> EventsCtx<'a> {
         self.subscribers
             .for_each_subscriber(|subscriber| subscriber.tick(tick))
             .await
-    }
-}
-
-impl FileTailers {
-    pub fn new(daemon_dir: &DaemonDir) -> anyhow::Result<Self> {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let stdout_tailer = FileTailer::tail_file(
-            daemon_dir.buckd_stdout(),
-            tx.clone(),
-            StdoutOrStderr::Stdout,
-        )?;
-        let stderr_tailer =
-            FileTailer::tail_file(daemon_dir.buckd_stderr(), tx, StdoutOrStderr::Stderr)?;
-        let this = Self {
-            _stdout_tailer: Some(stdout_tailer),
-            _stderr_tailer: Some(stderr_tailer),
-            stream: rx,
-        };
-        Ok(this)
-    }
-
-    pub fn empty() -> FileTailers {
-        FileTailers {
-            _stdout_tailer: None,
-            _stderr_tailer: None,
-            // Empty stream.
-            stream: mpsc::unbounded_channel().1,
-        }
-    }
-
-    pub fn stop_reading(self) -> UnboundedReceiver<FileTailerEvent> {
-        // by dropping the tailers, they shut themselves down.
-        self.stream
     }
 }
 
