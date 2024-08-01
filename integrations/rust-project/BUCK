@@ -24,7 +24,7 @@ rust_binary(
         "fbsource//third-party/rust:tracing-core",
         "fbsource//third-party/rust:tracing-subscriber",
         "fbsource//third-party/rust:whoami",
-        "//common/rust/scuba:scuba",
-        "//common/rust/shed/fbinit:fbinit",
+        # @oss-disable: "//common/rust/scuba:scuba",
+        # @oss-disable: "//common/rust/shed/fbinit:fbinit",
     ],
 )
