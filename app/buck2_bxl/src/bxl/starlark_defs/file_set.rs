@@ -166,7 +166,7 @@ pub(crate) struct StarlarkFileNode(pub(crate) CellPath);
 
 starlark_simple_value!(StarlarkFileNode);
 
-#[starlark_value(type = "file_node")]
+#[starlark_value(type = "bxl.FileNode")]
 impl<'v> StarlarkValue<'v> for StarlarkFileNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
