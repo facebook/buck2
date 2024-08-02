@@ -22,13 +22,15 @@ export function Header() {
   }
 
   return (
-    <div className="mb-4">
-      <Link className="bold no-underline" to={new Map()}>
-        <span className="icon">
-          <i className="fa fa-bullseye"></i>
-        </span>
-        {rootTarget.configuredTargetLabel()}
-      </Link>
+    <div className="navbar" role="navigation" aria-label="main navigation">
+      <div className="navbar-brand">
+        <Link className="bold no-underline navbar-item" to={new Map()}>
+          <span className="icon mr-1">
+            <i className="fa fa-bullseye" />
+          </span>
+          {rootTarget.configuredTargetLabel()}
+        </Link>
+      </div>
     </div>
   )
 }
