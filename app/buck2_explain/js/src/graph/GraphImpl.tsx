@@ -104,21 +104,23 @@ export function GraphImpl(props: {
 
   // For each node A that goes, traverse the graph bottom up
   // until another node that goes is found, then add node A as allowedDep
-  for (const [k, node] of filteredNodes) {
-    let visited = new Set()
-    let stack = [...node.rdeps]
+  for (const [k, _] of filteredNodes) {
+    let visited: Set<number> = new Set([k])
+    let stack = [k]
+
     while (stack.length > 0) {
-      const n1 = stack.pop()
+      const n1 = stack.shift()
 
-      if (visited.has(n1)) {
-        continue
-      }
-      visited.add(n1)
-
-      if (nodeMap.get(n1)!.allow) {
-        nodeMap.get(n1)!.allowedDeps.add(k)
-      } else {
-        stack = stack.concat(nodeMap.get(n1)!.rdeps)
+      for (const r of nodeMap.get(n1)!.rdeps) {
+        if (visited.has(r)) {
+          continue
+        }
+        visited.add(r)
+        if (nodeMap.get(r)!.allow) {
+          nodeMap.get(r)!.allowedDeps.add(k)
+        } else {
+          stack.push(r)
+        }
       }
     }
   }
@@ -143,13 +145,14 @@ export function GraphImpl(props: {
   for (const [k, node] of filteredNodes) {
     // Add edges
     for (const d of node.allowedDeps) {
-      if (filteredNodes.has(d)) {
-        edges.push({
-          source: k,
-          target: d,
-          color: 'rgba(20, 20, 20, 0.5)',
-        })
+      if (!filteredNodes.has(d)) {
+        throw Error("this shouldn't be possible")
       }
+      edges.push({
+        source: k,
+        target: d,
+        color: 'rgba(20, 20, 20, 0.5)',
+      })
     }
   }
 
