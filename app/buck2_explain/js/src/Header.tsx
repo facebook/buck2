@@ -24,7 +24,7 @@ export function Header() {
   return (
     <div className="navbar" role="navigation" aria-label="main navigation">
       <div className="navbar-brand">
-        <Link className="bold no-underline navbar-item" to={new Map()}>
+        <Link className="bold no-underline navbar-item" to={{}}>
           <span className="icon mr-1">
             <i className="fa fa-bullseye" />
           </span>

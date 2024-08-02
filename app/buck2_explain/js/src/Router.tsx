@@ -72,7 +72,11 @@ export function Router(props: {children: ReactNode}) {
 /**
  * Link with specified query params
  */
-export function Link(props: {to: Map<string, string>; children: ReactNode; className?: string}) {
+export function Link(props: {
+  to: {[key: string]: string | null}
+  children: ReactNode
+  className?: string
+}) {
   const {setParams} = useContext(RouterContext)
 
   const {to, children} = props
@@ -84,8 +88,8 @@ export function Link(props: {to: Map<string, string>; children: ReactNode; class
     params.delete(k)
   }
 
-  for (let [k, v] of to) {
-    params.set(k, v)
+  for (let k of Object.keys(to)) {
+    params.set(k, to[k] ?? '')
   }
 
   url.search = params.toString()

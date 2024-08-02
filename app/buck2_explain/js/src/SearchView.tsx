@@ -85,7 +85,7 @@ export function SearchView(props: {view: string}) {
       <ul>
         {deduped.map(label => (
           <li key={label} className="mt-3">
-            <Link to={new Map().set(TARGET_VIEW, label)}>{label}</Link>
+            <Link to={{[TARGET_VIEW]: label}}>{label}</Link>
           </li>
         ))}
       </ul>
