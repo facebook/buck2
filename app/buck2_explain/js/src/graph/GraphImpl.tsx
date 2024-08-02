@@ -137,12 +137,10 @@ export function GraphImpl(props: {
     const target = build.targets(k)!
 
     // Add nodes to graph
-    let options = {}
-
     data.push({
-      ...options,
       id: k,
       name: target.configuredTargetLabel()!,
+      group: target.configuredTargetLabel()!.split('#')[1],
     })
   }
 
@@ -265,6 +263,7 @@ export function GraphImpl(props: {
         linkWidth={3 / Math.pow(filteredNodes.size, 0.5)}
         linkHoverPrecision={6}
         dagMode={dagMode}
+        nodeAutoColorBy="group"
       />
     </>
   )
