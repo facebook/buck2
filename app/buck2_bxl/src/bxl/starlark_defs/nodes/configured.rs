@@ -87,7 +87,7 @@ pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
 
-#[starlark_value(type = "target_node")]
+#[starlark_value(type = "bxl.ConfiguredTargetNode")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
