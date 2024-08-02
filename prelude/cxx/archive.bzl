@@ -78,10 +78,24 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
     else:
         command.add(args)
 
+    # By default, the archive header produced by `ar q` embeds the current unix
+    # timestamp. With the GNU archiver we use `ar qD` (above in _archive_flags)
+    # to make it produce a deterministic archive by zeroing the timestamp, but
+    # other archivers do not support such a flag. Some implementations, notably
+    # Xcode's, instead support zeroing the timestamp by way of an environment
+    # variable.
+    env = {"ZERO_AR_DATE": "1"}
+
     category = "archive"
     if thin:
         category = "archive_thin"
-    ctx.actions.run(command, category = category, identifier = name, prefer_local = prefer_local)
+    ctx.actions.run(
+        command,
+        category = category,
+        identifier = name,
+        env = env,
+        prefer_local = prefer_local,
+    )
     return archive_output
 
 def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
