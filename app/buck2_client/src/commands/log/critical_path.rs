@@ -8,6 +8,7 @@
  */
 
 use std::fmt;
+use std::io::Write;
 use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -248,8 +249,8 @@ fn log_critical_path(
                     )?;
                 }
                 LogCommandOutputFormatWithWriter::Json(writer) => {
-                    serde_json::to_writer(writer, &critical_path)?;
-                    buck2_client_ctx::println!("")?;
+                    serde_json::to_writer(writer.by_ref(), &critical_path)?;
+                    writer.write_all("\n".as_bytes())?;
                 }
                 LogCommandOutputFormatWithWriter::Csv(writer) => {
                     writer.serialize(critical_path)?;
