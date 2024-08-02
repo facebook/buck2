@@ -28,6 +28,7 @@ export function GraphImpl(props: {
   }
 
   const [categories, setCategories] = useState(categoryOptions)
+  const [appliedCategories, setAppliedCategories] = useState<string[]>([])
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [pathFrom, setPathFrom] = useState<string>('')
@@ -39,14 +40,12 @@ export function GraphImpl(props: {
     setCategories(c)
   }
 
-  const activeCategories = categories.filter(v => v.checked).map(v => v.category)
-
   // union of 'includes', minus 'excludes'
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
     const label = target.configuredTargetLabel()!
 
-    node.allow = activeCategories.includes(target.type()!)
+    node.allow = appliedCategories.includes(target.type()!)
 
     // Filter by label
     for (const v of includeContaining) {
@@ -161,20 +160,22 @@ export function GraphImpl(props: {
 
   const dagMode = edges.length / data.length > 3 ? 'td' : undefined
 
-  function setIncludeExclude() {
-    const inputValue = (id: string) => (document.getElementById(id) as HTMLInputElement).value
+  function applyFilters() {
+    const inputValue = (id: string) =>
+      (document.getElementById(id) as HTMLInputElement).value.trim()
 
+    // Include exclude by label
     const inc = inputValue('includeContaining')
     setIncludeContaining(inc ? inc.split(',') : [])
     const exc = inputValue('excludeContaining')
     setExcludeContaining(exc ? exc.split(',') : [])
-  }
 
-  function setPath() {
-    const inputValue = (id: string) =>
-      (document.getElementById(id) as HTMLInputElement).value.trim()
+    // Include by path
     setPathFrom(inputValue('pathFrom'))
     setPathTo(inputValue('pathTo'))
+
+    // Include by rule type
+    setAppliedCategories(categories.filter(v => v.checked).map(v => v.category))
   }
 
   const graphRef = useRef<any>(null)
@@ -202,13 +203,6 @@ export function GraphImpl(props: {
               />
             </div>
           </div>
-          <button
-            type="submit"
-            onClick={setIncludeExclude}
-            onPointerDown={setIncludeExclude}
-            className="button is-dark">
-            <span>Apply</span>
-          </button>
         </div>
         <div className="cell">
           <div className="field">
@@ -220,19 +214,21 @@ export function GraphImpl(props: {
               <input id="pathTo" className="input" type="text" placeholder="to" />
             </div>
           </div>
-          <button
-            type="submit"
-            onClick={setPath}
-            onPointerDown={setPath}
-            className="button is-dark">
-            <span>Include if in path</span>
-          </button>
         </div>
         <div className="cell">
           <div className="field">
             <label className="label">Include targets with rule types:</label>
             <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
           </div>
+        </div>
+        <div className="cell">
+          <button
+            type="submit"
+            onClick={applyFilters}
+            onPointerDown={applyFilters}
+            className="button is-dark">
+            <span>Apply filters</span>
+          </button>
         </div>
       </div>
       <article className="message">
