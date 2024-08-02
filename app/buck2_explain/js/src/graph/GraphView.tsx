@@ -78,5 +78,12 @@ export function GraphView(props: {view: string}) {
     categoryOptions.push({category, count, checked: false})
   }
 
-  return <GraphImpl nodes={nodeMap} build={build} categoryOptions={categoryOptions} />
+  return (
+    <GraphImpl
+      nodes={nodeMap}
+      build={build}
+      categoryOptions={categoryOptions}
+      allTargets={allTargets}
+    />
+  )
 }
