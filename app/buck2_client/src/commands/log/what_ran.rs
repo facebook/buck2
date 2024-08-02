@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io::Write;
 
 use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -341,13 +342,11 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
             LogCommandOutputFormatWithWriter::Tabulated(w) => {
                 w.write_all(format!("{}\n", command.as_tabulated_reproducer()).as_bytes())?;
                 if let Some(std_err) = std_err_formatted {
-                    w.write_all(
-                        format!(
-                            "{}{}",
-                            std_err,
-                            if std_err.ends_with('\n') { "" } else { "\n" }
-                        )
-                        .as_bytes(),
+                    write!(
+                        w,
+                        "{}{}",
+                        std_err,
+                        if std_err.ends_with('\n') { "" } else { "\n" }
                     )?;
                 }
                 Ok(())
@@ -429,8 +428,8 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                     extra: command.extra.map(Into::into),
                     std_err,
                 };
-                serde_json::to_writer(w, &command)?;
-                buck2_client_ctx::println!("")?;
+                serde_json::to_writer(w.by_ref(), &command)?;
+                w.write_all("\n".as_bytes())?;
                 Ok(())
             }
             LogCommandOutputFormatWithWriter::Csv(writer) => {
