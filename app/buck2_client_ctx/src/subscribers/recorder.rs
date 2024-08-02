@@ -50,6 +50,7 @@ use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 
+use crate::build_count::BuildCount;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
@@ -101,6 +102,7 @@ pub(crate) struct InvocationRecorder<'a> {
     local_actions_executed_via_worker: u64,
     first_snapshot: Option<buck2_data::Snapshot>,
     last_snapshot: Option<buck2_data::Snapshot>,
+    min_attempted_build_count_since_rebase: u64,
     min_build_count_since_rebase: u64,
     cache_upload_count: u64,
     cache_upload_attempt_count: u64,
@@ -212,6 +214,7 @@ impl<'a> InvocationRecorder<'a> {
             local_actions_executed_via_worker: 0,
             first_snapshot: None,
             last_snapshot: None,
+            min_attempted_build_count_since_rebase: 0,
             min_build_count_since_rebase: 0,
             cache_upload_count: 0,
             cache_upload_attempt_count: 0,
@@ -294,7 +297,11 @@ impl<'a> InvocationRecorder<'a> {
         self.instant_command_is_success = Some(is_success);
     }
 
-    async fn build_count(&mut self, is_success: bool, command_name: &str) -> anyhow::Result<u64> {
+    async fn build_count(
+        &mut self,
+        is_success: bool,
+        command_name: &str,
+    ) -> anyhow::Result<BuildCount> {
         if let Some(stats) = &self.file_watcher_stats {
             if let Some(merge_base) = &stats.branched_from_revision {
                 match &self.parsed_target_patterns {
@@ -318,7 +325,7 @@ impl<'a> InvocationRecorder<'a> {
             }
         }
 
-        Ok(0)
+        Ok(Default::default())
     }
 
     fn maybe_add_server_stderr_to_errors(&mut self) {
@@ -429,6 +436,7 @@ impl<'a> InvocationRecorder<'a> {
             local_actions_executed_via_worker: Some(self.local_actions_executed_via_worker),
             first_snapshot: self.first_snapshot.take(),
             last_snapshot: self.last_snapshot.take(),
+            min_attempted_build_count_since_rebase: self.min_attempted_build_count_since_rebase,
             min_build_count_since_rebase: self.min_build_count_since_rebase,
             cache_upload_count: self.cache_upload_count,
             cache_upload_attempt_count: self.cache_upload_attempt_count,
@@ -646,7 +654,7 @@ impl<'a> InvocationRecorder<'a> {
         };
         self.command_duration = command_end.duration;
         let command_data = command.data.as_ref().context("Missing command data")?;
-        self.min_build_count_since_rebase = match command_data {
+        let build_count = match command_data {
             buck2_data::command_end::Data::Build(..)
             | buck2_data::command_end::Data::Test(..)
             | buck2_data::command_end::Data::Install(..) => {
@@ -654,8 +662,11 @@ impl<'a> InvocationRecorder<'a> {
                     .await?
             }
             // other events don't count builds
-            _ => 0,
+            _ => Default::default(),
         };
+        self.min_attempted_build_count_since_rebase = build_count.attempted_build_count;
+        self.min_build_count_since_rebase = build_count.successful_build_count;
+
         self.command_end = Some(command);
         Ok(())
     }

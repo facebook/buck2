@@ -20,33 +20,67 @@ use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Serialize, Deserialize)]
-struct BuildCount(HashMap<String, u64>);
+// Version for serialized BuildCount on disk.
+// Update if changing BuildCount to allow building with deployed and compiled buck on the same rev.
+pub const BUILD_COUNT_VERSION: u64 = 1;
+
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug
+)]
+pub struct BuildCount {
+    pub successful_build_count: u64,
+    pub attempted_build_count: u64,
+}
 
 impl BuildCount {
-    pub fn increment(&mut self, patterns: &ParsedTargetPatterns) {
+    pub fn new(successful_build_count: u64, attempted_build_count: u64) -> Self {
+        Self {
+            successful_build_count,
+            attempted_build_count,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct BuildCountMap(HashMap<String, BuildCount>);
+
+impl BuildCountMap {
+    pub fn increment(&mut self, patterns: &ParsedTargetPatterns, is_success: bool) {
         for target in patterns.target_patterns.iter() {
             match self.0.get_mut(&target.value) {
-                Some(counter) => {
-                    *counter += 1;
+                Some(count) => {
+                    count.attempted_build_count += 1;
+                    if is_success {
+                        count.successful_build_count += 1;
+                    }
                 }
                 None => {
-                    self.0.insert(target.value.clone(), 1);
+                    let count = BuildCount::new(if is_success { 1 } else { 0 }, 1);
+                    self.0.insert(target.value.clone(), count);
                 }
             }
         }
     }
 
-    pub fn min_count(&self, patterns: &ParsedTargetPatterns) -> u64 {
+    pub fn min_count(&self, patterns: &ParsedTargetPatterns) -> BuildCount {
         if patterns.target_patterns.is_empty() {
-            return 0;
+            return Default::default();
         }
 
         // If the target has never been succesfully built it won't be in the map, in that case its count is 0.
         return patterns
             .target_patterns
             .iter()
-            .map(|v| self.0.get(&v.value).copied().unwrap_or(0))
+            .map(|v| self.0.get(&v.value).copied().unwrap_or(Default::default()))
             .min()
             .unwrap(); // target_patterns is non-empty, so min() should return Some
     }
@@ -70,19 +104,19 @@ impl BuildCountManager {
         async_fs_util::create_dir_all(&self.base_dir).await
     }
 
-    async fn read(&self, file_name: &FileName) -> anyhow::Result<BuildCount> {
+    async fn read(&self, file_name: &FileName) -> anyhow::Result<BuildCountMap> {
         let path = self.base_dir.join(file_name);
         match async_fs_util::read_to_string_if_exists(&path).await? {
             Some(buffer) => Ok(serde_json::from_str(&buffer)
                 .with_context(|| format!("Parsing JSON from {}", path.display()))?),
             None => {
                 // it is normal after rebase, clean, etc.
-                Ok(BuildCount(HashMap::new()))
+                Ok(BuildCountMap(HashMap::new()))
             }
         }
     }
 
-    async fn write(&self, build_count: &BuildCount, file_name: &FileName) -> anyhow::Result<()> {
+    async fn write(&self, build_count: &BuildCountMap, file_name: &FileName) -> anyhow::Result<()> {
         self.ensure_dir().await?;
         let path = self.base_dir.join(file_name);
         async_fs_util::write(path, &serde_json::to_vec(build_count)?).await
@@ -108,14 +142,13 @@ impl BuildCountManager {
         merge_base: &str,
         target_patterns: &ParsedTargetPatterns,
         is_success: bool,
-    ) -> anyhow::Result<u64> {
-        let file_name = FileName::new(merge_base)?;
+    ) -> anyhow::Result<BuildCount> {
+        let file_name_str = format!("{}-{}", merge_base, BUILD_COUNT_VERSION);
+        let file_name = FileName::new(&file_name_str)?;
         let _guard = self.lock_with_timeout(Self::LOCK_TIMEOUT).await?;
         let mut build_count = self.read(file_name).await?;
 
-        if is_success {
-            build_count.increment(target_patterns);
-        }
+        build_count.increment(target_patterns, is_success);
         self.write(&build_count, file_name).await?;
         Ok(build_count.min_count(target_patterns))
     }
@@ -151,15 +184,15 @@ mod tests {
     #[test]
     fn test_update_normal_input() -> anyhow::Result<()> {
         let mut before = HashMap::new();
-        before.insert("//some:target".to_owned(), 1);
-        before.insert("//some/other:target".to_owned(), 2);
-        let mut bc = BuildCount(before);
+        before.insert("//some:target".to_owned(), BuildCount::new(1, 1));
+        before.insert("//some/other:target".to_owned(), BuildCount::new(2, 2));
+        let mut bc = BuildCountMap(before);
         let target_patterns = make_patterns(vec!["//some/other:target", "//yet/another:target"]);
-        bc.increment(&target_patterns);
+        bc.increment(&target_patterns, true);
         let mut expected = HashMap::new();
-        expected.insert("//some:target".to_owned(), 1);
-        expected.insert("//some/other:target".to_owned(), 3);
-        expected.insert("//yet/another:target".to_owned(), 1);
+        expected.insert("//some:target".to_owned(), BuildCount::new(1, 1));
+        expected.insert("//some/other:target".to_owned(), BuildCount::new(3, 3));
+        expected.insert("//yet/another:target".to_owned(), BuildCount::new(1, 1));
         assert_eq!(bc.0, expected);
 
         Ok(())
@@ -168,11 +201,11 @@ mod tests {
     #[test]
     fn test_update_empty_input() -> anyhow::Result<()> {
         let mut before = HashMap::new();
-        before.insert("//some:target".to_owned(), 1);
+        before.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         let expected = before.clone();
-        let mut bc = BuildCount(before);
+        let mut bc = BuildCountMap(before);
         let target_patterns = make_patterns(vec![]);
-        bc.increment(&target_patterns);
+        bc.increment(&target_patterns, true);
         assert_eq!(bc.0, expected);
 
         Ok(())
@@ -181,12 +214,12 @@ mod tests {
     #[test]
     fn test_min_count_some_value() -> anyhow::Result<()> {
         let mut data = HashMap::new();
-        data.insert("//some:target1".to_owned(), 3);
-        data.insert("//some:target2".to_owned(), 4);
-        data.insert("//some:target3".to_owned(), 5);
-        let bc = BuildCount(data);
+        data.insert("//some:target1".to_owned(), BuildCount::new(3, 3));
+        data.insert("//some:target2".to_owned(), BuildCount::new(4, 4));
+        data.insert("//some:target3".to_owned(), BuildCount::new(5, 5));
+        let bc = BuildCountMap(data);
         let target_patterns = make_patterns(vec!["//some:target1", "//some:target2"]);
-        assert_eq!(bc.min_count(&target_patterns), 3);
+        assert_eq!(bc.min_count(&target_patterns), BuildCount::new(3, 3));
 
         Ok(())
     }
@@ -194,12 +227,12 @@ mod tests {
     #[test]
     fn test_min_count_ignores_others() -> anyhow::Result<()> {
         let mut data = HashMap::new();
-        data.insert("//some:target1".to_owned(), 3);
-        data.insert("//some:target2".to_owned(), 4);
-        data.insert("//some:target3".to_owned(), 5);
-        let bc = BuildCount(data);
+        data.insert("//some:target1".to_owned(), BuildCount::new(3, 3));
+        data.insert("//some:target2".to_owned(), BuildCount::new(4, 4));
+        data.insert("//some:target3".to_owned(), BuildCount::new(5, 5));
+        let bc = BuildCountMap(data);
         let target_patterns = make_patterns(vec!["//some:target2"]);
-        assert_eq!(bc.min_count(&target_patterns), 4);
+        assert_eq!(bc.min_count(&target_patterns), BuildCount::new(4, 4));
 
         Ok(())
     }
@@ -207,8 +240,8 @@ mod tests {
     #[test]
     fn test_min_count_empty_data() -> anyhow::Result<()> {
         let data = HashMap::new();
-        let bc = BuildCount(data);
-        assert_eq!(bc.min_count(&make_patterns(vec![])), 0);
+        let bc = BuildCountMap(data);
+        assert_eq!(bc.min_count(&make_patterns(vec![])), BuildCount::new(0, 0));
 
         Ok(())
     }
@@ -231,9 +264,9 @@ mod tests {
     async fn test_read_normal_file() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
-        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":1}").await?;
+        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let mut expected = HashMap::new();
-        expected.insert("//some:target".to_owned(), 1);
+        expected.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         let bc = bcm.read(FileName::new(file_name)?).await?;
         assert_eq!(bc.0, expected);
@@ -258,12 +291,12 @@ mod tests {
         let file_name = "some_file";
         let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         let mut data = HashMap::new();
-        data.insert("//some:target".to_owned(), 1);
-        bcm.write(&BuildCount(data), FileName::new(file_name)?)
+        data.insert("//some:target".to_owned(), BuildCount::new(1, 1));
+        bcm.write(&BuildCountMap(data), FileName::new(file_name)?)
             .await?;
         assert_eq!(
-            &tokio::fs::read(temp_dir.path().join(file_name)).await?,
-            b"{\"//some:target\":1}"
+            std::str::from_utf8(&tokio::fs::read(temp_dir.path().join(file_name)).await?)?,
+            "{\"//some:target\":{\"successful_build_count\":1,\"attempted_build_count\":1}}"
         );
 
         Ok(())
@@ -275,7 +308,7 @@ mod tests {
         let file_name = "some_file";
         let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         let data = HashMap::new();
-        bcm.write(&BuildCount(data), FileName::new(file_name)?)
+        bcm.write(&BuildCountMap(data), FileName::new(file_name)?)
             .await?;
         assert_eq!(
             &tokio::fs::read(temp_dir.path().join(file_name)).await?,
@@ -289,18 +322,18 @@ mod tests {
     async fn test_min_build_count_normal_input() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
-        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":1}").await?;
+        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
         let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         assert_eq!(
             bcm.min_build_count(file_name, &target_patterns, true)
                 .await?,
-            1
+            BuildCount::new(1, 1),
         );
         assert_eq!(
             bcm.min_build_count(file_name, &target_patterns, true)
                 .await?,
-            2
+            BuildCount::new(2, 2),
         );
 
         Ok(())
@@ -310,18 +343,18 @@ mod tests {
     async fn test_min_build_count_on_failure() -> anyhow::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
-        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":1}").await?;
+        tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
         let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         assert_eq!(
             bcm.min_build_count(file_name, &target_patterns, true)
                 .await?,
-            1
+            BuildCount::new(1, 1),
         );
         assert_eq!(
             bcm.min_build_count(file_name, &target_patterns, false)
                 .await?,
-            1
+            BuildCount::new(1, 2),
         );
 
         Ok(())
@@ -337,7 +370,7 @@ mod tests {
         assert_eq!(
             bcm.min_build_count(file_name, &target_patterns, true)
                 .await?,
-            0
+            BuildCount::new(0, 0),
         );
 
         Ok(())
