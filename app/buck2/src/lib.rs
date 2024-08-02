@@ -62,7 +62,6 @@ use dupe::Dupe;
 
 use crate::check_user_allowed::check_user_allowed;
 use crate::commands::docs::DocsCommand;
-use crate::commands::forkserver::ForkserverCommand;
 use crate::process_context::ProcessContext;
 
 mod check_user_allowed;
@@ -214,8 +213,8 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
     match &opt.cmd {
         #[cfg(not(client_only))]
-        CommandKind::Daemon(..) => {}
-        CommandKind::Clean(..) | CommandKind::Forkserver(..) => {}
+        CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
+        CommandKind::Clean(..) => {}
         _ => {
             check_user_allowed()?;
         }
@@ -234,8 +233,9 @@ pub(crate) enum CommandKind {
     #[cfg(not(client_only))]
     #[clap(hide = true)]
     Daemon(crate::commands::daemon::DaemonCommand),
+    #[cfg(not(client_only))]
     #[clap(hide = true)]
-    Forkserver(ForkserverCommand),
+    Forkserver(crate::commands::forkserver::ForkserverCommand),
     #[cfg(not(client_only))]
     #[clap(hide = true)]
     InternalTestRunner(crate::commands::internal_test_runner::InternalTestRunnerCommand),
@@ -365,6 +365,7 @@ impl CommandKind {
         match self {
             #[cfg(not(client_only))]
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
+            #[cfg(not(client_only))]
             CommandKind::Forkserver(cmd) => cmd
                 .exec(matches, command_ctx, process.log_reload_handle.dupe())
                 .into(),
