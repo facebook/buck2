@@ -17,12 +17,14 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 use crate::events_ctx::FileTailerEvent;
 
+#[derive(Copy, Clone, Dupe)]
 pub(crate) enum StdoutOrStderr {
     Stdout,
     Stderr,
@@ -75,7 +77,7 @@ impl FileTailer {
         rx: oneshot::Receiver<Infallible>,
         mut reader: BufReader<File>,
         stdout_or_stderr: StdoutOrStderr,
-        sender: UnboundedSender<FileTailerEvent>,
+        mut sender: UnboundedSender<FileTailerEvent>,
     ) -> anyhow::Result<()> {
         let mut interval = tokio::time::interval(Duration::from_millis(200));
         let mut rx = rx.fuse();
@@ -91,23 +93,27 @@ impl FileTailer {
                 }
             }
 
-            let mut line = Vec::new();
-            while reader.read_until(b'\n', &mut line)? != 0 {
-                let event = match stdout_or_stderr {
-                    StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
-                    StdoutOrStderr::Stderr => {
-                        if omit_stderr_line(&line) {
-                            line.clear();
-                            continue;
+            (sender, reader) = tokio::task::spawn_blocking(move || {
+                let mut line = Vec::new();
+                while reader.read_until(b'\n', &mut line)? != 0 {
+                    let event = match stdout_or_stderr {
+                        StdoutOrStderr::Stdout => FileTailerEvent::Stdout(line),
+                        StdoutOrStderr::Stderr => {
+                            if omit_stderr_line(&line) {
+                                line.clear();
+                                continue;
+                            }
+                            FileTailerEvent::Stderr(line)
                         }
-                        FileTailerEvent::Stderr(line)
+                    };
+                    if sender.send(event).is_err() {
+                        break;
                     }
-                };
-                if sender.send(event).is_err() {
-                    break;
+                    line = Vec::new();
                 }
-                line = Vec::new();
-            }
+                anyhow::Ok((sender, reader))
+            })
+            .await??;
         }
 
         anyhow::Ok(())
