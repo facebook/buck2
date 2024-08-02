@@ -233,19 +233,17 @@ fn log_critical_path(
 
             match &mut log_writer {
                 LogCommandOutputFormatWithWriter::Tabulated(writer) => {
-                    writer.write_all(
-                        format!(
-                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                            critical_path.kind,
-                            critical_path.name.unwrap_or_default(),
-                            critical_path.category.unwrap_or_default(),
-                            critical_path.identifier.unwrap_or_default(),
-                            critical_path.execution_kind.unwrap_or_default(),
-                            critical_path.total_duration,
-                            critical_path.user_duration,
-                            critical_path.potential_improvement_duration
-                        )
-                        .as_bytes(),
+                    writeln!(
+                        writer,
+                        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                        critical_path.kind,
+                        critical_path.name.unwrap_or_default(),
+                        critical_path.category.unwrap_or_default(),
+                        critical_path.identifier.unwrap_or_default(),
+                        critical_path.execution_kind.unwrap_or_default(),
+                        critical_path.total_duration,
+                        critical_path.user_duration,
+                        critical_path.potential_improvement_duration
                     )?;
                 }
                 LogCommandOutputFormatWithWriter::Json(writer) => {
