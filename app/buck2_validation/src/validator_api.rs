@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(dead_code)]
+
 //! This module defines the API between validators and Buck2 by specifying
 //! the schema for a JSON file that represents the result of a validator run.
 
