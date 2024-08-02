@@ -100,7 +100,7 @@ impl<'a> ClientCommandContext<'a> {
 
         recorder.update_metadata_from_client_metadata(&self.client_metadata);
 
-        let result = self.runtime.block_on(func(self));
+        let result = self.with_runtime(func);
 
         recorder.instant_command_outcome(result.is_ok());
         result.into()

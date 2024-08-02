@@ -982,7 +982,7 @@ impl ChromeTraceCommand {
 
         let log = EventLogPathBuf::infer(log)?;
 
-        let writer = ctx.runtime.block_on(Self::trace_writer(log))?;
+        let writer = ctx.with_runtime(|_| Self::trace_writer(log))?;
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
