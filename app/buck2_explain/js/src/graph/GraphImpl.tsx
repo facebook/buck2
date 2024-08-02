@@ -161,6 +161,8 @@ export function GraphImpl(props: {
     }
   }
 
+  const dagMode = edges.length / data.length > 3 ? 'td' : undefined
+
   function setIncludeExclude() {
     const inputValue = (id: string) => (document.getElementById(id) as HTMLInputElement).value
 
@@ -262,6 +264,7 @@ export function GraphImpl(props: {
         linkCurvature={0.2}
         linkWidth={3 / Math.pow(filteredNodes.size, 0.5)}
         linkHoverPrecision={6}
+        dagMode={dagMode}
       />
     </>
   )
