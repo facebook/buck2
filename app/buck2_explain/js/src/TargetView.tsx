@@ -11,6 +11,7 @@ import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Target} from './Target'
 import {RouterContext, TARGET_TAB} from './Router'
+import {SearchBox} from './SearchBox'
 
 export function TargetView(props: {view: string}) {
   const {allTargets, build} = useContext(DataContext)
@@ -22,5 +23,10 @@ export function TargetView(props: {view: string}) {
 
   const tab = urlParams.get(TARGET_TAB)
 
-  return target == null ? <p>No target found</p> : <Target target={target} tab={tab} />
+  return (
+    <>
+      <SearchBox />
+      {target == null ? <p>No target found</p> : <Target target={target} tab={tab} />}
+    </>
+  )
 }
