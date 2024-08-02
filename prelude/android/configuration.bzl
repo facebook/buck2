@@ -7,6 +7,7 @@
 
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
+load("@prelude//cfg/modifier:name.bzl", "cfg_name")
 load("@prelude//utils:expect.bzl", "expect")
 
 # Android binaries (APKs or AABs) can be built for one or more different platforms. buck2 supports
@@ -73,6 +74,13 @@ def _cpu_split_transition(
 
     if len(cpu_filters) == 1 and cpu_filters[0] == "default":
         default = refs.default_platform[PlatformInfo]
+
+        # Use `cfg_name` function from modifier resolution so that we get the same cfg as default cfg
+        # of android libraries.
+        default = PlatformInfo(
+            label = cfg_name(default.configuration),
+            configuration = default.configuration,
+        )
         return {CPU_FILTER_FOR_DEFAULT_PLATFORM: default}
 
     expect(CPU_FILTER_FOR_PRIMARY_PLATFORM == "arm64")
@@ -108,12 +116,16 @@ def _cpu_split_transition(
         if len(new_configs) > 0:
             updated_constraints[refs.maybe_build_only_native_code[ConstraintSettingInfo].label] = refs.build_only_native_code[ConstraintValueInfo]
 
+        cfg_info = ConfigurationInfo(
+            constraints = updated_constraints,
+            values = platform.configuration.values,
+        )
+
+        # Use `cfg_name` function from modifier resolution so that we get the same cfg as default cfg
+        # of android libraries.
         new_configs[platform_name] = PlatformInfo(
-            label = platform_name,
-            configuration = ConfigurationInfo(
-                constraints = updated_constraints,
-                values = platform.configuration.values,
-            ),
+            label = cfg_name(cfg_info),
+            configuration = cfg_info,
         )
 
     return new_configs
