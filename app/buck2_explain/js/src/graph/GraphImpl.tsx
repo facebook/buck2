@@ -28,24 +28,19 @@ export function GraphImpl(props: {
   }
 
   const [categories, setCategories] = useState(categoryOptions)
-  const [appliedCategories, setAppliedCategories] = useState<string[]>([])
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [pathFrom, setPathFrom] = useState<string>('')
   const [pathTo, setPathTo] = useState<string>('')
 
-  const toggleCategory = (id: number) => {
-    const c = [...categories]
-    c[id].checked = !c[id].checked
-    setCategories(c)
-  }
+  const activeCategories = categories.filter(v => v.checked).map(v => v.category)
 
   // union of 'includes', minus 'excludes'
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
     const label = target.configuredTargetLabel()!
 
-    node.allow = appliedCategories.includes(target.type()!)
+    node.allow = activeCategories.includes(target.type()!)
 
     // Filter by label
     for (const v of includeContaining) {
@@ -175,7 +170,11 @@ export function GraphImpl(props: {
     setPathTo(inputValue('pathTo'))
 
     // Include by rule type
-    setAppliedCategories(categories.filter(v => v.checked).map(v => v.category))
+    const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]')
+    for (let i = 0; i < checkboxes.length; i++) {
+      categories[i].checked = checkboxes[i].checked
+    }
+    setCategories([...categories])
   }
 
   const graphRef = useRef<any>(null)
@@ -215,10 +214,10 @@ export function GraphImpl(props: {
             </div>
           </div>
         </div>
-        <div className="cell">
+        <div className="cell" id="checkboxes">
           <div className="field">
             <label className="label">Include targets with rule types:</label>
-            <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
+            <RuleTypeDropdown options={categories} />
           </div>
         </div>
         <div className="cell">

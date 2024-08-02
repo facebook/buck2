@@ -9,10 +9,7 @@
 
 import React, {useState} from 'react'
 
-export function RuleTypeDropdown(props: {
-  options: {category: string; checked: boolean; count: number}[]
-  handleCheckboxChange: (i: number) => void
-}) {
+export function RuleTypeDropdown(props: {options: {category: string; count: number}[]}) {
   const [dropdownActive, setDropdownActive] = useState(false)
 
   return (
@@ -32,13 +29,7 @@ export function RuleTypeDropdown(props: {
       <div className="dropdown-menu" id="dropdown-menu" role="menu">
         <div className="dropdown-content">
           {props.options.map((v, index: number) => (
-            <CheckboxItem
-              key={index}
-              label={v.category}
-              count={v.count}
-              checked={v.checked}
-              handleCheckboxChange={() => props.handleCheckboxChange(index)}
-            />
+            <CheckboxItem key={index} label={v.category} count={v.count} />
           ))}
         </div>
       </div>
@@ -46,20 +37,11 @@ export function RuleTypeDropdown(props: {
   )
 }
 
-function CheckboxItem(props: {
-  label: string
-  count: number
-  checked: boolean
-  handleCheckboxChange: () => void
-}) {
+function CheckboxItem(props: {label: string; count: number}) {
   return (
     <div className="dropdown-item">
       <label className="checkbox">
-        <input
-          checked={props.checked}
-          type="checkbox"
-          onChange={() => props.handleCheckboxChange()}
-        />
+        <input type="checkbox" />
         {' ' + props.label + ' (' + props.count + ')'}
       </label>
     </div>
