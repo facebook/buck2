@@ -9,7 +9,7 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {Link} from './Router'
+import {GRAPH_VIEW, Link} from './Router'
 
 /**
  * Header that goes on every view
@@ -30,6 +30,16 @@ export function Header() {
           </span>
           {rootTarget.configuredTargetLabel()}
         </Link>
+      </div>
+      <div className="navbar-menu">
+        <div className="navbar-start">
+          <Link className="bold no-underline navbar-item" to={{[GRAPH_VIEW]: ''}}>
+            <span className="icon mr-1">
+              <i className="fa fa-project-diagram" />
+            </span>
+            Graph
+          </Link>
+        </div>
       </div>
     </div>
   )
