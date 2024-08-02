@@ -17,13 +17,11 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_util::threads::thread_spawn;
 use futures::FutureExt;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 use crate::events_ctx::FileTailerEvent;
-use crate::tokio_runtime_setup::client_tokio_runtime;
 
 pub(crate) enum StdoutOrStderr {
     Stdout,
@@ -60,22 +58,15 @@ impl FileTailer {
         // TODO(cjhopman): It would probably be nicer to implement this via inotify/fsevents/etc
         // rather than just repeatedly reading the file, but I tried to use each of
         // https://crates.io/crates/hotwatch and https://crates.io/crates/notify and neither worked.
-        thread_spawn("buck2-tailer", move || {
-            let runtime = match client_tokio_runtime() {
-                Ok(runtime) => runtime,
-                Err(e) => {
-                    tracing::warn!("Failed to create tokio runtime: {:?}", e);
-                    return;
-                }
-            };
-            let res = runtime.block_on(Self::tailer_loop(rx, reader, stdout_or_stderr, sender));
+        tokio::spawn(async move {
+            let res = Self::tailer_loop(rx, reader, stdout_or_stderr, sender).await;
             match res {
                 Ok(()) => {}
                 Err(e) => {
                     tracing::warn!("Failed to read from `{}`: {:?}", file.display(), e);
                 }
             }
-        })?;
+        });
 
         Ok(FileTailer { _end_signaller: tx })
     }
