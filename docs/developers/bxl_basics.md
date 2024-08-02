@@ -14,8 +14,8 @@ in BXL may be challenging without much prior knowledge of Buck2 building blocks
 
 You can build targets within BXL with
 [`ctx.build()`](../../api/bxl/bxl.Context/#bxl_ctxbuild). The result is a
-[`bxl_build_result`](../../api/bxl/bxl_build_result), which has `artifacts()`
-and `failures()` functions that provide iterators to the artifacts or failures,
+[`bxl.BuildResult`](../../api/bxl/bxl.BuildResult), which has `artifacts()` and
+`failures()` functions that provide iterators to the artifacts or failures,
 respectively. You can pass in a single target or target pattern to build.
 
 ### Analysis
@@ -101,7 +101,7 @@ two APIs for ensuring: `ctx.output.ensure()` and `ctx.output.ensure_multiple()`
 indicates, the former is for ensuring a single artifact, and the latter is for
 ensuring multiple artifact-like inputs. Artifact-like inputs include
 [`cmd_args`](../../api/bxl/cmd_args) (can be found when inspecting providers),
-[`bxl_build_result`](../../api/bxl/bxl_build_result) (produced when building
+[`bxl.BuildResult`](../../api/bxl/bxl.BuildResult) (produced when building
 something in BXL), or [`artifact`](../../api/bxl/artifact) (can be found when
 inspecting providers, or creating your own actions).
 
