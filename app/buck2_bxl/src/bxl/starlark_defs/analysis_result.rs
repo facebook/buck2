@@ -62,7 +62,7 @@ impl StarlarkAnalysisResult {
 
 starlark_simple_value!(StarlarkAnalysisResult);
 
-#[starlark_value(type = "analysis_result")]
+#[starlark_value(type = "bxl.AnalysisResult")]
 impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
