@@ -40,27 +40,64 @@ use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 
 pub struct ClientCommandContext<'a> {
-    pub init: fbinit::FacebookInit,
-    pub immediate_config: &'a ImmediateConfigContext<'a>,
-    pub paths: buck2_error::Result<InvocationPaths>,
+    init: fbinit::FacebookInit,
+    pub(crate) immediate_config: &'a ImmediateConfigContext<'a>,
+    paths: buck2_error::Result<InvocationPaths>,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
-    pub start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
-    pub argv: Argv,
+    pub(crate) start_in_process_daemon:
+        Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
+    pub(crate) argv: Argv,
     pub trace_id: TraceId,
-    pub async_cleanup: AsyncCleanupContext<'a>,
-    pub stdin: &'a mut Stdin,
-    pub restarter: &'a mut Restarter,
-    pub restarted_trace_id: Option<TraceId>,
-    pub runtime: &'a Runtime,
-    pub oncall: Option<String>,
-    pub client_metadata: Vec<ClientMetadata>,
+    async_cleanup: AsyncCleanupContext<'a>,
+    stdin: &'a mut Stdin,
+    pub(crate) restarter: &'a mut Restarter,
+    pub(crate) restarted_trace_id: Option<TraceId>,
+    runtime: &'a Runtime,
+    oncall: Option<String>,
+    pub(crate) client_metadata: Vec<ClientMetadata>,
 }
 
 impl<'a> ClientCommandContext<'a> {
+    pub fn new(
+        init: fbinit::FacebookInit,
+        immediate_config: &'a ImmediateConfigContext<'a>,
+        paths: buck2_error::Result<InvocationPaths>,
+        working_dir: WorkingDir,
+        verbosity: Verbosity,
+        start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
+        argv: Argv,
+        trace_id: TraceId,
+        async_cleanup: AsyncCleanupContext<'a>,
+        stdin: &'a mut Stdin,
+        restarter: &'a mut Restarter,
+        restarted_trace_id: Option<TraceId>,
+        runtime: &'a Runtime,
+        oncall: Option<String>,
+        client_metadata: Vec<ClientMetadata>,
+    ) -> Self {
+        ClientCommandContext {
+            init,
+            immediate_config,
+            paths,
+            working_dir,
+            verbosity,
+            start_in_process_daemon,
+            argv,
+            trace_id,
+            async_cleanup,
+            stdin,
+            restarter,
+            restarted_trace_id,
+            runtime,
+            oncall,
+            client_metadata,
+        }
+    }
+
     pub fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }

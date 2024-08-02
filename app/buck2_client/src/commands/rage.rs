@@ -115,7 +115,7 @@ impl RageCommand {
     }
 
     async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
-        let paths = ctx.paths.as_ref().map_err(|e| e.dupe())?;
+        let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let stderr_path = daemon_dir.buckd_stderr();
         let re_logs_dir = ctx.paths()?.re_logs_dir();

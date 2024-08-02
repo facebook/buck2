@@ -344,23 +344,23 @@ impl CommandKind {
             None
         };
 
-        let command_ctx = ClientCommandContext {
-            init: process.init,
+        let command_ctx = ClientCommandContext::new(
+            process.init,
             immediate_config,
             paths,
-            verbosity: common_opts.verbosity,
+            process.working_dir.clone(),
+            common_opts.verbosity,
             start_in_process_daemon,
-            working_dir: process.working_dir.clone(),
-            trace_id: process.trace_id.dupe(),
-            async_cleanup: async_cleanup.ctx().dupe(),
-            stdin: process.stdin,
-            restarter: process.restarter,
-            restarted_trace_id: process.restarted_trace_id.dupe(),
             argv,
-            runtime: &runtime,
-            oncall: common_opts.oncall,
-            client_metadata: common_opts.client_metadata,
-        };
+            process.trace_id.dupe(),
+            async_cleanup.ctx().dupe(),
+            process.stdin,
+            process.restarter,
+            process.restarted_trace_id.dupe(),
+            &runtime,
+            common_opts.oncall,
+            common_opts.client_metadata,
+        );
 
         match self {
             #[cfg(not(client_only))]
