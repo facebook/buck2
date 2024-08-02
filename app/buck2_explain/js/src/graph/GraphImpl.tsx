@@ -24,7 +24,7 @@ export function GraphImpl(props: {
 
   const nodeMap = new Map()
   for (const [k, node] of nodes) {
-    nodeMap.set(k, {...node, allowedDeps: new Set(), allow: false})
+    nodeMap.set(k, {...node, allowedDeps: new Map(), allow: false})
   }
 
   const [categories, setCategories] = useState(categoryOptions)
@@ -102,10 +102,13 @@ export function GraphImpl(props: {
     }
   }
 
-  // For each node A that goes, traverse the graph bottom up
+  // For each node A that goes, traverse the graph bottom up BFS
   // until another node that goes is found, then add node A as allowedDep
+  // Also stores shortest path length from last allowed to later add as edge label
+
   for (const [k, _] of filteredNodes) {
-    let visited: Set<number> = new Set([k])
+    let visited: Map<number, number> = new Map()
+    visited.set(k, 0)
     let stack = [k]
 
     while (stack.length > 0) {
@@ -115,9 +118,10 @@ export function GraphImpl(props: {
         if (visited.has(r)) {
           continue
         }
-        visited.add(r)
+        const distance = visited.get(n1)! + 1
+        visited.set(r, distance)
         if (nodeMap.get(r)!.allow) {
-          nodeMap.get(r)!.allowedDeps.add(k)
+          nodeMap.get(r)!.allowedDeps.set(k, distance)
         } else {
           stack.push(r)
         }
@@ -144,13 +148,14 @@ export function GraphImpl(props: {
 
   for (const [k, node] of filteredNodes) {
     // Add edges
-    for (const d of node.allowedDeps) {
+    for (const [d, counter] of node.allowedDeps) {
       if (!filteredNodes.has(d)) {
         throw Error("this shouldn't be possible")
       }
       edges.push({
         source: k,
         target: d,
+        name: `steps: ${counter}`,
         color: 'rgba(20, 20, 20, 0.5)',
       })
     }
@@ -256,6 +261,7 @@ export function GraphImpl(props: {
         linkDirectionalArrowRelPos={1}
         linkCurvature={0.2}
         linkWidth={3 / Math.pow(filteredNodes.size, 0.5)}
+        linkHoverPrecision={6}
       />
     </>
   )
