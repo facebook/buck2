@@ -634,7 +634,7 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     resolution_ctx: LazyAttrResolutionContext<'v>,
 }
 
-#[starlark_value(type = "lazy_resolved_attrs", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
