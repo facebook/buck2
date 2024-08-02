@@ -696,7 +696,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
     );
 }
 
-#[starlark_value(type = "bxl_ctx", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.Context", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

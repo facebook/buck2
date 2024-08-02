@@ -13,7 +13,7 @@ in BXL may be challenging without much prior knowledge of Buck2 building blocks
 ### Build
 
 You can build targets within BXL with
-[`ctx.build()`](../../api/bxl/bxl_ctx/#bxl_ctxbuild). The result is a
+[`ctx.build()`](../../api/bxl/bxl.Context/#bxl_ctxbuild). The result is a
 [`bxl_build_result`](../../api/bxl/bxl_build_result), which has `artifacts()`
 and `failures()` functions that provide iterators to the artifacts or failures,
 respectively. You can pass in a single target or target pattern to build.
@@ -21,8 +21,8 @@ respectively. You can pass in a single target or target pattern to build.
 ### Analysis
 
 You can run analysis on targets within BXL via
-[`ctx.analysis()`](../../api/bxl/bxl_ctx/#bxl_ctxanalysis). Analysis means to
-evaluate the underlying rule implementation for the inputted targets, and
+[`ctx.analysis()`](../../api/bxl/bxl.Context/#bxl_ctxanalysis). Analysis means
+to evaluate the underlying rule implementation for the inputted targets, and
 produce the providers that the rule defined for the target. A common workflow is
 to inspect the resulting providers, and perhaps ensure parts of these providers
 or run actions using information from the providers (see [Actions](#actions)
@@ -81,7 +81,8 @@ You can create actions directly within the BXL API. The available action APIs
 are equivalent to the ones found on the [`actions`](../../api/bxl/actions) type
 for normal rules, with the caveat that
 [dynamic actions](./bxl_dynamic_output.md) use the
-[`bxl_ctx`](../../api/bxl/bxl_ctx) (which provides richer functionalities).
+[`bxl.Context`](../../api/bxl/bxl.Context) (which provides richer
+functionalities).
 
 A common workflow would be to run analysis on a target, and use some interesting
 bits found in the analysis result to construct an augmented

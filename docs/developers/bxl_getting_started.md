@@ -9,8 +9,8 @@ If you are mostly unfamiliar with Buck2, take a look at
 ## Navigating the docs
 
 All BXL APIs can be found [here](../../api/bxl/globals). A good place to start
-would be the [`bxl_ctx`](../../api/bxl/bxl_ctx), which contains all available
-BXL functionalities.
+would be the [`bxl.Context`](../../api/bxl/bxl.Context), which contains all
+available BXL functionalities.
 
 All [Build APIs](../../api/build/globals) are mirrored to the BXL APIs section.
 
@@ -66,10 +66,10 @@ your_function_name = bxl_main(
 ```
 
 The implementation function takes a single context as parameter (see the
-documentation for [`BxlContext`](../../api/bxl/bxl_ctx)). Using it, you'll be
-able to access functions that enable you to perform queries, analysis, builds,
-and even create your own actions within BXL to build artifacts as part of a BXL
-function.
+documentation for [`bxl.Context`](../../api/bxl/bxl.Context)). Using it, you'll
+be able to access functions that enable you to perform queries, analysis,
+builds, and even create your own actions within BXL to build artifacts as part
+of a BXL function.
 
 The primary method to return information from BXL is to either print them, or
 build some artifact (for details, see the
