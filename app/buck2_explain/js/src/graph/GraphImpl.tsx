@@ -30,63 +30,39 @@ export function GraphImpl(props: {
   const [categories, setCategories] = useState(categoryOptions)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
-  const [pathFrom, setPathFrom] = useState<string>('')
-  const [pathTo, setPathTo] = useState<string>('')
+  const [somepath, setSomepath] = useState<Set<number>>(new Set())
 
   const activeCategories = categories.filter(v => v.checked).map(v => v.category)
 
-  // union of 'includes', minus 'excludes'
-  for (const [k, node] of nodeMap) {
-    const target = build.targets(k)!
-    const label = target.configuredTargetLabel()!
-
-    node.allow = activeCategories.includes(target.type()!)
-
-    // Filter by label
-    for (const v of includeContaining) {
-      if (label.includes(v)) {
-        node.allow = true
-      }
+  if (somepath.size > 0) {
+    for (const k of somepath) {
+      nodeMap.get(k)!.allow = true
     }
+  } else {
+    // union of 'includes', minus 'excludes'
+    for (const [k, node] of nodeMap) {
+      const target = build.targets(k)!
+      const label = target.configuredTargetLabel()!
 
-    // Some path
-    if (pathFrom && pathTo && allTargets) {
-      const from = allTargets[pathFrom]
-      const to = allTargets[pathTo]
-      const parentOf = new Map()
-      parentOf.set(from, null)
-      const queue = [from]
+      node.allow = activeCategories.includes(target.type()!)
 
-      while (queue.length > 0) {
-        let node = queue.shift()!
-        if (node === to) {
-          break
-        }
-        for (let d of nodeMap.get(node)!.deps) {
-          if (!parentOf.has(d)) {
-            parentOf.set(d, node)
-            queue.push(d)
-          }
+      // Filter by label
+      for (const v of includeContaining) {
+        if (label.includes(v)) {
+          node.allow = true
         }
       }
 
-      // set allowed if in path
-      let node = to
-      while (node) {
-        nodeMap.get(node)!.allow = true
-        node = parentOf.get(node)
+      // Exclude by label
+      for (const v of excludeContaining) {
+        if (label.includes(v)) {
+          node.allow = false
+        }
       }
-    }
 
-    // Exclude by label
-    for (const v of excludeContaining) {
-      if (label.includes(v)) {
-        node.allow = false
-      }
+      // Always set root node
+      nodeMap.get(0)!.allow = true
     }
-
-    // Always set root node
-    nodeMap.get(0)!.allow = true
   }
 
   let filteredNodes = new Map()
@@ -156,6 +132,9 @@ export function GraphImpl(props: {
   const dagMode = edges.length / data.length > 3 ? 'td' : undefined
 
   function applyFilters() {
+    // TODO iguridi: this is nasty, but should do for now
+    setSomepath(new Set())
+
     const inputValue = (id: string) =>
       (document.getElementById(id) as HTMLInputElement).value.trim()
 
@@ -165,16 +144,52 @@ export function GraphImpl(props: {
     const exc = inputValue('excludeContaining')
     setExcludeContaining(exc ? exc.split(',') : [])
 
-    // Include by path
-    setPathFrom(inputValue('pathFrom'))
-    setPathTo(inputValue('pathTo'))
-
     // Include by rule type
     const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]')
     for (let i = 0; i < checkboxes.length; i++) {
       categories[i].checked = checkboxes[i].checked
     }
     setCategories([...categories])
+  }
+
+  function findPath() {
+    const inputValue = (id: string) =>
+      (document.getElementById(id) as HTMLInputElement).value.trim()
+
+    // Include by path
+    const pathFrom = inputValue('pathFrom')
+    const pathTo = inputValue('pathTo')
+
+    if (pathFrom && pathTo && allTargets) {
+      const from = allTargets[pathFrom]
+      const to = allTargets[pathTo]
+      const parentOf = new Map()
+      parentOf.set(from, null)
+      const queue = [from]
+
+      while (queue.length > 0) {
+        let node = queue.shift()!
+        if (node === to) {
+          break
+        }
+        for (let d of nodeMap.get(node)!.deps) {
+          if (!parentOf.has(d)) {
+            parentOf.set(d, node)
+            queue.push(d)
+          }
+        }
+      }
+
+      // set allowed if in path
+      let path = new Set<number>()
+      let node = to
+      while (node) {
+        path.add(node)
+        node = parentOf.get(node)
+      }
+
+      setSomepath(path)
+    }
   }
 
   const graphRef = useRef<any>(null)
@@ -203,17 +218,6 @@ export function GraphImpl(props: {
             </div>
           </div>
         </div>
-        <div className="cell">
-          <div className="field">
-            <label className="label">Some path:</label>
-            <div className="control">
-              <input id="pathFrom" className="input" type="text" placeholder="from" />
-            </div>
-            <div className="control">
-              <input id="pathTo" className="input" type="text" placeholder="to" />
-            </div>
-          </div>
-        </div>
         <div className="cell" id="checkboxes">
           <div className="field">
             <label className="label">Include targets with rule types:</label>
@@ -224,6 +228,22 @@ export function GraphImpl(props: {
           <button type="submit" onClick={applyFilters} className="button is-dark">
             <span>Apply filters</span>
           </button>
+        </div>
+        <div className="cell">
+          <div className="field">
+            <label className="label">Some path:</label>
+            <div className="control">
+              <input id="pathFrom" className="input" type="text" placeholder="from" />
+            </div>
+            <div className="control">
+              <input id="pathTo" className="input" type="text" placeholder="to" />
+            </div>
+          </div>
+          <div className="cell">
+            <button type="submit" onClick={findPath} className="button is-dark">
+              <span>Find some path</span>
+            </button>
+          </div>
         </div>
       </div>
       <article className="message">
