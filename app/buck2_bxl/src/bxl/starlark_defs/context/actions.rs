@@ -240,7 +240,7 @@ async fn alloc_deps<'v, 'c>(
     Ok(eval.heap().alloc_typed_unchecked(AllocDict(deps)).cast())
 }
 
-#[starlark_value(type = "bxl_actions", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.Actions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
