@@ -35,7 +35,8 @@ Buck2 supports a couple different query types: querying the unconfigured graph
 (`buck2 aquery`). These queries are all available in BXL as well:
 
 - `ctx.uquery()` returns a [`uqueryctx`](../../api/bxl/uqueryctx)
-- `ctx.cquery()` returns a [`cqueryctx`](../../api/bxl/cqueryctx)
+- `ctx.cquery()` returns a
+  [`bxl.CqueryContext`](../../api/bxl/bxl.CqueryContext)
 - `ctx.aquery()` returns a [`aqueryctx`](../../api/bxl/aqueryctx)
 
 You can read more about the individual queries in the API docs. There are many
