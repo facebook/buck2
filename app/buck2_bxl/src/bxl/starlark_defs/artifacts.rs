@@ -296,7 +296,7 @@ impl Serialize for EnsuredArtifactGroupInner {
     }
 }
 
-#[starlark_value(type = "ensured_artifact", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.EnsuredArtifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
     Self: ProvidesStaticType<'v>,
