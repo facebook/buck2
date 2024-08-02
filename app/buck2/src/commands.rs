@@ -8,13 +8,13 @@
  */
 
 #[cfg(not(client_only))]
-pub mod daemon;
+pub(crate) mod daemon;
 #[cfg(not(client_only))]
 pub(crate) mod daemon_lower_priority;
 #[cfg(not(client_only))]
 pub(crate) mod daemonize;
-pub mod docs;
-pub mod forkserver;
+pub(crate) mod docs;
+pub(crate) mod forkserver;
 #[cfg(not(client_only))]
-pub mod internal_test_runner;
+pub(crate) mod internal_test_runner;
 pub(crate) mod schedule_termination;

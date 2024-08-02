@@ -67,7 +67,7 @@ use crate::process_context::ProcessContext;
 
 mod check_user_allowed;
 mod cli_style;
-pub mod commands;
+pub(crate) mod commands;
 #[cfg(not(client_only))]
 mod no_buckd;
 pub mod panic;
