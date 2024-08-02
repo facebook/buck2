@@ -65,7 +65,7 @@ pub(crate) struct StarlarkAuditCtx<'v> {
     cell_resolver: CellResolver,
 }
 
-#[starlark_value(type = "audit_ctx", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.AuditContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAuditCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
