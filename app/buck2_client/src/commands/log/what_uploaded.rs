@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -107,13 +108,12 @@ fn print_uploads(
     record: &ActionRecord,
 ) -> anyhow::Result<()> {
     match output {
-        LogCommandOutputFormatWithWriter::Tabulated(w) => {
-            Ok(w.write_all(format!("{}\n", record).as_bytes())?)
-        }
+        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
         LogCommandOutputFormatWithWriter::Json(w) => {
-            serde_json::to_writer(w, &record)?;
-            buck2_client_ctx::println!("")
+            serde_json::to_writer(w.by_ref(), &record)?;
+            w.write_all("\n".as_bytes())?;
+            Ok(())
         }
     }
 }
@@ -134,12 +134,12 @@ fn print_extension_stats(
     for record in records {
         match output {
             LogCommandOutputFormatWithWriter::Tabulated(w) => {
-                w.write_all(format!("{}\n", record).as_bytes())?;
+                writeln!(w, "{}", record)?;
             }
             LogCommandOutputFormatWithWriter::Csv(writer) => writer.serialize(record)?,
             LogCommandOutputFormatWithWriter::Json(w) => {
-                serde_json::to_writer(w, &record)?;
-                buck2_client_ctx::println!("")?;
+                serde_json::to_writer(w.by_ref(), &record)?;
+                w.write_all("\n".as_bytes())?;
             }
         }
     }
