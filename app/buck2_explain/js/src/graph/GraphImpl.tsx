@@ -221,11 +221,7 @@ export function GraphImpl(props: {
           </div>
         </div>
         <div className="cell">
-          <button
-            type="submit"
-            onClick={applyFilters}
-            onPointerDown={applyFilters}
-            className="button is-dark">
+          <button type="submit" onClick={applyFilters} className="button is-dark">
             <span>Apply filters</span>
           </button>
         </div>
