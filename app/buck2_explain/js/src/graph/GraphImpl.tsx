@@ -235,7 +235,18 @@ export function GraphImpl(props: {
       <ForceGraph2D
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
-        onNodeClick={(node, _event) => console.log(node.name, 'click!')}
+        onNodeClick={(node, _event) => {
+          const fromInput = document.getElementById('pathFrom') as HTMLInputElement
+          const toInput = document.getElementById('pathTo') as HTMLInputElement
+          if (!fromInput.value) {
+            fromInput.value = node.name
+          } else if (!toInput.value) {
+            toInput.value = node.name
+          } else {
+            fromInput.value = node.name
+            toInput.value = ''
+          }
+        }}
         onNodeRightClick={(node, _event) => {
           const url = new URL(window.location.href)
           url.searchParams.set('target', node.name)
