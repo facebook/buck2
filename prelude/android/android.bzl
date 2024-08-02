@@ -68,6 +68,7 @@ extra_attributes = {
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
         "package_asset_libraries": attrs.bool(default = True),
+        "package_resources": attrs.bool(default = True),
         "resources_root": attrs.option(attrs.string(), default = None),
         "strip_libraries": attrs.default_only(attrs.bool(default = not DISABLE_STRIPPING)),
         "_android_toolchain": toolchains_common.android(),
