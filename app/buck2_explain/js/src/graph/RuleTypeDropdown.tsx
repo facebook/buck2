@@ -23,7 +23,7 @@ export function RuleTypeDropdown(props: {
           aria-haspopup="true"
           aria-controls="dropdown-menu"
           onClick={() => setDropdownActive(!dropdownActive)}>
-          <span>Select rule types</span>
+          <span>Select</span>
           <span className="icon is-small">
             <i className="fas fa-angle-down" aria-hidden="true"></i>
           </span>

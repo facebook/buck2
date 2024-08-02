@@ -128,7 +128,7 @@ export function GraphImpl(props: {
 
   return (
     <>
-      <div className="grid">
+      <div className="grid mt-4">
         <div className="cell">
           <div className="field">
             <label className="label">Filter by labels:</label>
@@ -158,7 +158,10 @@ export function GraphImpl(props: {
           </button>
         </div>
         <div className="cell">
-          <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
+          <div className="field">
+            <label className="label">Include targets with rule types:</label>
+            <RuleTypeDropdown options={categories} handleCheckboxChange={toggleCategory} />
+          </div>
         </div>
       </div>
       <article className="message">
