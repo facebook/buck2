@@ -91,7 +91,7 @@ impl ConfiguredTargetCalculation for DiceComputations<'_> {
             .get_configured_target(target, global_cfg_options)
             .await?;
         let configured_target_node = self
-            .get_configured_target_node(&configured)
+            .get_internal_configured_target_node(&configured)
             .await?
             .require_compatible()?;
         Ok(configured_target_node.unwrap_forward().label().clone())

@@ -22,6 +22,7 @@ pub trait ConfiguredTargetNodeCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
+        check_dependency_incompatibility: bool,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
@@ -36,6 +37,16 @@ pub trait ConfiguredTargetNodeCalculation {
         &mut self,
         target: &ConfiguredTargetLabel,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+
+    /// Same as `get_configured_target_node` except it doesn't error/soft-error on
+    /// configured target that is transitively incompatible. This should only be used
+    /// to obtain any configured target node used as deps of other configured nodes,
+    /// ex. recursively from `get_configured_target_node` function. All other use cases
+    /// should use `get_configured_target_node` instead.
+    async fn get_internal_configured_target_node(
+        &mut self,
+        target: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 #[async_trait]
@@ -46,7 +57,17 @@ impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
         CONFIGURED_TARGET_NODE_CALCULATION
             .get()?
-            .get_configured_target_node(self, target)
+            .get_configured_target_node(self, target, true)
+            .await
+    }
+
+    async fn get_internal_configured_target_node(
+        &mut self,
+        target: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+        CONFIGURED_TARGET_NODE_CALCULATION
+            .get()?
+            .get_configured_target_node(self, target, false)
             .await
     }
 }

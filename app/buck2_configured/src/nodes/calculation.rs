@@ -36,6 +36,7 @@ use buck2_core::plugins::PluginListElemKind;
 use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
@@ -753,7 +754,7 @@ async fn gather_deps(
 
     let dep_results = CycleGuard::<ConfiguredGraphCycleDescriptor>::new(ctx)?
         .guard_this(ctx.compute_join(traversal.deps.iter(), |ctx, v| {
-            async move { ctx.get_configured_target_node(v.0.target()).await }.boxed()
+            async move { ctx.get_internal_configured_target_node(v.0.target()).await }.boxed()
         }))
         .await
         .into_result(ctx)
@@ -1055,7 +1056,7 @@ async fn compute_configured_target_node_no_transition(
                 toolchain_deps,
                 |ctx, target: &TargetConfiguredTargetLabel| {
                     async move {
-                        ctx.get_configured_target_node(
+                        ctx.get_internal_configured_target_node(
                             &target.with_exec_cfg(execution_platform.cfg().dupe()),
                         )
                         .await
@@ -1073,7 +1074,7 @@ async fn compute_configured_target_node_no_transition(
             ctx.compute_join(exec_deps, |ctx, (target, check_visibility)| {
                 async move {
                     (
-                        ctx.get_configured_target_node(
+                        ctx.get_internal_configured_target_node(
                             &target
                                 .target()
                                 .unconfigured()
@@ -1432,10 +1433,22 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
+        check_dependency_incompatibility: bool,
     ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        ctx.compute(&ConfiguredTargetNodeKey(target.dupe()))
-            .await?
-            .map_err(anyhow::Error::from)
+        let maybe_compatible_node = ctx
+            .compute(&ConfiguredTargetNodeKey(target.dupe()))
+            .await??;
+        if check_dependency_incompatibility {
+            if let MaybeCompatible::Incompatible(reason) = &maybe_compatible_node {
+                if matches!(
+                    &reason.cause,
+                    &IncompatiblePlatformReasonCause::Dependency(_)
+                ) {
+                    soft_error!("dep_only_incompatible", reason.to_err(), quiet: true)?;
+                }
+            }
+        }
+        Ok(maybe_compatible_node)
     }
 }
 

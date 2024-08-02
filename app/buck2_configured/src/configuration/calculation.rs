@@ -213,7 +213,7 @@ async fn check_execution_platform(
         .chain(exec_deps)
     {
         match ctx
-            .get_configured_target_node(
+            .get_internal_configured_target_node(
                 &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
             )
             .await

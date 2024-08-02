@@ -62,8 +62,12 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                 }
 
                 for configured_target in configured_patterns {
-                    let configured_node =
-                        ctx.get_configured_target_node(&configured_target).await?;
+                    // This calls `get_internal_configured_target_node` rather than
+                    // `get_configured_target_node` because exec platform resolution operates
+                    // on `get_internal_configured_target_node`.
+                    let configured_node = ctx
+                        .get_internal_configured_target_node(&configured_target)
+                        .await?;
                     let configured_node = configured_node.require_compatible()?;
                     writeln!(stdout, "{}:", configured_target)?;
                     let resolution = configured_node.execution_platform_resolution();
