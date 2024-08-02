@@ -40,25 +40,25 @@ use dupe::Dupe;
     clap::ValueEnum
 )]
 #[clap(rename_all = "snake_case")]
-pub enum LogCommandOutputFormat {
+pub(crate) enum LogCommandOutputFormat {
     Tabulated,
     Json,
     Csv,
 }
 
-pub enum LogCommandOutputFormatWithWriter<'a> {
+pub(crate) enum LogCommandOutputFormatWithWriter<'a> {
     Tabulated(&'a mut dyn std::io::Write),
     Json(&'a mut dyn std::io::Write),
     Csv(Box<csv::Writer<&'a mut dyn std::io::Write>>),
 }
 
-pub struct OutputFormatWithWriter<'a> {
-    pub format: LogCommandOutputFormatWithWriter<'a>,
-    pub include_std_err: bool,
-    pub omit_empty_std_err: bool,
+pub(crate) struct OutputFormatWithWriter<'a> {
+    pub(crate) format: LogCommandOutputFormatWithWriter<'a>,
+    pub(crate) include_std_err: bool,
+    pub(crate) omit_empty_std_err: bool,
 }
 
-pub fn transform_format<'a>(
+pub(crate) fn transform_format<'a>(
     format: LogCommandOutputFormat,
     w: &'a mut (dyn std::io::Write),
 ) -> LogCommandOutputFormatWithWriter<'a> {

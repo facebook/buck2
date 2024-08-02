@@ -51,7 +51,7 @@ pub struct WhatMaterializedCommand {
         ignore_case = true,
         value_enum
     )]
-    pub output: LogCommandOutputFormat,
+    output: LogCommandOutputFormat,
 }
 
 #[derive(serde::Serialize)]

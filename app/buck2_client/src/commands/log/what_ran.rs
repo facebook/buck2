@@ -94,10 +94,10 @@ pub struct WhatRanCommandCommon {
         ignore_case = true,
         value_enum
     )]
-    pub output: LogCommandOutputFormat,
+    output: LogCommandOutputFormat,
 
     #[clap(flatten)]
-    pub options: WhatRanOptions,
+    options: WhatRanOptions,
 }
 
 struct WhatRanCommandOptions {

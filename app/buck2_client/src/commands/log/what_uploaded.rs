@@ -36,7 +36,7 @@ pub struct WhatUploadedCommand {
         ignore_case = true,
         value_enum
     )]
-    pub output: LogCommandOutputFormat,
+    output: LogCommandOutputFormat,
     #[clap(
         long = "aggregate-by-ext",
         help = "Aggregates the output by file extension"

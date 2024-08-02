@@ -43,7 +43,7 @@ pub struct CriticalPathCommand {
         ignore_case = true,
         value_enum
     )]
-    pub format: LogCommandOutputFormat,
+    format: LogCommandOutputFormat,
 }
 
 impl CriticalPathCommand {
