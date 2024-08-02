@@ -17,18 +17,18 @@ import {Link} from './Router'
 export function Header() {
   const {rootTarget} = useContext(DataContext)
 
+  if (!rootTarget) {
+    return null
+  }
+
   return (
-    <>
-      {rootTarget ? (
-        <div className="mb-4">
-          <Link className="bold no-underline" to={new Map()}>
-            <span className="icon">
-              <i className="fa fa-bullseye"></i>
-            </span>
-            {rootTarget.configuredTargetLabel()}
-          </Link>
-        </div>
-      ) : null}
-    </>
+    <div className="mb-4">
+      <Link className="bold no-underline" to={new Map()}>
+        <span className="icon">
+          <i className="fa fa-bullseye"></i>
+        </span>
+        {rootTarget.configuredTargetLabel()}
+      </Link>
+    </div>
   )
 }
