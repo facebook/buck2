@@ -85,6 +85,60 @@ impl CriticalPathCommand {
     }
 }
 
+#[derive(Default)]
+struct OptionalDuration {
+    inner: Option<Duration>,
+}
+
+impl OptionalDuration {
+    fn new<T, E>(d: Option<T>) -> Result<Self, E>
+    where
+        T: TryInto<Duration, Error = E>,
+    {
+        Ok(Self {
+            inner: d.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+impl fmt::Display for OptionalDuration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(inner) = self.inner {
+            write!(f, "{}", inner.as_micros())?;
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for OptionalDuration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if let Some(micros) = self.inner.map(|d| d.as_micros()) {
+            serializer.serialize_some(&micros)
+        } else {
+            serializer.serialize_none()
+        }
+    }
+}
+
+#[derive(Default, Serialize)]
+struct CriticalPathEntry<'a> {
+    kind: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    category: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    identifier: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    execution_kind: Option<&'a str>,
+    total_duration: OptionalDuration,
+    user_duration: OptionalDuration,
+    potential_improvement_duration: OptionalDuration,
+}
+
 fn log_critical_path(
     critical_path: &buck2_data::BuildGraphExecutionInfo,
     format: LogCommandOutputFormat,
@@ -96,60 +150,6 @@ fn log_critical_path(
 
         for entry in &critical_path.critical_path2 {
             use buck2_data::critical_path_entry2::Entry;
-
-            #[derive(Default)]
-            struct OptionalDuration {
-                inner: Option<Duration>,
-            }
-
-            impl OptionalDuration {
-                fn new<T, E>(d: Option<T>) -> Result<Self, E>
-                where
-                    T: TryInto<Duration, Error = E>,
-                {
-                    Ok(Self {
-                        inner: d.map(|d| d.try_into()).transpose()?,
-                    })
-                }
-            }
-
-            impl fmt::Display for OptionalDuration {
-                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    if let Some(inner) = self.inner {
-                        write!(f, "{}", inner.as_micros())?;
-                    }
-                    Ok(())
-                }
-            }
-
-            impl Serialize for OptionalDuration {
-                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-                where
-                    S: serde::Serializer,
-                {
-                    if let Some(micros) = self.inner.map(|d| d.as_micros()) {
-                        serializer.serialize_some(&micros)
-                    } else {
-                        serializer.serialize_none()
-                    }
-                }
-            }
-
-            #[derive(Default, Serialize)]
-            struct CriticalPathEntry<'a> {
-                kind: &'a str,
-                #[serde(skip_serializing_if = "Option::is_none")]
-                name: Option<String>,
-                #[serde(skip_serializing_if = "Option::is_none")]
-                category: Option<&'a str>,
-                #[serde(skip_serializing_if = "Option::is_none")]
-                identifier: Option<&'a str>,
-                #[serde(skip_serializing_if = "Option::is_none")]
-                execution_kind: Option<&'a str>,
-                total_duration: OptionalDuration,
-                user_duration: OptionalDuration,
-                potential_improvement_duration: OptionalDuration,
-            }
 
             let mut critical_path = CriticalPathEntry::default();
 
