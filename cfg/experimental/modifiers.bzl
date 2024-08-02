@@ -6,9 +6,9 @@
 # of this source tree.
 
 load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
-load(":asserts.bzl?v2_only", "verify_normalized_modifier", "verify_normalized_target")
+load("@prelude//cfg/modifier:asserts.bzl?v2_only", "verify_normalized_modifier", "verify_normalized_target")
 load(
-    ":types.bzl?v2_only",
+    "@prelude//cfg/modifier:types.bzl?v2_only",
     "Modifier",  # @unused Used in type annotation
     "ModifiersMatch",
 )

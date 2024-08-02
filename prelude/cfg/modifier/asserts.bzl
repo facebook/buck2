@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":types.bzl", "Modifier", "is_modifiers_match")
+load("@prelude//cfg/modifier:types.bzl", "Modifier", "is_modifiers_match")
 
 def verify_normalized_target(target: str):
     # Do some basic checks that target looks reasonably valid and normalized
