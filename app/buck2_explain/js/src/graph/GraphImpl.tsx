@@ -173,7 +173,7 @@ export function GraphImpl(props: {
       <ForceGraph2D
         ref={graphRef}
         graphData={{nodes: data, links: edges}}
-        onNodeClick={(node, _event) => console.log(node.nodeVal, 'click!')}
+        onNodeClick={(node, _event) => console.log(node.name, 'click!')}
         onNodeRightClick={(node, _event) => {
           const url = new URL(window.location.href)
           url.searchParams.set('target', node.name)
@@ -184,7 +184,7 @@ export function GraphImpl(props: {
         // cooldown + warmup ticks make the graph render already in its final form
         cooldownTicks={1}
         enableNodeDrag={false}
-        warmupTicks={filteredNodes.size / 4}
+        warmupTicks={100}
         // looks
         linkDirectionalArrowLength={5 / Math.pow(filteredNodes.size, 0.2)}
         linkDirectionalArrowRelPos={1}
