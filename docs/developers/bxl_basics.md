@@ -49,8 +49,8 @@ query that takes in the entire query as a string literal. A common use for
 entire query string directly into `eval()`.
 
 The query results are target sets (iterable container) of
-[`unconfigured_target_node`s](../../api/bxl/unconfigured_target_node) for
-uquery, [`target_node`s](../../api/bxl/target_node) for cquery, and
+[`bxl.TargetNode`s](../../api/bxl/bxl.TargetNode) for uquery,
+[`target_node`s](../../api/bxl/target_node) for cquery, and
 [`action_query_node`s](../../api/bxl/action_query_node) for aquery. Each of
 these node types have accessors on their attributes. A common workflow is to run
 some query in BXL, and iterate through the resulting nodes to inspect their
