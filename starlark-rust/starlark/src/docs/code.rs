@@ -68,7 +68,10 @@ impl DocModule {
             .unwrap_or_default();
         for (k, v) in &self.members {
             res.push('\n');
-            res.push_str(&(Doc::named_item(k.clone(), v.clone().to_doc_item())).render_as_code());
+            match v {
+                DocMember::Property(p) => res.push_str(&p.render_as_code(k)),
+                DocMember::Function(f) => res.push_str(&f.render_as_code(k)),
+            }
             res.push('\n');
         }
         res
