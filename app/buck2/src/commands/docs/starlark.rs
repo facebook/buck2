@@ -39,8 +39,11 @@ enum DocsOutputFormatArg {
     about = "Print documentation of user-defined starlark symbols"
 )]
 pub(crate) struct DocsStarlarkCommand {
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
+    #[clap(
+        name = "SYMBOL_PATTERNS",
+        help = "Patterns to interpret. //foo:bar.bzl is 'every symbol in //foo:bar.bzl', //foo:bar.bzl:baz only returns the documentation for the symbol 'baz' in //foo:bar.bzl"
+    )]
+    patterns: Vec<String>,
 
     #[clap(flatten)]
     markdown_file_opts: MarkdownFileOptions,
@@ -66,11 +69,8 @@ pub(crate) struct DocsStarlarkCommand {
     )]
     prelude: bool,
 
-    #[clap(
-        name = "SYMBOL_PATTERNS",
-        help = "Patterns to interpret. //foo:bar.bzl is 'every symbol in //foo:bar.bzl', //foo:bar.bzl:baz only returns the documentation for the symbol 'baz' in //foo:bar.bzl"
-    )]
-    patterns: Vec<String>,
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
 }
 
 #[async_trait]
