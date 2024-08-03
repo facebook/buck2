@@ -57,14 +57,9 @@ use serde::de::DeserializeOwned;
 use starlark::analysis::AstModuleLint;
 use starlark::codemap::Pos;
 use starlark::codemap::Span;
-use starlark::docs::render_docs_as_code;
-use starlark::docs::Doc;
 use starlark::docs::DocFunction;
-use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
-use starlark::docs::Identifier;
-use starlark::docs::Location;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
@@ -363,25 +358,22 @@ impl TestServer {
     }
 
     /// A static set of "builtins" to use for testing
-    fn testing_builtins(root: &Path) -> anyhow::Result<HashMap<LspUrl, Vec<Doc>>> {
+    fn testing_builtins(root: &Path) -> anyhow::Result<HashMap<LspUrl, DocModule>> {
         let prelude_path = root.join("dir/prelude.bzl");
         let ret = hashmap! {
-            LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)? => vec![
-                Doc::named_item("native_function1".to_owned(), DocItem::Function(DocFunction::default())),
-                Doc::named_item("native_function2".to_owned(),DocItem::Function(DocFunction::default())),
-            ],
-            LspUrl::try_from(Url::from_file_path(prelude_path).unwrap())? => vec![
-                Doc {
-                    id: Identifier {
-                        name: "prelude_function".to_owned(),
-                        location: Some(Location {
-                            path: "//dir/prelude.bzl".to_owned(),
-                        }),
-                    },
-                    item: DocItem::Function(DocFunction::default()),
-                    custom_attrs: Default::default(),
-                },
-            ]
+            LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)? => DocModule {
+                docs: None,
+                members: [
+                    ("native_function1".to_owned(), DocMember::Function(DocFunction::default())),
+                    ("native_function2".to_owned(), DocMember::Function(DocFunction::default())),
+                ].into_iter().collect(),
+            },
+            LspUrl::try_from(Url::from_file_path(prelude_path).unwrap())? => DocModule {
+                docs: None,
+                members: [
+                    ("prelude_function".to_owned(), DocMember::Function(DocFunction::default())),
+                ].into_iter().collect()
+            },
         };
         Ok(ret)
     }
@@ -417,9 +409,9 @@ impl TestServer {
         let mut builtin_symbols = HashMap::new();
 
         for (u, ds) in builtin {
-            builtin_docs.insert(u.clone(), render_docs_as_code(&ds));
-            for d in ds {
-                builtin_symbols.insert(d.id.name, u.clone());
+            builtin_docs.insert(u.clone(), ds.render_as_code());
+            for (sym, _) in ds.members {
+                builtin_symbols.insert(sym, u.clone());
             }
         }
 

@@ -60,7 +60,7 @@ impl DocString {
 }
 
 impl DocModule {
-    fn render_as_code(&self) -> String {
+    pub fn render_as_code(&self) -> String {
         let mut res = self
             .docs
             .as_ref()
