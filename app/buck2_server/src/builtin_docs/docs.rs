@@ -29,7 +29,6 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
-use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::globals::starlark_library_extensions_for_buck2;
@@ -119,27 +118,6 @@ pub fn get_builtin_docs(
     all_builtins.extend(get_registered_starlark_docs());
 
     Ok(all_builtins)
-}
-
-/// Get the documentation for exported symbols in the prelude
-///
-/// Creates top level docs for member functions of "native" too,
-/// presuming that those symbols don't already exist in `existing_globals`
-/// (to avoid re-exporting and overriding the real builtins if there is conflict)
-pub async fn get_prelude_docs(
-    ctx: &DiceTransaction,
-    existing_globals: &HashSet<&str>,
-) -> anyhow::Result<Vec<Doc>> {
-    let cell_resolver = ctx.clone().get_cell_resolver().await?;
-    let Some(prelude_path) = prelude_path(&cell_resolver)? else {
-        return Ok(Vec::new());
-    };
-    get_docs_from_module(
-        &mut ctx.clone(),
-        prelude_path.import_path(),
-        Some(existing_globals),
-    )
-    .await
 }
 
 async fn get_docs_from_module(

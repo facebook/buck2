@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::io;
 use std::io::ErrorKind;
@@ -36,9 +37,11 @@ use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
+use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::interpreter_for_cell::ParseData;
@@ -47,6 +50,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
+use dice::DiceComputations;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -61,13 +65,17 @@ use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
+use starlark::collections::SmallMap;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocModule;
+use starlark::docs::DocProperty;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
+use starlark::typing::Ty;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::server_with_connection;
 use starlark_lsp::server::LspContext;
@@ -79,7 +87,6 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
 use crate::builtin_docs::docs::get_builtin_docs;
-use crate::builtin_docs::docs::get_prelude_docs;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
@@ -167,6 +174,90 @@ impl DocsCacheManager {
         builtin_docs.extend(prelude_docs);
         DocsCache::new(&builtin_docs, dice_ctx, fs, &cell_resolver).await
     }
+}
+
+async fn get_prelude_docs(
+    ctx: &DiceTransaction,
+    existing_globals: &HashSet<&str>,
+) -> anyhow::Result<Vec<Doc>> {
+    let cell_resolver = ctx.clone().get_cell_resolver().await?;
+    let Some(prelude_path) = prelude_path(&cell_resolver)? else {
+        return Ok(Vec::new());
+    };
+    get_docs_from_module(
+        &mut ctx.clone(),
+        prelude_path.import_path(),
+        Some(existing_globals),
+    )
+    .await
+}
+
+async fn get_docs_from_module(
+    ctx: &mut DiceComputations<'_>,
+    import_path: &ImportPath,
+    // If we want to promote `native`, what should we exclude
+    promote_native: Option<&HashSet<&str>>,
+) -> anyhow::Result<Vec<Doc>> {
+    // Do this so that we don't get the '@' in the display if we're printing targets from a
+    // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
+    let import_path_string = format!(
+        "{}:{}",
+        import_path.path().parent().unwrap(),
+        import_path.path().path().file_name().unwrap()
+    );
+    let module = ctx.get_loaded_module_from_import_path(import_path).await?;
+    let frozen_module = module.env();
+    let mut module_docs = frozen_module.documentation();
+
+    // For the prelude, we want to promote `native` symbol up one level
+    if let Some(existing_globals) = promote_native {
+        for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
+            if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
+                let doc = match value.to_value().documentation() {
+                    Some(DocItem::Function(f)) => DocMember::Function(f),
+                    _ => DocMember::Property(DocProperty {
+                        docs: None,
+                        typ: Ty::any(),
+                    }),
+                };
+
+                module_docs.members.insert(name.to_owned(), doc);
+            }
+        }
+    }
+
+    let mut docs = vec![];
+
+    if let Some(module_doc) = module_docs.docs {
+        docs.push(Doc {
+            id: Identifier {
+                name: import_path_string.clone(),
+                location: Some(starlark::docs::Location {
+                    path: import_path_string.clone(),
+                }),
+            },
+            item: DocItem::Module(DocModule {
+                docs: Some(module_doc),
+                members: SmallMap::new(),
+            }),
+            custom_attrs: Default::default(),
+        });
+    }
+    docs.extend(module_docs.members.into_iter().map(|(symbol, d)| {
+        Doc {
+            // TODO(nmj): Map this back into the codemap to get a line/column
+            id: Identifier {
+                name: symbol,
+                location: Some(Location {
+                    path: import_path_string.clone(),
+                }),
+            },
+            item: d.to_doc_item(),
+            custom_attrs: Default::default(),
+        }
+    }));
+
+    Ok(docs)
 }
 
 /// Store rendered starlark representations of Doc objects for builtin symbols,
