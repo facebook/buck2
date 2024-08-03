@@ -74,7 +74,7 @@ fn parse_import_paths(
         .collect()
 }
 
-pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) -> Doc {
+fn builtin_doc<S: ToString>(name: S, directory: &str, module: DocModule) -> Doc {
     let mut custom_attrs = HashMap::new();
     if !directory.is_empty() {
         custom_attrs.insert("directory".to_owned(), directory.to_owned());
@@ -85,18 +85,14 @@ pub(crate) fn builtin_doc<S: ToString>(name: S, directory: &str, item: DocItem) 
             name: name.to_string(),
             location: None,
         },
-        item,
+        item: DocItem::Module(module),
         custom_attrs,
     }
 }
 
 fn get_builtin_global_starlark_docs() -> Doc {
     let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
-    builtin_doc(
-        "globals",
-        "standard",
-        DocItem::Module(globals.documentation()),
-    )
+    builtin_doc("globals", "standard", globals.documentation())
 }
 
 /// Globals that are in the interpreter (including BXL), but none of the starlark global symbols.
@@ -109,7 +105,7 @@ fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> any
         .into_iter()
         .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
         .collect();
-    Ok(builtin_doc("globals", "", DocItem::Module(b_o)))
+    Ok(builtin_doc("globals", "", b_o))
 }
 
 pub fn get_builtin_docs(
