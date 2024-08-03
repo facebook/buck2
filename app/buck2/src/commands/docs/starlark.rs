@@ -63,12 +63,6 @@ pub(crate) struct DocsStarlarkCommand {
     )]
     builtins: bool,
 
-    #[clap(
-        long = "prelude",
-        help = "get documentation for the prelude, if present"
-    )]
-    prelude: bool,
-
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 }
@@ -91,7 +85,6 @@ impl StreamingCommand for DocsStarlarkCommand {
                     context: Some(client_context),
                     symbol_patterns: self.patterns.clone(),
                     retrieve_builtins: self.builtins,
-                    retrieve_prelude: self.prelude,
                     format: match self.format {
                         DocsOutputFormatArg::Json => {
                             buck2_cli_proto::unstable_docs_request::Format::Json as i32

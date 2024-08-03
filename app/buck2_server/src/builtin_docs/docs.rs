@@ -296,12 +296,6 @@ async fn docs(
         vec![]
     };
 
-    if request.retrieve_prelude {
-        let builtin_names = docs.iter().map(|d| d.id.name.as_str()).collect();
-        let prelude_docs = get_prelude_docs(&dice_ctx, &builtin_names).await?;
-        docs.extend(prelude_docs);
-    }
-
     let dice_ref = &dice_ctx;
     let module_calcs: Vec<_> = lookups
         .iter()

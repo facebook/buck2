@@ -635,7 +635,6 @@ class Buck(Executable):
         self,
         query_patterns: Iterable[str],
         builtins: bool = True,
-        prelude: bool = False,
         output_format: str = "json",
         input: Optional[bytes] = None,
         rel_cwd: Optional[Path] = None,
@@ -648,7 +647,6 @@ class Buck(Executable):
 
         query_patterns: The patterns, if any, to ask for docs for
         builtins: Whether to pass the --builtins flag
-        prelude: Whether to pass the --prelude flag
         output_format: How to get documentation back
         rel_cwd: Optional Path specifying the workding directive to run
         the command relative to the root.
@@ -657,8 +655,6 @@ class Buck(Executable):
         args = ["--format", output_format]
         if builtins:
             args.append("--builtins")
-        if prelude:
-            args.append("--prelude")
         args.extend(query_patterns)
         return self._run_buck_command(
             "docs",

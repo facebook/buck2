@@ -604,6 +604,8 @@ message SegfaultRequest {}
 message SegfaultResponse {}
 
 message UnstableDocsRequest {
+  reserved 4;
+
   enum Format {
     UNKNOWN = 0;
     JSON = 1;
@@ -613,7 +615,6 @@ message UnstableDocsRequest {
   ClientContext context = 1;
   repeated string symbol_patterns = 2;
   bool retrieve_builtins = 3;
-  bool retrieve_prelude = 4;
   Format format = 5;
   // `markdown_output_path` must be set when format is Markdown and must be
   // unset otherwise.
