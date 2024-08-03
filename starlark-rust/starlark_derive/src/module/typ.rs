@@ -42,18 +42,6 @@ pub(crate) struct StarModule {
     pub stmts: Vec<StarStmt>,
 }
 
-impl StarModule {
-    pub(crate) fn span(&self) -> Span {
-        let mut span = self.name.span();
-        for stmt in &self.stmts {
-            if let Some(new_span) = span.join(stmt.span()) {
-                span = new_span;
-            }
-        }
-        span
-    }
-}
-
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub(crate) enum StarStmt {
@@ -62,30 +50,11 @@ pub(crate) enum StarStmt {
     Attr(StarAttr),
 }
 
-impl StarStmt {
-    pub(crate) fn span(&self) -> Span {
-        match self {
-            StarStmt::Const(c) => c.span(),
-            StarStmt::Fun(c) => c.span(),
-            StarStmt::Attr(c) => c.span(),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct StarConst {
     pub name: Ident,
     pub ty: Type,
     pub value: Expr,
-}
-
-impl StarConst {
-    pub(crate) fn span(&self) -> Span {
-        self.name
-            .span()
-            .join(self.value.span())
-            .unwrap_or_else(|| self.name.span())
-    }
 }
 
 #[derive(Debug)]
@@ -132,14 +101,6 @@ impl StarFun {
             .join(self.body.span())
             .unwrap_or_else(|| self.name.span())
     }
-
-    pub(crate) fn args_span(&self) -> Span {
-        self.args
-            .iter()
-            .map(|a| a.span)
-            .reduce(|a, b| a.join(b).unwrap_or(a))
-            .unwrap_or_else(|| self.name.span())
-    }
 }
 
 #[derive(Debug)]
@@ -154,15 +115,6 @@ pub(crate) struct StarAttr {
     pub speculative_exec_safe: bool,
     pub body: Block,
     pub docstring: Option<String>,
-}
-
-impl StarAttr {
-    pub(crate) fn span(&self) -> Span {
-        self.name
-            .span()
-            .join(self.body.span())
-            .unwrap_or_else(|| self.name.span())
-    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Dupe)]

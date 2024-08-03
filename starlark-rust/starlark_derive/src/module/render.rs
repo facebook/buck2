@@ -21,7 +21,8 @@ use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
 use quote::format_ident;
-use quote::quote_spanned;
+use quote::quote;
+use quote::ToTokens;
 
 use crate::module::render::fun::render_fun;
 use crate::module::typ::SpecialParam;
@@ -33,13 +34,10 @@ use crate::module::typ::StarStmt;
 use crate::module::util::ident_string;
 
 pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
-    let span = x.span();
-    let render = render_impl(x)?;
-    Ok(quote_spanned! { span => #render })
+    Ok(render_impl(x)?.to_token_stream())
 }
 
 fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
-    let span = x.span();
     let StarModule {
         name,
         globals_builder,
@@ -54,10 +52,8 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
         .into_iter()
         .map(render_stmt)
         .collect::<syn::Result<_>>()?;
-    let set_docstring =
-        docstring.map(|ds| quote_spanned!(span=> globals_builder.set_docstring(#ds);));
-    Ok(syn::parse_quote_spanned! {
-        span=>
+    let set_docstring = docstring.map(|ds| quote!(globals_builder.set_docstring(#ds);));
+    Ok(syn::parse_quote! {
         #( #attrs )*
         #visibility fn #name(globals_builder: #globals_builder) {
             fn build(globals_builder: #globals_builder) {
@@ -82,16 +78,13 @@ fn render_stmt(x: StarStmt) -> syn::Result<syn::Stmt> {
 
 fn render_const(x: StarConst) -> syn::Stmt {
     let StarConst { name, ty, value } = x;
-    let span = name.span();
     let name = ident_string(&name);
-    syn::parse_quote_spanned! {
-        span=>
+    syn::parse_quote! {
         globals_builder.set::<#ty>(#name, #value);
     }
 }
 
 fn render_attr(x: StarAttr) -> syn::Stmt {
-    let span = x.span();
     let StarAttr {
         name,
         arg,
@@ -105,18 +98,17 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     let name_str = ident_string(&name);
     let name_inner = syn::Ident::new(&format!("{}__inner", name_str), name.span());
     let docstring = match docstring {
-        Some(d) => quote_spanned!(span=> Some(#d.to_owned())),
-        None => quote_spanned!(span=> None),
+        Some(d) => quote!(Some(#d.to_owned())),
+        None => quote!(None),
     };
 
     let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
-        Some(quote_spanned! { span=> let #ident: #ty = __heap; })
+        Some(quote! { let #ident: #ty = __heap; })
     } else {
         None
     };
 
-    syn::parse_quote_spanned! {
-        span=>
+    syn::parse_quote! {
         {
             #( #attrs )*
             #[allow(non_snake_case)] // Starlark doesn't have this convention
@@ -202,7 +194,7 @@ fn get_lifetimes_inner<'a>(ret: &mut HashSet<&'a syn::Lifetime>, typ: &'a syn::T
 /// Get the lifetime specifications to use with a function based on the lifetimes mentioned in `typ`.
 ///
 /// e.g. `i32` would return ``, `Vec<(&'a str, &'b str)>` would return `<'a, 'b>`
-fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
+fn get_lifetimes(typ: &syn::Type) -> TokenStream {
     let mut ret = HashSet::new();
     get_lifetimes_inner(&mut ret, typ);
     if ret.is_empty() {
@@ -210,13 +202,13 @@ fn get_lifetimes(span: proc_macro2::Span, typ: &syn::Type) -> TokenStream {
     } else {
         let mut ret: Vec<_> = ret.into_iter().filter(|l| l.ident != "_").collect();
         ret.sort_by(|l, r| l.ident.cmp(&r.ident));
-        quote_spanned!(span=> <#(#ret),*>)
+        quote!(<#(#ret),*>)
     }
 }
 
-pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> syn::Expr {
-    let lifetimes = get_lifetimes(span, typ);
-    syn::parse_quote_spanned! { span=>
+pub(crate) fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
+    let lifetimes = get_lifetimes(typ);
+    syn::parse_quote! {
         {
             #[allow(clippy::extra_unused_lifetimes)]
             fn get_type_string #lifetimes() -> starlark::typing::Ty {
@@ -229,7 +221,7 @@ pub(crate) fn render_starlark_type(span: proc_macro2::Span, typ: &syn::Type) -> 
 
 pub(crate) fn render_starlark_return_type(fun: &StarFun) -> syn::Expr {
     let struct_name = fun.struct_name();
-    syn::parse_quote_spanned! { fun.span()=>
+    syn::parse_quote! {
         #struct_name::return_type_starlark_type_repr()
     }
 }

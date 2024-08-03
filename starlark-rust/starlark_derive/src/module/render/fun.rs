@@ -19,7 +19,6 @@ use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use quote::quote_spanned;
 use syn::Attribute;
 use syn::Expr;
 use syn::ExprLit;
@@ -38,13 +37,11 @@ use crate::module::util::ident_string;
 impl StarFun {
     fn ty_custom_expr(&self) -> syn::Expr {
         match &self.starlark_ty_custom_function {
-            Some(x) => syn::parse_quote_spanned! {
-                self.span()=>
+            Some(x) => syn::parse_quote! {
                 std::option::Option::Some(starlark::typing::Ty::custom_function(#x))
             },
             None => {
-                syn::parse_quote_spanned! {
-                    self.span()=>
+                syn::parse_quote! {
                     std::option::Option::None
                 }
             }
@@ -53,13 +50,11 @@ impl StarFun {
 
     fn special_builtin_function_expr(&self) -> syn::Expr {
         match &self.special_builtin_function {
-            Some(x) => syn::parse_quote_spanned! {
-                self.span()=>
+            Some(x) => syn::parse_quote! {
                 std::option::Option::Some(#x)
             },
             None => {
-                syn::parse_quote_spanned! {
-                    self.span()=>
+                syn::parse_quote! {
                     std::option::Option::None
                 }
             }
@@ -68,14 +63,12 @@ impl StarFun {
 
     fn as_type_expr(&self) -> syn::Expr {
         match &self.as_type {
-            Some(x) => syn::parse_quote_spanned! {
-                self.span()=>
+            Some(x) => syn::parse_quote! {
                     std::option::Option::Some(
                         <#x as starlark::values::StarlarkValue>::get_type_starlark_repr(),
                     )
             },
-            None => syn::parse_quote_spanned! {
-                self.span()=>
+            None => syn::parse_quote! {
                 std::option::Option::None
             },
         }
@@ -91,13 +84,13 @@ impl StarFun {
     ) {
         if let Some(SpecialParam { ident, ty }) = &self.eval {
             (
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     #ident: #ty,
                 }),
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     #ty,
                 }),
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     eval,
                 }),
             )
@@ -116,13 +109,13 @@ impl StarFun {
     ) {
         if let Some(SpecialParam { ident, ty }) = &self.heap {
             (
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     #ident: #ty,
                 }),
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     #ty,
                 }),
-                Some(quote_spanned! {self.span()=>
+                Some(quote! {
                     eval.heap(),
                 }),
             )
@@ -141,9 +134,9 @@ impl StarFun {
     ) {
         if self.is_method() {
             (
-                Some(quote_spanned! {self.span()=> __this: starlark::values::Value<'v>, }),
-                Some(quote_spanned! {self.span()=> starlark::values::Value<'v>, }),
-                Some(quote_spanned! {self.span()=> __this, }),
+                Some(quote! { __this: starlark::values::Value<'v>, }),
+                Some(quote! { starlark::values::Value<'v>, }),
+                Some(quote! { __this, }),
             )
         } else {
             (None, None, None)
@@ -161,9 +154,9 @@ impl StarFun {
 
     fn trait_name(&self) -> syn::Path {
         if self.is_method() {
-            syn::parse_quote_spanned! {self.span()=> starlark::values::function::NativeMeth }
+            syn::parse_quote! { starlark::values::function::NativeMeth }
         } else {
-            syn::parse_quote_spanned! {self.span()=> starlark::values::function::NativeFunc }
+            syn::parse_quote! { starlark::values::function::NativeFunc }
         }
     }
 
@@ -184,18 +177,15 @@ impl StarFun {
         };
         if let Some(signature) = signature {
             Ok((
-                quote_spanned! { self.span()=>
+                quote! {
                     signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
                 },
-                quote_spanned! { self.span()=>
+                quote! {
                     signature: #signature,
                 },
             ))
         } else {
-            Ok((
-                quote_spanned! { self.span()=> },
-                quote_spanned! { self.span()=> },
-            ))
+            Ok((TokenStream::new(), TokenStream::new()))
         }
     }
 
@@ -223,7 +213,7 @@ impl StarFun {
                     "methods cannot have a `ty_custom_function` attribute",
                 ));
             }
-            Ok(syn::parse_quote_spanned! {self.span()=>
+            Ok(syn::parse_quote! {
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
@@ -237,7 +227,7 @@ impl StarFun {
         } else {
             let typ = self.as_type_expr();
             let ty_custom = self.ty_custom_expr();
-            Ok(syn::parse_quote_spanned! {self.span()=>
+            Ok(syn::parse_quote! {
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_function(
                     #name_str,
@@ -256,8 +246,6 @@ impl StarFun {
 }
 
 pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
-    let span = x.span();
-
     let (documentation_var, documentation) = render_documentation(&x)?;
 
     let (this_param, this_param_type, this_arg) = x.this_param_arg();
@@ -279,8 +267,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         ..
     } = x;
 
-    Ok(syn::parse_quote_spanned! {
-        span=>
+    Ok(syn::parse_quote! {
         {
             struct #struct_name {
                 #struct_fields
@@ -353,40 +340,29 @@ struct Bindings {
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
 fn render_binding(x: &StarFun) -> Bindings {
-    let span = x.args_span();
     match x.source {
         StarFunSource::Arguments => {
             let StarArg {
-                span,
-                attrs,
-                name,
-                ty,
-                ..
+                attrs, name, ty, ..
             } = &x.args[0];
-            let span = *span;
             Bindings {
-                prepare: quote_spanned! { span=> },
+                prepare: TokenStream::new(),
                 bindings: vec![BindingArg {
                     name: name.to_owned(),
                     ty: ty.to_owned(),
                     attrs: attrs.clone(),
                     mutability: None,
-                    expr: syn::parse_quote_spanned! { span=> parameters },
+                    expr: syn::parse_quote! { parameters },
                 }],
             }
         }
         StarFunSource::ThisArguments => {
             let StarArg {
-                span,
-                attrs,
-                name,
-                ty,
-                ..
+                attrs, name, ty, ..
             } = &x.args[1];
-            let span = *span;
             let this = render_binding_arg(&x.args[0]);
             Bindings {
-                prepare: quote_spanned! { span=> },
+                prepare: TokenStream::new(),
                 bindings: vec![
                     this,
                     BindingArg {
@@ -394,7 +370,7 @@ fn render_binding(x: &StarFun) -> Bindings {
                         ty: ty.to_owned(),
                         attrs: attrs.clone(),
                         mutability: None,
-                        expr: syn::parse_quote_spanned! { span=> parameters },
+                        expr: syn::parse_quote! { parameters },
                     },
                 ],
             }
@@ -402,7 +378,7 @@ fn render_binding(x: &StarFun) -> Bindings {
         StarFunSource::Signature { count } => {
             let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
             Bindings {
-                prepare: quote_spanned! { span=>
+                prepare: quote! {
                     let __args: [_; #count] = self.signature.collect_into(parameters, eval.heap())?;
                 },
                 bindings: bind_args,
@@ -412,8 +388,7 @@ fn render_binding(x: &StarFun) -> Bindings {
             let bind_args = x.args.iter().map(render_binding_arg).collect();
             if optional == 0 {
                 Bindings {
-                    prepare: quote_spanned! {
-                        span=>
+                    prepare: quote! {
                         parameters.no_named_args()?;
                         let __required: [_; #required] = parameters.positional(eval.heap())?;
                     },
@@ -421,8 +396,7 @@ fn render_binding(x: &StarFun) -> Bindings {
                 }
             } else {
                 Bindings {
-                    prepare: quote_spanned! {
-                        span=>
+                    prepare: quote! {
                         parameters.no_named_args()?;
                         let (__required, __optional): ([_; #required], [_; #optional]) = parameters.optional(eval.heap())?;
                     },
@@ -453,8 +427,7 @@ impl BindingArg {
         let name = &self.name;
         let ty = self.render_param_type();
         let attrs = &self.attrs;
-        syn::parse_quote_spanned! {
-            self.name.span()=>
+        syn::parse_quote! {
             #( #attrs )*
             #mutability #name: #ty
         }
@@ -467,34 +440,33 @@ impl BindingArg {
 
 // Create a binding for an argument given. If it requires an index, take from the index
 fn render_binding_arg(arg: &StarArg) -> BindingArg {
-    let span = arg.span;
     let name = &arg.name;
     let name_str = ident_string(name);
 
     let source = match arg.source {
-        StarArgSource::This => quote_spanned! {span=> __this},
-        StarArgSource::Argument(i) => quote_spanned! {span=> __args[#i].get()},
-        StarArgSource::Required(i) => quote_spanned! {span=> Some(__required[#i])},
-        StarArgSource::Optional(i) => quote_spanned! {span=> __optional[#i]},
+        StarArgSource::This => quote! { __this },
+        StarArgSource::Argument(i) => quote! { __args[#i].get() },
+        StarArgSource::Required(i) => quote! {  Some(__required[#i])},
+        StarArgSource::Optional(i) => quote! { __optional[#i] },
         ref s => unreachable!("unknown source: {:?}", s),
     };
 
     // Rust doesn't have powerful enough nested if yet
     let next = if arg.pass_style == StarArgPassStyle::This {
-        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_this(#source)? }
+        syn::parse_quote! { starlark::eval::Arguments::check_this(#source)? }
     } else if arg.is_option() {
         assert!(
             arg.default.is_none(),
             "Can't have Option argument with a default, for `{}`",
             name_str
         );
-        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_optional(#name_str, #source)? }
+        syn::parse_quote! { starlark::eval::Arguments::check_optional(#name_str, #source)? }
     } else if !arg.is_value() && arg.default.is_some() {
         let default = arg
             .default
             .as_ref()
             .unwrap_or_else(|| unreachable!("Checked on the line above"));
-        syn::parse_quote_spanned! { span=>
+        syn::parse_quote! {
             {
                 // Combo
                 #[allow(clippy::manual_unwrap_or)]
@@ -505,7 +477,7 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
             }
         }
     } else {
-        syn::parse_quote_spanned! { span=> starlark::eval::Arguments::check_required(#name_str, #source)? }
+        syn::parse_quote! { starlark::eval::Arguments::check_required(#name_str, #source)? }
     };
 
     BindingArg {
@@ -526,12 +498,11 @@ enum Purpose {
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
 fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
-    let span = x.args_span();
     let name_str = ident_string(&x.name);
     let signature_var = format_ident!("__signature");
     let sig_args = render_signature_args(&x.args, &signature_var, purpose)?;
-    Ok(quote_spanned! {
-        span=> {
+    Ok(quote! {
+        {
             #[allow(unused_mut)]
             let mut #signature_var = starlark::eval::ParametersSpec::new(#name_str.to_owned());
             #sig_args
@@ -541,8 +512,6 @@ fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
 }
 
 fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
-    let span = x.args_span();
-
     // A signature is not needed to invoke positional-only functions, but we still want
     // information like names, order, type, etc to be available to call '.documentation()' on.
     let name_str = ident_string(&x.name);
@@ -554,8 +523,8 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         render_signature(x, Purpose::Documentation)?
     } else {
         // An Arguments can take anything, so give the most generic documentation signature
-        quote_spanned! {
-            span=> {
+        quote! {
+            {
                 let mut __signature = starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned());
                 __signature.args();
                 __signature.kwargs();
@@ -565,8 +534,8 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     };
 
     let docs = match x.docstring.as_ref() {
-        Some(d) => quote_spanned!(span=> Some(#d)),
-        None => quote_spanned!(span=> None),
+        Some(d) => quote!(Some(#d)),
+        None => quote!(None),
     };
     let parameter_types: Vec<syn::Expr> = x
         .args
@@ -578,26 +547,26 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
                     vec![]
                 }
                 StarArgPassStyle::Args => {
-                    let typ_str = render_starlark_type(span, &arg.ty);
-                    vec![syn::parse_quote_spanned! { span=>
+                    let typ_str = render_starlark_type(&arg.ty);
+                    vec![syn::parse_quote! {
                     starlark::typing::macro_support::unpack_args_item_ty(#typ_str) }]
                 }
                 StarArgPassStyle::Kwargs => {
-                    let typ_str = render_starlark_type(span, &arg.ty);
-                    vec![syn::parse_quote_spanned! { span=>
+                    let typ_str = render_starlark_type(&arg.ty);
+                    vec![syn::parse_quote! {
                     starlark::typing::macro_support::unpack_kwargs_value_ty(#typ_str) }]
                 }
                 StarArgPassStyle::PosOnly
                 | StarArgPassStyle::PosOrNamed
                 | StarArgPassStyle::NamedOnly => {
-                    let typ_str = render_starlark_type(span, arg.without_option());
-                    vec![syn::parse_quote_spanned! { span=> #typ_str }]
+                    let typ_str = render_starlark_type(arg.without_option());
+                    vec![syn::parse_quote! { #typ_str }]
                 }
                 StarArgPassStyle::Arguments => {
                     // `*args` and `**kwargs`.
                     vec![
-                        syn::parse_quote_spanned! { span=> starlark::typing::Ty::any() },
-                        syn::parse_quote_spanned! { span=> starlark::typing::Ty::any() },
+                        syn::parse_quote! { starlark::typing::Ty::any() },
+                        syn::parse_quote! { starlark::typing::Ty::any() },
                     ]
                 }
             }
@@ -607,7 +576,7 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
     let return_type_str = render_starlark_return_type(x);
     let var_name = format_ident!("__documentation");
     let as_type = x.as_type_expr();
-    let documentation = quote_spanned!(span=>
+    let documentation = quote!(
         let #var_name = {
             let parameter_types = std::vec![#(#parameter_types),*];
             starlark::values::function::NativeCallableRawDocs {
@@ -669,7 +638,7 @@ fn render_signature_args(
             }
             StarArgPassStyle::PosOrNamed => {
                 if last_param_style == CurrentParamStyle::PosOnly {
-                    sig_args.extend(quote_spanned! { arg.span=>
+                    sig_args.extend(quote! {
                         #signature_var.no_more_positional_only_args();
                     });
                 }
@@ -677,7 +646,7 @@ fn render_signature_args(
             }
             StarArgPassStyle::NamedOnly => {
                 if last_param_style < CurrentParamStyle::NamedOnly {
-                    sig_args.extend(quote_spanned! { arg.span=>
+                    sig_args.extend(quote! {
                         #signature_var.no_more_positional_args();
                     });
                 }
@@ -701,26 +670,24 @@ fn render_signature_arg(
     signature_var: &Ident,
     purpose: Purpose,
 ) -> syn::Result<TokenStream> {
-    let span = arg.span;
-
     let name_str = ident_string(&arg.name);
 
     if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
-        Ok(quote_spanned! { span=> #signature_var.args();})
+        Ok(quote! { #signature_var.args();})
     } else if arg.pass_style == StarArgPassStyle::Kwargs {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
-        Ok(quote_spanned! { span=> #signature_var.kwargs();})
+        Ok(quote! { #signature_var.kwargs();})
     } else if arg.pass_style == StarArgPassStyle::This {
-        Ok(quote_spanned! { span=> })
+        Ok(TokenStream::new())
     } else if arg.is_option() {
-        Ok(quote_spanned! { span=> #signature_var.optional(#name_str);})
+        Ok(quote! { #signature_var.optional(#name_str);})
     } else if let Some(default) = &arg.default {
         // For things that are type Value, we put them on the frozen heap.
         // For things that aren't type value, use optional and then next_opt/unwrap
         // to avoid the to/from value conversion.
         if arg.is_value() {
-            Ok(quote_spanned! { span=>
+            Ok(quote! {
                 #signature_var.defaulted(#name_str, globals_builder.alloc(#default));
             })
         } else if purpose == Purpose::Documentation
@@ -728,16 +695,16 @@ fn render_signature_arg(
         {
             // We want the repr of the default arugment to show up, so pass it along
             let frozen = render_default_as_frozen_value(default).unwrap();
-            Ok(quote_spanned! { span=>
+            Ok(quote! {
                 #signature_var.defaulted(#name_str, #frozen);
             })
         } else {
-            Ok(quote_spanned! { span=>
+            Ok(quote! {
                 #signature_var.optional(#name_str);
             })
         }
     } else {
-        Ok(quote_spanned! { span=>
+        Ok(quote! {
             #signature_var.required(#name_str);
         })
     }
