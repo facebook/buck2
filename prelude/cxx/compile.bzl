@@ -608,14 +608,15 @@ def _get_category(ext: CxxExtension) -> str:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown extension: " + ext.value)
 
-def _get_compile_base(compiler_info: typing.Any) -> cmd_args:
+def _get_compile_base(toolchain: CxxToolchainInfo, compiler_info: typing.Any) -> cmd_args:
     """
     Given a compiler info returned by _get_compiler_info, form the base compile args.
     """
 
-    cmd = cmd_args(compiler_info.compiler)
-
-    return cmd
+    if toolchain.remap_cwd and compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl"]:
+        return cmd_args(toolchain.remap_cwd, compiler_info.compiler)
+    else:
+        return cmd_args(compiler_info.compiler)
 
 def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
     # Raw assembly doesn't make sense to capture dep files for.
@@ -761,7 +762,7 @@ def _generate_base_compile_command(
     """
     toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = _get_compiler_info(toolchain, ext)
-    base_compile_cmd = _get_compile_base(compiler_info)
+    base_compile_cmd = _get_compile_base(toolchain, compiler_info)
     category = _get_category(ext)
 
     headers_dep_files = None

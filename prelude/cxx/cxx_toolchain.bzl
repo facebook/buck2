@@ -179,6 +179,7 @@ def cxx_toolchain_impl(ctx):
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
         target_sdk_version = get_toolchain_target_sdk_version(ctx),
         dist_lto_tools_info = ctx.attrs.dist_lto_tools[DistLtoToolsInfo],
+        remap_cwd = ctx.attrs._remap_cwd_tool[RunInfo] if ctx.attrs.remap_cwd else None,
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -225,6 +226,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "public_headers_symlinks_enabled": attrs.bool(default = True),
         "ranlib": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "rc_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "remap_cwd": attrs.bool(default = False),
         "requires_objects": attrs.bool(default = False),
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.set(attrs.dep(), sorted = True, default = []),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
@@ -255,6 +257,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:hmap_wrapper")),
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
+        "_remap_cwd_tool": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:remap_cwd")),
     } | cxx_toolchain_allow_cache_upload_args()
 
 def _cxx_toolchain_inheriting_target_platform_attrs():
