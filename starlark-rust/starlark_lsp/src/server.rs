@@ -2283,6 +2283,29 @@ mod tests {
         Ok(())
     }
 
+    fn resolve_range_in_string(s: &str, r: Range) -> &str {
+        let byte_of_pos = |p: Position| {
+            let l = if p.line == 0 {
+                0
+            } else {
+                s.char_indices()
+                    .filter(|(_, c)| *c == '\n')
+                    .nth((p.line - 1).try_into().unwrap())
+                    .unwrap()
+                    .0
+                    + 1
+            };
+            l + s[l..]
+                .char_indices()
+                .nth((p.character).try_into().unwrap())
+                .unwrap()
+                .0
+        };
+        let start = byte_of_pos(r.start);
+        let end = byte_of_pos(r.end);
+        &s[start..end]
+    }
+
     #[test]
     fn goto_works_for_native_symbols() -> anyhow::Result<()> {
         if is_wasm() {
@@ -2304,28 +2327,10 @@ mod tests {
         )
         .trim()
         .to_owned();
-        let native_contents = dedent(
-            r#"
-            def <n1_loc>native_function1</n1_loc>():
-                pass
-
-            def native_function2():
-                pass
-            "#,
-        )
-        .trim()
-        .to_owned();
 
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
-        let native = FixtureWithRanges::from_fixture(native_uri.path(), &native_contents)?;
 
         server.open_file(foo_uri.clone(), foo.program())?;
-
-        let expected_n1_location = expected_location_link_from_spans(
-            native_uri,
-            foo.resolved_span("click_n1"),
-            native.resolved_span("n1_loc"),
-        );
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -2336,7 +2341,16 @@ mod tests {
         let request_id = server.send_request(goto_definition)?;
         let n1_location = goto_definition_response_location(&mut server, request_id)?;
 
-        assert_eq!(expected_n1_location, n1_location);
+        assert_eq!(
+            n1_location.origin_selection_range,
+            Some(foo.resolved_span("click_n1").into())
+        );
+        assert_eq!(n1_location.target_uri, native_uri);
+        let native_gen_code = server
+            .docs_as_code(&native_uri.try_into().unwrap())
+            .unwrap();
+        let target_str = resolve_range_in_string(&native_gen_code, n1_location.target_range);
+        assert_eq!(target_str, "native_function1");
 
         let expected_n2_location = expected_location_link_from_spans(
             foo_uri.clone(),
