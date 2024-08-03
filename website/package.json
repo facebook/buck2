@@ -7,7 +7,7 @@
     "start": "docusaurus start",
     "generate": "../docs.py --prod",
     "generate_local": "../docs.py",
-    "build": "../docs.py --prod && docusaurus build",
+    "build": "../docs.py && docusaurus build",
     "build_cargo": "../docs.py --cargo && docusaurus build",
     "build_prebuilt": "../docs.py --buck2 $BUCK2_BIN && docusaurus build",
     "swizzle": "docusaurus swizzle",
