@@ -683,13 +683,13 @@ impl<'v> ParametersSpec<Value<'v>> {
                 };
 
                 // Add `*` before first named-only parameter.
-                let no_args = match kind {
+                let only_named_after = match kind {
                     ParameterKind::Args | ParameterKind::KWargs => None,
                     ParameterKind::Required
                     | ParameterKind::Optional
                     | ParameterKind::Defaulted(_) => {
                         if i == self.positional as usize {
-                            Some(DocParam::NoArgs)
+                            Some(DocParam::OnlyNamedAfter)
                         } else {
                             None
                         }
@@ -728,7 +728,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 };
                 only_pos_before
                     .into_iter()
-                    .chain(no_args)
+                    .chain(only_named_after)
                     .chain(iter::once(doc_param))
             })
             .chain(

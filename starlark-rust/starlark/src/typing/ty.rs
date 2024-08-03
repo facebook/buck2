@@ -528,7 +528,7 @@ impl Ty {
                         }
                     }
                 }
-                DocParam::NoArgs => seen_no_args = true,
+                DocParam::OnlyNamedAfter => seen_no_args = true,
                 DocParam::Args { tuple_elem_ty, .. } => {
                     seen_no_args = true;
                     params.push(Param::args(tuple_elem_ty.clone()))

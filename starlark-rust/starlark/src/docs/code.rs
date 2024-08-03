@@ -86,7 +86,7 @@ impl DocFunction {
             .params
             .iter()
             .map(|p| match p {
-                DocParam::NoArgs | DocParam::OnlyPosBefore => 0,
+                DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => 0,
                 DocParam::Arg { name, .. }
                 | DocParam::Args { name, .. }
                 | DocParam::Kwargs { name, .. } => name.len() + 2,
@@ -152,7 +152,7 @@ impl DocParam {
     fn starlark_docstring(&self, max_indentation: &str) -> Option<String> {
         let (name, docs) = match self {
             DocParam::Arg { name, docs, .. } => Some((name, docs)),
-            DocParam::NoArgs | DocParam::OnlyPosBefore => None,
+            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => None,
             DocParam::Args { name, docs, .. } => Some((name, docs)),
             DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
         }?;
@@ -175,7 +175,7 @@ impl DocParam {
                 (t, Some(default)) => format!("{}: {} = {}", name, t, default),
                 (t, None) => format!("{}: {}", name, t),
             },
-            DocParam::NoArgs => "*".to_owned(),
+            DocParam::OnlyNamedAfter => "*".to_owned(),
             DocParam::OnlyPosBefore => "/".to_owned(),
             DocParam::Args {
                 name,

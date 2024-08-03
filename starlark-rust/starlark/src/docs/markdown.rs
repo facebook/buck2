@@ -114,7 +114,7 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
         .iter()
         .filter(|p| match p {
             DocParam::Arg { docs, .. } => docs.is_some(),
-            DocParam::NoArgs | DocParam::OnlyPosBefore => false,
+            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => false,
             DocParam::Args { docs, .. } => docs.is_some(),
             DocParam::Kwargs { docs, .. } => docs.is_some(),
         })
@@ -128,7 +128,7 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
         .iter()
         .filter_map(|p| match p {
             DocParam::Arg { name, docs, .. } => Some((name, docs)),
-            DocParam::NoArgs | DocParam::OnlyPosBefore => None,
+            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => None,
             DocParam::Args { name, docs, .. } => Some((name, docs)),
             DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
         })
@@ -329,7 +329,7 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
                                 None => format!("{}{}", name, type_string),
                             }
                         }
-                        DocParam::NoArgs => "*".to_owned(),
+                        DocParam::OnlyNamedAfter => "*".to_owned(),
                         DocParam::OnlyPosBefore => "/".to_owned(),
                         DocParam::Args {
                             tuple_elem_ty,

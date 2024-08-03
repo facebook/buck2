@@ -123,8 +123,8 @@ pub enum DocParam {
         /// If present, this parameter has a default value. This is the `repr()` of that value.
         default_value: Option<String>,
     },
-    /// Represents the "*" argument.
-    NoArgs,
+    /// Represents the "*" argument from [PEP 3102](https://peps.python.org/pep-3102/).
+    OnlyNamedAfter,
     /// Represents the "/" argument from [PEP 570](https://peps.python.org/pep-0570/).
     OnlyPosBefore,
     /// Represents the "*args" style of argument.
