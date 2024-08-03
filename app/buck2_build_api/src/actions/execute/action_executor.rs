@@ -44,6 +44,7 @@ use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::prepared::PreparedCommand;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -411,7 +412,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn unpack_command_execution_result(
         &mut self,
-        request: &CommandExecutionRequest,
+        executor_preference: ExecutorPreference,
         result: CommandExecutionResult,
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
@@ -442,8 +443,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Command {
                             kind: Box::new(execution_kind.clone()),
-                            prefers_local: request.executor_preference().prefers_local(),
-                            requires_local: request.executor_preference().requires_local(),
+                            prefers_local: executor_preference.prefers_local(),
+                            requires_local: executor_preference.requires_local(),
                             allows_cache_upload,
                             did_cache_upload,
                             allows_dep_file_cache_upload,
@@ -860,7 +861,7 @@ mod tests {
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
-                ctx.unpack_command_execution_result(&req, res, false, false)?;
+                ctx.unpack_command_execution_result(req.executor_preference, res, false, false)?;
                 let outputs = self
                     .outputs
                     .iter()

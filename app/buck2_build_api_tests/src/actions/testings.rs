@@ -161,7 +161,8 @@ impl PristineActionExecutable for SimpleAction {
         let prepared_action = ctx.prepare_action(&req)?;
         let manager = ctx.command_execution_manager();
         let result = ctx.exec_cmd(manager, &req, &prepared_action).await;
-        let (outputs, meta) = ctx.unpack_command_execution_result(&req, result, false, false)?;
+        let (outputs, meta) =
+            ctx.unpack_command_execution_result(req.executor_preference, result, false, false)?;
 
         Ok((outputs, meta))
     }

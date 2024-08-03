@@ -291,7 +291,7 @@ pub struct CommandExecutionRequest {
     paths: CommandExecutionPaths,
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
-    executor_preference: ExecutorPreference,
+    pub executor_preference: ExecutorPreference,
     host_sharing_requirements: HostSharingRequirements,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
