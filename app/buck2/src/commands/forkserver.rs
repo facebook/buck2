@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -29,7 +28,7 @@ pub(crate) struct ForkserverCommand {
     fd: RawFd,
 
     #[clap(long)]
-    state_dir: PathBuf,
+    state_dir: AbsNormPathBuf,
 
     #[clap(long, value_parser = ResourceControlConfig::deserialize)]
     resource_control: ResourceControlConfig,
@@ -42,9 +41,7 @@ impl ForkserverCommand {
         _ctx: ClientCommandContext<'_>,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
-        let state_dir = AbsNormPathBuf::try_from(self.state_dir)?;
-
-        fs_util::create_dir_all(&state_dir)?;
+        fs_util::create_dir_all(&self.state_dir)?;
 
         let _todo_resource_control = self.resource_control;
 
@@ -61,7 +58,7 @@ impl ForkserverCommand {
             rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
                 log_reload_handle,
-                state_dir,
+                self.state_dir,
             ))
         }
 

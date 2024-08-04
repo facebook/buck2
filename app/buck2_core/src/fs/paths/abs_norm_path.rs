@@ -14,6 +14,7 @@ use std::ffi::OsString;
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use allocative::Allocative;
 use derive_more::Display;
@@ -771,6 +772,14 @@ impl TryFrom<PathBuf> for AbsNormPathBuf {
         let p = AbsPathBuf::try_from(p)?;
         verify_abs_path(&p)?;
         Ok(AbsNormPathBuf(p))
+    }
+}
+
+impl FromStr for AbsNormPathBuf {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        AbsNormPathBuf::try_from(s.to_owned())
     }
 }
 
