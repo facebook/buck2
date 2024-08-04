@@ -22,20 +22,40 @@ use anyhow::Context;
 /// We want to be independent of possible future changes to the default stack size in Rust.
 pub(crate) const THREAD_DEFAULT_STACK_SIZE: usize = 2 << 20;
 
+fn thread_builder(name: &str) -> thread::Builder {
+    thread::Builder::new()
+        .stack_size(THREAD_DEFAULT_STACK_SIZE)
+        .name(name.to_owned())
+}
+
 pub fn thread_spawn<T, F>(name: &str, code: F) -> std::io::Result<thread::JoinHandle<T>>
 where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static,
 {
-    thread::Builder::new()
-        .stack_size(THREAD_DEFAULT_STACK_SIZE)
-        .name(name.to_owned())
-        .spawn(move || {
-            on_thread_start();
-            let r = code();
-            on_thread_stop();
-            r
-        })
+    thread_builder(name).spawn(move || {
+        on_thread_start();
+        let r = code();
+        on_thread_stop();
+        r
+    })
+}
+
+pub fn thread_spawn_scoped<'scope, 'env: 'scope, T, F>(
+    name: &str,
+    scope: &'scope thread::Scope<'scope, 'env>,
+    code: F,
+) -> std::io::Result<thread::ScopedJoinHandle<'scope, T>>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'scope,
+{
+    thread_builder(name).spawn_scoped(scope, move || {
+        on_thread_start();
+        let r = code();
+        on_thread_stop();
+        r
+    })
 }
 
 pub(crate) fn stack_pointer() -> *const () {
