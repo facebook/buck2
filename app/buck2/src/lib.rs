@@ -317,7 +317,18 @@ impl CommandKind {
                 )
                 .into();
         }
+        self.exec_no_daemon(common_opts, process, immediate_config, matches, argv, paths)
+    }
 
+    fn exec_no_daemon(
+        self,
+        common_opts: BeforeSubcommandOptions,
+        process: ProcessContext<'_>,
+        immediate_config: &ImmediateConfigContext,
+        matches: &clap::ArgMatches,
+        argv: Argv,
+        paths: buck2_error::Result<InvocationPaths>,
+    ) -> ExitResult {
         if common_opts.no_buckd {
             // `no_buckd` can't work in a client-only binary
             if let Some(res) = ExitResult::retry_command_with_full_binary()? {
