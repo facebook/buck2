@@ -10,6 +10,8 @@
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
 
+use std::thread;
+
 use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
@@ -56,6 +58,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_starlark::StarlarkCommand;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
+use buck2_util::threads::thread_spawn_scoped;
 use clap::CommandFactory;
 use clap::FromArgMatches;
 use dupe::Dupe;
@@ -317,7 +320,18 @@ impl CommandKind {
                 )
                 .into();
         }
-        self.exec_no_daemon(common_opts, process, immediate_config, matches, argv, paths)
+        thread::scope(|scope| {
+            // Spawn a thread to have stack size independent on linker/environment.
+            match thread_spawn_scoped("buck2-main", scope, move || {
+                self.exec_no_daemon(common_opts, process, immediate_config, matches, argv, paths)
+            }) {
+                Ok(t) => match t.join() {
+                    Ok(res) => res,
+                    Err(_) => ExitResult::bail("Main thread panicked"),
+                },
+                Err(e) => ExitResult::bail(format_args!("Failed to start main thread: {}", e)),
+            }
+        })
     }
 
     fn exec_no_daemon(
