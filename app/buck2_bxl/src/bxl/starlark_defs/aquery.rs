@@ -78,7 +78,7 @@ pub(crate) struct StarlarkAQueryCtx<'v> {
     global_cfg_options_override: GlobalCfgOptions,
 }
 
-#[starlark_value(type = "aqueryctx", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.AqueryContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

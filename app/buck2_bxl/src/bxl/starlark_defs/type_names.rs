@@ -14,6 +14,7 @@ use starlark::starlark_module;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
+use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
 use crate::bxl::starlark_defs::audit::StarlarkAuditCtx;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
@@ -42,6 +43,7 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const CliArgs: StarlarkValueAsType<CliArgs> = StarlarkValueAsType::new();
     const Context: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
     const AuditContext: StarlarkValueAsType<StarlarkAuditCtx> = StarlarkValueAsType::new();
+    const AqueryContext: StarlarkValueAsType<StarlarkAQueryCtx> = StarlarkValueAsType::new();
     const CqueryContext: StarlarkValueAsType<StarlarkCQueryCtx> = StarlarkValueAsType::new();
     const UqueryContext: StarlarkValueAsType<StarlarkUQueryCtx> = StarlarkValueAsType::new();
     const Actions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();

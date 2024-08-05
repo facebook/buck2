@@ -38,7 +38,8 @@ Buck2 supports a couple different query types: querying the unconfigured graph
   [`bxl.UqueryContext`](../../api/bxl/bxl.UqueryContext)
 - `ctx.cquery()` returns a
   [`bxl.CqueryContext`](../../api/bxl/bxl.CqueryContext)
-- `ctx.aquery()` returns a [`aqueryctx`](../../api/bxl/aqueryctx)
+- `ctx.aquery()` returns a
+  [`bxl.AqueryContext`](../../api/bxl/bxl.AqueryContext)
 
 You can read more about the individual queries in the API docs. There are many
 queries that are common between uquery, cquery, and aquery, but cquery and
