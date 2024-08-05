@@ -122,7 +122,7 @@ impl DocFunction {
         }
     }
 
-    fn render_as_code(&self, name: &str) -> String {
+    pub fn render_as_code(&self, name: &str) -> String {
         let params: Vec<_> = self.params.iter().map(DocParam::render_as_code).collect();
         let spacer_len = if params.is_empty() {
             0
@@ -204,7 +204,7 @@ impl DocReturn {
 }
 
 impl DocProperty {
-    fn render_as_code(&self, name: &str) -> String {
+    pub fn render_as_code(&self, name: &str) -> String {
         match (
             &self.typ,
             self.docs.as_ref().map(DocString::render_as_quoted_code),

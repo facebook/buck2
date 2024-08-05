@@ -40,7 +40,6 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
-use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
@@ -69,8 +68,6 @@ use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::docs::DocProperty;
-use starlark::docs::Identifier;
-use starlark::docs::Location;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
 use starlark::typing::Ty;
@@ -145,42 +142,30 @@ impl DocsCacheManager {
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
         let global_interpreter_state = dice_ctx.get_global_interpreter_state().await?;
-        for (name, v) in get_builtin_globals_docs(global_interpreter_state)?.members {
-            builtin_docs.push(Doc {
-                id: Identifier {
-                    name,
-                    location: None,
-                },
-                item: v.to_doc_item(),
-                custom_attrs: HashMap::new(),
-            });
-        }
+        builtin_docs.push((None, get_builtin_globals_docs(global_interpreter_state)?));
 
-        let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
-        let prelude_docs = get_prelude_docs(dice_ctx, &builtin_names).await?;
-        builtin_docs.extend(prelude_docs);
-        DocsCache::new(&builtin_docs, dice_ctx, fs, &cell_resolver).await
+        let builtin_names = builtin_docs
+            .iter()
+            .flat_map(|(_, d)| d.members.keys().map(|s| s.as_str()))
+            .collect();
+        if let Some((import_path, docs)) = get_prelude_docs(dice_ctx, &builtin_names).await? {
+            builtin_docs.push((Some(import_path), docs));
+        }
+        DocsCache::new(&builtin_docs, fs, &cell_resolver).await
     }
 }
 
 async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
-) -> anyhow::Result<Vec<Doc>> {
+) -> anyhow::Result<Option<(ImportPath, DocModule)>> {
     let ctx = &mut ctx.clone();
     let cell_resolver = ctx.get_cell_resolver().await?;
     let Some(prelude_path) = prelude_path(&cell_resolver)? else {
-        return Ok(Vec::new());
+        return Ok(None);
     };
     let import_path = prelude_path.import_path();
 
-    // Do this so that we don't get the '@' in the display if we're printing targets from a
-    // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
-    let import_path_string = format!(
-        "{}:{}",
-        import_path.path().parent().unwrap(),
-        import_path.path().path().file_name().unwrap()
-    );
     let module = ctx.get_loaded_module_from_import_path(import_path).await?;
     let frozen_module = module.env();
     let mut module_docs = frozen_module.documentation();
@@ -200,23 +185,7 @@ async fn get_prelude_docs(
         }
     }
 
-    let mut docs = vec![];
-
-    docs.extend(module_docs.members.into_iter().map(|(symbol, d)| {
-        Doc {
-            // TODO(nmj): Map this back into the codemap to get a line/column
-            id: Identifier {
-                name: symbol,
-                location: Some(Location {
-                    path: import_path_string.clone(),
-                }),
-            },
-            item: d.to_doc_item(),
-            custom_attrs: Default::default(),
-        }
-    }));
-
-    Ok(docs)
+    Ok(Some((import_path.clone(), module_docs)))
 }
 
 /// Store rendered starlark representations of Doc objects for builtin symbols,
@@ -241,90 +210,80 @@ enum DocsCacheError {
 
 impl DocsCache {
     async fn get_prelude_uri(
-        location: &Location,
-        dice_ctx: &DiceTransaction,
+        location: &ImportPath,
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<LspUrl> {
-        // We strip the "@" off of the path normally to avoid having it in the docs,
-        // in paths, etc, but it needs to be put back in to create an import path correctly.
-        let path = if location.path.contains("//")
-            && !location.path.starts_with('@')
-            && !location.path.starts_with("//")
-        {
-            format!("@{}", location.path)
-        } else {
-            location.path.to_owned()
-        };
-
-        let bfc = BuildFileCell::new(cell_resolver.root_cell());
-        let mut dice_ctx = dice_ctx.clone();
-        let calculator = dice_ctx
-            .get_interpreter_calculator(cell_resolver.root_cell(), bfc)
-            .await?;
-
-        let root_import_path = ImportPath::new_same_cell(
-            cell_resolver.get_cell_path(ProjectRelativePath::new("non_existent.bzl")?)?,
-        )?;
-        let starlark_file = StarlarkPath::LoadFile(&root_import_path);
-        let loaded_import_path = calculator.resolve_load(starlark_file, &path).await?;
-
-        let relative_path =
-            cell_resolver.resolve_path(loaded_import_path.borrow().path().as_ref())?;
+        let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
         let abs_path = fs.resolve(&relative_path);
         Ok(Url::from_file_path(abs_path).unwrap().try_into()?)
     }
 
     async fn new(
-        builtin_symbols: &[Doc],
-        dice_ctx: &DiceTransaction,
+        builtin_symbols: &[(Option<ImportPath>, DocModule)],
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> anyhow::Result<Self> {
         Self::new_with_lookup(builtin_symbols, |location| async {
-            Self::get_prelude_uri(location, dice_ctx, fs, cell_resolver).await
+            Self::get_prelude_uri(location, fs, cell_resolver).await
         })
         .await
     }
 
     async fn new_with_lookup<
         'a,
-        F: Fn(&'a Location) -> Fut + 'a,
+        F: Fn(&'a ImportPath) -> Fut + 'a,
         Fut: Future<Output = anyhow::Result<LspUrl>>,
     >(
-        builtin_symbols: &'a [Doc],
+        builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
         location_lookup: F,
     ) -> anyhow::Result<Self> {
         let mut global_urls = HashMap::with_capacity(builtin_symbols.len());
-        let mut native_starlark_files = HashMap::new();
-        for doc in builtin_symbols {
-            let url = match &doc.id.location {
-                Some(l) => location_lookup(l).await?,
-                None => {
-                    let filename = Path::new(&doc.id.name);
-                    let filename = filename.with_extension(match filename.extension() {
-                        None => "bzl".to_owned(),
-                        Some(e) => format!("{}.bzl", e.to_str().expect("path is UTF-8")),
-                    });
-                    let path = Path::new("/native")
-                        .join(output_subdir_for_doc(doc)?.as_path())
-                        .join(filename);
 
-                    let url =
-                        LspUrl::try_from(Url::parse(&format!("starlark:{}", path.display()))?)?;
-
-                    native_starlark_files.insert(url.clone(), doc.render_as_code());
-                    url
-                }
-            };
-            if let Some(existing) = global_urls.insert(doc.id.name.clone(), url.clone()) {
-                return Err(DocsCacheError::DuplicateGlobalSymbol {
-                    name: doc.id.name.clone(),
+        let mut insert_global = |sym: String, url: LspUrl| {
+            if let Some(existing) = global_urls.insert(sym.clone(), url.clone()) {
+                Err(DocsCacheError::DuplicateGlobalSymbol {
+                    name: sym,
                     existing,
                     new: url,
                 }
-                .into());
+                .into())
+            } else {
+                anyhow::Ok(())
             }
+        };
+
+        let mut native_starlark_files = HashMap::new();
+        for (import_path, docs) in builtin_symbols {
+            match import_path {
+                Some(l) => {
+                    let url = location_lookup(l).await?;
+                    for (sym, _) in &docs.members {
+                        insert_global(sym.clone(), url.clone())?;
+                    }
+                }
+                None => {
+                    for (sym, mem) in &docs.members {
+                        let filename = Path::new(&sym);
+                        let filename = filename.with_extension(match filename.extension() {
+                            None => "bzl".to_owned(),
+                            Some(e) => format!("{}.bzl", e.to_str().expect("path is UTF-8")),
+                        });
+                        let path = Path::new("/native").join(filename);
+
+                        let url =
+                            LspUrl::try_from(Url::parse(&format!("starlark:{}", path.display()))?)?;
+                        let rendered = match mem {
+                            DocMember::Function(f) => f.render_as_code(sym),
+                            DocMember::Property(p) => p.render_as_code(sym),
+                        };
+                        let prev = native_starlark_files.insert(url.clone(), rendered);
+                        assert!(prev.is_none());
+
+                        insert_global(sym.clone(), url)?;
+                    }
+                }
+            };
         }
         Ok(Self {
             global_urls,
@@ -991,58 +950,63 @@ fn handle_outgoing_lsp_message(
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::bzl::ImportPath;
     use lsp_types::Url;
-    use maplit::hashmap;
-    use starlark::docs::Doc;
     use starlark::docs::DocFunction;
-    use starlark::docs::DocItem;
-    use starlark::docs::Identifier;
-    use starlark::docs::Location;
+    use starlark::docs::DocMember;
+    use starlark::docs::DocModule;
     use starlark_lsp::server::LspUrl;
 
     use crate::lsp::DocsCache;
-    use crate::lsp::DOCS_DIRECTORY_KEY;
 
     #[test]
     fn cache_builds() -> anyhow::Result<()> {
+        const P: &str = "cell//foo:bar.bzl";
+
         let docs = vec![
-            Doc {
-                id: Identifier {
-                    name: "native_function1".to_owned(),
-                    location: None,
+            (
+                None,
+                DocModule {
+                    docs: None,
+                    members: [
+                        (
+                            "native_function1".to_owned(),
+                            DocMember::Function(DocFunction::default()),
+                        ),
+                        (
+                            "native_function2".to_owned(),
+                            DocMember::Function(DocFunction::default()),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
-                item: DocItem::Function(DocFunction::default()),
-                custom_attrs: Default::default(),
-            },
-            Doc {
-                id: Identifier {
-                    name: "native_function2".to_owned(),
-                    location: None,
+            ),
+            (
+                Some(ImportPath::testing_new(P)),
+                DocModule {
+                    docs: None,
+                    members: [(
+                        "prelude_function".to_owned(),
+                        DocMember::Function(DocFunction::default()),
+                    )]
+                    .into_iter()
+                    .collect(),
                 },
-                item: DocItem::Function(DocFunction::default()),
-                custom_attrs: hashmap! { DOCS_DIRECTORY_KEY.to_owned() => "subdir".to_owned() },
-            },
-            Doc {
-                id: Identifier {
-                    name: "prelude_function".to_owned(),
-                    location: Some(Location {
-                        path: "//dir/prelude.bzl".to_owned(),
-                    }),
-                },
-                item: DocItem::Function(DocFunction::default()),
-                custom_attrs: Default::default(),
-            },
+            ),
         ];
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
-        async fn lookup_function(location: &Location) -> anyhow::Result<LspUrl> {
-            match location.path.as_str() {
-                "//dir/prelude.bzl" => Ok(LspUrl::try_from(Url::parse(
+
+        async fn lookup_function(location: &ImportPath) -> anyhow::Result<LspUrl> {
+            if location == &ImportPath::testing_new(P) {
+                Ok(LspUrl::try_from(Url::parse(
                     "file:///usr/local/dir/prelude.bzl",
-                )?)?),
-                p => Err(anyhow::anyhow!("Unknown path {}", p)),
+                )?)?)
+            } else {
+                Err(anyhow::anyhow!("Unknown path {}", location))
             }
         }
 
@@ -1054,7 +1018,7 @@ mod tests {
             cache.url_for_symbol("native_function1").unwrap()
         );
         assert_eq!(
-            &LspUrl::try_from(Url::parse("starlark:/native/subdir/native_function2.bzl")?)?,
+            &LspUrl::try_from(Url::parse("starlark:/native/native_function2.bzl")?)?,
             cache.url_for_symbol("native_function2").unwrap()
         );
         assert_eq!(
