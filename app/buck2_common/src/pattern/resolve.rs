@@ -309,10 +309,12 @@ mod tests {
                             TargetName::testing_new("other_target"),
                             ProvidersPatternExtra {
                                 providers: ProvidersName::NonDefault(Box::new(
-                                    NonDefaultProvidersName::Named(Box::new([ProviderName::new(
-                                        "my-label".to_owned(),
-                                    )
-                                    .unwrap()])),
+                                    NonDefaultProvidersName::Named(
+                                        buck2_util::arc_str::ArcSlice::new([ProviderName::new(
+                                            "my-label".to_owned(),
+                                        )
+                                        .unwrap()]),
+                                    ),
                                 )),
                             },
                         ),

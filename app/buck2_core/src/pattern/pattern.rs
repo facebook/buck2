@@ -133,7 +133,7 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
         Ok((
             t,
             ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                names.into_boxed_slice(),
+                buck2_util::arc_str::ArcSlice::from_iter(names),
             ))),
         ))
     } else {
@@ -1125,8 +1125,9 @@ mod tests {
             ProvidersPatternExtra {
                 providers: providers.map_or(ProvidersName::Default, |n| {
                     ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                        n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
-                            .into_boxed_slice(),
+                        buck2_util::arc_str::ArcSlice::from_iter(
+                            n.map(|s| ProviderName::new((*s).to_owned()).unwrap()),
+                        ),
                     )))
                 }),
             },

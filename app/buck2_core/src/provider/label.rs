@@ -13,6 +13,8 @@ use std::fmt::Formatter;
 use std::iter;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcSlice;
+use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
 use serde::Serialize;
@@ -65,14 +67,14 @@ impl ProviderName {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub enum NonDefaultProvidersName {
-    Named(Box<[ProviderName]>),
+    Named(ArcSlice<ProviderName>),
     // For some flavors from buck1, we can translate them to ProvidersName::Named
     // as we know that we can implement them as a subtarget. For many flavored targets,
     // we can't do that. For those cases, we parse them to this "UnrecognizedFlavor" so
     // that we can defer any errors related to us not supporting it.
-    UnrecognizedFlavor(Box<str>),
+    UnrecognizedFlavor(ArcStr),
     // TODO(cjhopman): We should add an InferredNamed for flavors where we infer a name
     // so that we can display them in their original form.
 }
@@ -128,7 +130,7 @@ impl ProvidersName {
             },
         };
         ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-            items.into_boxed_slice(),
+            ArcSlice::from_iter(items),
         )))
     }
 }
@@ -306,8 +308,7 @@ pub mod testing {
                 ),
                 match name {
                     Some(n) => ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                        n.map(|s| ProviderName::new((*s).to_owned()).unwrap())
-                            .into_boxed_slice(),
+                        ArcSlice::from_iter(n.map(|s| ProviderName::new((*s).to_owned()).unwrap())),
                     ))),
                     _ => ProvidersName::Default,
                 },

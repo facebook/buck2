@@ -304,7 +304,7 @@ fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<P
         ProvidersName::Default
     } else {
         ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-            subtarget.into_boxed_slice(),
+            buck2_util::arc_str::ArcSlice::from_iter(subtarget),
         )))
     })
 }

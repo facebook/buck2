@@ -310,6 +310,7 @@ mod tests {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
+    use buck2_util::arc_str::ArcSlice;
     use starlark::assert::Assert;
     use starlark::environment::GlobalsBuilder;
     use starlark::starlark_module;
@@ -327,11 +328,10 @@ mod tests {
                         ConfigurationData::testing_new(),
                     ),
                     ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                        vec![
+                        ArcSlice::new([
                             ProviderName::new("qux".to_owned())?,
                             ProviderName::new("quux".to_owned())?,
-                        ]
-                        .into_boxed_slice(),
+                        ]),
                     ))),
                 ),
             })
@@ -342,11 +342,10 @@ mod tests {
                 label: ProvidersLabel::new(
                     TargetLabel::testing_parse("foo//bar:baz"),
                     ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
-                        vec![
+                        ArcSlice::new([
                             ProviderName::new("qux".to_owned())?,
                             ProviderName::new("quux".to_owned())?,
-                        ]
-                        .into_boxed_slice(),
+                        ]),
                     ))),
                 ),
             })
