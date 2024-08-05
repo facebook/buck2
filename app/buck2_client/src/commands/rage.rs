@@ -13,7 +13,7 @@ mod manifold;
 mod materializer;
 mod source_control;
 mod system_info;
-mod thread_dump;
+pub(crate) mod thread_dump;
 
 use std::collections::HashMap;
 use std::fmt;

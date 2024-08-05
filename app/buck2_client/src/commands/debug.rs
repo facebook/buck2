@@ -31,6 +31,7 @@ use crate::commands::debug::paranoid::ParanoidCommand;
 use crate::commands::debug::persist_event_logs::PersistEventLogsCommand;
 use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
+use crate::commands::debug::thread_dump::ThreadDumpCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
 use crate::commands::debug::upload_re_logs::UploadReLogsCommand;
 use crate::commands::log::debug_replay::DebugReplayCommand;
@@ -54,6 +55,7 @@ mod paranoid;
 mod persist_event_logs;
 mod segfault;
 mod set_log_filter;
+mod thread_dump;
 mod trace_io;
 pub(crate) mod upload_re_logs;
 
@@ -103,6 +105,7 @@ pub enum DebugCommand {
     #[clap(subcommand)]
     Paranoid(ParanoidCommand),
     Eval(EvalCommand),
+    ThreadDump(ThreadDumpCommand),
 }
 
 impl DebugCommand {
@@ -131,6 +134,7 @@ impl DebugCommand {
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
         }
     }
 
