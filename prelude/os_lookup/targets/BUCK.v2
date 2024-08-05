@@ -1,5 +1,5 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load("//os_lookup:defs.bzl", "os_lookup")
+load("@prelude//os_lookup:defs.bzl", "os_lookup")
 
 oncall("build_infra")
 
