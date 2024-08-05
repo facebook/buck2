@@ -41,7 +41,7 @@ pub mod materialize;
 pub mod query;
 pub mod spawner;
 pub mod transition;
-pub mod validation_impl;
+pub mod validation;
 
 pub fn init_late_bindings() {
     static ONCE: Once = Once::new();

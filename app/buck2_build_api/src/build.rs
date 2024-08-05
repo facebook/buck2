@@ -55,7 +55,7 @@ use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
 use crate::materialize::materialize_artifact_group;
 use crate::materialize::MaterializationStrategy;
-use crate::validation_impl::VALIDATION_IMPL;
+use crate::validation::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
 pub mod build_report;

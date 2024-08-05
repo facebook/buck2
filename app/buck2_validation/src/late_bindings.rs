@@ -11,8 +11,8 @@ use std::sync::Once;
 
 use async_trait::async_trait;
 use buck2_build_api::materialize::MaterializationContext;
-use buck2_build_api::validation_impl::ValidationImpl;
-use buck2_build_api::validation_impl::VALIDATION_IMPL;
+use buck2_build_api::validation::validation_impl::ValidationImpl;
+use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::LinearRecomputeDiceComputations;
 
