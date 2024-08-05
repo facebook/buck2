@@ -89,13 +89,14 @@ fn builtin_doc<S: ToString>(name: S, directory: &str, module: DocModule) -> Doc 
     }
 }
 
-fn get_builtin_global_starlark_docs() -> Doc {
-    let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
-    builtin_doc("globals", "standard", globals.documentation())
+fn get_builtin_global_starlark_docs() -> DocModule {
+    Globals::extended_by(starlark_library_extensions_for_buck2()).documentation()
 }
 
 /// Globals that are in the interpreter (including BXL), but none of the starlark global symbols.
-fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Doc> {
+fn get_builtin_build_docs(
+    interpreter_state: Arc<GlobalInterpreterState>,
+) -> anyhow::Result<DocModule> {
     let mut b_o = interpreter_state.global_env.documentation();
     let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
     let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
@@ -104,15 +105,24 @@ fn get_builtin_build_docs(interpreter_state: Arc<GlobalInterpreterState>) -> any
         .into_iter()
         .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
         .collect();
-    Ok(builtin_doc("globals", "", b_o))
+    Ok(b_o)
+}
+
+pub fn get_builtin_globals_docs(
+    interpreter_state: Arc<GlobalInterpreterState>,
+) -> anyhow::Result<DocModule> {
+    let mut docs = get_builtin_global_starlark_docs();
+    docs.members
+        .extend(get_builtin_build_docs(interpreter_state)?.members);
+    Ok(docs)
 }
 
 pub fn get_builtin_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
     let mut all_builtins = vec![
-        get_builtin_global_starlark_docs(),
-        get_builtin_build_docs(interpreter_state)?,
+        builtin_doc("globals", "standard", get_builtin_global_starlark_docs()),
+        builtin_doc("globals", "", get_builtin_build_docs(interpreter_state)?),
     ];
 
     all_builtins.extend(get_registered_starlark_docs());

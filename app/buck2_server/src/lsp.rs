@@ -86,7 +86,7 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
-use crate::builtin_docs::docs::get_builtin_docs;
+use crate::builtin_docs::docs::get_builtin_globals_docs;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
@@ -166,9 +166,21 @@ impl DocsCacheManager {
                 .collect::<Vec<_>>()
         }
 
+        let mut builtin_docs = Vec::new();
+
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
         let global_interpreter_state = dice_ctx.get_global_interpreter_state().await?;
-        let mut builtin_docs = flatten(get_builtin_docs(global_interpreter_state)?);
+        for (name, v) in get_builtin_globals_docs(global_interpreter_state)?.members {
+            builtin_docs.push(Doc {
+                id: Identifier {
+                    name,
+                    location: None,
+                },
+                item: v.to_doc_item(),
+                custom_attrs: HashMap::new(),
+            });
+        }
+
         let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
         let prelude_docs = flatten(get_prelude_docs(dice_ctx, &builtin_names).await?);
         builtin_docs.extend(prelude_docs);
