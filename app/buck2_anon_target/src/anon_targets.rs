@@ -16,6 +16,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
+use buck2_analysis::analysis::env::get_deps_from_analysis_results;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::analysis::env::RuleSpec;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -320,10 +321,14 @@ impl AnonTargetKey {
                         eval.set_print_handler(&print);
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
+                        let dep_analysis_results = get_deps_from_analysis_results(
+                            dependents_analyses.dep_analysis_results,
+                        )?;
+
                         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
                         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
                             module: &env,
-                            dep_analysis_results: dependents_analyses.dep_analysis_results,
+                            dep_analysis_results,
                             query_results: HashMap::new(),
                             execution_platform_resolution: exec_resolution.clone(),
                         };

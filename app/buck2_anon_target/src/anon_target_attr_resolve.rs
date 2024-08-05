@@ -17,11 +17,11 @@ use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -181,8 +181,7 @@ pub(crate) struct AnonTargetDependents {
 
 // Container for analysis results of the anon target dependents.
 pub(crate) struct AnonTargetDependentAnalysisResults<'v> {
-    pub(crate) dep_analysis_results:
-        HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    pub(crate) dep_analysis_results: Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>,
     pub(crate) promised_artifacts: HashMap<&'v PromiseArtifactAttr, Artifact>,
 }
 
@@ -238,22 +237,17 @@ impl AnonTargetDependents {
         &'v self,
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
-        let dep_analysis_results: HashMap<_, _> = {
+        let dep_analysis_results =
             KeepGoing::try_compute_join_all(dice, self.deps.iter(), |ctx, dep| {
                 async move {
-                    let res = ctx
-                        .get_analysis_result(dep)
+                    ctx.get_analysis_result(dep)
                         .await
-                        .and_then(|v| v.require_compatible());
-                    res.map(|x| (dep, x.providers().dupe()))
+                        .and_then(|v| v.require_compatible())
+                        .map(|r| (dep, r))
                 }
                 .boxed()
             })
-        }
-        .await?
-        .into_iter()
-        .collect();
-
+            .await?;
         let promised_artifacts: HashMap<_, _> = {
             KeepGoing::try_compute_join_all(
                 dice,
