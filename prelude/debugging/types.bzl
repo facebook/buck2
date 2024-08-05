@@ -17,7 +17,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 # Even though arguments are available in "bxl_ctx", when using ctx.dynamic_output it's not possible to access arguments from there
 # One way to work this around is by capturing an object in a closure and this type is used to carry the contract for this object
 ScriptSettings = record(
-    target = field("target_node"),
+    target = field(bxl.ConfiguredTargetNode),
     args = field(list[ArgLike], default = []),
 )
 
