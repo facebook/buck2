@@ -180,7 +180,7 @@ pub trait RuleSpec: Sync {
 /// Container for the environment that analysis implementation functions should run in
 struct AnalysisEnv<'a> {
     rule_spec: &'a dyn RuleSpec,
-    deps: HashMap<&'a ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    deps: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
     query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     label: ConfiguredTargetLabel,
@@ -196,28 +196,14 @@ pub(crate) async fn run_analysis<'a>(
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileMode,
 ) -> anyhow::Result<AnalysisResult> {
-    let analysis_env =
-        AnalysisEnv::new(label, results, query_results, execution_platform, rule_spec)?;
+    let analysis_env = AnalysisEnv {
+        rule_spec,
+        deps: results,
+        query_results,
+        execution_platform,
+        label: label.dupe(),
+    };
     run_analysis_with_env(dice, analysis_env, node, profile_mode).await
-}
-
-impl<'a> AnalysisEnv<'a> {
-    /// Create a new `AnalysisEnv`, ensuring that all heaps are kept alive that need to be
-    fn new(
-        label: &ConfiguredTargetLabel,
-        results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
-        query_results: HashMap<String, Arc<AnalysisQueryResult>>,
-        execution_platform: &'a ExecutionPlatformResolution,
-        rule_spec: &'a dyn RuleSpec,
-    ) -> anyhow::Result<Self> {
-        Ok(AnalysisEnv {
-            rule_spec,
-            deps: get_deps_from_analysis_results(results)?,
-            query_results,
-            execution_platform,
-            label: label.dupe(),
-        })
-    }
 }
 
 pub fn get_deps_from_analysis_results(
@@ -256,9 +242,10 @@ async fn run_analysis_with_env_underlying(
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
     let (attributes, plugins) = {
+        let dep_analysis_results = get_deps_from_analysis_results(analysis_env.deps)?;
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: &env,
-            dep_analysis_results: analysis_env.deps,
+            dep_analysis_results,
             query_results: analysis_env.query_results,
             execution_platform_resolution: node.execution_platform_resolution().clone(),
         };
