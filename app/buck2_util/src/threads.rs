@@ -20,7 +20,14 @@ use anyhow::Context;
 /// Default stack size for buck2.
 ///
 /// We want to be independent of possible future changes to the default stack size in Rust.
-pub(crate) const THREAD_DEFAULT_STACK_SIZE: usize = 2 << 20;
+pub(crate) const THREAD_DEFAULT_STACK_SIZE: usize = {
+    if cfg!(debug) {
+        // Need 4MB according to D60449433.
+        4 << 20
+    } else {
+        2 << 20
+    }
+};
 
 fn thread_builder(name: &str) -> thread::Builder {
     thread::Builder::new()
