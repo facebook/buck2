@@ -50,7 +50,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
-use dice::DiceComputations;
 use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -143,29 +142,6 @@ impl DocsCacheManager {
         fs: &ProjectRoot,
         dice_ctx: &mut DiceTransaction,
     ) -> anyhow::Result<DocsCache> {
-        fn flatten(docs: Vec<Doc>) -> Vec<Doc> {
-            docs.into_iter()
-                .flat_map(|x| match x.item {
-                    DocItem::Module(module) => module
-                        .members
-                        .into_iter()
-                        .map(|(name, v)| Doc {
-                            id: Identifier {
-                                name,
-                                location: x.id.location.clone(),
-                            },
-                            item: v.to_doc_item(),
-                            custom_attrs: x.custom_attrs.clone(),
-                        })
-                        .collect(),
-                    DocItem::Object(_) => vec![],
-                    _ => {
-                        vec![x]
-                    }
-                })
-                .collect::<Vec<_>>()
-        }
-
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
@@ -182,7 +158,7 @@ impl DocsCacheManager {
         }
 
         let builtin_names = builtin_docs.iter().map(|d| d.id.name.as_str()).collect();
-        let prelude_docs = flatten(get_prelude_docs(dice_ctx, &builtin_names).await?);
+        let prelude_docs = get_prelude_docs(dice_ctx, &builtin_names).await?;
         builtin_docs.extend(prelude_docs);
         DocsCache::new(&builtin_docs, dice_ctx, fs, &cell_resolver).await
     }
@@ -192,24 +168,13 @@ async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
 ) -> anyhow::Result<Vec<Doc>> {
-    let cell_resolver = ctx.clone().get_cell_resolver().await?;
+    let ctx = &mut ctx.clone();
+    let cell_resolver = ctx.get_cell_resolver().await?;
     let Some(prelude_path) = prelude_path(&cell_resolver)? else {
         return Ok(Vec::new());
     };
-    get_docs_from_module(
-        &mut ctx.clone(),
-        prelude_path.import_path(),
-        Some(existing_globals),
-    )
-    .await
-}
+    let import_path = prelude_path.import_path();
 
-async fn get_docs_from_module(
-    ctx: &mut DiceComputations<'_>,
-    import_path: &ImportPath,
-    // If we want to promote `native`, what should we exclude
-    promote_native: Option<&HashSet<&str>>,
-) -> anyhow::Result<Vec<Doc>> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
     let import_path_string = format!(
@@ -222,19 +187,17 @@ async fn get_docs_from_module(
     let mut module_docs = frozen_module.documentation();
 
     // For the prelude, we want to promote `native` symbol up one level
-    if let Some(existing_globals) = promote_native {
-        for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
-            if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-                let doc = match value.to_value().documentation() {
-                    Some(DocItem::Function(f)) => DocMember::Function(f),
-                    _ => DocMember::Property(DocProperty {
-                        docs: None,
-                        typ: Ty::any(),
-                    }),
-                };
+    for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
+        if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
+            let doc = match value.to_value().documentation() {
+                Some(DocItem::Function(f)) => DocMember::Function(f),
+                _ => DocMember::Property(DocProperty {
+                    docs: None,
+                    typ: Ty::any(),
+                }),
+            };
 
-                module_docs.members.insert(name.to_owned(), doc);
-            }
+            module_docs.members.insert(name.to_owned(), doc);
         }
     }
 
@@ -269,7 +232,27 @@ async fn get_docs_from_module(
         }
     }));
 
-    Ok(docs)
+    Ok(docs
+        .into_iter()
+        .flat_map(|x| match x.item {
+            DocItem::Module(module) => module
+                .members
+                .into_iter()
+                .map(|(name, v)| Doc {
+                    id: Identifier {
+                        name,
+                        location: x.id.location.clone(),
+                    },
+                    item: v.to_doc_item(),
+                    custom_attrs: x.custom_attrs.clone(),
+                })
+                .collect(),
+            DocItem::Object(_) => vec![],
+            _ => {
+                vec![x]
+            }
+        })
+        .collect::<Vec<_>>())
 }
 
 /// Store rendered starlark representations of Doc objects for builtin symbols,
