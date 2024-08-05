@@ -8,7 +8,7 @@
 load("@prelude//utils:set.bzl", "set")
 load(":dependencies_test_util.bzl", "rule_list_regex")
 
-def _audit_dependents_test(ctx: BxlContext, source_target: TargetLabel, target: TargetLabel, allowlist_patterns: list[str]):
+def _audit_dependents_test(ctx: bxl.Context, source_target: TargetLabel, target: TargetLabel, allowlist_patterns: list[str]):
     """Checks dependents of a given target in a dependency graph of a source target.
 
        Test passes if only targets that match allowlist_patterns have direct dependency on target (in source_target's target universe).
@@ -26,7 +26,7 @@ def _audit_dependents_test(ctx: BxlContext, source_target: TargetLabel, target: 
         res = set([str(target.label.raw_target()) for target in blocklisted])
         fail("Disallowed rules were found between {} and {}: {}!".format(source_target, target, res.list()))
 
-def _impl_audit_dependents_test(ctx: BxlContext):
+def _impl_audit_dependents_test(ctx: bxl.Context):
     _audit_dependents_test(ctx, ctx.cli_args.source_target, ctx.cli_args.target, ctx.cli_args.allowlist_patterns)
 
 test = bxl_main(

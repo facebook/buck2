@@ -12,7 +12,7 @@ load(":dependencies_test_util.bzl", "rule_list_regex")
 _MAX_DEPTH = 2147483647
 
 def _impl_check_dependencies_test(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         allowlist_patterns: list[str] | None,
         blocklist_patterns: list[str] | None,
         target: TargetLabel):
@@ -55,7 +55,7 @@ def _impl_check_dependencies_test(
         if len(res) > 0:
             fail("Found blocklisted targets: {}!".format(res))
 
-def _impl(ctx: BxlContext):
+def _impl(ctx: bxl.Context):
     _impl_check_dependencies_test(ctx, ctx.cli_args.allowlist_patterns, ctx.cli_args.blocklist_patterns, ctx.cli_args.target)
 
 test = bxl_main(

@@ -9,7 +9,7 @@ load("@prelude//utils:set.bzl", "set")
 
 _MAX_DEPTH = 2147483647
 
-def _assert_dependencies_test(ctx: BxlContext, expected_deps: list[TargetLabel], target: TargetLabel):
+def _assert_dependencies_test(ctx: bxl.Context, expected_deps: list[TargetLabel], target: TargetLabel):
     """Checks the dependencies of a given rule looking for expected dependencies.
 
        Test passes if each of expected_deps is a dependency of the target.
@@ -26,7 +26,7 @@ def _assert_dependencies_test(ctx: BxlContext, expected_deps: list[TargetLabel],
     if len(not_found) > 0:
         fail("Expected dependencies not found: {}".format(not_found))
 
-def _impl_assert_dep_test(ctx: BxlContext):
+def _impl_assert_dep_test(ctx: bxl.Context):
     _assert_dependencies_test(ctx, ctx.cli_args.deps, ctx.cli_args.target)
 
 test = bxl_main(

@@ -31,7 +31,7 @@ MappedSrc = record(
 )
 
 def materialize(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         target: bxl.ConfiguredTargetNode) -> bxl.EnsuredArtifact:
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
@@ -40,7 +40,7 @@ def materialize(
     return ctx.output.ensure(sources).abs_path()
 
 def _process_target_config(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         target: bxl.ConfiguredTargetNode,
         analysis: bxl.AnalysisResult,
         in_workspace: bool) -> TargetInfo:
@@ -118,7 +118,7 @@ def _process_target_config(
     return copy
 
 def cquery_deps(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         top_targets: list[TargetLabel],
         workspaces: list[TargetLabel],
         actions: AnalysisActions) -> dict[TargetLabel, TargetInfo]:
@@ -166,7 +166,7 @@ def cquery_deps(
     return out
 
 def materialize_generated_protobufs(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         target: bxl.ConfiguredTargetNode,
         actions: AnalysisActions,
         seen: dict[str, bxl.EnsuredArtifact]) -> bxl.EnsuredArtifact:
@@ -188,7 +188,7 @@ def materialize_generated_protobufs(
     return artifact.abs_path()
 
 def materialize_generated_thrift(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         actions: AnalysisActions,
         mapped_srcs: list[MappedSrc],
         out: dict[TargetLabel, TargetInfo]) -> None:
@@ -212,7 +212,7 @@ def materialize_generated_thrift(
             out[m.target.label.raw_target()]["crate_root"] = artifact.abs_path()
 
 def expand_proc_macros(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         targets: list[TargetLabel]) -> dict[TargetLabel, MacroOutput]:
     target_universe = ctx.target_universe(targets).target_set()
     targets = ctx.cquery().deps(target_universe)
@@ -234,7 +234,7 @@ def expand_proc_macros(
 
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(
-        ctx: BxlContext,
+        ctx: bxl.Context,
         targets: list[TargetLabel]) -> (list[TargetLabel], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
     kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias)$", target_universe)
@@ -278,7 +278,7 @@ def expand_targets(
 
     return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
 
-def expand_and_resolve_impl(ctx: BxlContext) -> None:
+def expand_and_resolve_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
     actions = ctx.bxl_actions().actions
@@ -293,7 +293,7 @@ def expand_and_resolve_impl(ctx: BxlContext) -> None:
         resolved_deps = resolved_deps,
     ))
 
-def resolve_owning_buildfile_impl(ctx: BxlContext) -> None:
+def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     max_extra_targets = ctx.cli_args.max_extra_targets
 
     if ctx.cli_args.files:
