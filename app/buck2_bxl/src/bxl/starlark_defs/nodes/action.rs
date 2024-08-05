@@ -95,7 +95,7 @@ pub(crate) struct StarlarkActionQueryNode(pub(crate) ActionQueryNode);
 
 starlark_simple_value!(StarlarkActionQueryNode);
 
-#[starlark_value(type = "action_query_node")]
+#[starlark_value(type = "bxl.ActionQueryNode")]
 impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

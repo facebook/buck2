@@ -13,6 +13,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
+use super::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::aquery::StarlarkAQueryCtx;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
@@ -53,6 +54,8 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const EnsuredArtifact: StarlarkValueAsType<EnsuredArtifact> = StarlarkValueAsType::new();
     const FileNode: StarlarkValueAsType<StarlarkFileNode> = StarlarkValueAsType::new();
     const TargetNode: StarlarkValueAsType<StarlarkTargetNode> = StarlarkValueAsType::new();
+    const ActionQueryNode: StarlarkValueAsType<StarlarkActionQueryNode> =
+        StarlarkValueAsType::new();
     const ConfiguredTargetNode: StarlarkValueAsType<StarlarkConfiguredTargetNode> =
         StarlarkValueAsType::new();
     const LazyResolvedAttrs: StarlarkValueAsType<StarlarkLazyResolvedAttrs> =
