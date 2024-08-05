@@ -111,13 +111,13 @@ impl BuildTargetResult {
             };
             match variant {
                 ConfiguredBuildEventVariant::SkippedIncompatible => {
-                    res.entry((*label).clone()).or_insert(None);
+                    res.entry((*label).dupe()).or_insert(None);
                 }
                 ConfiguredBuildEventVariant::Prepared {
                     run_args,
                     target_rule_type_name,
                 } => {
-                    res.entry((*label).clone())
+                    res.entry((*label).dupe())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args,
@@ -163,7 +163,7 @@ impl BuildTargetResult {
                         .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
-                    res.entry((*label).clone())
+                    res.entry((*label).dupe())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
                             run_args: None,
@@ -282,7 +282,7 @@ pub async fn build_configured_label<'a>(
     build_configured_label_inner(
         ctx,
         materialization,
-        providers_label.clone(),
+        providers_label.dupe(),
         providers_to_build,
         opts,
     )

@@ -131,7 +131,7 @@ impl ProvidersName {
                 NonDefaultProvidersName::Named(xs) => {
                     xs.iter().cloned().chain(iter::once(name)).collect()
                 }
-                NonDefaultProvidersName::UnrecognizedFlavor(_) => return self.clone(),
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => return self.dupe(),
             },
         };
         ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
@@ -181,7 +181,7 @@ impl ProvidersLabel {
     pub fn configure(&self, cfg: ConfigurationData) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure(cfg),
-            name: self.name.clone(),
+            name: self.name.dupe(),
         }
     }
 
@@ -193,7 +193,7 @@ impl ProvidersLabel {
     ) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure_with_exec(cfg, exec_cfg),
-            name: self.name.clone(),
+            name: self.name.dupe(),
         }
     }
 
@@ -201,7 +201,7 @@ impl ProvidersLabel {
     pub fn configure_pair(&self, cfg_pair: Configuration) -> ConfiguredProvidersLabel {
         ConfiguredProvidersLabel {
             target: self.target.configure_pair(cfg_pair),
-            name: self.name.clone(),
+            name: self.name.dupe(),
         }
     }
 
@@ -260,7 +260,7 @@ impl ConfiguredProvidersLabel {
     }
 
     pub fn unconfigured(&self) -> ProvidersLabel {
-        ProvidersLabel::new(self.target.unconfigured().dupe(), self.name.clone())
+        ProvidersLabel::new(self.target.unconfigured().dupe(), self.name.dupe())
     }
 
     pub fn name(&self) -> &ProvidersName {

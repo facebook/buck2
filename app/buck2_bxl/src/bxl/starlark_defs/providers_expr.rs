@@ -122,7 +122,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                 ))
             }
             ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
-                Ok(configured_target.label().clone())
+                Ok(configured_target.label().dupe())
             }
             ConfiguredProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
@@ -241,7 +241,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
                 target.label().dupe(),
                 ProvidersName::Default,
             )),
-            ProvidersLabelArg::StarlarkProvidersLabel(label) => Ok(label.label().clone()),
+            ProvidersLabelArg::StarlarkProvidersLabel(label) => Ok(label.label().dupe()),
             ProvidersLabelArg::StarlarkTargetNode(node) => Ok(ProvidersLabel::new(
                 node.0.label().dupe(),
                 ProvidersName::Default,

@@ -336,12 +336,12 @@ mod tests {
 
         // Any configuration.
         assert_eq!(
-            Vec::from_iter([provider_label.clone()]),
+            Vec::from_iter([provider_label.dupe()]),
             universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Any))
         );
         // Configuration label.
         assert_eq!(
-            Vec::from_iter([provider_label.clone()]),
+            Vec::from_iter([provider_label.dupe()]),
             universe.get_provider_labels(&resolved_pattern(ConfigurationPredicate::Bound(
                 BoundConfigurationLabel::new(
                     ConfigurationData::testing_new().label().unwrap().to_owned()

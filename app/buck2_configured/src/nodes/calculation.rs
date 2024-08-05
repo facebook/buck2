@@ -710,7 +710,7 @@ async fn gather_deps(
 
     impl ConfiguredAttrTraversal for Traversal {
         fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.deps.entry(dep.clone()).or_insert_with(SmallSet::new);
+            self.deps.entry(dep.dupe()).or_insert_with(SmallSet::new);
             Ok(())
         }
 
@@ -720,14 +720,14 @@ async fn gather_deps(
             plugin_kinds: &PluginKindSet,
         ) -> anyhow::Result<()> {
             self.deps
-                .entry(dep.clone())
+                .entry(dep.dupe())
                 .or_insert_with(SmallSet::new)
                 .insert(plugin_kinds.dupe());
             Ok(())
         }
 
         fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-            self.exec_deps.insert(dep.clone(), CheckVisibility::Yes);
+            self.exec_deps.insert(dep.dupe(), CheckVisibility::Yes);
             Ok(())
         }
 
@@ -1355,8 +1355,8 @@ impl LookingUpConfiguredNodeContext {
 
     fn add_context<T>(res: anyhow::Result<T>, target: ConfiguredTargetLabel) -> anyhow::Result<T> {
         res.compute_context(
-            |parent_ctx: Arc<Self>| Self::new(target.clone(), Some(parent_ctx)),
-            || Self::new(target.clone(), None),
+            |parent_ctx: Arc<Self>| Self::new(target.dupe(), Some(parent_ctx)),
+            || Self::new(target.dupe(), None),
         )
     }
 }

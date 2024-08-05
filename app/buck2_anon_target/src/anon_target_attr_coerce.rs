@@ -103,7 +103,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
             AttrTypeInner::Dep(x) => {
                 match Dependency::from_value(value) {
                     Some(dep) => {
-                        let label = dep.label().inner().clone();
+                        let label = dep.label().inner().dupe();
 
                         let attr_type = match x.transition {
                             DepAttrTransition::Identity(..) => x.clone(),
@@ -162,10 +162,10 @@ impl AnonTargetAttrTypeCoerce for AttrType {
             },
             AttrTypeInner::Label(_) => {
                 if let Some(label) = StarlarkProvidersLabel::from_value(value) {
-                    Ok(AnonTargetAttr::Label(label.label().clone()))
+                    Ok(AnonTargetAttr::Label(label.label().dupe()))
                 } else if let Some(label) = StarlarkTargetLabel::from_value(value) {
                     Ok(AnonTargetAttr::Label(ProvidersLabel::default_for(
-                        label.label().clone(),
+                        label.label().dupe(),
                     )))
                 } else {
                     Err(AnonTargetCoercionError::type_error(

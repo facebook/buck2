@@ -202,7 +202,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             |(h, v, _)| *h == hash && value == unsafe { &**v },
             |(h, _, _)| *h,
         ) {
-            hash_table::Entry::Occupied(e) => Ok(e.get().2.clone()),
+            hash_table::Entry::Occupied(e) => Ok(e.get().2.dupe()),
             hash_table::Entry::Vacant(e) => {
                 let label = self.coerce_label_no_cache(value)?;
 
@@ -210,7 +210,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                 let target_label = self.global_label_interner.intern(target_label);
                 let label = ProvidersLabel::new(target_label, providers);
 
-                e.insert((hash, self.alloc.alloc_str(value), label.clone()));
+                e.insert((hash, self.alloc.alloc_str(value), label.dupe()));
                 Ok(label)
             }
         }

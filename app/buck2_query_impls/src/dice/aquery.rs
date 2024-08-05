@@ -364,7 +364,7 @@ async fn get_target_set_from_analysis_inner(
     }
 
     result.insert(ActionQueryNode::new_analysis(
-        configured_label.clone(),
+        configured_label.dupe(),
         analysis,
     ));
 

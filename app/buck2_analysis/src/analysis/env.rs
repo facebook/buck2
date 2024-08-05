@@ -114,7 +114,7 @@ pub fn get_dep<'v>(
     module: &'v Module,
 ) -> anyhow::Result<FrozenProviderCollectionValue> {
     match dep_analysis_results.get(target.target()) {
-        None => Err(AnalysisError::MissingDep(target.clone()).into()),
+        None => Err(AnalysisError::MissingDep(target.dupe()).into()),
         Some(x) => {
             let x = x.lookup_inner(target)?;
             // IMPORTANT: Anything given back to the user must be kept alive

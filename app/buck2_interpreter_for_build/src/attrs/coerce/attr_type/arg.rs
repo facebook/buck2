@@ -244,6 +244,7 @@ mod tests {
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
     use buck2_node::attrs::display::AttrDisplayWithContextExt;
     use buck2_node::attrs::testing::configuration_ctx;
+    use dupe::Dupe;
     use gazebo::prelude::SliceExt;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
@@ -309,7 +310,7 @@ mod tests {
         if let MacroBase::Location(target) = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
-            assert_eq!(smallset![target.clone()], info.deps);
+            assert_eq!(smallset![target.dupe()], info.deps);
         } else {
             return Err(anyhow::anyhow!("Expected Location"));
         }
@@ -332,7 +333,7 @@ mod tests {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
-            assert_eq!(smallset![label.clone()], info.execution_deps);
+            assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {
             return Err(anyhow::anyhow!("Expected Exe"));
@@ -357,7 +358,7 @@ mod tests {
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.cfg().cfg());
             assert_eq!(smallset![], info.execution_deps);
-            assert_eq!(smallset![label.clone()], info.deps);
+            assert_eq!(smallset![label.dupe()], info.deps);
         } else {
             return Err(anyhow::anyhow!("Expected Exe"));
         }

@@ -505,7 +505,7 @@ impl FrozenProviderCollectionValue {
                                         return Err(anyhow::anyhow!(
                                             ProviderCollectionError::RequestedInvalidSubTarget(
                                                 provider_name.clone(),
-                                                label.clone(),
+                                                label.dupe(),
                                                 collection_value
                                                     .default_info()?
                                                     .sub_targets()

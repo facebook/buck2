@@ -156,7 +156,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
             ConfiguredAttr::SourceLabel(s) => SourceAttrType::resolve_single_label(ctx, s),
             ConfiguredAttr::Label(label) => {
-                let label = StarlarkConfiguredProvidersLabel::new(label.clone());
+                let label = StarlarkConfiguredProvidersLabel::new(label.dupe());
                 Ok(ctx.heap().alloc(label))
             }
             ConfiguredAttr::Arg(arg) => arg.resolve(ctx, pkg),
@@ -253,7 +253,7 @@ fn configured_attr_to_value<'v>(
             }
         },
         ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
-            StarlarkConfiguredProvidersLabel::new(d.as_ref().label.clone()),
+            StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
         ),
         ConfiguredAttr::SplitTransitionDep(t) => {
             let mut map = SmallMap::with_capacity(t.deps.len());
@@ -263,7 +263,7 @@ fn configured_attr_to_value<'v>(
                     heap.alloc(trans)
                         .get_hashed()
                         .map_err(BuckStarlarkError::new)?,
-                    heap.alloc(StarlarkConfiguredProvidersLabel::new(p.clone())),
+                    heap.alloc(StarlarkConfiguredProvidersLabel::new(p.dupe())),
                 );
             }
 
@@ -271,13 +271,11 @@ fn configured_attr_to_value<'v>(
         }
         ConfiguredAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
         ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
-        ConfiguredAttr::Dep(d) => {
-            heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.clone()))
-        }
+        ConfiguredAttr::Dep(d) => heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.dupe())),
         ConfiguredAttr::SourceLabel(s) => {
-            heap.alloc(StarlarkConfiguredProvidersLabel::new(s.clone()))
+            heap.alloc(StarlarkConfiguredProvidersLabel::new(s.dupe()))
         }
-        ConfiguredAttr::Label(l) => heap.alloc(StarlarkConfiguredProvidersLabel::new(l.clone())),
+        ConfiguredAttr::Label(l) => heap.alloc(StarlarkConfiguredProvidersLabel::new(l.dupe())),
         ConfiguredAttr::Arg(arg) => heap.alloc(arg.to_string()),
         ConfiguredAttr::Query(query) => heap.alloc(&query.query.query),
         ConfiguredAttr::SourceFile(f) => match pkg {

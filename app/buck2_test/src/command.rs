@@ -764,7 +764,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     fn configure_target(&mut self, label: ProvidersLabel, skippable: bool) {
-        if !self.labels_configured.insert((label.clone(), skippable)) {
+        if !self.labels_configured.insert((label.dupe(), skippable)) {
             return;
         }
 
@@ -824,7 +824,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 
     fn test_target(&mut self, label: ConfiguredProvidersLabel) {
-        if !self.labels_tested.insert(label.clone()) {
+        if !self.labels_tested.insert(label.dupe()) {
             return;
         }
 
@@ -985,7 +985,7 @@ fn run_tests<'a, 'b>(
     working_dir_cell: CellName,
 ) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
     let maybe_handle =
-        build_configured_target_handle(providers_label.clone(), session, cell_resolver);
+        build_configured_target_handle(providers_label.dupe(), session, cell_resolver);
 
     match maybe_handle {
         Ok(handle) => {

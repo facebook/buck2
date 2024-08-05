@@ -167,7 +167,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 Ok(ctx.heap().alloc(fulfilled_promise_artifact))
             }
             AnonTargetAttr::Label(label) => {
-                Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.clone())))
+                Ok(ctx.heap().alloc(StarlarkProvidersLabel::new(label.dupe())))
             }
         }
     }

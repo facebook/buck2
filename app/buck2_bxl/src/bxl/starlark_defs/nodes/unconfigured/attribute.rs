@@ -207,19 +207,17 @@ impl CoercedAttrExt for CoercedAttr {
             },
             CoercedAttr::ExplicitConfiguredDep(d) => heap.alloc(
                 // TODO(@wendyy) - this needs better support
-                StarlarkProvidersLabel::new(d.as_ref().label.clone()),
+                StarlarkProvidersLabel::new(d.as_ref().label.dupe()),
             ),
             CoercedAttr::ConfiguredDep(d) => heap.alloc(StarlarkConfiguredProvidersLabel::new(
-                d.as_ref().label.clone(),
+                d.as_ref().label.dupe(),
             )),
-            CoercedAttr::SplitTransitionDep(d) => {
-                heap.alloc(StarlarkProvidersLabel::new(d.clone()))
-            }
+            CoercedAttr::SplitTransitionDep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
             CoercedAttr::ConfigurationDep(c) => heap.alloc(StarlarkTargetLabel::new(c.0.dupe())),
             CoercedAttr::PluginDep(d) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
-            CoercedAttr::Dep(d) => heap.alloc(StarlarkProvidersLabel::new(d.clone())),
-            CoercedAttr::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.clone())),
-            CoercedAttr::Label(l) => heap.alloc(StarlarkProvidersLabel::new(l.clone())),
+            CoercedAttr::Dep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
+            CoercedAttr::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.dupe())),
+            CoercedAttr::Label(l) => heap.alloc(StarlarkProvidersLabel::new(l.dupe())),
             CoercedAttr::Arg(arg) => heap.alloc(arg.to_string()),
             CoercedAttr::Query(query) => heap.alloc(&query.query.query),
             CoercedAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(

@@ -391,7 +391,7 @@ impl ConfiguredTargetNode {
             }
 
             fn label(&mut self, label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
-                self.labels.push(label.clone());
+                self.labels.push(label.dupe());
                 Ok(())
             }
         }

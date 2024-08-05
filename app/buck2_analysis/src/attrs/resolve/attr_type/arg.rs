@@ -149,7 +149,7 @@ fn resolve_configured_macro(
                 .ok_or_else(|| {
                     ResolveMacroError::KeyedPlaceholderInfoMissing(
                         (**name).to_owned(),
-                        label.clone(),
+                        label.dupe(),
                     )
                 })?;
             let keyed_variables = placeholder_info.keyed_variables();
@@ -165,7 +165,7 @@ fn resolve_configured_macro(
                 (Some(arg), Either::Left(_)) => {
                     return Err(ResolveMacroError::KeyedPlaceholderMappingNotADict(
                         (**name).to_owned(),
-                        label.clone(),
+                        label.dupe(),
                         (**arg).to_owned(),
                     )
                     .into());
@@ -175,7 +175,7 @@ fn resolve_configured_macro(
                     mapping.get(arg).copied().ok_or_else(|| {
                         ResolveMacroError::KeyedPlaceholderArgMissing(
                             (**name).to_owned(),
-                            label.clone(),
+                            label.dupe(),
                             arg.to_owned(),
                         )
                     })?

@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -116,7 +117,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<ValueTyped<'v, Dependency<'v>>> {
         Ok(eval.heap().alloc_typed(Dependency::new(
             eval.heap(),
-            this.label.clone(),
+            this.label.dupe(),
             this.analysis
                 .lookup_inner(&this.label)?
                 .value()
