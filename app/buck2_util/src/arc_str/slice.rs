@@ -85,6 +85,18 @@ impl<T: Hash> Hash for ArcSlice<T> {
     }
 }
 
+impl<T: PartialOrd + std::cmp::Eq> PartialOrd for ArcSlice<T> {
+    fn partial_cmp(&self, other: &ArcSlice<T>) -> Option<std::cmp::Ordering> {
+        self[..].partial_cmp(&other[..])
+    }
+}
+
+impl<T: Ord> Ord for ArcSlice<T> {
+    fn cmp(&self, other: &ArcSlice<T>) -> std::cmp::Ordering {
+        self[..].cmp(&other[..])
+    }
+}
+
 impl<T> Borrow<[T]> for ArcSlice<T> {
     #[inline]
     fn borrow(&self) -> &[T] {
