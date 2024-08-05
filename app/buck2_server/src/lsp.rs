@@ -64,7 +64,6 @@ use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
-use starlark::collections::SmallMap;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -203,21 +202,6 @@ async fn get_prelude_docs(
 
     let mut docs = vec![];
 
-    if let Some(module_doc) = module_docs.docs {
-        docs.push(Doc {
-            id: Identifier {
-                name: import_path_string.clone(),
-                location: Some(starlark::docs::Location {
-                    path: import_path_string.clone(),
-                }),
-            },
-            item: DocItem::Module(DocModule {
-                docs: Some(module_doc),
-                members: SmallMap::new(),
-            }),
-            custom_attrs: Default::default(),
-        });
-    }
     docs.extend(module_docs.members.into_iter().map(|(symbol, d)| {
         Doc {
             // TODO(nmj): Map this back into the codemap to get a line/column
@@ -232,27 +216,7 @@ async fn get_prelude_docs(
         }
     }));
 
-    Ok(docs
-        .into_iter()
-        .flat_map(|x| match x.item {
-            DocItem::Module(module) => module
-                .members
-                .into_iter()
-                .map(|(name, v)| Doc {
-                    id: Identifier {
-                        name,
-                        location: x.id.location.clone(),
-                    },
-                    item: v.to_doc_item(),
-                    custom_attrs: x.custom_attrs.clone(),
-                })
-                .collect(),
-            DocItem::Object(_) => vec![],
-            _ => {
-                vec![x]
-            }
-        })
-        .collect::<Vec<_>>())
+    Ok(docs)
 }
 
 /// Store rendered starlark representations of Doc objects for builtin symbols,
