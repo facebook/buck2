@@ -303,7 +303,7 @@ fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<P
     Ok(if subtarget.is_empty() {
         ProvidersName::Default
     } else {
-        ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+        ProvidersName::NonDefault(triomphe::Arc::new(NonDefaultProvidersName::Named(
             buck2_util::arc_str::ArcSlice::from_iter(subtarget),
         )))
     })

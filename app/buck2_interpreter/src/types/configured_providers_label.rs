@@ -135,15 +135,17 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Option<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => None,
-            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(s)) => {
-                Some(s.iter().map(|p| p.as_str()).collect())
-            }
-            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(_)) => {
-                unreachable!(
-                    "This should have been an error when looking up the corresponding analysis (`{}`)",
-                    this.label
-                )
-            }
+            ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
+                NonDefaultProvidersName::Named(names) => {
+                    Some(names.iter().map(|p| p.as_str()).collect())
+                }
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => {
+                    unreachable!(
+                        "This should have been an error when looking up the corresponding analysis (`{}`)",
+                        this.label
+                    )
+                }
+            },
         })
     }
 
@@ -261,15 +263,17 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<Option<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => None,
-            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(s)) => {
-                Some(s.iter().map(|p| p.as_str()).collect())
-            }
-            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(_)) => {
-                unreachable!(
-                    "This should have been an error when looking up the corresponding analysis (`{}`)",
-                    this.label
-                )
-            }
+            ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
+                NonDefaultProvidersName::Named(names) => {
+                    Some(names.iter().map(|p| p.as_str()).collect())
+                }
+                NonDefaultProvidersName::UnrecognizedFlavor(_) => {
+                    unreachable!(
+                        "This should have been an error when looking up the corresponding analysis (`{}`)",
+                        this.label
+                    )
+                }
+            },
         })
     }
 
@@ -327,7 +331,7 @@ mod tests {
                         "foo//bar:baz",
                         ConfigurationData::testing_new(),
                     ),
-                    ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                    ProvidersName::NonDefault(triomphe::Arc::new(NonDefaultProvidersName::Named(
                         ArcSlice::new([
                             ProviderName::new("qux".to_owned())?,
                             ProviderName::new("quux".to_owned())?,
@@ -341,7 +345,7 @@ mod tests {
             Ok(StarlarkProvidersLabel {
                 label: ProvidersLabel::new(
                     TargetLabel::testing_parse("foo//bar:baz"),
-                    ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                    ProvidersName::NonDefault(triomphe::Arc::new(NonDefaultProvidersName::Named(
                         ArcSlice::new([
                             ProviderName::new("qux".to_owned())?,
                             ProviderName::new("quux".to_owned())?,

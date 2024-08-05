@@ -34,9 +34,19 @@ enum AttrCoercionContextError {
 pub trait AttrCoercionContext {
     fn coerce_target_label(&self, value: &str) -> anyhow::Result<TargetLabel> {
         let label = self.coerce_providers_label(value)?;
-        if let ProvidersName::NonDefault(box NonDefaultProvidersName::Named(_)) = label.name() {
-            return Err(AttrCoercionContextError::UnexpectedProvidersName(value.to_owned()).into());
+
+        match label.name() {
+            ProvidersName::NonDefault(flavor) => {
+                if let NonDefaultProvidersName::Named(_) = flavor.as_ref() {
+                    return Err(AttrCoercionContextError::UnexpectedProvidersName(
+                        value.to_owned(),
+                    )
+                    .into());
+                }
+            }
+            _ => {}
         }
+
         Ok(label.into_parts().0)
     }
 

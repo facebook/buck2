@@ -65,7 +65,7 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
 
     // sort a flavors list to have a deterministic order.
     flavors_parts.sort_unstable();
-    Ok(ProvidersName::NonDefault(Box::new(
+    Ok(ProvidersName::NonDefault(triomphe::Arc::new(
         NonDefaultProvidersName::Named(buck2_util::arc_str::ArcSlice::new([
             ProviderName::new_unchecked(match *flavors_parts {
                 // If we only had one flavor that represents some specific platform then return a default provider name.
@@ -129,7 +129,7 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
 
                 // This allows us to pass parsing for this thing.
                 _ => {
-                    return Ok(ProvidersName::NonDefault(Box::new(
+                    return Ok(ProvidersName::NonDefault(triomphe::Arc::new(
                         NonDefaultProvidersName::UnrecognizedFlavor(flavors.into()),
                     )));
                 }

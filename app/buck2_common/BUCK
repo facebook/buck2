@@ -32,6 +32,7 @@ rust_library(
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:test-case",
+        "fbsource//third-party/rust:triomphe",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

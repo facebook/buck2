@@ -299,7 +299,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_from_package_by_configured_provider_pattern() {
         fn providers_name() -> ProvidersName {
-            ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+            ProvidersName::NonDefault(triomphe::Arc::new(NonDefaultProvidersName::Named(
                 buck2_util::arc_str::ArcSlice::new([ProviderName::new("P".to_owned()).unwrap()]),
             )))
         }

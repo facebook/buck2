@@ -40,6 +40,7 @@ smallvec = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+triomphe = { workspace = true }
 
 allocative = { workspace = true }
 cmp_any = { workspace = true }

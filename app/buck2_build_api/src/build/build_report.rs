@@ -525,12 +525,12 @@ impl<'a> BuildReportCollector<'a> {
 fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
     match label.name() {
         ProvidersName::Default => "DEFAULT".to_owned(),
-        ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
-            names.iter().join("|")
-        }
-        ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(f)) => {
-            format!("#{}", f)
-        }
+        ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
+            NonDefaultProvidersName::Named(names) => names.iter().join("|"),
+            NonDefaultProvidersName::UnrecognizedFlavor(s) => {
+                format!("#{}", s)
+            }
+        },
     }
 }
 

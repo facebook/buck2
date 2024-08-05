@@ -20,6 +20,7 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use static_assertions::assert_eq_size;
+use triomphe::Arc;
 
 use crate::ascii_char_set::AsciiCharSet;
 use crate::configuration::data::ConfigurationData;
@@ -88,10 +89,12 @@ pub enum NonDefaultProvidersName {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
 pub enum ProvidersName {
     Default,
-    NonDefault(Box<NonDefaultProvidersName>),
+    NonDefault(Arc<NonDefaultProvidersName>),
 }
 
 assert_eq_size!(ProvidersName, [usize; 1]);
+
+impl Dupe for ProvidersName {}
 
 impl Default for ProvidersName {
     fn default() -> Self {
@@ -105,15 +108,17 @@ impl Display for ProvidersName {
             ProvidersName::Default => {
                 write!(f, "")
             }
-            ProvidersName::NonDefault(box NonDefaultProvidersName::Named(names)) => {
-                for name in &**names {
-                    write!(f, "[{}]", name)?;
+            ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
+                NonDefaultProvidersName::Named(names) => {
+                    for name in &**names {
+                        write!(f, "[{}]", name)?;
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
-            ProvidersName::NonDefault(box NonDefaultProvidersName::UnrecognizedFlavor(s)) => {
-                write!(f, "#{}", s)
-            }
+                NonDefaultProvidersName::UnrecognizedFlavor(s) => {
+                    write!(f, "#{}", s)
+                }
+            },
         }
     }
 }
@@ -129,7 +134,7 @@ impl ProvidersName {
                 NonDefaultProvidersName::UnrecognizedFlavor(_) => return self.clone(),
             },
         };
-        ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+        ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
             ArcSlice::from_iter(items),
         )))
     }
@@ -307,7 +312,7 @@ pub mod testing {
                     TargetNameRef::new(target).unwrap(),
                 ),
                 match name {
-                    Some(n) => ProvidersName::NonDefault(Box::new(NonDefaultProvidersName::Named(
+                    Some(n) => ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
                         ArcSlice::from_iter(n.map(|s| ProviderName::new((*s).to_owned()).unwrap())),
                     ))),
                     _ => ProvidersName::Default,

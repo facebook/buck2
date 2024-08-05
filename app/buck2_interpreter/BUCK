@@ -21,6 +21,7 @@ rust_library(
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:triomphe",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
