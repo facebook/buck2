@@ -346,7 +346,7 @@ async fn run_analysis_with_env_underlying(
 
     // Pull the ctx object back out, and steal ctx.action's state back
     let analysis_registry = ctx.take_state();
-    std::mem::drop(eval);
+    drop(eval);
 
     let declared_actions = analysis_registry.num_declared_actions();
     let declared_artifacts = analysis_registry.num_declared_artifacts();
