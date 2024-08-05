@@ -12,7 +12,10 @@
 //! place, and should usually just be propagated in order to lead to a quick exit.
 
 use std::fmt::Arguments;
+use std::fs::File;
 use std::io;
+use std::io::LineWriter;
+use std::io::Stdout;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -114,10 +117,23 @@ pub fn flush() -> anyhow::Result<()> {
     stdout()?.flush().map_err(|e| ClientIoError(e).into())
 }
 
+fn stdout_to_file(stdout: &Stdout) -> anyhow::Result<File> {
+    #[cfg(not(windows))]
+    {
+        use std::os::fd::AsFd;
+        Ok(File::from(stdout.as_fd().try_clone_to_owned()?))
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsHandle;
+        Ok(File::from(stdout.as_handle().try_clone_to_owned()?))
+    }
+}
+
 pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
 where
     E: Into<anyhow::Error>,
-    F: FnOnce(&mut dyn Write) -> Result<(), E>,
+    F: FnOnce(&mut (dyn Write + Send)) -> Result<(), E>,
 {
     let stdout = stdout()?;
 
@@ -140,14 +156,19 @@ where
     );
     let _guard = StdoutLockedGuard;
 
-    match f(&mut stdout.lock()) {
-        Ok(_) => Ok(()),
+    let _guard = stdout.lock();
+    let file = stdout_to_file(&stdout)?;
+    let mut w = LineWriter::new(file);
+    match f(&mut w) {
+        Ok(()) => {}
         Err(e) => {
             let e: anyhow::Error = e.into();
-            match e.downcast::<io::Error>() {
+            return match e.downcast::<io::Error>() {
                 Ok(io_error) => Err(ClientIoError(io_error).into()),
                 Err(e) => Err(e),
-            }
+            };
         }
     }
+    w.flush()?;
+    Ok(())
 }
