@@ -96,10 +96,10 @@ def buck_e2e_test(
     resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
     labels = []
-    if "darwin" not in skip_for_os:
-        labels += [ci.mac(ci.aarch64(ci.opt()))]
-    if "windows" not in skip_for_os:
-        labels += [ci.windows(ci.opt())]
+    if "darwin" in skip_for_os:
+        labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
+    if "windows" in skip_for_os:
+        labels += ci.remove_labels(ci.windows(ci.opt()))
 
     python_pytest(
         name = name,
