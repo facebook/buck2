@@ -31,7 +31,6 @@ pub use code::render_docs_as_code;
 pub use markdown::MarkdownFlavor;
 pub use markdown::RenderMarkdown;
 pub use parse::DocStringKind;
-use serde::Serialize;
 pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
@@ -42,7 +41,7 @@ use crate::values::Trace;
 use crate::values::Value;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
-#[derive(Debug, Clone, PartialEq, Serialize, Trace, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Trace, Default, Allocative)]
 pub struct DocString {
     /// The first line of a doc string. This has whitespace trimmed from it.
     pub summary: String,
@@ -52,14 +51,14 @@ pub struct DocString {
 }
 
 /// The file a symbol resides in, and if available its location within that file.
-#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Location {
     /// `path` is a string that can be passed into `load()` statements.
     pub path: String,
 }
 
 /// The main identifier for a symbol.
-#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Identifier {
     /// The name of the symbol (e.g. the function name, a name or path for a module, etc).
     pub name: String,
@@ -68,7 +67,7 @@ pub struct Identifier {
 }
 
 /// Documents a full module.
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocModule {
     /// In general, this should be the first statement of a loaded file, if that statement is
     /// a string literal.
@@ -78,7 +77,7 @@ pub struct DocModule {
 }
 
 /// Documents a single function.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocFunction {
     /// Documentation for the function. If parsed, this should generally be the first statement
     /// of a function's body if that statement is a string literal. Any sections like "Args:",
@@ -111,14 +110,12 @@ impl DocFunction {
 }
 
 /// A single parameter of a function.
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub enum DocParam {
     /// A regular parameter that may or may not have a default value.
     Arg {
         name: String,
         docs: Option<DocString>,
-        #[serde(rename = "type")]
         typ: Ty,
         /// If present, this parameter has a default value. This is the `repr()` of that value.
         default_value: Option<String>,
@@ -131,24 +128,21 @@ pub enum DocParam {
     Args {
         name: String,
         docs: Option<DocString>,
-        #[serde(rename = "type")]
         tuple_elem_ty: Ty,
     },
     /// Represents the "**kwargs" style of argument.
     Kwargs {
         name: String,
         docs: Option<DocString>,
-        #[serde(rename = "type")]
         dict_value_ty: Ty,
     },
 }
 
 /// Details about the return value of a function.
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub struct DocReturn {
     /// Extra semantic details around the returned value's meaning.
     pub docs: Option<DocString>,
-    #[serde(rename = "type")]
     pub typ: Ty,
 }
 
@@ -162,16 +156,14 @@ impl Default for DocReturn {
 }
 
 /// A single property of an object. These are explicitly not functions (see [`DocMember`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub struct DocProperty {
     pub docs: Option<DocString>,
-    #[serde(rename = "type")]
     pub typ: Ty,
 }
 
 /// A named member of an object.
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub enum DocMember {
     Property(DocProperty),
     Function(DocFunction),
@@ -200,15 +192,14 @@ impl DocMember {
 }
 
 /// An object with named functions/properties.
-#[derive(Debug, Clone, PartialEq, Serialize, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocObject {
     pub docs: Option<DocString>,
     /// Name and details of each member of this object.
     pub members: SmallMap<String, DocMember>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Allocative)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub enum DocItem {
     Module(DocModule),
     Object(DocObject),
@@ -266,7 +257,7 @@ impl DocParam {
 }
 
 /// The main structure that represents the documentation for a given symbol / module.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Doc {
     pub id: Identifier,
     pub item: DocItem,

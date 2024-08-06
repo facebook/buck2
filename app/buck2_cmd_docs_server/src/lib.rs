@@ -51,6 +51,7 @@ use starlark::environment::Globals;
 
 use crate::markdown::generate_markdown_files;
 
+mod json;
 mod markdown;
 
 fn parse_import_paths(
@@ -255,7 +256,7 @@ async fn docs(
     docs.extend(modules_docs.into_iter().flatten());
 
     let json_output = match &request.format {
-        DocsOutputFormat::Json => Some(serde_json::to_string(&docs)?),
+        DocsOutputFormat::Json => Some(json::to_json(docs)?),
         DocsOutputFormat::Markdown(path) => {
             let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
             let native_subdir = Path::new(&request.markdown_native_subdir);
