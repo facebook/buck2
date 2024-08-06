@@ -22,7 +22,6 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
@@ -32,6 +31,7 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 
 #[derive(
     Clone,
@@ -72,29 +72,19 @@ impl BxlKey {
 
     fn into_base_deferred_key_dyn_impl(
         self,
-        execution_platform_resolution: ExecutionPlatformResolution,
-        exec_deps: Vec<ConfiguredProvidersLabel>,
-        toolchains: Vec<ConfiguredProvidersLabel>,
+        execution_resolution: BxlExecutionResolution,
     ) -> Arc<dyn BaseDeferredKeyDyn> {
         Arc::new(BxlDynamicKeyData {
             key: self.0,
-            execution_platform_resolution,
-            exec_deps,
-            toolchains,
+            execution_resolution,
         })
     }
 
     pub(crate) fn into_base_deferred_key(
         self,
-        execution_platform_resolution: ExecutionPlatformResolution,
-        exec_deps: Vec<ConfiguredProvidersLabel>,
-        toolchains: Vec<ConfiguredProvidersLabel>,
+        execution_resolution: BxlExecutionResolution,
     ) -> BaseDeferredKey {
-        BaseDeferredKey::BxlLabel(self.into_base_deferred_key_dyn_impl(
-            execution_platform_resolution,
-            exec_deps,
-            toolchains,
-        ))
+        BaseDeferredKey::BxlLabel(self.into_base_deferred_key_dyn_impl(execution_resolution))
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
@@ -153,9 +143,7 @@ impl BxlKeyData {
 #[display(fmt = "{}", "key")]
 pub(crate) struct BxlDynamicKeyData {
     key: Arc<BxlKeyData>,
-    execution_platform_resolution: ExecutionPlatformResolution,
-    pub(crate) exec_deps: Vec<ConfiguredProvidersLabel>,
-    pub(crate) toolchains: Vec<ConfiguredProvidersLabel>,
+    pub(crate) execution_resolution: BxlExecutionResolution,
 }
 
 pub(crate) struct BxlDynamicKey(pub(crate) Arc<BxlDynamicKeyData>);
@@ -207,7 +195,9 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
 
         let exec_platform = {
             let mut hasher = DefaultHasher::new();
-            self.execution_platform_resolution.hash(&mut hasher);
+            self.execution_resolution
+                .resolved_execution
+                .hash(&mut hasher);
             let output_hash = hasher.finish();
             format!("{:x}", output_hash)
         };
@@ -257,6 +247,6 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     }
 
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
-        &self.execution_platform_resolution
+        &self.execution_resolution.resolved_execution
     }
 }

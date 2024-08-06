@@ -67,6 +67,7 @@ use starlark_map::ordered_map::OrderedMap;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -347,11 +348,11 @@ async fn eval_bxl_inner(
 // are empty here for the same reason.
 pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
     BuckOutPath::new(
-        key.dupe().into_base_deferred_key(
-            ExecutionPlatformResolution::unspecified(),
-            Vec::new(),
-            Vec::new(),
-        ),
+        key.dupe().into_base_deferred_key(BxlExecutionResolution {
+            resolved_execution: ExecutionPlatformResolution::unspecified(),
+            exec_deps_configured: Vec::new(),
+            toolchain_deps_configured: Vec::new(),
+        }),
         ForwardRelativePathBuf::unchecked_new(format!(
             "__bxl_internal__/{}stream_cache",
             stream_type

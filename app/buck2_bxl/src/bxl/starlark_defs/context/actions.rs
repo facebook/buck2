@@ -134,6 +134,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     })
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub(crate) struct BxlExecutionResolution {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
     pub(crate) exec_deps_configured: Vec<ConfiguredProvidersLabel>,
@@ -151,11 +152,9 @@ pub(crate) fn validate_action_instantiation(
     } else {
         let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            this.current_bxl().dupe().into_base_deferred_key(
-                execution_platform.clone(),
-                bxl_execution_resolution.exec_deps_configured.clone(),
-                bxl_execution_resolution.toolchain_deps_configured.clone(),
-            ),
+            this.current_bxl()
+                .dupe()
+                .into_base_deferred_key(bxl_execution_resolution.clone()),
             execution_platform,
         )?;
 

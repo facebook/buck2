@@ -536,8 +536,16 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
     let key = dynamic_key.key();
     let dynamic_data = DynamicBxlContextData {
-        exec_deps: dynamic_key.0.exec_deps.clone(),
-        toolchains: dynamic_key.0.toolchains.clone(),
+        exec_deps: dynamic_key
+            .0
+            .execution_resolution
+            .exec_deps_configured
+            .clone(),
+        toolchains: dynamic_key
+            .0
+            .execution_resolution
+            .toolchain_deps_configured
+            .clone(),
     };
     // TODO(cjhopman): Why does this get the digest_config from dice???
     let digest_config = dice_ctx.global_data().get_digest_config();
