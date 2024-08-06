@@ -151,6 +151,12 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
                 remote_execution_properties = remote_execution_properties,
                 remote_execution_use_case = _compute_re_use_case(ctx.attrs.labels or []),
             ),
+            "dynamic-listing": CommandExecutorConfig(
+                local_enabled = android_toolchain.instrumentation_test_can_run_locally,
+                remote_enabled = True,
+                remote_execution_properties = remote_execution_properties,
+                remote_execution_use_case = _compute_re_use_case(ctx.attrs.labels or []),
+            ),
             "static-listing": CommandExecutorConfig(
                 local_enabled = True,
                 remote_enabled = True,
@@ -158,6 +164,12 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
                     "platform": "linux-remote-execution",
                 },
                 remote_execution_use_case = "buck2-default",
+            ),
+            "test-execution": CommandExecutorConfig(
+                local_enabled = android_toolchain.instrumentation_test_can_run_locally,
+                remote_enabled = True,
+                remote_execution_properties = remote_execution_properties,
+                remote_execution_use_case = _compute_re_use_case(ctx.attrs.labels or []),
             ),
         },
         local_resources = {
