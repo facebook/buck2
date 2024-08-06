@@ -33,12 +33,6 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 
 #[starlark_module]
-pub(crate) fn register_bxl_type_names(globals: &mut GlobalsBuilder) {
-    // TODO(nga): remove these.
-    const BxlActions: StarlarkValueAsType<BxlActions> = StarlarkValueAsType::new();
-}
-
-#[starlark_module]
 pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {
     const CliArgs: StarlarkValueAsType<CliArgs> = StarlarkValueAsType::new();
     const Context: StarlarkValueAsType<BxlContext> = StarlarkValueAsType::new();
