@@ -631,34 +631,15 @@ class Buck(Executable):
             exception_type=BuckException,
         )
 
-    def docs_starlark(
+    def docs(
         self,
-        query_patterns: Iterable[str],
-        builtins: bool = True,
-        output_format: str = "json",
+        *args: str,
         input: Optional[bytes] = None,
         rel_cwd: Optional[Path] = None,
         env: Optional[Dict[str, str]] = None,
     ) -> Process[BuckResult, BuckException]:
-        """
-        Returns a Process with BuckResult type using a process
-        created with the docs command and any
-        additional arguments
-
-        query_patterns: The patterns, if any, to ask for docs for
-        builtins: Whether to pass the --builtins flag
-        output_format: How to get documentation back
-        rel_cwd: Optional Path specifying the workding directive to run
-        the command relative to the root.
-        env: Optional dictionary for environment variables to run command with.
-        """
-        args = ["--format", output_format]
-        if builtins:
-            args.append("--builtins")
-        args.extend(query_patterns)
         return self._run_buck_command(
             "docs",
-            "starlark",
             *args,
             input=input,
             rel_cwd=rel_cwd,
