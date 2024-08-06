@@ -112,3 +112,16 @@ pub trait DocsServerComamnd: Send + Sync + 'static {
 
 pub static DOCS_SERVER_COMMAND: LateBinding<&'static dyn DocsServerComamnd> =
     LateBinding::new("DOCS_SERVER_COMMAND");
+
+#[async_trait]
+pub trait AuditServerCommand: Send + Sync + 'static {
+    async fn audit(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
+}
+
+pub static AUDIT_SERVER_COMMAND: LateBinding<&'static dyn AuditServerCommand> =
+    LateBinding::new("AUDIT_SERVER_COMMAND");

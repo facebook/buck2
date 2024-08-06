@@ -17,7 +17,6 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_audit_server::server::server_audit_command;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
@@ -38,6 +37,7 @@ use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -121,7 +121,10 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        server_audit_command(ctx, partial_result_dispatcher, req).await
+        AUDIT_SERVER_COMMAND
+            .get()?
+            .audit(ctx, partial_result_dispatcher, req)
+            .await
     }
     async fn starlark(
         &self,

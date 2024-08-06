@@ -73,7 +73,6 @@ rust_library(
     ] + select({
         ":buck2_client_only_build": [],
         "DEFAULT": [
-            "//buck2/app/buck2_audit_server:buck2_audit_server",
             "//buck2/app/buck2_server:buck2_server",
             "//buck2/app/buck2_server_ctx:buck2_server_ctx",
             "//buck2/app/buck2_starlark_server:buck2_starlark_server",

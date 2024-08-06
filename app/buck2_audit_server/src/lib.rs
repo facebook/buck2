@@ -33,7 +33,7 @@ pub mod output;
 mod package_values;
 mod prelude;
 mod providers;
-pub mod server;
+mod server;
 mod starlark;
 mod subtargets;
 mod visibility;
@@ -107,5 +107,6 @@ pub fn init_late_bindings() {
     ONCE.call_once(|| {
         output::command::init_audit_output();
         cell::init_audit_cell();
+        server::init_audit_server_command();
     })
 }
