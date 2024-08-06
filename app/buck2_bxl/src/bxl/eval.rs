@@ -241,36 +241,25 @@ impl BxlInnerEvaluator {
         // TODO(cjhopman): Why is there so much divergence in code here for whether we created actions or
         // not? It seems to just make this unnecessarily complex.
 
-        let (frozen_module, bxl_result) = match actions_finalizer {
+        let (frozen_module, recorded_values) = match actions_finalizer {
             Some(actions_finalizer) => {
                 // this bxl registered actions, so extract the deferreds from it
-                let (module, recorded_values) = actions_finalizer(env)?;
-
-                (
-                    module,
-                    BxlResult::new(
-                        output_stream,
-                        error_stream,
-                        ensured_artifacts,
-                        recorded_values,
-                    ),
-                )
+                actions_finalizer(env)?
             }
             None => {
                 let frozen_module = env.freeze()?;
 
                 // this bxl did not try to build anything, so we don't have any deferreds
-                (
-                    frozen_module,
-                    BxlResult::new(
-                        output_stream,
-                        error_stream,
-                        ensured_artifacts,
-                        RecordedAnalysisValues::new_empty(),
-                    ),
-                )
+                (frozen_module, RecordedAnalysisValues::new_empty())
             }
         };
+
+        let bxl_result = BxlResult::new(
+            output_stream,
+            error_stream,
+            ensured_artifacts,
+            recorded_values,
+        );
 
         provider
             .visit_frozen_module(Some(&frozen_module))
