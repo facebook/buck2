@@ -19,7 +19,6 @@ use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
-use buck2_error::internal_error;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -106,9 +105,7 @@ impl DeferredHolder {
         &self,
         key: &TransitiveSetKey,
     ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
-        self.analysis_values()
-            .lookup_transitive_set(key)
-            .ok_or_else(|| internal_error!("Missing transitive set `{}`", key))
+        self.analysis_values().lookup_transitive_set(key)
     }
 
     pub(crate) fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {

@@ -686,12 +686,13 @@ impl RecordedAnalysisValues {
     pub(crate) fn lookup_transitive_set(
         &self,
         key: &TransitiveSetKey,
-    ) -> Option<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         // TODO(cjhopman): verify that key matches this.
-        match &self.analysis_storage {
-            Some(values) => values.maybe_map(|v| v.transitive_sets.get(key).copied()),
-            None => None,
-        }
+        self.analysis_storage
+            .as_ref()
+            .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
+            .maybe_map(|v| v.transitive_sets.get(key).copied())
+            .with_internal_error(|| format!("Missing transitive set `{key}`"))
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
