@@ -13,6 +13,17 @@ use serde::Serialize;
 use starlark::collections::SmallMap;
 use starlark::typing::Ty;
 
+fn serialize_ty<S: serde::Serializer>(ty: &Ty, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(&ty.to_string())
+}
+
+fn serialize_opt_ty<S: serde::Serializer>(ty: &Option<Ty>, s: S) -> Result<S::Ok, S::Error> {
+    match ty {
+        Some(ty) => serialize_ty(ty, s),
+        None => s.serialize_none(),
+    }
+}
+
 #[derive(Serialize)]
 struct JsonDoc {
     id: JsonIdentifier,
@@ -142,7 +153,7 @@ impl JsonDocMember {
 #[derive(Serialize)]
 struct JsonDocProperty {
     docs: Option<JsonDocString>,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", serialize_with = "serialize_ty")]
     typ: Ty,
 }
 
@@ -160,6 +171,7 @@ struct JsonDocFunction {
     docs: Option<JsonDocString>,
     params: Vec<JsonDocParam>,
     ret: JsonDocReturn,
+    #[serde(serialize_with = "serialize_opt_ty")]
     as_type: Option<Ty>,
 }
 
@@ -181,7 +193,7 @@ impl JsonDocFunction {
 #[derive(Serialize)]
 struct JsonDocReturn {
     docs: Option<JsonDocString>,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", serialize_with = "serialize_ty")]
     typ: Ty,
 }
 
@@ -201,7 +213,7 @@ enum JsonDocParam {
     Arg {
         name: String,
         docs: Option<JsonDocString>,
-        #[serde(rename = "type")]
+        #[serde(rename = "type", serialize_with = "serialize_ty")]
         typ: Ty,
         default_value: Option<String>,
     },
@@ -210,13 +222,13 @@ enum JsonDocParam {
     Args {
         name: String,
         docs: Option<JsonDocString>,
-        #[serde(rename = "type")]
+        #[serde(rename = "type", serialize_with = "serialize_ty")]
         tuple_elem_ty: Ty,
     },
     Kwargs {
         name: String,
         docs: Option<JsonDocString>,
-        #[serde(rename = "type")]
+        #[serde(rename = "type", serialize_with = "serialize_ty")]
         dict_value_ty: Ty,
     },
 }

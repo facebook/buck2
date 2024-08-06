@@ -24,8 +24,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use serde::Serialize;
-use serde::Serializer;
 use starlark_derive::Trace;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
@@ -103,16 +101,6 @@ pub struct Ty {
     /// This is different handling of union types than in TypeScript for example,
     /// TypeScript would consider such expression to be an error.
     alternatives: SmallArcVec1<TyBasic>,
-}
-
-impl Serialize for Ty {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Arbitrary custom types are not deserializable, so serialization to string is enough.
-        serializer.serialize_str(&self.to_string())
-    }
 }
 
 /// The name of an atomic type.
