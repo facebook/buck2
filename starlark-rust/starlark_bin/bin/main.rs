@@ -36,11 +36,10 @@ use itertools::Either;
 use itertools::Itertools;
 use starlark::analysis::LintMessage;
 use starlark::docs::get_registered_starlark_docs;
+use starlark::docs::markdown::render_doc_item;
 use starlark::docs::render_docs_as_code;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
-use starlark::docs::MarkdownFlavor;
-use starlark::docs::RenderMarkdown;
 use starlark::environment::Globals;
 use starlark::errors::EvalMessage;
 use starlark::errors::EvalSeverity;
@@ -341,14 +340,16 @@ fn main() -> anyhow::Result<()> {
 
             match docs {
                 ArgsDoc::Markdown | ArgsDoc::Lsp => {
-                    let mode = if docs == ArgsDoc::Markdown {
-                        MarkdownFlavor::DocFile
-                    } else {
-                        MarkdownFlavor::LspSummary
-                    };
                     println!(
                         "{}",
-                        builtin.iter().map(|x| x.render_markdown(mode)).join("\n\n")
+                        builtin
+                            .iter()
+                            .map(|x| if docs == ArgsDoc::Markdown {
+                                render_doc_item(&x.id.name, &x.item)
+                            } else {
+                                String::new()
+                            })
+                            .join("\n\n")
                     )
                 }
                 ArgsDoc::Code => println!("{}", render_docs_as_code(&builtin)),

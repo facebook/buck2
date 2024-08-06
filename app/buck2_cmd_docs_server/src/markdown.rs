@@ -17,10 +17,9 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::console_message;
 use itertools::Itertools;
+use starlark::docs::markdown::render_doc_item;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
-use starlark::docs::MarkdownFlavor;
-use starlark::docs::RenderMarkdown;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";
@@ -176,9 +175,9 @@ pub(crate) fn generate_markdown_files(
         let markdown_file = outputs
             .entry(markdown_path)
             .or_insert_with(MarkdownOutput::default);
-        if let Some(docs) = doc.render_markdown_opt(MarkdownFlavor::DocFile) {
-            markdown_file.sections.push(docs);
-        }
+        markdown_file
+            .sections
+            .push(render_doc_item(&doc.id.name, &doc.item));
     }
 
     for (relative_path, markdown_file) in outputs.iter() {

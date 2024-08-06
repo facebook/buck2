@@ -22,7 +22,6 @@ use dupe::Dupe;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 
-use crate::docs::Doc;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
@@ -248,15 +247,6 @@ pub fn render_doc_member(name: &str, item: &DocMember) -> String {
 /// Used by LSP.
 pub fn render_doc_param(item: &DocParam) -> String {
     render_function_parameters(slice::from_ref(item)).unwrap_or_default()
-}
-
-impl RenderMarkdown for Doc {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
-        match flavor {
-            MarkdownFlavor::DocFile => Some(render_doc_item(&self.id.name, &self.item)),
-            MarkdownFlavor::LspSummary => None,
-        }
-    }
 }
 
 /// Any functions with more parameters than this will have

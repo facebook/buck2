@@ -26,10 +26,8 @@ use starlark_map::small_map::SmallMap;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
-use crate::docs::Doc;
+use crate::docs::markdown::render_doc_item;
 use crate::docs::DocItem;
-use crate::docs::MarkdownFlavor;
-use crate::docs::RenderMarkdown;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
@@ -269,7 +267,7 @@ fn inner_object_functions_have_docs() {
         .unwrap()
         .documentation()
         .unwrap();
-    let res = Doc::named_item("func1".to_owned(), item).render_markdown(MarkdownFlavor::DocFile);
+    let res = render_doc_item("func1", &item);
     assert!(res.contains("Docs for func1"));
 }
 
@@ -282,6 +280,6 @@ fn inner_module_functions_have_docs() {
         .unwrap()
         .documentation()
         .unwrap();
-    let res = Doc::named_item("func1".to_owned(), item).render_markdown(MarkdownFlavor::DocFile);
+    let res = render_doc_item("func1", &item);
     assert!(res.contains("Docs for func1"))
 }
