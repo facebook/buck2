@@ -28,8 +28,6 @@ use std::collections::HashMap;
 
 use allocative::Allocative;
 pub use code::render_docs_as_code;
-pub use markdown::MarkdownFlavor;
-pub use markdown::RenderMarkdown;
 pub use parse::DocStringKind;
 pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;

@@ -18,7 +18,6 @@
 use std::fmt::Write;
 use std::slice;
 
-use dupe::Dupe;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 
@@ -29,31 +28,6 @@ use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::typing::Ty;
-
-/// The style of output that is being generated
-#[derive(Copy, Clone, Dupe)]
-pub enum MarkdownFlavor {
-    /// A file that is written out to disk for a website or in repo.
-    ///
-    /// These pages are generally slightly more detailed (e.g. module summary tables at the top
-    /// of the page) and have different formatting due differing use cases.
-    DocFile,
-    /// A summary that can be shown in the "Hover" event in the LSP.
-    LspSummary,
-}
-
-/// This object can potentially generate markdown documentation about itself.
-pub trait RenderMarkdown {
-    /// Generate markdown of the given flavor if possible. For some types, there may not be
-    /// any useful documentation available.
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String>;
-
-    /// Convenience method that invokes `RenderMarkdown::render_markdown_opt`, and returns an
-    /// empty string if that is `None`
-    fn render_markdown(&self, flavor: MarkdownFlavor) -> String {
-        self.render_markdown_opt(flavor).unwrap_or_default()
-    }
-}
 
 /// What to render from a [`DocString`].
 enum DSOpts {
@@ -85,7 +59,7 @@ fn escape_name(name: &str) -> String {
 fn render_property(name: &str, property: &DocProperty) -> String {
     let prototype = render_code_block(&format!(
         "{name}: {}",
-        TypeRenderer::Type(&property.typ).render_markdown(MarkdownFlavor::DocFile)
+        TypeRenderer::Type(&property.typ).render_markdown()
     ));
     let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
@@ -152,7 +126,7 @@ fn render_function(name: &str, function: &DocFunction) -> String {
             function_name: name,
             f: function,
         }
-        .render_markdown(MarkdownFlavor::DocFile)),
+        .render_markdown()),
     );
     let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
@@ -270,8 +244,8 @@ enum TypeRenderer<'a> {
     },
 }
 
-impl<'a> RenderMarkdown for TypeRenderer<'a> {
-    fn render_markdown_opt(&self, flavor: MarkdownFlavor) -> Option<String> {
+impl<'a> TypeRenderer<'a> {
+    fn render_markdown(&self) -> String {
         fn raw_type(t: &Ty) -> String {
             t.to_string()
         }
@@ -284,60 +258,54 @@ impl<'a> RenderMarkdown for TypeRenderer<'a> {
             }
         }
 
-        match flavor {
-            MarkdownFlavor::DocFile => match self {
-                TypeRenderer::Type(t) => Some(raw_type(t)),
-                TypeRenderer::Function { function_name, f } => {
-                    let mut params = f.params.iter().map(|p| match p {
-                        DocParam::Arg {
-                            typ,
-                            name,
-                            default_value,
-                            ..
-                        } => {
-                            let type_string = raw_type_prefix(": ", typ);
-                            match default_value {
-                                Some(v) => format!("{}{} = {}", name, type_string, v),
-                                None => format!("{}{}", name, type_string),
-                            }
+        match self {
+            TypeRenderer::Type(t) => raw_type(t),
+            TypeRenderer::Function { function_name, f } => {
+                let mut params = f.params.iter().map(|p| match p {
+                    DocParam::Arg {
+                        typ,
+                        name,
+                        default_value,
+                        ..
+                    } => {
+                        let type_string = raw_type_prefix(": ", typ);
+                        match default_value {
+                            Some(v) => format!("{}{} = {}", name, type_string, v),
+                            None => format!("{}{}", name, type_string),
                         }
-                        DocParam::OnlyNamedAfter => "*".to_owned(),
-                        DocParam::OnlyPosBefore => "/".to_owned(),
-                        DocParam::Args {
-                            tuple_elem_ty,
-                            name,
-                            ..
-                        } => {
-                            format!("{}{}", name, raw_type_prefix(": ", tuple_elem_ty))
-                        }
-                        DocParam::Kwargs {
-                            dict_value_ty,
-                            name,
-                            ..
-                        } => {
-                            format!("{}{}", name, raw_type_prefix(": ", dict_value_ty))
-                        }
-                    });
-
-                    let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
-                    let prefix = format!("def {}", function_name);
-                    let single_line_result =
-                        format!("{}({}){}", prefix, params.clone().join(", "), ret_type);
-
-                    if f.params.len() > MAX_ARGS_BEFORE_MULTILINE
-                        || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
-                    {
-                        let chunked_params = params.join(",\n    ");
-                        Some(format!(
-                            "{}(\n    {}\n){}",
-                            prefix, chunked_params, ret_type
-                        ))
-                    } else {
-                        Some(single_line_result)
                     }
+                    DocParam::OnlyNamedAfter => "*".to_owned(),
+                    DocParam::OnlyPosBefore => "/".to_owned(),
+                    DocParam::Args {
+                        tuple_elem_ty,
+                        name,
+                        ..
+                    } => {
+                        format!("{}{}", name, raw_type_prefix(": ", tuple_elem_ty))
+                    }
+                    DocParam::Kwargs {
+                        dict_value_ty,
+                        name,
+                        ..
+                    } => {
+                        format!("{}{}", name, raw_type_prefix(": ", dict_value_ty))
+                    }
+                });
+
+                let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
+                let prefix = format!("def {}", function_name);
+                let single_line_result =
+                    format!("{}({}){}", prefix, params.clone().join(", "), ret_type);
+
+                if f.params.len() > MAX_ARGS_BEFORE_MULTILINE
+                    || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
+                {
+                    let chunked_params = params.join(",\n    ");
+                    format!("{}(\n    {}\n){}", prefix, chunked_params, ret_type)
+                } else {
+                    single_line_result
                 }
-            },
-            MarkdownFlavor::LspSummary => None,
+            }
         }
     }
 }
