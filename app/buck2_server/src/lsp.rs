@@ -26,7 +26,6 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -57,13 +56,11 @@ use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
 use gazebo::prelude::StrExt;
-use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
-use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
@@ -82,9 +79,6 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
 use crate::builtin_docs::docs::get_builtin_globals_docs;
-
-static DOCS_DIRECTORY_KEY: &str = "directory";
-static DOCS_BUILTIN_KEY: &str = "builtin";
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
 #[derive(buck2_error::Error, Debug)]
@@ -299,81 +293,6 @@ impl DocsCache {
 
     fn url_for_symbol(&self, symbol: &str) -> Option<&LspUrl> {
         self.global_urls.get(symbol)
-    }
-}
-
-#[derive(Debug, buck2_error::Error)]
-enum DocPathError {
-    #[error("Directory traversal was found in documentation path `{}` provided for `{}`", .path, .name)]
-    InvalidDirectory {
-        name: String,
-        path: String,
-        source: anyhow::Error,
-    },
-    #[error("Invalid custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    InvalidCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
-    #[error("Conflicting custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    ConflictingCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
-}
-
-fn format_custom_attr_error(keys_and_values: &[(String, String)]) -> String {
-    let mut ret = "{".to_owned();
-    ret.push_str(
-        &keys_and_values
-            .iter()
-            .map(|(k, v)| format!("`{}` => `{}`", k, v))
-            .join(", "),
-    );
-    ret.push('}');
-    ret
-}
-
-/// Get the output subdirectory for a [`Doc`] based on the `directory` custom attr, if present.
-pub fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf> {
-    let unknown_keys: Vec<_> = doc
-        .custom_attrs
-        .iter()
-        .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY && *k != DOCS_BUILTIN_KEY)
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-    if !unknown_keys.is_empty() {
-        return Err(DocPathError::InvalidCustomAttributes {
-            name: doc.id.name.to_owned(),
-            keys_and_values: unknown_keys,
-        }
-        .into());
-    }
-
-    match (
-        doc.custom_attrs.get(DOCS_DIRECTORY_KEY),
-        doc.custom_attrs.get(DOCS_BUILTIN_KEY),
-    ) {
-        (Some(path), None) | (None, Some(path)) => {
-            match ForwardRelativePathBuf::new(path.to_owned()) {
-                Ok(fp) => Ok(fp),
-                Err(e) => Err(DocPathError::InvalidDirectory {
-                    name: doc.id.name.to_owned(),
-                    path: path.to_owned(),
-                    source: e,
-                }
-                .into()),
-            }
-        }
-        (Some(dir), Some(builtin)) => Err(DocPathError::ConflictingCustomAttributes {
-            name: doc.id.name.to_owned(),
-            keys_and_values: vec![
-                (DOCS_DIRECTORY_KEY.to_owned(), dir.clone()),
-                (DOCS_BUILTIN_KEY.to_owned(), builtin.clone()),
-            ],
-        }
-        .into()),
-        (None, None) => Ok(ForwardRelativePathBuf::new(String::new())?),
     }
 }
 

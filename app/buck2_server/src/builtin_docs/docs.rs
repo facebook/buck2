@@ -44,13 +44,10 @@ use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
-use starlark::docs::DocMember;
 use starlark::docs::DocModule;
-use starlark::docs::DocProperty;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::environment::Globals;
-use starlark::typing::Ty;
 
 use crate::builtin_docs::markdown::generate_markdown_files;
 
@@ -133,8 +130,6 @@ pub fn get_builtin_docs(
 async fn get_docs_from_module(
     ctx: &mut DiceComputations<'_>,
     import_path: &ImportPath,
-    // If we want to promote `native`, what should we exclude
-    promote_native: Option<&HashSet<&str>>,
 ) -> anyhow::Result<Vec<Doc>> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
@@ -145,24 +140,7 @@ async fn get_docs_from_module(
     );
     let module = ctx.get_loaded_module_from_import_path(import_path).await?;
     let frozen_module = module.env();
-    let mut module_docs = frozen_module.documentation();
-
-    // For the prelude, we want to promote `native` symbol up one level
-    if let Some(existing_globals) = promote_native {
-        for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
-            if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-                let doc = match value.to_value().documentation() {
-                    Some(DocItem::Function(f)) => DocMember::Function(f),
-                    _ => DocMember::Property(DocProperty {
-                        docs: None,
-                        typ: Ty::any(),
-                    }),
-                };
-
-                module_docs.members.insert(name.to_owned(), doc);
-            }
-        }
-    }
+    let module_docs = frozen_module.documentation();
 
     let mut docs = vec![];
 
@@ -285,12 +263,13 @@ async fn docs(
     };
 
     let dice_ref = &dice_ctx;
-    let module_calcs: Vec<_> = lookups
-        .iter()
-        .map(|import_path| async move {
-            get_docs_from_module(&mut dice_ref.clone(), import_path, None).await
-        })
-        .collect();
+    let module_calcs: Vec<_> =
+        lookups
+            .iter()
+            .map(|import_path| async move {
+                get_docs_from_module(&mut dice_ref.clone(), import_path).await
+            })
+            .collect();
 
     let modules_docs = buck2_util::future::try_join_all(module_calcs).await?;
     docs.extend(modules_docs.into_iter().flatten());
