@@ -39,7 +39,6 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRootTemp;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -142,7 +141,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let foo_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_parse("root//foo"),
-        PackageRelativePathBuf::unchecked_new("foo".to_owned()),
+        "foo",
     )));
 
     let foo_meta = FileMetadata {
@@ -152,7 +151,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let bar_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_parse("root//bar"),
-        PackageRelativePathBuf::unchecked_new("bar".to_owned()),
+        "bar",
     )));
 
     let bar = CellPath::new(

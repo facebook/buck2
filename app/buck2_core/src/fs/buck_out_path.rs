@@ -308,7 +308,6 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
-    use crate::package::package_relative_path::PackageRelativePathBuf;
     use crate::package::source_path::SourcePath;
     use crate::package::PackageLabel;
     use crate::target::label::label::TargetLabel;
@@ -345,7 +344,7 @@ mod tests {
                     CellName::testing_new("foo"),
                     CellRelativePath::unchecked_new("baz-package"),
                 ),
-                PackageRelativePathBuf::unchecked_new("faz.file".into()),
+                "faz.file",
             )
             .as_ref(),
         )?;
@@ -363,7 +362,7 @@ mod tests {
                             CellName::testing_new("none_existent"),
                             CellRelativePath::unchecked_new("baz")
                         ),
-                        PackageRelativePathBuf::unchecked_new("fazx".into())
+                        "fazx",
                     )
                     .as_ref()
                 )

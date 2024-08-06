@@ -64,7 +64,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -129,7 +128,7 @@ fn create_test_source_artifact(
 ) -> SourceArtifact {
     SourceArtifact::new(SourcePath::testing_new(
         PackageLabel::testing_new(package_cell, package_path),
-        PackageRelativePathBuf::unchecked_new(target_name.into()),
+        target_name,
     ))
 }
 

@@ -35,7 +35,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -85,10 +84,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ctx.build_file_cell().name(),
             CellRelativePath::from_path(package).unwrap(),
         );
-        let path = SourcePath::testing_new(
-            package,
-            PackageRelativePathBuf::try_from(path.to_owned()).unwrap(),
-        );
+        let path = SourcePath::testing_new(package, path);
         Ok(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }
 

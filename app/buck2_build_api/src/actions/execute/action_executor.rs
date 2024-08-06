@@ -681,7 +681,6 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
@@ -888,10 +887,7 @@ mod tests {
         );
 
         let inputs = indexset![ArtifactGroup::Artifact(Artifact::from(
-            SourceArtifact::new(SourcePath::testing_new(
-                pkg.dupe(),
-                PackageRelativePathBuf::unchecked_new("source".into()),
-            ))
+            SourceArtifact::new(SourcePath::testing_new(pkg.dupe(), "source"))
         ))];
         let label = TargetLabel::new(pkg, TargetNameRef::unchecked_new("foo"))
             .configure(ConfigurationData::testing_new());
