@@ -33,10 +33,9 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 
 /// Representation of `select()` in Starlark.
-#[derive(Debug, ProvidesStaticType, NoSerialize, StarlarkDocs, Allocative)] // TODO selector should probably support serializing
+#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
 #[repr(C)]
 pub enum StarlarkSelectorGen<ValueType> {
     Inner(ValueType),

@@ -29,7 +29,6 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -56,8 +55,7 @@ use crate::values::ValueError;
 pub const BOOL_TYPE: &str = "bool";
 
 /// `bool` value.
-#[derive(ProvidesStaticType, Debug, Serialize, StarlarkDocs, Allocative)]
-#[starlark_docs(builtin = "standard")]
+#[derive(ProvidesStaticType, Debug, Serialize, Allocative)]
 #[serde(transparent)]
 pub struct StarlarkBool(pub(crate) bool);
 

@@ -26,7 +26,6 @@ use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
@@ -88,17 +87,7 @@ impl StructGen<'static, FrozenValue> {
 starlark_complex_value!(pub(crate) Struct<'v>);
 
 /// The result of calling `struct()`.
-#[derive(
-    Clone,
-    Default,
-    Debug,
-    Trace,
-    Freeze,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "extension")]
+#[derive(Clone, Default, Debug, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct StructGen<'v, V: ValueLike<'v>> {
     /// The fields in a struct.

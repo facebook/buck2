@@ -25,7 +25,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
-use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -40,17 +39,7 @@ use crate::values::ValueError;
 use crate::values::ValueLike;
 
 /// Representation of `range()` type.
-#[derive(
-    Clone,
-    Copy,
-    Dupe,
-    Debug,
-    ProvidesStaticType,
-    NoSerialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Copy, Dupe, Debug, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct Range {
     start: i32,
     stop: i32,

@@ -26,7 +26,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 use starlark_map::StarlarkHashValue;
 
 use crate as starlark;
@@ -161,17 +160,7 @@ pub(crate) fn write_compact<W: fmt::Write>(
 }
 
 /// Runtime representation of Starlark `float` type.
-#[derive(
-    Clone,
-    Dupe,
-    Copy,
-    Debug,
-    ProvidesStaticType,
-    Serialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Dupe, Copy, Debug, ProvidesStaticType, Serialize, Allocative)]
 #[serde(transparent)]
 pub struct StarlarkFloat(pub f64);
 

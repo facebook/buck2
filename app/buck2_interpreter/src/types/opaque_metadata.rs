@@ -11,7 +11,6 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::docs::StarlarkDocs;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
@@ -26,7 +25,6 @@ use starlark::values::StarlarkValue;
     PartialEq,
     ProvidesStaticType,
     Allocative,
-    StarlarkDocs,
     NoSerialize,
     Display
 )]

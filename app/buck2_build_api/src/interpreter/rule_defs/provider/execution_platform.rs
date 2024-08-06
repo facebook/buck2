@@ -17,9 +17,8 @@ use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
-use starlark::StarlarkDocs;
 
-#[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
+#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub struct StarlarkExecutionPlatformResolution(pub ExecutionPlatformResolution);
 
 starlark_simple_value!(StarlarkExecutionPlatformResolution);

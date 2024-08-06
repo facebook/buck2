@@ -24,7 +24,6 @@ use dupe::Dupe;
 use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_map::StarlarkHasher;
 
@@ -47,10 +46,8 @@ use crate::values::ValueLike;
     Freeze,
     NoSerialize,
     ProvidesStaticType,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(builtin = "extension")]
 pub struct FieldGen<V: ValueLifetimeless> {
     pub(crate) typ: TypeCompiled<V>,
     pub(crate) default: Option<V>,

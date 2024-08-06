@@ -27,7 +27,6 @@ use display_container::fmt_container;
 use serde::ser::SerializeTuple;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -55,8 +54,7 @@ use crate::values::ValueLike;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
 #[repr(C)]
-#[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs(builtin = "standard")]
+#[derive(ProvidesStaticType, Allocative)]
 pub(crate) struct TupleGen<V: ValueLifetimeless> {
     len: usize,
     /// The data stored by the tuple.

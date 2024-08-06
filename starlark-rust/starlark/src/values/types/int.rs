@@ -35,7 +35,6 @@ use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
@@ -121,8 +120,7 @@ impl UnpackValue<'_> for i32 {
 // WARNING: This type isn't a real type, a pointer to this is secretly an i32.
 // Therefore, don't derive stuff on it, since it will be wrong.
 // However, `ProvidesStaticType` promises not to peek at its value, so that's fine.
-#[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs(builtin = "standard")]
+#[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct PointerI32 {
     _private: (),

@@ -59,7 +59,7 @@ pub(crate) enum EnsuredArtifact {
     },
 }
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
+#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroupInner {
     pub(crate) ags: Vec<ArtifactGroup>,

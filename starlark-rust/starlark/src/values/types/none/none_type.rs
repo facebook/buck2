@@ -24,7 +24,6 @@ use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -46,16 +45,7 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
-#[derive(
-    Debug,
-    Clone,
-    Dupe,
-    ProvidesStaticType,
-    Display,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, Allocative)]
 #[display(fmt = "None")]
 pub struct NoneType;
 
