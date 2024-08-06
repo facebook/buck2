@@ -571,6 +571,11 @@ impl AnalysisValueFetcher {
         let Some((storage, heap_ref)) = self.extra_value()? else {
             return Ok((None, None));
         };
+
+        if id.holder_key() != &storage.self_key {
+            return Err(internal_error!("Wrong owner"));
+        }
+
         let Some(value) = storage.action_data.get(id) else {
             return Ok((None, None));
         };
@@ -612,6 +617,9 @@ impl AnalysisValueFetcher {
         let Some((storage, heap_ref)) = self.extra_value()? else {
             return Ok(None);
         };
+        if key.holder_key() != &storage.self_key {
+            return Err(internal_error!("Wrong owner"));
+        }
         let Some(value) = storage.lambda_params.get(key) else {
             return Ok(None);
         };
