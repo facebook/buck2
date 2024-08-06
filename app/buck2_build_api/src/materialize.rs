@@ -13,7 +13,7 @@ use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
-use dashmap::DashMap;
+use dashmap::DashSet;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -34,7 +34,7 @@ pub async fn materialize_artifact_group(
         let mut artifacts_to_materialize = Vec::new();
         for (artifact, _value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                if map.insert(artifact.dupe(), ()).is_some() {
+                if !map.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
                 }
@@ -62,7 +62,7 @@ pub enum MaterializationContext {
     Materialize {
         /// This map contains all the artifacts that we enqueued for materialization. This ensures
         /// we don't enqueue the same thing more than once.
-        map: Arc<DashMap<BuildArtifact, ()>>,
+        map: Arc<DashSet<BuildArtifact>>,
         /// Whether we should force the materialization of requested artifacts, or defer to the
         /// config.
         force: bool,
@@ -73,18 +73,18 @@ impl MaterializationContext {
     /// Create a new MaterializationContext that will force all materializations.
     pub fn force_materializations() -> Self {
         Self::Materialize {
-            map: Arc::new(DashMap::new()),
+            map: Arc::new(DashSet::new()),
             force: true,
         }
     }
 
     pub fn build_context(behavior: Materializations) -> Self {
-        Self::build_context_with_existing_map(behavior, Arc::new(DashMap::new()))
+        Self::build_context_with_existing_map(behavior, Arc::new(DashSet::new()))
     }
 
     pub fn build_context_with_existing_map(
         behavior: Materializations,
-        map: Arc<DashMap<BuildArtifact, ()>>,
+        map: Arc<DashSet<BuildArtifact>>,
     ) -> Self {
         match behavior {
             Materializations::Skip => MaterializationContext::Skip,
@@ -106,12 +106,12 @@ pub struct MaterializationStrategy {
 
 impl MaterializationStrategy {
     pub fn new(build_behavior: Materializations) -> Self {
-        Self::with_existing_map(build_behavior, &Arc::new(DashMap::new()))
+        Self::with_existing_map(build_behavior, &Arc::new(DashSet::new()))
     }
 
     pub fn with_existing_map(
         build_behavior: Materializations,
-        map: &Arc<DashMap<BuildArtifact, ()>>,
+        map: &Arc<DashSet<BuildArtifact>>,
     ) -> Self {
         let build_context =
             MaterializationContext::build_context_with_existing_map(build_behavior, map.dupe());

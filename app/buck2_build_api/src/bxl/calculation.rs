@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_util::late_binding::LateBinding;
-use dashmap::DashMap;
+use dashmap::DashSet;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -35,7 +35,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
 #[derive(Allocative, Clone, Dupe)]
 pub struct BxlComputeResult {
     pub bxl_result: Arc<BxlResult>,
-    pub materializations: Arc<DashMap<BuildArtifact, ()>>,
+    pub materializations: Arc<DashSet<BuildArtifact>>,
 }
 
 /// Dependency injection for BXL.

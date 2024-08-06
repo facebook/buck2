@@ -74,7 +74,7 @@ use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
-use dashmap::DashMap;
+use dashmap::DashSet;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -165,7 +165,7 @@ pub(crate) struct RootBxlContextData<'v> {
     /// we can take the internal state without having to clone it.
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    materializations: Arc<DashMap<BuildArtifact, ()>>,
+    materializations: Arc<DashSet<BuildArtifact>>,
 }
 
 /// Data object for `BxlContextType::Dynamic`.
@@ -333,7 +333,7 @@ impl<'v> BxlContext<'v> {
                 error_sink,
                 async_ctx.dupe(),
             )),
-            materializations: Arc::new(DashMap::new()),
+            materializations: Arc::new(DashSet::new()),
         };
         let context_type = BxlContextType::Root(root_data);
 
@@ -399,7 +399,7 @@ impl<'v> BxlContext<'v> {
     ) -> anyhow::Result<(
         Option<AnalysisRegistry<'v>>,
         IndexSet<ArtifactGroup>,
-        Arc<DashMap<BuildArtifact, ()>>,
+        Arc<DashSet<BuildArtifact>>,
     )> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;

@@ -27,7 +27,7 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use dashmap::DashMap;
+use dashmap::DashSet;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -179,7 +179,7 @@ where
 
 pub(crate) fn build<'v>(
     ctx: &BxlContext<'v>,
-    materializations_map: &Arc<DashMap<BuildArtifact, ()>>,
+    materializations_map: &Arc<DashSet<BuildArtifact>>,
     spec: ConfiguredProvidersExprArg<'v>,
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,

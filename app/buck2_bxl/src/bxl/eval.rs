@@ -47,7 +47,7 @@ use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use clap::error::ErrorKind;
-use dashmap::DashMap;
+use dashmap::DashSet;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -80,7 +80,7 @@ pub(crate) async fn eval(
 ) -> anyhow::Result<(
     BxlResult,
     Option<StarlarkProfileDataAndStats>,
-    Arc<DashMap<BuildArtifact, ()>>,
+    Arc<DashSet<BuildArtifact>>,
 )> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
@@ -132,7 +132,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> anyhow::Result<(BxlResult, Arc<DashMap<BuildArtifact, ()>>)> {
+    ) -> anyhow::Result<(BxlResult, Arc<DashSet<BuildArtifact>>)> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -278,7 +278,7 @@ async fn eval_bxl_inner(
 ) -> anyhow::Result<(
     BxlResult,
     Option<StarlarkProfileDataAndStats>,
-    Arc<DashMap<BuildArtifact, ()>>,
+    Arc<DashSet<BuildArtifact>>,
 )> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
