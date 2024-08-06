@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
@@ -30,21 +29,17 @@ impl ArtifactGroupRegistry {
 
     pub(crate) fn create_transitive_set<'v>(
         &mut self,
-        self_key: &DeferredHolderKey,
         definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         analysis_value_storage: &mut AnalysisValueStorage<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        Ok(
-            analysis_value_storage.register_transitive_set(self_key.dupe(), move |key| {
-                let set =
-                    TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)
-                        .map_err(|e| e.into_anyhow())?;
-                Ok(eval.heap().alloc_typed(set))
-            })?,
-        )
+        Ok(analysis_value_storage.register_transitive_set(move |key| {
+            let set = TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)
+                .map_err(|e| e.into_anyhow())?;
+            Ok(eval.heap().alloc_typed(set))
+        })?)
     }
 
     pub(crate) fn ensure_bound(

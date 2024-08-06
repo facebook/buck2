@@ -12,7 +12,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -30,7 +29,6 @@ use crate::dynamic::params::DynamicLambdaParams;
 pub trait DynamicRegistryDyn: Allocative + 'static {
     fn register<'v>(
         &mut self,
-        self_key: &DeferredHolderKey,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,

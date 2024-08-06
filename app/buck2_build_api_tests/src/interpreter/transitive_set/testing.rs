@@ -11,7 +11,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
@@ -19,9 +19,6 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
-use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -44,15 +41,13 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     ) -> starlark::Result<TransitiveSet<'v>> {
         static LAST_ID: AtomicU32 = AtomicU32::new(0);
 
-        let target = ConfiguredTargetLabel::testing_parse(
-            "cell//path:target",
-            ConfigurationData::testing_new(),
-        );
         let tset_id = TransitiveSetIndex::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
-        let deferred_key = BaseDeferredKey::TargetLabel(target);
 
         let set = TransitiveSet::new_from_values(
-            TransitiveSetKey::new(DeferredHolderKey::Base(deferred_key), tset_id),
+            TransitiveSetKey::new(
+                RecordedAnalysisValues::testing_deferred_holder_key(),
+                tset_id,
+            ),
             definition,
             value,
             children,

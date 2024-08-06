@@ -52,14 +52,13 @@ pub(crate) fn init_dynamic_registry_new() {
 impl DynamicRegistryDyn for DynamicRegistry {
     fn register<'v>(
         &mut self,
-        self_key: &DeferredHolderKey,
         dynamic: IndexSet<Artifact>,
         outputs: IndexSet<OutputArtifact>,
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
         storage: &mut AnalysisValueStorage<'v>,
     ) -> anyhow::Result<()> {
         let dynamic_key = DynamicLambdaResultsKey::new(
-            self_key.dupe(),
+            storage.self_key.dupe(),
             DynamicLambdaIndex::new(self.pending.len().try_into()?),
         );
 
@@ -93,7 +92,7 @@ impl DynamicRegistryDyn for DynamicRegistry {
             self.execution_platform.dupe(),
         );
         self.pending.insert(dynamic_key.dupe(), lambda);
-        storage.set_lambda_params(dynamic_key, lambda_params);
+        storage.set_lambda_params(dynamic_key, lambda_params)?;
         Ok(())
     }
 
