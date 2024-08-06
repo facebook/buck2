@@ -59,7 +59,6 @@ use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::UnpackValue;
-use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
@@ -202,7 +201,7 @@ impl BxlInnerEvaluator {
 
             let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_ctx))?;
 
-            let result = tokio::task::block_in_place(|| {
+            tokio::task::block_in_place(|| {
                 with_dispatcher(dispatcher.clone(), || {
                     dispatcher.clone().span(
                         BxlExecutionStart {
@@ -223,9 +222,6 @@ impl BxlInnerEvaluator {
                     )
                 })
             })?;
-            if !result.is_none() {
-                return Err(anyhow::anyhow!(NotAValidReturnType(result.get_type())));
-            }
 
             BxlContext::take_state(bxl_ctx)?
         };
@@ -366,7 +362,7 @@ fn eval_bxl<'v>(
     ctx: ValueTyped<'v, BxlContext<'v>>,
     provider: &mut dyn StarlarkEvaluatorProvider,
     force_print_stacktrace: bool,
-) -> anyhow::Result<Value<'v>> {
+) -> anyhow::Result<()> {
     let bxl_impl = frozen_callable.implementation();
     let result = eval.eval_function(bxl_impl.to_value(), &[ctx.to_value()], &[]);
 
@@ -375,7 +371,13 @@ fn eval_bxl<'v>(
         .context("Profiler finalization failed")?;
 
     let e = match result {
-        Ok(v) => return Ok(v),
+        Ok(v) => {
+            if !v.is_none() {
+                return Err(anyhow::anyhow!(NotAValidReturnType(v.get_type())));
+            }
+
+            return Ok(());
+        }
         Err(e) => e,
     };
 
