@@ -11,7 +11,11 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
+load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
@@ -1010,6 +1014,30 @@ swift_toolchain = prelude_rule(
     ),
 )
 
+_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
+
+def _apple_universal_executable_extra_attrs():
+    attribs = {
+        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
+        "executable_name": attrs.option(attrs.string(), default = None),
+        "labels": attrs.list(attrs.string(), default = []),
+        "split_arch_dsym": attrs.bool(default = False),
+        "universal": attrs.option(attrs.bool(), default = None),
+        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    }
+    attribs.update(apple_dsymutil_attrs())
+    return attribs
+
+apple_universal_executable = prelude_rule(
+    name = "apple_universal_executable",
+    impl = apple_universal_executable_impl,
+    docs = "",
+    examples = None,
+    further = None,
+    attrs = _apple_universal_executable_extra_attrs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1020,6 +1048,7 @@ ios_rules = struct(
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
     apple_toolchain_set = apple_toolchain_set,
+    apple_universal_executable = apple_universal_executable,
     core_data_model = core_data_model,
     prebuilt_apple_framework = prebuilt_apple_framework,
     scene_kit_assets = scene_kit_assets,

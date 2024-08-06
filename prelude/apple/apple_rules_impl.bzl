@@ -15,7 +15,6 @@ load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMod
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_extra_attrs")
-load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
@@ -46,7 +45,6 @@ load(
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
-load(":apple_universal_executable.bzl", "apple_universal_executable_impl")
 load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
@@ -60,7 +58,6 @@ implemented_rules = {
     "apple_resource": apple_resource_impl,
     "apple_test": apple_test_impl,
     "apple_toolchain": apple_toolchain_impl,
-    "apple_universal_executable": apple_universal_executable_impl,
     "apple_xcuitest": apple_xcuitest_impl,
     "core_data_model": apple_core_data_impl,
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
@@ -136,19 +133,6 @@ def _apple_library_extra_attrs():
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    }
-    attribs.update(apple_dsymutil_attrs())
-    return attribs
-
-def _apple_universal_executable_extra_attrs():
-    attribs = {
-        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
-        "executable_name": attrs.option(attrs.string(), default = None),
-        "labels": attrs.list(attrs.string(), default = []),
-        "split_arch_dsym": attrs.bool(default = False),
-        "universal": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
     attribs.update(apple_dsymutil_attrs())
     return attribs
@@ -232,7 +216,6 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "apple_universal_executable": _apple_universal_executable_extra_attrs(),
     "apple_xcframework": apple_xcframework_extra_attrs(),
     "apple_xcuitest": apple_xcuitest_extra_attrs(),
     "core_data_model": {
