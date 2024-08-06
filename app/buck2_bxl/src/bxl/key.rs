@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -69,7 +70,7 @@ impl BxlKey {
         &self.0.bxl_args
     }
 
-    pub(crate) fn into_base_deferred_key_dyn_impl(
+    fn into_base_deferred_key_dyn_impl(
         self,
         execution_platform_resolution: ExecutionPlatformResolution,
         exec_deps: Vec<ConfiguredProvidersLabel>,
@@ -81,6 +82,19 @@ impl BxlKey {
             exec_deps,
             toolchains,
         })
+    }
+
+    pub(crate) fn into_base_deferred_key(
+        self,
+        execution_platform_resolution: ExecutionPlatformResolution,
+        exec_deps: Vec<ConfiguredProvidersLabel>,
+        toolchains: Vec<ConfiguredProvidersLabel>,
+    ) -> BaseDeferredKey {
+        BaseDeferredKey::BxlLabel(self.into_base_deferred_key_dyn_impl(
+            execution_platform_resolution,
+            exec_deps,
+            toolchains,
+        ))
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(

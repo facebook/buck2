@@ -18,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_configured::configuration::calculation::ConfigurationCalculation;
 use buck2_configured::nodes::calculation::ExecutionPlatformConstraints;
 use buck2_configured::target::TargetConfiguredTargetLabel;
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -152,11 +151,11 @@ pub(crate) fn validate_action_instantiation(
     } else {
         let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
-            BaseDeferredKey::BxlLabel(this.current_bxl().dupe().into_base_deferred_key_dyn_impl(
+            this.current_bxl().dupe().into_base_deferred_key(
                 execution_platform.clone(),
                 bxl_execution_resolution.exec_deps_configured.clone(),
                 bxl_execution_resolution.toolchain_deps_configured.clone(),
-            )),
+            ),
             execution_platform,
         )?;
 

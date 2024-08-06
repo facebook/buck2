@@ -18,7 +18,6 @@ use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -348,11 +347,11 @@ async fn eval_bxl_inner(
 // are empty here for the same reason.
 pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
     BuckOutPath::new(
-        BaseDeferredKey::BxlLabel(key.dupe().into_base_deferred_key_dyn_impl(
+        key.dupe().into_base_deferred_key(
             ExecutionPlatformResolution::unspecified(),
             Vec::new(),
             Vec::new(),
-        )),
+        ),
         ForwardRelativePathBuf::unchecked_new(format!(
             "__bxl_internal__/{}stream_cache",
             stream_type
