@@ -13,7 +13,6 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::bzl::ImportPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
@@ -156,11 +155,4 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         };
         Ok(ctx.compute(&key).await??)
     }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-#[allow(dead_code)]
-struct CfgConstructorLocation {
-    pub import_path: ImportPath,
-    pub function: String,
 }
