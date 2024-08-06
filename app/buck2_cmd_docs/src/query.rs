@@ -13,34 +13,68 @@ use buck2_query::query::syntax::simple::functions::description::QueryType;
 use buck2_query::query::syntax::simple::functions::description::QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE;
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
+use dupe::Dupe;
 
-use crate::output::DocsOutputFormatOptions;
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
+#[clap(rename_all = "snake_case")]
+enum OutputFormatArg {
+    Markdown,
+    Rendered,
+}
+
+#[derive(Debug, clap::Parser)]
+struct OutputFormatOptions {
+    /// How to format the documentation
+    #[clap(
+        long = "format",
+        default_value = "rendered",
+        value_enum,
+        ignore_case = true
+    )]
+    format: OutputFormatArg,
+}
+
+impl OutputFormatOptions {
+    fn emit_markdown(&self, markdown: &str) -> anyhow::Result<()> {
+        match self.format {
+            OutputFormatArg::Markdown => {
+                buck2_client_ctx::println!("{}", markdown)?;
+            }
+            OutputFormatArg::Rendered => {
+                let skin = termimad::MadSkin::default();
+                let area = termimad::Area::full_screen();
+                let width = std::cmp::min(100, area.width) as usize;
+                let rendered = skin.text(markdown, Some(width));
+                buck2_client_ctx::println!("{}", rendered)?;
+            }
+        }
+
+        Ok(())
+    }
+}
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-uquery", about = "Print documentation for query/uquery")]
 pub(crate) struct DocsUqueryCommand {
     #[clap(flatten)]
-    docs_options: DocsOutputFormatOptions,
+    docs_options: OutputFormatOptions,
 }
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-cquery", about = "Print documentation for cquery")]
 pub(crate) struct DocsCqueryCommand {
     #[clap(flatten)]
-    docs_options: DocsOutputFormatOptions,
+    docs_options: OutputFormatOptions,
 }
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-aquery", about = "Print documentation for aquery")]
 pub(crate) struct DocsAqueryCommand {
     #[clap(flatten)]
-    docs_options: DocsOutputFormatOptions,
+    docs_options: OutputFormatOptions,
 }
 
-fn output(
-    options: DocsOutputFormatOptions,
-    description: QueryEnvironmentDescription,
-) -> ExitResult {
+fn output(options: OutputFormatOptions, description: QueryEnvironmentDescription) -> ExitResult {
     let markdown = description.render_markdown(&MarkdownOptions {
         include_alt_text: true,
     });
