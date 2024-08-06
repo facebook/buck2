@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
@@ -27,8 +26,9 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
-use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalInterpreterState;
-use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
+use buck2_interpreter_for_build::interpreter::globals::register_analysis_natives;
+use buck2_interpreter_for_build::interpreter::globals::register_bxl_natives;
+use buck2_interpreter_for_build::interpreter::globals::register_load_natives;
 use buck2_interpreter_for_build::interpreter::globals::starlark_library_extensions_for_buck2;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::DocsServerComamnd;
@@ -39,7 +39,6 @@ use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark::docs::get_registered_starlark_docs;
 use starlark::docs::Doc;
@@ -48,6 +47,7 @@ use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::environment::Globals;
+use starlark::environment::GlobalsBuilder;
 
 use crate::markdown::generate_markdown_files;
 
@@ -94,29 +94,24 @@ fn get_builtin_global_starlark_docs() -> DocModule {
 }
 
 /// Globals that are in the interpreter (including BXL), but none of the starlark global symbols.
-fn get_builtin_build_docs(
-    interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<DocModule> {
-    let mut b_o = interpreter_state.global_env.documentation();
-    let globals = Globals::extended_by(starlark_library_extensions_for_buck2());
-    let global_symbols: HashSet<_> = globals.names().map(|s| s.as_str()).collect();
-    b_o.members = b_o
-        .members
-        .into_iter()
-        .filter(|(name, _)| !global_symbols.contains(&name.as_str()))
-        .collect();
-    Ok(b_o)
+fn get_builtin_build_docs() -> DocModule {
+    GlobalsBuilder::new()
+        .with(register_load_natives)
+        .with(register_analysis_natives)
+        .with(register_bxl_natives)
+        .build()
+        .documentation()
 }
 
-fn get_builtin_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Vec<Doc>> {
+fn get_builtin_docs() -> Vec<Doc> {
     let mut all_builtins = vec![
         builtin_doc("globals", "standard", get_builtin_global_starlark_docs()),
-        builtin_doc("globals", "", get_builtin_build_docs(interpreter_state)?),
+        builtin_doc("globals", "", get_builtin_build_docs()),
     ];
 
     all_builtins.extend(get_registered_starlark_docs());
 
-    Ok(all_builtins)
+    all_builtins
 }
 
 async fn get_docs_from_module(
@@ -238,7 +233,7 @@ async fn docs(
     )?;
 
     let mut docs = if request.retrieve_builtins {
-        get_builtin_docs(dice_ctx.get_global_interpreter_state().await?.dupe())?
+        get_builtin_docs()
     } else {
         vec![]
     };
