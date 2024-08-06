@@ -174,18 +174,28 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
 
         cmd.add(ctx.attrs.swift_cxx_args)
 
-        if module_name == "Darwin" and ctx.attrs.enable_cxx_interop:
-            # The Darwin module requires special handling with cxx interop
-            # to ensure that it does not include the c++ headers. The module
-            # is marked with [no_undeclared_includes] which will prevent
-            # including headers declared in other modulemaps. So that the
-            # cxx modules are visible we need to pass the module map path
-            # without the corresponding module file, which we cannot build
-            # until the Darwin module is available.
+        if ctx.attrs.enable_cxx_interop:
+            # The stdlib headers have deprecation warnings set when targeting
+            # more recent versions. These warnings get serialized in the
+            # modules and make it impossible to import the std module, so
+            # suppress them during compilation instead.
             cmd.add([
                 "-Xcc",
-                cmd_args(swift_toolchain.sdk_path, format = "-fmodule-map-file={}/usr/include/c++/v1/module.modulemap"),
+                "-D_LIBCPP_DISABLE_DEPRECATION_WARNINGS",
             ])
+
+            if module_name == "Darwin":
+                # The Darwin module requires special handling with cxx interop
+                # to ensure that it does not include the c++ headers. The module
+                # is marked with [no_undeclared_includes] which will prevent
+                # including headers declared in other modulemaps. So that the
+                # cxx modules are visible we need to pass the module map path
+                # without the corresponding module file, which we cannot build
+                # until the Darwin module is available.
+                cmd.add([
+                    "-Xcc",
+                    cmd_args(swift_toolchain.sdk_path, format = "-fmodule-map-file={}/usr/include/c++/v1/module.modulemap"),
+                ])
 
         _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, apple_toolchain)
 
