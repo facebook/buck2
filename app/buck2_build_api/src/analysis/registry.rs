@@ -529,7 +529,11 @@ impl<'v> AnalysisValueStorage<'v> {
         action_data: (Option<Value<'v>>, Option<StarlarkCallable<'v>>),
     ) -> anyhow::Result<()> {
         if &self.self_key != id.holder_key() {
-            return Err(internal_error!("Wrong owner"));
+            return Err(internal_error!(
+                "Wrong action owner: expecting `{}`, got `{}`",
+                self.self_key,
+                id
+            ));
         }
         self.action_data.insert(id, action_data);
         Ok(())
@@ -541,7 +545,11 @@ impl<'v> AnalysisValueStorage<'v> {
         lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
     ) -> anyhow::Result<()> {
         if &self.self_key != key.holder_key() {
-            return Err(internal_error!("Wrong owner"));
+            return Err(internal_error!(
+                "Wrong lambda owner: expecting `{}`, got `{}`",
+                self.self_key,
+                key
+            ));
         }
         self.lambda_params.insert(key, lambda_params);
         Ok(())
@@ -573,7 +581,11 @@ impl AnalysisValueFetcher {
         };
 
         if id.holder_key() != &storage.self_key {
-            return Err(internal_error!("Wrong owner"));
+            return Err(internal_error!(
+                "Wrong action owner: expecting `{}`, got `{}`",
+                storage.self_key,
+                id
+            ));
         }
 
         let Some(value) = storage.action_data.get(id) else {
@@ -618,7 +630,11 @@ impl AnalysisValueFetcher {
             return Ok(None);
         };
         if key.holder_key() != &storage.self_key {
-            return Err(internal_error!("Wrong owner"));
+            return Err(internal_error!(
+                "Wrong lambda owner: expecting `{}`, got `{}`",
+                storage.self_key,
+                key
+            ));
         }
         let Some(value) = storage.lambda_params.get(key) else {
             return Ok(None);
