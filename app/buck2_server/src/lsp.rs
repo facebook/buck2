@@ -41,7 +41,7 @@ use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
-use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
+use buck2_interpreter_for_build::interpreter::globals::base_globals;
 use buck2_interpreter_for_build::interpreter::interpreter_for_cell::ParseData;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -77,8 +77,6 @@ use starlark_lsp::server::StringLiteralResult;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
-
-use crate::builtin_docs::docs::get_builtin_globals_docs;
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
 #[derive(buck2_error::Error, Debug)]
@@ -135,8 +133,7 @@ impl DocsCacheManager {
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        let global_interpreter_state = dice_ctx.get_global_interpreter_state().await?;
-        builtin_docs.push((None, get_builtin_globals_docs(global_interpreter_state)?));
+        builtin_docs.push((None, get_builtin_globals_docs()));
 
         let builtin_names = builtin_docs
             .iter()
@@ -147,6 +144,10 @@ impl DocsCacheManager {
         }
         DocsCache::new(&builtin_docs, fs, &cell_resolver).await
     }
+}
+
+fn get_builtin_globals_docs() -> DocModule {
+    base_globals().build().documentation()
 }
 
 async fn get_prelude_docs(

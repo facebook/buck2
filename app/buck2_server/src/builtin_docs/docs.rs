@@ -105,15 +105,6 @@ fn get_builtin_build_docs(
     Ok(b_o)
 }
 
-pub fn get_builtin_globals_docs(
-    interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<DocModule> {
-    let mut docs = get_builtin_global_starlark_docs();
-    docs.members
-        .extend(get_builtin_build_docs(interpreter_state)?.members);
-    Ok(docs)
-}
-
 pub fn get_builtin_docs(
     interpreter_state: Arc<GlobalInterpreterState>,
 ) -> anyhow::Result<Vec<Doc>> {
