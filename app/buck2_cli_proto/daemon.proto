@@ -375,6 +375,9 @@ message CommonBuildOptions {
   /// Materializes inputs for failed actions which ran on RE.
   bool materialize_failed_inputs = 18;
 
+  /// Validations to run that are marked optional.
+  repeated string enable_optional_validations = 19;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if

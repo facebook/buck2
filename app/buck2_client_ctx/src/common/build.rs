@@ -194,6 +194,11 @@ impl CommonBuildOptions {
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
+        let enable_optional_validations = self
+            .enable_optional_validations
+            .iter()
+            .map(|s| s.to_owned())
+            .collect();
 
         buck2_cli_proto::CommonBuildOptions {
             concurrency,
@@ -221,6 +226,7 @@ impl CommonBuildOptions {
             skip_missing_targets: self.skip_missing_targets,
             skip_incompatible_targets: self.skip_incompatible_targets,
             materialize_failed_inputs: self.materialize_failed_inputs,
+            enable_optional_validations,
             unstable_include_failures_build_report,
             unstable_include_package_project_relative_paths,
         }
