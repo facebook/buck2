@@ -24,7 +24,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use dupe::Dupe;
 
-use crate::commands::docs::starlark::markdown::MarkdownFileOptions;
+use crate::starlark::markdown::MarkdownFileOptions;
 
 #[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]

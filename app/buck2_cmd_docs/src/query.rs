@@ -14,7 +14,7 @@ use buck2_query::query::syntax::simple::functions::description::QUERY_ENVIRONMEN
 use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 use buck2_query::query::syntax::simple::functions::docs::QueryEnvironmentDescription;
 
-use crate::commands::docs::output::DocsOutputFormatOptions;
+use crate::output::DocsOutputFormatOptions;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs-uquery", about = "Print documentation for query/uquery")]

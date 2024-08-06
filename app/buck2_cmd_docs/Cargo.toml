@@ -1,0 +1,19 @@
+[package]
+description = "`buck2 docs` command client implementation"
+edition = "2021"
+license = { workspace = true }
+name = "buck2_cmd_docs"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+dupe = { workspace = true }
+serde = { workspace = true }
+termimad = { workspace = true }
+
+buck2_cli_proto = { workspace = true }
+buck2_client_ctx = { workspace = true }
+buck2_query = { workspace = true }

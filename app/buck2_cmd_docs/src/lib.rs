@@ -11,10 +11,10 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 
-use crate::commands::docs::query::DocsAqueryCommand;
-use crate::commands::docs::query::DocsCqueryCommand;
-use crate::commands::docs::query::DocsUqueryCommand;
-use crate::commands::docs::starlark::DocsStarlarkCommand;
+use crate::query::DocsAqueryCommand;
+use crate::query::DocsCqueryCommand;
+use crate::query::DocsUqueryCommand;
+use crate::starlark::DocsStarlarkCommand;
 
 mod output;
 mod query;
@@ -31,17 +31,13 @@ enum DocsKind {
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "docs", about = "Print documentation of specified symbols")]
-pub(crate) struct DocsCommand {
+pub struct DocsCommand {
     #[clap(subcommand)]
     docs_kind: DocsKind,
 }
 
 impl DocsCommand {
-    pub(crate) fn exec(
-        self,
-        matches: &clap::ArgMatches,
-        ctx: ClientCommandContext<'_>,
-    ) -> ExitResult {
+    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let DocsKind::Uquery(_) | DocsKind::Cquery(_) | DocsKind::Aquery(_) = &self.docs_kind {
             // The docs for these are late-bound from the query impls, which is kind of hard to
             // separate from the rest of the query graph

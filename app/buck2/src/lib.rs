@@ -64,7 +64,6 @@ use clap::FromArgMatches;
 use dupe::Dupe;
 
 use crate::check_user_allowed::check_user_allowed;
-use crate::commands::docs::DocsCommand;
 use crate::process_context::ProcessContext;
 
 mod check_user_allowed;
@@ -277,7 +276,7 @@ pub(crate) enum CommandKind {
     #[clap(hide = true)]
     Complete(CompleteCommand),
     Completion(CompletionCommand),
-    Docs(DocsCommand),
+    Docs(buck2_cmd_docs::DocsCommand),
     #[clap(subcommand)]
     Profile(ProfileCommand),
     #[clap(hide(true))] // @oss-enable
