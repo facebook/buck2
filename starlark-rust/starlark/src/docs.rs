@@ -182,13 +182,6 @@ impl DocMember {
             }),
         }
     }
-
-    pub fn to_doc_item(self) -> DocItem {
-        match self {
-            DocMember::Property(x) => DocItem::Property(x),
-            DocMember::Function(x) => DocItem::Function(x),
-        }
-    }
 }
 
 /// An object with named functions/properties.

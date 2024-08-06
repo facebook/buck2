@@ -28,6 +28,7 @@ use dice::DiceTransaction;
 use starlark::collections::SmallMap;
 use starlark::docs::Doc;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
@@ -96,7 +97,10 @@ async fn get_docs_from_module(
                     path: import_path_string.clone(),
                 }),
             },
-            item: d.to_doc_item(),
+            item: match d {
+                DocMember::Function(f) => DocItem::Function(f),
+                DocMember::Property(p) => DocItem::Property(p),
+            },
             custom_attrs: Default::default(),
         }
     }));

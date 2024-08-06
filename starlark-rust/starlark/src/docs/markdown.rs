@@ -26,8 +26,6 @@ use crate::docs::Doc;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
-use crate::docs::DocModule;
-use crate::docs::DocObject;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
@@ -222,27 +220,18 @@ fn render_members(
     let member_details: Vec<String> = members
         .iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(child, member)| render_member(&format!("{prefix}{child}"), member))
+        .map(|(child, member)| render_doc_member(&format!("{prefix}{child}"), member))
         .collect();
     let members_details = member_details.join("\n\n---\n\n");
 
     format!("{title}{summary}\n\n{members_details}")
 }
 
-/// Render a top level module.
-fn render_module(name: &str, module: &DocModule) -> String {
-    render_members(name, false, &module.docs, &module.members)
-}
-
-fn render_object(name: &str, object: &DocObject) -> String {
-    render_members(name, true, &object.docs, &object.members)
-}
-
 /// Used by LSP.
 pub fn render_doc_item(name: &str, item: &DocItem) -> String {
     match item {
-        DocItem::Module(m) => render_module(name, m),
-        DocItem::Object(o) => render_object(name, o),
+        DocItem::Module(m) => render_members(name, false, &m.docs, &m.members),
+        DocItem::Object(o) => render_members(name, true, &o.docs, &o.members),
         DocItem::Function(f) => render_function(name, f),
         DocItem::Property(p) => render_property(name, p),
     }
@@ -267,13 +256,6 @@ impl RenderMarkdown for Doc {
             MarkdownFlavor::DocFile => Some(render_doc_item(&self.id.name, &self.item)),
             MarkdownFlavor::LspSummary => None,
         }
-    }
-}
-
-fn render_member(name: &str, member: &DocMember) -> String {
-    match member {
-        DocMember::Property(p) => render_property(name, p),
-        DocMember::Function(f) => render_function(name, f),
     }
 }
 
