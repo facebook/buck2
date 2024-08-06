@@ -61,8 +61,10 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
-use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
+use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
@@ -107,6 +109,7 @@ use crate::daemon::state::DaemonState;
 use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
+use crate::profile::profile_command;
 use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
@@ -177,35 +180,6 @@ impl BuckdServerInitPreferences {
     }
 }
 
-/// Access to functions which live outside of `buck2_server` crate.
-#[async_trait]
-pub trait BuckdServerDependencies: Send + Sync + 'static {
-    async fn audit(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
-    async fn starlark(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
-    async fn profile(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::ProfileRequest,
-    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse>;
-    async fn docs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::UnstableDocsRequest,
-    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
-}
-
 #[derive(Clone)]
 struct BuckCheckAuthTokenInterceptor {
     auth_token: String,
@@ -243,8 +217,6 @@ pub(crate) struct BuckdServerData {
     #[allocative(skip)]
     command_channel: UnboundedSender<()>,
     #[allocative(skip)]
-    callbacks: &'static dyn BuckdServerDependencies,
-    #[allocative(skip)]
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     #[allocative(skip)]
     rt: Handle,
@@ -267,7 +239,6 @@ impl BuckdServer {
         process_info: DaemonProcessInfo,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
-        callbacks: &'static dyn BuckdServerDependencies,
         rt: Handle,
     ) -> anyhow::Result<()> {
         let now = SystemTime::now();
@@ -310,7 +281,6 @@ impl BuckdServer {
             },
             daemon_state,
             command_channel,
-            callbacks,
             log_reload_handle,
             rt,
         }));
@@ -1103,12 +1073,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.audit(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    AUDIT_SERVER_COMMAND
+                        .get()?
+                        .audit(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1119,12 +1093,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<GenericRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.starlark(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    STARLARK_SERVER_COMMAND
+                        .get()?
+                        .starlark(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1304,12 +1282,16 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UnstableDocsRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
-                callbacks.docs(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    DOCS_SERVER_COMMAND
+                        .get()?
+                        .docs(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
@@ -1335,14 +1317,25 @@ impl DaemonApi for BuckdServer {
             }
         }
 
-        let callbacks = self.0.callbacks;
         self.run_streaming(
             req,
             ProfileCommandOptions {
                 project_root: self.0.daemon_state.paths.project_root().dupe(),
             },
             |ctx, partial_result_dispatcher, req| {
-                callbacks.profile(ctx, partial_result_dispatcher, req)
+                Box::pin(async {
+                    match req.profile_opts.as_ref().expect("Missing profile opts") {
+                        buck2_cli_proto::profile_request::ProfileOpts::TargetProfile(_) => {
+                            profile_command(ctx, partial_result_dispatcher, req).await
+                        }
+                        buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
+                            BXL_SERVER_COMMANDS
+                                .get()?
+                                .bxl_profile(ctx, partial_result_dispatcher, req)
+                                .await
+                        }
+                    }
+                })
             },
         )
         .await

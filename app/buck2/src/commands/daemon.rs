@@ -16,7 +16,6 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use async_trait::async_trait;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
@@ -32,16 +31,7 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
-use buck2_server::daemon::server::BuckdServerDependencies;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
-use buck2_server::profile::profile_command;
-use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
-use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
-use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
-use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
-use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
-use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;
@@ -108,63 +98,6 @@ impl DaemonCommand {
             enable_trace_io: false,
             reject_materializer_state: None,
         }
-    }
-}
-
-struct BuckdServerDependenciesImpl;
-
-#[async_trait]
-impl BuckdServerDependencies for BuckdServerDependenciesImpl {
-    async fn audit(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        AUDIT_SERVER_COMMAND
-            .get()?
-            .audit(ctx, partial_result_dispatcher, req)
-            .await
-    }
-    async fn starlark(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-        req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        STARLARK_SERVER_COMMAND
-            .get()?
-            .starlark(ctx, partial_result_dispatcher, req)
-            .await
-    }
-    async fn profile(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::ProfileRequest,
-    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
-        match req.profile_opts.as_ref().expect("Missing profile opts") {
-            buck2_cli_proto::profile_request::ProfileOpts::TargetProfile(_) => {
-                profile_command(ctx, partial_result_dispatcher, req).await
-            }
-            buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
-                BXL_SERVER_COMMANDS
-                    .get()?
-                    .bxl_profile(ctx, partial_result_dispatcher, req)
-                    .await
-            }
-        }
-    }
-    async fn docs(
-        &self,
-        ctx: &dyn ServerCommandContextTrait,
-        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::UnstableDocsRequest,
-    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
-        DOCS_SERVER_COMMAND
-            .get()?
-            .docs(ctx, partial_result_dispatcher, req)
-            .await
     }
 }
 
@@ -423,7 +356,6 @@ impl DaemonCommand {
                 process_info,
                 daemon_constraints,
                 Box::pin(listener),
-                &BuckdServerDependenciesImpl,
                 handle,
             )
             .fuse();
@@ -595,8 +527,6 @@ mod tests {
     use rand::SeedableRng;
     use tokio::runtime::Handle;
 
-    use crate::commands::daemon::BuckdServerDependenciesImpl;
-
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
     #[tokio::test]
     async fn test_daemon_smoke() {
@@ -649,7 +579,6 @@ mod tests {
             process_info.clone(),
             gen_daemon_constraints(&DaemonStartupConfig::testing_empty()).unwrap(),
             Box::pin(listener),
-            &BuckdServerDependenciesImpl,
             Handle::current(),
         ));
 

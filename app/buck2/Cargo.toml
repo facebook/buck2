@@ -8,7 +8,6 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 backtrace = { workspace = true }
 blake3 = { workspace = true }
 clap = { workspace = true }
@@ -57,7 +56,6 @@ buck2_interpreter_for_build = { workspace = true }
 buck2_query_impls = { workspace = true }
 buck2_server = { workspace = true }
 buck2_server_commands = { workspace = true }
-buck2_server_ctx = { workspace = true }
 buck2_starlark = { workspace = true }
 buck2_starlark_server = { workspace = true }
 buck2_test = { workspace = true }
