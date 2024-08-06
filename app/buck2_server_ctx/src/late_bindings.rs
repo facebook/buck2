@@ -106,8 +106,8 @@ pub trait DocsServerComamnd: Send + Sync + 'static {
         &self,
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: buck2_cli_proto::UnstableDocsRequest,
-    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
+        req: buck2_cli_proto::new_generic::DocsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::new_generic::DocsResponse>;
 }
 
 pub static DOCS_SERVER_COMMAND: LateBinding<&'static dyn DocsServerComamnd> =

@@ -20,6 +20,7 @@ pub enum NewGenericRequest {
     Explain(ExplainRequest),
     ExpandExternalCell(ExpandExternalCellRequest),
     Complete(CompleteRequest),
+    Docs(DocsRequest),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,6 +30,7 @@ pub enum NewGenericResponse {
     Explain(ExplainResponse),
     ExpandExternalCell(ExpandExternalCellResponse),
     Complete(CompleteResponse),
+    Docs(DocsResponse),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -84,4 +86,26 @@ pub struct CompleteRequest {
 pub struct CompleteResponse {
     /// Completions matching the partial input.
     pub completions: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum DocsOutputFormat {
+    Json,
+    /// Contains the markdown output path
+    Markdown(AbsPathBuf),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DocsRequest {
+    pub symbol_patterns: Vec<String>,
+    pub retrieve_builtins: bool,
+    pub format: DocsOutputFormat,
+    pub markdown_native_subdir: String,
+    pub markdown_starlark_subdir: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DocsResponse {
+    // Set when requested format is JSON.
+    pub json_output: Option<String>,
 }

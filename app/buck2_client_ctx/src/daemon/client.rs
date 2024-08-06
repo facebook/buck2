@@ -537,12 +537,6 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         buck2_cli_proto::StdoutBytes
     );
     stream_method!(
-        unstable_docs,
-        UnstableDocsRequest,
-        UnstableDocsResponse,
-        NoPartialResult
-    );
-    stream_method!(
         profile,
         profile2,
         ProfileRequest,

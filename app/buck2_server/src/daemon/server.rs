@@ -62,7 +62,6 @@ use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
-use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -1275,26 +1274,6 @@ impl DaemonApi for BuckdServer {
             },
             &self.0.rt,
         ))
-    }
-
-    type UnstableDocsStream = ResponseStream;
-    async fn unstable_docs(
-        &self,
-        req: Request<UnstableDocsRequest>,
-    ) -> Result<Response<ResponseStream>, Status> {
-        self.run_streaming(
-            req,
-            DefaultCommandOptions,
-            |ctx, partial_result_dispatcher, req| {
-                Box::pin(async {
-                    DOCS_SERVER_COMMAND
-                        .get()?
-                        .docs(ctx, partial_result_dispatcher, req)
-                        .await
-                })
-            },
-        )
-        .await
     }
 
     type Profile2Stream = ResponseStream;

@@ -10,6 +10,7 @@
 use anyhow::Context;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
+use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -48,6 +49,12 @@ pub(crate) async fn new_generic_command(
             OTHER_SERVER_COMMANDS
                 .get()?
                 .expand_external_cell(context, partial_result_dispatcher, e)
+                .await?,
+        ),
+        NewGenericRequest::Docs(d) => NewGenericResponse::Docs(
+            DOCS_SERVER_COMMAND
+                .get()?
+                .docs(context, partial_result_dispatcher, d)
                 .await?,
         ),
     };
