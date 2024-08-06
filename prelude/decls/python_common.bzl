@@ -27,7 +27,7 @@ def _platform_srcs_arg():
      regex against which the platform name is matched, and the second element
      is a list of source files. The regex should use `java.util.regex.Pattern` syntax.
      The platform name is a Python platform *flavor* defined in
-     the buckconfig#`python`section of `.buckconfig`.
+     the buckconfig#`python` section of `.buckconfig`.
 """),
     }
 
@@ -49,7 +49,7 @@ def _platform_resources_arg():
      regex against which the platform name is matched, and the second element
      is a list of resource files. The regex should use `java.util.regex.Pattern` syntax.
      The platform name is a Python platform *flavor* defined in
-     the buckconfig#`python`section of `.buckconfig`.
+     the buckconfig#`python `section of `.buckconfig`.
 """),
     }
 
@@ -75,9 +75,9 @@ def _linker_flags_arg():
         "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
     Additional linker flags that should be applied to any linking which is specific to this rule.
      Note that whether these flags are used is dependent on the native link strategy selected in
-     `.buckconfig` and currently applies only to the `merged` ``.buckconfig``;
+     `.buckconfig` and currently applies only to the merged `.buckconfig`;
      the `separate` link strategy pulls in shared libraries that are linked in the
-     context of the rules that own them, such as `cxx\\_library()`.
+     context of the rules that own them, such as `cxx_library()`.
 """),
     }
 

@@ -224,13 +224,13 @@ kotlin_test = prelude_rule(
                  `glob(['**/*Test.kt'])`.
             """),
             "resources": attrs.list(attrs.source(), default = [], doc = """
-                Same as `kotlin\\_library()`.
+                Same as `kotlin_library()`.
             """),
         } |
         buck.test_label_arg() |
         {
             "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Same as `kotlin\\_library()`.
+                Same as `kotlin_library()`.
                  // org.junit.rules.Timeout was not introduced until 4.7.
                  Must include JUnit (version 4.7 or later) as a dependency for JUnit tests.
                  Must include TestNG (version 6.2 or later) and hamcrest as a dependencies for TestNG tests.

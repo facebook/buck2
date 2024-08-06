@@ -20,7 +20,7 @@ def _srcs_arg():
 def _deps_arg():
     return {
         "deps": attrs.list(attrs.dep(), default = [], doc = """
-    Either `haskell\\_library()`or `prebuilt\\_haskell\\_library()`rules
+    Either `haskell_library()` or `prebuilt_haskell_library()` rules
      from which this rules sources import modules or native linkable rules exporting symbols
      this rules sources call into.
 """),

@@ -126,7 +126,7 @@ prebuilt_python_library = prelude_rule(
     name = "prebuilt_python_library",
     docs = """
         A `prebuilt_python_library()` rule is used to include prebuilt python packages into the output of a
-        top-level `python_binary()`or `python_test()`rule.
+        top-level `python_binary()` or `python_test()` rule.
 
 
         These prebuilt libraries can either be [whl files](https://www.python.org/dev/peps/pep-0427/) or eggs

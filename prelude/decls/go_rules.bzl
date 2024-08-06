@@ -30,7 +30,7 @@ cgo_library = prelude_rule(
         The 'go build' command would collect the cgo directives from the source files, however
         with buck the flags needs to be passed in the cgo\\_library manually
 
-        This rule borrows from `cxx\\_binary()`since C/C++ sources are being compiled.
+        This rule borrows from `cxx_binary()` since C/C++ sources are being compiled.
     """,
     examples = """
         ```

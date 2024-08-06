@@ -70,22 +70,22 @@ groovy_library = prelude_rule(
                  `.java`, cross compilation using the jdk found in `JAVA_HOME` will occur.
             """),
             "resources": attrs.list(attrs.source(), default = [], doc = """
-                This is the same as in `java\\_library()`.
+                This is the same as in `java_library()`.
             """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Rules (usually other `groovy_library` or ``java_library()`` rules)
                  that are used to generate the classpath required to compile this `groovy_library`.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "exported_deps": attrs.list(attrs.dep(), default = [], doc = """
                 Other `groovy_library` and ``java_library()`` rules that depend
                  on this rule will also include its `exported_deps` in their classpaths.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "provided_deps": attrs.list(attrs.dep(), default = [], doc = """
-                This is the same as in `java\\_library()`.
+                This is the same as in `java_library()`.
             """),
             "extra_groovyc_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Groovy compiler.
@@ -93,22 +93,22 @@ groovy_library = prelude_rule(
             "source": attrs.option(attrs.string(), default = None, doc = """
                 Only used during cross compilation.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "target": attrs.option(attrs.string(), default = None, doc = """
                 Only used during cross compilation.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "java_version": attrs.option(attrs.string(), default = None, doc = """
                 Only used during cross compilation.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 Only used during cross compilation.
 
-                 This is the same as in `java\\_library()`.
+                 This is the same as in `java_library()`.
             """),
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),

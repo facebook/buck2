@@ -125,7 +125,7 @@ def _platform_deps_arg():
 def _labels_arg():
     return {
         "labels": attrs.list(attrs.string(), default = [], doc = """
-    Set of arbitrary strings which allow you to annotate a `build rule`with tags
+    Set of arbitrary strings which allow you to annotate a `build rule` with tags
      that can be searched for over an entire dependency tree using `buck query()`
     .
 """),

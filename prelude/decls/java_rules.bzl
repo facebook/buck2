@@ -232,7 +232,7 @@ java_library = prelude_rule(
                  If any of the files in this list end in `.src.zip`,
                  then the entries in the ZIP file that end in `.java` will be
                  included as ordinary inputs to compilation. This is common when using
-                 a `genrule()`to auto-generate some Java source code that
+                 a `genrule()` to auto-generate some Java source code that
                  needs to be compiled with some hand-written Java code.
             """),
         } |
@@ -380,7 +380,7 @@ java_test = prelude_rule(
                 Same as `std_out_log_level`, but for std err.
             """),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None, doc = """
-                Whether or not to build and link against `cxx\\_library()`dependencies when testing.
+                Whether or not to build and link against `cxx_library()` dependencies when testing.
             """),
             "cxx_library_whitelist": attrs.list(attrs.dep(), default = [], doc = """
                 EXPERIMENTAL.

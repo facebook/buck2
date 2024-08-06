@@ -205,7 +205,7 @@ def depth_first_traversal_by(
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
     """
     Performs a depth first traversal of `graph_nodes`, beginning
-    with the `roots` and queuing the nodes returned by`get_nodes_to_traverse_func`.
+    with the `roots` and queuing the nodes returned by `get_nodes_to_traverse_func`.
     Returns a list of all visisted nodes.
 
     get_nodes_to_traverse_func(node: '_a') -> ['_a']:

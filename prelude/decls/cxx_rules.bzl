@@ -150,7 +150,7 @@ cxx_genrule = prelude_rule(
         the settings in `.buckconfig`
         and `.buckconfig.local`,
         and the result of various command-line overrides specified through
-        the `common\\_parameters`command-line option.
+        the `common_parameters` command-line option.
 
 
         This information is available only
@@ -299,7 +299,7 @@ cxx_genrule = prelude_rule(
 
 
                  Additionally, if you embed these paths in a shell script, you should
-                 execute that script using the `sh\\_binary()`rule and include
+                 execute that script using the `sh_binary()` rule and include
                  the targets for these paths in the `resources` argument of
                  that `sh_binary` rule. These are the same targets that you
                  pass to the string parameter macros.
@@ -395,13 +395,13 @@ cxx_library = prelude_rule(
 
         Whether a Buck command builds the `cxx_library` is
         determined by the inclusion of a top-level target, such as
-        a `cxx\\_binary()`or `android\\_binary()`, that
+        a `cxx_binary()` or `android_binary()`, that
         transitively depends on the `cxx_library`. The set of
         targets specified to the Buck command (`buck build`, `buck run`, etc) must
         include one of these top-level targets in order for Buck to build
         the `cxx_library`. Note that you could specify the top-level target
-        implicitly using a `build target pattern`or you could also specify
-        the top-level target using an buckconfig#`alias`defined in `.buckconfig`.
+        implicitly using a `build target pattern` or you could also specify
+        the top-level target using a buckconfig `alias` defined in `.buckconfig`.
 
 
         *How* Buck builds the library also depends on the specified top-level target.
@@ -412,10 +412,10 @@ cxx_library = prelude_rule(
         #### Dependencies of the cxx\\_library also require a top-level target
 
         Similarly, in order for Buck to build a target that
-        the `cxx_library` depends on, such as a `cxx\\_genrule()`,
+        the `cxx_library` depends on, such as a `cxx_genrule()`,
         you must specify in the Buck command a top-level target that depends on
         the `cxx_library`. For example, you could specify
-        to `build`a `cxx_binary` that
+        to `build` a `cxx_binary` that
         depends on the `cxx_library`. If you specify as
         your build target the `cxx_library` itself, the build targets
         that the `cxx_library` depends on *might not be built*.
@@ -594,7 +594,7 @@ cxx_precompiled_header = prelude_rule(
     docs = """
         A `cxx_precompiled_header` rule specifies a single header file that can be
          precompiled and made available for use in other build rules such as
-         a `cxx\\_library()`or a `cxx\\_binary()`.
+         a `cxx_library()` or a `cxx_binary()`.
 
 
          This header file is precompiled by the preprocessor on behalf of the

@@ -249,7 +249,7 @@ contains a list of 7-tuples, whose members are:
 
 1. The path to the source bitcode file. This is used as an index into a
    dictionary that records much of the metadata coming from these lines.
-2. The path to an output file. `dist_lto_planner.py`is expected to place a
+2. The path to an output file. `dist_lto_planner.py` is expected to place a
    ThinLTO index file at this location (suffixed `.thinlto.bc`).
 3. The path to an output plan. This script is expected to place a link plan here
    (a JSON document indicating which other object files this) object file

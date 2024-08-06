@@ -112,7 +112,7 @@ lua_binary = prelude_rule(
     name = "lua_binary",
     docs = """
         A `lua_library()` rule is used to group together Lua sources
-        to be packaged into a top-level `lua\\_binary()`rule.
+        to be packaged into a top-level `lua_binary()` rule.
     """,
     examples = """
         ```
@@ -140,7 +140,7 @@ lua_binary = prelude_rule(
                 The module which serves as the entry point for this rule.
             """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
-                `lua\\_library()`rules to this binary will access.
+                `lua_library()` rules to this binary will access.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -159,7 +159,7 @@ lua_library = prelude_rule(
     name = "lua_library",
     docs = """
         A `lua_library()` rule is used to group together Lua sources
-        to be packaged into a top-level `lua\\_binary()`rule.
+        to be packaged into a top-level `lua_binary()` rule.
     """,
     examples = """
         ```

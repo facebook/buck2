@@ -17,14 +17,14 @@ def _manifest_apk_arg():
      case is that the manifest will be in the same directory as the
      rule, in which case this will simply be
      `'AndroidManifest.xml'`, but it can also reference
-     an `android\\_manifest()`rule.
+     an `android_manifest()` rule.
 
      Prefer using `manifest_skeleton`, which performs merging automatically.
      Exactly one of `manifest` and `manifest_skeleton` must be set.
 """),
         "manifest_skeleton": attrs.option(attrs.source(), default = None, doc = """
     Relative path to the skeleton Android manifest for the APK.
-     An `android\\_manifest()`will be created automatically to merge
+     An `android_manifest()` will be created automatically to merge
      all manifests from libraries and resources going into the app.
      The common case is that the manifest will be in the same directory as the
      rule, in which case this will simply be
@@ -47,7 +47,7 @@ def _deps_apk_arg():
 def _manifest_arg():
     return {
         "manifest": attrs.option(attrs.source(), default = None, doc = """
-    An optional [Android Manifest](http://developer.android.com/guide/topics/manifest/manifest-intro.html) for the to declare any permissions or intents it may need or want to handle. May either be a file or a `android\\_manifest()`target.
+    An optional [Android Manifest](http://developer.android.com/guide/topics/manifest/manifest-intro.html) for the to declare any permissions or intents it may need or want to handle. May either be a file or an `android_manifest()` target.
 """),
     }
 

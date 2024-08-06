@@ -54,7 +54,7 @@ command_alias = prelude_rule(
 
 
          You can reference a `command_alias` target in
-         the `cmd` parameter of a `genrule()`by
+         the `cmd` parameter of a `genrule()` by
          using the `exe` macro:
 
 
@@ -162,7 +162,7 @@ command_alias = prelude_rule(
             # `RunInfo` provider of it, if one exists.
             "exe": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None, doc = """
                 A `build target` for a rule that outputs
-                 an executable, such as an `sh\\_binary()`,
+                 an executable, such as an `sh_binary()`,
                  or an executable source file.
             """),
             "platform_exe": attrs.dict(key = attrs.enum(Platform), value = attrs.dep(), sorted = False, default = {}, doc = """
@@ -581,7 +581,7 @@ genrule = prelude_rule(
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output file or directory. The complete path to this
                  argument is provided to the shell command through
-                 the `OUT` environment variable. Only one of`out`
+                 the `OUT` environment variable. Only one of `out`
                  or `outs` may be present.
             """),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None, doc = """
@@ -696,7 +696,7 @@ http_archive = prelude_rule(
         An `http_archive()` rule is used to download and extract archives
         from the Internet to be used as dependencies for other rules. These rules are
         downloaded by running `fetch`, or can be downloaded as part of
-        `build`by setting `.buckconfig`
+        `build` by setting `.buckconfig`
     """,
     examples = """
         Using `http_archive()`, third party packages can be downloaded from
@@ -796,9 +796,9 @@ http_file = prelude_rule(
     docs = """
         An `http_file()` rule is used to download files from the Internet to be used as
         dependencies for other rules. This rule only downloads single files, and can
-        optionally make them executable (see `http\\_file()executable`)
+        optionally make them executable (see `http_file()executable`)
         These rules are downloaded by running `fetch`, or can
-        be downloaded as part of `build`by setting `.buckconfig`
+        be downloaded as part of `build` by setting `.buckconfig`
     """,
     examples = """
         Using `http_file()`, third party packages can be downloaded from
@@ -877,7 +877,7 @@ http_file = prelude_rule(
             """),
             "executable": attrs.option(attrs.bool(), default = None, doc = """
                 Whether or not the file should be made executable after downloading. If true,
-                 this can also be used via `run`and the
+                 this can also be used via `run` and the
                  `$(exe )` `string parameter macros`
             """),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -926,7 +926,7 @@ remote_file = prelude_rule(
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URL being referenced
-         by a `prebuilt\\_jar()`.
+         by a `prebuilt_jar()`.
 
 
         ```
@@ -1356,8 +1356,8 @@ worker_tool = prelude_rule(
         # @unsorted-dict-items
         {
             "exe": attrs.option(attrs.dep(), default = None, doc = """
-                A `build target`for a rule that outputs
-                 an executable, such as an `sh\\_binary()`.
+                A `build target` for a rule that outputs
+                 an executable, such as an `sh_binary()`.
                  Buck runs this executable only once per build.
             """),
             "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = [], doc = """

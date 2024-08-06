@@ -88,7 +88,7 @@ apple_binary = prelude_rule(
     docs = """
         An `apple_binary()` rule builds a native executable - such as an iOS or OSX app - from
         the supplied set of Objective-C/C++ source files and dependencies. It is similar to
-        a `cxx\\_binary()`rule with which it shares many attributes. In addition
+        a `cxx_binary()` rule with which it shares many attributes. In addition
         to those common attributes, `apple_binary()` has a some additional attributes
         that are specific to binaries intended to be built using the Apple toolchain.
         Note, however, that `apple_binary()` and `cxx_binary()` differ
