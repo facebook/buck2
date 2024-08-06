@@ -35,8 +35,8 @@ use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalIn
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::globals::starlark_library_extensions_for_buck2;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::other_server_commands::DocsServerComamnd;
-use buck2_server_ctx::other_server_commands::DOCS_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::DocsServerComamnd;
+use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;

@@ -38,7 +38,7 @@ use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::other_server_commands::DOCS_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark_server::server_starlark_command;
