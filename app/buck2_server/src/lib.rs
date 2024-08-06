@@ -13,7 +13,6 @@
 #![feature(used_with_arg)]
 
 pub mod active_commands;
-pub mod builtin_docs;
 mod clean_stale;
 mod ctx;
 pub mod daemon;

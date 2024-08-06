@@ -30,7 +30,6 @@ use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_server::builtin_docs::docs::docs_command;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -39,6 +38,7 @@ use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_server::profile::profile_command;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::other_server_commands::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark_server::server_starlark_command;
@@ -155,7 +155,10 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::UnstableDocsRequest,
     ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse> {
-        docs_command(ctx, partial_result_dispatcher, req).await
+        DOCS_SERVER_COMMAND
+            .get()?
+            .docs(ctx, partial_result_dispatcher, req)
+            .await
     }
 }
 

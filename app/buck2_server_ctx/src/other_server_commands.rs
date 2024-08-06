@@ -99,3 +99,16 @@ pub trait OtherServerCommands: Send + Sync + 'static {
 
 pub static OTHER_SERVER_COMMANDS: LateBinding<&'static dyn OtherServerCommands> =
     LateBinding::new("OTHER_SERVER_COMMANDS");
+
+#[async_trait]
+pub trait DocsServerComamnd: Send + Sync + 'static {
+    async fn docs(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: buck2_cli_proto::UnstableDocsRequest,
+    ) -> anyhow::Result<buck2_cli_proto::UnstableDocsResponse>;
+}
+
+pub static DOCS_SERVER_COMMAND: LateBinding<&'static dyn DocsServerComamnd> =
+    LateBinding::new("DOCS_SERVER_COMMAND");

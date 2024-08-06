@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(error_generic_member_access)]
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -33,6 +35,8 @@ use buck2_interpreter_for_build::interpreter::global_interpreter_state::GlobalIn
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::globals::starlark_library_extensions_for_buck2;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::other_server_commands::DocsServerComamnd;
+use buck2_server_ctx::other_server_commands::DOCS_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::run_server_command;
@@ -49,7 +53,9 @@ use starlark::docs::Identifier;
 use starlark::docs::Location;
 use starlark::environment::Globals;
 
-use crate::builtin_docs::markdown::generate_markdown_files;
+use crate::markdown::generate_markdown_files;
+
+mod markdown;
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -167,17 +173,27 @@ async fn get_docs_from_module(
     Ok(docs)
 }
 
-pub async fn docs_command(
-    context: &dyn ServerCommandContextTrait,
-    partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-    req: UnstableDocsRequest,
-) -> anyhow::Result<UnstableDocsResponse> {
-    run_server_command(
-        DocsServerCommand { req },
-        context,
-        partial_result_dispatcher,
-    )
-    .await
+struct DocsServerCommandImpl;
+
+#[async_trait::async_trait]
+impl DocsServerComamnd for DocsServerCommandImpl {
+    async fn docs(
+        &self,
+        context: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
+        req: UnstableDocsRequest,
+    ) -> anyhow::Result<UnstableDocsResponse> {
+        run_server_command(
+            DocsServerCommand { req },
+            context,
+            partial_result_dispatcher,
+        )
+        .await
+    }
+}
+
+pub fn init_late_bindings() {
+    DOCS_SERVER_COMMAND.init(&DocsServerCommandImpl);
 }
 
 struct DocsServerCommand {

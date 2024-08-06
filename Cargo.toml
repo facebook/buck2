@@ -18,6 +18,7 @@ members = [
     "app/buck2_cfg_constructor",
     "app/buck2_client",
     "app/buck2_client_ctx",
+    "app/buck2_cmd_docs_server",
     "app/buck2_common",
     "app/buck2_configured",
     "app/buck2_core",
@@ -347,6 +348,7 @@ buck2_cfg_constructor = { path = "app/buck2_cfg_constructor" }
 buck2_cli_proto = { path = "app/buck2_cli_proto" }
 buck2_client = { path = "app/buck2_client" }
 buck2_client_ctx = { path = "app/buck2_client_ctx" }
+buck2_cmd_docs_server = { path = "app/buck2_cmd_docs_server" }
 buck2_common = { path = "app/buck2_common" }
 buck2_configured = { path = "app/buck2_configured" }
 buck2_core = { path = "app/buck2_core" }
