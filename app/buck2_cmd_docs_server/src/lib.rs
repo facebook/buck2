@@ -107,9 +107,7 @@ fn get_builtin_build_docs(
     Ok(b_o)
 }
 
-pub fn get_builtin_docs(
-    interpreter_state: Arc<GlobalInterpreterState>,
-) -> anyhow::Result<Vec<Doc>> {
+fn get_builtin_docs(interpreter_state: Arc<GlobalInterpreterState>) -> anyhow::Result<Vec<Doc>> {
     let mut all_builtins = vec![
         builtin_doc("globals", "standard", get_builtin_global_starlark_docs()),
         builtin_doc("globals", "", get_builtin_build_docs(interpreter_state)?),
