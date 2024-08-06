@@ -71,7 +71,7 @@ pub struct DocModule {
     /// a string literal.
     pub docs: Option<DocString>,
     /// A mapping of top level symbols to their documentation, if any.
-    pub members: SmallMap<String, DocMember>,
+    pub members: SmallMap<String, DocItem>,
 }
 
 /// Documents a single function.
@@ -211,6 +211,21 @@ impl DocItem {
     /// Get the summary of the underlying [`DocString`] for this item, if it exists.
     pub fn get_doc_summary(&self) -> Option<&str> {
         self.get_doc_string().map(|ds| ds.summary.as_str())
+    }
+
+    /// Converts to a doc member, if possible.
+    ///
+    /// This conversion is trivial, except in the case of objects - those are flattened into a
+    /// single property that just indicates their type
+    pub fn try_as_member_with_collapsed_object(&self) -> Result<DocMember, &DocModule> {
+        match self {
+            DocItem::Module(m) => Err(m),
+            DocItem::Member(m) => Ok(m.clone()),
+            DocItem::Object(o) => Ok(DocMember::Property(DocProperty {
+                docs: o.docs.clone(),
+                typ: o.ty.clone(),
+            })),
+        }
     }
 }
 

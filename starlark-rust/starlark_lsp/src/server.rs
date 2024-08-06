@@ -89,8 +89,8 @@ use serde::Serializer;
 use starlark::codemap::ResolvedSpan;
 use starlark::codemap::Span;
 use starlark::docs::markdown::render_doc_item;
-use starlark::docs::markdown::render_doc_member;
 use starlark::docs::markdown::render_doc_param;
+use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::syntax::AstModule;
@@ -909,13 +909,13 @@ impl<T: LspContext> Backend<T> {
             .map(|(symbol, documentation)| CompletionItem {
                 label: symbol.clone(),
                 kind: Some(match &documentation {
-                    DocMember::Function { .. } => CompletionItemKind::FUNCTION,
+                    DocItem::Member(DocMember::Function { .. }) => CompletionItemKind::FUNCTION,
                     _ => CompletionItemKind::CONSTANT,
                 }),
                 detail: documentation.get_doc_summary().map(|str| str.to_owned()),
                 documentation: Some(Documentation::MarkupContent(MarkupContent {
                     kind: MarkupKind::Markdown,
-                    value: render_doc_member(&symbol, &documentation),
+                    value: render_doc_item(&symbol, &documentation),
                 })),
                 ..Default::default()
             })
@@ -1157,7 +1157,7 @@ impl<T: LspContext> Backend<T> {
                     .find(|symbol| symbol.0 == name)
                     .map(|symbol| Hover {
                         contents: HoverContents::Array(vec![MarkedString::String(
-                            render_doc_member(&symbol.0, &symbol.1),
+                            render_doc_item(&symbol.0, &symbol.1),
                         )]),
                         range: Some(source.into()),
                     })

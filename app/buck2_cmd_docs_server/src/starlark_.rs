@@ -88,8 +88,8 @@ async fn get_docs_from_module(
             custom_attrs: Default::default(),
         });
     }
-    docs.extend(module_docs.members.into_iter().map(|(symbol, d)| {
-        Doc {
+    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
+        Some(Doc {
             // TODO(nmj): Map this back into the codemap to get a line/column
             id: Identifier {
                 name: symbol,
@@ -97,12 +97,13 @@ async fn get_docs_from_module(
                     path: import_path_string.clone(),
                 }),
             },
-            item: match d {
+            // FIXME(JakobDegen): Loses information
+            item: match d.try_as_member_with_collapsed_object().ok()? {
                 DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
                 DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
             },
             custom_attrs: Default::default(),
-        }
+        })
     }));
 
     Ok(docs)

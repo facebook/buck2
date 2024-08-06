@@ -67,12 +67,14 @@ impl DocModule {
             .map(DocString::render_as_quoted_code)
             .unwrap_or_default();
         for (k, v) in &self.members {
-            res.push('\n');
-            match v {
-                DocMember::Property(p) => res.push_str(&p.render_as_code(k)),
-                DocMember::Function(f) => res.push_str(&f.render_as_code(k)),
+            if let Ok(v) = v.try_as_member_with_collapsed_object() {
+                res.push('\n');
+                match v {
+                    DocMember::Property(p) => res.push_str(&p.render_as_code(k)),
+                    DocMember::Function(f) => res.push_str(&f.render_as_code(k)),
+                }
+                res.push('\n');
             }
-            res.push('\n');
         }
         res
     }

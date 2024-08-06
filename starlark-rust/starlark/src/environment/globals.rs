@@ -25,6 +25,7 @@ use once_cell::sync::OnceCell;
 
 use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
+use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
@@ -153,7 +154,13 @@ impl Globals {
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
-        DocModule { docs, members }
+        DocModule {
+            docs,
+            members: members
+                .into_iter()
+                .map(|(n, m)| (n, DocItem::Member(m)))
+                .collect(),
+        }
     }
 }
 

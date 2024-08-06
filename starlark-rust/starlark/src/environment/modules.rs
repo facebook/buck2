@@ -33,6 +33,7 @@ use starlark_syntax::syntax::ast::Visibility;
 
 use crate::cast::transmute;
 use crate::collections::Hashed;
+use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
@@ -234,7 +235,13 @@ impl FrozenModule {
         let members = self
             .all_items()
             .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)
-            .map(|(k, v)| (k.as_str().to_owned(), DocMember::from_value(v.to_value())))
+            // FIXME(JakobDegen): Throws out information
+            .map(|(k, v)| {
+                (
+                    k.as_str().to_owned(),
+                    DocItem::Member(DocMember::from_value(v.to_value())),
+                )
+            })
             .collect();
 
         DocModule {

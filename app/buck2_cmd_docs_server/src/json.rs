@@ -104,7 +104,12 @@ impl JsonDocModule {
             members: m
                 .members
                 .into_iter()
-                .map(|(k, v)| (k, JsonDocMember::from_starlark(v)))
+                .filter_map(|(k, v)| match v {
+                    starlark::docs::DocItem::Member(v) => {
+                        Some((k, JsonDocMember::from_starlark(v)))
+                    }
+                    _ => None,
+                })
                 .collect(),
         }
     }

@@ -61,6 +61,7 @@ use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
+use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
@@ -168,13 +169,12 @@ async fn get_prelude_docs(
     // For the prelude, we want to promote `native` symbol up one level
     for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
         if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-            let doc = match value.to_value().documentation() {
-                Some(DocItem::Member(DocMember::Function(f))) => DocMember::Function(f),
-                _ => DocMember::Property(DocProperty {
+            let doc = value.to_value().documentation().unwrap_or_else(|| {
+                DocItem::Member(DocMember::Property(DocProperty {
                     docs: None,
                     typ: Ty::any(),
-                }),
-            };
+                }))
+            });
 
             module_docs.members.insert(name.to_owned(), doc);
         }
@@ -268,10 +268,7 @@ impl DocsCache {
 
                         let url =
                             LspUrl::try_from(Url::parse(&format!("starlark:{}", path.display()))?)?;
-                        let rendered = match mem {
-                            DocMember::Function(f) => f.render_as_code(sym),
-                            DocMember::Property(p) => p.render_as_code(sym),
-                        };
+                        let rendered = render_doc_item(sym, mem);
                         let prev = native_starlark_files.insert(url.clone(), rendered);
                         assert!(prev.is_none());
 
@@ -873,6 +870,7 @@ mod tests {
     use buck2_core::bzl::ImportPath;
     use lsp_types::Url;
     use starlark::docs::DocFunction;
+    use starlark::docs::DocItem;
     use starlark::docs::DocMember;
     use starlark::docs::DocModule;
     use starlark_lsp::server::LspUrl;
@@ -891,11 +889,11 @@ mod tests {
                     members: [
                         (
                             "native_function1".to_owned(),
-                            DocMember::Function(DocFunction::default()),
+                            DocItem::Member(DocMember::Function(DocFunction::default())),
                         ),
                         (
                             "native_function2".to_owned(),
-                            DocMember::Function(DocFunction::default()),
+                            DocItem::Member(DocMember::Function(DocFunction::default())),
                         ),
                     ]
                     .into_iter()
@@ -908,7 +906,7 @@ mod tests {
                     docs: None,
                     members: [(
                         "prelude_function".to_owned(),
-                        DocMember::Function(DocFunction::default()),
+                        DocItem::Member(DocMember::Function(DocFunction::default())),
                     )]
                     .into_iter()
                     .collect(),

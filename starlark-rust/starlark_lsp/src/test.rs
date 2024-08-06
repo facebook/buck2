@@ -58,6 +58,7 @@ use starlark::analysis::AstModuleLint;
 use starlark::codemap::Pos;
 use starlark::codemap::Span;
 use starlark::docs::DocFunction;
+use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::errors::EvalMessage;
@@ -291,7 +292,12 @@ impl LspContext for TestServerContext {
             members: self
                 .builtin_symbols
                 .keys()
-                .map(|name| (name.clone(), DocMember::Function(DocFunction::default())))
+                .map(|name| {
+                    (
+                        name.clone(),
+                        DocItem::Member(DocMember::Function(DocFunction::default())),
+                    )
+                })
                 .collect(),
         }
     }
@@ -364,14 +370,14 @@ impl TestServer {
             LspUrl::try_from(Url::parse("starlark:/native/builtin.bzl")?)? => DocModule {
                 docs: None,
                 members: [
-                    ("native_function1".to_owned(), DocMember::Function(DocFunction::default())),
-                    ("native_function2".to_owned(), DocMember::Function(DocFunction::default())),
+                    ("native_function1".to_owned(), DocItem::Member(DocMember::Function(DocFunction::default()))),
+                    ("native_function2".to_owned(), DocItem::Member(DocMember::Function(DocFunction::default()))),
                 ].into_iter().collect(),
             },
             LspUrl::try_from(Url::from_file_path(prelude_path).unwrap())? => DocModule {
                 docs: None,
                 members: [
-                    ("prelude_function".to_owned(), DocMember::Function(DocFunction::default())),
+                    ("prelude_function".to_owned(), DocItem::Member(DocMember::Function(DocFunction::default()))),
                 ].into_iter().collect()
             },
         };

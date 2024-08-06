@@ -40,7 +40,7 @@ pub fn provider_callable_documentation(
             let docs = GlobalsBuilder::new().with(creator).build().documentation();
             if docs.members.len() == 1 {
                 match docs.members.into_iter().next() {
-                    Some((name, DocMember::Function(x))) => Some((name, x)),
+                    Some((name, DocItem::Member(DocMember::Function(x)))) => Some((name, x)),
                     _ => None,
                 }
             } else {

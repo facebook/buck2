@@ -24,6 +24,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::assert::Assert;
+use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::environment::GlobalsBuilder;
@@ -137,7 +138,7 @@ def with_arguments(*args, **kwargs) -> int: pass
         if &name == "default_arg" {
             // `Option<Foo>` args in native functions are special magic and have behavior that can't
             // be replicated with normal functions
-            let DocMember::Function(expected) = &mut expected else {
+            let DocItem::Member(DocMember::Function(expected)) = &mut expected else {
                 unreachable!()
             };
             let DocParam::Arg { default_value, .. } = &mut expected.params[0] else {

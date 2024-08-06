@@ -309,7 +309,7 @@ impl<T: LspContext> Backend<T> {
                     .find(|symbol| &symbol.0 == name)
                 {
                     Some(symbol) => match symbol.1 {
-                        DocMember::Function(doc_function) => Some(
+                        DocItem::Member(DocMember::Function(doc_function)) => Some(
                             doc_function
                                 .params
                                 .into_iter()
