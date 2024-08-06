@@ -22,6 +22,7 @@ use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::cli_args::CliArgs;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
+use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
@@ -58,4 +59,5 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
         StarlarkValueAsType::new();
     const TargetUniverse: StarlarkValueAsType<StarlarkTargetUniverse> = StarlarkValueAsType::new();
+    const OutputStream: StarlarkValueAsType<OutputStream> = StarlarkValueAsType::new();
 }

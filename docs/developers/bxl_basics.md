@@ -98,7 +98,7 @@ bits found in the analysis result to construct an augmented
 Ensuring an artifact means that you want the artifact to be materialized
 (meaning, downloaded to your machine) at the end of the BXL execution. There are
 two APIs for ensuring: `ctx.output.ensure()` and `ctx.output.ensure_multiple()`
-(see [`bxl_output_stream`](../../api/bxl/bxl_output_stream)). As the naming
+(see [`bxl.OutputStream`](../../api/bxl/bxl.OutputStream)). As the naming
 indicates, the former is for ensuring a single artifact, and the latter is for
 ensuring multiple artifact-like inputs. Artifact-like inputs include
 [`cmd_args`](../../api/bxl/cmd_args) (can be found when inspecting providers),

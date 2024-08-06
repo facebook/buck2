@@ -129,7 +129,7 @@ impl<'v> OutputStream<'v> {
     }
 }
 
-#[starlark_value(type = "bxl_output_stream", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for OutputStream<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

@@ -73,7 +73,7 @@ of a BXL function.
 
 The primary method to return information from BXL is to either print them, or
 build some artifact (for details, see the
-[`OutputStream`](../../api/bxl/bxl_output_stream) documentation, available as
+[`bxl.OutputStream`](../../api/bxl/bxl.OutputStream) documentation, available as
 part of `ctx.output`). At high level, `ctx.output.print(..)` prints results to
 stdout, and `ctx.output.ensure(artifact)` marks artifacts as to be materialized
 into buck-out by the end of the BXL function, returning an object that lets you
