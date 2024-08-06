@@ -69,7 +69,6 @@ use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_core::target::name::TargetNameRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -109,11 +108,7 @@ use starlark::values::OwnedFrozenValue;
 use crate::actions::testings::SimpleAction;
 
 fn create_test_configured_target_label() -> ConfiguredTargetLabel {
-    TargetLabel::new(
-        PackageLabel::testing_new("cell", "pkg"),
-        TargetNameRef::unchecked_new("foo"),
-    )
-    .configure(ConfigurationData::testing_new())
+    TargetLabel::testing_parse("cell//pkg:foo").configure(ConfigurationData::testing_new())
 }
 
 fn create_test_build_artifact() -> BuildArtifact {
