@@ -29,7 +29,7 @@ use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
 use crate::docs::DocFunction;
-use crate::docs::DocMember;
+use crate::docs::DocItem;
 use crate::docs::DocParam;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
@@ -470,19 +470,16 @@ impl Ty {
         Ty::custom(TyCustomFunction(f))
     }
 
-    pub(crate) fn from_docs_member(member: &DocMember) -> Self {
-        match member {
-            DocMember::Property(x) => x.typ.clone(),
-            DocMember::Function(x) => Self::from_docs_function(x),
-        }
-    }
-
     /// Typechecker type of value.
     pub fn of_value(value: Value) -> Ty {
         if let Some(t) = value.get_ref().typechecker_ty() {
             t
         } else {
-            Ty::from_docs_member(&DocMember::from_value(value))
+            match value.documentation() {
+                Some(DocItem::Function(x)) => Ty::from_docs_function(&x),
+                Some(DocItem::Property(x)) => x.typ.clone(),
+                _ => value.get_type_starlark_repr(),
+            }
         }
     }
 
