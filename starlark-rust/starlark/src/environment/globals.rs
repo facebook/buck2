@@ -66,7 +66,10 @@ pub struct GlobalsBuilder {
     variables: SymbolMap<FrozenValue>,
     // The list of struct fields, pushed to the end
     struct_fields: Vec<SmallMap<FrozenStringValue, FrozenValue>>,
-    // The raw docstring for this module
+    /// The raw docstring for this module
+    ///
+    /// FIXME(JakobDegen): This should probably be removed. Having a docstring on a `GlobalsBuilder`
+    /// doesn't really make sense, because there's no way good way to combine multiple docstrings.
     docstring: Option<String>,
 }
 

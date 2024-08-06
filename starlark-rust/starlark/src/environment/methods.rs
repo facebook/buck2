@@ -56,6 +56,10 @@ pub struct MethodsBuilder {
     /// Members, either `NativeMethod` or `NativeAttribute`.
     members: SymbolMap<UnboundValue>,
     /// The raw docstring for the main object.
+    ///
+    /// FIXME(JakobDegen): This should probably be removed. Not only can these docstrings not be
+    /// combined with each other, but having the main documentation for the object on the methods
+    /// instead of on the object type directly is extraordinarily confusing.
     docstring: Option<String>,
 }
 
