@@ -213,7 +213,7 @@ impl BxlInnerEvaluator {
                                 eval_bxl(
                                     &mut eval,
                                     frozen_callable,
-                                    bxl_ctx.to_value(),
+                                    bxl_ctx,
                                     provider,
                                     force_print_stacktrace,
                                 ),
@@ -360,15 +360,15 @@ pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
     )
 }
 
-fn eval_bxl<'a>(
-    eval: &mut Evaluator<'a, '_, '_>,
+fn eval_bxl<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
     frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
-    ctx: Value<'a>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
     provider: &mut dyn StarlarkEvaluatorProvider,
     force_print_stacktrace: bool,
-) -> anyhow::Result<Value<'a>> {
+) -> anyhow::Result<Value<'v>> {
     let bxl_impl = frozen_callable.implementation();
-    let result = eval.eval_function(bxl_impl.to_value(), &[ctx], &[]);
+    let result = eval.eval_function(bxl_impl.to_value(), &[ctx.to_value()], &[]);
 
     provider
         .evaluation_complete(eval)
