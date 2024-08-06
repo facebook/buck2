@@ -176,7 +176,7 @@ where
             .map(|(k, v)| {
                 let name = k.as_str().to_owned();
                 match v.to_value().documentation() {
-                    Some(DocItem::Function(f)) => (name, DocMember::Function(f)),
+                    Some(DocItem::Member(DocMember::Function(f))) => (name, DocMember::Function(f)),
                     _ => (
                         name,
                         DocMember::Property(DocProperty {

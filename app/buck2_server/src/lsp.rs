@@ -169,7 +169,7 @@ async fn get_prelude_docs(
     for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
         if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
             let doc = match value.to_value().documentation() {
-                Some(DocItem::Function(f)) => DocMember::Function(f),
+                Some(DocItem::Member(DocMember::Function(f))) => DocMember::Function(f),
                 _ => DocMember::Property(DocProperty {
                     docs: None,
                     typ: Ty::any(),

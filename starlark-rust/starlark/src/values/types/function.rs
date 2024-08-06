@@ -31,6 +31,7 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
@@ -305,7 +306,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     fn documentation(&self) -> Option<DocItem> {
         self.raw_docs
             .as_ref()
-            .map(|raw_docs| DocItem::Function(raw_docs.documentation()))
+            .map(|raw_docs| DocItem::Member(DocMember::Function(raw_docs.documentation())))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -374,7 +375,9 @@ starlark_simple_value!(NativeMethod);
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
     fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Function(self.raw_docs.documentation()))
+        Some(DocItem::Member(DocMember::Function(
+            self.raw_docs.documentation(),
+        )))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -417,7 +420,10 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
         let typ = self.typ.clone();
-        Some(DocItem::Property(DocProperty { docs: ds, typ }))
+        Some(DocItem::Member(DocMember::Property(DocProperty {
+            docs: ds,
+            typ,
+        })))
     }
 }
 

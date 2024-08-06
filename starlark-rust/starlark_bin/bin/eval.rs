@@ -156,9 +156,7 @@ impl Context {
             DocItem::Object(_) => {
                 Url::parse(&format!("starlark:/native/builtins/{}.bzl", doc.id.name)).unwrap()
             }
-            DocItem::Function(_) | DocItem::Property(_) => {
-                Url::parse("starlark:/native/builtins.bzl").unwrap()
-            }
+            DocItem::Member(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
         };
         LspUrl::try_from(url).unwrap()
     }

@@ -47,6 +47,7 @@ use crate::collections::Hashed;
 use crate::const_frozen_string;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::FrozenModuleData;
@@ -648,7 +649,7 @@ where
             None,
         );
 
-        Some(DocItem::Function(function_docs))
+        Some(DocItem::Member(DocMember::Function(function_docs)))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

@@ -98,8 +98,8 @@ async fn get_docs_from_module(
                 }),
             },
             item: match d {
-                DocMember::Function(f) => DocItem::Function(f),
-                DocMember::Property(p) => DocItem::Property(p),
+                DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
+                DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
             },
             custom_attrs: Default::default(),
         }

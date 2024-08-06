@@ -81,10 +81,10 @@ impl JsonDocItem {
         match item {
             starlark::docs::DocItem::Module(m) => Self::Module(JsonDocModule::from_starlark(m)),
             starlark::docs::DocItem::Object(o) => Self::Object(JsonDocObject::from_starlark(o)),
-            starlark::docs::DocItem::Function(f) => {
+            starlark::docs::DocItem::Member(starlark::docs::DocMember::Function(f)) => {
                 Self::Function(JsonDocFunction::from_starlark(f))
             }
-            starlark::docs::DocItem::Property(p) => {
+            starlark::docs::DocItem::Member(starlark::docs::DocMember::Property(p)) => {
                 Self::Property(JsonDocProperty::from_starlark(p))
             }
         }

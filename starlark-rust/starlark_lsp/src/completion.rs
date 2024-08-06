@@ -262,7 +262,7 @@ impl<T: LspContext> Backend<T> {
                     SymbolKind::Variable => None,
                 })
                 .and_then(|docs| match docs {
-                    DocItem::Function(doc_function) => Some(
+                    DocItem::Member(DocMember::Function(doc_function)) => Some(
                         doc_function
                             .params
                             .into_iter()

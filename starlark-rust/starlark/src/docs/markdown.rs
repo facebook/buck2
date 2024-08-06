@@ -232,8 +232,8 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
     match item {
         DocItem::Module(m) => render_members(name, false, &m.docs, &m.members),
         DocItem::Object(o) => render_members(name, true, &o.docs, &o.members),
-        DocItem::Function(f) => render_function(name, f),
-        DocItem::Property(p) => render_property(name, p),
+        DocItem::Member(DocMember::Function(f)) => render_function(name, f),
+        DocItem::Member(DocMember::Property(p)) => render_property(name, p),
     }
 }
 

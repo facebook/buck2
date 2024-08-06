@@ -19,6 +19,7 @@ use indoc::indoc;
 use serde_json::json;
 use starlark::docs::DocFunction;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocParam;
 use starlark::docs::DocReturn;
 use starlark::docs::DocString;
@@ -360,7 +361,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         arg("tuple", Ty::tuple2(Ty::bool(), Ty::string()), Some("_")),
     ]);
 
-    let expected_docs = DocItem::Function(DocFunction {
+    let expected_docs = DocItem::Member(DocMember::Function(DocFunction {
         docs: DocString::from_docstring(
             DocStringKind::Starlark,
             "Summary for foo_binary\n\nDetails for foo_binary",
@@ -371,7 +372,7 @@ fn returns_documentation() -> anyhow::Result<()> {
             typ: Ty::none(),
         },
         as_type: None,
-    });
+    }));
 
     let tester = rule_tester();
     let res = tester.eval_import(

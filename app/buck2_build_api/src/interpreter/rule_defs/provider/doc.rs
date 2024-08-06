@@ -95,12 +95,12 @@ pub fn provider_callable_documentation(
                 summary,
                 details: Some(details.iter().flatten().join("\n\n")),
             });
-            DocItem::Function(DocFunction {
+            DocItem::Member(DocMember::Function(DocFunction {
                 docs,
                 params,
                 ret,
                 as_type,
-            })
+            }))
         }
     }
 }

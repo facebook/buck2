@@ -21,6 +21,7 @@ use std::collections::HashMap;
 
 use starlark::codemap::CodeMap;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocParam;
 use starlark_syntax::codemap::ResolvedPos;
 use starlark_syntax::syntax::ast::AssignP;
@@ -108,7 +109,7 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                         name: def.name.ident.clone(),
                         kind: SymbolKind::Method,
                         detail: None,
-                        doc: doc.clone().map(DocItem::Function),
+                        doc: doc.clone().map(|x| DocItem::Member(DocMember::Function(x))),
                         param: None,
                     });
 

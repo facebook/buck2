@@ -34,6 +34,7 @@ use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocFunction;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Arguments;
@@ -235,7 +236,7 @@ impl<'v> RuleCallable<'v> {
             None,
         );
 
-        DocItem::Function(function_docs)
+        DocItem::Member(DocMember::Function(function_docs))
     }
 }
 

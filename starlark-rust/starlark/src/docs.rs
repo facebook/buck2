@@ -174,8 +174,7 @@ impl DocMember {
         // If we have a value which is a complex type, the right type to put in the docs is not the type
         // it represents, but it's just a property we should point at
         match value.documentation() {
-            Some(DocItem::Function(x)) => DocMember::Function(x),
-            Some(DocItem::Property(x)) => DocMember::Property(x),
+            Some(DocItem::Member(x)) => x,
             _ => DocMember::Property(DocProperty {
                 docs: None,
                 typ: value.get_type_starlark_repr(),
@@ -196,8 +195,7 @@ pub struct DocObject {
 pub enum DocItem {
     Module(DocModule),
     Object(DocObject),
-    Function(DocFunction),
-    Property(DocProperty),
+    Member(DocMember),
 }
 
 impl DocItem {
@@ -206,8 +204,8 @@ impl DocItem {
         match self {
             DocItem::Module(m) => m.docs.as_ref(),
             DocItem::Object(o) => o.docs.as_ref(),
-            DocItem::Function(f) => f.docs.as_ref(),
-            DocItem::Property(p) => p.docs.as_ref(),
+            DocItem::Member(DocMember::Function(f)) => f.docs.as_ref(),
+            DocItem::Member(DocMember::Property(p)) => p.docs.as_ref(),
         }
     }
 

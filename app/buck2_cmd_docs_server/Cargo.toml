@@ -10,7 +10,6 @@ version = "0.1.0"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 dice = { workspace = true }
-dupe = { workspace = true }
 itertools = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

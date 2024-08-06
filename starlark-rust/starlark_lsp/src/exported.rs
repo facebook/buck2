@@ -24,6 +24,7 @@ use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
 use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::syntax::AstModule;
 use starlark_syntax::syntax::ast::AstAssignIdent;
 use starlark_syntax::syntax::ast::Expr;
@@ -137,7 +138,7 @@ impl AstModuleExportedSymbols for AstModule {
                         add(self, &mut result, name, kind, || {
                             last_node
                                 .and_then(|last| get_doc_item_for_assign(last, &assign.lhs))
-                                .map(DocItem::Property)
+                                .map(|x| DocItem::Member(DocMember::Property(x)))
                         });
                     });
                 }
@@ -146,7 +147,7 @@ impl AstModuleExportedSymbols for AstModule {
                         add(self, &mut result, name, SymbolKind::Any, || {
                             last_node
                                 .and_then(|last| get_doc_item_for_assign(last, dest))
-                                .map(DocItem::Property)
+                                .map(|x| DocItem::Member(DocMember::Property(x)))
                         });
                     });
                 }
@@ -162,7 +163,10 @@ impl AstModuleExportedSymbols for AstModule {
                                 .filter_map(|param| param.split().0.map(|name| name.to_string()))
                                 .collect(),
                         },
-                        || get_doc_item_for_def(def).map(DocItem::Function),
+                        || {
+                            get_doc_item_for_def(def)
+                                .map(|x| DocItem::Member(DocMember::Function(x)))
+                        },
                     );
                 }
                 _ => {}

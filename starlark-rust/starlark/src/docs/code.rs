@@ -276,8 +276,8 @@ impl Doc {
         match &self.item {
             DocItem::Module(m) => m.render_as_code(),
             DocItem::Object(o) => o.render_as_code(&self.id.name),
-            DocItem::Function(f) => f.render_as_code(&self.id.name),
-            DocItem::Property(p) => p.render_as_code(&self.id.name),
+            DocItem::Member(DocMember::Function(f)) => f.render_as_code(&self.id.name),
+            DocItem::Member(DocMember::Property(p)) => p.render_as_code(&self.id.name),
         }
     }
 }
