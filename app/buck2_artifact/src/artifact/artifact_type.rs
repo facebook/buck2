@@ -504,7 +504,7 @@ impl UnboundArtifact {
 pub mod testing {
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::fs::buck_out_path::BuckOutPath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
@@ -549,21 +549,21 @@ pub mod testing {
     }
 
     pub trait BuildArtifactTestingExt {
-        fn testing_new(
-            target: ConfiguredTargetLabel,
-            path: ForwardRelativePathBuf,
-            id: ActionIndex,
-        ) -> BuildArtifact;
+        fn testing_new(target: ConfiguredTargetLabel, path: &str, id: ActionIndex)
+        -> BuildArtifact;
     }
 
     impl BuildArtifactTestingExt for BuildArtifact {
         fn testing_new(
             target: ConfiguredTargetLabel,
-            path: ForwardRelativePathBuf,
+            path: &str,
             id: ActionIndex,
         ) -> BuildArtifact {
             BuildArtifact::new(
-                BuckOutPath::new(BaseDeferredKey::TargetLabel(target.dupe()), path),
+                BuckOutPath::new(
+                    BaseDeferredKey::TargetLabel(target.dupe()),
+                    ForwardRelativePath::new(path).unwrap().to_buf(),
+                ),
                 ActionKey::unchecked_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     id,
@@ -691,21 +691,11 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
-        let artifact1 = BuildArtifact::testing_new(
-            target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            ActionIndex::new(0),
-        );
-        let artifact2 = BuildArtifact::testing_new(
-            target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar.h".to_owned()),
-            ActionIndex::new(0),
-        );
-        let artifact3 = BuildArtifact::testing_new(
-            target,
-            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp/invalid_file.txt".to_owned()),
-            ActionIndex::new(1),
-        );
+        let artifact1 =
+            BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
+        let artifact2 = BuildArtifact::testing_new(target.dupe(), "foo/bar.h", ActionIndex::new(0));
+        let artifact3 =
+            BuildArtifact::testing_new(target, "foo/bar.cpp/invalid_file.txt", ActionIndex::new(1));
 
         let fs = ArtifactFs::new(
             CellResolver::testing_with_name_and_path(
@@ -755,11 +745,8 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
-        let artifact = BuildArtifact::testing_new(
-            target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            ActionIndex::new(0),
-        );
+        let artifact =
+            BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
 
         let full = Artifact::new(artifact.clone(), None, 0);
         let hidden = Artifact::new(artifact, None, 1);
@@ -788,11 +775,8 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
-        let artifact = BuildArtifact::testing_new(
-            target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar.cpp".to_owned()),
-            ActionIndex::new(0),
-        );
+        let artifact =
+            BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
 
         let full = Artifact::new(artifact.clone(), None, 0);
         let hidden = Artifact::new(artifact, None, 1);

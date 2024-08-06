@@ -112,13 +112,8 @@ fn create_test_configured_target_label() -> ConfiguredTargetLabel {
 
 fn create_test_build_artifact() -> BuildArtifact {
     let configured_target_label = create_test_configured_target_label();
-    let forward_relative_path_buf = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let deferred_id = ActionIndex::new(0);
-    BuildArtifact::testing_new(
-        configured_target_label,
-        forward_relative_path_buf,
-        deferred_id,
-    )
+    BuildArtifact::testing_new(configured_target_label, "bar.out", deferred_id)
 }
 
 fn create_test_source_artifact(package_label: &str, target_name: &str) -> SourceArtifact {

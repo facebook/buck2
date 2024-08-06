@@ -95,11 +95,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkArtifact> {
         let target_label = get_label(eval, target)?;
         let id = ActionIndex::new(0);
-        let artifact = Artifact::from(BuildArtifact::testing_new(
-            target_label,
-            ForwardRelativePathBuf::try_from(path.to_owned()).unwrap(),
-            id,
-        ));
+        let artifact = Artifact::from(BuildArtifact::testing_new(target_label, path, id));
         Ok(StarlarkArtifact::new(artifact))
     }
 

@@ -1373,7 +1373,6 @@ mod tests {
     use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 
     use super::*;
@@ -1389,27 +1388,27 @@ mod tests {
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let artifact1 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar1.h".to_owned()),
+            "foo/bar1.h",
             ActionIndex::new(0),
         ));
         let artifact2 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar2.h".to_owned()),
+            "foo/bar2.h",
             ActionIndex::new(0),
         ));
         let artifact3 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar3.h".to_owned()),
+            "foo/bar3.h",
             ActionIndex::new(0),
         ));
         let artifact4 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar4.h".to_owned()),
+            "foo/bar4.h",
             ActionIndex::new(0),
         ));
         let artifact5 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar5.h".to_owned()),
+            "foo/bar5.h",
             ActionIndex::new(0),
         ));
 
@@ -1443,13 +1442,13 @@ mod tests {
 
         let artifact1 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar1.h".to_owned()),
+            "foo/bar1.h",
             ActionIndex::new(0),
         ));
 
         let artifact2 = Artifact::from(BuildArtifact::testing_new(
             target.dupe(),
-            ForwardRelativePathBuf::unchecked_new("foo/bar2.h".to_owned()),
+            "foo/bar2.h",
             ActionIndex::new(0),
         ));
 

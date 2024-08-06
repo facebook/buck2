@@ -147,7 +147,7 @@ fn register_actions() -> anyhow::Result<()> {
     let inputs = indexset![ArtifactGroup::Artifact(
         BuildArtifact::testing_new(
             base.unpack_target_label().unwrap().dupe(),
-            ForwardRelativePathBuf::unchecked_new("input".into()),
+            "input",
             ActionIndex::new(1),
         )
         .into()
@@ -195,7 +195,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
     let inputs = indexset![ArtifactGroup::Artifact(
         BuildArtifact::testing_new(
             base.unpack_target_label().unwrap().dupe(),
-            ForwardRelativePathBuf::unchecked_new("input".into()),
+            "input",
             ActionIndex::new(1),
         )
         .into()

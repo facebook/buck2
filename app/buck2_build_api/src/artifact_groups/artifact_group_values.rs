@@ -244,7 +244,6 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 
     use super::*;
@@ -253,11 +252,7 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
-        let artifact = BuildArtifact::testing_new(
-            target.dupe(),
-            ForwardRelativePathBuf::unchecked_new(name.to_owned()),
-            ActionIndex::new(0),
-        );
+        let artifact = BuildArtifact::testing_new(target.dupe(), name, ActionIndex::new(0));
 
         let value = ArtifactValue::file(DigestConfig::testing_default().empty_file());
 

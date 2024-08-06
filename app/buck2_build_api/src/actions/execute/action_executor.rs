@@ -677,7 +677,6 @@ mod tests {
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -893,7 +892,7 @@ mod tests {
             .configure(ConfigurationData::testing_new());
         let outputs = indexset![BuildArtifact::testing_new(
             label.dupe(),
-            ForwardRelativePathBuf::unchecked_new("output".into()),
+            "output",
             ActionIndex::new(0),
         )];
 
