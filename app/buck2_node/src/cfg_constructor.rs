@@ -48,12 +48,6 @@ pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<
 
 #[async_trait]
 pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
-    /// Loads and returns cfg constructor functions.
-    async fn get_cfg_constructor(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>>;
-
     /// Invokes starlark cfg constructors on provided configuration
     /// and returns the result.
     async fn eval_cfg_constructor(

@@ -20,7 +20,6 @@ use buck2_core::package::PackageLabel;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
-use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::metadata::value::MetadataValue;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule_type::RuleType;
@@ -44,39 +43,38 @@ async fn get_cfg_constructor_uncached(
     Ok(super_package.cfg_constructor().duped())
 }
 
-#[async_trait]
-impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
-    async fn get_cfg_constructor(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
-        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        struct GetCfgConstructorKey;
+async fn get_cfg_constructor(
+    ctx: &mut DiceComputations<'_>,
+) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    struct GetCfgConstructorKey;
 
-        #[async_trait]
-        impl Key for GetCfgConstructorKey {
-            type Value = buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>>;
+    #[async_trait]
+    impl Key for GetCfgConstructorKey {
+        type Value = buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>>;
 
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
-            ) -> Self::Value {
-                get_cfg_constructor_uncached(ctx)
-                    .await
-                    .map_err(buck2_error::Error::from)
-            }
-
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
-            }
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            get_cfg_constructor_uncached(ctx)
+                .await
+                .map_err(buck2_error::Error::from)
         }
 
-        ctx.compute(&GetCfgConstructorKey)
-            .await?
-            .map_err(anyhow::Error::from)
+        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+            false
+        }
     }
 
+    ctx.compute(&GetCfgConstructorKey)
+        .await?
+        .map_err(anyhow::Error::from)
+}
+
+#[async_trait]
+impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
     async fn eval_cfg_constructor(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -105,10 +103,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
-                let cfg_constructor_calculation = CFG_CONSTRUCTOR_CALCULATION_IMPL.get()?;
-                // Invoke eval fn from global instance of cfg constructors
-                let cfg_constructor = cfg_constructor_calculation
-                    .get_cfg_constructor(ctx)
+                let cfg_constructor = get_cfg_constructor(ctx)
                     .await?
                     .context("Internal error: Global cfg constructor instance should exist")?;
                 cfg_constructor
@@ -132,7 +127,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             }
         }
 
-        let Some(cfg_constructor) = self.get_cfg_constructor(ctx).await? else {
+        let Some(cfg_constructor) = get_cfg_constructor(ctx).await? else {
             // To facilitate rollout of modifiers, return original configuration if
             // no cfg constructors are available.
             return Ok(cfg);
