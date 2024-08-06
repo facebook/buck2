@@ -132,7 +132,9 @@ SwiftDebugInfo = record(
     shared = list[ArtifactTSet],
 )
 
-REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
+_REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
+
+_REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
 def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_providers: typing.Callable) -> Promise:
     swift_cxx_flags = get_swift_cxx_flags(ctx)
@@ -141,7 +143,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     # all transitive deps will be compiled recursively.
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
-        REQUIRED_SDK_MODULES,
+        _REQUIRED_SDK_CXX_MODULES if ctx.attrs.enable_cxx_interop else _REQUIRED_SDK_MODULES,
         ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
     )
 
@@ -157,6 +159,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     # passing apple_library's cxx flags through that must be used for all downward PCM compilations.
     sdk_pcm_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
+        ctx.attrs.enable_cxx_interop,
         direct_uncompiled_sdk_deps,
         swift_cxx_flags,
     )

@@ -99,6 +99,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
     module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
     clang_module_deps = get_swift_sdk_pcm_anon_targets(
         ctx,
+        False,
         module_info.deps,
         ["-target", module_info.target],
     )

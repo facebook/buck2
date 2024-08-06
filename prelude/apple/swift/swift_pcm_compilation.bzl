@@ -38,6 +38,7 @@ def get_swift_pcm_anon_targets(
     deps = [
         {
             "dep": uncompiled_dep,
+            "enable_cxx_interop": ctx.attrs.enable_cxx_interop,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
@@ -196,6 +197,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
     # Recursively compiling SDK's Clang dependencies
     sdk_pcm_deps_anon_targets = get_swift_sdk_pcm_anon_targets(
         ctx,
+        ctx.attrs.enable_cxx_interop,
         direct_uncompiled_sdk_deps,
         ctx.attrs.swift_cxx_args,
     )
@@ -212,6 +214,7 @@ _swift_pcm_compilation = rule(
     impl = _swift_pcm_compilation_impl,
     attrs = {
         "dep": attrs.dep(),
+        "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
         "_apple_toolchain": attrs.dep(),
     },
