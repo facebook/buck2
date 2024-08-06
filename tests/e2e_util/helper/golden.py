@@ -9,6 +9,9 @@
 
 import os
 import re
+import typing
+
+from pathlib import Path
 
 
 def _prepend_header(content: str) -> str:
@@ -67,6 +70,34 @@ def _unified_diff(
     )
 
 
+def _is_update_invocation() -> bool:
+    return os.getenv("BUCK2_UPDATE_GOLDEN") is not None
+
+
+# Output is a map of `rel_path`-relative files to their expected values
+def golden_dir(*, output: typing.Dict[str, str], rel_path: str) -> None:
+    assert "golden" in rel_path, f"Golden path `{rel_path}` must contain `golden`"
+
+    rel_path_path = Path(rel_path)
+
+    for file, contents in output.items():
+        golden(
+            output=contents,
+            rel_path=str(rel_path_path.joinpath(Path(file))),
+        )
+
+    # Check that there are no extra files
+    for file in rel_path_path.glob("**/*"):
+        rel_file_path = str(file.relative_to(rel_path_path))
+        if rel_file_path not in output:
+            if _is_update_invocation():
+                file.unlink()
+            else:
+                raise AssertionError(
+                    f"Extra golden file `{rel_file_path}` found, please remove it"
+                )
+
+
 def golden(*, output: str, rel_path: str) -> None:
     assert "golden" in rel_path, f"Golden path `{rel_path}` must contain `golden`"
 
@@ -75,7 +106,7 @@ def golden(*, output: str, rel_path: str) -> None:
 
     path_in_src = os.path.join(_test_repo_data_src(), rel_path)
 
-    if os.getenv("BUCK2_UPDATE_GOLDEN"):
+    if _is_update_invocation():
         with open(path_in_src, "w") as f:
             f.write(output)
         return
