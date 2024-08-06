@@ -24,14 +24,26 @@ fn new_tester() -> Tester {
 #[test]
 fn test_construction() -> anyhow::Result<()> {
     let mut tester = new_tester();
-    let test = indoc!(
-        r#"
-        def test():
-            a = declared_bound_artifact("//foo:bar", "baz/quz.h")
-            ValidationSpec(name="foo", validation_result=a)
-        "#
-    );
-    tester.run_starlark_bzl_test(test)?;
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                a = declared_bound_artifact("//foo:bar", "baz/quz.h")
+                ValidationSpec(name="foo", validation_result=a)
+            "#
+        );
+        tester.run_starlark_bzl_test(test)?;
+    }
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                a = declared_bound_artifact("//foo:bar", "baz/quz.h")
+                ValidationSpec(name="foo", validation_result=a, optional=True)
+            "#
+        );
+        tester.run_starlark_bzl_test(test)?;
+    }
     Ok(())
 }
 
@@ -138,6 +150,20 @@ fn test_validation_failure() -> anyhow::Result<()> {
             tester.run_starlark_bzl_test(test),
             test,
             "Validation result artifact should be a build artifact",
+        );
+    }
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                a = declared_bound_artifact("//foo:bar", "baz/quz.h")
+                ValidationSpec(name="test", validation_result=a, optional="invalid")
+            "#
+        );
+        expect_error(
+            tester.run_starlark_bzl_test(test),
+            test,
+            "Expected type `bool` but got `str`",
         );
     }
     Ok(())

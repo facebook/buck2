@@ -62,6 +62,11 @@ pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
     /// Build artifact which is the result of running a validation.
     /// Should contain JSON of defined schema setting API between Buck2 and user-created validators/scripts.
     validation_result: ValueOfUncheckedGeneric<V, ValueAsArtifactLike<'static>>,
+
+    /// Is validation optional, i.e., should it be skipped by default?
+    /// By default validations are required unless this flag is specified.
+    /// Optional validations are only run when explicitly requested via CLI arguments.
+    optional: bool,
 }
 
 starlark_complex_value!(pub(crate) StarlarkValidationSpec);
@@ -79,6 +84,10 @@ impl<'v, V: ValueLike<'v>> StarlarkValidationSpecGen<V> {
             .unpack()
             .expect("type checked during construction or freezing")
             .0
+    }
+
+    pub fn optional(&self) -> bool {
+        self.optional
     }
 }
 
@@ -126,10 +135,12 @@ pub fn register_validation_spec(builder: &mut GlobalsBuilder) {
     fn ValidationSpec<'v>(
         #[starlark(require = named)] name: StringValue<'v>,
         #[starlark(require = named)] validation_result: ValueOf<'v, ValueAsArtifactLike<'v>>,
+        #[starlark(require = named, default = false)] optional: bool,
     ) -> anyhow::Result<StarlarkValidationSpec<'v>> {
         let result = StarlarkValidationSpec {
             name: name.to_value_of_unchecked().cast(),
             validation_result: validation_result.as_unchecked().cast(),
+            optional,
         };
         validate_validation_spec(&result)?;
         Ok(result)
