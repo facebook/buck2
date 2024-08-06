@@ -125,3 +125,16 @@ pub trait AuditServerCommand: Send + Sync + 'static {
 
 pub static AUDIT_SERVER_COMMAND: LateBinding<&'static dyn AuditServerCommand> =
     LateBinding::new("AUDIT_SERVER_COMMAND");
+
+#[async_trait]
+pub trait StarlarkServerCommand: Send + Sync + 'static {
+    async fn starlark(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse>;
+}
+
+pub static STARLARK_SERVER_COMMAND: LateBinding<&'static dyn StarlarkServerCommand> =
+    LateBinding::new("STARLARK_SERVER_COMMAND");

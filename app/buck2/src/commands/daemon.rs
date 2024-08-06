@@ -39,9 +39,9 @@ use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::DOCS_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_starlark_server::server_starlark_command;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
 use dice::DetectCycles;
@@ -132,7 +132,10 @@ impl BuckdServerDependencies for BuckdServerDependenciesImpl {
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
     ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-        server_starlark_command(ctx, partial_result_dispatcher, req).await
+        STARLARK_SERVER_COMMAND
+            .get()?
+            .starlark(ctx, partial_result_dispatcher, req)
+            .await
     }
     async fn profile(
         &self,

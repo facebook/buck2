@@ -18,8 +18,37 @@ use buck2_cli_proto::ClientContext;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::command_end::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
+use buck2_server_ctx::late_bindings::StarlarkServerCommand;
+use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_starlark::StarlarkSubcommand;
+
+pub fn init_late_bindings() {
+    STARLARK_SERVER_COMMAND.init(&StarlarkServerCommandImpl);
+}
+
+struct StarlarkServerCommandImpl;
+
+#[async_trait]
+impl StarlarkServerCommand for StarlarkServerCommandImpl {
+    async fn starlark(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        req: buck2_cli_proto::GenericRequest,
+    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
+        let start_event = buck2_data::CommandStart {
+            metadata: ctx.request_metadata().await?,
+            data: Some(buck2_data::StarlarkCommandStart {}.into()),
+        };
+
+        span_async(
+            start_event,
+            server_starlark_command_inner(ctx, partial_result_dispatcher, req),
+        )
+        .await
+    }
+}
 
 #[async_trait]
 pub(crate) trait StarlarkServerSubcommand: Send + Sync + 'static {
@@ -29,23 +58,6 @@ pub(crate) trait StarlarkServerSubcommand: Send + Sync + 'static {
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
     ) -> anyhow::Result<()>;
-}
-
-pub async fn server_starlark_command(
-    ctx: &dyn ServerCommandContextTrait,
-    partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-    req: buck2_cli_proto::GenericRequest,
-) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: ctx.request_metadata().await?,
-        data: Some(buck2_data::StarlarkCommandStart {}.into()),
-    };
-
-    span_async(
-        start_event,
-        server_starlark_command_inner(ctx, partial_result_dispatcher, req),
-    )
-    .await
 }
 
 async fn server_starlark_command_inner(
