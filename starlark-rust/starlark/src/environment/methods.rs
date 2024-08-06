@@ -89,13 +89,15 @@ impl Methods {
     }
 
     /// Fetch the documentation.
-    pub fn documentation(&self) -> DocObject {
-        common_documentation(
+    pub fn documentation(&self, ty: Ty) -> DocObject {
+        let (docs, members) = common_documentation(
             &self.docstring,
             self.members
                 .iter()
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
-        )
+        );
+
+        DocObject { docs, members, ty }
     }
 }
 

@@ -311,7 +311,10 @@ pub trait StarlarkValue<'v>:
     where
         Self: Sized,
     {
-        Self::get_methods().map(|methods| DocItem::Object(methods.documentation()))
+        let ty = self
+            .typechecker_ty()
+            .unwrap_or_else(|| Self::get_type_starlark_repr());
+        Self::get_methods().map(|methods| DocItem::Object(methods.documentation(ty)))
     }
 
     /// Type of this instance for typechecker.

@@ -27,7 +27,6 @@ use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
-use crate::docs::DocObject;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::stdlib;
@@ -150,7 +149,7 @@ impl Globals {
 
     /// Get the documentation for both the object itself, and its members.
     pub fn documentation(&self) -> DocModule {
-        let DocObject { docs, members } = common_documentation(
+        let (docs, members) = common_documentation(
             &self.0.docstring,
             self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
         );
@@ -335,7 +334,7 @@ impl GlobalsStatic {
 pub(crate) fn common_documentation<'a>(
     docstring: &Option<String>,
     members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
-) -> DocObject {
+) -> (Option<DocString>, SmallMap<String, DocMember>) {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
@@ -345,10 +344,7 @@ pub(crate) fn common_documentation<'a>(
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
         .collect();
 
-    DocObject {
-        docs: main_docs,
-        members: member_docs,
-    }
+    (main_docs, member_docs)
 }
 
 #[cfg(test)]

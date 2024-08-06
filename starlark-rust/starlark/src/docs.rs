@@ -182,11 +182,12 @@ impl DocMember {
 }
 
 /// An object with named functions/properties.
-#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative)]
 pub struct DocObject {
     pub docs: Option<DocString>,
     /// Name and details of each member of this object.
     pub members: SmallMap<String, DocMember>,
+    pub ty: Ty,
 }
 
 #[derive(Debug, Clone, PartialEq, Allocative)]
@@ -297,7 +298,8 @@ impl RegisteredDoc {
             name,
             location: None,
         };
-        let item = DocItem::Object(T::get_methods()?.documentation());
+        let ty = T::get_type_starlark_repr();
+        let item = DocItem::Object(T::get_methods()?.documentation(ty));
         let custom_attrs = custom_attrs
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))

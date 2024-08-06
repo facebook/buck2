@@ -74,6 +74,17 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
             .iter()
             .map(|(name, value)| (name.to_string_value(), *value))
     }
+
+    fn self_ty(&self) -> Ty {
+        Ty::custom(TyStruct {
+            fields: self
+                .fields
+                .iter()
+                .map(|(name, value)| (ArcStr::from(name.as_str()), Ty::of_value(value.to_value())))
+                .collect(),
+            extra: false,
+        })
+    }
 }
 
 impl StructGen<'static, FrozenValue> {
@@ -187,9 +198,11 @@ where
                 }
             })
             .collect();
+        let ty = self.self_ty();
         Some(DocItem::Object(DocObject {
             docs: None,
             members,
+            ty,
         }))
     }
 
@@ -198,14 +211,7 @@ where
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        Some(Ty::custom(TyStruct {
-            fields: self
-                .fields
-                .iter()
-                .map(|(name, value)| (ArcStr::from(name.as_str()), Ty::of_value(value.to_value())))
-                .collect(),
-            extra: false,
-        }))
+        Some(self.self_ty())
     }
 }
 

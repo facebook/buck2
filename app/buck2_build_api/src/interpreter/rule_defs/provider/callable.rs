@@ -405,6 +405,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         let return_types = vec![Ty::any(); self.fields.len()];
         Some(provider_callable_documentation(
             None,
+            self.callable.get()?.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             // TODO(nga): types.
@@ -476,6 +477,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         let return_types = vec![Ty::any(); self.fields.len()];
         Some(provider_callable_documentation(
             None,
+            self.callable.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             &vec![None; self.fields.len()],

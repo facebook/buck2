@@ -19,6 +19,7 @@ use starlark::typing::Ty;
 
 pub fn provider_callable_documentation(
     creator: Option<for<'a> fn(&'a mut GlobalsBuilder)>,
+    self_ty: Ty,
     overall: &Option<DocString>,
     fields: &[&str],
     field_docs: &[Option<DocString>],
@@ -52,6 +53,7 @@ pub fn provider_callable_documentation(
     match ctor {
         None => DocItem::Object(DocObject {
             docs: overall.clone(),
+            ty: self_ty,
             members: members
                 .into_iter()
                 .map(|(a, b)| (a.to_owned(), DocMember::Property(b)))

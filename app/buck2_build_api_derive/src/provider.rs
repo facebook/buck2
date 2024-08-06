@@ -257,6 +257,7 @@ impl ProviderCodegen {
                 ];
                 Some(crate::interpreter::rule_defs::provider::doc::provider_callable_documentation(
                     Some(#create_func),
+                    BUILTIN_PROVIDER_TY.instance(),
                     &docstring,
                     &field_names,
                     &field_docs,
