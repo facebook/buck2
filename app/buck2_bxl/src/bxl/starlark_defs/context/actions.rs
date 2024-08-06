@@ -141,6 +141,16 @@ pub(crate) struct BxlExecutionResolution {
     pub(crate) toolchain_deps_configured: Vec<ConfiguredProvidersLabel>,
 }
 
+impl BxlExecutionResolution {
+    pub(crate) fn unspecified() -> BxlExecutionResolution {
+        BxlExecutionResolution {
+            resolved_execution: ExecutionPlatformResolution::unspecified(),
+            exec_deps_configured: Vec::new(),
+            toolchain_deps_configured: Vec::new(),
+        }
+    }
+}
+
 pub(crate) fn validate_action_instantiation(
     this: &BxlContextNoDice<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,

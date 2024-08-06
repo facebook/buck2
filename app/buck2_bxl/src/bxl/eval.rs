@@ -20,7 +20,6 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
@@ -344,11 +343,8 @@ async fn eval_bxl_inner(
 // are empty here for the same reason.
 pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
     BuckOutPath::new(
-        key.dupe().into_base_deferred_key(BxlExecutionResolution {
-            resolved_execution: ExecutionPlatformResolution::unspecified(),
-            exec_deps_configured: Vec::new(),
-            toolchain_deps_configured: Vec::new(),
-        }),
+        key.dupe()
+            .into_base_deferred_key(BxlExecutionResolution::unspecified()),
         ForwardRelativePathBuf::unchecked_new(format!(
             "__bxl_internal__/{}stream_cache",
             stream_type
