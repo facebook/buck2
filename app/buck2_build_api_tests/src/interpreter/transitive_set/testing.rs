@@ -11,7 +11,7 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
 use anyhow::Context as _;
-use buck2_build_api::analysis::registry::RecordedAnalysisValues;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
@@ -44,10 +44,7 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
         let tset_id = TransitiveSetIndex::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
 
         let set = TransitiveSet::new_from_values(
-            TransitiveSetKey::new(
-                RecordedAnalysisValues::testing_deferred_holder_key(),
-                tset_id,
-            ),
+            TransitiveSetKey::new(DeferredHolderKey::testing_new("cell//more:tsets"), tset_id),
             definition,
             value,
             children,

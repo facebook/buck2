@@ -86,7 +86,11 @@ fn mock_analysis_for_tsets(
             AnalysisKey(target),
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
-                RecordedAnalysisValues::testing_new(tsets, RecordedActions::new()),
+                RecordedAnalysisValues::testing_new(
+                    DeferredHolderKey::testing_new("cell//t:sets"),
+                    tsets,
+                    RecordedActions::new(),
+                ),
                 None,
                 HashMap::new(),
                 0,

@@ -154,7 +154,11 @@ fn mock_analysis_for_action_resolution(
         AnalysisKey(configured_target_label.dupe()),
         buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
             FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
-            RecordedAnalysisValues::testing_new(Vec::new(), actions),
+            RecordedAnalysisValues::testing_new(
+                action_key.holder_key().dupe(),
+                Vec::new(),
+                actions,
+            ),
             None,
             HashMap::new(),
             0,

@@ -21,11 +21,9 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
@@ -661,16 +659,8 @@ impl RecordedAnalysisValues {
         }
     }
 
-    pub fn testing_deferred_holder_key() -> DeferredHolderKey {
-        let target = ConfiguredTargetLabel::testing_parse(
-            "cell//path:target",
-            ConfigurationData::testing_new(),
-        );
-        let deferred_key = BaseDeferredKey::TargetLabel(target);
-        DeferredHolderKey::Base(deferred_key)
-    }
-
     pub fn testing_new(
+        self_key: DeferredHolderKey,
         transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
         actions: RecordedActions,
     ) -> Self {
@@ -683,7 +673,7 @@ impl RecordedAnalysisValues {
         }
 
         let value = heap.alloc_simple(FrozenAnalysisValueStorage {
-            self_key: Self::testing_deferred_holder_key(),
+            self_key,
             action_data: SmallMap::new(),
             transitive_sets: alloced_tsets,
             lambda_params: SmallMap::new(),

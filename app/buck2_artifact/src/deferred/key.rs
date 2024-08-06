@@ -11,6 +11,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dupe::Dupe;
 
 use crate::dynamic::DynamicLambdaResultsKey;
@@ -37,6 +39,13 @@ pub enum DeferredHolderKey {
 }
 
 impl DeferredHolderKey {
+    pub fn testing_new(target_label: &str) -> DeferredHolderKey {
+        let target =
+            ConfiguredTargetLabel::testing_parse(target_label, ConfigurationData::testing_new());
+        let deferred_key = BaseDeferredKey::TargetLabel(target);
+        DeferredHolderKey::Base(deferred_key)
+    }
+
     pub fn owner(&self) -> &BaseDeferredKey {
         match self {
             DeferredHolderKey::Base(base) => base,
