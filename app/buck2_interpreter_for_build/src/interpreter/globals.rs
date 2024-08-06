@@ -50,12 +50,13 @@ fn from_late_binding(l: &LateBinding<fn(&mut GlobalsBuilder)>, builder: &mut Glo
     }
 }
 
-fn register_buck2_natives(builder: &mut GlobalsBuilder) {
-    from_late_binding(&REGISTER_BUCK2_ACTION_IMPL_GLOBALS, builder);
-    from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
-    from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
-    from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);
+// NOTE: Semantically, `register_load_natives`, `register_analysis_natives`, `register_bxl_natives`,
+// and `starlark_library_extensions_for_buck2` are all the same, since all symbols are available
+// everywhere. However, we distinguish between them for the purpose of generating documentation.
+
+pub fn register_load_natives(builder: &mut GlobalsBuilder) {
     from_late_binding(&REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS, builder);
+    from_late_binding(&REGISTER_BUCK2_TRANSITION_GLOBALS, builder);
     register_module_natives(builder);
     register_host_info(builder);
     register_read_config(builder);
@@ -76,11 +77,20 @@ fn register_buck2_natives(builder: &mut GlobalsBuilder) {
     register_target_label(builder);
     register_path(builder);
     register_select(builder);
-    register_promise(builder);
     register_sha256(builder);
     register_dedupe(builder);
     register_set_starlark_peak_allocated_byte_limit(builder);
+}
+
+pub fn register_analysis_natives(builder: &mut GlobalsBuilder) {
+    from_late_binding(&REGISTER_BUCK2_ACTION_IMPL_GLOBALS, builder);
+    from_late_binding(&REGISTER_BUCK2_BUILD_API_GLOBALS, builder);
+    register_promise(builder);
     from_late_binding(&REGISTER_BUCK2_ANON_TARGETS_GLOBALS, builder);
+}
+
+pub fn register_bxl_natives(builder: &mut GlobalsBuilder) {
+    from_late_binding(&REGISTER_BUCK2_BXL_GLOBALS, builder);
 }
 
 pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
@@ -105,7 +115,9 @@ pub fn starlark_library_extensions_for_buck2() -> &'static [LibraryExtension] {
 }
 
 fn register_all_natives(builder: &mut GlobalsBuilder) {
-    register_buck2_natives(builder);
+    register_load_natives(builder);
+    register_analysis_natives(builder);
+    register_bxl_natives(builder);
     for ext in starlark_library_extensions_for_buck2() {
         ext.add(builder);
     }
