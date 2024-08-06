@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsRequest;
 use buck2_cli_proto::new_generic::DocsResponse;
+use buck2_cli_proto::new_generic::DocsStarlarkRequest;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
@@ -49,8 +50,10 @@ use starlark::docs::Location;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 
+use crate::builtins::docs_starlark_builtins;
 use crate::markdown::generate_markdown_files;
 
+mod builtins;
 mod json;
 mod markdown;
 
@@ -212,10 +215,10 @@ impl ServerCommandTemplate for DocsServerCommand {
     }
 }
 
-async fn docs(
+async fn docs_starlark(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice_ctx: DiceTransaction,
-    request: &DocsRequest,
+    request: &DocsStarlarkRequest,
 ) -> anyhow::Result<DocsResponse> {
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let cwd = server_ctx.working_dir();
@@ -261,4 +264,17 @@ async fn docs(
     };
 
     Ok(DocsResponse { json_output })
+}
+
+async fn docs(
+    server_ctx: &dyn ServerCommandContextTrait,
+    dice_ctx: DiceTransaction,
+    request: &DocsRequest,
+) -> anyhow::Result<DocsResponse> {
+    match request {
+        DocsRequest::Starlark(request) => docs_starlark(server_ctx, dice_ctx, request).await,
+        DocsRequest::StarlarkBuiltins(request) => {
+            docs_starlark_builtins(server_ctx, dice_ctx, request).await
+        }
+    }
 }

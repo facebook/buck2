@@ -15,14 +15,17 @@ use crate::query::DocsAqueryCommand;
 use crate::query::DocsCqueryCommand;
 use crate::query::DocsUqueryCommand;
 use crate::starlark::DocsStarlarkCommand;
+use crate::starlark_builtins::StarlarkBuiltinsCommand;
 
 mod query;
 mod starlark;
+mod starlark_builtins;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, clap::Parser)]
 enum DocsKind {
     Starlark(DocsStarlarkCommand),
+    StarlarkBuiltins(StarlarkBuiltinsCommand),
     Uquery(DocsUqueryCommand),
     Cquery(DocsCqueryCommand),
     Aquery(DocsAqueryCommand),
@@ -51,6 +54,7 @@ impl DocsCommand {
         };
         match self.docs_kind {
             DocsKind::Starlark(cmd) => cmd.exec(submatches, ctx),
+            DocsKind::StarlarkBuiltins(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Uquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Cquery(cmd) => cmd.exec(submatches, ctx),
             DocsKind::Aquery(cmd) => cmd.exec(submatches, ctx),

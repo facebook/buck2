@@ -12,6 +12,7 @@ mod markdown;
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsRequest;
+use buck2_cli_proto::new_generic::DocsStarlarkRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -95,13 +96,15 @@ impl StreamingCommand for DocsStarlarkCommand {
             .with_flushing()
             .new_generic(
                 client_context,
-                buck2_cli_proto::new_generic::NewGenericRequest::Docs(DocsRequest {
-                    symbol_patterns: self.patterns.clone(),
-                    retrieve_builtins: self.builtins,
-                    format,
-                    markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
-                    markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),
-                }),
+                buck2_cli_proto::new_generic::NewGenericRequest::Docs(DocsRequest::Starlark(
+                    DocsStarlarkRequest {
+                        symbol_patterns: self.patterns.clone(),
+                        retrieve_builtins: self.builtins,
+                        format,
+                        markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
+                        markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),
+                    },
+                )),
                 ctx.stdin()
                     .console_interaction_stream(&self.common_opts.console_opts),
             )
