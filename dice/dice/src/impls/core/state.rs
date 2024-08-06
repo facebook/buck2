@@ -23,7 +23,6 @@ use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
-use crate::impls::core::internals::CoreState;
 use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::core::versions::VersionEpoch;
@@ -40,8 +39,9 @@ use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
 
 /// A handle to the core state that allows sending requests
-#[derive(Clone)]
+#[derive(Allocative, Clone)]
 pub(crate) struct CoreStateHandle {
+    #[allocative(skip)]
     tx: UnboundedSender<StateRequest>,
     // should this handle hold onto the thread and terminate it when all of Dice is dropped?
 }
@@ -185,24 +185,6 @@ impl CoreStateHandle {
     }
 }
 
-impl Allocative for CoreStateHandle {
-    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
-        let mut visitor = visitor.enter_self_sized::<Self>();
-
-        let (resp, recv) = oneshot::channel();
-        self.request(StateRequest::MakeAvailableForAllocative { resp });
-
-        let (state, complete_tx) = tokio::task::block_in_place(|| recv.blocking_recv().unwrap());
-
-        // FIXME(JakobDegen): Ideally we'd correctly report the fact that this is shared, but there's
-        // no easy identifier to use
-        Allocative::visit(&state, &mut visitor);
-
-        drop(state);
-        drop(complete_tx);
-    }
-}
-
 impl Dupe for CoreStateHandle {}
 
 /// Start processing state
@@ -274,15 +256,5 @@ pub(super) enum StateRequest {
     Introspection {
         #[derivative(Debug = "ignore")]
         resp: Sender<(VersionedGraphIntrospectable, VersionIntrospectable)>,
-    },
-    /// Makes the dice state available temporarily to be able to run allocative
-    ///
-    /// Although the `CoreState` is in an `Arc`, this is only to convince the compiler that this is
-    /// safe, and it should actually be understood as being a `&'a CoreState`, where `'a` is the
-    /// lifetime that starts when the response is sent, and ends when the provided sender is
-    /// dropped. Failing to drop all references to the `Arc` by then will cause a panic.
-    MakeAvailableForAllocative {
-        #[derivative(Debug = "ignore")]
-        resp: Sender<(std::sync::Arc<CoreState>, Sender<std::convert::Infallible>)>,
     },
 }
