@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-
 use allocative::Allocative;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -26,8 +24,8 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::assert::Assert;
-use crate::docs::DocItem;
 use crate::docs::DocMember;
+use crate::docs::DocParam;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -128,37 +126,26 @@ def simple(arg_int: int, arg_bool: bool, arg_vec: list[str], arg_dict: dict[str,
 def with_arguments(*args, **kwargs) -> int: pass
 "#);
 
-    fn unpack(x: DocItem) -> HashMap<String, DocItem> {
-        match x {
-            DocItem::Module(obj) => obj
-                .members
-                .into_iter()
-                .filter_map(|(name, member)| match member {
-                    DocMember::Property(_) => None,
-                    DocMember::Function(f) => Some((name, DocItem::Function(f))),
-                })
-                .collect(),
-            _ => HashMap::new(),
-        }
-    }
-
-    fn cleanup_types(x: &str) -> String {
-        x.replace("Some(Any)", "None")
-            .replace("\\\"_\\\"", "_")
-            // `ArcStr` debug differ. I don't know why this test exists.
-            .replace("(Static(", "(Arc(")
-    }
-
     let expected = expected.documentation().members;
-    let got = unpack(DocItem::Module(got.documentation()));
+    let mut got = got.documentation().members;
+
+    got.remove("Input");
+    got.remove("Output");
+
     assert_eq!(expected.len(), got.len());
-    for (name, expected1) in expected.iter() {
-        let got1 = got.get(name).unwrap();
-        assert_eq!(
-            cleanup_types(&format!("{:?}", expected1)),
-            cleanup_types(&format!("{:?}", got1)),
-            "Function {}",
-            name
-        );
+    for (name, mut expected) in expected {
+        if &name == "default_arg" {
+            // `Option<Foo>` args in native functions are special magic and have behavior that can't
+            // be replicated with normal functions
+            let DocMember::Function(expected) = &mut expected else {
+                unreachable!()
+            };
+            let DocParam::Arg { default_value, .. } = &mut expected.params[0] else {
+                unreachable!()
+            };
+            *default_value = Some("_".to_owned());
+        }
+        // Comparing one at a time produces more useful error messages
+        assert_eq!(&expected, got.get(&name).unwrap());
     }
 }
