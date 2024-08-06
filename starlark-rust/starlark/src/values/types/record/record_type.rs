@@ -29,7 +29,6 @@ use once_cell::unsync::OnceCell;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
-use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use starlark_map::StarlarkHasher;
@@ -120,15 +119,7 @@ enum RecordTypeError {
 }
 
 /// The result of `record()`, being the type of records.
-#[derive(
-    Debug,
-    Trace,
-    NoSerialize,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "extension")]
+#[derive(Debug, Trace, NoSerialize, ProvidesStaticType, Allocative)]
 pub struct RecordTypeGen<V: RecordCell> {
     pub(crate) id: TypeInstanceId,
     #[allocative(skip)] // TODO(nga): do not skip.

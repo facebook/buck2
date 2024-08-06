@@ -30,7 +30,6 @@ use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::Coerce;
 use starlark_derive::NoSerialize;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Equivalent;
@@ -120,16 +119,7 @@ impl EnumCell for FrozenValue {
 }
 
 /// The type of an enumeration, created by `enum()`.
-#[derive(
-    Debug,
-    Trace,
-    Coerce,
-    NoSerialize,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "extension")]
+#[derive(Debug, Trace, Coerce, NoSerialize, ProvidesStaticType, Allocative)]
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
