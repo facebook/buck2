@@ -41,8 +41,11 @@ impl SourcePath {
     }
 
     /// This is slow, but OK to use in tests.
-    pub fn testing_new(pkg: PackageLabel, path: &str) -> Self {
-        SourcePath::new(pkg, ArcS::from(PackageRelativePath::new(path).unwrap()))
+    pub fn testing_new(pkg: &str, path: &str) -> Self {
+        SourcePath::new(
+            PackageLabel::testing_parse(pkg),
+            ArcS::from(PackageRelativePath::new(path).unwrap()),
+        )
     }
 
     #[inline]

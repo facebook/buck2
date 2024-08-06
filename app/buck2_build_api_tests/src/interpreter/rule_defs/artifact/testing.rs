@@ -35,6 +35,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -45,6 +46,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::request::OutputType;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
+use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use indexmap::indexset;
 use indexmap::IndexSet;
@@ -84,7 +86,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ctx.build_file_cell().name(),
             CellRelativePath::from_path(package).unwrap(),
         );
-        let path = SourcePath::testing_new(package, path);
+        let path = SourcePath::new(package, ArcS::from(PackageRelativePath::new(path)?));
         Ok(StarlarkArtifact::new(SourceArtifact::new(path).into()))
     }
 

@@ -273,13 +273,11 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
     use buck2_core::package::source_path::SourcePath;
-    use buck2_core::package::PackageLabel;
 
     use super::*;
 
     fn mk_artifact() -> Artifact {
-        let pkg = PackageLabel::testing_parse("cell//pkg");
-        let buck_path = SourcePath::testing_new(pkg, "");
+        let buck_path = SourcePath::testing_new("cell//pkg", "");
         Artifact::from(SourceArtifact::new(buck_path))
     }
 

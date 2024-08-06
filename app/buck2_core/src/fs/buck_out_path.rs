@@ -338,16 +338,8 @@ mod tests {
             ),
         );
 
-        let resolved = artifact_fs.resolve_source(
-            SourcePath::testing_new(
-                PackageLabel::new(
-                    CellName::testing_new("foo"),
-                    CellRelativePath::unchecked_new("baz-package"),
-                ),
-                "faz.file",
-            )
-            .as_ref(),
-        )?;
+        let resolved = artifact_fs
+            .resolve_source(SourcePath::testing_new("foo//baz-package", "faz.file").as_ref())?;
 
         assert_eq!(
             ProjectRelativePathBuf::unchecked_new("bar-cell/baz-package/faz.file".into()),
@@ -356,16 +348,7 @@ mod tests {
 
         assert_eq!(
             artifact_fs
-                .resolve_source(
-                    SourcePath::testing_new(
-                        PackageLabel::new(
-                            CellName::testing_new("none_existent"),
-                            CellRelativePath::unchecked_new("baz")
-                        ),
-                        "fazx",
-                    )
-                    .as_ref()
-                )
+                .resolve_source(SourcePath::testing_new("none_existent//baz", "fazx").as_ref())
                 .is_err(),
             true
         );

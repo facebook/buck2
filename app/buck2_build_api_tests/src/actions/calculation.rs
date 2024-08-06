@@ -65,7 +65,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -117,10 +116,7 @@ fn create_test_build_artifact() -> BuildArtifact {
 }
 
 fn create_test_source_artifact(package_label: &str, target_name: &str) -> SourceArtifact {
-    SourceArtifact::new(SourcePath::testing_new(
-        PackageLabel::testing_parse(package_label),
-        target_name,
-    ))
+    SourceArtifact::new(SourcePath::testing_new(package_label, target_name))
 }
 
 fn registered_action(

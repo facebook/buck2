@@ -597,7 +597,6 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
     use dupe::Dupe;
@@ -658,10 +657,7 @@ mod tests {
 
     #[test]
     fn resolve_artifact() -> anyhow::Result<()> {
-        let source = SourceArtifact::new(SourcePath::testing_new(
-            PackageLabel::testing_parse("cell//pkg"),
-            "src.cpp",
-        ));
+        let source = SourceArtifact::new(SourcePath::testing_new("cell//pkg", "src.cpp"));
 
         let project_fs =
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())

@@ -40,7 +40,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::source_path::SourcePath;
-use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
@@ -140,7 +139,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     );
 
     let foo_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
-        PackageLabel::testing_parse("root//foo"),
+        "root//foo",
         "foo",
     )));
 
@@ -150,7 +149,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     };
 
     let bar_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
-        PackageLabel::testing_parse("root//bar"),
+        "root//bar",
         "bar",
     )));
 

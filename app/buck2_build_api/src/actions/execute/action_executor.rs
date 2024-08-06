@@ -668,7 +668,6 @@ mod tests {
     use buck2_core::category::CategoryRef;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
-    use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -681,9 +680,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
-    use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
-    use buck2_core::target::name::TargetNameRef;
     use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_execute::artifact_value::ArtifactValue;
@@ -880,16 +877,11 @@ mod tests {
             }
         }
 
-        let pkg = PackageLabel::new(
-            CellName::testing_new("cell"),
-            CellRelativePath::unchecked_new("pkg"),
-        );
-
         let inputs = indexset![ArtifactGroup::Artifact(Artifact::from(
-            SourceArtifact::new(SourcePath::testing_new(pkg.dupe(), "source"))
+            SourceArtifact::new(SourcePath::testing_new("cell//pkg", "source"))
         ))];
-        let label = TargetLabel::new(pkg, TargetNameRef::unchecked_new("foo"))
-            .configure(ConfigurationData::testing_new());
+        let label =
+            TargetLabel::testing_parse("cell//pkg:foo").configure(ConfigurationData::testing_new());
         let outputs = indexset![BuildArtifact::testing_new(
             label.dupe(),
             "output",
