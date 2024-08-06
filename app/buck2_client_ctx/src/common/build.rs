@@ -59,6 +59,12 @@ pub struct CommonBuildOptions {
     #[clap(long = "build-report", value_name = "PATH")]
     build_report: Option<String>,
 
+    /// Comma separated list of validation names to run that are marked optional.
+    ///
+    /// By default, validations marked as optional are skipped. This option overrides the behaviour and executes those validations.
+    #[clap(long, value_name = "VALIDATION_NAMES", value_delimiter = ',')]
+    enable_optional_validations: Vec<String>,
+
     /// Comma separated list of build report options.
     ///
     /// The following options are supported:
