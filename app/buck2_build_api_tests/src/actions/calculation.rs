@@ -121,13 +121,9 @@ fn create_test_build_artifact() -> BuildArtifact {
     )
 }
 
-fn create_test_source_artifact(
-    package_cell: &str,
-    package_path: &str,
-    target_name: &str,
-) -> SourceArtifact {
+fn create_test_source_artifact(package_label: &str, target_name: &str) -> SourceArtifact {
     SourceArtifact::new(SourcePath::testing_new(
-        PackageLabel::testing_new(package_cell, package_path),
+        PackageLabel::testing_parse(package_label),
         target_name,
     ))
 }
@@ -441,7 +437,7 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
         CellName::testing_new("cell"),
         CellRelativePathBuf::unchecked_new("pkg/src.cpp".to_owned()),
     );
-    let source_artifact = create_test_source_artifact("cell", "pkg", "src.cpp");
+    let source_artifact = create_test_source_artifact("cell//pkg", "src.cpp");
     let metadata = FileMetadata {
         digest: TrackedFileDigest::from_content(b"content", digest_config.cas_digest_config()),
         is_executable: true,
@@ -487,7 +483,7 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
         CellName::testing_new("cell"),
         CellRelativePathBuf::unchecked_new("proj/to_gvfs/include".to_owned()),
     );
-    let source_artifact = create_test_source_artifact("cell", "proj/to_gvfs", "include");
+    let source_artifact = create_test_source_artifact("cell//proj/to_gvfs", "include");
     let symlink = Arc::new(
         ExternalSymlink::new(
             PathBuf::from("/mnt/gvfs"),
