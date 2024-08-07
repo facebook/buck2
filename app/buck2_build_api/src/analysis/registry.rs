@@ -122,6 +122,12 @@ impl<'v> AnalysisRegistry<'v> {
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
     ) -> anyhow::Result<Self> {
+        if self_key.owner() != &owner {
+            return Err(internal_error!(
+                "Mismatched owner: expected `{self_key}`, got `{owner}`"
+            ));
+        }
+
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
