@@ -1,0 +1,27 @@
+name: build_example_nativelink_no_prelude
+inputs:
+  NATIVELINK_HEADER_RW_KEY_SECRET:
+    description: ''
+    required: true
+runs:
+  using: composite
+  steps:
+  - name: Build example/no_prelude directory using remote execution
+    run: |-
+      {
+      echo "[buck2_re_client]
+      engine_address       = grpc://scheduler-buck2.build-faster.nativelink.net:443
+      action_cache_address = grpc://cas-buck2.build-faster.nativelink.net:443
+      cas_address          = grpc://cas-buck2.build-faster.nativelink.net:443
+      http_headers         = x-nativelink-api-key:$NATIVELINK_HEADER_RW_KEY
+      tls = true
+      instance_name = main
+      enabled = true
+      [build]
+        execution_platforms = root//platforms:platforms"
+      } > examples/no_prelude/.buckconfig.local
+      cd examples/no_prelude
+      $RUNNER_TEMP/artifacts/buck2 build //...
+    env:
+      NATIVELINK_HEADER_RW_KEY: ${{ inputs.NATIVELINK_HEADER_RW_KEY_SECRET }}
+    shell: bash
