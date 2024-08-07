@@ -94,7 +94,7 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 ///     const Temperature: StarlarkValueAsType<Temperature> = StarlarkValueAsType::new();
 /// }
 /// ```
-pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(PhantomData<fn(&T)>);
+pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(&'static InstanceTy, PhantomData<fn(&T)>);
 
 impl<T: StarlarkTypeRepr> Debug for StarlarkValueAsType<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -110,13 +110,15 @@ impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
     }
 }
 
+type InstanceTy = AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>>;
+
 impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     /// Constructor.
     pub const fn new() -> Self {
-        Self(PhantomData)
+        Self(&Self::INSTANCE, PhantomData)
     }
 
-    const INSTANCE: AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>> =
+    const INSTANCE: InstanceTy =
         alloc_static(StarlarkValueAsTypeStarlarkValue(T::starlark_type_repr));
 }
 
@@ -136,13 +138,13 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
 
 impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for StarlarkValueAsType<T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
-        FrozenValue::new_repr(&Self::INSTANCE).to_value()
+        FrozenValue::new_repr(self.0).to_value()
     }
 }
 
 impl<T: StarlarkTypeRepr> AllocFrozenValue for StarlarkValueAsType<T> {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_repr(&Self::INSTANCE)
+        FrozenValue::new_repr(self.0)
     }
 }
 
