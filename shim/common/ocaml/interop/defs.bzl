@@ -5,6 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@root//defs.bzl", _RUST_FLAGS_2018 = "RUST_FLAGS_2018")
+load("@buck2//defs.bzl", _RUST_FLAGS_2018 = "RUST_FLAGS_2018")
 
 RUST_FLAGS_2018 = _RUST_FLAGS_2018
