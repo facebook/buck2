@@ -1018,11 +1018,29 @@ _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def _apple_universal_executable_attrs():
     attribs = {
-        "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
-        "executable_name": attrs.option(attrs.string(), default = None),
+        "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
+                A build target identifying the binary which will be built for multiple architectures.
+                The target will be transitioned into different configurations, with distinct architectures.
+
+                The target can be one of:
+                - `apple_binary()` and `cxx_binary()`
+                - `[shared]` subtarget of `apple_library()` and `cxx_library()`
+                - `apple_library()` and `cxx_library()` which have `preferred_linkage = shared` attribute
+            """),
+        "executable_name": attrs.option(attrs.string(), default = None, doc = """
+                By default, the name of the universal executable is same as the name of the binary
+                from the `binary` target attribute. Set `executable_name` to override the default.
+            """),
         "labels": attrs.list(attrs.string(), default = []),
-        "split_arch_dsym": attrs.bool(default = False),
-        "universal": attrs.option(attrs.bool(), default = None),
+        "split_arch_dsym": attrs.bool(default = False, doc = """
+                If enabled, each architecture gets its own dSYM binary. Use this if the combined
+                universal dSYM binary exceeds 4GiB.
+            """),
+        "universal": attrs.option(attrs.bool(), default = None, doc = """
+                Controls whether the output is universal binary. Any value overrides the presence
+                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                for more information on resolution.
+            """),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
@@ -1032,7 +1050,26 @@ def _apple_universal_executable_attrs():
 apple_universal_executable = prelude_rule(
     name = "apple_universal_executable",
     impl = apple_universal_executable_impl,
-    docs = "",
+    docs = """
+        An `apple_universal_executable()` rule takes a target via its
+        `binary` attribute, builds it for multiple architectures and
+        combines the result into a single binary using `lipo`.
+
+        The output of the rule is a universal binary:
+        - If `config//cpu/constraints:universal-enabled` is present in the target platform.
+        - If the `universal` attribute is set to `True`.
+
+        If none of the conditions are met, then the rule acts as a nop `alias()`.
+
+        The `universal` attribute, if present, takes precedence over constraint.
+        For example, if `universal = False`, then the presence of the constraint
+        would not affect the output.
+
+        `apple_bundle()` supports building of universal binaries,
+        `apple_universal_executable()` is only needed if you have a standalone
+        binary target which is not embedded in an `apple_bundle()` (usually a
+        CLI tool).
+    """,
     examples = None,
     further = None,
     attrs = _apple_universal_executable_attrs(),
