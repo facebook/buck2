@@ -18,7 +18,6 @@ use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::Category;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
@@ -50,10 +49,10 @@ use crate::analysis::registry::AnalysisValueFetcher;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
 
-/// The actions registry for a particular analysis of a rule implementation
+/// The actions registry for a particular analysis of a rule, dynamic actions, anon target, BXL.
 #[derive(Allocative)]
 pub struct ActionsRegistry {
-    owner: BaseDeferredKey,
+    owner: DeferredHolderKey,
     action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
 
@@ -66,7 +65,7 @@ pub struct ActionsRegistry {
 }
 
 impl ActionsRegistry {
-    pub fn new(owner: BaseDeferredKey, execution_platform: ExecutionPlatformResolution) -> Self {
+    pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
             action_key: None,
@@ -188,7 +187,7 @@ impl ActionsRegistry {
         };
         self.claim_output_path(&path, declaration_location)?;
         let out_path =
-            BuckOutPath::with_action_key(self.owner.dupe(), path, self.action_key.dupe());
+            BuckOutPath::with_action_key(self.owner.owner().dupe(), path, self.action_key.dupe());
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

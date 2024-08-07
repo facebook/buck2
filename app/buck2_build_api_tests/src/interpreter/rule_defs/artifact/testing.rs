@@ -107,7 +107,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label),
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label)),
             ExecutionPlatformResolution::unspecified(),
         );
         let artifact = registry.declare_artifact(
@@ -130,7 +130,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     ) -> anyhow::Result<StarlarkDeclaredArtifact> {
         let target_label = get_label(eval, target)?;
         let mut registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             ExecutionPlatformResolution::unspecified(),
         );
         let artifact = registry.declare_artifact(
@@ -195,7 +195,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             ExecutionPlatformResolution::unspecified(),
         )?;
         let mut actions_registry = ActionsRegistry::new(
-            BaseDeferredKey::TargetLabel(target_label.dupe()),
+            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             ExecutionPlatformResolution::unspecified(),
         );
 

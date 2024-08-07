@@ -129,7 +129,7 @@ impl<'v> AnalysisRegistry<'v> {
         }
 
         Ok(AnalysisRegistry {
-            actions: ActionsRegistry::new(owner.dupe(), execution_platform.dupe()),
+            actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
             dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe(), execution_platform.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),

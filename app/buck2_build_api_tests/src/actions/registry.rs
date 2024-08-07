@@ -41,7 +41,10 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut actions = ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
+    let mut actions = ActionsRegistry::new(
+        DeferredHolderKey::Base(base.dupe()),
+        ExecutionPlatformResolution::unspecified(),
+    );
     let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
     let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File, None)?;
@@ -71,12 +74,8 @@ fn declaring_artifacts() -> anyhow::Result<()> {
 
 #[test]
 fn claiming_conflicting_path() -> anyhow::Result<()> {
-    let target = ConfiguredTargetLabel::testing_parse(
-        "cell//pkg:my_target",
-        ConfigurationData::testing_new(),
-    );
     let mut actions = ActionsRegistry::new(
-        BaseDeferredKey::TargetLabel(target.dupe()),
+        DeferredHolderKey::testing_new("cell//pkg:my_target"),
         ExecutionPlatformResolution::unspecified(),
     );
 
@@ -140,7 +139,10 @@ fn register_actions() -> anyhow::Result<()> {
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
-    let mut actions = ActionsRegistry::new(base.dupe(), ExecutionPlatformResolution::unspecified());
+    let mut actions = ActionsRegistry::new(
+        DeferredHolderKey::Base(base.dupe()),
+        ExecutionPlatformResolution::unspecified(),
+    );
     let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
 
@@ -180,7 +182,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
         ConfigurationData::testing_new(),
     ));
     let mut actions = ActionsRegistry::new(
-        base.dupe(),
+        DeferredHolderKey::Base(base.dupe()),
         ExecutionPlatformResolution::new(
             Some(ExecutionPlatform::legacy_execution_platform(
                 CommandExecutorConfig::testing_local(),
@@ -258,11 +260,7 @@ fn duplicate_category_identifier() {
 fn category_identifier_test(
     action_names: &[(&'static str, Option<&'static str>)],
 ) -> anyhow::Result<()> {
-    let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
-        "cell//pkg:foo",
-        ConfigurationData::testing_new(),
-    ));
-    let deferred_holder_key = DeferredHolderKey::Base(base.dupe());
+    let base = DeferredHolderKey::testing_new("cell//pkg:foo");
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(
@@ -280,14 +278,9 @@ fn category_identifier_test(
             identifier.map(|i| i.to_owned()),
         );
 
-        actions.register(
-            &deferred_holder_key,
-            indexset![],
-            indexset![],
-            unregistered_action,
-        )?;
+        actions.register(&base, indexset![], indexset![], unregistered_action)?;
     }
 
-    actions.ensure_bound(&AnalysisValueFetcher::testing_new(deferred_holder_key))?;
+    actions.ensure_bound(&AnalysisValueFetcher::testing_new(base))?;
     Ok(())
 }
