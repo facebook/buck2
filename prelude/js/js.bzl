@@ -37,6 +37,13 @@ def _is_release():
         "config//build_mode/constraints:release": True,
     })
 
+def _select_asset_dest_path_resolver():
+    return select({
+        "DEFAULT": None,
+        "fbsource//tools/build_defs/js/config:asset_dest_path_resolver_android": "android",
+        "fbsource//tools/build_defs/js/config:asset_dest_path_resolver_generic": "generic",
+    })
+
 implemented_rules = {
     "js_bundle": js_bundle_impl,
     "js_bundle_genrule": js_bundle_genrule_impl,
@@ -68,6 +75,10 @@ extra_attributes = {
     },
     "js_library": {
         "worker": attrs.exec_dep(),
+        "_asset_dest_path_resolver": attrs.option(
+            attrs.string(),
+            default = _select_asset_dest_path_resolver(),
+        ),
         "_build_only_native_code": attrs.bool(default = is_build_only_native_code()),
         "_is_release": attrs.bool(
             default = _is_release(),

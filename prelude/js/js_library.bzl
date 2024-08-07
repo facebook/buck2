@@ -107,16 +107,25 @@ def _build_library_files(
         flavors: list[str],
         js_files: list[Artifact]) -> Artifact:
     output_path = ctx.actions.declare_output("library-files-out/{}/library_files".format(transform_profile))
+
+    job_args = {
+        "command": "library-files",
+        "flavors": flavors,
+        "outputFilePath": output_path,
+        "platform": ctx.attrs._platform,
+        "release": ctx.attrs._is_release,
+        "sourceFilePaths": js_files,
+    }
+
+    if ctx.attrs.extra_json:
+        job_args["extraData"] = cmd_args(ctx.attrs.extra_json, delimiter = "")
+
+    if ctx.attrs._asset_dest_path_resolver:
+        job_args["assetDestPathResolver"] = ctx.attrs._asset_dest_path_resolver
+
     command_args_file = ctx.actions.write_json(
         "library_files_{}_command_args".format(transform_profile),
-        {
-            "command": "library-files",
-            "flavors": flavors,
-            "outputFilePath": output_path,
-            "platform": ctx.attrs._platform,
-            "release": ctx.attrs._is_release,
-            "sourceFilePaths": js_files,
-        },
+        job_args,
     )
 
     run_worker_commands(
