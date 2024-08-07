@@ -169,17 +169,19 @@ def _generate_input_mapping(build_environment: BuildEnvironment, input_artifacts
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> PathArtifactMapping:
     """Generate source output artifacts and build actions for generated erl files."""
-    inputs = [src for src in ctx.attrs.srcs if _is_xyrl(src)]
-    outputs = {
-        module_name(src): _build_xyrl(
+
+    def build(src, custom_include_opt):
+        return _build_xyrl(
             ctx,
             toolchain,
             src,
+            custom_include_opt,
             ctx.actions.declare_output(generated_erl_path(toolchain, name, src)),
         )
-        for src in inputs
-    }
-    return outputs
+
+    yrl_outputs = {module_name(src): build(src, "yrl_includefile") for src in ctx.attrs.srcs if _is_yrl(src)}
+    xrl_outputs = {module_name(src): build(src, "xrl_includefile") for src in ctx.attrs.srcs if _is_xrl(src)}
+    return yrl_outputs | xrl_outputs
 
 def _generate_include_artifacts(
         ctx: AnalysisContext,
@@ -420,21 +422,19 @@ def _build_xyrl(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         xyrl: Artifact,
+        custom_include_opt: str,
         output: Artifact) -> Artifact:
     """Generate an erl file out of an xrl or yrl input file."""
     erlc = toolchain.otp_binaries.erlc
-    erlc_cmd = cmd_args(
-        [
-            erlc,
-            "-o",
-            cmd_args(output.as_output(), parent = 1),
-            xyrl,
-        ],
-    )
+    custom_include = getattr(ctx.attrs, custom_include_opt, None)
+    cmd = cmd_args(erlc)
+    if custom_include:
+        cmd.add("-I", custom_include)
+    cmd.add("-o", cmd_args(output.as_output(), parent = 1), xyrl)
     _run_with_env(
         ctx,
         toolchain,
-        erlc_cmd,
+        cmd,
         category = "erlc",
         identifier = action_identifier(toolchain, xyrl.basename),
     )
@@ -754,9 +754,13 @@ def _is_erl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is an erl file """
     return _is_ext(in_file, [".erl"])
 
-def _is_xyrl(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is a xrl or yrl file """
-    return _is_ext(in_file, [".yrl", ".xrl"])
+def _is_yrl(in_file: Artifact) -> bool:
+    """ Returns True if the artifact is a yrl file """
+    return _is_ext(in_file, [".yrl"])
+
+def _is_xrl(in_file: Artifact) -> bool:
+    """ Returns True if the artifact is a xrl file """
+    return _is_ext(in_file, [".xrl"])
 
 def _is_ext(in_file: Artifact, extensions: list[str]) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
@@ -896,7 +900,8 @@ erlang_build = struct(
     utils = struct(
         is_hrl = _is_hrl,
         is_erl = _is_erl,
-        is_xyrl = _is_xyrl,
+        is_yrl = _is_yrl,
+        is_xrl = _is_xrl,
         module_name = module_name,
         private_include_name = private_include_name,
         make_dir_anchor = _make_dir_anchor,
