@@ -137,7 +137,7 @@ def create_jar_artifact_kotlincd(
             friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = get_kotlinc_compatible_target(str(target_level)),
-            kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
+            kosabiJvmAbiGenEarlyTerminationMessagePrefix = get_kosabi_jvm_abi_gen_early_termination_message_prefix(kotlin_toolchain.kotlinc_run_via_build_tools_api),
             kosabiSupportedKspProviders = kotlin_toolchain.kosabi_supported_ksp_providers,
             shouldUseJvmAbiGen = should_use_jvm_abi_gen,
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
@@ -147,6 +147,13 @@ def create_jar_artifact_kotlincd(
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
             shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
         )
+
+    # BuildToolsApi prints error messages with a different structure, i.e., it prints "e" instead of "error"
+    def get_kosabi_jvm_abi_gen_early_termination_message_prefix(kotlinc_run_via_build_tools_api):
+        if kotlinc_run_via_build_tools_api:
+            return "e: java.lang.RuntimeException: Terminating compilation. We're done with ABI."
+        else:
+            return "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI."
 
     kotlin_extra_params = encode_kotlin_extra_params(kotlin_compiler_plugins)
 
