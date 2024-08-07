@@ -106,7 +106,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .iter()
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
-        let outputs = outputs.items.iter().map(|x| x.artifact()).collect();
+        let outputs = outputs
+            .items
+            .iter()
+            .map(|x| x.artifact())
+            .collect::<anyhow::Result<_>>()?;
 
         // Registration
         let lambda_params = heap.alloc_typed(StarlarkAnyComplex::new(DynamicLambdaParams {

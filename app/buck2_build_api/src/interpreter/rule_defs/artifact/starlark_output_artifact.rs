@@ -13,6 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -64,21 +65,19 @@ starlark_complex_value!(pub StarlarkOutputArtifact);
 
 impl<'v> Display for StarlarkOutputArtifact<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<output artifact for {}>",
-            self.inner().get_artifact_path()
-        )
+        match self.inner() {
+            Ok(inner) => write!(f, "<output artifact for {}>", inner.get_artifact_path()),
+            Err(_) => write!(f, "<output artifact internal error>"),
+        }
     }
 }
 
 impl Display for FrozenStarlarkOutputArtifact {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "<output artifact for {}>",
-            self.inner().get_artifact_path()
-        )
+        match self.inner() {
+            Ok(inner) => write!(f, "<output artifact for {}>", inner.get_artifact_path()),
+            Err(_) => write!(f, "<output artifact internal error>"),
+        }
     }
 }
 
@@ -89,22 +88,38 @@ impl<'v> StarlarkOutputArtifact<'v> {
         }
     }
 
-    pub(crate) fn inner(&self) -> ValueTyped<'v, StarlarkDeclaredArtifact> {
-        ValueTyped::new_err(self.declared_artifact.get()).unwrap()
+    pub(crate) fn inner(&self) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+            format!(
+                "Must be a declared artifact: `{}`",
+                self.declared_artifact.get().to_string_for_type_error()
+            )
+        })
     }
 
-    pub fn artifact(&self) -> OutputArtifact {
-        self.inner().output_artifact()
+    pub fn artifact(&self) -> anyhow::Result<OutputArtifact> {
+        Ok(self.inner()?.output_artifact())
     }
 }
 
 impl FrozenStarlarkOutputArtifact {
-    pub(crate) fn inner(&self) -> FrozenValueTyped<StarlarkArtifact> {
-        FrozenValueTyped::new_err(self.declared_artifact.get()).unwrap()
+    pub(crate) fn inner(&self) -> anyhow::Result<FrozenValueTyped<StarlarkArtifact>> {
+        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+            format!(
+                "Must be a declared artifact: `{}`",
+                self.declared_artifact
+                    .get()
+                    .to_value()
+                    .to_string_for_type_error()
+            )
+        })
     }
 
-    pub fn artifact(&self) -> OutputArtifact {
-        self.inner().artifact().as_output_artifact().unwrap()
+    pub fn artifact(&self) -> anyhow::Result<OutputArtifact> {
+        let artifact = self.inner()?.artifact();
+        artifact.as_output_artifact().with_internal_error(|| {
+            format!("Expecting artifact to be output artifact, got {artifact}")
+        })
     }
 }
 
@@ -125,7 +140,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        visitor.visit_output(self.artifact(), None);
+        visitor.visit_output(self.artifact()?, None);
         Ok(())
     }
 
@@ -162,14 +177,14 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         ctx: &mut dyn CommandLineContext,
     ) -> anyhow::Result<()> {
         cli.push_arg(
-            ctx.resolve_artifact(&self.inner().artifact())?
+            ctx.resolve_artifact(&self.inner()?.artifact())?
                 .into_string(),
         );
         Ok(())
     }
 
     fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
-        visitor.visit_output(self.artifact(), None);
+        visitor.visit_output(self.artifact()?, None);
         Ok(())
     }
 

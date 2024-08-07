@@ -156,7 +156,10 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
             .into_iter()
             .map(|a| a.artifact())
             .collect::<anyhow::Result<_>>()?;
-        let outputs = outputs.into_iter().map(|a| a.artifact()).collect();
+        let outputs = outputs
+            .into_iter()
+            .map(|a| a.artifact())
+            .collect::<anyhow::Result<_>>()?;
         Ok(eval.heap().alloc(StarlarkDynamicActions {
             data: RefCell::new(Some(StarlarkDynamicActionsData {
                 dynamic,

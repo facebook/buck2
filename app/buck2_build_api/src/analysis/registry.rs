@@ -209,7 +209,7 @@ impl<'v> AnalysisRegistry<'v> {
                     AssociatedArtifacts::new(),
                 ))
             }
-            OutputArtifactArg::OutputArtifact(output) => output.inner(),
+            OutputArtifactArg::OutputArtifact(output) => output.inner()?,
             OutputArtifactArg::DeclaredArtifact(artifact) => artifact,
             OutputArtifactArg::WrongArtifact(artifact) => {
                 return Err(artifact.0.as_output_error());

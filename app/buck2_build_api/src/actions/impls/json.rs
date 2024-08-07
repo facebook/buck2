@@ -122,8 +122,8 @@ impl<'v> JsonArtifact<'v> {
         match self {
             JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
             JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
-                Either::Left(x) => Ok((*x.inner()).get_bound_artifact()?.dupe()),
-                Either::Right(x) => Ok(x.inner().artifact()),
+                Either::Left(x) => Ok((*x.inner()?).get_bound_artifact()?.dupe()),
+                Either::Right(x) => Ok(x.inner()?.artifact()),
             },
         }
     }
