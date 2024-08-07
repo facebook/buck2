@@ -207,14 +207,10 @@ fn finalizing_actions() -> anyhow::Result<()> {
         CategoryRef::new("fake_action").unwrap().to_owned(),
         None,
     );
-    actions.register(
-        &DeferredHolderKey::Base(base.dupe()),
-        inputs,
-        outputs,
-        unregistered_action,
-    )?;
+    let holder_key = DeferredHolderKey::Base(base.dupe());
+    actions.register(&holder_key, inputs, outputs, unregistered_action)?;
 
-    let result = actions.ensure_bound(&AnalysisValueFetcher::default())?;
+    let result = actions.ensure_bound(&AnalysisValueFetcher::testing_new(holder_key))?;
 
     assert_eq!(
         result
@@ -266,6 +262,7 @@ fn category_identifier_test(
         "cell//pkg:foo",
         ConfigurationData::testing_new(),
     ));
+    let deferred_holder_key = DeferredHolderKey::Base(base.dupe());
     let mut actions = ActionsRegistry::new(
         base.dupe(),
         ExecutionPlatformResolution::new(
@@ -284,13 +281,13 @@ fn category_identifier_test(
         );
 
         actions.register(
-            &DeferredHolderKey::Base(base.dupe()),
+            &deferred_holder_key,
             indexset![],
             indexset![],
             unregistered_action,
         )?;
     }
 
-    actions.ensure_bound(&AnalysisValueFetcher::default())?;
+    actions.ensure_bound(&AnalysisValueFetcher::testing_new(deferred_holder_key))?;
     Ok(())
 }

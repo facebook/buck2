@@ -83,11 +83,11 @@ fn mock_analysis_for_tsets(
         let providers =
             unsafe { OwnedFrozenValue::new(heap.into_ref(), providers.to_frozen_value()) };
         dice_builder = dice_builder.mock_and_return(
-            AnalysisKey(target),
+            AnalysisKey(target.dupe()),
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
                 FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
                 RecordedAnalysisValues::testing_new(
-                    DeferredHolderKey::testing_new("cell//t:sets"),
+                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     tsets,
                     RecordedActions::new(),
                 ),

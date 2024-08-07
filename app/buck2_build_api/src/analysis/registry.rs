@@ -323,10 +323,12 @@ impl<'v> AnalysisRegistry<'v> {
             short_path_assertions: _,
         } = self;
 
+        let self_key = analysis_value_storage.self_key.dupe();
         analysis_value_storage.write_to_module(env)?;
         Ok(move |env: Module| {
             let frozen_env = env.freeze()?;
             let analysis_value_fetcher = AnalysisValueFetcher {
+                self_key,
                 frozen_module: Some(frozen_env.dupe()),
             };
             let actions = actions.ensure_bound(&analysis_value_fetcher)?;
@@ -479,9 +481,18 @@ impl<'v> StarlarkValue<'v> for FrozenAnalysisValueStorage {
 /// These values are pulled from the `FrozenModule` that results from `env.freeze()`.
 /// This is used by the action registry to make an `OwnedFrozenValue` available to
 /// Actions' register function.
-#[derive(Default)]
 pub struct AnalysisValueFetcher {
+    self_key: DeferredHolderKey,
     frozen_module: Option<FrozenModule>,
+}
+
+impl AnalysisValueFetcher {
+    pub fn testing_new(self_key: DeferredHolderKey) -> Self {
+        AnalysisValueFetcher {
+            self_key,
+            frozen_module: None,
+        }
+    }
 }
 
 impl<'v> AnalysisValueStorage<'v> {
@@ -613,6 +624,7 @@ impl AnalysisValueFetcher {
         };
 
         Ok(RecordedAnalysisValues {
+            self_key: self.self_key.dupe(),
             analysis_storage,
             actions,
             dynamic_lambdas,
@@ -645,14 +657,16 @@ impl AnalysisValueFetcher {
 /// The analysis values stored in DeferredHolder.
 #[derive(Debug, Allocative)]
 pub struct RecordedAnalysisValues {
+    self_key: DeferredHolderKey,
     analysis_storage: Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>,
     actions: RecordedActions,
     dynamic_lambdas: SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>,
 }
 
 impl RecordedAnalysisValues {
-    pub fn new_empty() -> Self {
+    pub fn new_empty(self_key: DeferredHolderKey) -> Self {
         Self {
+            self_key,
             analysis_storage: None,
             actions: RecordedActions::new(),
             dynamic_lambdas: SmallMap::new(),
@@ -673,12 +687,13 @@ impl RecordedAnalysisValues {
         }
 
         let value = heap.alloc_simple(FrozenAnalysisValueStorage {
-            self_key,
+            self_key: self_key.dupe(),
             action_data: SmallMap::new(),
             transitive_sets: alloced_tsets,
             lambda_params: SmallMap::new(),
         });
         Self {
+            self_key,
             analysis_storage: Some(
                 unsafe { OwnedFrozenValue::new(heap.into_ref(), value) }
                     .downcast()
@@ -693,7 +708,13 @@ impl RecordedAnalysisValues {
         &self,
         key: &TransitiveSetKey,
     ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
-        // TODO(cjhopman): verify that key matches this.
+        if key.holder_key() != &self.self_key {
+            return Err(internal_error!(
+                "Wrong owner for transitive set: expecting `{}`, got `{}`",
+                self.self_key,
+                key
+            ));
+        }
         self.analysis_storage
             .as_ref()
             .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
@@ -702,6 +723,13 @@ impl RecordedAnalysisValues {
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+        if key.holder_key() != &self.self_key {
+            return Err(internal_error!(
+                "Wrong owner for action: expecting `{}`, got `{}`",
+                self.self_key,
+                key
+            ));
+        }
         self.actions.lookup(key)
     }
 
@@ -714,6 +742,13 @@ impl RecordedAnalysisValues {
         &self,
         key: &DynamicLambdaResultsKey,
     ) -> anyhow::Result<Arc<DynamicLambda>> {
+        if key.holder_key() != &self.self_key {
+            return Err(internal_error!(
+                "Wrong owner for lambda: expecting `{}`, got `{}`",
+                self.self_key,
+                key
+            ));
+        }
         self.dynamic_lambdas
             .get(key)
             .cloned()

@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
@@ -143,9 +144,9 @@ impl BxlInnerEvaluator {
         let bxl_dice = BxlSafeDiceComputations::new(dice, liveness);
 
         let env = Module::new();
-        let key = data.key();
+        let key = data.key().dupe();
 
-        let output_stream = mk_stream_cache("output", key);
+        let output_stream = mk_stream_cache("output", &key);
         let file_path = data
             .artifact_fs()
             .buck_out_path_resolver()
@@ -157,7 +158,7 @@ impl BxlInnerEvaluator {
                 .context("Failed to create output cache for BXL")?,
         ));
 
-        let error_stream = mk_stream_cache("error", key);
+        let error_stream = mk_stream_cache("error", &key);
         let error_file_path = data
             .artifact_fs()
             .buck_out_path_resolver()
@@ -250,7 +251,12 @@ impl BxlInnerEvaluator {
                 let frozen_module = env.freeze()?;
 
                 // this bxl did not try to build anything, so we don't have any deferreds
-                (frozen_module, RecordedAnalysisValues::new_empty())
+                (
+                    frozen_module,
+                    RecordedAnalysisValues::new_empty(DeferredHolderKey::Base(
+                        key.into_base_deferred_key(BxlExecutionResolution::unspecified()),
+                    )),
+                )
             }
         };
 
