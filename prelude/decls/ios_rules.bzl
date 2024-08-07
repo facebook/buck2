@@ -1016,7 +1016,7 @@ swift_toolchain = prelude_rule(
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
-def _apple_universal_executable_extra_attrs():
+def _apple_universal_executable_attrs():
     attribs = {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition),
         "executable_name": attrs.option(attrs.string(), default = None),
@@ -1035,7 +1035,7 @@ apple_universal_executable = prelude_rule(
     docs = "",
     examples = None,
     further = None,
-    attrs = _apple_universal_executable_extra_attrs(),
+    attrs = _apple_universal_executable_attrs(),
 )
 
 ios_rules = struct(
