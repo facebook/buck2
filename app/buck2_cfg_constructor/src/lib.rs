@@ -157,9 +157,7 @@ async fn analyze_constraints(
                 if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
                     Ok((
                         label_str,
-                        ctx.get_configuration_analysis_result(&label)
-                            .await?
-                            .provider_collection,
+                        ctx.get_configuration_analysis_result(&label).await?,
                     ))
                 } else {
                     Err::<_, anyhow::Error>(

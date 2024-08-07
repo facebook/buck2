@@ -139,10 +139,9 @@ async fn compute_execution_platforms(
         }
     };
 
-    let analysis_result = ctx
+    let providers = &ctx
         .get_configuration_analysis_result(&execution_platforms_target)
         .await?;
-    let providers = analysis_result.providers();
 
     let result = providers
         .provider_collection()
@@ -405,9 +404,7 @@ async fn compute_platform_configuration_no_label_check(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
-    let result = ctx.get_configuration_analysis_result(target).await?;
-    let platform_info = result
-        .providers()
+    let platform_info = (&ctx.get_configuration_analysis_result(target).await?)
         .provider_collection()
         .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
@@ -499,12 +496,11 @@ impl Key for ConfigurationNodeKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let analysis_result = ctx
+        let providers = ctx
             .get_configuration_analysis_result(&self.cfg_target.0)
             .await?;
-        let providers = analysis_result.providers();
 
-        // capture the result so the temporaries get dropped before analysis_result
+        // capture the result so the temporaries get dropped before providers
         let result = match providers
             .provider_collection()
             .builtin_provider::<FrozenConfigurationInfo>()

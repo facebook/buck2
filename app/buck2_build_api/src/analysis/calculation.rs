@@ -64,7 +64,7 @@ pub trait RuleAnalysisCalculation {
     async fn get_configuration_analysis_result(
         &mut self,
         target: &TargetLabel,
-    ) -> anyhow::Result<AnalysisResult>;
+    ) -> anyhow::Result<FrozenProviderCollectionValue>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
     /// returned by the target's rule implementation function.
@@ -89,13 +89,14 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_configuration_analysis_result(
         &mut self,
         target: &TargetLabel,
-    ) -> anyhow::Result<AnalysisResult> {
+    ) -> anyhow::Result<FrozenProviderCollectionValue> {
         // Analysis for configuration nodes is always done with the unbound configuration.
         let target = target.configure_pair(ConfigurationNoExec::unbound().cfg_pair().dupe());
         Ok(self
             .get_analysis_result(&target)
             .await?
-            .require_compatible()?)
+            .require_compatible()?
+            .provider_collection)
     }
 
     async fn get_providers(

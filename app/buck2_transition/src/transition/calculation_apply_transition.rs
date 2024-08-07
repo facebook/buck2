@@ -226,11 +226,7 @@ impl ApplyTransition for DiceComputations<'_> {
         &mut self,
         target: &TargetLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue> {
-        Ok(self
-            .get_configuration_analysis_result(target)
-            .await?
-            .providers()
-            .dupe())
+        Ok(self.get_configuration_analysis_result(target).await?.dupe())
     }
 }
 
