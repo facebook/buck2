@@ -634,10 +634,9 @@ impl AnalysisValueFetcher {
     pub fn get_lambda_params(
         &self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>>>
-    {
+    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>> {
         let Some((storage, heap_ref)) = self.extra_value()? else {
-            return Ok(None);
+            return Err(internal_error!("Missing analysis storage for `{key}`"));
         };
         if key.holder_key() != &storage.self_key {
             return Err(internal_error!(
@@ -647,10 +646,10 @@ impl AnalysisValueFetcher {
             ));
         }
         let Some(value) = storage.lambda_params.get(key) else {
-            return Ok(None);
+            return Err(internal_error!("Missing lambda params for `{key}`"));
         };
 
-        unsafe { Ok(Some(OwnedFrozenValueTyped::new(heap_ref.dupe(), *value))) }
+        unsafe { Ok(OwnedFrozenValueTyped::new(heap_ref.dupe(), *value)) }
     }
 }
 

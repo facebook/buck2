@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -102,14 +101,7 @@ impl DynamicRegistryDyn for DynamicRegistry {
     ) -> anyhow::Result<SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>> {
         let mut result = SmallMap::with_capacity(self.pending.len());
         for (key, mut data) in self.pending.into_iter_hashed() {
-            let fv = analysis_value_fetcher
-                .get_lambda_params(&key)?
-                .with_context(|| {
-                    format!(
-                        "DynamicLambda params are missing in AnalysisValueFetcher: {:?}",
-                        &key
-                    )
-                })?;
+            let fv = analysis_value_fetcher.get_lambda_params(&key)?;
 
             data.bind(fv)?;
             result.insert_hashed(key, Arc::new(data));
