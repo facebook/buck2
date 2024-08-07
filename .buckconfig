@@ -1,9 +1,9 @@
-[repositories]
+[cells]
 root = .
 prelude = prelude
 shim = shim
 
-[repository_aliases]
+[cell_aliases]
 config = prelude
 ovr_config = prelude
 toolchains = shim
