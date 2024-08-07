@@ -30,6 +30,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -352,6 +353,14 @@ pub fn dynamic_lambda_ctx_data<'v>(
     digest_config: DigestConfig,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
+    if &dynamic_lambda.owner != self_key.owner() {
+        return Err(internal_error!(
+            "Dynamic lambda owner `{}` does not match self key `{}`",
+            dynamic_lambda.owner,
+            self_key
+        ));
+    }
+
     let heap = env.heap();
     let mut outputs = Vec::with_capacity(dynamic_lambda.outputs.len());
 
