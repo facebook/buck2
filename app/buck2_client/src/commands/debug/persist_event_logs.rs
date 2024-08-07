@@ -297,7 +297,7 @@ fn status_from_result(res: anyhow::Result<()>) -> (Vec<String>, Option<String>, 
             Some(categorize_error(&e).to_owned()),
             false,
         );
-        let _unused = soft_error!(categorize_error(&e), e);
+        let _unused = soft_error!(categorize_error(&e), e.into());
         status
     } else {
         (vec![], None, true)

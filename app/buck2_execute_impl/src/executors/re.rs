@@ -252,6 +252,7 @@ impl ReExecutor {
                         execution_time.as_secs(),
                         timeout.as_secs(),
                     )
+                    .into()
                 );
 
                 if let Err(e) = res {

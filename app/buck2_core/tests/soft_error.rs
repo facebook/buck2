@@ -21,7 +21,7 @@ static RESULT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn mock_handler(
     category: &str,
-    err: &anyhow::Error,
+    err: &buck2_error::Error,
     loc: (&str, u32, u32),
     options: StructuredErrorOptions,
 ) {
@@ -57,7 +57,7 @@ fn test_soft_error() {
     let before_error_line = line!();
     let _ignore_hard_error = soft_error!(
         "test_logged_soft_error",
-        anyhow::anyhow!("Should be logged")
+        anyhow::anyhow!("Should be logged").into()
     );
     assert_eq!(
         Some(&format!(
@@ -79,7 +79,7 @@ fn test_reset_counters() {
     assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");
 
     for _ in 0..100 {
-        let _ignore = soft_error!("test_reset_counters", anyhow::anyhow!("Message"));
+        let _ignore = soft_error!("test_reset_counters", anyhow::anyhow!("Message").into());
     }
 
     assert_eq!(
@@ -91,7 +91,7 @@ fn test_reset_counters() {
     reset_soft_error_counters();
 
     for _ in 0..100 {
-        let _ignore = soft_error!("test_reset_counters", anyhow::anyhow!("Message"));
+        let _ignore = soft_error!("test_reset_counters", anyhow::anyhow!("Message").into());
     }
 
     assert_eq!(

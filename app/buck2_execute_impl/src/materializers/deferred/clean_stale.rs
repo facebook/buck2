@@ -285,7 +285,8 @@ impl CleanStaleArtifactsCommand {
                     stats,
                 };
                 // quiet just because it's also returned, soft_error to log to scribe
-                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
+                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)
+                    .map(|e| e.into())?);
             }
         }
 

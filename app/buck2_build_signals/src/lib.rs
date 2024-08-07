@@ -131,7 +131,7 @@ where
         .await
         .context("Error computing critical path");
     if let Err(e) = res {
-        soft_error!("critical_path_computation_failed", e)?;
+        soft_error!("critical_path_computation_failed", e.into())?;
     }
     result
 }

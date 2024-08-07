@@ -91,7 +91,7 @@ impl HttpClientBuilder {
         } else {
             soft_error!(
                 "http_client_no_certs",
-                anyhow::anyhow!("Using default http client with no certs"),
+                anyhow::anyhow!("Using default http client with no certs").into(),
                 quiet: true
             )?;
         }

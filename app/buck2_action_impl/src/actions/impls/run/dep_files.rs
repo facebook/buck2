@@ -1251,7 +1251,7 @@ impl DeclaredDepFiles {
                     None => {
                         soft_error!(
                             "missing_dep_file",
-                            anyhow::anyhow!("Dep file is missing at {}", dep_file_path)
+                            anyhow::anyhow!("Dep file is missing at {}", dep_file_path).into()
                         )?;
                         return Ok(None);
                     }

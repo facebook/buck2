@@ -55,7 +55,7 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
             // rely on the wrapping span in order to find
             soft_error!(
                 "platform_flavor",
-                anyhow::anyhow!("Platform flavor found in target: {}", full_target),
+                anyhow::anyhow!("Platform flavor found in target: {}", full_target).into(),
                 quiet: true
             )?;
             flavors_parts.remove(index);

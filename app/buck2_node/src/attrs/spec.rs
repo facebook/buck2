@@ -128,7 +128,7 @@ impl AttributeSpec {
             if name == "metadata" {
                 soft_error!(
                     "metadata_attribute",
-                    anyhow::anyhow!("Rules should not declare an attribute named metadata`"),
+                    anyhow::anyhow!("Rules should not declare an attribute named metadata`").into(),
                     quiet: true
                 )?;
             }

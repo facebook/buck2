@@ -9,13 +9,14 @@
 
 use buck2_core::soft_error;
 use starlark::eval::SoftErrorHandler;
-
+use starlark::ErrorKind;
 pub struct Buck2StarlarkSoftErrorHandler;
 
 /// When starlark deprecates something, we propagate it to our `soft_error!` handler.
 impl SoftErrorHandler for Buck2StarlarkSoftErrorHandler {
     fn soft_error(&self, category: &str, error: starlark::Error) -> Result<(), starlark::Error> {
-        soft_error!(&format!("starlark_rust_{category}"), error.into_anyhow(), quiet:true)?;
+        soft_error!(&format!("starlark_rust_{category}"), error.into_anyhow().into(), quiet:true)
+            .map_err(|e| starlark::Error::new(ErrorKind::Other(e.into())))?;
         Ok(())
     }
 }

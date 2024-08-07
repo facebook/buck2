@@ -275,7 +275,7 @@ impl Uploader {
                                             "{} missing (origin: {})",
                                             file.digest,
                                             info.origin.as_display_for_not_found(),
-                                        ),
+                                        ).into(),
                                         daemon_in_memory_state_is_corrupted: true,
                                         action_cache_is_corrupted: info.origin.guaranteed_by_action_cache()
                                     )?;
@@ -297,7 +297,7 @@ impl Uploader {
                                         file.digest,
                                         file.digest.expires(),
                                         err
-                                    ),
+                                    ).into(),
                                     quiet: true
                                 )?;
 

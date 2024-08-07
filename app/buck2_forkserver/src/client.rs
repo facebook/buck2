@@ -102,7 +102,8 @@ impl ForkserverClient {
                 quiet: true,
                 task: false,
                 daemon_in_memory_state_is_corrupted: true,
-            ));
+            )
+            .into());
         }
 
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {

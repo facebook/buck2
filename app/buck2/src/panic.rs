@@ -150,7 +150,7 @@ mod imp {
     pub(crate) fn write_soft_error(
         fb: FacebookInit,
         category: &str,
-        err: &anyhow::Error,
+        err: &buck2_error::Error,
         location: Location,
         options: StructuredErrorOptions,
     ) {

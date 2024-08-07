@@ -22,7 +22,7 @@ use crate::env::__macro_refs::buck2_env;
 use crate::is_open_source;
 
 type StructuredErrorHandler = Box<
-    dyn for<'a> Fn(&'a str, &anyhow::Error, (&'a str, u32, u32), StructuredErrorOptions)
+    dyn for<'a> Fn(&'a str, &buck2_error::Error, (&'a str, u32, u32), StructuredErrorOptions)
         + Send
         + Sync
         + 'static,
@@ -49,7 +49,7 @@ static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Ve
 ///
 /// * The category string that will remain constant and identifies this specific soft error
 ///   (used to report as a key).
-/// * The error is an `anyhow::Error` will in the future will be propagated as the error.
+/// * The error is an `buck2_error::Error` will in the future will be propagated as the error.
 ///
 /// Soft errors from Meta internal runs can be viewed
 /// [in logview](https://www.internalfb.com/logview/overview/buck2).
@@ -159,12 +159,12 @@ impl Default for StructuredErrorOptions {
 #[doc(hidden)]
 pub fn handle_soft_error(
     category: &str,
-    err: anyhow::Error,
+    err: buck2_error::Error,
     count: &'static AtomicUsize,
     once: &std::sync::Once,
     loc: (&'static str, u32, u32),
     options: StructuredErrorOptions,
-) -> anyhow::Result<anyhow::Error> {
+) -> Result<buck2_error::Error, buck2_error::Error> {
     validate_category(category)?;
 
     if cfg!(test) {
@@ -184,7 +184,9 @@ pub fn handle_soft_error(
     }
 
     if hard_error_config()?.should_hard_error(category) {
-        return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
+        return Err(err
+            .context("Upgraded warning to failure via $BUCK2_HARD_ERROR")
+            .into());
     }
 
     if is_open_source() {

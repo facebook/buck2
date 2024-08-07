@@ -1444,7 +1444,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     &reason.cause,
                     &IncompatiblePlatformReasonCause::Dependency(_)
                 ) {
-                    soft_error!("dep_only_incompatible", reason.to_err(), quiet: true)?;
+                    soft_error!("dep_only_incompatible", reason.to_err().into(), quiet: true)?;
                 }
             }
         }

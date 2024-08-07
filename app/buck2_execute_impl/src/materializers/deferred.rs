@@ -1341,7 +1341,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // This should never happen
                         soft_error!(
                             "clean_stale_no_config",
-                            anyhow::anyhow!("clean scheduled without being configured"),
+                            anyhow::anyhow!("clean scheduled without being configured").into(),
                             quiet: true
                         )
                         .unwrap();
@@ -1519,7 +1519,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 {
                     soft_error!(
                         "materializer_materialize_error",
-                        e.context(self.log_buffer.clone()),
+                        e.context(self.log_buffer.clone()).into(),
                         quiet: true
                     )
                     .unwrap();
@@ -1774,7 +1774,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        soft_error!("has_artifact_update_time", e.context(self.log_buffer.clone()), quiet: true).unwrap();
+                        soft_error!("has_artifact_update_time", e.context(self.log_buffer.clone()).into(), quiet: true).unwrap();
                     }
                 }
             }
@@ -2155,7 +2155,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e.context(log_buffer.clone()), quiet: true).unwrap();
+            soft_error!(error_name, e.context(log_buffer.clone()).into(), quiet: true).unwrap();
         }
     }
 
@@ -2299,7 +2299,7 @@ impl ArtifactTree {
             }
             Err(e) => {
                 // NOTE: This shouldn't normally happen?
-                soft_error!("cleanup_finished_vacant", e, quiet: true).unwrap();
+                soft_error!("cleanup_finished_vacant", e.into(), quiet: true).unwrap();
             }
         }
     }

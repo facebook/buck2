@@ -92,7 +92,7 @@ async fn required_providers<'v>(
             Ok(Some(x)) => Some(Ok(x)),
             Ok(None) => None,
             Err(e) => {
-                let _ignore = soft_error!("missing_required_local_resource", e, quiet: true);
+                let _ignore = soft_error!("missing_required_local_resource", e.into(), quiet: true);
                 None
             }
         })
