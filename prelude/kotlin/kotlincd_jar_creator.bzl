@@ -71,6 +71,7 @@ def create_jar_artifact_kotlincd(
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list[str],
         k2: bool,
+        incremental: bool,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
@@ -146,6 +147,7 @@ def create_jar_artifact_kotlincd(
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
             shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
+            shouldKotlincRunIncrementally = kotlin_toolchain.kotlinc_run_via_build_tools_api and incremental,
         )
 
     # BuildToolsApi prints error messages with a different structure, i.e., it prints "e" instead of "error"

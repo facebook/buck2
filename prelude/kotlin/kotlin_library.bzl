@@ -390,6 +390,7 @@ def build_kotlin_library(
                 "deps": deps,
                 "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
                 "friend_paths": ctx.attrs.friend_paths,
+                "incremental": ctx.attrs.incremental,
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],

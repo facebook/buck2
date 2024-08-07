@@ -154,6 +154,13 @@ def _k2():
     """),
     }
 
+def _incremental():
+    return {
+        "incremental": attrs.bool(default = False, doc = """
+    Enables Kotlin incremental compilation.
+    """),
+    }
+
 jvm_common = struct(
     test_env = _test_env,
     resources_arg = _resources_arg,
@@ -166,4 +173,5 @@ jvm_common = struct(
     required_for_source_only_abi = _required_for_source_only_abi,
     on_unused_dependencies = _on_unused_dependencies,
     k2 = _k2,
+    incremental = _incremental,
 )
