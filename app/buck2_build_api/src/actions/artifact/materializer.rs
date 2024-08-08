@@ -16,7 +16,7 @@ use buck2_build_signals::NodeDuration;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceComputations;
@@ -61,38 +61,39 @@ impl ArtifactMaterializer for DiceComputations<'_> {
             artifact: Some(artifact.as_proto()),
         };
 
-        span_async(start_event, async move {
-            let now = Instant::now();
+        span_async_simple(
+            start_event,
+            async move {
+                let now = Instant::now();
 
-            let result: anyhow::Result<_> = try {
-                if required {
-                    materializer.ensure_materialized(vec![path]).await?;
-                } else {
-                    materializer.try_materialize_final_artifact(path).await?;
+                let result: anyhow::Result<_> = try {
+                    if required {
+                        materializer.ensure_materialized(vec![path]).await?;
+                    } else {
+                        materializer.try_materialize_final_artifact(path).await?;
+                    }
+                };
+
+                if let Some(signals) = self.per_transaction_data().get_build_signals() {
+                    let duration = now.elapsed();
+
+                    signals.final_materialization(
+                        artifact.dupe(),
+                        NodeDuration {
+                            user: duration,
+                            total: duration,
+                            queue: None,
+                        },
+                        current_span(),
+                    );
                 }
-            };
 
-            if let Some(signals) = self.per_transaction_data().get_build_signals() {
-                let duration = now.elapsed();
-
-                signals.final_materialization(
-                    artifact.dupe(),
-                    NodeDuration {
-                        user: duration,
-                        total: duration,
-                        queue: None,
-                    },
-                    current_span(),
-                );
-            }
-
-            (
-                result,
-                buck2_data::MaterializeRequestedArtifactEnd {
-                    artifact: Some(artifact.as_proto()),
-                },
-            )
-        })
+                result
+            },
+            buck2_data::MaterializeRequestedArtifactEnd {
+                artifact: Some(artifact.as_proto()),
+            },
+        )
         .await
     }
 }

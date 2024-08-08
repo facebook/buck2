@@ -31,8 +31,7 @@ pub mod testing_dry_run;
 use std::future::Future;
 
 use buck2_events::dispatch::span;
-use buck2_events::dispatch::span_async;
-use futures::FutureExt;
+use buck2_events::dispatch::span_async_simple;
 
 pub fn executor_stage_async<F: Future>(
     stage: impl Into<buck2_data::executor_stage_start::Stage>,
@@ -43,7 +42,7 @@ pub fn executor_stage_async<F: Future>(
     let event = buck2_data::ExecutorStageStart {
         stage: Some(stage.into()),
     };
-    span_async(event, f.map(|v| (v, buck2_data::ExecutorStageEnd {})))
+    span_async_simple(event, f, buck2_data::ExecutorStageEnd {})
 }
 
 pub fn executor_stage<F, R>(stage: impl Into<buck2_data::executor_stage_start::Stage>, f: F) -> R

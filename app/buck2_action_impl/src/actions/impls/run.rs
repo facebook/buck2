@@ -43,7 +43,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
@@ -492,25 +492,18 @@ impl RunAction {
 
         if let Some(bundle) = dep_file_bundle {
             if let Some(found_dep_file_entry) = &result.dep_file_metadata {
-                let can_use = span_async(
+                let can_use = span_async_simple(
                     buck2_data::MatchDepFilesStart {
                         checking_filtered_inputs: true,
                         remote_cache: true,
                     },
-                    async {
-                        let res: anyhow::Result<_> = try {
-                            bundle
-                                .check_remote_dep_file_entry(
-                                    ctx.digest_config(),
-                                    ctx.fs(),
-                                    ctx.materializer(),
-                                    found_dep_file_entry,
-                                )
-                                .await?
-                        };
-
-                        (res, buck2_data::MatchDepFilesEnd {})
-                    },
+                    bundle.check_remote_dep_file_entry(
+                        ctx.digest_config(),
+                        ctx.fs(),
+                        ctx.materializer(),
+                        found_dep_file_entry,
+                    ),
+                    buck2_data::MatchDepFilesEnd {},
                 )
                 .await?;
 

@@ -43,7 +43,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory_selector::DirectorySelector;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -433,26 +433,20 @@ impl DepFileBundle {
         declared_outputs: &[BuildArtifact],
     ) -> anyhow::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
         // Get the action outputs (if cache hit) and an indicator on whether a full lookup operation should be performed
-        let (outputs, check_filterd_inputs) = span_async(
+        let (outputs, check_filterd_inputs) = span_async_simple(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: false,
                 remote_cache: false,
             },
-            async {
-                let res: anyhow::Result<_> = try {
-                    match_if_identical_action(
-                        ctx,
-                        &self.dep_files_key,
-                        &self.input_directory_digest,
-                        &self.common_digests.commandline_cli_digest,
-                        declared_outputs,
-                        &self.declared_dep_files,
-                    )
-                    .await?
-                };
-
-                (res, buck2_data::MatchDepFilesEnd {})
-            },
+            match_if_identical_action(
+                ctx,
+                &self.dep_files_key,
+                &self.input_directory_digest,
+                &self.common_digests.commandline_cli_digest,
+                declared_outputs,
+                &self.declared_dep_files,
+            ),
+            buck2_data::MatchDepFilesEnd {},
         )
         .await?;
         let outputs = outputs.map(|o| {
@@ -472,27 +466,21 @@ impl DepFileBundle {
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
     ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-        let matching_result = span_async(
+        let matching_result = span_async_simple(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: true,
                 remote_cache: false,
             },
-            async {
-                let res: anyhow::Result<_> = try {
-                    match_or_clear_dep_file(
-                        ctx,
-                        &self.dep_files_key,
-                        &self.input_directory_digest,
-                        &self.common_digests.commandline_cli_digest,
-                        &self.shared_declared_inputs,
-                        declared_outputs,
-                        &self.declared_dep_files,
-                    )
-                    .await?
-                };
-
-                (res, buck2_data::MatchDepFilesEnd {})
-            },
+            match_or_clear_dep_file(
+                ctx,
+                &self.dep_files_key,
+                &self.input_directory_digest,
+                &self.common_digests.commandline_cli_digest,
+                &self.shared_declared_inputs,
+                declared_outputs,
+                &self.declared_dep_files,
+            ),
+            buck2_data::MatchDepFilesEnd {},
         )
         .await?;
 

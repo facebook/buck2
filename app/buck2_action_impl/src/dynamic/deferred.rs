@@ -32,6 +32,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -242,47 +243,37 @@ pub(crate) async fn prepare_and_execute_lambda(
     // the grand scheme of things that's probably not a huge deal.
     ensure_artifacts_built(&lambda.static_fields.dynamic, ctx).await?;
 
-    Ok(span_async(
+    Ok(span_async_simple(
         buck2_data::DynamicLambdaStart {
             owner: Some(lambda.static_fields.owner.to_proto().into()),
         },
         async move {
-            let res: anyhow::Result<_> = try {
-                let materialized_artifacts = span_async(
-                    buck2_data::DeferredPreparationStageStart {
-                        stage: Some(buck2_data::MaterializedArtifacts {}.into()),
-                    },
-                    async {
-                        (
-                            materialize_inputs(&lambda.static_fields.dynamic, ctx).await,
-                            buck2_data::DeferredPreparationStageEnd {},
-                        )
-                    },
-                )
-                .await?;
+            let materialized_artifacts = span_async_simple(
+                buck2_data::DeferredPreparationStageStart {
+                    stage: Some(buck2_data::MaterializedArtifacts {}.into()),
+                },
+                materialize_inputs(&lambda.static_fields.dynamic, ctx),
+                buck2_data::DeferredPreparationStageEnd {},
+            )
+            .await?;
 
-                cancellation
-                    .with_structured_cancellation(|observer| {
-                        async move {
-                            execute_lambda(
-                                lambda,
-                                ctx,
-                                self_holder_key,
-                                action_key,
-                                materialized_artifacts,
-                                ctx.global_data().get_io_provider().project_root().dupe(),
-                                ctx.global_data().get_digest_config(),
-                                observer,
-                            )
-                            .await
-                        }
-                        .boxed()
-                    })
-                    .await?
-            };
-
-            (res, buck2_data::DeferredEvaluationEnd {})
+            cancellation
+                .with_structured_cancellation(|observer| {
+                    execute_lambda(
+                        lambda,
+                        ctx,
+                        self_holder_key,
+                        action_key,
+                        materialized_artifacts,
+                        ctx.global_data().get_io_provider().project_root().dupe(),
+                        ctx.global_data().get_digest_config(),
+                        observer,
+                    )
+                    .boxed()
+                })
+                .await
         },
+        buck2_data::DeferredEvaluationEnd {},
     )
     .await?)
 }

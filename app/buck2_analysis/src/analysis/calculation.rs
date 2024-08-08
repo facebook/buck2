@@ -31,6 +31,7 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
@@ -119,16 +120,12 @@ pub async fn resolve_queries(
         return Ok(Default::default());
     }
 
-    span_async(
+    span_async_simple(
         buck2_data::AnalysisResolveQueriesStart {
             standard_target: Some(configured_node.label().as_proto().into()),
         },
-        async {
-            (
-                resolve_queries_impl(ctx, configured_node, queries).await,
-                buck2_data::AnalysisResolveQueriesEnd {},
-            )
-        },
+        resolve_queries_impl(ctx, configured_node, queries),
+        buck2_data::AnalysisResolveQueriesEnd {},
     )
     .await
 }
@@ -269,28 +266,23 @@ async fn get_analysis_result_inner(
                     let mut declared_actions = None;
 
                     let result: anyhow::Result<_> = try {
-                        let result = span_async(
+                        let result = span_async_simple(
                             buck2_data::AnalysisStageStart {
                                 stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
                                     (),
                                 )),
                             },
-                            async {
-                                (
-                                    run_analysis(
-                                        ctx,
-                                        target,
-                                        dep_analysis,
-                                        query_results,
-                                        configured_node.execution_platform_resolution(),
-                                        &rule_spec,
-                                        configured_node,
-                                        &profile_mode,
-                                    )
-                                    .await,
-                                    buck2_data::AnalysisStageEnd {},
-                                )
-                            },
+                            run_analysis(
+                                ctx,
+                                target,
+                                dep_analysis,
+                                query_results,
+                                configured_node.execution_platform_resolution(),
+                                &rule_spec,
+                                configured_node,
+                                &profile_mode,
+                            ),
+                            buck2_data::AnalysisStageEnd {},
                         )
                         .await?;
 

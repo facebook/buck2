@@ -27,7 +27,7 @@ use buck2_core::package::PackageLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -422,20 +422,13 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<PackageListing> {
-        span_async(
+        span_async_simple(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
             },
-            async {
-                let result = DicePackageListingResolver(ctx)
-                    .resolve_package_listing(package.dupe())
-                    .await;
-                (
-                    result,
-                    buck2_data::LoadPackageEnd {
-                        path: package.as_cell_path().to_string(),
-                    },
-                )
+            DicePackageListingResolver(ctx).resolve_package_listing(package.dupe()),
+            buck2_data::LoadPackageEnd {
+                path: package.as_cell_path().to_string(),
             },
         )
         .await

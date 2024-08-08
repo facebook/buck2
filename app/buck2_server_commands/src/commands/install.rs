@@ -54,6 +54,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -609,7 +610,7 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
     let max_delay = Duration::from_millis(500);
     let timeout = Duration::from_secs(120);
 
-    span_async(
+    span_async_simple(
         buck2_data::ConnectToInstallerStart {
             tcp_port: tcp_port.into(),
         },
@@ -623,8 +624,8 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
             Ok(InstallerClient::new(channel)
                 .max_encoding_message_size(usize::MAX)
                 .max_decoding_message_size(usize::MAX))
-        }
-        .map(|res| (res, buck2_data::ConnectToInstallerEnd {})),
+        },
+        buck2_data::ConnectToInstallerEnd {},
     )
     .await
 }

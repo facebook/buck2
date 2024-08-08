@@ -15,7 +15,7 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use dashmap::DashMap;
 use futures::future::BoxFuture;
 use futures::future::Shared;
@@ -73,7 +73,7 @@ impl<'a> LocalResourceRegistry<'a> {
         let start = ReleaseLocalResourcesStart {};
         let end = ReleaseLocalResourcesEnd {};
 
-        span_async(start, async move { (cleanup().await, end) }).await?;
+        span_async_simple(start, cleanup(), end).await?;
 
         Ok::<(), anyhow::Error>(())
     }

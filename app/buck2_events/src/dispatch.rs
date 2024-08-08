@@ -449,6 +449,21 @@ where
     get_dispatcher().span_async(start, fut)
 }
 
+/// Simpler version of `span_async` where the end event
+/// can be constructed without requiring the result of the future.
+pub fn span_async_simple<Start, End, Fut, R>(
+    start: Start,
+    fut: Fut,
+    end: End,
+) -> impl Future<Output = R>
+where
+    Start: Into<span_start_event::Data>,
+    End: Into<span_end_event::Data>,
+    Fut: Future<Output = R>,
+{
+    span_async(start, async { (fut.await, end) })
+}
+
 /// To use when wrapping via span() and span_async is not convenient. This produces a Span guard
 /// that must be ended. The span is not automatically entered.
 pub fn create_span(start: impl Into<span_start_event::Data>) -> Span {

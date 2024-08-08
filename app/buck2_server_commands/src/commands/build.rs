@@ -56,6 +56,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::span_async_simple;
 use buck2_events::errors::create_error_report;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -353,14 +354,17 @@ async fn process_build_result(
     }
 
     if let Some(output_hashes_file) = &request.output_hashes_file {
-        span_async(buck2_data::CreateOutputHashesFileStart {}, async {
-            let res = dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
-                .await
-                .with_context(|| {
-                    format!("Failed to write output hashes file to {output_hashes_file}",)
-                });
-            (res, buck2_data::CreateOutputHashesFileEnd {})
-        })
+        span_async_simple(
+            buck2_data::CreateOutputHashesFileStart {},
+            async {
+                dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
+                    .await
+                    .with_context(|| {
+                        format!("Failed to write output hashes file to {output_hashes_file}",)
+                    })
+            },
+            buck2_data::CreateOutputHashesFileEnd {},
+        )
         .await?;
     }
 
