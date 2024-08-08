@@ -57,6 +57,26 @@ FORCE_SINGLE_CPU = read_root_config("buck2", "android_force_single_cpu") in ("Tr
 FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true")
 DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True", "true")
 
+# Format is {"ovveride_name": {"re_cap_key": "re_cap_value"}}; for example:
+#    {
+#        "dynamic-listing": {
+#            "platform": "riot",
+#            "pool": "EUREKA_POOL",
+#        },
+#        "test-execution": {
+#            "platform": "riot",
+#            "pool": "EUREKA_POOL",
+#        },
+#    }
+_RE_CAPS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key = attrs.string(), value = attrs.string())), default = None)
+
+# Format is {"ovveride_name": "re_use_case"}; for example:
+#     {
+#         "dynamic-listing": "riot",
+#         "test-execution": "riot",
+#     }
+_RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None)
+
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -166,6 +186,8 @@ extra_attributes = {
         "instrumentation_test_listener": attrs.option(attrs.exec_dep(), default = None),
         "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
         "is_self_instrumenting": attrs.bool(default = False),
+        "re_caps": _RE_CAPS,
+        "re_use_case": _RE_USE_CASE,
         "_android_toolchain": toolchains_common.android(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_test_toolchain": toolchains_common.java_for_host_test(),
