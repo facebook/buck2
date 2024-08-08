@@ -403,6 +403,8 @@ message StructuredError {
   // Is this error indicative of the RE action cache returning corrupted
   // results?
   bool action_cache_is_corrupted = 10;
+  // Whether the error should be converted to a hard error in the future.
+  bool deprecation = 11;
 }
 
 message CriticalPathEntry {

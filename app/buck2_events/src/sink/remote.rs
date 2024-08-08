@@ -144,6 +144,7 @@ mod fbcode {
                                     daemon_in_memory_state_is_corrupted: false,
                                     daemon_materializer_state_is_corrupted: false,
                                     action_cache_is_corrupted: false,
+                                    deprecation: false,
                                 }
                                 .into(),
                             ),

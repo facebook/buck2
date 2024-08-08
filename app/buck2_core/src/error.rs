@@ -40,16 +40,20 @@ static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
-/// Throw a "soft_error" i.e. one that is destined to become a hard error
-/// in the near future. The macro lives in this crate to allow it be
-/// made available everywhere. Calling programs are responsible for
-/// calling initialize() to provide a handler for logging these soft_errors.
+/// Throw a "soft_error" ie. a non-fatal error logged to logview.
+/// Errors will also be logged to stderr as warnings to the user, unless `quiet=true` is passed.
+/// Logview will generate tasks for each error category, unless `task=false` is passed.
+/// If `deprecation=true` this error should ideally become a hard error in the future.
+///
+/// The macro lives in this crate to allow it be made available everywhere.
+/// Calling programs are responsible for calling initialize() to provide a handler for
+/// logging these soft_errors.
 ///
 /// You should pass two arguments:
 ///
 /// * The category string that will remain constant and identifies this specific soft error
 ///   (used to report as a key).
-/// * The error is an `buck2_error::Error` will in the future will be propagated as the error.
+/// * The error is a `buck2_error::Error`.
 ///
 /// Soft errors from Meta internal runs can be viewed
 /// [in logview](https://www.internalfb.com/logview/overview/buck2).
@@ -138,6 +142,7 @@ pub struct StructuredErrorOptions {
     pub quiet: bool,
     /// Create a task for this error.
     pub task: bool,
+    pub deprecation: bool,
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
     pub action_cache_is_corrupted: bool,
@@ -148,6 +153,7 @@ impl Default for StructuredErrorOptions {
         Self {
             quiet: false,
             task: true,
+            deprecation: false,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             action_cache_is_corrupted: false,
