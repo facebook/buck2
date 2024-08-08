@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark_map::Hashed;
 
@@ -66,6 +67,17 @@ pub struct MethodsBuilder {
 impl Methods {
     pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
         Some(self.members.get_str(name)?.to_frozen_value().to_value())
+    }
+
+    /// Gets the type of the member
+    ///
+    /// In the case of an attribute, this is the type the attribute evaluates to, while in the case
+    /// of a method, this is the `TyCallable`
+    pub(crate) fn get_ty(&self, name: &str) -> Option<Ty> {
+        match self.members.get_str(name)? {
+            UnboundValue::Attr(attr, _) => Some(attr.typ.dupe()),
+            UnboundValue::Method(method, _) => Some(method.ty.dupe()),
+        }
     }
 
     #[inline]

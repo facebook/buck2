@@ -235,8 +235,8 @@ impl TyStarlarkValue {
 
     pub(crate) fn attr_from_methods(self, name: &str) -> Result<Ty, ()> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
-            if let Some(method) = methods.get(name) {
-                return Ok(Ty::of_value(method));
+            if let Some(ty) = methods.get_ty(name) {
+                return Ok(ty);
             }
         }
         Err(())
