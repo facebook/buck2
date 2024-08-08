@@ -80,7 +80,8 @@ impl CommonAttributeArgs {
         if !self.output_attributes.is_empty() {
             soft_error!(
                 "output_attributes",
-                ArgErrors::OutputAttributesDeprecated.into()
+                ArgErrors::OutputAttributesDeprecated.into(),
+                deprecation: true,
             )?;
         }
 

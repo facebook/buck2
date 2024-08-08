@@ -56,6 +56,7 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
             soft_error!(
                 "platform_flavor",
                 anyhow::anyhow!("Platform flavor found in target: {}", full_target).into(),
+                deprecation: true,
                 quiet: true
             )?;
             flavors_parts.remove(index);

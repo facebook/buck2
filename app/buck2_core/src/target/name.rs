@@ -98,6 +98,7 @@ impl TargetName {
             soft_error!(
                 "label_has_comma",
                 TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into(),
+                deprecation: true,
                 quiet: true
             )?;
         }
@@ -105,6 +106,7 @@ impl TargetName {
             soft_error!(
                 "label_has_dollar_sign",
                 TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into(),
+                deprecation: true,
                 quiet: true
             )?;
         }

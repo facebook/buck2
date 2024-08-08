@@ -579,6 +579,7 @@ impl OutputType {
                     OutputType::File
                 )
                 .into(),
+                deprecation: true,
                 quiet: true
             )?;
             Ok(())

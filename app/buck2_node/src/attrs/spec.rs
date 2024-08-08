@@ -129,6 +129,7 @@ impl AttributeSpec {
                 soft_error!(
                     "metadata_attribute",
                     anyhow::anyhow!("Rules should not declare an attribute named metadata`").into(),
+                    deprecation: true,
                     quiet: true
                 )?;
             }

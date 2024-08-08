@@ -31,7 +31,11 @@ impl DebugReplayCommand {
         matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        soft_error!("debug_replay", DebugReplayCommandError::Deprecated.into())?;
+        soft_error!(
+            "debug_replay",
+            DebugReplayCommandError::Deprecated.into(),
+            deprecation: true
+        )?;
         self.replay.exec(matches, ctx)
     }
 }

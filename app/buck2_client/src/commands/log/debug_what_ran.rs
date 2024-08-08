@@ -33,7 +33,8 @@ impl DebugWhatRanCommand {
     ) -> ExitResult {
         soft_error!(
             "debug_what_ran",
-            DebugWhatRanCommandError::Deprecated.into()
+            DebugWhatRanCommandError::Deprecated.into(),
+            deprecation: true
         )?;
         self.what_ran.exec(matches, ctx)
     }
