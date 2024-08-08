@@ -8,8 +8,8 @@
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 
 def _apple_finalize_bundle_impl(ctx):
-    finalized_bundle = ctx.actions.declare_output(ctx.attrs.name)
     bundle_artifact = ctx.attrs.bundle[DefaultInfo].default_outputs[0]
+    finalized_bundle = ctx.actions.declare_output(bundle_artifact.basename)
 
     cmd = cmd_args([
         ctx.attrs.finalizer[RunInfo],
