@@ -25,7 +25,7 @@ load(
 load("@prelude//cxx:link_types.bzl", "link_options")
 load(
     "@prelude//cxx:symbols.bzl",
-    "extract_global_syms",
+    "extract_defined_syms",
     "extract_undefined_syms",
 )
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
@@ -1647,7 +1647,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
     return relinked_libraries_by_platform
 
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
-    return extract_global_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
+    return extract_defined_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
 
 def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist: list[regex], output: Artifact, provided_symbols: Artifact, needed_symbols: list[Artifact]):
     def create_version_script(ctx, artifacts, outputs):

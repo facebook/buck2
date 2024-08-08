@@ -17,6 +17,7 @@ def _extract_symbol_names(
         objects: list[Artifact],
         category: str,
         identifier: [str, None] = None,
+        defined_only: bool = False,
         undefined_only: bool = False,
         dynamic: bool = False,
         prefer_local: bool = False,
@@ -30,6 +31,9 @@ def _extract_symbol_names(
 
     if not objects:
         fail("no objects provided")
+
+    if defined_only and undefined_only:
+        fail("only one of defined_only and undefined_only should be True")
 
     nm = cxx_toolchain.binary_utilities_info.nm
     output = ctx.actions.declare_output(paths.join("__symbols__", name))
@@ -46,6 +50,10 @@ def _extract_symbol_names(
     # darwin objects don't have dynamic symbol tables.
     if dynamic and cxx_toolchain.linker_info.type != "darwin":
         nm_flags += "D"
+
+    # llvm-nm supports -U for this but gnu nm doesn't.
+    if defined_only:
+        nm_flags += " --defined-only"
 
     is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
@@ -189,6 +197,29 @@ def extract_symbol_names(
             name = name,
             **kwargs
         )
+
+def extract_defined_syms(
+        ctx: AnalysisContext,
+        cxx_toolchain: CxxToolchainInfo,
+        output: Artifact,
+        category_prefix: str,
+        prefer_local: bool = False,
+        anonymous: bool = False,
+        allow_cache_upload: bool = False) -> Artifact:
+    return extract_symbol_names(
+        ctx = ctx,
+        cxx_toolchain = cxx_toolchain,
+        name = output.short_path + ".defined_syms.txt",
+        objects = [output],
+        dynamic = True,
+        global_only = True,
+        defined_only = True,
+        category = "{}_defined_syms".format(category_prefix),
+        identifier = output.short_path,
+        prefer_local = prefer_local,
+        anonymous = anonymous,
+        allow_cache_upload = allow_cache_upload,
+    )
 
 def extract_undefined_syms(
         ctx: AnalysisContext,
