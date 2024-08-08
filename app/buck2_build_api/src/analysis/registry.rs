@@ -101,24 +101,13 @@ impl<'v> AnalysisRegistry<'v> {
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
     ) -> anyhow::Result<AnalysisRegistry<'v>> {
-        Self::new_from_owner_and_deferred(
-            owner.dupe(),
-            execution_platform,
-            DeferredHolderKey::Base(owner),
-        )
+        Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner))
     }
 
     pub fn new_from_owner_and_deferred(
-        owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
     ) -> anyhow::Result<Self> {
-        if self_key.owner() != &owner {
-            return Err(internal_error!(
-                "Mismatched owner: expected `{self_key}`, got `{owner}`"
-            ));
-        }
-
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),

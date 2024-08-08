@@ -357,11 +357,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let execution_platform = dynamic_lambda.static_fields.execution_platform.dupe();
 
-    let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-        dynamic_lambda.static_fields.owner.dupe(),
-        execution_platform,
-        self_key,
-    )?;
+    let mut registry = AnalysisRegistry::new_from_owner_and_deferred(execution_platform, self_key)?;
     registry.set_action_key(Arc::from(action_key));
 
     let mut artifacts = Vec::with_capacity(dynamic_lambda.static_fields.dynamic.len());
