@@ -314,7 +314,7 @@ pub trait StarlarkValue<'v>:
         let ty = self
             .typechecker_ty()
             .unwrap_or_else(|| Self::get_type_starlark_repr());
-        Self::get_methods().map(|methods| DocItem::Object(methods.documentation(ty)))
+        Self::get_methods().map(|methods| DocItem::Type(methods.documentation(ty)))
     }
 
     /// Type of this instance for typechecker.

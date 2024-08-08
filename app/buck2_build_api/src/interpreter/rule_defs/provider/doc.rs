@@ -11,9 +11,9 @@ use itertools::Itertools;
 use starlark::docs::DocFunction;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
-use starlark::docs::DocObject;
 use starlark::docs::DocProperty;
 use starlark::docs::DocString;
+use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
 use starlark::typing::Ty;
 
@@ -51,7 +51,7 @@ pub fn provider_callable_documentation(
     };
 
     match ctor {
-        None => DocItem::Object(DocObject {
+        None => DocItem::Type(DocType {
             docs: overall.clone(),
             ty: self_ty,
             members: members

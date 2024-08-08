@@ -212,7 +212,7 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
                     .map(|m| (&**n, m))
             }),
         ),
-        DocItem::Object(o) => render_members(
+        DocItem::Type(o) => render_members(
             name,
             true,
             &o.docs,

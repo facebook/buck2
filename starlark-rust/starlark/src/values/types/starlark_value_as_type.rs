@@ -31,7 +31,7 @@ use starlark_map::small_map::SmallMap;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::docs::DocItem;
-use crate::docs::DocObject;
+use crate::docs::DocType;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueBasic;
@@ -48,7 +48,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
-struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> Option<DocObject>);
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> Option<DocType>);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
@@ -59,7 +59,7 @@ impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Object((self.1)()?))
+        Some(DocItem::Type((self.1)()?))
     }
 }
 
@@ -133,11 +133,11 @@ impl<T: StarlarkValue<'static>> StarlarkValueAsType<T> {
     ));
 }
 
-fn docs_for_type<T: StarlarkValue<'static>>() -> DocObject {
+fn docs_for_type<T: StarlarkValue<'static>>() -> DocType {
     let ty = T::starlark_type_repr();
     match T::get_methods() {
         Some(methods) => methods.documentation(ty),
-        None => DocObject {
+        None => DocType {
             docs: None,
             members: SmallMap::new(),
             ty,

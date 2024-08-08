@@ -22,11 +22,11 @@ use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
-use crate::docs::DocObject;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
+use crate::docs::DocType;
 use crate::typing::Ty;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
@@ -228,7 +228,7 @@ impl DocProperty {
     }
 }
 
-impl DocObject {
+impl DocType {
     fn render_as_code(&self, name: &str) -> String {
         let summary = self
             .docs
@@ -277,7 +277,7 @@ impl Doc {
     pub fn render_as_code(&self) -> String {
         match &self.item {
             DocItem::Module(m) => m.render_as_code(),
-            DocItem::Object(o) => o.render_as_code(&self.id.name),
+            DocItem::Type(o) => o.render_as_code(&self.id.name),
             DocItem::Member(DocMember::Function(f)) => f.render_as_code(&self.id.name),
             DocItem::Member(DocMember::Property(p)) => p.render_as_code(&self.id.name),
         }

@@ -21,7 +21,7 @@ use starlark_map::Hashed;
 
 use crate::collections::symbol::map::SymbolMap;
 use crate::collections::symbol::symbol::Symbol;
-use crate::docs::DocObject;
+use crate::docs::DocType;
 use crate::environment::common_documentation;
 use crate::typing::Ty;
 use crate::values::function::NativeAttr;
@@ -101,7 +101,7 @@ impl Methods {
     }
 
     /// Fetch the documentation.
-    pub fn documentation(&self, ty: Ty) -> DocObject {
+    pub fn documentation(&self, ty: Ty) -> DocType {
         let (docs, members) = common_documentation(
             &self.docstring,
             self.members
@@ -109,7 +109,7 @@ impl Methods {
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
         );
 
-        DocObject { docs, members, ty }
+        DocType { docs, members, ty }
     }
 }
 

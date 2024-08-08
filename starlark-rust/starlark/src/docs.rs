@@ -64,13 +64,12 @@ pub struct Identifier {
     pub location: Option<Location>,
 }
 
-/// Documents a full module.
+/// The documentation for a module/namespace.
+///
+/// See the docs on [`DocType`] for the distinction between that type and this one.
 #[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocModule {
-    /// In general, this should be the first statement of a loaded file, if that statement is
-    /// a string literal.
     pub docs: Option<DocString>,
-    /// A mapping of top level symbols to their documentation, if any.
     pub members: SmallMap<String, DocItem>,
 }
 
@@ -181,11 +180,18 @@ impl DocMember {
     }
 }
 
-/// An object with named functions/properties.
+/// The documentation for a type
+///
+/// This is distinct from a module since, well, types and modules are different things, but more
+/// importantly because the members here are expected to be attributes on *values* of the type, not
+/// on the type itself. In other words, if I have a global `FooRecord`, and its documentation says
+/// that it's a type with member `x`, then the expectation is not that `FooRecord.x` works, but
+/// rather that `foo.x` works, where `foo` is of type `FooRecord`. On the other hand, if there's a
+/// global `m`, and `m`'s documentation says it's a module with member `x`, then `m.x` should work.
 #[derive(Debug, Clone, PartialEq, Allocative)]
-pub struct DocObject {
+pub struct DocType {
     pub docs: Option<DocString>,
-    /// Name and details of each member of this object.
+    /// Name and details of each attr/function that can be accessed on this type.
     pub members: SmallMap<String, DocMember>,
     pub ty: Ty,
 }
@@ -193,7 +199,7 @@ pub struct DocObject {
 #[derive(Debug, Clone, PartialEq, Allocative)]
 pub enum DocItem {
     Module(DocModule),
-    Object(DocObject),
+    Type(DocType),
     Member(DocMember),
 }
 
@@ -202,7 +208,7 @@ impl DocItem {
     pub fn get_doc_string(&self) -> Option<&DocString> {
         match self {
             DocItem::Module(m) => m.docs.as_ref(),
-            DocItem::Object(o) => o.docs.as_ref(),
+            DocItem::Type(o) => o.docs.as_ref(),
             DocItem::Member(DocMember::Function(f)) => f.docs.as_ref(),
             DocItem::Member(DocMember::Property(p)) => p.docs.as_ref(),
         }
@@ -221,7 +227,7 @@ impl DocItem {
         match self {
             DocItem::Module(m) => Err(m),
             DocItem::Member(m) => Ok(m.clone()),
-            DocItem::Object(o) => Ok(DocMember::Property(DocProperty {
+            DocItem::Type(o) => Ok(DocMember::Property(DocProperty {
                 docs: o.docs.clone(),
                 typ: o.ty.clone(),
             })),
@@ -314,7 +320,7 @@ impl RegisteredDoc {
             location: None,
         };
         let ty = T::get_type_starlark_repr();
-        let item = DocItem::Object(T::get_methods()?.documentation(ty));
+        let item = DocItem::Type(T::get_methods()?.documentation(ty));
         let custom_attrs = custom_attrs
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))

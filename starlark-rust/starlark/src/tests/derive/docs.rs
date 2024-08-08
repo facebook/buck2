@@ -131,7 +131,7 @@ fn test_derive_docs() {
         .find(|d| d.id.name == "TestExample")
         .unwrap();
     let obj = match docs.item {
-        DocItem::Object(o) => o,
+        DocItem::Type(o) => o,
         _ => panic!("Expected object as docitem"),
     };
 
@@ -164,7 +164,7 @@ fn test_derive_docs_on_complex_values() {
         .find(|d| d.id.name == "ComplexTestExample")
         .unwrap();
     let complex_obj = match complex_docs.item {
-        DocItem::Object(o) => o,
+        DocItem::Type(o) => o,
         _ => panic!("Expected object as docitem"),
     };
 

@@ -153,7 +153,7 @@ impl Context {
     fn url_for_doc(doc: &Doc) -> LspUrl {
         let url = match &doc.item {
             DocItem::Module(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
-            DocItem::Object(_) => {
+            DocItem::Type(_) => {
                 Url::parse(&format!("starlark:/native/builtins/{}.bzl", doc.id.name)).unwrap()
             }
             DocItem::Member(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),

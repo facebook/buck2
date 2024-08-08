@@ -80,7 +80,7 @@ impl JsonDocItem {
     fn from_starlark(item: starlark::docs::DocItem) -> Self {
         match item {
             starlark::docs::DocItem::Module(m) => Self::Module(JsonDocModule::from_starlark(m)),
-            starlark::docs::DocItem::Object(o) => Self::Object(JsonDocObject::from_starlark(o)),
+            starlark::docs::DocItem::Type(o) => Self::Object(JsonDocObject::from_starlark(o)),
             starlark::docs::DocItem::Member(starlark::docs::DocMember::Function(f)) => {
                 Self::Function(JsonDocFunction::from_starlark(f))
             }
@@ -122,7 +122,7 @@ struct JsonDocObject {
 }
 
 impl JsonDocObject {
-    fn from_starlark(o: starlark::docs::DocObject) -> Self {
+    fn from_starlark(o: starlark::docs::DocType) -> Self {
         Self {
             docs: o.docs.map(JsonDocString::from_starlark),
             members: o
