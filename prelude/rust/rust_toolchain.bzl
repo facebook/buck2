@@ -133,6 +133,9 @@ rust_toolchain_attrs = {
     #
     # FIXME(JakobDegen): Fix `enum` so that we can set `unwind` as the default
     "panic_runtime": provider_field(PanicRuntime),
+    # Setting this allows Rust rules to use features which are only available
+    # on nightly release.
+    "nightly_features": provider_field(bool, default = False),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)
