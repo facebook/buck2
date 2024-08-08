@@ -16,8 +16,8 @@ use async_trait::async_trait;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -63,7 +63,7 @@ pub trait RuleAnalysisCalculation {
     /// (e. g. `constraint_value`).
     async fn get_configuration_analysis_result(
         &mut self,
-        target: &TargetLabel,
+        target: &ProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue>;
 
     /// Returns the provider collection for a ConfiguredProvidersLabel. This is the full set of Providers
@@ -88,15 +88,11 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
 
     async fn get_configuration_analysis_result(
         &mut self,
-        target: &TargetLabel,
+        target: &ProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue> {
         // Analysis for configuration nodes is always done with the unbound configuration.
         let target = target.configure_pair(ConfigurationNoExec::unbound().cfg_pair().dupe());
-        Ok(self
-            .get_analysis_result(&target)
-            .await?
-            .require_compatible()?
-            .provider_collection)
+        Ok(self.get_providers(&target).await?.require_compatible()?)
     }
 
     async fn get_providers(

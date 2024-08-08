@@ -24,6 +24,7 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
@@ -140,7 +141,10 @@ async fn compute_execution_platforms(
     };
 
     let providers = &ctx
-        .get_configuration_analysis_result(&execution_platforms_target)
+        // Execution platform won't be supplied as a subtarget
+        .get_configuration_analysis_result(&ProvidersLabel::default_for(
+            execution_platforms_target.dupe(),
+        ))
         .await?;
 
     let result = providers
@@ -404,7 +408,10 @@ async fn compute_platform_configuration_no_label_check(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> anyhow::Result<ConfigurationData> {
-    let platform_info = (&ctx.get_configuration_analysis_result(target).await?)
+    let platform_info = (&ctx
+        // TODO(T198223238): Not supporting platforms being supplied via subtargets for now
+        .get_configuration_analysis_result(&ProvidersLabel::default_for(target.dupe()))
+        .await?)
         .provider_collection()
         .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
@@ -434,8 +441,14 @@ async fn compute_platform_configuration(
         // `target` may be an `alias` target. In this case we evaluate the label
         // from the configuration and check it resolves to the same configuration.
 
-        let cfg_again = compute_platform_configuration_no_label_check(ctx, &parsed_target).await
-            .context("Checking whether label of returned `PlatformInfo` resolves to the same configuration")?;
+        let cfg_again = compute_platform_configuration_no_label_check(
+            ctx,
+            &parsed_target,
+        )
+        .await
+        .context(
+            "Checking whether label of returned `PlatformInfo` resolves to the same configuration",
+        )?;
         if cfg_again != configuration_data {
             return Err(ConfigurationError::PlatformEvalUnequalConfiguration(
                 target.dupe(),
@@ -497,7 +510,10 @@ impl Key for ConfigurationNodeKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let providers = ctx
-            .get_configuration_analysis_result(&self.cfg_target.0)
+            // TODO(T198210718)
+            .get_configuration_analysis_result(&ProvidersLabel::default_for(
+                self.cfg_target.0.dupe(),
+            ))
             .await?;
 
         // capture the result so the temporaries get dropped before providers

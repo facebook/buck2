@@ -23,7 +23,7 @@ use buck2_core::configuration::cfg_diff::cfg_diff;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::target::label::label::TargetLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::AnyhowContextForError;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
@@ -126,7 +126,12 @@ async fn do_apply_transition(
     let mut refs = Vec::with_capacity(transition.refs.len());
     let mut refs_refs = Vec::new();
     for (s, t) in &transition.refs {
-        let provider_collection_value = ctx.fetch_transition_function_reference(t).await?;
+        let provider_collection_value = ctx
+            .fetch_transition_function_reference(
+                // TODO(T198210718)
+                &ProvidersLabel::default_for(t.dupe()),
+            )
+            .await?;
         refs.push((
             *s,
             // This is safe because we store a reference to provider collection in `refs_refs`.
@@ -216,7 +221,7 @@ pub(crate) trait ApplyTransition {
     /// Resolve `refs` param of transition function.
     async fn fetch_transition_function_reference(
         &mut self,
-        target: &TargetLabel,
+        target: &ProvidersLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue>;
 }
 
@@ -224,7 +229,7 @@ pub(crate) trait ApplyTransition {
 impl ApplyTransition for DiceComputations<'_> {
     async fn fetch_transition_function_reference(
         &mut self,
-        target: &TargetLabel,
+        target: &ProvidersLabel,
     ) -> buck2_error::Result<FrozenProviderCollectionValue> {
         Ok(self.get_configuration_analysis_result(target).await?.dupe())
     }

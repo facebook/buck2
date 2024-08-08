@@ -23,7 +23,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::P
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::label::label::TargetLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -147,14 +147,15 @@ async fn analyze_constraints(
         .try_compute_join(refs, |ctx, label_str| {
             async move {
                 // Ensure all refs are configuration rules
-                let label = TargetLabel::parse(
+                let label = ProvidersLabel::parse(
                     &label_str,
                     cell_resolver.root_cell(),
                     cell_resolver,
                     cell_alias_resolver,
                 )?;
 
-                if ctx.get_target_node(&label).await?.rule_kind() == RuleKind::Configuration {
+                if ctx.get_target_node(label.target()).await?.rule_kind() == RuleKind::Configuration
+                {
                     Ok((
                         label_str,
                         ctx.get_configuration_analysis_result(&label).await?,

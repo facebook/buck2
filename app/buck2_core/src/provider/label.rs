@@ -23,9 +23,14 @@ use static_assertions::assert_eq_size;
 use triomphe::Arc;
 
 use crate::ascii_char_set::AsciiCharSet;
+use crate::cells::name::CellName;
+use crate::cells::CellAliasResolver;
+use crate::cells::CellResolver;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
+use crate::pattern::pattern::ParsedPattern;
+use crate::pattern::pattern_type::ProvidersPatternExtra;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
 
@@ -174,6 +179,22 @@ impl ProvidersLabel {
 
     pub fn name(&self) -> &ProvidersName {
         &self.name
+    }
+
+    pub fn parse(
+        label: &str,
+        cell_name: CellName,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> anyhow::Result<ProvidersLabel> {
+        let providers_label = ParsedPattern::<ProvidersPatternExtra>::parse_precise(
+            label,
+            cell_name,
+            cell_resolver,
+            cell_alias_resolver,
+        )?
+        .as_providers_label(label)?;
+        Ok(providers_label)
     }
 
     /// Creates a 'ConfiguredProvidersLabel' from ['Self'] based on the provided
