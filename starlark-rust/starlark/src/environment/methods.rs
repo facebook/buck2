@@ -208,7 +208,7 @@ impl MethodsBuilder {
     ) where
         F: NativeMeth,
     {
-        let ty = Ty::from_docs_function(&raw_docs.documentation());
+        let ty = Ty::from_native_callable_docs(&raw_docs);
 
         let function = FrozenRef::<dyn NativeMeth + 'static>::new(
             self.heap.alloc_any_debug_type_name(f).as_ref(),
