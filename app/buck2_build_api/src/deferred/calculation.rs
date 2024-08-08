@@ -35,7 +35,7 @@ use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::dynamic::calculation::compute_dynamic_lambda;
 use crate::dynamic::calculation::DynamicLambdaResult;
-use crate::dynamic::lambda::DynamicLambda;
+use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 pub static EVAL_ANON_TARGET: LateBinding<
@@ -115,7 +115,7 @@ impl DeferredHolder {
     pub fn lookup_lambda(
         &self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<Arc<DynamicLambda>> {
+    ) -> anyhow::Result<&FrozenDynamicLambdaParams> {
         self.analysis_values().lookup_lambda(key)
     }
 

@@ -17,7 +17,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::dynamic::lambda::DynamicLambda;
 use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -31,7 +30,6 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -119,7 +117,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
 }
 
 async fn execute_lambda(
-    lambda: &DynamicLambda,
+    lambda: &FrozenDynamicLambdaParams,
     dice: &mut DiceComputations<'_>,
     self_key: DeferredHolderKey,
     action_key: String,
@@ -128,7 +126,7 @@ async fn execute_lambda(
     digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> anyhow::Result<RecordedAnalysisValues> {
-    if let BaseDeferredKey::BxlLabel(key) = &lambda.owner {
+    if let BaseDeferredKey::BxlLabel(key) = &lambda.static_fields.owner {
         eval_bxl_for_dynamic_output(
             key,
             self_key,
@@ -146,7 +144,7 @@ async fn execute_lambda(
 
         let start_event = buck2_data::AnalysisStart {
             target: Some(buck2_data::analysis_start::Target::DynamicLambda(
-                lambda.owner.to_proto().into(),
+                lambda.static_fields.owner.to_proto().into(),
             )),
             rule: proto_rule.clone(),
         };
@@ -176,7 +174,7 @@ async fn execute_lambda(
                     let ctx = AnalysisContext::prepare(
                         heap,
                         dynamic_lambda_ctx_data.lambda.attributes()?,
-                        lambda.owner.configured_label(),
+                        lambda.static_fields.owner.configured_label(),
                         dynamic_lambda_ctx_data.lambda.plugins()?,
                         dynamic_lambda_ctx_data.registry,
                         dynamic_lambda_ctx_data.digest_config,
@@ -219,7 +217,7 @@ async fn execute_lambda(
                 output,
                 buck2_data::AnalysisEnd {
                     target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                        lambda.owner.to_proto().into(),
+                        lambda.static_fields.owner.to_proto().into(),
                     )),
                     rule: proto_rule,
                     profile: None,
@@ -235,18 +233,18 @@ async fn execute_lambda(
 pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
-    lambda: &DynamicLambda,
+    lambda: &FrozenDynamicLambdaParams,
     self_holder_key: DeferredHolderKey,
     action_key: String,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
-    ensure_artifacts_built(&lambda.dynamic, ctx).await?;
+    ensure_artifacts_built(&lambda.static_fields.dynamic, ctx).await?;
 
     Ok(span_async(
         buck2_data::DynamicLambdaStart {
-            owner: Some(lambda.owner.to_proto().into()),
+            owner: Some(lambda.static_fields.owner.to_proto().into()),
         },
         async move {
             let res: anyhow::Result<_> = try {
@@ -256,7 +254,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                     },
                     async {
                         (
-                            materialize_inputs(&lambda.dynamic, ctx).await,
+                            materialize_inputs(&lambda.static_fields.dynamic, ctx).await,
                             buck2_data::DeferredPreparationStageEnd {},
                         )
                     },
@@ -345,7 +343,7 @@ pub struct DynamicLambdaCtxData<'v> {
 
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
-    dynamic_lambda: &'v DynamicLambda,
+    dynamic_lambda: &'v FrozenDynamicLambdaParams,
     self_key: DeferredHolderKey,
     action_key: &str,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
@@ -353,43 +351,38 @@ pub fn dynamic_lambda_ctx_data<'v>(
     digest_config: DigestConfig,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
-    if &dynamic_lambda.owner != self_key.owner() {
+    if &dynamic_lambda.static_fields.owner != self_key.owner() {
         return Err(internal_error!(
             "Dynamic lambda owner `{}` does not match self key `{}`",
-            dynamic_lambda.owner,
+            dynamic_lambda.static_fields.owner,
             self_key
         ));
     }
 
     let heap = env.heap();
-    let mut outputs = Vec::with_capacity(dynamic_lambda.outputs.len());
+    let mut outputs = Vec::with_capacity(dynamic_lambda.static_fields.outputs.len());
 
-    let attributes_lambda = &dynamic_lambda
-        .attributes_lambda
-        .as_ref()
-        .internal_error("attributes_lambda not set")?
-        .owned_as_ref(env.frozen_heap())
-        .value;
+    let attributes_lambda = dynamic_lambda;
 
-    let execution_platform = dynamic_lambda.execution_platform.dupe();
+    let execution_platform = dynamic_lambda.static_fields.execution_platform.dupe();
 
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-        dynamic_lambda.owner.dupe(),
+        dynamic_lambda.static_fields.owner.dupe(),
         execution_platform,
         self_key,
     )?;
     registry.set_action_key(Arc::from(action_key));
 
-    let mut artifacts = Vec::with_capacity(dynamic_lambda.dynamic.len());
+    let mut artifacts = Vec::with_capacity(dynamic_lambda.static_fields.dynamic.len());
     let fs = project_filesystem;
-    for x in &dynamic_lambda.dynamic {
+    for x in &dynamic_lambda.static_fields.dynamic {
         let k = StarlarkArtifact::new(x.dupe());
         let path = materialized_artifacts.get(x).unwrap();
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
         artifacts.push((k, v));
     }
 
-    for x in &*dynamic_lambda.outputs {
+    for x in &*dynamic_lambda.static_fields.outputs {
         let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
         let declared = registry.declare_dynamic_output(x)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
@@ -403,7 +396,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         lambda: attributes_lambda,
         outputs,
         artifacts,
-        key: &dynamic_lambda.owner,
+        key: &dynamic_lambda.static_fields.owner,
         digest_config,
         registry,
     })

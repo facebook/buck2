@@ -31,7 +31,7 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::dynamic::lambda::DynamicLambda;
+use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
@@ -523,7 +523,7 @@ impl<'v> BxlContextNoDice<'v> {
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     self_key: DeferredHolderKey,
-    dynamic_lambda: &'v DynamicLambda,
+    dynamic_lambda: &'v FrozenDynamicLambdaParams,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -606,7 +606,7 @@ struct BxlEvalContext<'v> {
     data: BxlContextCoreData,
     self_key: DeferredHolderKey,
     liveness: CancellationObserver,
-    dynamic_lambda: &'v DynamicLambda,
+    dynamic_lambda: &'v FrozenDynamicLambdaParams,
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     action_key: String,

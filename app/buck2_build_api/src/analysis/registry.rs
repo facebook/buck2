@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
-use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaIndex;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -35,7 +35,6 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
@@ -73,11 +72,8 @@ use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
-use crate::dynamic::lambda::DynamicLambda;
 use crate::dynamic::params::DynamicLambdaParams;
 use crate::dynamic::params::FrozenDynamicLambdaParams;
-use crate::dynamic::registry::DynamicRegistryDyn;
-use crate::dynamic::registry::DYNAMIC_REGISTRY_NEW;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -89,13 +85,11 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 #[derivative(Debug)]
 pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
-    actions: ActionsRegistry,
+    pub actions: ActionsRegistry,
     #[derivative(Debug = "ignore")]
     artifact_groups: ArtifactGroupRegistry,
-    #[derivative(Debug = "ignore")]
-    dynamic: Box<dyn DynamicRegistryDyn>,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
-    analysis_value_storage: AnalysisValueStorage<'v>,
+    pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
 }
 
@@ -131,7 +125,6 @@ impl<'v> AnalysisRegistry<'v> {
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
-            dynamic: (DYNAMIC_REGISTRY_NEW.get()?)(owner.dupe(), execution_platform.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
             short_path_assertions: HashMap::new(),
@@ -268,21 +261,6 @@ impl<'v> AnalysisRegistry<'v> {
         )
     }
 
-    pub fn register_dynamic_output(
-        &mut self,
-        dynamic: IndexSet<Artifact>,
-        outputs: IndexSet<OutputArtifact>,
-        lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
-    ) -> anyhow::Result<()> {
-        self.dynamic.register(
-            dynamic,
-            outputs,
-            lambda_params,
-            &mut self.analysis_value_storage,
-        )?;
-        Ok(())
-    }
-
     pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
         self.anon_targets.take_promises()
     }
@@ -321,7 +299,6 @@ impl<'v> AnalysisRegistry<'v> {
         impl FnOnce(Module) -> anyhow::Result<(FrozenModule, RecordedAnalysisValues)> + 'static,
     > {
         let AnalysisRegistry {
-            dynamic,
             actions,
             artifact_groups,
             anon_targets: _,
@@ -339,9 +316,7 @@ impl<'v> AnalysisRegistry<'v> {
             };
             let actions = actions.ensure_bound(&analysis_value_fetcher)?;
             artifact_groups.ensure_bound(&analysis_value_fetcher)?;
-            let dynamic_lambdas = dynamic.ensure_bound(&analysis_value_fetcher)?;
-            let recorded_values =
-                analysis_value_fetcher.get_recorded_values(actions, dynamic_lambdas)?;
+            let recorded_values = analysis_value_fetcher.get_recorded_values(actions)?;
 
             Ok((frozen_env, recorded_values))
         })
@@ -391,10 +366,7 @@ pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
-    lambda_params: SmallMap<
-        DynamicLambdaResultsKey,
-        ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
-    >,
+    lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
 #[derive(
@@ -409,10 +381,7 @@ pub struct FrozenAnalysisValueStorage {
     self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
-    lambda_params: SmallMap<
-        DynamicLambdaResultsKey,
-        FrozenValueTyped<'static, StarlarkAnyComplex<FrozenDynamicLambdaParams>>,
-    >,
+    lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
 }
 
 impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
@@ -468,7 +437,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .collect::<anyhow::Result<_>>()?,
             lambda_params: lambda_params
                 .into_iter_hashed()
-                .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
+                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
                 .collect::<anyhow::Result<_>>()?,
         })
     }
@@ -554,10 +523,15 @@ impl<'v> AnalysisValueStorage<'v> {
         Ok(())
     }
 
-    pub fn set_lambda_params(
+    pub fn next_dynamic_actions_key(&self) -> anyhow::Result<DynamicLambdaResultsKey> {
+        let index = DynamicLambdaIndex::new(self.lambda_params.len().try_into()?);
+        Ok(DynamicLambdaResultsKey::new(self.self_key.dupe(), index))
+    }
+
+    pub fn set_dynamic_actions(
         &mut self,
         key: DynamicLambdaResultsKey,
-        lambda_params: ValueTyped<'v, StarlarkAnyComplex<DynamicLambdaParams<'v>>>,
+        lambda_params: DynamicLambdaParams<'v>,
     ) -> anyhow::Result<()> {
         if &self.self_key != key.holder_key() {
             return Err(internal_error!(
@@ -618,7 +592,6 @@ impl AnalysisValueFetcher {
     pub(crate) fn get_recorded_values(
         &self,
         actions: RecordedActions,
-        dynamic_lambdas: SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>,
     ) -> anyhow::Result<RecordedAnalysisValues> {
         let analysis_storage = match &self.frozen_module {
             None => None,
@@ -633,29 +606,7 @@ impl AnalysisValueFetcher {
             self_key: self.self_key.dupe(),
             analysis_storage,
             actions,
-            dynamic_lambdas,
         })
-    }
-
-    pub fn get_lambda_params(
-        &self,
-        key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenDynamicLambdaParams>>> {
-        let Some((storage, heap_ref)) = self.extra_value()? else {
-            return Err(internal_error!("Missing analysis storage for `{key}`"));
-        };
-        if key.holder_key() != &storage.self_key {
-            return Err(internal_error!(
-                "Wrong lambda owner: expecting `{}`, got `{}`",
-                storage.self_key,
-                key
-            ));
-        }
-        let Some(value) = storage.lambda_params.get(key) else {
-            return Err(internal_error!("Missing lambda params for `{key}`"));
-        };
-
-        unsafe { Ok(OwnedFrozenValueTyped::new(heap_ref.dupe(), *value)) }
     }
 }
 
@@ -665,7 +616,6 @@ pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
     analysis_storage: Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>,
     actions: RecordedActions,
-    dynamic_lambdas: SmallMap<DynamicLambdaResultsKey, Arc<DynamicLambda>>,
 }
 
 impl RecordedAnalysisValues {
@@ -674,7 +624,6 @@ impl RecordedAnalysisValues {
             self_key,
             analysis_storage: None,
             actions: RecordedActions::new(),
-            dynamic_lambdas: SmallMap::new(),
         }
     }
 
@@ -705,7 +654,6 @@ impl RecordedAnalysisValues {
                     .unwrap(),
             ),
             actions,
-            dynamic_lambdas: SmallMap::new(),
         }
     }
 
@@ -743,10 +691,10 @@ impl RecordedAnalysisValues {
         self.actions.iter_actions()
     }
 
-    pub(crate) fn lookup_lambda(
-        &self,
+    pub(crate) fn lookup_lambda<'f>(
+        &'f self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<Arc<DynamicLambda>> {
+    ) -> anyhow::Result<&'f FrozenDynamicLambdaParams> {
         if key.holder_key() != &self.self_key {
             return Err(internal_error!(
                 "Wrong owner for lambda: expecting `{}`, got `{}`",
@@ -754,14 +702,18 @@ impl RecordedAnalysisValues {
                 key
             ));
         }
-        self.dynamic_lambdas
+        self.analysis_storage
+            .as_ref()
+            .with_internal_error(|| format!("missing analysis storage for lambda `{}`", key))?
+            .lambda_params
             .get(key)
-            .cloned()
             .with_internal_error(|| format!("missing lambda `{}`", key))
     }
 
     /// Iterates over the declared dynamic_output/actions.
-    pub fn iter_dynamic_lambdas(&self) -> impl Iterator<Item = &Arc<DynamicLambda>> {
-        self.dynamic_lambdas.values()
+    pub fn iter_dynamic_lambdas(&self) -> impl Iterator<Item = &FrozenDynamicLambdaParams> {
+        self.analysis_storage
+            .iter()
+            .flat_map(|v| v.lambda_params.values())
     }
 }

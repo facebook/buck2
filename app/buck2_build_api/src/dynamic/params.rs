@@ -8,8 +8,13 @@
  */
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
+use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::FrozenStarlarkCallable;
@@ -27,12 +32,25 @@ use starlark::values::ValueTypedComplex;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 
+#[derive(Allocative, Debug)]
+pub struct DynamicLambdaStaticFields {
+    /// the owner that defined this lambda
+    pub owner: BaseDeferredKey,
+    /// Input artifacts required to be materialized by the lambda.
+    pub dynamic: IndexSet<Artifact>,
+    /// Things I produce
+    pub outputs: Box<[BuildArtifact]>,
+    /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
+    pub execution_platform: ExecutionPlatformResolution,
+}
+
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
 pub struct DynamicLambdaParams<'v> {
     pub attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
     pub plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     pub lambda: StarlarkCallable<'v>,
     pub arg: Option<Value<'v>>,
+    pub static_fields: DynamicLambdaStaticFields,
 }
 
 #[derive(Allocative, Debug, ProvidesStaticType)]
@@ -41,6 +59,7 @@ pub struct FrozenDynamicLambdaParams {
     pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
     pub lambda: FrozenStarlarkCallable,
     pub arg: Option<FrozenValue>,
+    pub static_fields: DynamicLambdaStaticFields,
 }
 
 impl FrozenDynamicLambdaParams {
@@ -85,6 +104,7 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             arg: self.arg.freeze(freezer)?,
+            static_fields: self.static_fields,
         })
     }
 }

@@ -60,7 +60,7 @@ pub struct ActionsRegistry {
     // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
     declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact>,
     pending: Vec<ActionToBeRegistered>,
-    execution_platform: ExecutionPlatformResolution,
+    pub execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
 }
 

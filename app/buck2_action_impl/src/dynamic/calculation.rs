@@ -54,9 +54,8 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                 ctx: &mut DiceComputations,
                 cancellation: &CancellationContext,
             ) -> Self::Value {
-                let lambda = lookup_deferred_holder(ctx, self.0.holder_key())
-                    .await?
-                    .lookup_lambda(&self.0)?;
+                let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
+                let lambda = deferred_holder.lookup_lambda(&self.0)?;
 
                 let analysis_values = prepare_and_execute_lambda(
                     ctx,

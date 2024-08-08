@@ -7,22 +7,31 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use anyhow::Context;
+use buck2_artifact::actions::key::ActionIndex;
+use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::dynamic::params::DynamicLambdaParams;
+use buck2_build_api::dynamic::params::DynamicLambdaStaticFields;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use dupe::Dupe;
+use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
-use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::FrozenValue;
-use starlark::values::Heap;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
@@ -33,6 +42,37 @@ use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
+}
+
+fn output_artifacts_to_lambda_build_artifacts(
+    dynamic_key: &DynamicLambdaResultsKey,
+    outputs: IndexSet<OutputArtifact>,
+) -> anyhow::Result<Box<[BuildArtifact]>> {
+    let dynamic_holder_key = DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe()));
+
+    outputs
+        .iter()
+        .enumerate()
+        .map(|(output_artifact_index, output)| {
+            // We create ActionKeys that point directly to the dynamic_lambda's
+            // output rather than our own. This saves the resolution of the key from
+            // needing to first lookup our result just to get forwarded to the lambda's result.
+            //
+            // This means that we are creating ActionKeys for the lambda and it needs to offset
+            // its key's index to account for this (see ActionRegistry where this is done).
+            //
+            // TODO(cjhopman): We should probably combine ActionRegistry and DynamicRegistry (and
+            // probably ArtifactGroupRegistry too).
+            let bound = output
+                .bind(ActionKey::new(
+                    dynamic_holder_key.dupe(),
+                    ActionIndex::new(output_artifact_index.try_into()?),
+                ))?
+                .as_base_artifact()
+                .dupe();
+            Ok(bound)
+        })
+        .collect::<anyhow::Result<_>>()
 }
 
 #[starlark_module]
@@ -90,7 +130,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             ),
             NoneType,
         >,
-        heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         // TODO(nga): delete.
         let _unused = inputs;
@@ -112,15 +151,30 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .map(|x| x.artifact())
             .collect::<anyhow::Result<_>>()?;
 
+        let attributes = this.attributes;
+        let plugins = this.plugins;
+
+        let mut this = this.state();
+
+        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
+        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
+
         // Registration
-        let lambda_params = heap.alloc_typed(StarlarkAnyComplex::new(DynamicLambdaParams {
-            attributes: this.attributes,
-            plugins: this.plugins,
+        let lambda_params = DynamicLambdaParams {
+            attributes,
+            plugins,
             lambda: f.erase(),
             arg: None,
-        }));
-        let mut this = this.state();
-        this.register_dynamic_output(dynamic, outputs, lambda_params)?;
+            static_fields: DynamicLambdaStaticFields {
+                owner: key.owner().dupe(),
+                dynamic,
+                outputs,
+                execution_platform: this.actions.execution_platform.dupe(),
+            },
+        };
+
+        this.analysis_value_storage
+            .set_dynamic_actions(key, lambda_params)?;
         Ok(NoneType)
     }
 
@@ -130,7 +184,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
-        heap: &'v Heap,
     ) -> anyhow::Result<NoneType> {
         let dynamic_actions = dynamic_actions
             .data
@@ -143,15 +196,31 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             arg,
             callable,
         } = dynamic_actions;
-        let lambda_params = heap.alloc_typed(StarlarkAnyComplex::new(DynamicLambdaParams {
-            lambda: callable.implementation.erase().to_callable(),
-            attributes: this.attributes,
-            plugins: this.plugins,
-            arg: Some(arg),
-        }));
+
+        let attributes = this.attributes;
+        let plugins = this.plugins;
 
         let mut this = this.state();
-        this.register_dynamic_output(dynamic, outputs, lambda_params)?;
+
+        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
+        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
+
+        // Registration
+        let lambda_params = DynamicLambdaParams {
+            attributes,
+            plugins,
+            lambda: callable.implementation.erase().to_callable(),
+            arg: Some(arg),
+            static_fields: DynamicLambdaStaticFields {
+                owner: key.owner().dupe(),
+                dynamic,
+                outputs,
+                execution_platform: this.actions.execution_platform.dupe(),
+            },
+        };
+
+        this.analysis_value_storage
+            .set_dynamic_actions(key, lambda_params)?;
 
         Ok(NoneType)
     }

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
-use buck2_build_api::dynamic::lambda::DynamicLambda;
+use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -28,7 +28,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(
         &'v Arc<dyn BaseDeferredKeyDyn>,
         DeferredHolderKey,
-        &'v DynamicLambda,
+        &'v FrozenDynamicLambdaParams,
         &'v mut DiceComputations,
         String,
         HashMap<Artifact, ProjectRelativePathBuf>,
@@ -42,7 +42,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
     self_key: DeferredHolderKey,
-    dynamic_lambda: &'v DynamicLambda,
+    dynamic_lambda: &'v FrozenDynamicLambdaParams,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
