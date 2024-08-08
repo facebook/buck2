@@ -404,33 +404,36 @@ impl<'v> BxlContext<'v> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
-        let materializations = &root_data.materializations;
+
+        let analysis_registry = this.data.state.as_ref().state.borrow_mut().take();
+
+        // artifacts should be bound by now as the bxl has finished running
+        let artifacts = output_stream
+            .as_ref()
+            .take_artifacts()
+            .into_iter()
+            .map(|ensured_artifact_type| match ensured_artifact_type {
+                EnsuredArtifactOrGroup::Artifact(artifact) => {
+                    let as_artifact = artifact.as_artifact();
+                    let bound_artifact = as_artifact.get_bound_artifact()?;
+                    let associated_artifacts = as_artifact.get_associated_artifacts();
+
+                    Ok(associated_artifacts
+                        .iter()
+                        .flat_map(|v| v.iter())
+                        .cloned()
+                        .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+                        .collect::<Vec<_>>())
+                }
+                EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
+            })
+            .flatten_ok()
+            .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?;
 
         Ok((
-            this.data.state.as_ref().state.borrow_mut().take(),
-            // artifacts should be bound by now as the bxl has finished running
-            output_stream
-                .as_ref()
-                .take_artifacts()
-                .into_iter()
-                .map(|ensured_artifact_type| match ensured_artifact_type {
-                    EnsuredArtifactOrGroup::Artifact(artifact) => {
-                        let as_artifact = artifact.as_artifact();
-                        let bound_artifact = as_artifact.get_bound_artifact()?;
-                        let associated_artifacts = as_artifact.get_associated_artifacts();
-
-                        Ok(associated_artifacts
-                            .iter()
-                            .flat_map(|v| v.iter())
-                            .cloned()
-                            .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-                            .collect::<Vec<_>>())
-                    }
-                    EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
-                })
-                .flatten_ok()
-                .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?,
-            materializations.dupe(),
+            analysis_registry,
+            artifacts,
+            root_data.materializations.dupe(),
         ))
     }
 
