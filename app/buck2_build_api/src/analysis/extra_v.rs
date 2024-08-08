@@ -34,14 +34,15 @@ use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 pub struct AnalysisExtraValue<'v> {
     /// Populated after running rule function to get the providers frozen.
     pub provider_collection: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
-    pub(crate) analysis_value_storage: OnceCell<ValueTyped<'v, AnalysisValueStorage<'v>>>,
+    pub(crate) analysis_value_storage:
+        OnceCell<ValueTyped<'v, StarlarkAnyComplex<AnalysisValueStorage<'v>>>>,
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenAnalysisExtraValue {
     pub provider_collection: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
     pub(crate) analysis_value_storage:
-        Option<FrozenValueTyped<'static, FrozenAnalysisValueStorage>>,
+        Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
 }
 
 impl<'v> Freeze for AnalysisExtraValue<'v> {

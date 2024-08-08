@@ -35,10 +35,9 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::starlark_value;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
-use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
@@ -46,10 +45,8 @@ use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
-use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
@@ -354,14 +351,7 @@ impl<'v> ArtifactDeclaration<'v> {
 ///
 /// At the end of impl function execution, `write_to_module` should be called
 /// to write this object to `Module` extra value to get the values frozen.
-#[derive(
-    Debug,
-    Allocative,
-    derive_more::Display,
-    ProvidesStaticType,
-    NoSerialize
-)]
-#[display(fmt = "{:?}", "self")]
+#[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
@@ -369,25 +359,12 @@ pub struct AnalysisValueStorage<'v> {
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
-#[derive(
-    Debug,
-    Allocative,
-    derive_more::Display,
-    ProvidesStaticType,
-    NoSerialize
-)]
-#[display(fmt = "{:?}", "self")]
+#[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct FrozenAnalysisValueStorage {
     self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
     lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
-}
-
-impl<'v> AllocValue<'v> for AnalysisValueStorage<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex(self)
-    }
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
@@ -443,14 +420,6 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
     }
 }
 
-#[starlark_value(type = "AnalysisValueStorage")]
-impl<'v> StarlarkValue<'v> for AnalysisValueStorage<'v> {}
-
-#[starlark_value(type = "AnalysisValueStorage")]
-impl<'v> StarlarkValue<'v> for FrozenAnalysisValueStorage {
-    type Canonical = AnalysisValueStorage<'v>;
-}
-
 /// Simple fetcher that fetches the values written in `AnalysisValueStorage::write_to_module`
 ///
 /// These values are pulled from the `FrozenModule` that results from `env.freeze()`.
@@ -483,9 +452,11 @@ impl<'v> AnalysisValueStorage<'v> {
     /// Write self to `module` extra value.
     fn write_to_module(self, module: &'v Module) -> anyhow::Result<()> {
         let extra_v = AnalysisExtraValue::get_or_init(module)?;
-        let res = extra_v
-            .analysis_value_storage
-            .set(module.heap().alloc_typed(self));
+        let res = extra_v.analysis_value_storage.set(
+            module
+                .heap()
+                .alloc_typed(StarlarkAnyComplex { value: self }),
+        );
         if res.is_err() {
             return Err(internal_error!("analysis_value_storage is already set"));
         }
@@ -555,7 +526,7 @@ impl AnalysisValueFetcher {
                     .analysis_value_storage
                     .internal_error("analysis_value_storage not set")?
                     .as_ref();
-                Ok(Some((analysis_extra_value, module.frozen_heap())))
+                Ok(Some((&analysis_extra_value.value, module.frozen_heap())))
             }
         }
     }
@@ -614,7 +585,7 @@ impl AnalysisValueFetcher {
 #[derive(Debug, Allocative)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
-    analysis_storage: Option<OwnedFrozenValueTyped<FrozenAnalysisValueStorage>>,
+    analysis_storage: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
     actions: RecordedActions,
 }
 
@@ -640,11 +611,13 @@ impl RecordedAnalysisValues {
             alloced_tsets.insert(key, tset);
         }
 
-        let value = heap.alloc_simple(FrozenAnalysisValueStorage {
-            self_key: self_key.dupe(),
-            action_data: SmallMap::new(),
-            transitive_sets: alloced_tsets,
-            lambda_params: SmallMap::new(),
+        let value = heap.alloc_simple(StarlarkAnyComplex {
+            value: FrozenAnalysisValueStorage {
+                self_key: self_key.dupe(),
+                action_data: SmallMap::new(),
+                transitive_sets: alloced_tsets,
+                lambda_params: SmallMap::new(),
+            },
         });
         Self {
             self_key,
@@ -671,7 +644,7 @@ impl RecordedAnalysisValues {
         self.analysis_storage
             .as_ref()
             .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
-            .maybe_map(|v| v.transitive_sets.get(key).copied())
+            .maybe_map(|v| v.value.transitive_sets.get(key).copied())
             .with_internal_error(|| format!("Missing transitive set `{key}`"))
     }
 
@@ -705,6 +678,7 @@ impl RecordedAnalysisValues {
         self.analysis_storage
             .as_ref()
             .with_internal_error(|| format!("missing analysis storage for lambda `{}`", key))?
+            .value
             .lambda_params
             .get(key)
             .with_internal_error(|| format!("missing lambda `{}`", key))
@@ -714,6 +688,6 @@ impl RecordedAnalysisValues {
     pub fn iter_dynamic_lambdas(&self) -> impl Iterator<Item = &FrozenDynamicLambdaParams> {
         self.analysis_storage
             .iter()
-            .flat_map(|v| v.lambda_params.values())
+            .flat_map(|v| v.value.lambda_params.values())
     }
 }
