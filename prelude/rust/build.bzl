@@ -474,7 +474,7 @@ def rust_compile(
         out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
         out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
         linker_cmd = cmd_args(
-            compile_ctx.toolchain_info.extract_link_action,
+            toolchain_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
             cmd_args(out_version_script.as_output(), format = "--out_version-script={}") if out_version_script else cmd_args(),
             cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
@@ -489,7 +489,7 @@ def rust_compile(
         )
 
         deferred_link_cmd = cmd_args(
-            compile_ctx.toolchain_info.deferred_link_action,
+            toolchain_info.deferred_link_action,
             cmd_args(out_objects_dir, format = "--objects={}"),
             cmd_args(out_version_script, format = "--version-script={}"),
             compile_ctx.linker_args,
@@ -506,6 +506,7 @@ def rust_compile(
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
+        ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
         cmd_args(linker_args, format = "-Clinker={}"),
         extra_flags,
     )
@@ -1343,7 +1344,7 @@ def _rustc_invoke(
     compile_cmd = cmd_args(
         cmd_args(diag_json.as_output(), format = "--diag-json={}"),
         cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
-        "--remap-cwd-prefix=.",
+        ["--remap-cwd-prefix=."] if not toolchain_info.nightly_features else [],
         "--buck-target={}".format(ctx.label.raw_target()),
         hidden = [toolchain_info.compiler, compile_ctx.symlinked_srcs],
     )
