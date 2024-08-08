@@ -54,13 +54,12 @@ def generate_xcode_data(
     }
     if output:
         data[XcodeDataInfoKeys.OUTPUT] = output
+    if populate_rule_specific_attributes_func:
+        data.update(populate_rule_specific_attributes_func(ctx, **kwargs))
 
     data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = []
     if hasattr(ctx.attrs, "extra_xcode_files"):
         data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = ctx.attrs.extra_xcode_files
-
-    if populate_rule_specific_attributes_func:
-        data.update(populate_rule_specific_attributes_func(ctx, **kwargs))
 
     json_file = ctx.actions.write_json(_XCODE_DATA_FILE_NAME, data)
     return [DefaultInfo(default_output = json_file)], XcodeDataInfo(data = data)
