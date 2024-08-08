@@ -26,9 +26,12 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
+use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::docs::DocItem;
+use crate::docs::DocObject;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
 use crate::values::layout::avalue::AValueBasic;
@@ -45,7 +48,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
-struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty);
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> Option<DocObject>);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
@@ -53,6 +56,10 @@ impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
 
     fn eval_type(&self) -> Option<Ty> {
         Some((self.0)())
+    }
+
+    fn documentation(&self) -> Option<DocItem> {
+        Some(DocItem::Object((self.1)()?))
     }
 }
 
@@ -112,17 +119,45 @@ impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
 
 type InstanceTy = AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>>;
 
-impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
+impl<T: StarlarkValue<'static>> StarlarkValueAsType<T> {
     /// Constructor.
+    ///
+    /// Use `new_no_docs` if `Self` is not a `StarlarkValue`
     pub const fn new() -> Self {
         Self(&Self::INSTANCE, PhantomData)
     }
 
-    const INSTANCE: InstanceTy =
-        alloc_static(StarlarkValueAsTypeStarlarkValue(T::starlark_type_repr));
+    const INSTANCE: InstanceTy = alloc_static(StarlarkValueAsTypeStarlarkValue(
+        T::starlark_type_repr,
+        || Some(docs_for_type::<T>()),
+    ));
 }
 
-impl<T: StarlarkTypeRepr> Default for StarlarkValueAsType<T> {
+fn docs_for_type<T: StarlarkValue<'static>>() -> DocObject {
+    let ty = T::starlark_type_repr();
+    match T::get_methods() {
+        Some(methods) => methods.documentation(ty),
+        None => DocObject {
+            docs: None,
+            members: SmallMap::new(),
+            ty,
+        },
+    }
+}
+
+impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
+    /// Constructor.
+    pub const fn new_no_docs() -> Self {
+        Self(&Self::INSTANCE_NO_DOCS, PhantomData)
+    }
+
+    const INSTANCE_NO_DOCS: InstanceTy = alloc_static(StarlarkValueAsTypeStarlarkValue(
+        T::starlark_type_repr,
+        || None,
+    ));
+}
+
+impl<T: StarlarkValue<'static>> Default for StarlarkValueAsType<T> {
     fn default() -> Self {
         Self::new()
     }

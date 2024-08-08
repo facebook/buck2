@@ -612,5 +612,5 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
     /// def foo() -> list[Provider]:
     ///     return [DefaultInfo()]
     /// ```
-    const Provider: StarlarkValueAsType<AbstractProvider> = StarlarkValueAsType::new();
+    const Provider: StarlarkValueAsType<AbstractProvider> = StarlarkValueAsType::new_no_docs();
 }
