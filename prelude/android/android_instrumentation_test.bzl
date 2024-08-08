@@ -26,6 +26,10 @@ ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
 DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
+RIOT_USE_CASE = "riot"
+SUPPORTED_POOLS = ["EUREKA_POOL"]
+SUPPORTED_PLATFORMS = ["riot", "android-emulator"]
+SUPPORTED_USE_CASES = [RIOT_USE_CASE, DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -175,6 +179,7 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
 
     if ctx.attrs.re_caps and ctx.attrs.re_use_case:
         if "dynamic-listing" in ctx.attrs.re_caps and "dynamic-listing" in ctx.attrs.re_use_case:
+            _validate_executor_override_re_config(ctx.attrs.re_caps["dynamic-listing"], ctx.attrs.re_use_case["dynamic-listing"])
             dynamic_listing_executor_override = CommandExecutorConfig(
                 local_enabled = instrumentation_test_can_run_locally,
                 remote_enabled = True,
@@ -182,6 +187,7 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
                 remote_execution_use_case = ctx.attrs.re_use_case["dynamic-listing"],
             )
         if "test-execution" in ctx.attrs.re_caps and "test-execution" in ctx.attrs.re_use_case:
+            _validate_executor_override_re_config(ctx.attrs.re_caps["test-execution"], ctx.attrs.re_use_case["test-execution"])
             test_execution_executor_override = CommandExecutorConfig(
                 local_enabled = instrumentation_test_can_run_locally,
                 remote_enabled = True,
@@ -235,3 +241,10 @@ def _compute_re_use_case(labels: list[str]) -> str:
         return DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE
     else:  # len(re_use_case_labels) == 1:
         return re_use_case_labels[0].replace("re_opts_use_case=", "")
+
+def _validate_executor_override_re_config(re_caps: dict[str, str], re_use_case: str):
+    expect(re_use_case in SUPPORTED_USE_CASES, "Unexpected {} use case found, value is expected to be on of the following: {}", re_use_case, ", ".join(SUPPORTED_USE_CASES))
+    if "pool" in re_caps:
+        expect(re_caps["pool"] in SUPPORTED_POOLS, "Unexpected {} pool found, value is expected to be on of the following: {}", re_caps["pool"], ", ".join(SUPPORTED_POOLS))
+    if "platform" in re_caps:
+        expect(re_caps["platform"] in SUPPORTED_PLATFORMS, "Unexpected {} platform found, value is expected to be on of the following: {}", re_caps["platform"], ", ".join(SUPPORTED_PLATFORMS))
