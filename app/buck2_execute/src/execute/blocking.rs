@@ -86,15 +86,15 @@ impl BuckBlockingExecutor {
     /// We choose the default concurrency as follows:
     ///
     /// - For operations executed by the thread pool, we choose a fairly low concurrency level.
-    /// This is because those operations do exclusively I/O work, and that work consists of
-    /// modifying the directory structure of the FS, which scales negatively as soon as you add
-    /// more than 4 threads on all systems we care about (sometimes it does so earlier, but for now
-    /// 4 is the one-size-fits-all solution we have). D33922298 has benchmark details.
+    ///   This is because those operations do exclusively I/O work, and that work consists of
+    ///   modifying the directory structure of the FS, which scales negatively as soon as you add
+    ///   more than 4 threads on all systems we care about (sometimes it does so earlier, but for now
+    ///   4 is the one-size-fits-all solution we have). D33922298 has benchmark details.
     ///
     /// - For operations that primarily write data, we default to the number of threads on the
-    /// host. This is because those operations often have to do CPU bound work to generate the data
-    /// they are trying to write, and writing to multiple files doesn't have the negative scaling
-    /// issues modifying the directory structure does.
+    ///   host. This is because those operations often have to do CPU bound work to generate the data
+    ///   they are trying to write, and writing to multiple files doesn't have the negative scaling
+    ///   issues modifying the directory structure does.
     pub fn default_concurrency(fs: ProjectRoot) -> anyhow::Result<Self> {
         let io_threads = buck2_env!("BUCK2_IO_THREADS", type=usize, default=4)?;
         let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=num_cpus::get())?;

@@ -47,7 +47,7 @@ use anyhow::Context;
 /// Suppose you have a function `fn foo()` initialized with `LateBinding`.
 /// The convention is this:
 /// * in the interface crate define a static variable
-///  `static FOO: LateBinding<fn()> = LateBinding::new("FOO");`
+///   `static FOO: LateBinding<fn()> = LateBinding::new("FOO");`
 ///   ([example](https://fburl.com/code/rvxqbf4f)).
 /// * in the implementation crate define an implementation like `fn foo() { ... }`,
 ///   and next to the implementation, define a function like `fn init_foo() { FOO.init(foo); }`

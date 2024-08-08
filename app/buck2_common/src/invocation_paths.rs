@@ -41,13 +41,15 @@ pub struct InvocationPaths {
     /// be written or read from directories that include this component.
     ///
     /// This form of isolation is currently supported primarily for two uses:
+    ///
     /// 1. testing - it allows us to run isolated daemons on a project for tests. This is
-    /// particularly useful to allow a test in a project to recursively invoke buck, but also
-    /// useful to write tests against a project's macros and rules and using a project's real
-    /// configuration.
+    ///    particularly useful to allow a test in a project to recursively invoke buck, but also
+    ///    useful to write tests against a project's macros and rules and using a project's real
+    ///    configuration.
+    ///
     /// 2. generally to support recursive buck invocations. while our ideal may be that these
-    /// eventually are not allowed, the most pragmatic approach currently is to support them
-    /// but push them into isolated, temporary daemons.
+    ///    eventually are not allowed, the most pragmatic approach currently is to support them
+    ///    but push them into isolated, temporary daemons.
     pub isolation: FileNameBuf,
 }
 

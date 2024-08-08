@@ -67,13 +67,17 @@ struct ChromeTraceFirstPass {
     /// Track assignment needs to know, when it sees a SpanStart, whether that
     /// span is going to be included in the final trace.
     /// But some spans need to be filtered based on later events, like:
+    ///
     /// 1. We shouldn't assign tracks to StartLoad events whose SpanEnd records
     ///    a really short duration.
+    ///
     /// 2. We shouldn't assign tracks to ActionExecutionStart events who have
     ///    no child LocalStage spans.
+    ///
     /// 3. (eventually) We should assign tracks to ActionExecutionStart events
     ///    only if they appear in the CriticalPath, but the CriticalPath is one
     ///    of the last events.
+    ///
     /// So this first pass builds up several lists of "interesting" span IDs.
     pub long_analyses: HashSet<buck2_events::span::SpanId>,
     pub long_loads: HashSet<buck2_events::span::SpanId>,

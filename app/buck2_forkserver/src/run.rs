@@ -364,9 +364,12 @@ pub fn maybe_absolutize_exe<'a>(
 /// close the fds properly before the exec, but what can happn is:
 ///
 /// - Some thread forks
+///
 /// - We close the file. At this time we don't have it open, but the forked process does.
+///
 /// - We try to exec the file. This fails because the file is open for writing (by the forked
-/// process).
+///   process).
+///
 /// - The forked process execs. At this point the file is closed (because everything is CLOEXEC).
 ///
 /// The window during which the forked process holds the fd is small, so retrying a couple times

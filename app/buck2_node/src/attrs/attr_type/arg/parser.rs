@@ -49,11 +49,12 @@
 //! unquoted arg has seen more `(` than `)`, it will not be terminated by whitespace or `)`.
 //!
 //! We diverge from buckv1 in a handful of known ways.
-//! 1. buck1 allows pretty much any characters to appear in a macro type. We restrict it to alphanumeric and `_`.
-//! 2. buck1 disallows spaces entirely within unquoted args. This can be surprising. Unquoted args are generally used for
-//! the query part of query macros, and in other contexts where buck accepts queries it allows whitespace.
-//! Example, the string "$(query_outputs deps(//some:target, 3))" would be rejected by buck1 due to the space before the 3.
 //!
+//! 1. buck1 allows pretty much any characters to appear in a macro type. We restrict it to alphanumeric and `_`.
+//!
+//! 2. buck1 disallows spaces entirely within unquoted args. This can be surprising. Unquoted args are generally used for
+//!    the query part of query macros, and in other contexts where buck accepts queries it allows whitespace.
+//!    Example, the string "$(query_outputs deps(//some:target, 3))" would be rejected by buck1 due to the space before the 3.
 //!
 //! Some examples:
 //!

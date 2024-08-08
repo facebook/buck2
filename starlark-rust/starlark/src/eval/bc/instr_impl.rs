@@ -1735,7 +1735,7 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
 ///   we don't have a pointer to bytecode object. To obtain spans by IP, we scroll
 ///   through the instruction until we encounter this pseudo-instruction.
 /// * as a safety against memory overruns. Function block must terminate with return instruction,
-///  but if return was missed, this instruction is executed and it panics.
+///   but if return was missed, this instruction is executed and it panics.
 pub(crate) struct InstrEnd;
 
 impl BcInstr for InstrEnd {

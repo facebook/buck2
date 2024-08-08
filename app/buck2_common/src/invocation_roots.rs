@@ -115,11 +115,13 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
 /// vulnerability.
 ///
 /// There's a couple ways we could resolve this:
+///
 /// 1. Use a shared .buckd information directory and have the client verify the identity of
-/// the server before doing anything with it. If the identity is different, kill it and
-/// start a new one.
+///    the server before doing anything with it. If the identity is different, kill it and
+///    start a new one.
+///
 /// 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
-/// output directories between different buckd instances.
+///    output directories between different buckd instances.
 pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
     fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
         let home = dirs::home_dir().context("Expected a HOME directory to be available")?;

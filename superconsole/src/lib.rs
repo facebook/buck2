@@ -15,8 +15,11 @@
 //! User input will cause aberrations in output; similarly, one should also not produce output from other sources while superconsole is active.
 //!
 //! The rendering can be divided into two principle components:
+//!
 //! * In the *scratch* area, the previous content is overwritten at each render.
+//!
 //! * In the *emitted* area, lines scroll away above the scratch with various diagnostic output.
+//!
 //! Components live in the scratch area.
 //!
 //! A set of pre-baked composition and testing oriented components are provided in the [`components`] module.
