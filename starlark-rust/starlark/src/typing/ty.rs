@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -25,17 +24,16 @@ use allocative::Allocative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
+use itertools::Itertools;
 use starlark_derive::Trace;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
-use crate::docs::DocParam;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::callable::TyCallable;
 use crate::typing::callable_param::Param;
-use crate::typing::callable_param::ParamMode;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::function::TyCustomFunction;
@@ -480,50 +478,18 @@ impl Ty {
     }
 
     pub(crate) fn from_native_callable_docs(native_docs: &NativeCallableRawDocs) -> Self {
-        let signature_docs = native_docs
+        let params: Vec<_> = native_docs
             .signature
-            .documentation(native_docs.parameter_types.clone(), HashMap::new());
+            .iter_param_modes()
+            .zip_eq(&native_docs.parameter_types)
+            .map(|((_, mode), ty)| Param {
+                mode,
+                ty: ty.dupe(),
+            })
+            .collect();
 
-        let mut params = Vec::with_capacity(signature_docs.len());
-        let mut seen_no_args = false;
-        for p in &signature_docs {
-            match p {
-                DocParam::Arg {
-                    name,
-                    typ,
-                    default_value,
-                    ..
-                } => {
-                    let mut r = if seen_no_args {
-                        Param::name_only(name, typ.clone())
-                    } else {
-                        Param::pos_or_name(name, typ.clone())
-                    };
-                    if default_value.is_some() {
-                        r = r.optional();
-                    }
-                    params.push(r);
-                }
-                DocParam::OnlyPosBefore => {
-                    for x in params.iter_mut() {
-                        if let ParamMode::PosOrName(_, req) = &x.mode {
-                            // TODO(nga): we should provide parameters in correct order
-                            //   instead of patching them here.
-                            x.mode = ParamMode::PosOnly(*req);
-                        }
-                    }
-                }
-                DocParam::OnlyNamedAfter => seen_no_args = true,
-                DocParam::Args { tuple_elem_ty, .. } => {
-                    seen_no_args = true;
-                    params.push(Param::args(tuple_elem_ty.clone()))
-                }
-                DocParam::Kwargs { dict_value_ty, .. } => {
-                    params.push(Param::kwargs(dict_value_ty.clone()))
-                }
-            }
-        }
         let result = native_docs.return_type.clone();
+
         match &native_docs.as_type {
             None => Ty::function(params, result),
             Some(type_attr) => Ty::ctor_function(type_attr, params, result),

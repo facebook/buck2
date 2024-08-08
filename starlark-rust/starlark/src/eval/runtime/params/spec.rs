@@ -42,6 +42,8 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
 use crate::hint::unlikely;
+use crate::typing::callable_param::ParamIsRequired;
+use crate::typing::callable_param::ParamMode;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -329,6 +331,33 @@ impl<V> ParametersSpec<V> {
             .iter()
             .map(|name| name.as_str())
             .zip(&*self.param_kinds)
+    }
+
+    pub(crate) fn iter_param_modes<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a str, ParamMode)> + 'a {
+        self.iter_params().enumerate().map(|(i, (name, kind))| {
+            let is_required = match kind {
+                ParameterKind::Required => ParamIsRequired::Yes,
+                ParameterKind::Optional => ParamIsRequired::No,
+                ParameterKind::Defaulted(_) => ParamIsRequired::No,
+                // These two branches are not actually used
+                ParameterKind::Args => ParamIsRequired::No,
+                ParameterKind::KWargs => ParamIsRequired::No,
+            };
+            let mode = if i < (self.positional_only as usize) {
+                ParamMode::PosOnly(is_required)
+            } else if i < (self.positional as usize) {
+                ParamMode::PosOrName(name.into(), is_required)
+            } else {
+                match kind {
+                    ParameterKind::Args => ParamMode::Args,
+                    ParameterKind::KWargs => ParamMode::Kwargs,
+                    _ => ParamMode::NameOnly(name.into(), is_required),
+                }
+            };
+            (name, mode)
+        })
     }
 
     pub(crate) fn resolve_name(&self, name: Hashed<&str>) -> ResolvedArgName {
