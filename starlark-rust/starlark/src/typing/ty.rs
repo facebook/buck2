@@ -29,9 +29,7 @@ use starlark_derive::Trace;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
-use crate::docs::DocFunction;
 use crate::docs::DocParam;
-use crate::docs::DocStringKind;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
@@ -482,19 +480,13 @@ impl Ty {
     }
 
     pub(crate) fn from_native_callable_docs(native_docs: &NativeCallableRawDocs) -> Self {
-        let function = DocFunction::from_docstring(
-            DocStringKind::Rust,
-            native_docs
-                .signature
-                .documentation(native_docs.parameter_types.clone(), HashMap::new()),
-            native_docs.return_type.clone(),
-            native_docs.rust_docstring,
-            native_docs.as_type.clone(),
-        );
+        let signature_docs = native_docs
+            .signature
+            .documentation(native_docs.parameter_types.clone(), HashMap::new());
 
-        let mut params = Vec::with_capacity(function.params.len());
+        let mut params = Vec::with_capacity(signature_docs.len());
         let mut seen_no_args = false;
-        for p in &function.params {
+        for p in &signature_docs {
             match p {
                 DocParam::Arg {
                     name,
@@ -531,8 +523,8 @@ impl Ty {
                 }
             }
         }
-        let result = function.ret.typ.clone();
-        match &function.as_type {
+        let result = native_docs.return_type.clone();
+        match &native_docs.as_type {
             None => Ty::function(params, result),
             Some(type_attr) => Ty::ctor_function(type_attr, params, result),
         }
