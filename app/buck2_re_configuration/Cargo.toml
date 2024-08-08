@@ -11,3 +11,6 @@ allocative = { workspace = true }
 anyhow = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }

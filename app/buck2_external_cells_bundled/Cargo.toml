@@ -14,3 +14,6 @@ buck2_common = { workspace = true }
 
 [build-dependencies]
 walkdir = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)"] }

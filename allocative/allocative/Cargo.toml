@@ -37,3 +37,6 @@ triomphe = { version = "0.1.8", optional = true }
 
 [dev-dependencies]
 inferno = { version = "0.11.11", default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_nightly)"] }

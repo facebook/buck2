@@ -81,3 +81,6 @@ winapi = { workspace = true }
 [[bin]]
 name = "buck2"
 path = "bin/buck2.rs"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(client_only)", "cfg(fbcode_build)"] }
