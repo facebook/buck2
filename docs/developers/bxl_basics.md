@@ -50,9 +50,9 @@ query that takes in the entire query as a string literal. A common use for
 entire query string directly into `eval()`.
 
 The query results are target sets (iterable container) of
-[`bxl.TargetNode`s](../../api/bxl/bxl.TargetNode) for uquery,
-[`bxl.ConfiguredTargetNode`s](../../api/bxl/bxl.ConfiguredTargetNode) for
-cquery, and [`bxl.ActionQueryNode`s](../../api/bxl/bxl.ActionQueryNode) for
+[`bxl.UnconfiguredTargetNode`s](../../api/bxl/bxl.UnconfiguredTargetNode) for
+uquery, [`bxl.ConfiguredTargetNode`s](../../api/bxl/bxl.ConfiguredTargetNode)
+for cquery, and [`bxl.ActionQueryNode`s](../../api/bxl/bxl.ActionQueryNode) for
 aquery. Each of these node types have accessors on their attributes. A common
 workflow is to run some query in BXL, and iterate through the resulting nodes to
 inspect their attributes, and use those attributes to inform further
