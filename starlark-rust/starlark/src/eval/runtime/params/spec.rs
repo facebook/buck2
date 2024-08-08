@@ -322,7 +322,7 @@ impl<V> ParametersSpec<V> {
 
     /// Iterate over the parameters
     ///
-    /// Returns an iterator over (parameter index, name, kind)
+    /// Returns an iterator over (name, kind)
     pub(crate) fn iter_params(&self) -> impl Iterator<Item = (&str, &ParameterKind<V>)> {
         assert_eq!(self.param_names.len(), self.param_kinds.len());
         self.param_names
