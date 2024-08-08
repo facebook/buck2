@@ -57,7 +57,10 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
         StarlarkValueAsType::new();
     const LazyResolvedAttrs: StarlarkValueAsType<StarlarkLazyResolvedAttrs> =
         StarlarkValueAsType::new();
+    // TODO(nero): TargetSet is a deprecated alias.
     const TargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
+        StarlarkValueAsType::new();
+    const UnconfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
         StarlarkValueAsType::new();
     const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
         StarlarkValueAsType::new();
