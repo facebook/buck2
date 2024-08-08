@@ -67,9 +67,15 @@ pub enum HostPlatformOverride {
 )]
 #[clap(rename_all = "lower")]
 pub enum PreemptibleWhen {
+    /// (default) When another command starts that cannot run in parallel with this one, block that command.
     #[default]
     Never, // Read; "If I am Never, then never preempt me" (the default)
+    /// When another command starts, interrupt this command, *even if they could run in
+    /// parallel*. There is no good reason to use this other than that it provides slightly nicer
+    /// superconsole output.
     Always,
+    /// When another command starts that cannot run in parallel with this one,
+    /// interrupt this command.
     OnDifferentState, // Read; "if a command comes in, preempt me on different state"
 }
 
@@ -172,7 +178,13 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long)]
     pub exit_when_different_state: bool,
 
-    /// Used to configure when this command could be preempted by another command.
+    /// Used to configure when this command could be preempted by another command for the same isolation dir.
+    ///
+    /// Normally, when you run two commands - from different terminals, say - buck2 will attempt
+    /// to run them in parallel. However, if the two commands are based on different state, that
+    /// is they either have different configs or different filesystem states, buck2 cannot run them
+    /// in parallel. The default behavior in this case is to block the second command until the
+    /// first completes.
     #[clap(long, ignore_case = true, value_enum)]
     pub preemptible: Option<PreemptibleWhen>,
 }
