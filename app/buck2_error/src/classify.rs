@@ -55,6 +55,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::Http => line!(),
         ErrorTag::ServerStderrUnknown => line!(),
         ErrorTag::ServerStderrEmpty => line!(),
+        ErrorTag::Install => line!(),
         ErrorTag::Analysis => line!(),
         ErrorTag::AnyActionExecution => line!(),
         ErrorTag::AnyStarlarkEvaluation => line!(),
@@ -105,6 +106,7 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
         ErrorTag::ServerStderrUnknown => None,
         ErrorTag::ServerStderrEmpty => None,
         ErrorTag::UnusedDefaultTag => None,
+        ErrorTag::Install => None,
     }
 }
 

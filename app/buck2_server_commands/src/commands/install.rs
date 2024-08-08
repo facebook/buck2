@@ -85,16 +85,23 @@ use tokio::sync::mpsc;
 use tonic::transport::Channel;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Install)]
 pub enum InstallError {
+    /// Input errors from installer definition
     #[error("Target {1}:{0} cannot be installed as it does not expose an InstallInfo provider")]
+    #[buck2(input)]
     NoInstallProvider(TargetName, PackageLabel),
 
     #[error("Installer target `{0}` doesn't expose RunInfo provider")]
+    #[buck2(input)]
     NoRunInfoProvider(TargetName),
 
+    /// Errors from external installer process, may represent infra errors or input errors (ex. no device).
+    /// Tagging as input errors in the absence of a way for installers to report infra errors.
     #[error(
         "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n. More details can be found at `{installer_log}`"
     )]
+    #[buck2(input)]
     ProcessingFileReadyFailure {
         install_id: String,
         artifact: String,
@@ -104,12 +111,16 @@ pub enum InstallError {
     },
 
     #[error("Installer failed for `{install_id}` with `{err}`")]
+    #[buck2(input)]
     InternalInstallerFailure { install_id: String, err: String },
 
+    /// Infra errors
     #[error("Communication with the installer failed with `{err}`")]
+    #[buck2(tier0)]
     InstallerCommunicationFailure { err: String },
 
     #[error("Incorrect seconds/nanos argument")]
+    #[buck2(tier0)]
     NativeDateTime,
 }
 
