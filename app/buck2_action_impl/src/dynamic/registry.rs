@@ -60,6 +60,7 @@ impl DynamicRegistryDyn for DynamicRegistry {
             storage.self_key.dupe(),
             DynamicLambdaIndex::new(self.pending.len().try_into()?),
         );
+        let dynamic_holder_key = DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe()));
 
         let outputs = outputs
             .iter()
@@ -76,7 +77,7 @@ impl DynamicRegistryDyn for DynamicRegistry {
                 // probably ArtifactGroupRegistry too).
                 let bound = output
                     .bind(ActionKey::new(
-                        DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe())),
+                        dynamic_holder_key.dupe(),
                         ActionIndex::new(output_artifact_index.try_into()?),
                     ))?
                     .as_base_artifact()
