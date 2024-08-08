@@ -208,6 +208,8 @@ impl MethodsBuilder {
     ) where
         F: NativeMeth,
     {
+        assert_eq!(raw_docs.signature.len(), raw_docs.parameter_types.len());
+
         let ty = Ty::from_native_callable_docs(&raw_docs);
 
         let function = FrozenRef::<dyn NativeMeth + 'static>::new(

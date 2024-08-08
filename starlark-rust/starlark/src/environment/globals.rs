@@ -263,6 +263,8 @@ impl GlobalsBuilder {
     ) where
         F: NativeFunc,
     {
+        assert_eq!(raw_docs.signature.len(), raw_docs.parameter_types.len());
+
         self.set(
             name,
             NativeFunction {
