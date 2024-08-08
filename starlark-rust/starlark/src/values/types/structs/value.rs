@@ -37,7 +37,6 @@ use crate::coerce::coerce;
 use crate::coerce::Coerce;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
-use crate::docs::DocObject;
 use crate::docs::DocProperty;
 use crate::starlark_complex_value;
 use crate::typing::Ty;
@@ -181,29 +180,15 @@ where
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        let members = self
-            .fields
-            .iter()
-            .map(|(k, v)| {
-                let name = k.as_str().to_owned();
-                match v.to_value().documentation() {
-                    Some(DocItem::Member(DocMember::Function(f))) => (name, DocMember::Function(f)),
-                    _ => (
-                        name,
-                        DocMember::Property(DocProperty {
-                            docs: None,
-                            typ: Ty::any(),
-                        }),
-                    ),
-                }
-            })
-            .collect();
-        let ty = self.self_ty();
-        Some(DocItem::Object(DocObject {
+        // This treats structs as being value-like, and intentionally generates bad docs in the case
+        // of namespace-like usage. See
+        // <https://fb.workplace.com/groups/starlark/permalink/1463680027654154/> for some
+        // additional discussion
+        let typ = self.self_ty();
+        Some(DocItem::Member(DocMember::Property(DocProperty {
             docs: None,
-            members,
-            ty,
-        }))
+            typ,
+        })))
     }
 
     fn get_type_starlark_repr() -> Ty {
