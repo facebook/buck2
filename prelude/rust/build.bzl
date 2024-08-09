@@ -1384,7 +1384,7 @@ def _rustc_invoke(
 
     if is_clippy:
         category = "clippy"
-        identifier = "run"
+        identifier = ""
     else:
         category = "rustc"
         identifier = _explain(
@@ -1395,7 +1395,9 @@ def _rustc_invoke(
         )
 
     if incremental_enabled:
-        identifier = identifier + " (incr)"
+        if not identifier.endswith("]"):
+            identifier += " "
+        identifier += "[incr]"
 
     ctx.actions.run(
         compile_cmd,
