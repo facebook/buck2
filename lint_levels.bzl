@@ -32,6 +32,7 @@ CLIPPY_ALLOW = [
     "clippy::module_inception",  # Unnecessary restriction.
     "clippy::multiple-bound-locations",  # FIXME New in 1.78.0
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
+    "clippy::mutable_key_type",  # FIXME new in Rust 1.80
     "clippy::naive-bytecount",  # Requires an extra dependency for marginal gains.
     "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
     "clippy::needless_collect",  # False positives: doesn't understand lifetimes, or e.g. DoubleEndedIterator.
