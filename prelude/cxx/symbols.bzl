@@ -66,7 +66,12 @@ def _extract_symbol_names(
                 $lines = $lines | ForEach-Object {{ ($_ -split '@')[0] }}
                 $lines = $lines | Where-Object {{ $_ -notmatch '__odr_asan_gen_.*' }}
                 $lines = $lines | Sort-Object -Unique
-                [IO.File]::WriteAllLines('{{}}', $lines)
+                # Avoid a trailing newline for empty symbol lists
+                if ($lines.count -eq 0) {{
+                    [IO.File]::WriteAllText('{{}}', $lines)
+                }} else {{
+                    [IO.File]::WriteAllLines('{{}}', $lines)
+                }}
             }}""".format(nm_flags)
         )
         symbol_extraction_args = [
