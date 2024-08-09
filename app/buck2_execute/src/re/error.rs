@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_certs::validate::validate_certs;
 use remote_execution::REClientError;
 use remote_execution::TCode;
 
@@ -28,10 +27,6 @@ pub(crate) async fn with_error_handler<T>(
     match result {
         Ok(val) => Ok(val),
         Err(e) => {
-            if let Err(cert_err) = validate_certs().await {
-                return Err(cert_err.context("Remote Execution Call Failed"));
-            }
-
             let code = e
                 .downcast_ref::<REClientError>()
                 .map(|e| e.code)
