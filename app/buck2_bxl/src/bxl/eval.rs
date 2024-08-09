@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
@@ -226,39 +224,8 @@ impl BxlInnerEvaluator {
             BxlContext::take_state(bxl_ctx)?
         };
 
-        let (actions_finalizer, ensured_artifacts, materializations) = {
-            // help rust understand that actions is consumed here.
-            let actions = actions;
-            match actions {
-                Some(registry) => (
-                    Some(registry.finalize(&env)?),
-                    ensured_artifacts,
-                    materializations,
-                ),
-                None => (None, ensured_artifacts, materializations),
-            }
-        };
-
-        // TODO(cjhopman): Why is there so much divergence in code here for whether we created actions or
-        // not? It seems to just make this unnecessarily complex.
-
-        let (frozen_module, recorded_values) = match actions_finalizer {
-            Some(actions_finalizer) => {
-                // this bxl registered actions, so extract the deferreds from it
-                actions_finalizer(env)?
-            }
-            None => {
-                let frozen_module = env.freeze()?;
-
-                // this bxl did not try to build anything, so we don't have any deferreds
-                (
-                    frozen_module,
-                    RecordedAnalysisValues::new_empty(DeferredHolderKey::Base(
-                        key.into_base_deferred_key(BxlExecutionResolution::unspecified()),
-                    )),
-                )
-            }
-        };
+        let actions_finalizer = actions.finalize(&env)?;
+        let (frozen_module, recorded_values) = actions_finalizer(env)?;
 
         let bxl_result = BxlResult::new(
             output_stream,

@@ -579,14 +579,6 @@ pub struct RecordedAnalysisValues {
 }
 
 impl RecordedAnalysisValues {
-    pub fn new_empty(self_key: DeferredHolderKey) -> Self {
-        Self {
-            self_key,
-            analysis_storage: None,
-            actions: RecordedActions::new(),
-        }
-    }
-
     pub fn testing_new(
         self_key: DeferredHolderKey,
         transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,

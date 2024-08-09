@@ -48,6 +48,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
@@ -114,6 +115,7 @@ use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
+use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
@@ -397,7 +399,7 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
     ) -> anyhow::Result<(
-        Option<AnalysisRegistry<'v>>,
+        AnalysisRegistry<'v>,
         IndexSet<ArtifactGroup>,
         Arc<DashSet<BuildArtifact>>,
     )> {
@@ -405,7 +407,26 @@ impl<'v> BxlContext<'v> {
         let root_data = this.data.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
 
-        let analysis_registry = this.data.state.as_ref().state.borrow_mut().take();
+        let analysis_registry = this
+            .data
+            .state
+            .as_ref()
+            .state
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| {
+                // BXL did not request actions, so we don't know execution platform.
+                // It doesn't matter what owner/platform we put here because
+                // the registry is empty, nothing will be fetched from it.
+                AnalysisRegistry::new_from_owner(
+                    this.core
+                        .current_bxl
+                        .dupe()
+                        .into_base_deferred_key(BxlExecutionResolution::unspecified()),
+                    ExecutionPlatformResolution::unspecified(),
+                )
+                .unwrap()
+            });
 
         // artifacts should be bound by now as the bxl has finished running
         let artifacts = output_stream
