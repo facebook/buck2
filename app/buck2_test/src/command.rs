@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -15,9 +16,12 @@ use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::build::build_report::build_report_opts;
+use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
@@ -354,7 +358,7 @@ async fn test(
         .context("Invalid `duration`")?;
 
     let test_outcome = test_targets(
-        ctx,
+        ctx.dupe(),
         resolved_pattern,
         global_cfg_options,
         request.test_executor_args.clone(),
@@ -366,7 +370,7 @@ async fn test(
         )),
         &*launcher,
         session,
-        cell_resolver,
+        cell_resolver.dupe(),
         working_dir_cell,
         build_opts.skip_incompatible_targets,
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
@@ -423,6 +427,24 @@ async fn test(
         ),
     };
 
+    let serialized_build_report = if build_opts.unstable_print_build_report {
+        let artifact_fs = ctx.get_artifact_fs().await?;
+        let build_report_opts = build_report_opts(&mut ctx, &cell_resolver, build_opts).await?;
+
+        generate_build_report(
+            build_report_opts,
+            &artifact_fs,
+            &cell_resolver,
+            server_ctx.project_root(),
+            cwd,
+            server_ctx.events().trace_id(),
+            &BTreeMap::default(),
+            &BTreeMap::default(),
+        )?
+    } else {
+        None
+    };
+
     Ok(TestResponse {
         exit_code,
         errors: test_outcome.errors,
@@ -430,6 +452,7 @@ async fn test(
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
         executor_info_messages: test_outcome.executor_report.info_messages,
+        serialized_build_report,
     })
 }
 

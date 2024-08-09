@@ -304,6 +304,10 @@ impl StreamingCommand for TestCommand {
             None => {}
         }
 
+        if let Some(build_report) = response.serialized_build_report {
+            buck2_client_ctx::println!("{}", build_report)?;
+        }
+
         let exit_result = if !build_errors.is_empty() {
             // If we had build errors, those take precedence and we return their exit code.
             ExitResult::from_errors(build_errors.iter().copied())
