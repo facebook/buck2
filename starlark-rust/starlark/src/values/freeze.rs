@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::cell::UnsafeCell;
 use std::marker;
@@ -158,6 +159,17 @@ where
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(UnsafeCell::new(self.into_inner().freeze(freezer)?))
+    }
+}
+
+impl<T> Freeze for OnceCell<T>
+where
+    T: Freeze,
+{
+    type Frozen = Option<T::Frozen>;
+
+    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        self.into_inner().freeze(freezer)
     }
 }
 
