@@ -1444,7 +1444,12 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     &reason.cause,
                     &IncompatiblePlatformReasonCause::Dependency(_)
                 ) {
-                    soft_error!("dep_only_incompatible", reason.to_err().into(), quiet: true)?;
+                    soft_error!(
+                        "dep_only_incompatible", reason.to_err().into(),
+                        quiet: true,
+                        // Log at least one sample per unique package.
+                        low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg()))
+                    )?;
                 }
             }
         }
