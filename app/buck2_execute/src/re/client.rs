@@ -28,7 +28,6 @@ use fbinit::FacebookInit;
 use futures::stream::BoxStream;
 use futures::FutureExt;
 use futures::StreamExt;
-use futures::TryFutureExt;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
@@ -183,14 +182,6 @@ impl RemoteExecutionClient {
         .await
     }
 
-    fn decorate_error(&self, op: &str, source: anyhow::Error) -> anyhow::Error {
-        source.context(format!(
-            "Remote Execution Error on {} ({})",
-            op,
-            self.get_session_id()
-        ))
-    }
-
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
@@ -215,20 +206,16 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<UploadStats> {
         self.data
             .uploads
-            .op(self
-                .data
-                .client
-                .upload(
-                    fs,
-                    materializer,
-                    blobs,
-                    dir_path,
-                    input_dir,
-                    use_case,
-                    identity,
-                    digest_config,
-                )
-                .map_err(|e| self.decorate_error("upload", e)))
+            .op(self.data.client.upload(
+                fs,
+                materializer,
+                blobs,
+                dir_path,
+                input_dir,
+                use_case,
+                identity,
+                digest_config,
+            ))
             .await
     }
 
@@ -241,16 +228,12 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<()> {
         self.data
             .uploads
-            .op(self
-                .data
-                .client
-                .upload_files_and_directories(
-                    files_with_digest,
-                    directories,
-                    inlined_blobs_with_digest,
-                    use_case,
-                )
-                .map_err(|e| self.decorate_error("upload_file_and_directories", e)))
+            .op(self.data.client.upload_files_and_directories(
+                files_with_digest,
+                directories,
+                inlined_blobs_with_digest,
+                use_case,
+            ))
             .await
     }
 
@@ -270,23 +253,19 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
-            .op(self
-                .data
-                .client
-                .execute(
-                    action_digest,
-                    platform,
-                    dependencies,
-                    use_case,
-                    identity,
-                    manager,
-                    skip_cache_read,
-                    skip_cache_write,
-                    re_max_queue_time,
-                    re_resource_units,
-                    knobs,
-                )
-                .map_err(|e| self.decorate_error("execute", e)))
+            .op(self.data.client.execute(
+                action_digest,
+                platform,
+                dependencies,
+                use_case,
+                identity,
+                manager,
+                skip_cache_read,
+                skip_cache_write,
+                re_max_queue_time,
+                re_resource_units,
+                knobs,
+            ))
             .await
     }
 
@@ -312,8 +291,7 @@ impl RemoteExecutionClient {
             .op(self
                 .data
                 .client
-                .download_typed_blobs(identity, digests, use_case)
-                .map_err(|e| self.decorate_error("download_typed_blob", e)))
+                .download_typed_blobs(identity, digests, use_case))
             .await
     }
 
@@ -324,11 +302,7 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<Vec<u8>> {
         self.data
             .downloads
-            .op(self
-                .data
-                .client
-                .download_blob(digest, use_case)
-                .map_err(|e| self.decorate_error("download_blob", e)))
+            .op(self.data.client.download_blob(digest, use_case))
             .await
     }
 
@@ -339,11 +313,7 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<TDigest> {
         self.data
             .uploads
-            .op(self
-                .data
-                .client
-                .upload_blob(blob, use_case)
-                .map_err(|e| self.decorate_error("upload_blob", e)))
+            .op(self.data.client.upload_blob(blob, use_case))
             .await
     }
 
@@ -354,11 +324,7 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
         self.data
             .get_digest_expirations
-            .op(self
-                .data
-                .client
-                .get_digest_expirations(digests, use_case)
-                .map_err(|e| self.decorate_error("get_digest_expirations", e)))
+            .op(self.data.client.get_digest_expirations(digests, use_case))
             .await
     }
 
@@ -370,11 +336,7 @@ impl RemoteExecutionClient {
     ) -> anyhow::Result<()> {
         self.data
             .extend_digest_ttl
-            .op(self
-                .data
-                .client
-                .extend_digest_ttl(digests, ttl, use_case)
-                .map_err(|e| self.decorate_error("extend_digest_ttl", e)))
+            .op(self.data.client.extend_digest_ttl(digests, ttl, use_case))
             .await
     }
 
@@ -390,13 +352,12 @@ impl RemoteExecutionClient {
             .op(self
                 .data
                 .client
-                .write_action_result(digest, result, use_case, platform)
-                .map_err(|e| self.decorate_error("write_action_result", e)))
+                .write_action_result(digest, result, use_case, platform))
             .await
     }
 
     pub fn get_session_id(&self) -> &str {
-        self.data.client.client().get_session_id()
+        self.data.client.get_session_id()
     }
 
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
