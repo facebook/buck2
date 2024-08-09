@@ -44,9 +44,7 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
-use futures::TryStreamExt;
 use indexmap::IndexSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -305,21 +303,23 @@ async fn materialize_inputs(
         return Ok(HashMap::new());
     }
 
-    let materializer = ctx.per_transaction_data().get_materializer();
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    materialized_artifacts
-        .iter()
-        .map(|artifact| async {
-            let artifact = artifact.dupe();
-            let path = artifact.resolve_path(&artifact_fs)?;
-            materializer.ensure_materialized(vec![path.clone()]).await?;
+    let mut paths = Vec::with_capacity(materialized_artifacts.len());
+    let mut result = HashMap::with_capacity(materialized_artifacts.len());
 
-            anyhow::Ok((artifact, path))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect::<HashMap<_, _>>()
-        .await
+    for artifact in materialized_artifacts {
+        let path = artifact.resolve_path(&artifact_fs)?;
+        paths.push(path.clone());
+        result.insert(artifact.dupe(), path);
+    }
+
+    ctx.per_transaction_data()
+        .get_materializer()
+        .ensure_materialized(paths)
+        .await?;
+
+    Ok(result)
 }
 
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
