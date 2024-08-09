@@ -47,7 +47,6 @@ use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
-use remote_execution::REClientError;
 use remote_execution::RemoteExecutionMetadata;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
@@ -62,6 +61,7 @@ use remote_execution::WriteActionResultRequest;
 use remote_execution::WriteActionResultResponse;
 use tokio::sync::Semaphore;
 
+use super::error::with_error_handler;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
@@ -73,6 +73,7 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
+use crate::re::error::RemoteExecutionError;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
@@ -451,6 +452,7 @@ impl RemoteExecutionClientImpl {
         buck_out_path: &AbsNormPath,
         is_paranoid_mode: bool,
     ) -> anyhow::Result<Self> {
+        let op_name = "REClientBuilder";
         tracing::info!("Creating a new RE client");
 
         let res: anyhow::Result<Self> = try {
@@ -682,18 +684,28 @@ impl RemoteExecutionClientImpl {
                 let logger = slog::Logger::root(slog::Discard, slog::o!());
                 // TODO T179215751: If RE client fails we don't get the RE session ID and we can't find the RE logs.
                 // Better to generate the RE session ID ourselves and pass it to the RE client.
-                REClientBuilder::new(fb)
-                    .with_config(re_client_config)
-                    .with_logger(logger)
-                    .build_and_connect()
-                    .await?
+                with_error_handler(
+                    op_name,
+                    "<none>",
+                    REClientBuilder::new(fb)
+                        .with_config(re_client_config)
+                        .with_logger(logger)
+                        .build_and_connect()
+                        .await,
+                )
+                .await?
             };
 
             #[cfg(not(fbcode_build))]
             let client = {
                 let _unused = (fb, maybe_logs_dir_path, buck_out_path, is_paranoid_mode);
 
-                REClientBuilder::build_and_connect(&static_metadata.0).await?
+                with_error_handler(
+                    op_name,
+                    "<none>",
+                    REClientBuilder::build_and_connect(&static_metadata.0).await,
+                )
+                .await?
             };
 
             Self {
@@ -705,7 +717,7 @@ impl RemoteExecutionClientImpl {
             }
         };
 
-        res.context("RE: creating client")
+        res
     }
 
     fn client(&self) -> &REClient {
@@ -714,26 +726,34 @@ impl RemoteExecutionClientImpl {
             .expect("REClient is always present unless dropped")
     }
 
+    fn get_session_id(&self) -> &str {
+        self.client().get_session_id()
+    }
+
     async fn action_cache(
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Option<ActionResultResponse>> {
-        let res = self
-            .client()
-            .get_action_cache_client()
-            .get_action_result(
-                use_case.metadata(None),
-                ActionResultRequest {
-                    digest: action_digest.to_re(),
-                    ..Default::default()
-                },
-            )
-            .await;
+        let res = with_error_handler(
+            "action_cache",
+            self.get_session_id(),
+            self.client()
+                .get_action_cache_client()
+                .get_action_result(
+                    use_case.metadata(None),
+                    ActionResultRequest {
+                        digest: action_digest.to_re(),
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await;
 
         match res {
             Ok(r) => Ok(Some(r)),
-            Err(e) => match e.downcast_ref::<REClientError>() {
+            Err(e) => match e.downcast_ref::<RemoteExecutionError>() {
                 Some(e) if e.code == TCode::NOT_FOUND => Ok(None),
                 _ => Err(e),
             },
@@ -753,16 +773,22 @@ impl RemoteExecutionClientImpl {
     ) -> anyhow::Result<UploadStats> {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
-        Uploader::upload(
-            fs,
-            self.client().get_cas_client(),
-            materializer,
-            dir_path,
-            input_dir,
-            blobs,
-            use_case,
-            identity,
-            digest_config,
+
+        with_error_handler(
+            "upload",
+            self.get_session_id(),
+            Uploader::upload(
+                fs,
+                self.client().get_cas_client(),
+                materializer,
+                dir_path,
+                input_dir,
+                blobs,
+                use_case,
+                identity,
+                digest_config,
+            )
+            .await,
         )
         .await
     }
@@ -774,19 +800,24 @@ impl RemoteExecutionClientImpl {
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        self.client()
-            .get_cas_client()
-            .upload(
-                use_case.metadata(None),
-                UploadRequest {
-                    files_with_digest: Some(files_with_digest),
-                    inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
-                    directories: Some(directories),
-                    upload_only_missing: true,
-                    ..Default::default()
-                },
-            )
-            .await?;
+        with_error_handler(
+            "upload_files_and_directories",
+            self.get_session_id(),
+            self.client()
+                .get_cas_client()
+                .upload(
+                    use_case.metadata(None),
+                    UploadRequest {
+                        files_with_digest: Some(files_with_digest),
+                        inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
+                        directories: Some(directories),
+                        upload_only_missing: true,
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await?;
         Ok(())
     }
 
@@ -1017,17 +1048,22 @@ impl RemoteExecutionClientImpl {
             },
             ..Default::default()
         };
-        self.execute_impl(
-            metadata,
-            request,
-            &action_digest,
-            manager,
-            re_max_queue_time,
-            platform,
-            knobs,
+        let re_action = format!("Execute with digest {}", &action_digest);
+        with_error_handler(
+            re_action.as_str(),
+            self.get_session_id(),
+            self.execute_impl(
+                metadata,
+                request,
+                &action_digest,
+                manager,
+                re_max_queue_time,
+                platform,
+                knobs,
+            )
+            .await,
         )
         .await
-        .with_context(|| format!("RE: execution with digest {}", &action_digest))
     }
 
     /// Fetches a list of digests from the CAS and casts them to Tree objects.
@@ -1042,17 +1078,21 @@ impl RemoteExecutionClientImpl {
             return Ok(Vec::new());
         }
         let expected_blobs = digests.len();
-        let response = self
-            .client()
-            .get_cas_client()
-            .download(
-                use_case.metadata(identity),
-                DownloadRequest {
-                    inlined_digests: Some(digests),
-                    ..Default::default()
-                },
-            )
-            .await?;
+        let response = with_error_handler(
+            "download_typed_blobs",
+            self.get_session_id(),
+            self.client()
+                .get_cas_client()
+                .download(
+                    use_case.metadata(identity),
+                    DownloadRequest {
+                        inlined_digests: Some(digests),
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await?;
 
         let mut blobs: Vec<T> = Vec::with_capacity(expected_blobs);
         if let Some(ds) = response.inlined_blobs {
@@ -1078,20 +1118,24 @@ impl RemoteExecutionClientImpl {
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
-        let response = self
-            .client()
-            .get_cas_client()
-            .download(
-                use_case.metadata(None),
-                DownloadRequest {
-                    inlined_digests: Some(vec![digest.clone()]),
-                    ..Default::default()
-                },
-            )
-            // boxed() to segment the future
-            .boxed()
-            .await
-            .with_context(|| format!("Download request failed for digest {}", digest))?;
+        let re_action = format!("download_blob for digest {}", digest);
+        let response = with_error_handler(
+            re_action.as_str(),
+            self.get_session_id(),
+            self.client()
+                .get_cas_client()
+                .download(
+                    use_case.metadata(None),
+                    DownloadRequest {
+                        inlined_digests: Some(vec![digest.clone()]),
+                        ..Default::default()
+                    },
+                )
+                // boxed() to segment the future
+                .boxed()
+                .await,
+        )
+        .await?;
 
         response
             .inlined_blobs
@@ -1107,9 +1151,14 @@ impl RemoteExecutionClientImpl {
         blob: Vec<u8>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
-        self.client()
-            .upload_blob(blob, use_case.metadata(None))
-            .await
+        with_error_handler(
+            "upload_blob",
+            self.get_session_id(),
+            self.client()
+                .upload_blob(blob, use_case.metadata(None))
+                .await,
+        )
+        .await
     }
 
     async fn materialize_files(
@@ -1134,16 +1183,21 @@ impl RemoteExecutionClientImpl {
                 .await
                 .context("Failed to acquire download_files_semapore")?;
 
-            self.client()
-                .get_cas_client()
-                .download(
-                    use_case.metadata(None),
-                    DownloadRequest {
-                        file_digests: Some(chunk),
-                        ..Default::default()
-                    },
-                )
-                .await?;
+            with_error_handler(
+                "materialize_files",
+                self.get_session_id(),
+                self.client()
+                    .get_cas_client()
+                    .download(
+                        use_case.metadata(None),
+                        DownloadRequest {
+                            file_digests: Some(chunk),
+                            ..Default::default()
+                        },
+                    )
+                    .await,
+            )
+            .await?;
 
             anyhow::Ok(())
         });
@@ -1160,18 +1214,22 @@ impl RemoteExecutionClientImpl {
     ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
         let now = Utc::now();
 
-        let ttls = self
-            .client()
-            .get_cas_client()
-            .get_digests_ttl(
-                use_case.metadata(None),
-                GetDigestsTtlRequest {
-                    digests,
-                    ..Default::default()
-                },
-            )
-            .await?
-            .digests_with_ttl;
+        let ttls = with_error_handler(
+            "get_digest_expirations",
+            self.get_session_id(),
+            self.client()
+                .get_cas_client()
+                .get_digests_ttl(
+                    use_case.metadata(None),
+                    GetDigestsTtlRequest {
+                        digests,
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await?
+        .digests_with_ttl;
 
         Ok(ttls
             .into_iter()
@@ -1187,18 +1245,22 @@ impl RemoteExecutionClientImpl {
     ) -> anyhow::Result<()> {
         let use_case = &use_case;
         // TODO(arr): use batch API from RE when it becomes available
-        let _unused = self
-            .client()
-            .get_cas_client()
-            .extend_digest_ttl(
-                use_case.metadata(None),
-                ExtendDigestsTtlRequest {
-                    digests,
-                    ttl: ttl.as_secs() as i64,
-                    ..Default::default()
-                },
-            )
-            .await?;
+        with_error_handler(
+            "extend_digest_ttl",
+            self.get_session_id(),
+            self.client()
+                .get_cas_client()
+                .extend_digest_ttl(
+                    use_case.metadata(None),
+                    ExtendDigestsTtlRequest {
+                        digests,
+                        ttl: ttl.as_secs() as i64,
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await?;
         Ok(())
     }
 
@@ -1209,20 +1271,25 @@ impl RemoteExecutionClientImpl {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        self.client()
-            .get_action_cache_client()
-            .write_action_result(
-                RemoteExecutionMetadata {
-                    platform: Some(re_platform(platform)),
-                    ..use_case.metadata(None)
-                },
-                WriteActionResultRequest {
-                    action_digest: digest.to_re(),
-                    action_result: result,
-                    ..Default::default()
-                },
-            )
-            .await
+        with_error_handler(
+            "write_action_result",
+            self.get_session_id(),
+            self.client()
+                .get_action_cache_client()
+                .write_action_result(
+                    RemoteExecutionMetadata {
+                        platform: Some(re_platform(platform)),
+                        ..use_case.metadata(None)
+                    },
+                    WriteActionResultRequest {
+                        action_digest: digest.to_re(),
+                        action_result: result,
+                        ..Default::default()
+                    },
+                )
+                .await,
+        )
+        .await
     }
 }
 

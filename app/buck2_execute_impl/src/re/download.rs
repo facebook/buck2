@@ -44,6 +44,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
@@ -56,7 +57,6 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
-use remote_execution::REClientError;
 
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
@@ -213,7 +213,7 @@ impl CasDownloader<'_> {
                     Err(e) => {
                         let error = e.context(format!("action_digest={}", details.action_digest));
                         let is_storage_resource_exhausted = error
-                            .downcast_ref::<REClientError>()
+                            .downcast_ref::<RemoteExecutionError>()
                             .map_or(false, |re_client_error| {
                                 is_storage_resource_exhausted(re_client_error)
                             });

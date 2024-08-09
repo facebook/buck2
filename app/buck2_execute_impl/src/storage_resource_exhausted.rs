@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use remote_execution::REClientError;
+use buck2_execute::re::error::RemoteExecutionError;
 use remote_execution::TCode;
 use remote_execution::TStatus;
 
@@ -17,7 +17,7 @@ pub(crate) trait REErrorWithCodeAndMessage {
     fn code(&self) -> &TCode;
 }
 
-impl REErrorWithCodeAndMessage for REClientError {
+impl REErrorWithCodeAndMessage for RemoteExecutionError {
     fn message(&self) -> &str {
         &self.message
     }

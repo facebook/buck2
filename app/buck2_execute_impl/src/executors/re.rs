@@ -39,6 +39,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::client::ExecuteResponseOrCancelled;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_futures::cancellation::CancellationContext;
@@ -47,7 +48,6 @@ use futures::FutureExt;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::ExecuteResponse;
-use remote_execution::REClientError;
 use remote_execution::TCode;
 use tracing::info;
 
@@ -121,7 +121,7 @@ impl ReExecutor {
             Ok(()) => {}
             Err(e) => {
                 let is_storage_resource_exhausted = e
-                    .downcast_ref::<REClientError>()
+                    .downcast_ref::<RemoteExecutionError>()
                     .map_or(false, |re_client_error| {
                         is_storage_resource_exhausted(re_client_error)
                     });

@@ -14,10 +14,10 @@ use anyhow::Context;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dashmap::DashMap;
 use dupe::Dupe;
-use remote_execution::REClientError;
 use remote_execution::TCode;
 
 use crate::executors::empty_action_result::empty_action_result;
@@ -78,7 +78,7 @@ impl ActionCacheUploadPermissionChecker {
             .await;
         match result {
             Ok(_) => Ok(Ok(())),
-            Err(e) => match e.downcast_ref::<REClientError>() {
+            Err(e) => match e.downcast_ref::<RemoteExecutionError>() {
                 Some(e) if e.code == TCode::PERMISSION_DENIED => Ok(Err(e.message.clone())),
                 _ => Err(e),
             },

@@ -40,6 +40,7 @@ use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
@@ -54,7 +55,6 @@ use gazebo::prelude::VecExt;
 use once_cell::sync::Lazy;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
-use remote_execution::REClientError;
 use remote_execution::TCode;
 use remote_execution::TDigest;
 use tracing::instrument;
@@ -225,7 +225,7 @@ impl DefaultIoHandler {
                 re_client
                     .materialize_files(files, info.re_use_case)
                     .await
-                    .map_err(|e| match e.downcast_ref::<REClientError>() {
+                    .map_err(|e| match e.downcast_ref::<RemoteExecutionError>() {
                         Some(e) if e.code == TCode::NOT_FOUND => MaterializeEntryError::NotFound {
                             info: info.dupe(),
                             debug: Arc::from(e.message.as_str()),

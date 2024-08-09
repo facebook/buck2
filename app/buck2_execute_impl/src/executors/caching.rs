@@ -33,6 +33,7 @@ use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use derive_more::Display;
 use dupe::Dupe;
@@ -42,7 +43,6 @@ use gazebo::prelude::VecExt;
 use prost::Message;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
-use remote_execution::REClientError;
 use remote_execution::TActionResult2;
 use remote_execution::TAny;
 use remote_execution::TCode;
@@ -500,9 +500,10 @@ impl CacheUploadOutcome {
                     Some(TCode::PERMISSION_DENIED.to_string())
                 }
             },
-            CacheUploadOutcome::Failed(e) => e
-                .downcast_ref::<REClientError>()
-                .map(|e| e.code.to_string()),
+            CacheUploadOutcome::Failed(e) => match e.downcast_ref::<RemoteExecutionError>() {
+                Some(e) => Some(e.code.to_string()),
+                _ => Some("OTHER_ERRORS".to_owned()),
+            },
         }
     }
 

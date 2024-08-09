@@ -29,11 +29,12 @@ impl Display for ErrorLocation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Dupe, Default)]
+#[derive(Copy, Debug, PartialEq, Eq, Clone, Dupe, Default)]
 pub struct TCode(pub i32);
 
 impl TCode {
     pub const OK: Self = TCode(0i32);
+    pub const UNKNOWN: Self = TCode(2i32);
     pub const INVALID_ARGUMENT: Self = TCode(3i32);
     pub const NOT_FOUND: Self = TCode(5i32);
     pub const PERMISSION_DENIED: Self = TCode(7i32);
