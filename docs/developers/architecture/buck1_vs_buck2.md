@@ -122,9 +122,9 @@ that often works fine in Buck1 but can work catastrophically bad in Buck2 is a
 codegen step, driven by a Python binary.
 
 In certain configurations/modes, Python binaries are non-deterministic, because
-they are
-(XARs)[https://engineering.fb.com/2018/07/13/data-infrastructure/xars-a-more-efficient-open-source-system-for-self-contained-executables/]
-(eXecutable ARchives) and that is always non-deterministic, which is bad!
+they are XARs
+([https://engineering.fb.com/2018/07/13/data-infrastructure/xars-a-more-efficient-open-source-system-for-self-contained-executables/](eXecutable
+ARchives)) and that is always non-deterministic, which is bad!
 
 - In Buck1, that doesn’t really matter, because you can get a cache hit on the
   codegen output without ever visiting the XAR (as long as the input files
