@@ -23,24 +23,18 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 
 use crate::analysis::registry::AnalysisValueStorage;
 use crate::analysis::registry::FrozenAnalysisValueStorage;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
 #[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
 pub struct AnalysisExtraValue<'v> {
-    /// Populated after running rule function to get the providers frozen.
-    pub provider_collection: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
-    pub(crate) analysis_value_storage:
+    pub analysis_value_storage:
         OnceCell<ValueTyped<'v, StarlarkAnyComplex<AnalysisValueStorage<'v>>>>,
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenAnalysisExtraValue {
-    pub provider_collection: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
     pub(crate) analysis_value_storage:
         Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
 }
@@ -49,15 +43,8 @@ impl<'v> Freeze for AnalysisExtraValue<'v> {
     type Frozen = FrozenAnalysisExtraValue;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let AnalysisExtraValue {
-            provider_collection,
             analysis_value_storage,
         } = self;
-        let provider_collection =
-            provider_collection
-                .into_inner()
-                .try_map(|provider_collection| {
-                    FrozenValueTyped::new_err(provider_collection.to_value().freeze(freezer)?)
-                })?;
         let analysis_value_storage =
             analysis_value_storage
                 .into_inner()
@@ -65,7 +52,6 @@ impl<'v> Freeze for AnalysisExtraValue<'v> {
                     FrozenValueTyped::new_err(analysis_value_storage.to_value().freeze(freezer)?)
                 })?;
         Ok(FrozenAnalysisExtraValue {
-            provider_collection,
             analysis_value_storage,
         })
     }

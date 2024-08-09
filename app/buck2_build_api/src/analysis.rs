@@ -30,11 +30,10 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct AnalysisResult {
-    /// The actual provider collection, validated to be the correct type (`FrozenProviderCollection`)
-    pub provider_collection: FrozenProviderCollectionValue,
     analysis_values: Arc<RecordedAnalysisValues>,
     /// Profiling data after running analysis, for this analysis only, without dependencies.
     /// `None` when profiling is disabled.
@@ -48,7 +47,6 @@ pub struct AnalysisResult {
 impl AnalysisResult {
     /// Create a new AnalysisResult
     pub fn new(
-        provider_collection: FrozenProviderCollectionValue,
         analysis_values: RecordedAnalysisValues,
         profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
         promise_artifact_map: HashMap<PromiseArtifactId, Artifact>,
@@ -56,7 +54,6 @@ impl AnalysisResult {
         num_declared_artifacts: u64,
     ) -> Self {
         Self {
-            provider_collection,
             analysis_values: Arc::new(analysis_values),
             profile_data,
             promise_artifact_map: Arc::new(promise_artifact_map),
@@ -65,8 +62,8 @@ impl AnalysisResult {
         }
     }
 
-    pub fn providers(&self) -> &FrozenProviderCollectionValue {
-        &self.provider_collection
+    pub fn providers(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {
+        self.analysis_values.provider_collection()
     }
 
     pub fn promise_artifact_map(&self) -> &Arc<HashMap<PromiseArtifactId, Artifact>> {
@@ -78,7 +75,7 @@ impl AnalysisResult {
         &self,
         label: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<FrozenProviderCollectionValue> {
-        self.provider_collection.lookup_inner(label)
+        Ok(self.providers()?.lookup_inner(label)?.to_owned())
     }
 
     pub fn analysis_values(&self) -> &RecordedAnalysisValues {

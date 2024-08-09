@@ -11,8 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_build_api::analysis::extra_v::AnalysisExtraValue;
-use buck2_build_api::analysis::extra_v::FrozenAnalysisExtraValue;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -118,8 +116,10 @@ pub fn get_dep<'v>(
         Some(x) => {
             let x = x.lookup_inner(target)?;
             // IMPORTANT: Anything given back to the user must be kept alive
-            module.frozen_heap().add_reference(x.value().owner());
-            Ok(x.dupe())
+            // TODO(nga): comment above is misleading: we return value with a heap,
+            //   adding a reference to the heap should not be necessary.
+            module.frozen_heap().add_reference(x.owner());
+            Ok(x.to_owned())
         }
     }
 }
@@ -211,7 +211,7 @@ pub fn get_deps_from_analysis_results(
 ) -> anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
     results
         .into_iter()
-        .map(|(label, result)| Ok((label, result.providers().dupe())))
+        .map(|(label, result)| Ok((label, result.providers()?.to_owned())))
         .collect::<anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
@@ -317,22 +317,24 @@ async fn run_analysis_with_env_underlying(
         )
         .await?;
 
+    // Pull the ctx object back out, and steal ctx.action's state back
+    let analysis_registry = ctx.take_state();
+
     // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     {
-        let extra_v = AnalysisExtraValue::get_or_init(&env)?;
-        if extra_v.provider_collection.get().is_some() {
-            return Err(internal_error!("provider_collection already set"));
-        }
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
             .internal_error("Just allocated provider collection")?;
-        extra_v
-            .provider_collection
-            .get_or_init(|| provider_collection);
+        if analysis_registry
+            .analysis_value_storage
+            .result_value
+            .set(provider_collection)
+            .is_err()
+        {
+            return Err(internal_error!("result_value already set"));
+        }
     }
 
-    // Pull the ctx object back out, and steal ctx.action's state back
-    let analysis_registry = ctx.take_state();
     drop(eval);
 
     let declared_actions = analysis_registry.num_declared_actions();
@@ -345,17 +347,7 @@ async fn run_analysis_with_env_underlying(
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
 
-    let extra_v = FrozenAnalysisExtraValue::get(&frozen_env)?;
-    let provider_collection = extra_v.try_map(|extra_v| {
-        extra_v
-            .value
-            .provider_collection
-            .internal_error("provider_collection must be set")
-    })?;
-    let provider_collection = FrozenProviderCollectionValue::from_value(provider_collection);
-
     Ok(AnalysisResult::new(
-        provider_collection,
         recorded_values,
         profile_data,
         HashMap::new(),

@@ -87,21 +87,15 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
                 for (promise, xs) in shape {
                     match xs {
                         Either::Left(i) => {
-                            let val = values[i]
-                                .provider_collection
-                                .value()
-                                .owned_value(eval.frozen_heap());
-                            promise.resolve(val, eval)?
+                            let val = values[i].providers()?.add_heap_ref(eval.frozen_heap());
+                            promise.resolve(val.to_value(), eval)?
                         }
                         Either::Right(is) => {
                             let xs: Vec<_> = is
                                 .map(|i| {
-                                    values[i]
-                                        .provider_collection
-                                        .value()
-                                        .owned_value(eval.frozen_heap())
+                                    Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap()))
                                 })
-                                .collect();
+                                .collect::<anyhow::Result<_>>()?;
                             let list = eval.heap().alloc(AllocList(xs));
                             promise.resolve(list, eval)?
                         }

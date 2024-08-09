@@ -181,7 +181,8 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
     assert_eq!(
         analysis
             .providers()
-            .provider_collection()
+            .unwrap()
+            .value()
             .provider_names()
             .iter()
             .sorted()
@@ -192,7 +193,8 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
     assert_eq!(
         analysis
             .providers()
-            .provider_collection()
+            .unwrap()
+            .value()
             .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
             .is_some(),
         true
@@ -200,7 +202,8 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
     assert_eq!(
         analysis
             .providers()
-            .provider_collection()
+            .unwrap()
+            .value()
             .get_provider_raw(DefaultInfoCallable::provider_id())
             .is_some(),
         true

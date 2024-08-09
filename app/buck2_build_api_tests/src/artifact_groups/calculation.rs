@@ -21,8 +21,6 @@ use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
@@ -49,7 +47,6 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::btreemap;
-use starlark::values::FrozenHeap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 
@@ -78,14 +75,9 @@ fn mock_analysis_for_tsets(
     }
 
     for (target, tsets) in by_target.into_iter() {
-        let heap = FrozenHeap::new();
-        let providers = FrozenProviderCollection::testing_new_default(&heap);
-        let providers =
-            unsafe { OwnedFrozenValue::new(heap.into_ref(), providers.to_frozen_value()) };
         dice_builder = dice_builder.mock_and_return(
             AnalysisKey(target.dupe()),
             buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
-                FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     tsets,

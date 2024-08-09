@@ -10,6 +10,7 @@
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
+use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -46,6 +47,7 @@ use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
+use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -454,6 +456,13 @@ pub struct FrozenProviderCollectionValue {
     value: OwnedFrozenValueTyped<FrozenProviderCollection>,
 }
 
+#[derive(Clone, Copy, Dupe)]
+pub struct FrozenProviderCollectionValueRef<'f> {
+    /// Heap that owns the value.
+    heap: &'f FrozenHeapRef,
+    value: FrozenValueTyped<'f, FrozenProviderCollection>,
+}
+
 impl Serialize for FrozenProviderCollectionValue {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -482,45 +491,103 @@ impl FrozenProviderCollectionValue {
         self.value.as_ref()
     }
 
-    pub fn lookup_inner(&self, label: &ConfiguredProvidersLabel) -> anyhow::Result<Self> {
+    pub fn as_ref(&self) -> FrozenProviderCollectionValueRef<'_> {
+        FrozenProviderCollectionValueRef {
+            heap: self.value.owner(),
+            value: unsafe { self.value.value_typed() },
+        }
+    }
+
+    pub fn lookup_inner<'f>(
+        &'f self,
+        label: &ConfiguredProvidersLabel,
+    ) -> anyhow::Result<FrozenProviderCollectionValueRef<'f>> {
+        self.as_ref().lookup_inner(label)
+    }
+}
+
+impl<'f> FrozenProviderCollectionValueRef<'f> {
+    pub unsafe fn new(
+        heap: &'f FrozenHeapRef,
+        value: FrozenValueTyped<'f, FrozenProviderCollection>,
+    ) -> Self {
+        FrozenProviderCollectionValueRef { heap, value }
+    }
+
+    pub fn value(self) -> FrozenValueTyped<'f, FrozenProviderCollection> {
+        self.value
+    }
+
+    pub fn owner(self) -> &'f FrozenHeapRef {
+        self.heap
+    }
+
+    pub fn to_owned(self) -> FrozenProviderCollectionValue {
+        unsafe {
+            // Cast lifetime.
+            let value = mem::transmute::<
+                FrozenValueTyped<FrozenProviderCollection>,
+                FrozenValueTyped<FrozenProviderCollection>,
+            >(self.value);
+            FrozenProviderCollectionValue {
+                value: OwnedFrozenValueTyped::new(self.heap.dupe(), value),
+            }
+        }
+    }
+
+    pub fn add_heap_ref<'v>(
+        self,
+        heap: &'v FrozenHeap,
+    ) -> FrozenValueTyped<'v, FrozenProviderCollection> {
+        heap.add_reference(self.heap);
+        unsafe {
+            mem::transmute::<
+                FrozenValueTyped<'_, FrozenProviderCollection>,
+                FrozenValueTyped<'_, FrozenProviderCollection>,
+            >(self.value)
+        }
+    }
+
+    pub fn lookup_inner(
+        self,
+        label: &ConfiguredProvidersLabel,
+    ) -> anyhow::Result<FrozenProviderCollectionValueRef<'f>> {
         match label.name() {
-            ProvidersName::Default => anyhow::Ok(self.dupe()),
+            ProvidersName::Default => anyhow::Ok(self),
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(provider_names) => {
-                    Ok(FrozenProviderCollectionValue::from_value(
-                        self.value().try_map(|v| {
-                            let mut collection_value = v;
+                    let mut collection_value = self.value;
 
-                            for provider_name in &**provider_names {
-                                let maybe_di = collection_value
-                                    .default_info()?
-                                    .get_sub_target_providers(provider_name.as_str());
+                    for provider_name in &**provider_names {
+                        let maybe_di = collection_value
+                            .default_info()?
+                            .get_sub_target_providers(provider_name.as_str());
 
-                                match maybe_di {
-                                    // The inner values should all be frozen if in a frozen provider collection
-                                    Some(inner) => {
-                                        collection_value = inner;
-                                    }
-                                    None => {
-                                        return Err(anyhow::anyhow!(
-                                            ProviderCollectionError::RequestedInvalidSubTarget(
-                                                provider_name.clone(),
-                                                label.dupe(),
-                                                collection_value
-                                                    .default_info()?
-                                                    .sub_targets()
-                                                    .keys()
-                                                    .map(|s| (*s).to_owned())
-                                                    .collect()
-                                            )
-                                        ));
-                                    }
-                                }
+                        match maybe_di {
+                            // The inner values should all be frozen if in a frozen provider collection
+                            Some(inner) => {
+                                collection_value = inner;
                             }
-
-                            Ok(collection_value)
-                        })?,
-                    ))
+                            None => {
+                                return Err(anyhow::anyhow!(
+                                    ProviderCollectionError::RequestedInvalidSubTarget(
+                                        provider_name.clone(),
+                                        label.dupe(),
+                                        collection_value
+                                            .default_info()?
+                                            .sub_targets()
+                                            .keys()
+                                            .map(|s| (*s).to_owned())
+                                            .collect()
+                                    )
+                                ));
+                            }
+                        }
+                    }
+                    Ok(FrozenProviderCollectionValueRef {
+                        heap: self.heap,
+                        value: collection_value,
+                    })
                 }
                 NonDefaultProvidersName::UnrecognizedFlavor(flavor) => {
                     Err(ProviderCollectionError::UnknownFlavors {

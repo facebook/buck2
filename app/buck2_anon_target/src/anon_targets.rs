@@ -33,7 +33,6 @@ use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -48,6 +47,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -82,6 +82,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
@@ -381,7 +382,6 @@ impl AnonTargetKey {
                     .await?;
                 let res_typed = ProviderCollection::try_from_value(list_res)?;
                 let res = env.heap().alloc(res_typed);
-                env.set("", res);
 
                 let fulfilled_artifact_mappings = {
                     let promise_artifact_mappings =
@@ -390,19 +390,25 @@ impl AnonTargetKey {
                     self.get_fulfilled_promise_artifacts(promise_artifact_mappings, res, &mut eval)?
                 };
 
+                let res = ValueTypedComplex::new(res)
+                    .internal_error("Just allocated the provider collection")?;
+
                 // Pull the ctx object back out, and steal ctx.action's state back
                 let analysis_registry = ctx.take_state();
+                if analysis_registry
+                    .analysis_value_storage
+                    .result_value
+                    .set(res)
+                    .is_err()
+                {
+                    return Err(internal_error!("result_value already set"));
+                }
                 std::mem::drop(eval);
                 let num_declared_actions = analysis_registry.num_declared_actions();
                 let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-                let (frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
-
-                let res = frozen_env.get("").unwrap();
-                let provider_collection = FrozenProviderCollectionValue::try_from_value(res)
-                    .expect("just created this, this shouldn't happen");
+                let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
 
                 Ok(AnalysisResult::new(
-                    provider_collection,
                     recorded_values,
                     None,
                     fulfilled_artifact_mappings,

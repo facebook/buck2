@@ -37,8 +37,6 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::cells::SetCellResolver;
@@ -100,8 +98,6 @@ use dupe::Dupe;
 use indexmap::indexset;
 use maplit::btreemap;
 use sorted_vector_map::sorted_vector_map;
-use starlark::values::FrozenHeap;
-use starlark::values::OwnedFrozenValue;
 
 use crate::actions::testings::SimpleAction;
 
@@ -147,13 +143,9 @@ fn mock_analysis_for_action_resolution(
     let mut actions = RecordedActions::new();
     actions.insert(action_key.dupe(), registered_action_arc);
 
-    let heap = FrozenHeap::new();
-    let providers = FrozenProviderCollection::testing_new_default(&heap);
-    let providers = unsafe { OwnedFrozenValue::new(heap.into_ref(), providers.to_frozen_value()) };
     dice_builder = dice_builder.mock_and_return(
         AnalysisKey(configured_target_label.dupe()),
         buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
-            FrozenProviderCollectionValue::try_from_value(providers).unwrap(),
             RecordedAnalysisValues::testing_new(
                 action_key.holder_key().dupe(),
                 Vec::new(),

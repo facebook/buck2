@@ -168,7 +168,8 @@ async fn resolve_queries_impl(
                             ctx.get_analysis_result(label)
                                 .await?
                                 .require_compatible()?
-                                .provider_collection,
+                                .providers()?
+                                .to_owned(),
                         ))
                     }
 
@@ -286,7 +287,7 @@ async fn get_analysis_result_inner(
                         )
                         .await?;
 
-                        profile = Some(make_analysis_profile(&result));
+                        profile = Some(make_analysis_profile(&result)?);
                         declared_artifacts = Some(result.num_declared_artifacts);
                         declared_actions = Some(result.num_declared_actions);
 
@@ -337,13 +338,13 @@ async fn get_analysis_result_inner(
     res
 }
 
-fn make_analysis_profile(res: &AnalysisResult) -> buck2_data::AnalysisProfile {
-    let heap = res.providers().value().owner();
+fn make_analysis_profile(res: &AnalysisResult) -> anyhow::Result<buck2_data::AnalysisProfile> {
+    let heap = res.providers()?.owner();
 
-    buck2_data::AnalysisProfile {
+    Ok(buck2_data::AnalysisProfile {
         starlark_allocated_bytes: heap.allocated_bytes() as u64,
         starlark_available_bytes: heap.available_bytes() as u64,
-    }
+    })
 }
 
 fn all_deps(nodes: &[ConfiguredTargetNode]) -> LabelIndexedSet<ConfiguredTargetNode> {

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -51,6 +52,7 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
+use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
 use crate::actions::registry::ActionsRegistry;
@@ -74,6 +76,9 @@ use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
@@ -346,6 +351,7 @@ pub struct AnalysisValueStorage<'v> {
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
+    pub result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType)]
@@ -354,6 +360,7 @@ pub struct FrozenAnalysisValueStorage {
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
     lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
+    result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
@@ -363,6 +370,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             transitive_sets,
             lambda_params,
             self_key,
+            result_value,
         } = self;
         for (k, v) in action_data.iter_mut() {
             tracer.trace_static(k);
@@ -377,6 +385,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             v.trace(tracer);
         }
         tracer.trace_static(self_key);
+        result_value.trace(tracer);
     }
 }
 
@@ -389,6 +398,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             action_data,
             transitive_sets,
             lambda_params,
+            result_value,
         } = self;
 
         Ok(FrozenAnalysisValueStorage {
@@ -405,6 +415,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .into_iter_hashed()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
                 .collect::<anyhow::Result<_>>()?,
+            result_value: result_value.freeze(freezer)?,
         })
     }
 }
@@ -435,6 +446,7 @@ impl<'v> AnalysisValueStorage<'v> {
             action_data: SmallMap::new(),
             transitive_sets: SmallMap::new(),
             lambda_params: SmallMap::new(),
+            result_value: OnceCell::new(),
         }
     }
 
@@ -592,12 +604,18 @@ impl RecordedAnalysisValues {
             alloced_tsets.insert(key, tset);
         }
 
+        let providers = FrozenProviderCollection::testing_new_default(&heap);
+
         let value = heap.alloc_simple(StarlarkAnyComplex {
             value: FrozenAnalysisValueStorage {
                 self_key: self_key.dupe(),
                 action_data: SmallMap::new(),
                 transitive_sets: alloced_tsets,
                 lambda_params: SmallMap::new(),
+                result_value: Some(
+                    FrozenValueTyped::<FrozenProviderCollection>::new(heap.alloc(providers))
+                        .unwrap(),
+                ),
             },
         });
         Self {
@@ -670,5 +688,23 @@ impl RecordedAnalysisValues {
         self.analysis_storage
             .iter()
             .flat_map(|v| v.value.lambda_params.values())
+    }
+
+    pub fn provider_collection(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {
+        let analysis_storage = self
+            .analysis_storage
+            .as_ref()
+            .internal_error("missing analysis storage")?;
+        let value = analysis_storage
+            .as_ref()
+            .value
+            .result_value
+            .internal_error("missing provider collection")?;
+        unsafe {
+            Ok(FrozenProviderCollectionValueRef::new(
+                analysis_storage.owner(),
+                value,
+            ))
+        }
     }
 }
