@@ -33,7 +33,7 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
-use crate::dynamic::calculation::compute_dynamic_lambda;
+use crate::dynamic::calculation::dynamic_lambda_result;
 use crate::dynamic::calculation::DynamicLambdaResult;
 use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
@@ -87,7 +87,7 @@ pub async fn lookup_deferred_holder(
     Ok(match key {
         DeferredHolderKey::Base(key) => lookup_deferred_inner(key, dice).await?,
         DeferredHolderKey::DynamicLambda(lambda) => {
-            DeferredHolder::DynamicLambda(compute_dynamic_lambda(dice, lambda).await?)
+            DeferredHolder::DynamicLambda(dynamic_lambda_result(dice, lambda).await?)
         }
     })
 }

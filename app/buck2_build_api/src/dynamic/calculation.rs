@@ -30,7 +30,7 @@ impl DynamicLambdaResult {
 
 #[async_trait]
 pub trait DynamicLambdaCalculation: Sync + 'static {
-    async fn compute_dynamic_lambda(
+    async fn dynamic_lambda_result(
         &self,
         dice: &mut DiceComputations<'_>,
         key: &DynamicLambdaResultsKey,
@@ -40,12 +40,12 @@ pub trait DynamicLambdaCalculation: Sync + 'static {
 pub static DYNAMIC_LAMBDA_CALCULATION_IMPL: LateBinding<&'static dyn DynamicLambdaCalculation> =
     LateBinding::new("DYNAMIC_LAMBDA_CALCULATION_IMPL");
 
-pub(crate) async fn compute_dynamic_lambda(
+pub(crate) async fn dynamic_lambda_result(
     dice: &mut DiceComputations<'_>,
     key: &DynamicLambdaResultsKey,
 ) -> anyhow::Result<Arc<DynamicLambdaResult>> {
     DYNAMIC_LAMBDA_CALCULATION_IMPL
         .get()?
-        .compute_dynamic_lambda(dice, key)
+        .dynamic_lambda_result(dice, key)
         .await
 }

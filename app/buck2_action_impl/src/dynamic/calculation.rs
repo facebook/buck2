@@ -28,7 +28,7 @@ struct DynamicLambdaCalculationImpl;
 
 #[async_trait]
 impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
-    async fn compute_dynamic_lambda(
+    async fn dynamic_lambda_result(
         &self,
         dice: &mut DiceComputations<'_>,
         key: &DynamicLambdaResultsKey,
