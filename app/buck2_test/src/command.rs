@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,13 +17,18 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
-use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
-use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::build::BuildConfiguredLabelOptions;
+use buck2_build_api::build::BuildEvent;
+use buck2_build_api::build::BuildTargetResult;
+use buck2_build_api::build::ConfiguredBuildEventVariant;
+use buck2_build_api::build::ProvidersToBuild;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
+use buck2_build_api::materialize::MaterializationStrategy;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
@@ -51,6 +56,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -70,9 +76,10 @@ use buck2_server_ctx::test_command::TEST_COMMAND;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
-use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use futures::channel::mpsc;
 use futures::future;
 use futures::future::BoxFuture;
@@ -80,7 +87,6 @@ use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
 
@@ -101,6 +107,7 @@ struct TestOutcome {
     executor_report: ExecutorReport,
     executor_stdout: String,
     executor_stderr: String,
+    build_target_result: BuildTargetResult,
 }
 
 impl TestOutcome {
@@ -423,8 +430,8 @@ async fn test(
             server_ctx.project_root(),
             cwd,
             server_ctx.events().trace_id(),
-            &BTreeMap::default(),
-            &BTreeMap::default(),
+            &test_outcome.build_target_result.configured,
+            &test_outcome.build_target_result.other_errors,
         )?
     } else {
         None
@@ -509,7 +516,6 @@ async fn test_targets(
             // NOTE: This is will cancel if the liveliness guard indicates we should.
             async move {
                 // Spawn our server to listen to the test runner's requests for execution.
-
                 let local_resource_registry = Arc::new(LocalResourceRegistry::new());
 
                 // Keep wrapper alive for the lifetime of the executor to ensure it stays registered.
@@ -566,7 +572,6 @@ async fn test_targets(
                     .context("Failed to notify test executor of end-of-tests")?;
 
                 // Wait for the tests to finish running.
-
                 let test_statuses = test_status_receiver
                     .try_fold(ExecutorReport::default(), |mut acc, result| {
                         acc.ingest(&result);
@@ -577,7 +582,6 @@ async fn test_targets(
 
                 // Shutdown our server. This is technically not *required* since dropping it would shut it
                 // down implicitly, but let's do it anyway so we can collect any errors.
-
                 server_handle
                     .shutdown()
                     .await
@@ -588,9 +592,16 @@ async fn test_targets(
                     .await
                     .context("Failed to release local resources")?;
 
-                // And finally return our results;
+                // Process the build errors we've collected.
+                let error_stream = futures::stream::iter(driver.error_events);
+                let error_target_result = BuildTargetResult::collect_stream(error_stream, false)
+                    .await
+                    .context("Failed to collect error events")?;
 
-                anyhow::Ok((driver.build_errors, test_statuses))
+                driver.build_target_result.extend(error_target_result);
+
+                // And finally return our results;
+                anyhow::Ok((driver.build_target_result, test_statuses))
             },
         )
     });
@@ -614,11 +625,11 @@ async fn test_targets(
     )));
 
     // TODO(bobyf, torozco) we can use cancellation handle here instead of liveliness observer
-    let (build_errors, executor_report) = test_server
+    let (build_target_result, executor_report) = test_server
         .await
         .context("Failed to collect executor report")??;
 
-    let mut errors = build_errors
+    let mut errors = convert_error(&build_target_result)
         .iter()
         .map(create_error_report)
         .unique_by(|e| e.message.clone())
@@ -635,6 +646,7 @@ async fn test_targets(
         executor_stdout: executor_output.stdout,
         executor_stderr: executor_output.stderr,
         executor_report,
+        build_target_result,
     })
 }
 
@@ -648,8 +660,13 @@ enum TestDriverTask {
         label: ProvidersLabel,
         skippable: bool,
     },
+    BuildTarget {
+        label: ConfiguredProvidersLabel,
+    },
     TestTarget {
         label: ConfiguredProvidersLabel,
+        providers: FrozenProviderCollectionValue,
+        build_target_result: BuildTargetResult,
     },
 }
 
@@ -669,10 +686,11 @@ struct TestDriverState<'a, 'e> {
 /// Maintains the state of an ongoing test execution.
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
-    work: FuturesUnordered<BoxFuture<'a, anyhow::Result<Vec<TestDriverTask>>>>,
+    work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
     labels_configured: HashSet<(ProvidersLabel, bool)>,
     labels_tested: HashSet<ConfiguredProvidersLabel>,
-    build_errors: Vec<buck2_error::Error>,
+    error_events: Vec<BuildEvent>,
+    build_target_result: BuildTargetResult,
 }
 
 impl<'a, 'e> TestDriver<'a, 'e> {
@@ -682,7 +700,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             work: FuturesUnordered::new(),
             labels_configured: HashSet::new(),
             labels_tested: HashSet::new(),
-            build_errors: Vec::new(),
+            error_events: Vec::new(),
+            build_target_result: BuildTargetResult::new(),
         }
     }
 
@@ -693,11 +712,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         skip_incompatible_targets: bool,
     ) {
         for (package, spec) in pattern.specs.into_iter() {
-            let fut = future::ready(anyhow::Ok(vec![TestDriverTask::InterpretTarget {
-                package,
-                spec,
-                skip_incompatible_targets,
-            }]))
+            let fut = future::ready(ControlFlow::Continue(vec![
+                TestDriverTask::InterpretTarget {
+                    package,
+                    spec,
+                    skip_incompatible_targets,
+                },
+            ]))
             .boxed();
 
             self.work.push(fut);
@@ -708,7 +729,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     async fn drive_to_completion(&mut self) {
         while let Some(tasks) = self.work.next().await {
             match tasks {
-                Ok(tasks) => {
+                ControlFlow::Continue(tasks) => {
                     for task in tasks {
                         match task {
                             TestDriverTask::InterpretTarget {
@@ -721,15 +742,20 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             TestDriverTask::ConfigureTarget { label, skippable } => {
                                 self.configure_target(label, skippable);
                             }
-                            TestDriverTask::TestTarget { label } => {
-                                self.test_target(label);
+                            TestDriverTask::BuildTarget { label } => {
+                                self.build_target(label);
+                            }
+                            TestDriverTask::TestTarget {
+                                label,
+                                providers,
+                                build_target_result,
+                            } => {
+                                self.test_target(label, providers, build_target_result);
                             }
                         }
                     }
                 }
-                Err(e) => {
-                    self.build_errors.push(e.into());
-                }
+                ControlFlow::Break(events) => self.error_events.extend(events),
             }
         }
     }
@@ -744,11 +770,40 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         self.work.push(
             async move {
-                let res = state
+                let res = match state
                     .ctx
                     .clone()
                     .get_interpreter_results(package.dupe())
-                    .await?;
+                    .await
+                {
+                    Ok(res) => res,
+                    Err(e) => {
+                        let e: buck2_error::Error = e.into();
+                        let mut events = Vec::new();
+                        // Try to associate the error to concrete targets, if possible
+                        match spec {
+                            PackageSpec::Targets(targets) => {
+                                for (target, providers) in targets {
+                                    let label = Some(ProvidersLabel::new(
+                                        TargetLabel::new(package.dupe(), target.as_ref()),
+                                        providers.providers,
+                                    ));
+
+                                    events.push(BuildEvent::OtherError {
+                                        label,
+                                        err: e.dupe(),
+                                    });
+                                }
+                            }
+                            PackageSpec::All => events.push(BuildEvent::OtherError {
+                                label: None,
+                                err: e,
+                            }),
+                        };
+
+                        return ControlFlow::Break(events);
+                    }
+                };
 
                 // Indicates whether this should be skipped if incompatible.
                 let skippable = match spec {
@@ -761,7 +816,16 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 if let Some(missing) = missing {
                     match state.missing_target_behavior {
                         MissingTargetBehavior::Fail => {
-                            return Err(missing.into_errors().0.into());
+                            let err = missing.into_errors().0;
+                            let events = vec![BuildEvent::OtherError {
+                                label: Some(ProvidersLabel::new(
+                                    TargetLabel::new(err.package.dupe(), err.target.as_ref()),
+                                    buck2_core::provider::label::ProvidersName::Default,
+                                )),
+                                err: err.into(),
+                            }];
+
+                            return ControlFlow::Break(events);
                         }
                         MissingTargetBehavior::Warn => {
                             console_message(missing.missing_targets_warning());
@@ -778,7 +842,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     .map(|label| TestDriverTask::ConfigureTarget { label, skippable })
                     .collect();
 
-                anyhow::Ok(work)
+                ControlFlow::Continue(work)
             }
             .boxed(),
         );
@@ -792,32 +856,55 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let state = self.state;
 
         let fut = async move {
-            let label = state
+            let label = match state
                 .ctx
                 .clone()
                 .get_configured_provider_label(&label, state.global_cfg_options)
-                .await?;
+                .await
+            {
+                Ok(label) => label,
+                Err(e) => {
+                    return ControlFlow::Break(vec![BuildEvent::OtherError {
+                        label: Some(label),
+                        err: e.into(),
+                    }]);
+                }
+            };
 
-            let node = state
+            let node = match state
                 .ctx
                 .clone()
                 .get_configured_target_node(label.target())
-                .await?;
+                .await
+            {
+                Ok(node) => node,
+                Err(e) => {
+                    return ControlFlow::Break(vec![BuildEvent::new_configured(
+                        label,
+                        ConfiguredBuildEventVariant::Error { err: e.into() },
+                    )]);
+                }
+            };
 
             let node = match node {
                 MaybeCompatible::Incompatible(reason) => {
                     if skippable {
                         eprintln!("{}", reason.skipping_message(label.target()));
-                        return Ok(vec![]);
+                        return ControlFlow::Continue(vec![]);
                     } else {
-                        return Err(reason.to_err());
+                        return ControlFlow::Break(vec![BuildEvent::new_configured(
+                            label,
+                            ConfiguredBuildEventVariant::Error {
+                                err: reason.to_err().into(),
+                            },
+                        )]);
                     }
                 }
                 MaybeCompatible::Compatible(node) => node,
             };
 
-            // Test this: it's compatible.
-            let mut work = vec![TestDriverTask::TestTarget { label }];
+            // Build and then test this: it's compatible.
+            let mut work = vec![TestDriverTask::BuildTarget { label }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
             // test later, but its `tests` attribute here will not be, and that means we'll
@@ -837,31 +924,83 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 }
             }
 
-            anyhow::Ok(work)
+            ControlFlow::Continue(work)
         }
         .boxed();
 
         self.work.push(fut);
     }
 
-    fn test_target(&mut self, label: ConfiguredProvidersLabel) {
+    fn build_target(&mut self, label: ConfiguredProvidersLabel) {
         if !self.labels_tested.insert(label.dupe()) {
             return;
         }
 
         let state = self.state;
+        let build_label = label.dupe();
         let fut = async move {
-            test_target(
-                &mut state.ctx.clone(),
+            let ctx = &mut state.ctx.clone();
+
+            let result = match ctx
+                .with_linear_recompute(|ctx| async move {
+                    build_target_result(&ctx, &state.label_filtering, build_label).await
+                })
+                .await
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    return ControlFlow::Break(vec![BuildEvent::new_configured(
+                        label,
+                        ConfiguredBuildEventVariant::Error { err: e.into() },
+                    )]);
+                }
+            };
+
+            ControlFlow::Continue(vec![TestDriverTask::TestTarget {
                 label,
+                build_target_result: result.0,
+                providers: result.1,
+            }])
+        }
+        .boxed();
+
+        self.work.push(fut);
+    }
+
+    fn test_target(
+        &mut self,
+        label: ConfiguredProvidersLabel,
+        providers: FrozenProviderCollectionValue,
+        build_target_result: BuildTargetResult,
+    ) {
+        let should_test = !build_target_result.build_failed && !build_target_result.is_empty();
+        self.build_target_result.extend(build_target_result);
+
+        // Build has failed, no need to continue with test.
+        if !should_test {
+            return;
+        }
+
+        let state = self.state;
+        let fut = async move {
+            if let Err(e) = test_target(
+                label.dupe(),
+                providers,
                 state.test_executor.dupe(),
                 state.session,
                 state.label_filtering.dupe(),
                 state.cell_resolver,
                 state.working_dir_cell,
             )
-            .await?;
-            anyhow::Ok(vec![])
+            .await
+            {
+                return ControlFlow::Break(vec![BuildEvent::new_configured(
+                    label,
+                    ConfiguredBuildEventVariant::Error { err: e.into() },
+                )]);
+            }
+
+            ControlFlow::Continue(vec![])
         }
         .boxed();
 
@@ -869,23 +1008,68 @@ impl<'a, 'e> TestDriver<'a, 'e> {
     }
 }
 
+async fn build_target_result(
+    ctx: &LinearRecomputeDiceComputations<'_>,
+    label_filtering: &TestLabelFiltering,
+    label: ConfiguredProvidersLabel,
+) -> anyhow::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
+    // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
+    // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
+    // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
+    let providers = ctx
+        .get()
+        .get_providers(&label)
+        .await?
+        .require_compatible()?;
+    let collections = providers.provider_collection();
+
+    match <dyn TestProvider>::from_collection(collections) {
+        Some(test_info) => {
+            if skip_build_based_on_labels(test_info, label_filtering) {
+                return Ok((BuildTargetResult::new(), providers));
+            }
+
+            let materialization_strategy = MaterializationStrategy::new(Materializations::Skip);
+            let stream = build_configured_label(
+                &ctx,
+                &materialization_strategy,
+                label,
+                &ProvidersToBuild {
+                    default: false,
+                    default_other: false,
+                    run: false,
+                    tests: true,
+                },
+                BuildConfiguredLabelOptions {
+                    skippable: false,
+                    want_configured_graph_size: false,
+                },
+            )
+            .await
+            .map(BuildEvent::Configured);
+
+            let build_target_result = BuildTargetResult::collect_stream(stream, false).await?;
+            Ok((build_target_result, providers))
+        }
+        None => {
+            // not a test
+            Ok((BuildTargetResult::new(), providers))
+        }
+    }
+}
+
 async fn test_target(
-    ctx: &mut DiceComputations<'_>,
     target: ConfiguredProvidersLabel,
+    providers: FrozenProviderCollectionValue,
     test_executor: Arc<dyn TestExecutor + '_>,
     session: &TestSession,
     label_filtering: Arc<TestLabelFiltering>,
     cell_resolver: &CellResolver,
     working_dir_cell: CellName,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
-    // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
-    // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
-    // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
-    let frozen_providers = ctx.get_providers(&target).await?.require_compatible()?;
-    let providers = frozen_providers.provider_collection();
-    build_artifacts(ctx, providers, &label_filtering).await?;
+    let collection = providers.provider_collection();
 
-    let fut = match <dyn TestProvider>::from_collection(providers) {
+    let fut = match <dyn TestProvider>::from_collection(collection) {
         Some(test_info) => {
             if skip_run_based_on_labels(test_info, &label_filtering) {
                 return Ok(None);
@@ -913,6 +1097,18 @@ async fn test_target(
     fut.await
 }
 
+fn convert_error(build_result: &BuildTargetResult) -> Vec<buck2_error::Error> {
+    let mut errors = Vec::new();
+    errors.extend(build_result.other_errors.values().flatten().duped());
+
+    for v in build_result.configured.values().flatten() {
+        errors.extend(v.errors.iter().duped());
+        errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).duped());
+    }
+
+    errors
+}
+
 fn skip_run_based_on_labels(
     provider: &dyn TestProvider,
     label_filtering: &TestLabelFiltering,
@@ -926,39 +1122,6 @@ fn skip_build_based_on_labels(
     label_filtering: &TestLabelFiltering,
 ) -> bool {
     !label_filtering.build_filtered_targets && skip_run_based_on_labels(provider, label_filtering)
-}
-
-async fn build_artifacts(
-    ctx: &mut DiceComputations<'_>,
-    providers: &FrozenProviderCollection,
-    label_filtering: &TestLabelFiltering,
-) -> anyhow::Result<()> {
-    fn get_artifacts_to_build(
-        label_filtering: &TestLabelFiltering,
-        providers: &FrozenProviderCollection,
-    ) -> anyhow::Result<IndexSet<ArtifactGroup>> {
-        Ok(match <dyn TestProvider>::from_collection(providers) {
-            Some(provider) => {
-                if skip_build_based_on_labels(provider, label_filtering) {
-                    return Ok(indexset![]);
-                }
-                let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-                provider.visit_artifacts(&mut artifact_visitor)?;
-                artifact_visitor.inputs
-            }
-            None => {
-                // not a test
-                indexset![]
-            }
-        })
-    }
-    let artifacts_to_build = get_artifacts_to_build(label_filtering, providers)?;
-    // build the test target first
-    ctx.try_compute_join(artifacts_to_build.iter(), |ctx, input| {
-        ctx.ensure_artifact_group(input).boxed()
-    })
-    .await?;
-    Ok(())
 }
 
 fn run_tests<'a, 'b>(

@@ -91,6 +91,23 @@ pub struct BuildTargetResult {
 }
 
 impl BuildTargetResult {
+    pub fn new() -> Self {
+        Self {
+            configured: BTreeMap::new(),
+            other_errors: BTreeMap::new(),
+            build_failed: false,
+        }
+    }
+
+    pub fn extend(&mut self, other: BuildTargetResult) {
+        self.configured.extend(other.configured);
+        self.other_errors.extend(other.other_errors);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.configured.is_empty() && self.other_errors.is_empty()
+    }
+
     pub async fn collect_stream(
         mut stream: impl Stream<Item = BuildEvent> + Unpin,
         fail_fast: bool,
@@ -133,11 +150,11 @@ impl BuildTargetResult {
                     if let Err(e) = result {
                         build_failed = true;
                         res.get_mut(label.as_ref())
-                            .with_internal_error(|| format!("BuildEventVariant::Validation before BuildEventVariant::Prepared for `{}`", label))?
-                            .as_mut()
-                            .with_internal_error(|| format!("BuildEventVariant::Validation for a skipped target: `{}`", label))?
-                            .errors
-                            .push(e);
+                             .with_internal_error(|| format!("BuildEventVariant::Validation before BuildEventVariant::Prepared for `{}`", label))?
+                             .as_mut()
+                             .with_internal_error(|| format!("BuildEventVariant::Validation for a skipped target: `{}`", label))?
+                             .errors
+                             .push(e);
                         if fail_fast {
                             break;
                         }
@@ -147,11 +164,11 @@ impl BuildTargetResult {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
-                        .with_internal_error(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {}", label))?
-                        .as_mut()
-                        .with_internal_error(|| format!("BuildEventVariant::Output for a skipped target: `{}`", label))?
-                        .outputs
-                        .push((index, output));
+                         .with_internal_error(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {}", label))?
+                         .as_mut()
+                         .with_internal_error(|| format!("BuildEventVariant::Output for a skipped target: `{}`", label))?
+                         .outputs
+                         .push((index, output));
 
                     if is_err {
                         build_failed = true;
@@ -164,10 +181,10 @@ impl BuildTargetResult {
                     configured_graph_size,
                 } => {
                     res.get_mut(label.as_ref())
-                        .with_internal_error(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {}", label))?
-                        .as_mut()
-                        .with_internal_error(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}`", label))?
-                        .configured_graph_size = Some(configured_graph_size);
+                         .with_internal_error(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {}", label))?
+                         .as_mut()
+                         .with_internal_error(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}`", label))?
+                         .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
                     build_failed = true;
@@ -236,7 +253,7 @@ impl BuildTargetResult {
     }
 }
 
-enum ConfiguredBuildEventVariant {
+pub enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
     Prepared {
         run_args: Option<Vec<String>>,
@@ -272,6 +289,18 @@ pub enum BuildEvent {
         label: Option<ProvidersLabel>,
         err: buck2_error::Error,
     },
+}
+
+impl BuildEvent {
+    pub fn new_configured(
+        label: ConfiguredProvidersLabel,
+        variant: ConfiguredBuildEventVariant,
+    ) -> Self {
+        Self::Configured(ConfiguredBuildEvent {
+            label: Arc::new(label),
+            variant,
+        })
+    }
 }
 
 #[derive(Copy, Clone, Dupe, Debug)]
