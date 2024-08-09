@@ -62,8 +62,6 @@ def _get_incremental_compilation_flags_and_objects(
             "-enable-incremental-imports",
             "-disable-cmo",  # To minimize changes in generated swiftmodule file.
             "-enable-batch-mode",
-            "-driver-batch-count",
-            "1",
             "-output-file-map",
             output_file_map.output_map_artifact,
             additional_flags,
