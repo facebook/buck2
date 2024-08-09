@@ -359,7 +359,7 @@ def cxx_darwin_dist_link(
     index_flags_for_debugging.add(common_link_flags)
     index_flags_for_debugging.add(index_cmd_parts.post_linker_flags)
     prepare_index_flags(include_inputs = False, index_args_out = index_flags_for_debugging, index_meta_args_out = cmd_args(), ctx = ctx, artifacts = None, outputs = None)
-    index_flags_for_debugging_argsfile, _ = ctx.actions.write(output.basename + "thinlto_index_common_argsfile", index_flags_for_debugging, allow_args = True)
+    index_flags_for_debugging_argsfile, _ = ctx.actions.write(output.basename + ".thinlto_index_debugging_argsfile", index_flags_for_debugging, allow_args = True)
 
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact):
         def plan(ctx: AnalysisContext, artifacts, outputs):
@@ -424,20 +424,23 @@ def cxx_darwin_dist_link(
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
     def prepare_opt_flags() -> cmd_args:
-        # The "linker" is clang, the linker isn't actually involved.
-        opt_args = cmd_args(cxx_toolchain.linker_info.linker)
-        opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        opt_args.add(extra_codegen_flags)
+        opt_cmd = cmd_args(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
+        opt_cmd.add(extra_codegen_flags)
+        return opt_cmd
 
-        return opt_args
-
-    opt_common_flags = prepare_opt_flags()
+    common_opt_cmd = cmd_args(cxx_toolchain.linker_info.linker)
+    common_opt_cmd.add(prepare_opt_flags())
 
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
     # for the entire link unit will do.
     opt_argsfile = ctx.actions.declare_output(output.basename + ".lto_opt_argsfile")
-    ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
+    ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
+
+    # We don't want the linker itself in the argsfile for debugging / testing codegen flags
+    opt_flags_for_debugging = prepare_opt_flags()
+    opt_flags_for_debugging_argsfile = ctx.actions.declare_output(output.basename + ".thin_lto_codegen_debugging_argsfile")
+    ctx.actions.write(opt_flags_for_debugging_argsfile.as_output(), opt_flags_for_debugging, allow_args = True)
 
     # We declare a separate dynamic_output for every object file. It would
     # maybe be simpler to have a single dynamic_output that produced all the
@@ -473,7 +476,7 @@ def cxx_darwin_dist_link(
             elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                 opt_cmd.add("--split-dwarf=single")
 
-            opt_cmd.add(cmd_args(hidden = opt_common_flags))
+            opt_cmd.add(cmd_args(hidden = common_opt_cmd))
             opt_cmd.add("--args", opt_argsfile)
 
             opt_cmd.add("--")
@@ -527,7 +530,7 @@ def cxx_darwin_dist_link(
                 elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                     opt_cmd.add("--split-dwarf=single")
 
-                opt_cmd.add(cmd_args(hidden = opt_common_flags))
+                opt_cmd.add(cmd_args(hidden = common_opt_cmd))
                 opt_cmd.add("--args", opt_argsfile)
 
                 opt_cmd.add("--")
@@ -668,6 +671,6 @@ def cxx_darwin_dist_link(
         linker_filelist = None,  # DistLTO doesn't use filelists
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
-        dist_thin_lto_codegen_argsfile = opt_argsfile,
+        dist_thin_lto_codegen_argsfile = opt_flags_for_debugging_argsfile,
         dist_thin_lto_index_argsfile = index_flags_for_debugging_argsfile,
     )
