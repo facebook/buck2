@@ -55,7 +55,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_core::target::name::TargetName;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -63,7 +62,6 @@ use buck2_events::errors::create_error_report;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
-use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -86,7 +84,6 @@ use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use gazebo::prelude::*;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
@@ -764,14 +761,27 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     .clone()
                     .get_interpreter_results(package.dupe())
                     .await?;
-                let SpecTargets { labels, skippable } = spec_to_targets(
-                    spec,
-                    res,
-                    skip_incompatible_targets,
-                    state.missing_target_behavior,
-                )?;
 
-                let labels = labels.into_map(|(target_name, providers_pattern)| {
+                // Indicates whether this should be skipped if incompatible.
+                let skippable = match spec {
+                    PackageSpec::Targets(..) => skip_incompatible_targets,
+                    PackageSpec::All => true,
+                };
+
+                let (targets, missing) = res.apply_spec(spec);
+
+                if let Some(missing) = missing {
+                    match state.missing_target_behavior {
+                        MissingTargetBehavior::Fail => {
+                            return Err(missing.into_errors().0.into());
+                        }
+                        MissingTargetBehavior::Warn => {
+                            console_message(missing.missing_targets_warning());
+                        }
+                    }
+                }
+
+                let labels = targets.into_keys().map(|(target_name, providers_pattern)| {
                     providers_pattern.into_providers_label(package.dupe(), target_name.as_ref())
                 });
 
@@ -869,42 +879,6 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         self.work.push(fut);
     }
-}
-
-struct SpecTargets {
-    labels: Vec<(TargetName, ProvidersPatternExtra)>,
-    /// Indicates whether this should be skipped if incompatible.
-    skippable: bool,
-}
-
-fn spec_to_targets(
-    spec: PackageSpec<ProvidersPatternExtra>,
-    res: Arc<EvaluationResult>,
-    skip_incompatible_targets: bool,
-    missing_target_behavior: MissingTargetBehavior,
-) -> anyhow::Result<SpecTargets> {
-    let skippable = match spec {
-        PackageSpec::Targets(..) => skip_incompatible_targets,
-        PackageSpec::All => true,
-    };
-
-    let (targets, missing) = res.apply_spec(spec);
-
-    if let Some(missing) = missing {
-        match missing_target_behavior {
-            MissingTargetBehavior::Fail => {
-                return Err(missing.into_errors().0.into());
-            }
-            MissingTargetBehavior::Warn => {
-                console_message(missing.missing_targets_warning());
-            }
-        }
-    }
-
-    Ok(SpecTargets {
-        labels: targets.into_keys().collect(),
-        skippable,
-    })
 }
 
 async fn test_target(
