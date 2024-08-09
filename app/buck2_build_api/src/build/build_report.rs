@@ -19,6 +19,9 @@ use std::io::BufWriter;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_cli_proto::CommonBuildOptions;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
@@ -38,6 +41,7 @@ use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
+use dice::DiceComputations;
 use dupe::Dupe;
 use itertools::Either;
 use itertools::EitherOrBoth;
@@ -532,6 +536,42 @@ fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
             }
         },
     }
+}
+
+pub async fn build_report_opts<'a>(
+    ctx: &mut DiceComputations<'a>,
+    cell_resolver: &CellResolver,
+    build_opts: &CommonBuildOptions,
+) -> anyhow::Result<BuildReportOpts> {
+    let esto = &build_opts.unstable_build_report_filename;
+    let build_report_opts = BuildReportOpts {
+        print_unconfigured_section: ctx
+            .parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                BuckconfigKeyRef {
+                    section: "build_report",
+                    property: "print_unconfigured_section",
+                },
+            )
+            .await?
+            .unwrap_or(true),
+        unstable_include_other_outputs: ctx
+            .parse_legacy_config_property(
+                cell_resolver.root_cell(),
+                BuckconfigKeyRef {
+                    section: "build_report",
+                    property: "unstable_include_other_outputs",
+                },
+            )
+            .await?
+            .unwrap_or(false),
+        unstable_include_failures_build_report: build_opts.unstable_include_failures_build_report,
+        unstable_include_package_project_relative_paths: build_opts
+            .unstable_include_package_project_relative_paths,
+        unstable_build_report_filename: esto.clone(),
+    };
+
+    Ok(build_report_opts)
 }
 
 pub fn generate_build_report(

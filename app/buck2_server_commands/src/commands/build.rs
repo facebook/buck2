@@ -21,8 +21,8 @@ use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
+use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::generate_build_report;
-use buck2_build_api::build::build_report::BuildReportOpts;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
@@ -299,34 +299,7 @@ async fn process_build_result(
     );
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
-        let esto = &build_opts.unstable_build_report_filename;
-        let build_report_opts = BuildReportOpts {
-            print_unconfigured_section: ctx
-                .parse_legacy_config_property(
-                    cell_resolver.root_cell(),
-                    BuckconfigKeyRef {
-                        section: "build_report",
-                        property: "print_unconfigured_section",
-                    },
-                )
-                .await?
-                .unwrap_or(true),
-            unstable_include_other_outputs: ctx
-                .parse_legacy_config_property(
-                    cell_resolver.root_cell(),
-                    BuckconfigKeyRef {
-                        section: "build_report",
-                        property: "unstable_include_other_outputs",
-                    },
-                )
-                .await?
-                .unwrap_or(false),
-            unstable_include_failures_build_report: build_opts
-                .unstable_include_failures_build_report,
-            unstable_include_package_project_relative_paths: build_opts
-                .unstable_include_package_project_relative_paths,
-            unstable_build_report_filename: esto.clone(),
-        };
+        let build_report_opts = build_report_opts(&mut ctx, &cell_resolver, build_opts).await?;
 
         generate_build_report(
             build_report_opts,
