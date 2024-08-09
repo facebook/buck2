@@ -283,6 +283,13 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
         self.value.as_ref()
     }
 
+    /// Obtain a reference to the value.
+    ///
+    /// This should return `FrozenValueTyped<'_, T>`, but it is hard to make it work.
+    pub unsafe fn value_typed(&self) -> FrozenValueTyped<'static, T> {
+        self.value
+    }
+
     /// Extract a [`FrozenValueTyped`] by passing the [`FrozenHeap`] which will keep it alive.
     pub fn owned_frozen_value_typed(&self, heap: &FrozenHeap) -> FrozenValueTyped<'static, T> {
         heap.add_reference(&self.owner);
