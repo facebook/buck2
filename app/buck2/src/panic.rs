@@ -122,13 +122,22 @@ mod imp {
     }
 
     /// Collects metadata from the current environment for use in LogView.
-    fn get_metadata_for_panic() -> HashMap<String, String> {
+    fn get_metadata_for_panic(options: &StructuredErrorOptions) -> HashMap<String, String> {
         #[cfg_attr(client_only, allow(unused_mut))]
         let mut map = metadata::collect();
         #[cfg(not(client_only))]
         if let Some(commands) = buck2_server::active_commands::try_active_commands() {
             let commands = commands.keys().map(|id| id.to_string()).collect::<Vec<_>>();
             map.insert("active_commands".to_owned(), commands.join(","));
+        }
+        if let Some(logview_key) = options
+            .low_cardinality_key_for_additional_logview_samples
+            .as_ref()
+        {
+            map.insert(
+                "low_cardinality_key_for_additional_logview_samples".to_owned(),
+                logview_key.to_string(),
+            );
         }
         map
     }
@@ -191,7 +200,7 @@ mod imp {
         options: &StructuredErrorOptions,
         soft_error_category: Option<&str>,
     ) -> buck2_data::StructuredError {
-        let metadata = get_metadata_for_panic();
+        let metadata = get_metadata_for_panic(options);
         buck2_data::StructuredError {
             location,
             payload: message,
