@@ -114,6 +114,10 @@ impl RemoteExecutionClient {
         buck_out_path: &AbsNormPath,
         is_paranoid_mode: bool,
     ) -> anyhow::Result<Self> {
+        if buck2_env!("BUCK2_TEST_FAIL_CONNECT", bool, applicability = testing)? {
+            return Err(anyhow::anyhow!("Injected RE Connection error"));
+        }
+
         let client = RemoteExecutionClientImpl::new(
             fb,
             skip_remote_cache,
@@ -162,6 +166,12 @@ impl RemoteExecutionClient {
             {
                 Ok(v) => return Ok(v),
                 Err(e) => {
+                    if e.downcast_ref::<RemoteExecutionError>().is_none() {
+                        // If we cannot connect to RE due to some non-RE error, we should not retry
+                        // And should just return the error immediately as it's unlikely to be flakey
+                        return Err(e);
+                    }
+
                     tracing::warn!(
                         "Failed to connect to RE, retrying after sleeping {} seconds: {:#?}",
                         i,
