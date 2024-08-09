@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -44,9 +43,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -54,7 +51,6 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -87,7 +83,6 @@ use futures::stream::TryStreamExt;
 use indexmap::indexset;
 use indexmap::IndexSet;
 use itertools::Itertools;
-use serde::Serialize;
 
 use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
@@ -101,13 +96,6 @@ use crate::session::TestSession;
 use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
 
-#[derive(Debug, Serialize)]
-#[allow(dead_code)]
-pub(crate) struct TestReport {
-    project_root: AbsNormPathBuf,
-    outputs: HashMap<TargetLabel, Vec<ProjectRelativePathBuf>>,
-}
-
 struct TestOutcome {
     errors: Vec<buck2_data::ErrorReport>,
     executor_report: ExecutorReport,
@@ -116,7 +104,7 @@ struct TestOutcome {
 }
 
 impl TestOutcome {
-    pub(crate) fn exit_code(&self) -> anyhow::Result<Option<i32>> {
+    fn exit_code(&self) -> anyhow::Result<Option<i32>> {
         self.executor_report
             .exit_code
             .context("Test executor did not provide an exit code")
@@ -666,7 +654,7 @@ enum TestDriverTask {
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct TestDriverState<'a, 'e> {
+struct TestDriverState<'a, 'e> {
     ctx: &'a DiceTransaction,
     label_filtering: &'a Arc<TestLabelFiltering>,
     global_cfg_options: &'a GlobalCfgOptions,
@@ -688,7 +676,7 @@ struct TestDriver<'a, 'e> {
 }
 
 impl<'a, 'e> TestDriver<'a, 'e> {
-    pub(crate) fn new(state: TestDriverState<'a, 'e>) -> Self {
+    fn new(state: TestDriverState<'a, 'e>) -> Self {
         Self {
             state,
             work: FuturesUnordered::new(),
