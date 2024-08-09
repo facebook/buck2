@@ -87,6 +87,7 @@ pub struct BuildTargetResult {
     /// Errors that could not be associated with a specific configured target. These errors may be
     /// associated with a providers label, or might not be associated with any target at all.
     pub other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+    pub build_failed: bool,
 }
 
 impl BuildTargetResult {
@@ -100,12 +101,14 @@ impl BuildTargetResult {
             Option<ConfiguredBuildTargetResultGen<(usize, buck2_error::Result<ProviderArtifacts>)>>,
         >::new();
         let mut other_errors = BTreeMap::<_, Vec<_>>::new();
+        let mut build_failed = false;
 
         while let Some(event) = stream.next().await {
             let ConfiguredBuildEvent { variant, label } = match event {
                 BuildEvent::Configured(variant) => variant,
                 BuildEvent::OtherError { label: target, err } => {
                     other_errors.entry(target).or_default().push(err);
+                    build_failed = true;
                     continue;
                 }
             };
@@ -128,6 +131,7 @@ impl BuildTargetResult {
                 }
                 ConfiguredBuildEventVariant::Validation { result } => {
                     if let Err(e) = result {
+                        build_failed = true;
                         res.get_mut(label.as_ref())
                             .with_internal_error(|| format!("BuildEventVariant::Validation before BuildEventVariant::Prepared for `{}`", label))?
                             .as_mut()
@@ -149,8 +153,11 @@ impl BuildTargetResult {
                         .outputs
                         .push((index, output));
 
-                    if is_err && fail_fast {
-                        break;
+                    if is_err {
+                        build_failed = true;
+                        if fail_fast {
+                            break;
+                        }
                     }
                 }
                 ConfiguredBuildEventVariant::GraphSize {
@@ -163,6 +170,7 @@ impl BuildTargetResult {
                         .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
+                    build_failed = true;
                     res.entry((*label).dupe())
                         .or_insert(Some(ConfiguredBuildTargetResultGen {
                             outputs: Vec::new(),
@@ -223,6 +231,7 @@ impl BuildTargetResult {
         Ok(Self {
             configured: res,
             other_errors,
+            build_failed,
         })
     }
 }
