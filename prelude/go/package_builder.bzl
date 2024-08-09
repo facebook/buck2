@@ -124,6 +124,9 @@ def _compile(
 
     asmhdr = ctx.actions.declare_output("__asmhdr__/go_asm.h") if gen_asmhdr else None
 
+    # Use argsfile to avoid command length limit on Windows
+    srcs_argsfile = ctx.actions.write(paths.basename(pkg_name) + "_srcs.go_package_argsfile", go_srcs)
+
     compile_cmd = cmd_args(
         [
             go_toolchain.go_wrapper,
@@ -142,7 +145,7 @@ def _compile(
             ["-embedcfg", embedcfg] if embedcfg else [],
             ["-symabis", symabis] if symabis else [],
             ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
-            go_srcs,
+            cmd_args(srcs_argsfile, format = "@{}", hidden = go_srcs),
         ],
         hidden = embed_files,  #  files and directories should be available for embedding
     )

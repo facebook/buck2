@@ -58,7 +58,7 @@ def main(argv):
 
     wrapped_binary = Path(argv[1]).resolve()
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("--workdir", type=Path, default=None)
     parser.add_argument("--output", type=argparse.FileType("w"), default=sys.stdout)
     parsed, unknown = parser.parse_known_args(argv[2:])
