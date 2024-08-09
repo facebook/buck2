@@ -366,7 +366,7 @@ impl Uploader {
         };
 
         // Upload
-        let upload_res = if !upload_files.is_empty() || !upload_blobs.is_empty() {
+        if !upload_files.is_empty() || !upload_blobs.is_empty() {
             client
                 .upload(
                     use_case.metadata(identity),
@@ -381,24 +381,16 @@ impl Uploader {
                 )
                 .boxed()
                 .await
-                .map(|_| ())
-        } else {
-            Ok(())
+                .map_err(|e| match e.downcast_ref::<REClientError>() {
+                    Some(re_client_error) if re_client_error.code == TCode::INVALID_ARGUMENT =>
+                         anyhow::anyhow!(
+                                "RE Upload failed. It looks like you might have modified files while the build \
+                                was in progress. Retry your build to proceed. Debug information: {:#}",
+                                e
+                        ),
+                    _ => e,
+                })?;
         };
-
-        if let Err(e) = upload_res.as_ref() {
-            if let Some(re_client_error) = e.downcast_ref::<REClientError>() {
-                if re_client_error.code == TCode::INVALID_ARGUMENT {
-                    return Err(anyhow::anyhow!(
-                        "RE Upload failed. It looks like you might have modified files while the build \
-                        was in progress. Retry your build to proceed. Debug information: {:#}",
-                        e
-                    ));
-                }
-            }
-        }
-
-        upload_res.context("RE: upload")?;
 
         Ok(stats)
     }
