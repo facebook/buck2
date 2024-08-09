@@ -733,16 +733,10 @@ impl RemoteExecutionClientImpl {
 
         match res {
             Ok(r) => Ok(Some(r)),
-            Err(e) => {
-                if e.downcast_ref::<REClientError>()
-                    .map(|e| e.code == TCode::NOT_FOUND)
-                    == Some(true)
-                {
-                    Ok(None)
-                } else {
-                    Err(e)
-                }
-            }
+            Err(e) => match e.downcast_ref::<REClientError>() {
+                Some(e) if e.code == TCode::NOT_FOUND => Ok(None),
+                _ => Err(e),
+            },
         }
     }
 
