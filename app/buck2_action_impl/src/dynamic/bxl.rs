@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
@@ -26,7 +26,7 @@ use futures::Future;
 pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(
         &'v BaseDeferredKeyBxl,
-        DeferredHolderKey,
+        DynamicLambdaResultsKey,
         &'v FrozenDynamicLambdaParams,
         &'v mut DiceComputations,
         String,
@@ -40,7 +40,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
-    self_key: DeferredHolderKey,
+    self_key: DynamicLambdaResultsKey,
     dynamic_lambda: &'v FrozenDynamicLambdaParams,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,

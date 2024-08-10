@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
@@ -120,7 +121,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
 async fn execute_lambda(
     lambda: &FrozenDynamicLambdaParams,
     dice: &mut DiceComputations<'_>,
-    self_key: DeferredHolderKey,
+    self_key: DynamicLambdaResultsKey,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: ProjectRoot,
@@ -235,7 +236,7 @@ pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     lambda: &FrozenDynamicLambdaParams,
-    self_holder_key: DeferredHolderKey,
+    self_holder_key: DynamicLambdaResultsKey,
     action_key: String,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
@@ -337,13 +338,15 @@ pub struct DynamicLambdaCtxData<'v> {
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: &'v FrozenDynamicLambdaParams,
-    self_key: DeferredHolderKey,
+    self_key: DynamicLambdaResultsKey,
     action_key: &str,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
     project_filesystem: &ProjectRoot,
     digest_config: DigestConfig,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
+    let self_key = Arc::new(self_key);
+
     if &dynamic_lambda.static_fields.owner != self_key.owner() {
         return Err(internal_error!(
             "Dynamic lambda owner `{}` does not match self key `{}`",
@@ -359,7 +362,10 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let execution_platform = dynamic_lambda.static_fields.execution_platform.dupe();
 
-    let mut registry = AnalysisRegistry::new_from_owner_and_deferred(execution_platform, self_key)?;
+    let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
+        execution_platform,
+        DeferredHolderKey::DynamicLambda(self_key),
+    )?;
     registry.set_action_key(Arc::from(action_key));
 
     let mut artifacts = Vec::with_capacity(dynamic_lambda.static_fields.dynamic.len());

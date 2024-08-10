@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
@@ -61,7 +60,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                     ctx,
                     cancellation,
                     &lambda,
-                    DeferredHolderKey::DynamicLambda(Arc::new(self.0.dupe())),
+                    self.0.dupe(),
                     self.0.action_key(),
                 )
                 .await?;
