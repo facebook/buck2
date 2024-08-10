@@ -498,6 +498,13 @@ impl FrozenProviderCollectionValue {
         }
     }
 
+    pub fn add_heap_ref<'v>(
+        &self,
+        heap: &'v FrozenHeap,
+    ) -> FrozenValueTyped<'v, FrozenProviderCollection> {
+        self.as_ref().add_heap_ref(heap)
+    }
+
     pub fn lookup_inner<'f>(
         &'f self,
         label: &ConfiguredProvidersLabel,

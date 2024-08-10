@@ -8,7 +8,6 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -19,6 +18,7 @@ use buck2_node::attrs::attr_type::dep::DepAttrTransition;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::provider_id_set::ProviderIdSet;
 use starlark::environment::Module;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -39,7 +39,7 @@ pub trait DepAttrTypeExt {
     fn alloc_dependency<'v>(
         env: &'v Module,
         target: &ConfiguredProvidersLabel,
-        v: &FrozenProviderCollectionValue,
+        v: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform_resolution: Option<&ExecutionPlatformResolution>,
     ) -> Value<'v>;
 
@@ -78,13 +78,13 @@ impl DepAttrTypeExt for DepAttrType {
     fn alloc_dependency<'v>(
         env: &'v Module,
         target: &ConfiguredProvidersLabel,
-        v: &FrozenProviderCollectionValue,
+        v: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform_resolution: Option<&ExecutionPlatformResolution>,
     ) -> Value<'v> {
         env.heap().alloc(Dependency::new(
             env.heap(),
             target.clone(),
-            v.value().owned_frozen_value_typed(env.frozen_heap()),
+            v,
             execution_platform_resolution,
         ))
     }
@@ -95,9 +95,8 @@ impl DepAttrTypeExt for DepAttrType {
         required_providers: &ProviderIdSet,
         is_exec_dep: bool,
     ) -> anyhow::Result<Value<'v>> {
-        let v = ctx.get_dep(target)?;
-        let provider_collection = v.provider_collection();
-        Self::check_providers(required_providers, provider_collection, target)?;
+        let provider_collection = ctx.get_dep(target)?;
+        Self::check_providers(required_providers, provider_collection.as_ref(), target)?;
         let execution_platform_resolution = if is_exec_dep {
             Some(ctx.execution_platform_resolution())
         } else {
@@ -107,7 +106,7 @@ impl DepAttrTypeExt for DepAttrType {
         Ok(Self::alloc_dependency(
             ctx.starlark_module(),
             target,
-            &v,
+            provider_collection,
             execution_platform_resolution,
         ))
     }

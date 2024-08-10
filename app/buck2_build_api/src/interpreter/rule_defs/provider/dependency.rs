@@ -9,6 +9,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::mem;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -87,7 +88,7 @@ impl<'v> Dependency<'v> {
     pub fn new(
         heap: &'v Heap,
         label: ConfiguredProvidersLabel,
-        provider_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
+        provider_collection: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
         let execution_platform: ValueOfUnchecked<NoneOr<StarlarkExecutionPlatformResolution>> =
@@ -99,7 +100,12 @@ impl<'v> Dependency<'v> {
             };
         Dependency {
             label: heap.alloc_typed_unchecked(StarlarkConfiguredProvidersLabel::new(label)),
-            provider_collection,
+            provider_collection: unsafe {
+                mem::transmute::<
+                    FrozenValueTyped<'_, FrozenProviderCollection>,
+                    FrozenValueTyped<'_, FrozenProviderCollection>,
+                >(provider_collection)
+            },
             execution_platform,
         }
     }

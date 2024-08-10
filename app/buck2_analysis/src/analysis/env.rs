@@ -16,6 +16,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::base_deferred_key::BaseDeferredKey;
@@ -45,6 +46,7 @@ use futures::Future;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
@@ -82,7 +84,7 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
     fn get_dep(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue> {
+    ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         get_dep(&self.dep_analysis_results, target, self.module)
     }
 
@@ -107,19 +109,16 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
 }
 
 pub fn get_dep<'v>(
-    dep_analysis_results: &HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: &HashMap<&'_ ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
     module: &'v Module,
-) -> anyhow::Result<FrozenProviderCollectionValue> {
+) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
     match dep_analysis_results.get(target.target()) {
         None => Err(AnalysisError::MissingDep(target.dupe()).into()),
         Some(x) => {
             let x = x.lookup_inner(target)?;
             // IMPORTANT: Anything given back to the user must be kept alive
-            // TODO(nga): comment above is misleading: we return value with a heap,
-            //   adding a reference to the heap should not be necessary.
-            module.frozen_heap().add_reference(x.owner());
-            Ok(x.to_owned())
+            Ok(x.add_heap_ref(module.frozen_heap()))
         }
     }
 }

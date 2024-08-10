@@ -9,11 +9,13 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::configuration::data::ConfigurationData;
@@ -32,6 +34,7 @@ use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::values::dict::FrozenDictRef;
+use starlark::values::FrozenValueTyped;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
@@ -214,11 +217,13 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn get_dep(
             &self,
             target: &ConfiguredProvidersLabel,
-        ) -> anyhow::Result<FrozenProviderCollectionValue> {
-            self.deps
+        ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+            Ok(self
+                .deps
                 .get(target)
                 .duped()
-                .ok_or_else(|| anyhow::anyhow!("missing dep"))
+                .context("missing dep")?
+                .add_heap_ref(self.module.frozen_heap()))
         }
 
         fn resolve_unkeyed_placeholder(

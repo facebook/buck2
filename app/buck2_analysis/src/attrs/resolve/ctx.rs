@@ -10,11 +10,13 @@
 use std::sync::Arc;
 
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use starlark::environment::Module;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 
 /// Result of query evaluation from queries referenced in target nodes.
@@ -42,7 +44,7 @@ pub trait AttrResolutionContext<'v> {
     fn get_dep(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue>;
+    ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>>;
 
     fn resolve_unkeyed_placeholder(
         &self,

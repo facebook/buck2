@@ -115,13 +115,11 @@ fn resolve_configured_macro(
     match configured_macro {
         ConfiguredMacro::Location(target) => {
             let providers_value = ctx.get_dep(target)?;
-            let providers = providers_value.provider_collection();
-            Ok(ResolvedMacro::Location(providers.default_info()?))
+            Ok(ResolvedMacro::Location(providers_value.default_info()?))
         }
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
-            let providers_value = ctx.get_dep(label)?;
-            let providers = providers_value.provider_collection();
+            let providers = ctx.get_dep(label)?;
             let run_info = match providers.get_provider_raw(RunInfoCallable::provider_id()) {
                 Some(value) => *value,
                 None => {
@@ -144,7 +142,6 @@ fn resolve_configured_macro(
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
             let placeholder_info = providers
-                .provider_collection()
                 .builtin_provider::<FrozenTemplatePlaceholderInfo>()
                 .ok_or_else(|| {
                     ResolveMacroError::KeyedPlaceholderInfoMissing(

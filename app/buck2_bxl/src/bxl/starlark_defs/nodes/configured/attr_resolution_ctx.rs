@@ -20,6 +20,7 @@ use buck2_analysis::analysis::env::resolve_unkeyed_placeholder;
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -27,6 +28,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use futures::FutureExt;
 use starlark::environment::Module;
+use starlark::values::FrozenValueTyped;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 
@@ -71,7 +73,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     fn get_dep(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenProviderCollectionValue> {
+    ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         match self.dep_analysis_results() {
             Ok(deps) => get_dep(deps, target, self.module),
             Err(e) => Err(anyhow::anyhow!("Error getting deps from analysis: `{}`", e)),
