@@ -3,6 +3,9 @@ load("@fbsource//tools/build_defs:glob_defs.bzl", "glob")
 
 oncall("build_infra")
 
+# @oss-disable: _is_oss = False 
+_is_oss = True # @oss-enable
+
 rust_library(
     name = "buck2_util",
     srcs = glob(
@@ -29,6 +32,10 @@ rust_library(
             ],
         ),
     ],
+    rustc_flags = (select({
+        "DEFAULT": [],
+        "ovr_config//build_mode:asan": ["--cfg=buck2_asan"],
+    }) if not _is_oss else []),
     test_deps = [
         "fbcode//buck2/shed/three_billion_instructions:three_billion_instructions",
         "fbsource//third-party/rust:serde_json",

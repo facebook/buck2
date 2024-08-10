@@ -21,8 +21,11 @@ use anyhow::Context;
 ///
 /// We want to be independent of possible future changes to the default stack size in Rust.
 pub(crate) const THREAD_DEFAULT_STACK_SIZE: usize = {
-    if cfg!(debug) {
-        // Need 4MB according to D60449433.
+    if cfg!(buck2_asan) {
+        // Need double the stack size for ASAN.
+        4 << 20
+    } else if cfg!(debug) {
+        // Need 4MB for windows-debug according to D60449433.
         4 << 20
     } else {
         2 << 20

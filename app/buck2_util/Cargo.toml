@@ -38,4 +38,4 @@ serde_json = { workspace = true }
 three_billion_instructions = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(debug)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(debug)", "cfg(buck2_asan)"] }
