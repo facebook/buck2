@@ -101,7 +101,10 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 ///     const Temperature: StarlarkValueAsType<Temperature> = StarlarkValueAsType::new();
 /// }
 /// ```
-pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(&'static InstanceTy, PhantomData<fn(&T)>);
+pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(
+    &'static AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>>,
+    PhantomData<fn(&T)>,
+);
 
 impl<T: StarlarkTypeRepr> Debug for StarlarkValueAsType<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -115,22 +118,6 @@ impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&T::starlark_type_repr(), f)
     }
-}
-
-type InstanceTy = AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>>;
-
-impl<T: StarlarkValue<'static>> StarlarkValueAsType<T> {
-    /// Constructor.
-    ///
-    /// Use `new_no_docs` if `Self` is not a `StarlarkValue`
-    pub const fn new() -> Self {
-        Self(&Self::INSTANCE, PhantomData)
-    }
-
-    const INSTANCE: InstanceTy = alloc_static(StarlarkValueAsTypeStarlarkValue(
-        T::starlark_type_repr,
-        || Some(docs_for_type::<T>()),
-    ));
 }
 
 fn docs_for_type<T: StarlarkValue<'static>>() -> DocType {
@@ -147,19 +134,34 @@ fn docs_for_type<T: StarlarkValue<'static>>() -> DocType {
 
 impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     /// Constructor.
-    pub const fn new_no_docs() -> Self {
-        Self(&Self::INSTANCE_NO_DOCS, PhantomData)
+    ///
+    /// Use [`new_no_docs`](Self::new_no_docs) if `T` is not a `StarlarkValue`.
+    pub const fn new() -> Self
+    where
+        T: StarlarkValue<'static>,
+    {
+        StarlarkValueAsType(
+            &const {
+                alloc_static(StarlarkValueAsTypeStarlarkValue(
+                    T::starlark_type_repr,
+                    || Some(docs_for_type::<T>()),
+                ))
+            },
+            PhantomData,
+        )
     }
 
-    const INSTANCE_NO_DOCS: InstanceTy = alloc_static(StarlarkValueAsTypeStarlarkValue(
-        T::starlark_type_repr,
-        || None,
-    ));
-}
-
-impl<T: StarlarkValue<'static>> Default for StarlarkValueAsType<T> {
-    fn default() -> Self {
-        Self::new()
+    /// Constructor.
+    pub const fn new_no_docs() -> Self {
+        StarlarkValueAsType(
+            &const {
+                alloc_static(StarlarkValueAsTypeStarlarkValue(
+                    T::starlark_type_repr,
+                    || None,
+                ))
+            },
+            PhantomData,
+        )
     }
 }
 
