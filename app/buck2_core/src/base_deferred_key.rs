@@ -48,10 +48,19 @@ pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync +
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
+pub struct BaseDeferredKeyBxl(pub Arc<dyn BaseDeferredKeyDyn>);
+
+impl PartialEq for BaseDeferredKeyBxl {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_token() == other.0.eq_token()
+    }
+}
+
+#[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
 pub enum BaseDeferredKey {
     TargetLabel(ConfiguredTargetLabel),
     AnonTarget(Arc<dyn BaseDeferredKeyDyn>),
-    BxlLabel(Arc<dyn BaseDeferredKeyDyn>),
+    BxlLabel(BaseDeferredKeyBxl),
 }
 
 impl PartialEq for BaseDeferredKey {
@@ -63,9 +72,7 @@ impl PartialEq for BaseDeferredKey {
                 a.eq_token() == b.eq_token()
             }
             (BaseDeferredKey::AnonTarget(_), _) => false,
-            (BaseDeferredKey::BxlLabel(a), BaseDeferredKey::BxlLabel(b)) => {
-                a.eq_token() == b.eq_token()
-            }
+            (BaseDeferredKey::BxlLabel(a), BaseDeferredKey::BxlLabel(b)) => a == b,
             (BaseDeferredKey::BxlLabel(_), _) => false,
         }
     }
@@ -77,7 +84,9 @@ impl Hash for BaseDeferredKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             BaseDeferredKey::TargetLabel(a) => a.hash(state),
-            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(d) => d.hash().hash(state),
+            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
+                d.hash().hash(state)
+            }
         }
     }
 }
@@ -93,7 +102,9 @@ impl BaseDeferredKey {
     pub fn configured_label(&self) -> Option<ConfiguredTargetLabel> {
         match self {
             BaseDeferredKey::TargetLabel(label) => Some(label.dupe()),
-            BaseDeferredKey::AnonTarget(t) | BaseDeferredKey::BxlLabel(t) => t.configured_label(),
+            BaseDeferredKey::AnonTarget(t) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(t)) => {
+                t.configured_label()
+            }
         }
     }
 
@@ -162,7 +173,7 @@ impl BaseDeferredKey {
 
                 ProjectRelativePathBuf::unchecked_new(hashed_path.concat())
             }
-            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(d) => {
+            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
                 d.make_hashed_path(base, prefix, action_key, path)
             }
         }
@@ -192,7 +203,9 @@ impl BaseDeferredKey {
     pub fn to_proto(&self) -> BaseDeferredKeyProto {
         match self {
             BaseDeferredKey::TargetLabel(t) => BaseDeferredKeyProto::TargetLabel(t.as_proto()),
-            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(d) => d.to_proto(),
+            BaseDeferredKey::AnonTarget(d) | BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(d)) => {
+                d.to_proto()
+            }
         }
     }
 }

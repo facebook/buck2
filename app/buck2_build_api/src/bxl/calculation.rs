@@ -15,7 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_util::late_binding::LateBinding;
 use dashmap::DashSet;
 use dice::DiceComputations;
@@ -28,7 +28,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
     async fn eval_bxl(
         &self,
         ctx: &mut DiceComputations<'_>,
-        bxl: Arc<dyn BaseDeferredKeyDyn>,
+        bxl: BaseDeferredKeyBxl,
     ) -> anyhow::Result<BxlComputeResult>;
 }
 

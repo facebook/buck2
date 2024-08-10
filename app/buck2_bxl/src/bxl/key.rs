@@ -17,6 +17,7 @@ use allocative::Allocative;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -84,11 +85,13 @@ impl BxlKey {
         self,
         execution_resolution: BxlExecutionResolution,
     ) -> BaseDeferredKey {
-        BaseDeferredKey::BxlLabel(self.into_base_deferred_key_dyn_impl(execution_resolution))
+        BaseDeferredKey::BxlLabel(BaseDeferredKeyBxl(
+            self.into_base_deferred_key_dyn_impl(execution_resolution),
+        ))
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
-        key: Arc<dyn BaseDeferredKeyDyn>,
+        key: BaseDeferredKeyBxl,
     ) -> anyhow::Result<Self> {
         BxlDynamicKey::from_base_deferred_key_dyn_impl(key)
             .map(|k| BxlKey(k.0.key.dupe()))
@@ -153,12 +156,12 @@ impl BxlDynamicKey {
         BxlKey(self.0.key.dupe())
     }
 
-    fn from_base_deferred_key_dyn_impl(key: Arc<dyn BaseDeferredKeyDyn>) -> Option<Self> {
-        key.into_any().downcast().ok().map(BxlDynamicKey)
+    fn from_base_deferred_key_dyn_impl(key: BaseDeferredKeyBxl) -> Option<Self> {
+        key.0.into_any().downcast().ok().map(BxlDynamicKey)
     }
 
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
-        key: Arc<dyn BaseDeferredKeyDyn>,
+        key: BaseDeferredKeyBxl,
     ) -> anyhow::Result<Self> {
         Self::from_base_deferred_key_dyn_impl(key).internal_error("Not BxlDynamicKey")
     }

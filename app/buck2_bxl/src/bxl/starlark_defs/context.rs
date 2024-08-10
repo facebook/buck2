@@ -41,7 +41,7 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_common::target_aliases::HasTargetAliasResolver;
-use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
+use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
@@ -545,7 +545,7 @@ impl<'v> BxlContextNoDice<'v> {
 }
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
-    base_deferred_key: &'v Arc<dyn BaseDeferredKeyDyn>,
+    base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DeferredHolderKey,
     dynamic_lambda: &'v FrozenDynamicLambdaParams,
     dice_ctx: &'v mut DiceComputations<'_>,
