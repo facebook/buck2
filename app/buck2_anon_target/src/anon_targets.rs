@@ -47,7 +47,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -395,14 +394,9 @@ impl AnonTargetKey {
 
                 // Pull the ctx object back out, and steal ctx.action's state back
                 let analysis_registry = ctx.take_state();
-                if analysis_registry
+                analysis_registry
                     .analysis_value_storage
-                    .result_value
-                    .set(res)
-                    .is_err()
-                {
-                    return Err(internal_error!("result_value already set"));
-                }
+                    .set_result_value(res)?;
                 std::mem::drop(eval);
                 let num_declared_actions = analysis_registry.num_declared_actions();
                 let num_declared_artifacts = analysis_registry.num_declared_artifacts();

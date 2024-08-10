@@ -351,7 +351,7 @@ pub struct AnalysisValueStorage<'v> {
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
-    pub result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
+    result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType)]
@@ -513,6 +513,16 @@ impl<'v> AnalysisValueStorage<'v> {
             ));
         }
         self.lambda_params.insert(key, lambda_params);
+        Ok(())
+    }
+
+    pub fn set_result_value(
+        &self,
+        providers: ValueTypedComplex<'v, ProviderCollection<'v>>,
+    ) -> anyhow::Result<()> {
+        if self.result_value.set(providers).is_err() {
+            return Err(internal_error!("result_value is already set"));
+        }
         Ok(())
     }
 }

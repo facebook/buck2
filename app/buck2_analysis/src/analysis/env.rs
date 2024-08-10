@@ -24,7 +24,6 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -324,14 +323,9 @@ async fn run_analysis_with_env_underlying(
     {
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
             .internal_error("Just allocated provider collection")?;
-        if analysis_registry
+        analysis_registry
             .analysis_value_storage
-            .result_value
-            .set(provider_collection)
-            .is_err()
-        {
-            return Err(internal_error!("result_value already set"));
-        }
+            .set_result_value(provider_collection)?;
     }
 
     drop(eval);
