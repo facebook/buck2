@@ -414,6 +414,7 @@ impl<'v> BxlContext<'v> {
             .state
             .borrow_mut()
             .take()
+            .map(Ok)
             .unwrap_or_else(|| {
                 // BXL did not request actions, so we don't know execution platform.
                 // It doesn't matter what owner/platform we put here because
@@ -425,8 +426,7 @@ impl<'v> BxlContext<'v> {
                         .into_base_deferred_key(BxlExecutionResolution::unspecified()),
                     ExecutionPlatformResolution::unspecified(),
                 )
-                .unwrap()
-            });
+            })?;
 
         // artifacts should be bound by now as the bxl has finished running
         let artifacts = output_stream
