@@ -93,12 +93,14 @@ enum ErrorTag {
   // No valid internal or VPNless certs could be found
   NO_VALID_CERTS = 25;
 
+  // Errors during buck2 install.
+  INSTALL = 200;
+
   //// High level descriptions of the "phase" of the build during which the
   // error occurred
   ANALYSIS = 7;
   ANY_ACTION_EXECUTION = 2000;
   ANY_STARLARK_EVALUATION = 2001;
-  INSTALL = 2002;
 
   ///// IO SECTION
   //
