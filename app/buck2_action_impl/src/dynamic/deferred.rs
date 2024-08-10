@@ -30,6 +30,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -364,7 +365,9 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let fs = project_filesystem;
     for x in &dynamic_lambda.static_fields.dynamic {
         let k = StarlarkArtifact::new(x.dupe());
-        let path = materialized_artifacts.get(x).unwrap();
+        let path = materialized_artifacts
+            .get(x)
+            .internal_error("Missing materialized artifact")?;
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
         artifacts.push((k, v));
     }
