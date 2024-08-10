@@ -11,6 +11,4 @@
 pub enum DynamicLambdaError {
     #[error("dynamic_output and anon_target cannot be used together (yet)")]
     AnonTargetIncompatible,
-    #[error("dynamic_output lambda must return `None`, got: `{0}`")]
-    LambdaMustReturnNone(String),
 }

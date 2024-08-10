@@ -17,7 +17,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
-use buck2_build_api::dynamic::lambda::DynamicLambdaError;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -29,6 +28,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
@@ -107,10 +107,11 @@ pub fn invoke_dynamic_output_lambda<'v>(
         .map_err(BuckStarlarkError::new)?;
 
     if !return_value.is_none() {
-        return Err(DynamicLambdaError::LambdaMustReturnNone(
-            return_value.to_string_for_type_error(),
-        )
-        .into());
+        return Err(buck2_error!(
+            [],
+            "dynamic_output lambda must return `None`, got: `{0}`",
+            return_value.to_string_for_type_error()
+        ));
     }
 
     Ok(())
