@@ -30,7 +30,7 @@ use crate::commands::build::BuildCommand;
 /// This command is to allow users to dive in and understand
 /// builds, without requiring a solid grasp of Buck2 concepts
 #[derive(Debug, clap::Parser)]
-#[clap(name = "explain", group = clap::ArgGroup::new("out").multiple(true))]
+#[clap(name = "explain", group = clap::ArgGroup::new("out").multiple(true).required(true))]
 pub struct ExplainCommand {
     /// Output file path for profile data.
     ///
