@@ -58,6 +58,7 @@ use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
+use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -1295,7 +1296,10 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         Ok(())
     }
 
-    async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
+    async fn handle_console_interaction(
+        &mut self,
+        _c: &Option<SuperConsoleToggle>,
+    ) -> anyhow::Result<()> {
         self.tags.push("console-interaction".to_owned());
         Ok(())
     }

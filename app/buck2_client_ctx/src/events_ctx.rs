@@ -27,9 +27,10 @@ use gazebo::prelude::VecExt;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
 use crate::command_outcome::CommandOutcome;
-use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
-use crate::console_interaction_stream::NoopConsoleInteraction;
+use crate::console_interaction_stream::NoopSuperConsoleInteraction;
+use crate::console_interaction_stream::SuperConsoleInteraction;
+use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::daemon::client::tonic_status_to_error;
 use crate::daemon::client::NoPartialResultHandler;
 use crate::exit_result::ExitResult;
@@ -191,8 +192,8 @@ impl<'a> EventsCtx<'a> {
         S: Stream<Item = anyhow::Result<StreamValue>>,
         Handler: PartialResultHandler,
     {
-        let mut noop_console_interaction = NoopConsoleInteraction;
-        let console_interaction: &mut dyn ConsoleInteraction = match &mut console_interaction {
+        let mut noop_console_interaction = NoopSuperConsoleInteraction;
+        let console_interaction: &mut dyn SuperConsoleInteraction = match &mut console_interaction {
             Some(i) => i as _,
             None => &mut noop_console_interaction as _,
         };
@@ -231,8 +232,8 @@ impl<'a> EventsCtx<'a> {
                     Some(event) = tailers.stream.recv() => {
                         self.dispatch_tailer_event(event).await?;
                     }
-                    c = console_interaction.char() => {
-                        self.handle_console_interaction(c?).await?;
+                    c = console_interaction.toggle() => {
+                        self.handle_console_interaction(&c?).await?;
                     }
                     tick = self.ticker.tick() => {
                         self.tick(&tick).await?;
@@ -379,9 +380,12 @@ impl<'a> EventsCtx<'a> {
             .await
     }
 
-    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+    async fn handle_console_interaction(
+        &mut self,
+        toggle: &Option<SuperConsoleToggle>,
+    ) -> anyhow::Result<()> {
         self.subscribers
-            .for_each_subscriber(|subscriber| subscriber.handle_console_interaction(c))
+            .for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
             .await
     }
 

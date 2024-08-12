@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_events::BuckEvent;
 use dupe::Dupe;
 
+use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::observer::ErrorObserver;
 
 /// Information about tick timing.
@@ -48,7 +49,10 @@ pub trait EventSubscriber: Send {
     async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
         Ok(())
     }
-    async fn handle_console_interaction(&mut self, _c: char) -> anyhow::Result<()> {
+    async fn handle_console_interaction(
+        &mut self,
+        _c: &Option<SuperConsoleToggle>,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
     async fn handle_events(&mut self, _event: &[Arc<BuckEvent>]) -> anyhow::Result<()> {

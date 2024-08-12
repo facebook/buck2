@@ -263,6 +263,7 @@ smallvec = { version = "1.10", features = ["const_generics", "const_new", "serde
 static_assertions = "1.1.0"
 strsim = "0.10.0"
 structopt = "0.3.23"
+strum = { version = "0.26.2", features = ["derive", "strum_macros"] }
 syn = { version = "2", features = ["extra-traits", "full", "visit"] }
 sync_wrapper = "0.1.0"
 sys-info = "0.9.1"

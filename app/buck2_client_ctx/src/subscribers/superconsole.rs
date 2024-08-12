@@ -33,6 +33,7 @@ use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use gazebo::prelude::*;
+use strum::IntoEnumIterator;
 use superconsole::components::DrawVertical;
 use superconsole::style::Attribute;
 use superconsole::style::Color;
@@ -47,6 +48,7 @@ use superconsole::Lines;
 use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
 
+use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -671,59 +673,74 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
-        if c == 'd' {
-            self.toggle("DICE component", 'd', |s| &mut s.state.config.enable_dice)
-                .await?;
-        } else if c == 'e' {
-            self.toggle("Debug events component", 'e', |s| {
-                &mut s.state.config.enable_debug_events
-            })
-            .await?;
-        } else if c == '2' {
-            self.toggle("Two lines mode", '2', |s| &mut s.state.config.two_lines)
-                .await?;
-        } else if c == 'r' {
-            self.toggle("Detailed RE", 'r', |s| {
-                &mut s.state.config.enable_detailed_re
-            })
-            .await?;
-        } else if c == 'i' {
-            self.toggle("I/O counters", 'i', |s| &mut s.state.config.enable_io)
-                .await?;
-        } else if c == 'p' {
-            self.toggle("Display target configurations", 'p', |s| {
-                &mut s.state.config.display_platform
-            })
-            .await?;
-        } else if c == 'x' {
-            self.toggle("Display expanded progress", 'x', |s| {
-                &mut s.state.config.expanded_progress
-            })
-            .await?;
-        } else if c == 'c' {
-            self.toggle("Commands", 'c', |s| &mut s.state.config.enable_commands)
-                .await?;
-        } else if c == '+' {
-            self.state.config.max_lines = self.state.config.max_lines.saturating_add(1);
-        } else if c == '-' {
-            self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1);
-        } else if c == '?' || c == 'h' {
-            self.handle_stderr(
-                "Help:\n\
-                `c` = toggle commands (shown by default)\n\
-                `d` = toggle DICE\n\
-                `e` = toggle debug events\n\
-                `2` = toggle two lines mode\n\
-                `r` = toggle detailed RE\n\
-                `i` = toggle I/O counters\n\
-                `p` = display target configurations\n\
-                `+` = show more lines\n\
-                `-` = show fewer lines\n\
-                `h` = show this help\n\
-                env var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console",
-            )
-            .await?;
+    async fn handle_console_interaction(
+        &mut self,
+        c: &Option<SuperConsoleToggle>,
+    ) -> anyhow::Result<()> {
+        match c {
+            Some(c) => match c {
+                SuperConsoleToggle::Dice => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.enable_dice
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::DebugEvents => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.enable_debug_events
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::TwoLinesMode => {
+                    self.toggle(c.description(), c.key(), |s| &mut s.state.config.two_lines)
+                        .await?
+                }
+                SuperConsoleToggle::DetailedRE => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.enable_detailed_re
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::Io => {
+                    self.toggle(c.description(), c.key(), |s| &mut s.state.config.enable_io)
+                        .await?
+                }
+                SuperConsoleToggle::TargetConfigurations => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.display_platform
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::ExpandedProgress => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.expanded_progress
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::Commands => {
+                    self.toggle(c.description(), c.key(), |s| {
+                        &mut s.state.config.enable_commands
+                    })
+                    .await?
+                }
+                SuperConsoleToggle::IncrLines { .. } => {
+                    self.state.config.max_lines = self.state.config.max_lines.saturating_add(1)
+                }
+                SuperConsoleToggle::DecrLines { .. } => {
+                    self.state.config.max_lines = self.state.config.max_lines.saturating_sub(1)
+                }
+                SuperConsoleToggle::Help { .. } => {
+                    let help_message = SuperConsoleToggle::iter()
+                        .map(|t| format!("`{}` = toggle {}", t.key(), t.description()))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    self.handle_stderr(
+                    &format!("Help:\n{}\nenv var {BUCK_NO_INTERACTIVE_CONSOLE}=true disables interactive console", help_message),
+                )
+                .await?
+                }
+            },
+            None => {}
         }
 
         Ok(())
@@ -783,7 +800,10 @@ impl EventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_console_interaction(&mut self, c: char) -> anyhow::Result<()> {
+    async fn handle_console_interaction(
+        &mut self,
+        c: &Option<SuperConsoleToggle>,
+    ) -> anyhow::Result<()> {
         if let Self::Running(super_console) = self {
             super_console.handle_console_interaction(c).await?;
         }

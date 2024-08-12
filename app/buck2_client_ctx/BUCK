@@ -61,6 +61,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:shlex",
+        "fbsource//third-party/rust:strum",
         "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:termwiz",
