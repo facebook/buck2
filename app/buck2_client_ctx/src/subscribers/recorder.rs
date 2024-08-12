@@ -28,6 +28,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_data::SystemInfo;
 use buck2_error::classify::best_tag;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -128,7 +129,7 @@ pub(crate) struct InvocationRecorder<'a> {
     time_to_load_first_build_file: Option<Duration>,
     time_to_first_command_execution_start: Option<Duration>,
     time_to_first_test_discovery: Option<Duration>,
-    system_total_memory_bytes: Option<u64>,
+    system_info: SystemInfo,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
     file_watcher_duration: Option<Duration>,
     time_to_last_action_execution_end: Option<Duration>,
@@ -170,7 +171,6 @@ pub(crate) struct InvocationRecorder<'a> {
     has_new_buckconfigs: bool,
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
-    total_disk_space_bytes: Option<u64>,
     peak_used_disk_space_bytes: Option<u64>,
 }
 
@@ -240,7 +240,7 @@ impl<'a> InvocationRecorder<'a> {
             time_to_load_first_build_file: None,
             time_to_first_command_execution_start: None,
             time_to_first_test_discovery: None,
-            system_total_memory_bytes: None,
+            system_info: SystemInfo::default(),
             file_watcher_stats: None,
             file_watcher_duration: None,
             time_to_last_action_execution_end: None,
@@ -288,7 +288,6 @@ impl<'a> InvocationRecorder<'a> {
             has_new_buckconfigs: false,
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
-            total_disk_space_bytes: None,
             peak_used_disk_space_bytes: None,
         }
     }
@@ -478,7 +477,7 @@ impl<'a> InvocationRecorder<'a> {
             time_to_first_test_discovery_ms: self
                 .time_to_first_test_discovery
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
-            system_total_memory_bytes: self.system_total_memory_bytes,
+            system_total_memory_bytes: self.system_info.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
             file_watcher_duration_ms: self
                 .file_watcher_duration
@@ -542,7 +541,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
-            total_disk_space_bytes: self.total_disk_space_bytes.take(),
+            total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
         };
 
@@ -875,8 +874,7 @@ impl<'a> InvocationRecorder<'a> {
     }
 
     fn handle_system_info(&mut self, system_info: &buck2_data::SystemInfo) -> anyhow::Result<()> {
-        self.system_total_memory_bytes = system_info.system_total_memory_bytes;
-        self.total_disk_space_bytes = system_info.total_disk_space_bytes;
+        self.system_info = system_info.clone();
         Ok(())
     }
 
