@@ -119,6 +119,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         shared = False,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
+        external_linker_flags = ctx.attrs.external_linker_flags,
     )
 
     # As per v1, copy in resources next to binary.
