@@ -93,7 +93,11 @@ def buck_e2e_test(
     if use_buck_api:
         deps.append("fbcode//buck2/tests/e2e_util/api:api")
     resources = resources or {}
-    resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
+
+    # Let users of the macro define their own configuration for pytest. This allow for reusing all
+    # the fixture code for tools building e2e tests that also need a working buck environment.
+    if not "conftest.py" in resources.values():
+        resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
     labels = []
     if "darwin" in skip_for_os:
