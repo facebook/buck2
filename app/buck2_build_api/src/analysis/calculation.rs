@@ -27,6 +27,7 @@ use dupe::Dupe;
 
 use crate::analysis::AnalysisResult;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::validation::transitive_validations::TransitiveValidations;
 
 pub static EVAL_ANALYSIS_QUERY: LateBinding<
     for<'a> fn(
@@ -72,6 +73,11 @@ pub trait RuleAnalysisCalculation {
         &mut self,
         target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
+
+    async fn get_validations(
+        &mut self,
+        target: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<Option<TransitiveValidations>>>;
 }
 
 #[async_trait]
@@ -102,5 +108,13 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
         let analysis = self.get_analysis_result(target.target()).await?;
 
         analysis.try_map(|analysis| analysis.lookup_inner(target))
+    }
+
+    async fn get_validations(
+        &mut self,
+        target: &ConfiguredTargetLabel,
+    ) -> anyhow::Result<MaybeCompatible<Option<TransitiveValidations>>> {
+        let analysis = self.get_analysis_result(target).await?;
+        Ok(analysis.map(|x| x.validations))
     }
 }

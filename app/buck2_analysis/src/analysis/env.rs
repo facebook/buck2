@@ -16,9 +16,13 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::FrozenValidationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
+use buck2_build_api::validation::transitive_validations::TransitiveValidations;
+use buck2_build_api::validation::transitive_validations::TransitiveValidationsData;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -46,6 +50,7 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
@@ -239,6 +244,17 @@ async fn run_analysis_with_env_underlying(
     let env = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
+    let validations_from_deps = analysis_env
+        .deps
+        .iter()
+        .filter_map(|(label, analysis_result)| {
+            analysis_result
+                .validations
+                .dupe()
+                .map(|v| ((*label).dupe(), v))
+        })
+        .collect::<SmallMap<_, _>>();
+
     let (attributes, plugins) = {
         let dep_analysis_results = get_deps_from_analysis_results(analysis_env.deps)?;
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
@@ -340,13 +356,43 @@ async fn run_analysis_with_env_underlying(
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
 
+    let validations = transitive_validations(
+        validations_from_deps,
+        recorded_values.provider_collection()?,
+    );
+
     Ok(AnalysisResult::new(
         recorded_values,
         profile_data,
         HashMap::new(),
         declared_actions,
         declared_artifacts,
+        validations,
     ))
+}
+
+pub fn transitive_validations(
+    deps: SmallMap<ConfiguredTargetLabel, TransitiveValidations>,
+    provider_collection: FrozenProviderCollectionValueRef,
+) -> Option<TransitiveValidations> {
+    let info = provider_collection
+        .value()
+        .builtin_provider::<FrozenValidationInfo>();
+    if info.is_some() || deps.len() > 1 {
+        let owned_info = info.map(|x| unsafe {
+            OwnedFrozenRef::new_unchecked(x.as_ref(), provider_collection.owner().dupe())
+        });
+        Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
+            info: owned_info,
+            children: deps,
+        })))
+    } else {
+        assert!(
+            deps.len() <= 1,
+            "Reuse the single element if any from one of the deps for current node."
+        );
+        deps.into_values().next()
+    }
 }
 
 pub fn get_user_defined_rule_spec(

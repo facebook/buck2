@@ -17,6 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::get_deps_from_analysis_results;
+use buck2_analysis::analysis::env::transitive_validations;
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::analysis::env::RuleSpec;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -289,6 +290,16 @@ impl AnonTargetKey {
     ) -> anyhow::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
+        let validations_from_deps = dependents_analyses
+            .dep_analysis_results
+            .iter()
+            .filter_map(|(label, analysis_result)| {
+                analysis_result
+                    .validations
+                    .dupe()
+                    .map(|v| ((*label).dupe(), v))
+            })
+            .collect::<SmallMap<_, _>>();
 
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(
@@ -402,12 +413,18 @@ impl AnonTargetKey {
                 let num_declared_artifacts = analysis_registry.num_declared_artifacts();
                 let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
 
+                let validations = transitive_validations(
+                    validations_from_deps,
+                    recorded_values.provider_collection()?,
+                );
+
                 Ok(AnalysisResult::new(
                     recorded_values,
                     None,
                     fulfilled_artifact_mappings,
                     num_declared_actions,
                     num_declared_artifacts,
+                    validations,
                 ))
             }
             .map(|res| {

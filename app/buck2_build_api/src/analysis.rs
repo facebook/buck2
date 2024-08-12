@@ -31,6 +31,7 @@ use dupe::Dupe;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
+use crate::validation::transitive_validations::TransitiveValidations;
 
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct AnalysisResult {
@@ -42,6 +43,8 @@ pub struct AnalysisResult {
     promise_artifact_map: Arc<HashMap<PromiseArtifactId, Artifact>>,
     pub num_declared_actions: u64,
     pub num_declared_artifacts: u64,
+    /// `None` means there are no `ValidationInfo` providers in transitive dependencies.
+    pub validations: Option<TransitiveValidations>,
 }
 
 impl AnalysisResult {
@@ -52,6 +55,7 @@ impl AnalysisResult {
         promise_artifact_map: HashMap<PromiseArtifactId, Artifact>,
         num_declared_actions: u64,
         num_declared_artifacts: u64,
+        validations: Option<TransitiveValidations>,
     ) -> Self {
         Self {
             analysis_values: Arc::new(analysis_values),
@@ -59,6 +63,7 @@ impl AnalysisResult {
             promise_artifact_map: Arc::new(promise_artifact_map),
             num_declared_actions,
             num_declared_artifacts,
+            validations,
         }
     }
 

@@ -155,6 +155,7 @@ fn mock_analysis_for_action_resolution(
             HashMap::new(),
             0,
             0,
+            None,
         ))),
     );
 

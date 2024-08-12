@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub mod transitive_validations;
 pub mod validation_impl;
