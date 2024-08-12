@@ -1301,7 +1301,9 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         c: &Option<SuperConsoleToggle>,
     ) -> anyhow::Result<()> {
         match c {
-            Some(_) => self.tags.push("console-interaction".to_owned()),
+            Some(c) => self
+                .tags
+                .push(format!("superconsole-toggle:{}", c.key()).to_owned()),
             None => {}
         }
         Ok(())
