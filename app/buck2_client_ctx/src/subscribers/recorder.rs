@@ -52,6 +52,7 @@ use itertools::Itertools;
 use termwiz::istty::IsTty;
 
 use super::system_warning::check_memory_pressure;
+use super::system_warning::check_remaining_disk_space;
 use crate::build_count::BuildCount;
 use crate::build_count::BuildCountManager;
 use crate::client_ctx::ClientCommandContext;
@@ -405,13 +406,15 @@ impl<'a> InvocationRecorder<'a> {
                 &Some(snapshot.re_download_bytes),
                 &self.initial_re_download_bytes,
             );
-            // We show memory warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
+            // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
-            // Each snapshot already keeps track of the peak memory usage, so we can use that to check if we ever reported a warning.
+            // Each snapshot already keeps track of the peak memory/disk usage, so we can use that to check if we ever reported a warning.
             if check_memory_pressure(Some(snapshot), &self.system_info).is_some() {
                 self.tags.push("memory_pressure_warning".to_owned());
             }
-            // TODO(ezgi): add a tag for disk space warnings
+            if check_remaining_disk_space(Some(snapshot), &self.system_info).is_some() {
+                self.tags.push("low_disk_space".to_owned());
+            }
         }
 
         let mut metadata = Self::default_metadata();
