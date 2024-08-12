@@ -28,6 +28,8 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::FileAttributes;
@@ -37,9 +39,6 @@ use edenfs::SourceControlType;
 use edenfs::SyncBehavior;
 use edenfs::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
-use libc::EINVAL;
-use libc::ENOENT;
-use libc::ENOTDIR;
 use tokio::sync::Semaphore;
 
 use crate::connection::EdenConnectionManager;
@@ -111,10 +110,7 @@ impl EdenIoProvider {
             digest,
         }))
     }
-}
 
-#[async_trait]
-impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
@@ -239,11 +235,13 @@ impl IoProvider for EdenIoProvider {
 
                 Ok(Some(RawPathMetadata::File(meta)))
             }
-            Err(EdenError::PosixError { code, .. }) if code == ENOENT => {
+            Err(EdenError::PosixError { code, .. }) if code == libc::ENOENT => {
                 tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
                 Ok(None)
             }
-            Err(EdenError::PosixError { code, .. }) if code == EINVAL || code == ENOTDIR => {
+            Err(EdenError::PosixError { code, .. })
+                if code == libc::EINVAL || code == libc::ENOTDIR =>
+            {
                 // If we get EINVAL it means the target wasn't a file, and since we know it
                 // existed and it wasn't a dir, then that means it must be a symlink. If we get
                 // ENOTDIR, that means we tried to traverse a path component that was a
@@ -254,13 +252,6 @@ impl IoProvider for EdenIoProvider {
             }
             Err(err) => Err(err.into()),
         }
-    }
-
-    async fn read_file_if_exists_impl(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
-        self.fs.read_file_if_exists_impl(path).await
     }
 
     async fn read_dir_impl(
@@ -326,6 +317,35 @@ impl IoProvider for EdenIoProvider {
 
         Ok(entries)
     }
+}
+
+#[async_trait]
+impl IoProvider for EdenIoProvider {
+    async fn read_path_metadata_if_exists_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        self.read_path_metadata_if_exists_impl(path)
+            .await
+            .tag(ErrorTag::IoEden)
+    }
+
+    async fn read_file_if_exists_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Option<String>> {
+        self.fs
+            .read_file_if_exists_impl(path)
+            .await
+            .tag(ErrorTag::IoEden)
+    }
+
+    async fn read_dir_impl(
+        &self,
+        path: ProjectRelativePathBuf,
+    ) -> anyhow::Result<Vec<RawDirEntry>> {
+        self.read_dir_impl(path).await.tag(ErrorTag::IoEden)
+    }
 
     async fn settle(&self) -> anyhow::Result<()> {
         let _guard = IoCounterKey::EdenSettle.guard();
@@ -347,6 +367,7 @@ impl IoProvider for EdenIoProvider {
             })
             .await
             .context("Error synchronizing Eden working copy")
+            .tag(ErrorTag::IoEden)
     }
 
     fn name(&self) -> &'static str {

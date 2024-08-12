@@ -308,6 +308,7 @@ impl EdenConnector {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = IoEdenMountNotReady)]
 #[error("Mount never became ready: `{}`", self.mount)]
 struct MountNeverBecameReady {
     mount: AbsPathBuf,
@@ -344,8 +345,10 @@ async fn wait_until_mount_is_ready(
 #[derive(buck2_error::Error, Debug)]
 pub enum IsMountReadyError {
     #[error("Mount does not exist in Eden: `{}`", .mount)]
+    #[buck2(tag = IoEdenMountDoesNotExist)]
     MountDoesNotExist { mount: AbsPathBuf },
     #[error(transparent)]
+    #[buck2(tag = IoEdenRequestError)]
     RequestError(ListMountsError),
 }
 
@@ -373,9 +376,10 @@ async fn is_mount_ready(
 #[derive(buck2_error::Error, Debug)]
 pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
+    #[buck2(tag = IoEdenConnectionError)]
     ConnectionError(anyhow::Error),
-
     #[error(transparent)]
+    #[buck2(tag = IoEdenRequestError)]
     RequestError(E),
 }
 
@@ -434,6 +438,7 @@ impl_has_error_handling_strategy!(ReaddirError);
 impl_has_error_handling_strategy!(GetSHA1Error);
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = IoEden)]
 pub enum EdenError {
     #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
     PosixError { error: edenfs::EdenError, code: i32 },

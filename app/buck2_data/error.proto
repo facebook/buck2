@@ -120,4 +120,13 @@ enum ErrorTag {
   IO_CONNECTION_ABORTED = 1025;
   IO_NOT_CONNECTED = 1026;
   IO_TIMEOUT = 1027;
+  //
+  // Eden IO Section
+  // Indicates that the IO operation went through Eden
+  IO_EDEN = 1100;
+  // Failures indicating that Eden Failed to Connect or Mount
+  IO_EDEN_CONNECTION_ERROR = 1110;
+  IO_EDEN_REQUEST_ERROR = 1111;
+  IO_EDEN_MOUNT_DOES_NOT_EXIST = 1112;
+  IO_EDEN_MOUNT_NOT_READY = 1113;
 }
