@@ -9,9 +9,11 @@
 
 #![feature(error_generic_member_access)]
 #![feature(assert_matches)]
+#![feature(round_char_boundary)]
 
 use std::sync::Once;
 
+mod cached_validation_result;
 mod validation;
 mod validator_api;
 
