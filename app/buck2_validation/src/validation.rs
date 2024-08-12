@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Once;
-
 use async_trait::async_trait;
 use buck2_build_api::materialize::MaterializationContext;
 use buck2_build_api::validation::validation_impl::ValidationImpl;
@@ -16,11 +14,8 @@ use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::LinearRecomputeDiceComputations;
 
-pub(crate) fn init() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        VALIDATION_IMPL.init(&ValidationImplInstance);
-    });
+pub(crate) fn init_validation_impl() {
+    VALIDATION_IMPL.init(&ValidationImplInstance);
 }
 
 struct ValidationImplInstance;
