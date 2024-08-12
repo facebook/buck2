@@ -222,6 +222,7 @@ class SplitGroupKey(typing.NamedTuple):
 
 class NodeData(typing.NamedTuple):
     base_library_name: str
+    could_be_root_for: list[str]
     module: str
     merge_group: int
     is_excluded: bool
@@ -245,6 +246,7 @@ class FinalLibData(typing.NamedTuple):
     is_excluded: bool
     key: FinalLibKey
     deps: set[FinalLibKey]
+    entry_point_targets: set[str]
 
 
 class FinalLibGraph:
@@ -255,7 +257,7 @@ class FinalLibGraph:
     def __init__(self) -> None:
         self.graph = {}
 
-    def add_node(self, node_data: NodeData, deps_data: list[NodeData]) -> None:
+    def _ensure_lib_data(self, node_data: NodeData) -> FinalLibData:
         lib_key = node_data.final_lib_key
         lib_data = self.graph.get(lib_key, None)
         if not lib_data:
@@ -268,19 +270,39 @@ class FinalLibGraph:
                     is_excluded=node_data.is_excluded,
                     key=lib_key,
                     deps=set(),
+                    entry_point_targets=set(),
                 ),
             )
         else:
             assert lib_data.module == node_data.module, (lib_data, node_data)
             assert lib_data.merge_group == node_data.merge_group, (lib_data, node_data)
 
-        for dep_data in deps_data:
-            if dep_data.final_lib_key != lib_key:
-                lib_data.deps.add(dep_data.final_lib_key)
+        return lib_data
 
-    def dump_graph(self, names: dict[FinalLibKey, str]) -> dict[str, list[str]]:
+    def add_node(
+        self,
+        node_data: NodeData,
+        deps: list[str],
+        deps_data: list[NodeData],
+    ) -> None:
+        lib_data = self._ensure_lib_data(node_data)
+
+        for dep, dep_data in zip(deps, deps_data):
+            if dep_data.final_lib_key != node_data.final_lib_key:
+                lib_data.deps.add(dep_data.final_lib_key)
+                dep_lib_data = self._ensure_lib_data(dep_data)
+                dep_lib_data.entry_point_targets.add(dep)
+
+    def dump_lib_edges(self, names: dict[FinalLibKey, str]) -> dict[str, list[str]]:
         return {
             names[k]: [names[d] for d in node.deps] for k, node in self.graph.items()
+        }
+
+    def dump_entry_point_targets(
+        self, names: dict[FinalLibKey, str]
+    ) -> dict[str, list[str]]:
+        return {
+            names[k]: list(node.entry_point_targets) for k, node in self.graph.items()
         }
 
     def assign_names(
@@ -552,6 +574,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
 
             this_node_data = NodeData(
                 base_library_name=base_library_name,
+                could_be_root_for=list(group_roots.get(target, set())),
                 module=module,
                 merge_group=current_merge_group,
                 final_lib_key=FinalLibKey(
@@ -568,7 +591,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
         for target in post_ordered_targets:
             node = graph_node_map[target]
             deps_data = [node_data[dep] for dep in node.deps]
-            final_lib_graph.add_node(node_data[target], deps_data)
+            final_lib_graph.add_node(node_data[target], node.deps, deps_data)
 
     final_lib_names = final_lib_graph.assign_names(merge_group_module_constituents)
     return node_data, final_lib_names, final_lib_graph
@@ -725,9 +748,14 @@ def main() -> int:  # noqa: C901
             else:
                 final_mapping[target] = str(target)
         debug_results[platform] = (
+            # Target name -> various information
             {k: v.debug() for k, v in node_data.items()},
+            # Serialized FinalLibKey -> final library name
             {str(k): v for k, v in final_lib_names.items()},
-            final_lib_graph.dump_graph(final_lib_names),
+            # Final library name -> final names of direct library dependencies
+            final_lib_graph.dump_lib_edges(final_lib_names),
+            # Final library name -> entry point targets
+            final_lib_graph.dump_entry_point_targets(final_lib_names),
         )
         final_result[platform] = final_mapping
 
