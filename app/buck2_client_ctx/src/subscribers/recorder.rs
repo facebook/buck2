@@ -1298,9 +1298,12 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
 
     async fn handle_console_interaction(
         &mut self,
-        _c: &Option<SuperConsoleToggle>,
+        c: &Option<SuperConsoleToggle>,
     ) -> anyhow::Result<()> {
-        self.tags.push("console-interaction".to_owned());
+        match c {
+            Some(_) => self.tags.push("console-interaction".to_owned()),
+            None => {}
+        }
         Ok(())
     }
 
