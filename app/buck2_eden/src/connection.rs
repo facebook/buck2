@@ -25,6 +25,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::ErrorTag;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
@@ -437,8 +438,39 @@ impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
 impl_has_error_handling_strategy!(GetSHA1Error);
 
+fn eden_error_kind_tag(e: &EdenError) -> Option<ErrorTag> {
+    let tag = match e {
+        EdenError::PosixError { code, .. } => match *code {
+            libc::ENOENT => ErrorTag::IoNotFound,
+            libc::EACCES | libc::EPERM => ErrorTag::IoPermissionDenied,
+            libc::ETIMEDOUT => ErrorTag::IoTimeout,
+            libc::EBUSY => ErrorTag::IoExecutableFileBusy,
+            libc::EPIPE => ErrorTag::IoBrokenPipe,
+            libc::ENOSPC => ErrorTag::IoStorageFull,
+            libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
+            libc::ENOTCONN => ErrorTag::IoNotConnected,
+            _ => return None,
+        },
+        EdenError::ServiceError { error } => match error.errorType {
+            EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
+            EdenErrorType::HRESULT_ERROR => ErrorTag::IoEdenHresultError,
+            EdenErrorType::ARGUMENT_ERROR => ErrorTag::IoEdenArgumentError,
+            EdenErrorType::GENERIC_ERROR => ErrorTag::IoEdenGenericError,
+            EdenErrorType::MOUNT_GENERATION_CHANGED => ErrorTag::IoEdenMountGenerationChanged,
+            EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
+            EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
+            EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
+            _ => return None,
+        },
+        EdenError::UnknownField { .. } => ErrorTag::IoEdenUnknownField,
+    };
+
+    Some(tag)
+}
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = IoEden)]
+#[buck2(tag = eden_error_kind_tag(&self))]
 pub enum EdenError {
     #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
     PosixError { error: edenfs::EdenError, code: i32 },
