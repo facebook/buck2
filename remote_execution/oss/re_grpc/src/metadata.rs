@@ -35,7 +35,6 @@ pub struct BuckInfo {
 pub struct RemoteExecutionMetadata {
     pub action_history_info: Option<ActionHistoryInfo>,
     pub buck_info: Option<BuckInfo>,
-    pub host_resource_requirements: Option<HostResourceRequirements>,
     pub platform: Option<TPlatform>,
     pub use_case_id: String,
     pub do_not_cache: bool,

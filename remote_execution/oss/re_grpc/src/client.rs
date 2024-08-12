@@ -1442,9 +1442,7 @@ fn with_re_metadata<T>(
                 // TODO(#503): Pull the BuckVersion::get_unique_id() from BuckDaemon
                 tool_version: "0.1.0".to_owned(),
             }),
-            action_id: metadata
-                .host_resource_requirements
-                .map_or(String::new(), |rr| rr.affinity_keys.join(",")),
+            action_id: "".to_owned(),
             tool_invocation_id: metadata
                 .buck_info
                 .map_or(String::new(), |buck_info| buck_info.build_id),
