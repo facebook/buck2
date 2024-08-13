@@ -38,7 +38,6 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
-        "//buck2/app/buck2_client:buck2_client",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

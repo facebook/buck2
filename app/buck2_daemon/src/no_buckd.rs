@@ -8,8 +8,8 @@
  */
 
 use anyhow::Context;
-use buck2_client::commands::kill::kill_command_impl;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
+use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::init::DaemonStartupConfig;

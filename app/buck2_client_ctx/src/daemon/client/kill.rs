@@ -22,12 +22,80 @@ use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
 use tonic::Request;
 
+use crate::daemon::client::connect::buckd_startup_timeout;
 use crate::daemon::client::connect::BuckAddAuthTokenInterceptor;
+use crate::daemon::client::connect::BuckdProcessInfo;
+use crate::daemon::client::BuckdLifecycleLock;
 
 const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(4);
 /// Kill request does not wait for the process to exit.
 const KILL_REQUEST_TIMEOUT: Duration = Duration::from_secs(3);
 const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub async fn kill_command_impl(
+    lifecycle_lock: &BuckdLifecycleLock,
+    reason: &str,
+) -> anyhow::Result<()> {
+    let process = match BuckdProcessInfo::load(lifecycle_lock.daemon_dir()) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::debug!("No BuckdProcessInfo: {:#}", e);
+            crate::eprintln!("no buckd server running")?;
+            return Ok(());
+        }
+    };
+
+    let buckd = tokio::time::timeout(buckd_startup_timeout()?, async {
+        process.create_channel().await?.upgrade().await
+    })
+    .await;
+
+    let pid = match buckd {
+        Ok(Ok(mut buckd)) => {
+            crate::eprintln!("killing buckd server")?;
+            Some(buckd.kill(reason).await?)
+        }
+        Ok(Err(e)) => {
+            // No time out: we just errored out. This is likely indicative that there is no
+            // buckd (i.e. our connection got rejected), so let's check for this and then
+            // provide some information.
+
+            if e.is::<tonic::transport::Error>() {
+                // OK, looks like the server
+                tracing::debug!("Connect failed with a Tonic error: {:#}", e);
+                crate::eprintln!("no buckd server running")?;
+            } else {
+                crate::eprintln!(
+                    "unexpected error connecting to Buck2: {:#} \
+                            (no buckd server running?)",
+                    e
+                )?;
+            }
+
+            None
+        }
+        Err(e) => {
+            tracing::debug!("Connect timed out: {:#}", e);
+
+            // If we timeout, then considering the generous timeout we give ourselves, then
+            // that must mean we're not getting a reply back from Buck, but that we did
+            // succeed in opening a connection to it (because if we didn't, we'd have
+            // errored out).
+            //
+            // This means the socket is probably open. We can reasonably got and kill this
+            // process if both the PID and the port exist.
+            crate::eprintln!("killing unresponsive buckd server")?;
+            process.hard_kill().await?;
+            Some(process.pid()?)
+        }
+    };
+
+    if let Some(pid) = pid {
+        crate::eprintln!("Buck2 daemon pid {} has exited", pid)?;
+    }
+
+    Ok(())
+}
 
 pub(crate) async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,

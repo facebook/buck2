@@ -589,7 +589,7 @@ impl BootstrapBuckdClient {
         }
     }
 
-    pub async fn kill(&mut self, reason: &str) -> anyhow::Result<Pid> {
+    pub(crate) async fn kill(&mut self, reason: &str) -> anyhow::Result<Pid> {
         kill::kill(&mut self.client, &self.info, reason).await?;
         Pid::from_i64(self.info.pid)
     }
