@@ -334,10 +334,10 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
             targets_in_buildfile,
         )
 
-        for t in extra_rust_targets:
+        for t in list(extra_rust_targets)[:max_extra_targets]:
             rust_targets.add(t.label)
 
-        out[buildfile_path] = rust_targets.list()[:max_extra_targets]
+        out[buildfile_path] = rust_targets.list()
 
     ctx.output.print_json(out)
 
