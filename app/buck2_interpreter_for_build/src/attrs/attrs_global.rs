@@ -57,6 +57,7 @@ use crate::plugins::AllPlugins;
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum AttrError {
     #[error(
         "`attrs.option` `default` parameter must be `None` or absent, got `{0}`.\n{}",

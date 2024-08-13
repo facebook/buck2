@@ -51,6 +51,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 pub enum ConfigurationError {
     #[error("Expected a ConfigurationInfo provider from `{0}`.")]
     MissingConfigurationInfoProvider(TargetLabel),

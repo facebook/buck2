@@ -18,6 +18,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use derivative::Derivative;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum GlobError {
     #[error(
         "Exact pattern must be valid forward relative path: `{0}` \

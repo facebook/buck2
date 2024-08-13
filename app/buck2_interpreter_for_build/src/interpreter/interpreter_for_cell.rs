@@ -71,6 +71,7 @@ use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Tabs are not allowed in Buck files: `{0}`")]
+#[buck2(input)]
 struct StarlarkTabsError(OwnedStarlarkPath);
 
 #[derive(Debug, buck2_error::Error)]
@@ -83,6 +84,7 @@ enum StarlarkPeakMemoryError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum StarlarkPeakMemorySoftError {
     #[error(
         "Starlark peak memory usage for {0} is {1} which is over 50% of the limit {2}! Consider investigating what takes too much memory: {3}."
@@ -92,6 +94,7 @@ enum StarlarkPeakMemorySoftError {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Error parsing: `{1}`")]
+#[buck2(input)]
 pub struct ParseError(#[source] pub BuckStarlarkError, OwnedStarlarkPath);
 
 /// A ParseData includes the parsed AST and a list of the imported files.

@@ -20,6 +20,7 @@ use crate::cells::paths::CellRelativePath;
 use crate::fs::paths::file_name::FileName;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ImportPathError {
     #[error("Invalid import path `{0}`")]
     Invalid(CellPath),
