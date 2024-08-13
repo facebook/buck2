@@ -24,6 +24,7 @@ NAMED_CONSTRAINT_SETTINGS = {
     "ovr_config//toolchain/clang/constraints:clang-toolchain-version": (lambda label: "clang" + str(label.name)),
     "ovr_config//build_mode/constraints:san": None,
     "fbcode//fdo/constraints:fdo": (lambda label: str(label.name)),
+    "ovr_config//build_mode/default_opt_cxx:default_opt_cxx_setting": (lambda label: "opt-by-default" if str(label.name) == "enabled" else None),
 }
 
 # Mark all modifier generated configurations with a `cfg:` prefix.
@@ -44,7 +45,8 @@ def cfg_name(cfg: ConfigurationInfo) -> str:
                 constraint_name = transform(constraint_value_label)
             else:
                 constraint_name = str(constraint_value_label.name)
-            name_list.append(constraint_name)
+            if constraint_name:
+                name_list.append(constraint_name)
     if len(name_list) == 0:
         name = _EMPTY_CFG_NAME
     else:
