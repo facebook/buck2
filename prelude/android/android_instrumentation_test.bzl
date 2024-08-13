@@ -122,6 +122,14 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         cmd.append("--collect-tombstones")
     if ctx.attrs.record_video:
         cmd.append("--record-video")
+    if ctx.attrs.log_extractors:
+        for arg_name, arg_value in ctx.attrs.log_extractors.items():
+            cmd.extend(
+                [
+                    "--log-extractor",
+                    cmd_args([arg_name, arg_value], delimiter = "="),
+                ],
+            )
 
     cmd.extend(
         [
