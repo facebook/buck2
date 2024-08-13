@@ -18,9 +18,9 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_util::threads::thread_spawn;
 use fbinit::FacebookInit;
 
-use crate::commands::daemon::DaemonCommand;
+use crate::daemon::DaemonCommand;
 
-pub(crate) fn start_in_process_daemon(
+pub fn start_in_process_daemon(
     init: FacebookInit,
     daemon_startup_config: &DaemonStartupConfig,
     paths: InvocationPaths,

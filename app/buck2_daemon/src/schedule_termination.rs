@@ -63,7 +63,7 @@ pub(crate) fn maybe_schedule_termination() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::schedule_termination::elapsed_cpu_time_as_percents;
+    use crate::schedule_termination::elapsed_cpu_time_as_percents;
 
     #[test]
     fn test_elapsed_cpu_time_as_percents() {

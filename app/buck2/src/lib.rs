@@ -69,8 +69,6 @@ use crate::process_context::ProcessContext;
 mod check_user_allowed;
 mod cli_style;
 pub(crate) mod commands;
-#[cfg(not(client_only))]
-mod no_buckd;
 pub mod panic;
 pub mod process_context;
 
@@ -234,7 +232,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 pub(crate) enum CommandKind {
     #[cfg(not(client_only))]
     #[clap(hide = true)]
-    Daemon(crate::commands::daemon::DaemonCommand),
+    Daemon(buck2_daemon::daemon::DaemonCommand),
     #[cfg(not(client_only))]
     #[clap(hide = true)]
     Forkserver(crate::commands::forkserver::ForkserverCommand),
@@ -354,7 +352,7 @@ impl CommandKind {
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
-            let v = no_buckd::start_in_process_daemon(
+            let v = buck2_daemon::no_buckd::start_in_process_daemon(
                 process.init,
                 immediate_config.daemon_startup_config()?,
                 paths.clone()?,

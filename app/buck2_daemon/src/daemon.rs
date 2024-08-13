@@ -45,8 +45,8 @@ use futures::StreamExt;
 use rand::Rng;
 use tokio::runtime::Builder;
 
-use crate::commands::daemon_lower_priority::daemon_lower_priority;
-use crate::commands::schedule_termination::maybe_schedule_termination;
+use crate::daemon_lower_priority::daemon_lower_priority;
+use crate::schedule_termination::maybe_schedule_termination;
 
 #[derive(Debug, buck2_error::Error)]
 enum DaemonError {
@@ -59,7 +59,7 @@ enum DaemonError {
 /// This is an internal command, not intended to be used directly.
 /// Buck client invokes it to spawn a server process.
 #[derive(Clone, Debug, clap::Parser)]
-pub(crate) struct DaemonCommand {
+pub struct DaemonCommand {
     /// Sets the interval for how often the daemon performs consistency checks.
     /// These are used to ensure that the daemon is still the one referenced
     /// by files in the daemon dir.
@@ -424,7 +424,7 @@ impl DaemonCommand {
         })
     }
 
-    pub(crate) fn exec(
+    pub fn exec(
         self,
         init: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
@@ -486,7 +486,7 @@ impl DaemonCommand {
     fn daemonize(stdout: File, stderr: File) -> anyhow::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
-        let daemonize = crate::commands::daemonize::Daemonize::new()
+        let daemonize = crate::daemonize::Daemonize::new()
             .stdout(stdout)
             .stderr(stderr);
         daemonize.start()?;
