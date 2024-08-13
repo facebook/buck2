@@ -24,4 +24,4 @@ tracing-subscriber = { workspace = true }
 whoami = "1.4.0"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)", "cfg(feature, values(\"fbcode_build\"))"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
