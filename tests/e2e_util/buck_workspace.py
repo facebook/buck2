@@ -67,7 +67,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             env["BUCKD_STARTUP_TIMEOUT"] = "120"
 
         # allow_soft_errors will override any existing environment variable behavior
-        if marker.allow_soft_errors:
+        if marker.allow_soft_errors or marker.inplace:
             env["BUCK2_HARD_ERROR"] = "false"
 
         # Use a very small stdin buffer to catch any scenarios in which we
