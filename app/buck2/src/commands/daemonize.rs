@@ -19,7 +19,6 @@
 use std::fmt;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
-use std::process::exit;
 
 use dupe::Dupe;
 
@@ -121,7 +120,7 @@ impl Daemonize {
     /// result to the child.
     pub(crate) fn start(self) -> anyhow::Result<()> {
         match self.execute() {
-            Outcome::Parent(Ok(_)) => exit(0),
+            Outcome::Parent(Ok(_)) => unsafe { libc::_exit(0) },
             Outcome::Parent(Err(err)) => Err(err),
             Outcome::Child(Ok(())) => Ok(()),
             Outcome::Child(Err(err)) => Err(err),
@@ -150,7 +149,7 @@ impl Daemonize {
             libc::umask(0o022);
 
             if perform_fork()?.is_some() {
-                exit(0)
+                libc::_exit(0)
             };
 
             redirect_standard_streams(self.stdin, self.stdout, self.stderr)?;
