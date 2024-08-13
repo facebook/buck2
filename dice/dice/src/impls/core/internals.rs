@@ -37,6 +37,7 @@ use crate::result::Cancelled;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
+#[derive(allocative::Allocative)]
 pub(super) struct CoreState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
