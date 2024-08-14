@@ -521,9 +521,18 @@ prebuilt_go_library = prelude_rule(
     ),
 )
 
+go_bootstrap_binary = prelude_rule(
+    name = "go_bootstrap_binary",
+    attrs = (
+        go_common.srcs_arg() |
+        {"entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names""")}
+    ),
+)
+
 go_rules = struct(
     cgo_library = cgo_library,
     go_binary = go_binary,
+    go_bootstrap_binary = go_bootstrap_binary,
     go_exported_library = go_exported_library,
     go_library = go_library,
     go_test = go_test,

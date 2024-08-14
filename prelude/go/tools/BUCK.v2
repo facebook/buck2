@@ -30,9 +30,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-prelude.go_binary(
+prelude.go_bootstrap_binary(
     name = "testmaingen",
     srcs = [
+        "testmaingen.go",
+    ],
+    entrypoints = [
         "testmaingen.go",
     ],
     visibility = [

@@ -23,6 +23,7 @@ load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
+load("@prelude//go:go_bootstrap_binary.bzl", "go_bootstrap_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
@@ -174,6 +175,7 @@ extra_implemented_rules = struct(
     #go
     cgo_library = cgo_library_impl,
     go_binary = go_binary_impl,
+    go_bootstrap_binary = go_bootstrap_binary_impl,
     go_exported_library = go_exported_library_impl,
     go_library = go_library_impl,
     go_test = go_test_impl,
@@ -473,6 +475,10 @@ inlined_extra_attributes = {
         "_race": race_attr,
         "_tags": tags_attr,
     },
+    "go_bootstrap_binary": {
+        "_exec_os_type": buck.exec_os_type_arg(),
+        "_go_toolchain": toolchains_common.go(),
+    },
     "go_exported_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_asan": asan_attr,
@@ -513,7 +519,7 @@ inlined_extra_attributes = {
         "_go_toolchain": toolchains_common.go(),
         "_race": race_attr,
         "_tags": tags_attr,
-        "_testmaingen": attrs.default_only(attrs.exec_dep(default = "prelude//go/tools:testmaingen")),
+        "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:testmaingen")),
     },
 
     # groovy
