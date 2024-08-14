@@ -14,7 +14,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use futures::future::BoxFuture;
-use futures::FutureExt;
 
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
@@ -228,7 +227,8 @@ impl<'d> DiceComputations<'d> {
         compute2: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<U, E>>
         + Send,
     ) -> impl Future<Output = Result<(T, U), E>> + 'a {
-        self.compute2(compute1, compute2).map(|(t, u)| Ok((t?, u?)))
+        let (t, u) = self.0.compute2(compute1, compute2);
+        futures::future::try_join(t, u)
     }
 
     /// Computes all the given tasks in parallel.
@@ -254,8 +254,8 @@ impl<'d> DiceComputations<'d> {
         compute3: impl for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<V, E>>
         + Send,
     ) -> impl Future<Output = Result<(T, U, V), E>> + 'a {
-        self.compute3(compute1, compute2, compute3)
-            .map(|(t, u, v)| Ok((t?, u?, v?)))
+        let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
+        futures::future::try_join3(t, u, v)
     }
 
     /// Used to declare a higher order closure for compute_join and try_compute_join.
