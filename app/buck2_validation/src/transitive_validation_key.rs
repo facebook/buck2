@@ -37,27 +37,7 @@ use crate::single_validation_key::SingleValidationKey;
 #[repr(transparent)]
 pub(crate) struct TransitiveValidationKey(pub ConfiguredTargetLabel);
 
-enum ValidationType {
-    CurrentNode,
-    Children,
-}
-
 impl TransitiveValidationKey {
-    async fn validate_generic(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        transitive_validations: TransitiveValidations,
-        typ: ValidationType,
-    ) -> Result<(), TreatValidationFailureAsError> {
-        match typ {
-            ValidationType::CurrentNode => {
-                self.validate_current_node(ctx, transitive_validations)
-                    .await
-            }
-            ValidationType::Children => self.validate_children(ctx, transitive_validations).await,
-        }
-    }
-
     /// Only performs validations that are described in `ValidationInfo` for the current node
     async fn validate_current_node(
         &self,
@@ -126,12 +106,15 @@ impl Key for TransitiveValidationKey {
             }
         };
         let result = ctx
-            .try_compute_join(
-                [
-                    (transitive_validations.dupe(), ValidationType::CurrentNode),
-                    (transitive_validations.dupe(), ValidationType::Children),
-                ],
-                |ctx, (validations, typ)| self.validate_generic(ctx, validations, typ).boxed(),
+            .try_compute2(
+                {
+                    let transitive_validations = transitive_validations.dupe();
+                    move |ctx| {
+                        self.validate_current_node(ctx, transitive_validations)
+                            .boxed()
+                    }
+                },
+                move |ctx| self.validate_children(ctx, transitive_validations).boxed(),
             )
             .await;
         match result {
