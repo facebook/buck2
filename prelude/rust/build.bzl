@@ -350,7 +350,7 @@ def generate_rustdoc_test(
                     link_infos,
                     deps = inherited_merged_link_infos(ctx, doc_dep_ctx),
                     preferred_linkage = Linkage("static"),
-                )],
+                )] + inherited_merged_link_infos(ctx, doc_dep_ctx),
                 params.dep_link_strategy,
             ),
         ],
