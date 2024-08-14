@@ -291,7 +291,8 @@ rules_attributes = {
         "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
         "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-        "_trampoline": attrs.option(attrs.dep(), default = None),
+        "_trampoline": attrs.option(attrs.dep(), default = None, doc = "DEPRECATED. Use _trampolines instead."),
+        "_trampolines": attrs.option(attrs.list(attrs.dep()), default = None),
     } | common_shell_attributes | re_test_args(),
 }
 

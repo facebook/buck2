@@ -155,10 +155,15 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     test_binary_cmd_args = ctx.attrs._test_binary[RunInfo]
 
-    trampoline = ctx.attrs._trampoline
+    trampolines = ctx.attrs._trampolines
+    if ctx.attrs._trampoline != None:
+        if trampolines != None:
+            fail("_trampoline and _trampolines can't be both provided")
+        trampolines = [ctx.attrs._trampoline]
+
     cmd = cmd_args([])
-    if trampoline:
-        cmd.add(trampoline[RunInfo])
+    if trampolines:
+        cmd.add(*[trampoline[RunInfo] for trampoline in trampolines])
 
     cmd.add(test_binary_cmd_args)
 
