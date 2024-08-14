@@ -306,7 +306,7 @@ zip = "0.5"
 zstd = "0.13.0"
 
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
-fbinit.version = "0.1"
+fbinit.version = "0.2"
 # @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
 sorted_vector_map.version = "0.2"
 
