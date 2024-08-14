@@ -477,11 +477,7 @@ async fn build_configured_label_inner<'a>(
     let validation_result = match configured_node {
         MaybeCompatible::Compatible(target_node) => VALIDATION_IMPL
             .get()?
-            .validate_target_node_transitively(
-                ctx,
-                &materialization.validation_context,
-                target_node,
-            )
+            .validate_target_node_transitively(ctx, target_node)
             .map({
                 let providers_label = providers_label.dupe();
                 move |result| ConfiguredBuildEvent {

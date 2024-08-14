@@ -8,11 +8,14 @@
  */
 
 use async_trait::async_trait;
-use buck2_build_api::materialize::MaterializationContext;
 use buck2_build_api::validation::validation_impl::ValidationImpl;
 use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::LinearRecomputeDiceComputations;
+use dupe::Dupe;
+
+use crate::cached_validation_result::CachedValidationResultData;
+use crate::transitive_validation_key::TransitiveValidationKey;
 
 pub(crate) fn init_validation_impl() {
     VALIDATION_IMPL.init(&ValidationImplInstance);
@@ -24,10 +27,14 @@ struct ValidationImplInstance;
 impl ValidationImpl for ValidationImplInstance {
     async fn validate_target_node_transitively<'a>(
         &self,
-        _ctx: &'a LinearRecomputeDiceComputations<'_>,
-        _materialization_context: &'a MaterializationContext,
-        _target_node: ConfiguredTargetNode,
+        ctx: &'a LinearRecomputeDiceComputations<'_>,
+        target_node: ConfiguredTargetNode,
     ) -> Result<(), buck2_error::Error> {
-        Ok(())
+        let key = TransitiveValidationKey(target_node.label().dupe());
+        let result = ctx.get().compute(&key).await??;
+        match result.0.as_ref() {
+            CachedValidationResultData::Success => Ok(()),
+            CachedValidationResultData::Failure(e) => Err(buck2_error::Error::from(e.clone())),
+        }
     }
 }

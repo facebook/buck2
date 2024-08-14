@@ -12,15 +12,12 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_util::late_binding::LateBinding;
 use dice::LinearRecomputeDiceComputations;
 
-use crate::materialize::MaterializationContext;
-
 #[async_trait]
 pub trait ValidationImpl: Send + Sync + 'static {
     /// Validate a given configured target node and any transitive nodes.
     async fn validate_target_node_transitively<'a>(
         &self,
         ctx: &'a LinearRecomputeDiceComputations<'_>,
-        materialization_context: &'a MaterializationContext,
         target_node: ConfiguredTargetNode,
     ) -> Result<(), buck2_error::Error>;
 }
