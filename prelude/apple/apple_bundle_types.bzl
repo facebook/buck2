@@ -17,6 +17,13 @@ AppleBundleType = enum(
     "extensionkit_extension",
 )
 
+ApplePackageExtension = enum(
+    "ipa",
+    "pkg",
+    "dmg",
+    "zip",
+)
+
 AppleBundleManifestLogFiles = record(
     command_file = field(Artifact),
     spec_file = field(Artifact),

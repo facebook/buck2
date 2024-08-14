@@ -23,7 +23,7 @@ load("@prelude//linking:types.bzl", "Linkage")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
-load(":apple_bundle_types.bzl", "AppleBundleInfo")
+load(":apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
 load(":apple_core_data.bzl", "apple_core_data_impl")
 load(":apple_library.bzl", "AppleSharedLibraryMachOFileType", "apple_library_impl")
 load(":apple_package.bzl", "apple_package_impl")
@@ -66,13 +66,6 @@ implemented_rules = {
 }
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
-
-ApplePackageExtension = enum(
-    "ipa",
-    "pkg",
-    "dmg",
-    "zip",
-)
 
 def _apple_binary_extra_attrs():
     attribs = {

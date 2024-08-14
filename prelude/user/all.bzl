@@ -8,6 +8,7 @@
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", _apple_resource_dedupe_alias_spec = "registration_spec")
 load("@prelude//apple:apple_static_archive.bzl", _apple_static_archive_spec = "registration_spec")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec = "registration_spec")
+load("@prelude//apple/user:apple_ipa_package.bzl", _apple_ipa_package_spec = "registration_spec")
 load("@prelude//apple/user:apple_resource_bundle.bzl", _apple_resource_bundle_spec = "registration_spec")
 load("@prelude//apple/user:apple_selective_debugging.bzl", _apple_selective_debugging_spec = "registration_spec")
 load("@prelude//apple/user:apple_simulators.bzl", _apple_simulators_spec = "registration_spec")
@@ -30,6 +31,7 @@ _all_specs = [
     _apple_resource_bundle_spec,
     _apple_resource_dedupe_alias_spec,
     _apple_xcframework_spec,
+    _apple_ipa_package_spec,
     _link_group_map_spec,
     _resource_group_map_spec,
     _apple_watchos_bundle_spec,
