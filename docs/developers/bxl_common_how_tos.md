@@ -189,6 +189,18 @@ There are a few BXL actions that return a `target_set` (such as a cquery
 `eval()`). The `target_set` supports set subtraction and addition (you can use
 `-` and `+` directly in Starlark).
 
+## Initializing configured/unconfigured `target_set`
+
+You can use following apis to initialize `target_set`
+
+```python
+def bxl.utarget_set(nodes: None | list[bxl.UnconfiguredTargetNode]) -> bxl.UnconfiguredTargetSet
+```
+
+```python
+def bxl.ctarget_set(nodes: None | list[bxl.ConfiguredTargetNode]) -> bxl.ConfiguredTargetSet
+```
+
 ## Profiling, Testing, and Debugging a BXL script
 
 You can use `buck2 bxl profiler`, with various measurements, to determine where

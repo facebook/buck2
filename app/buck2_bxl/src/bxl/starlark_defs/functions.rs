@@ -14,13 +14,13 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
-use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::Heap;
@@ -31,8 +31,10 @@ use starlark::values::ValueLike;
 use super::artifacts::visit_artifact_path_without_associated_deduped;
 use super::context::output::get_artifact_path_display;
 use super::context::output::get_cmd_line_inputs;
+use super::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
@@ -40,30 +42,46 @@ use crate::bxl::starlark_defs::time::StarlarkInstant;
 /// Global methods on the target set.
 #[starlark_module]
 pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
-    /// Creates an empty target set for configured nodes.
+    /// Creates a target set from a list of configured nodes.
     ///
     /// Sample usage:
     /// ```text
     /// def _impl_ctarget_set(ctx):
-    ///     targets = ctarget_set()
+    ///     targets = bxl.ctarget_set([cnode_a, cnode_b])
     ///     ctx.output.print(type(targets))
     ///     ctx.output.print(len(targets))
     /// ```
-    fn ctarget_set() -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(StarlarkTargetSet::from(TargetSet::new()))
+    fn ctarget_set(
+        nodes: Option<UnpackList<StarlarkConfiguredTargetNode>>,
+    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+        Ok(StarlarkTargetSet::from_iter(
+            nodes
+                .unwrap_or(UnpackList::default())
+                .items
+                .into_iter()
+                .map(|node| node.0),
+        ))
     }
 
-    /// Creates an empty target set for unconfigured nodes.
+    /// Creates a target set from a list of unconfigured nodes.
     ///
     /// Sample usage:
     /// ```text
     /// def _impl_utarget_set(ctx):
-    ///     targets = utarget_set()
+    ///     targets = bxl.utarget_set([unode_a, unode_b])
     ///     ctx.output.print(type(targets))
     ///     ctx.output.print(len(targets))
     /// ```
-    fn utarget_set() -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
-        Ok(StarlarkTargetSet::from(TargetSet::new()))
+    fn utarget_set(
+        nodes: Option<UnpackList<StarlarkTargetNode>>,
+    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+        Ok(StarlarkTargetSet::from_iter(
+            nodes
+                .unwrap_or(UnpackList::default())
+                .items
+                .into_iter()
+                .map(|node| node.0),
+        ))
     }
 }
 

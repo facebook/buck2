@@ -142,6 +142,13 @@ impl<Node: QueryTarget> From<TargetSet<Node>> for StarlarkTargetSet<Node> {
     }
 }
 
+impl<Node: QueryTarget> FromIterator<Node> for StarlarkTargetSet<Node> {
+    fn from_iter<Iter: IntoIterator<Item = Node>>(iter: Iter) -> Self {
+        let targets = TargetSet::from_iter(iter);
+        Self(targets)
+    }
+}
+
 impl<Node: QueryTarget> Deref for StarlarkTargetSet<Node> {
     type Target = TargetSet<Node>;
 
