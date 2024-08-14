@@ -74,7 +74,7 @@ def cfg_constructor_pre_constraint_analysis(
         merged_modifiers.append(TaggedModifiers(modifiers = target_modifiers, location = ModifierTargetLocation(), rule_name = None))
 
     # Resolve all aliases in CLI modifiers
-    cli_modifiers = [resolve_alias(modifier, aliases) for modifier in cli_modifiers]
+    cli_modifiers = [resolved_modifier for modifier in cli_modifiers for resolved_modifier in resolve_alias(modifier, aliases)]
 
     # Convert CLI modifiers to `TaggedModifier`
     if cli_modifiers:
