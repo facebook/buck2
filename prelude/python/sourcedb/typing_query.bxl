@@ -9,12 +9,12 @@ load("@prelude//python/sourcedb/filter.bxl", "BUCK_PYTHON_RULE_KIND_QUERY")
 
 def get_owners_for_files(
         query: bxl.UqueryContext,
-        sources: list[str]) -> dict[str, bxl.TargetSet]:
+        sources: list[str]) -> dict[str, bxl.UnconfiguredTargetSet]:
     return {source: query.owner(source) for source in sources}
 
 def has_any_python_targets_with_typing(
         query: bxl.UqueryContext,
-        owners: bxl.TargetSet) -> bool:
+        owners: bxl.UnconfiguredTargetSet) -> bool:
     targets_with_typing = query.attrfilter("typing", "True", owners)
 
     python_targets_with_typing = query.kind(

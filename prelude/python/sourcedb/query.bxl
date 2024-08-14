@@ -21,7 +21,7 @@ def _get_python_library_manifests_from_analysis_result(
 
 def _get_python_library_manifests_from_targets(
         ctx: bxl.Context,
-        targets: bxl.TargetSet) -> list[PythonLibraryManifestsTSet]:
+        targets: bxl.UnconfiguredTargetSet) -> list[PythonLibraryManifestsTSet]:
     return filter(None, [
         _get_python_library_manifests_from_analysis_result(analysis_result)
         for analysis_result in ctx.analysis(targets).values()
@@ -30,7 +30,7 @@ def _get_python_library_manifests_from_targets(
 def get_python_library_manifests_tset_from_targets(
         ctx: bxl.Context,
         actions: AnalysisActions,
-        root_targets: bxl.TargetSet) -> PythonLibraryManifestsTSet:
+        root_targets: bxl.UnconfiguredTargetSet) -> PythonLibraryManifestsTSet:
     return actions.tset(
         PythonLibraryManifestsTSet,
         children = _get_python_library_manifests_from_targets(ctx, root_targets),
