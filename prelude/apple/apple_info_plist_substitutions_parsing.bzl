@@ -51,7 +51,7 @@ def _expand_codesign_entitlements_path(info_plist_substitutions: dict[str, str],
         path = prefix + maybe_value + suffix
     fail("Too many iteration (loop might be present) to expand `{}` with substitutions `{}`".format(path, info_plist_substitutions))
 
-def parse_codesign_entitlements(info_plist_substitutions: [dict[str, str], None]) -> [str, None]:
+def parse_codesign_entitlements(info_plist_substitutions: [dict[str, str | Select], None]) -> [str, None]:
     if not info_plist_substitutions:
         return None
     maybe_path = info_plist_substitutions.get(_CODE_SIGN_ENTITLEMENTS_KEY)
