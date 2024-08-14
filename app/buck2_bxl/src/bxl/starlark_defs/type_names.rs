@@ -49,8 +49,6 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const FileNode: StarlarkValueAsType<StarlarkFileNode> = StarlarkValueAsType::new();
     const ActionQueryNode: StarlarkValueAsType<StarlarkActionQueryNode> =
         StarlarkValueAsType::new();
-    // TODO(nero): TargetNode is a deprecated alias.
-    const TargetNode: StarlarkValueAsType<StarlarkTargetNode> = StarlarkValueAsType::new();
     const UnconfiguredTargetNode: StarlarkValueAsType<StarlarkTargetNode> =
         StarlarkValueAsType::new();
     const ConfiguredTargetNode: StarlarkValueAsType<StarlarkConfiguredTargetNode> =
