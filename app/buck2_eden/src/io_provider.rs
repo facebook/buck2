@@ -58,6 +58,11 @@ enum Digest {
     Blake3Keyed,
 }
 
+enum PathMetadataResult {
+    Result(Option<RawPathMetadata<ProjectRelativePathBuf>>),
+    Error(EdenError),
+}
+
 impl EdenIoProvider {
     pub async fn new(
         fb: FacebookInit,
@@ -113,8 +118,8 @@ impl EdenIoProvider {
 
     async fn read_path_metadata_if_exists_impl(
         &self,
-        path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+        path: &ProjectRelativePathBuf,
+    ) -> anyhow::Result<PathMetadataResult> {
         let _guard = IoCounterKey::StatEden.guard();
 
         let hash_attribute = match self.digest {
@@ -160,7 +165,7 @@ impl EdenIoProvider {
                     .context("Eden returned an error for sourceControlType")?;
 
                 if source_control_type == SourceControlType::TREE {
-                    return Ok(Some(RawPathMetadata::Directory));
+                    return Ok(PathMetadataResult::Result(Some(RawPathMetadata::Directory)));
                 };
 
                 if source_control_type == SourceControlType::SYMLINK {
@@ -184,7 +189,7 @@ impl EdenIoProvider {
                             )
                         })?;
 
-                    return Ok(Some(meta));
+                    return Ok(PathMetadataResult::Result(Some(meta)));
                 };
 
                 let size = data
@@ -233,24 +238,11 @@ impl EdenIoProvider {
                     is_executable,
                 };
 
-                Ok(Some(RawPathMetadata::File(meta)))
+                Ok(PathMetadataResult::Result(Some(RawPathMetadata::File(
+                    meta,
+                ))))
             }
-            Err(EdenError::PosixError { code, .. }) if code == libc::ENOENT => {
-                tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
-                Ok(None)
-            }
-            Err(EdenError::PosixError { code, .. })
-                if code == libc::EINVAL || code == libc::ENOTDIR =>
-            {
-                // If we get EINVAL it means the target wasn't a file, and since we know it
-                // existed and it wasn't a dir, then that means it must be a symlink. If we get
-                // ENOTDIR, that means we tried to traverse a path component that was a
-                // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
-                // look through to the target, so we do that.
-                tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
-                self.fs.read_path_metadata_if_exists_impl(path).await
-            }
-            Err(err) => Err(err.into()),
+            Err(err) => Ok(PathMetadataResult::Error(err)),
         }
     }
 
@@ -325,19 +317,38 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
-        self.read_path_metadata_if_exists_impl(path)
-            .await
-            .tag(ErrorTag::IoEden)
+        match self.read_path_metadata_if_exists_impl(&path).await {
+            Ok(PathMetadataResult::Result(res)) => Ok(res),
+            Ok(PathMetadataResult::Error(err)) => {
+                match err {
+                    EdenError::PosixError { code, .. } if code == libc::ENOENT => {
+                        tracing::debug!("getAttributesFromFilesV2({}): ENOENT", path);
+                        Ok(None)
+                    }
+                    EdenError::PosixError { code, .. }
+                        if code == libc::EINVAL || code == libc::ENOTDIR =>
+                    {
+                        // If we get EINVAL it means the target wasn't a file, and since we know it
+                        // existed and it wasn't a dir, then that means it must be a symlink. If we get
+                        // ENOTDIR, that means we tried to traverse a path component that was a
+                        // symlink. In both cases, we need to both a) handle ExternalSymlink and b)
+                        // look through to the target, so we do that.
+                        tracing::debug!("getAttributesFromFilesV2({}): fallthrough", path);
+                        self.fs.read_path_metadata_if_exists_impl(path).await
+                    }
+                    _ => Err(err.into()),
+                }
+            }
+            Err(err) => Err(err).tag(ErrorTag::IoEden),
+        }
     }
 
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Option<String>> {
-        self.fs
-            .read_file_if_exists_impl(path)
-            .await
-            .tag(ErrorTag::IoEden)
+        // Don't tag as IoEden because it uses regular file I/O.
+        self.fs.read_file_if_exists_impl(path).await
     }
 
     async fn read_dir_impl(
