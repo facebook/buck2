@@ -336,11 +336,12 @@ def create_compile_cmds(
     for src in srcs_with_flags:
         src_args = []
         src_args.extend(src.flags)
-        if add_coverage_instrumentation_compiler_flags:
-            src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
 
         ext = get_source_extension(src, extension_for_plain_headers)
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
+
+        if add_coverage_instrumentation_compiler_flags and cxx_compile_cmd.compiler_type != "gcc":
+            src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
 
         if src.is_header:
             if cxx_compile_cmd.compiler_type in ["clang", "clang_windows", "gcc"]:
