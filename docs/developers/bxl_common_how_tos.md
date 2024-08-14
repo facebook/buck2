@@ -217,13 +217,23 @@ def _impl_example(_ctx):
     end2 = start.elapsed_millis()
 ```
 
-BXL does not have a debugger available nor a robust testing framework for
-mocking.
+- **Debug** - the common way to debug a BXL script is with print statements
+  (`print()`, `pprint()` and `ctx.output.print()`).
 
-- **Debug** - the main method to debug a BXL script is with print statements
-  (`print()` and `ctx.output.print()`).
-- **Test** - the main method to test a BXL script is to actually invoke it with
-  required inputs then verify the outputs.
+<FbInternalOnly>
+
+- **Debugger** - to use the debugger you can follow these instructions
+  [here](https://fb.workplace.com/groups/buck2eng/permalink/3562907607330619/).
+
+      1. `fdb --starlark-kill-buck attach buck`
+      2. place a breakpoint to the bxl file
+      3. run the buck2 bxl command
+
+</FbInternalOnly>
+
+- **Test** - BXL does not have a robust testing framework for mocking. The main
+  method to test a BXL script is to actually invoke it with required inputs then
+  verify the outputs.
 
 ## Getting the path of an artifact as a string
 
