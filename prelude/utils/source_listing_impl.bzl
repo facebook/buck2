@@ -36,13 +36,13 @@ _source_listing = rule(
     },
 )
 
-def source_listing_impl():
+def source_listing_impl(exclude: list[str]):
     package = package_name()
     if package != "":
         package += "/"
     _source_listing(
         name = "source_listing",
-        srcs = glob(["**/*", "**/.*"]),
+        srcs = glob(["**/*", "**/.*"], exclude = exclude),
         deps = ["//" + package + s + ":source_listing" for s in __internal__.sub_packages()],
         visibility = ["PUBLIC"],
     )

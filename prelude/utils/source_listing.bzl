@@ -10,6 +10,6 @@ load(":source_listing_impl.bzl?v2_only", "SourceListingInfoAlias", "source_listi
 
 SourceListingInfo = SourceListingInfoAlias
 
-def source_listing():
+def source_listing(exclude = None):
     if is_buck2():
-        source_listing_impl()
+        source_listing_impl(exclude = exclude or [])
