@@ -26,6 +26,7 @@ pub struct TargetCfgOptions {
     #[clap(
         value_name = "VALUE",
         long = "modifier",
+        short = 'm',
         help = "A configuration modifier to configure all targets on the command line. This may be a constraint value target."
     )]
     pub cli_modifier: Vec<String>,
