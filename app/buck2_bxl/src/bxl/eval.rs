@@ -8,10 +8,8 @@
  */
 
 use std::cell::RefCell;
-use std::sync::Arc;
 
 use anyhow::Context;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
@@ -46,7 +44,6 @@ use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use clap::error::ErrorKind;
-use dashmap::DashSet;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -76,11 +73,7 @@ pub(crate) async fn eval(
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
-) -> anyhow::Result<(
-    BxlResult,
-    Option<StarlarkProfileDataAndStats>,
-    Arc<DashSet<BuildArtifact>>,
-)> {
+) -> anyhow::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -131,7 +124,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> anyhow::Result<(BxlResult, Arc<DashSet<BuildArtifact>>)> {
+    ) -> anyhow::Result<BxlResult> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -168,7 +161,7 @@ impl BxlInnerEvaluator {
                 .context("Failed to create error cache for BXL")?,
         ));
 
-        let (actions, ensured_artifacts, materializations) = {
+        let (actions, ensured_artifacts) = {
             let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
                 env.heap().alloc(AllocStruct(
                     key.cli_args()
@@ -238,7 +231,7 @@ impl BxlInnerEvaluator {
             .visit_frozen_module(Some(&frozen_module))
             .context("Profiler heap visitation failed")?;
 
-        Ok((bxl_result, materializations))
+        Ok(bxl_result)
     }
 }
 
@@ -248,11 +241,7 @@ async fn eval_bxl_inner(
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
-) -> anyhow::Result<(
-    BxlResult,
-    Option<StarlarkProfileDataAndStats>,
-    Arc<DashSet<BuildArtifact>>,
-)> {
+) -> anyhow::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
@@ -286,7 +275,7 @@ async fn eval_bxl_inner(
         dispatcher,
     };
 
-    let (bxl_result, materializations) = with_starlark_eval_provider(
+    let bxl_result = with_starlark_eval_provider(
         ctx,
         &mut profiler,
         starlark_eval_description,
@@ -295,7 +284,7 @@ async fn eval_bxl_inner(
     .await?;
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
-    Ok((bxl_result, profile_data, materializations))
+    Ok((bxl_result, profile_data))
 }
 
 // We use a file as our output/error stream cache. The file is associated with the `BxlDynamicKey` (created from `BxlKey`),

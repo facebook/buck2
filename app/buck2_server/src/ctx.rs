@@ -26,6 +26,7 @@ use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
+use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::HasCriticalPathBackend;
@@ -703,6 +704,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
         data.set_materializer(self.cmd_ctx.base_context.daemon.materializer.dupe());
+        data.init_materialization_queue_tracker();
         data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);
         data.set_create_unhashed_symlink_lock(

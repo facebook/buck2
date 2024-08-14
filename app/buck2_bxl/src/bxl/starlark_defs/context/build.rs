@@ -9,11 +9,9 @@
 
 //!
 //! Implements the ability for bxl to build targets
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
 use buck2_build_api::build::BuildEvent;
@@ -22,12 +20,10 @@ use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::materialize::MaterializationStrategy;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
-use dashmap::DashSet;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -179,7 +175,6 @@ where
 
 pub(crate) fn build<'v>(
     ctx: &BxlContext<'v>,
-    materializations_map: &Arc<DashSet<BuildArtifact>>,
     spec: ConfiguredProvidersExprArg<'v>,
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
@@ -190,9 +185,6 @@ pub(crate) fn build<'v>(
         ValueTyped<'v, StarlarkBxlBuildResult>,
     >,
 > {
-    let materializations =
-        MaterializationStrategy::with_existing_map(materializations, materializations_map);
-
     let target_platform = target_platform.parse_target_platforms(
         ctx.target_alias_resolver(),
         ctx.cell_resolver(),
@@ -215,7 +207,6 @@ pub(crate) fn build<'v>(
                 )
                 .await?;
 
-                let materializations = &materializations;
                 let per_spec_results: Vec<Vec<ConfiguredBuildEvent>> = dice
                     .compute_join(build_spec.labels().unique(), |ctx, target| {
                         async move {
@@ -224,7 +215,7 @@ pub(crate) fn build<'v>(
                             ctx.with_linear_recompute(|ctx| async move {
                                 build_configured_label(
                                     &ctx,
-                                    materializations,
+                                    &materializations.into(),
                                     target,
                                     &ProvidersToBuild {
                                         default: true,

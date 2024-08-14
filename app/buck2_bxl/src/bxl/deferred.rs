@@ -120,7 +120,6 @@ mod tests {
                         deferred: deferred_result,
                         analysis_values,
                     }),
-                    materializations: Arc::new(Default::default()),
                 }),
             );
 

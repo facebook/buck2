@@ -179,10 +179,7 @@ async fn bxl(
         global_cfg_options,
     );
 
-    let BxlComputeResult {
-        bxl_result,
-        materializations,
-    } = match eval_bxl(&mut ctx, bxl_key.clone()).await {
+    let BxlComputeResult { bxl_result } = match eval_bxl(&mut ctx, bxl_key.clone()).await {
         Ok(result) => result,
         Err(e) => {
             // `buck2_error::Error` has more reliable downcasting
@@ -192,20 +189,12 @@ async fn bxl(
         }
     };
 
-    // Note: even though we have an Arc of the materialization map, we must actually clone the map
-    // so that we don't mutate the materialization state stored when materializing the ensured
-    // artifacts. We need to clone it so that we don't re-materialize what was already done, but
-    // in a separate instance of the map.
-    let materialization_context = MaterializationContext::build_context_with_existing_map(
-        final_artifact_materializations,
-        Arc::new((*materializations).clone()),
-    );
     let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
     let configured_build_results = labeled_configured_build_results.values();
     let build_result = ensure_artifacts(
         &mut ctx,
-        &materialization_context,
+        &final_artifact_materializations.into(),
         configured_build_results,
         bxl_result.get_artifacts_opt(),
     )

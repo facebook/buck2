@@ -54,7 +54,7 @@ use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
 use crate::materialize::materialize_artifact_group;
-use crate::materialize::MaterializationStrategy;
+use crate::materialize::MaterializationContext;
 use crate::validation::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
@@ -311,7 +311,7 @@ pub struct BuildConfiguredLabelOptions {
 
 pub async fn build_configured_label<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -336,7 +336,7 @@ pub async fn build_configured_label<'a>(
 
 async fn build_configured_label_inner<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -497,10 +497,10 @@ async fn build_configured_label_inner<'a>(
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
-                let materialization = &materialization.build_context;
+                let materialization = materialization.dupe();
                 async move {
                     let res =
-                        match materialize_artifact_group(&mut ctx.get(), &output, materialization)
+                        match materialize_artifact_group(&mut ctx.get(), &output, &materialization)
                             .await
                         {
                             Ok(values) => Ok(ProviderArtifacts {

@@ -25,7 +25,6 @@ use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -75,7 +74,6 @@ use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
-use dashmap::DashSet;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -163,11 +161,6 @@ pub(crate) struct RootBxlContextData<'v> {
     output_stream: ValueTyped<'v, OutputStream<'v>>,
     error_stream: ValueTyped<'v, OutputStream<'v>>,
     cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-    /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
-    /// we can take the internal state without having to clone it.
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    materializations: Arc<DashSet<BuildArtifact>>,
 }
 
 /// Data object for `BxlContextType::Dynamic`.
@@ -335,7 +328,6 @@ impl<'v> BxlContext<'v> {
                 error_sink,
                 async_ctx.dupe(),
             )),
-            materializations: Arc::new(DashSet::new()),
         };
         let context_type = BxlContextType::Root(root_data);
 
@@ -398,11 +390,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(
-        AnalysisRegistry<'v>,
-        IndexSet<ArtifactGroup>,
-        Arc<DashSet<BuildArtifact>>,
-    )> {
+    ) -> anyhow::Result<(AnalysisRegistry<'v>, IndexSet<ArtifactGroup>)> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
@@ -451,11 +439,7 @@ impl<'v> BxlContext<'v> {
             .flatten_ok()
             .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?;
 
-        Ok((
-            analysis_registry,
-            artifacts,
-            root_data.materializations.dupe(),
-        ))
+        Ok((analysis_registry, artifacts))
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
@@ -1307,26 +1291,13 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
             ValueTyped<'v, StarlarkBxlBuildResult>,
         >,
     > {
-        let materialization_setting = materializations;
-        let materializations = &this
-            .data
-            .context_type
-            .unpack_root()
-            .context(BxlContextDynamicError::Unsupported("build".to_owned()))?
-            .materializations;
         build::build(
             this,
-            materializations,
             labels,
             target_platform,
-            Materializations::from_str_name(&materialization_setting.to_uppercase()).ok_or_else(
-                || {
-                    anyhow::anyhow!(
-                        "Unknown materialization setting `{}`",
-                        materialization_setting
-                    )
-                },
-            )?,
+            Materializations::from_str_name(&materializations.to_uppercase()).ok_or_else(|| {
+                anyhow::anyhow!("Unknown materialization setting `{}`", materializations)
+            })?,
             eval,
         )
     }

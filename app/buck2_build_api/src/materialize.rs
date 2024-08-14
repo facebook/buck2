@@ -15,6 +15,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
 use dashmap::DashSet;
 use dice::DiceComputations;
+use dice::UserComputationData;
 use dupe::Dupe;
 use futures::FutureExt;
 
@@ -30,11 +31,14 @@ pub async fn materialize_artifact_group(
 ) -> anyhow::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
-    if let MaterializationContext::Materialize { map, force } = materialization_context {
+    if let MaterializationContext::Materialize { force } = materialization_context {
+        let queue_tracker = ctx
+            .per_transaction_data()
+            .get_materialization_queue_tracker();
         let mut artifacts_to_materialize = Vec::new();
         for (artifact, _value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                if !map.insert(artifact.dupe()) {
+                if !queue_tracker.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
                 }
@@ -60,70 +64,44 @@ pub async fn materialize_artifact_group(
 pub enum MaterializationContext {
     Skip,
     Materialize {
-        /// This map contains all the artifacts that we enqueued for materialization. This ensures
-        /// we don't enqueue the same thing more than once.
-        map: Arc<DashSet<BuildArtifact>>,
         /// Whether we should force the materialization of requested artifacts, or defer to the
         /// config.
         force: bool,
     },
 }
 
-impl MaterializationContext {
-    /// Create a new MaterializationContext that will force all materializations.
-    pub fn force_materializations() -> Self {
-        Self::Materialize {
-            map: Arc::new(DashSet::new()),
-            force: true,
-        }
-    }
-
-    pub fn build_context(behavior: Materializations) -> Self {
-        Self::build_context_with_existing_map(behavior, Arc::new(DashSet::new()))
-    }
-
-    pub fn build_context_with_existing_map(
-        behavior: Materializations,
-        map: Arc<DashSet<BuildArtifact>>,
-    ) -> Self {
-        match behavior {
+impl From<Materializations> for MaterializationContext {
+    fn from(value: Materializations) -> Self {
+        match value {
             Materializations::Skip => MaterializationContext::Skip,
-            Materializations::Default => MaterializationContext::Materialize { map, force: false },
-            Materializations::Materialize => {
-                MaterializationContext::Materialize { map, force: true }
-            }
+            Materializations::Default => MaterializationContext::Materialize { force: false },
+            Materializations::Materialize => MaterializationContext::Materialize { force: true },
         }
     }
 }
 
-/// Contains contexts which share the same materialization map, but might have different behavior.
-pub struct MaterializationStrategy {
-    /// Context to handle build artifacts
-    pub build_context: MaterializationContext,
-    /// Context to handle validation artifacts
-    pub validation_context: MaterializationContext,
+/// This map contains all the artifacts that we enqueued for materialization. This ensures
+/// we don't enqueue the same thing more than once. Should be shared across work done
+/// in a single DICE transaction.
+pub struct MaterializationQueueTrackerHolder(Arc<DashSet<BuildArtifact>>);
+
+pub trait HasMaterializationQueueTracker {
+    fn init_materialization_queue_tracker(&mut self);
+
+    fn get_materialization_queue_tracker(&self) -> Arc<DashSet<BuildArtifact>>;
 }
 
-impl MaterializationStrategy {
-    pub fn new(build_behavior: Materializations) -> Self {
-        Self::with_existing_map(build_behavior, &Arc::new(DashSet::new()))
+impl HasMaterializationQueueTracker for UserComputationData {
+    fn init_materialization_queue_tracker(&mut self) {
+        self.data
+            .set(MaterializationQueueTrackerHolder(Arc::new(DashSet::new())));
     }
 
-    pub fn with_existing_map(
-        build_behavior: Materializations,
-        map: &Arc<DashSet<BuildArtifact>>,
-    ) -> Self {
-        let build_context =
-            MaterializationContext::build_context_with_existing_map(build_behavior, map.dupe());
-        // Force materialization of validation results as we need to parse
-        // them in order to decide whether the build is successful or not.
-        let validation_context = MaterializationContext::Materialize {
-            map: map.dupe(),
-            force: true,
-        };
-        MaterializationStrategy {
-            build_context,
-            validation_context,
-        }
+    fn get_materialization_queue_tracker(&self) -> Arc<DashSet<BuildArtifact>> {
+        self.data
+            .get::<MaterializationQueueTrackerHolder>()
+            .expect("MaterializationQueueTracker should be set")
+            .0
+            .dupe()
     }
 }

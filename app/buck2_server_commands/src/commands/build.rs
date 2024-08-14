@@ -29,7 +29,7 @@ use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::materialize::MaterializationStrategy;
+use buck2_build_api::materialize::MaterializationContext;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
@@ -241,7 +241,6 @@ async fn build(
         Materializations::from_i32(request.final_artifact_materializations)
             .with_context(|| "Invalid final_artifact_materializations")
             .unwrap();
-    let materialization = MaterializationStrategy::new(final_artifact_materializations);
 
     let want_configured_graph_size = ctx
         .parse_legacy_config_property(
@@ -261,7 +260,7 @@ async fn build(
                 resolved_pattern,
                 target_resolution_config,
                 build_providers,
-                &materialization,
+                &final_artifact_materializations.into(),
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
@@ -392,7 +391,7 @@ async fn build_targets(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
-    materialization: &MaterializationStrategy,
+    materialization: &MaterializationContext,
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
@@ -435,7 +434,7 @@ fn build_targets_in_universe<'a>(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
     want_configured_graph_size: bool,
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
@@ -467,7 +466,7 @@ fn build_targets_with_global_target_platform<'a>(
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
@@ -526,7 +525,7 @@ async fn build_targets_for_spec<'a>(
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
@@ -616,7 +615,7 @@ async fn build_target<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
-    materialization: &'a MaterializationStrategy,
+    materialization: &'a MaterializationContext,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx

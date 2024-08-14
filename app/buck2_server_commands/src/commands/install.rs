@@ -204,7 +204,7 @@ async fn install(
     )
     .await?;
 
-    let materializations = MaterializationContext::force_materializations();
+    let materializations = MaterializationContext::Materialize { force: true };
     let materializations = &materializations; // Don't move this below.
 
     // Note <TargetName> does not return the providers
