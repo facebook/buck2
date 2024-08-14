@@ -364,6 +364,7 @@ def _apple_library_macro_stub(**kwargs):
 def _apple_package_macro_stub(**kwargs):
     apple_package_macro_impl(
         apple_package_rule = __rules__["apple_package"],
+        apple_ipa_package_rule = _user_rules["apple_ipa_package"],
         **kwargs
     )
 

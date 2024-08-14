@@ -154,6 +154,7 @@ extra_attributes = {
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
+        "_ipa_package": attrs.dep(),
     },
     "apple_resource": {
         "codesign_entitlements": attrs.option(attrs.source(), default = None),

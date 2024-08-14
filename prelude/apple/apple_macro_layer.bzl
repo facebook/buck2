@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple/user:apple_ipa_package.bzl", "make_apple_ipa_package_target")
 load(":apple_bundle_config.bzl", "apple_bundle_config")
 load(":apple_dsym_config.bzl", "apple_dsym_config")
 load(":apple_info_plist_substitutions_parsing.bzl", "parse_codesign_entitlements")
@@ -149,9 +150,10 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
 
     apple_binary_rule(name = binary_name, **kwargs)
 
-def apple_package_macro_impl(apple_package_rule = None, **kwargs):
+def apple_package_macro_impl(apple_package_rule = None, apple_ipa_package_rule = None, **kwargs):
     kwargs.update(apple_package_config())
     apple_package_rule(
+        _ipa_package = make_apple_ipa_package_target(apple_ipa_package_rule, **kwargs),
         **kwargs
     )
 
