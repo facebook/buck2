@@ -167,7 +167,7 @@ provide_output_file(
         case Status of
             failed ->
                 collect_results_broken_run(
-                    Tests, Suite, "test binary internal crash", ResultExec, OutLog
+                    Tests, Suite, "internal crash", ResultExec, OutLog
                 );
             Other when Other =:= passed orelse Other =:= timeout ->
                 % Here we either passed or timeout.
