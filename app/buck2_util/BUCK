@@ -34,7 +34,9 @@ rust_library(
     ],
     rustc_flags = (select({
         "DEFAULT": [],
-        "ovr_config//build_mode:asan": ["--cfg=buck2_asan"],
+        "ovr_config//build_mode/constraints:asan": ["--cfg=buck2_asan"],
+        "ovr_config//build_mode/constraints:asan-ubsan": ["--cfg=buck2_asan"],
+        "ovr_config//build_mode/constraints:asan-ubsan-dev": ["--cfg=buck2_asan"],
     }) if not _is_oss else []),
     test_deps = [
         "fbcode//buck2/shed/three_billion_instructions:three_billion_instructions",
