@@ -575,7 +575,6 @@ def cxx_darwin_dist_link(
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
         current_index = 0
         opt_objects = []
-        archives = []
         for link in link_infos:
             link_args.add(link.pre_flags)
             for linkable in link.linkables:
@@ -614,7 +613,6 @@ def cxx_darwin_dist_link(
         link_cmd_hidden.extend([
             link_args,
             opt_objects,
-            archives,
         ])
         link_cmd.add(link_cmd_parts.post_linker_flags)
         link_cmd.add(cmd_args(hidden = link_cmd_hidden))
