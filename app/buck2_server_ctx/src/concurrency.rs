@@ -94,16 +94,16 @@ pub enum BypassSemaphore {
 ///
 /// Currently, we allow concurrency if two `DiceTransactions` are deemed equivalent, such that
 /// any computation result that occurs in one is directly reusable by another.
-#[derive(Clone, Dupe, Allocative)]
+#[derive(Allocative)]
 pub struct ConcurrencyHandler {
-    data: Arc<Mutex<ConcurrencyHandlerData>>,
+    data: Mutex<ConcurrencyHandlerData>,
     // use an async condvar because the `wait` to `notify` spans across an async function (namely
     // the entire command execution).
     #[allocative(skip)]
-    cond: Arc<Condvar>,
+    cond: Condvar,
     dice: Arc<Dice>,
     /// Used to prevent commands (clean --stale) from running in parallel with dice commands
-    exclusive_command_lock: Arc<ExclusiveCommandLock>,
+    exclusive_command_lock: ExclusiveCommandLock,
 }
 
 #[derive(Allocative)]
@@ -312,25 +312,25 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
-    pub fn new(dice: Arc<Dice>) -> Self {
-        ConcurrencyHandler {
-            data: Arc::new(Mutex::new(ConcurrencyHandlerData {
+    pub fn new(dice: Arc<Dice>) -> Arc<Self> {
+        Arc::new(ConcurrencyHandler {
+            data: Mutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
                 active_commands: SmallMap::new(),
                 next_command_id: CommandId(0),
                 cleanup_epoch: 0,
                 previously_tainted: false,
-            })),
-            cond: Default::default(),
+            }),
+            cond: Condvar::new(),
             dice,
-            exclusive_command_lock: Arc::new(ExclusiveCommandLock::new()),
-        }
+            exclusive_command_lock: ExclusiveCommandLock::new(),
+        })
     }
 
     /// Enters a critical section that requires concurrent command synchronization,
     /// and runs the given `exec` function in the critical section.
     pub async fn enter<F, Fut, R>(
-        &self,
+        self: &Arc<Self>,
         event_dispatcher: EventDispatcher,
         updates: &dyn DiceUpdater,
         exec: F,
@@ -401,7 +401,7 @@ impl ConcurrencyHandler {
     // The async condvar will handle properly allowing under threads to proceed, avoiding
     // starvation.
     async fn wait_for_others(
-        &self,
+        self: &Arc<Self>,
         updates: &dyn DiceUpdater,
         event_dispatcher: EventDispatcher,
         is_nested_invocation: bool,
@@ -548,7 +548,7 @@ impl ConcurrencyHandler {
                                         },
                                         async {
                                             (
-                                                self.cond.wait((data, &*self.data)).await,
+                                                self.cond.wait((data, &self.data)).await,
                                                 DiceBlockConcurrentCommandEnd {
                                                     ending_active_trace_id: trace_id.to_string(),
                                                 },
@@ -669,11 +669,11 @@ fn format_traces(
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
 /// from the handler so that it's no longer registered as a ongoing command.
-struct OnExecExit(Option<(ConcurrencyHandler, CommandId)>);
+struct OnExecExit(Option<(Arc<ConcurrencyHandler>, CommandId)>);
 
 impl OnExecExit {
     pub fn new(
-        handler: ConcurrencyHandler,
+        handler: Arc<ConcurrencyHandler>,
         command: CommandId,
         data: CommandData,
         mut guard: MutexGuard<'_, ConcurrencyHandlerData>,

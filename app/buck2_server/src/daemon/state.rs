@@ -111,7 +111,7 @@ pub struct DaemonStateData {
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
     ///
     /// The DICE graph is held by the concurrency handler to manage locking for concurrent commands
-    pub(crate) dice_manager: ConcurrencyHandler,
+    pub(crate) dice_manager: Arc<ConcurrencyHandler>,
 
     /// Synced every time we run a command.
     pub(crate) file_watcher: Arc<dyn FileWatcher>,

@@ -79,7 +79,7 @@ pub trait ServerCommandContextTrait: Send + Sync {
 pub struct PrivateStruct(());
 
 pub struct DiceAccessor<'a> {
-    pub dice_handler: ConcurrencyHandler,
+    pub dice_handler: Arc<ConcurrencyHandler>,
     pub setup: Box<dyn DiceUpdater + 'a>,
     pub is_nested_invocation: bool,
     pub sanitized_argv: Vec<String>,
