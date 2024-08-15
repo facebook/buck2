@@ -1954,6 +1954,8 @@ message InvocationRecord {
   // Minimum attempted builds among the build counts for each target
   // involved in the command.
   uint64 min_attempted_build_count_since_rebase = 98;
+  // Metadata about devices installed to by an install command.
+  repeated DeviceMetadata install_device_metadata = 99;
 }
 
 // Record event sent directly to scribe.
@@ -2262,8 +2264,17 @@ message ConnectToInstallerStart {
 
 message ConnectToInstallerEnd {}
 
+message DeviceMetadata {
+  message Entry {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Entry entry = 1;
+}
+
 message InstallFinished {
   google.protobuf.Duration duration = 1;
+  repeated DeviceMetadata device_metadata = 2;
 }
 
 message SystemInfo {

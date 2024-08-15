@@ -155,6 +155,7 @@ pub(crate) struct InvocationRecorder<'a> {
     instant_command_is_success: Option<bool>,
     bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
     install_duration: Option<prost_types::Duration>,
+    install_device_metadata: Vec<buck2_data::DeviceMetadata>,
     initial_re_upload_bytes: Option<u64>,
     initial_re_download_bytes: Option<u64>,
     concurrent_command_ids: HashSet<String>,
@@ -266,6 +267,7 @@ impl<'a> InvocationRecorder<'a> {
             instant_command_is_success: None,
             bxl_ensure_artifacts_duration: None,
             install_duration: None,
+            install_device_metadata: Vec::new(),
             initial_re_upload_bytes: None,
             initial_re_download_bytes: None,
             concurrent_command_ids: HashSet::new(),
@@ -549,6 +551,7 @@ impl<'a> InvocationRecorder<'a> {
             re_avg_download_speed: self.re_avg_download_speed.avg_per_second(),
             re_avg_upload_speed: self.re_avg_upload_speed.avg_per_second(),
             install_duration: self.install_duration.take(),
+            install_device_metadata: self.install_device_metadata.drain(..).collect(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             buckconfig_diff_count: self.buckconfig_diff_count.take(),
             buckconfig_diff_size: self.buckconfig_diff_size.take(),
@@ -882,6 +885,7 @@ impl<'a> InvocationRecorder<'a> {
         install_finished: &buck2_data::InstallFinished,
     ) -> anyhow::Result<()> {
         self.install_duration = install_finished.duration.clone();
+        self.install_device_metadata = install_finished.device_metadata.clone();
         Ok(())
     }
 

@@ -15,6 +15,7 @@ use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
@@ -60,6 +61,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_install_proto::installer_client::InstallerClient;
+use buck2_install_proto::DeviceMetadata;
 use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
 use buck2_install_proto::ShutdownRequest;
@@ -83,6 +85,7 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use starlark_map::small_map::SmallMap;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
 #[derive(Debug, buck2_error::Error)]
@@ -341,7 +344,7 @@ async fn handle_install_request<'a>(
     installer_debug: bool,
 ) -> anyhow::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
-    let (artifacts_ready, (installer_ready, installer_finished)) = ctx
+    let (artifacts_ready, (installer_ready, installer_finished, device_metadata)) = ctx
         .try_compute2(
             |ctx| {
                 async move {
@@ -394,6 +397,7 @@ async fn handle_install_request<'a>(
                             .await?;
                     }
 
+                    let device_metadata = Arc::new(Mutex::new(Vec::new()));
                     let send_files_result =
                         tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
                             .map(anyhow::Ok)
@@ -403,23 +407,40 @@ async fn handle_install_request<'a>(
                                     &artifact_fs,
                                     client.clone(),
                                     installer_log_filename.to_owned(),
+                                    device_metadata.dupe(),
                                 )
                             })
                             .await;
                     let installer_finished = Instant::now();
                     send_shutdown_command(client.clone()).await?;
                     send_files_result.context("Failed to send artifacts to installer")?;
-                    anyhow::Ok((installer_ready, installer_finished))
+                    anyhow::Ok((installer_ready, installer_finished, device_metadata))
                 }
                 .boxed()
             },
         )
         .await?;
 
+    let device_metadata: Vec<buck2_data::DeviceMetadata> = device_metadata
+        .lock()
+        .await
+        .iter()
+        .map(|metadata| buck2_data::DeviceMetadata {
+            entry: metadata
+                .entry
+                .iter()
+                .map(|e| buck2_data::device_metadata::Entry {
+                    key: e.key.clone(),
+                    value: e.value.clone(),
+                })
+                .collect(),
+        })
+        .collect();
     let build_finished = std::cmp::max(installer_ready, artifacts_ready);
     let install_duration = installer_finished - build_finished;
     get_dispatcher().instant_event(buck2_data::InstallFinished {
         duration: install_duration.try_into().ok(),
+        device_metadata,
     });
     anyhow::Ok(())
 }
@@ -635,6 +656,7 @@ async fn send_file(
     artifact_fs: &ArtifactFs,
     mut client: InstallerClient<Channel>,
     install_log: String,
+    device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
 ) -> anyhow::Result<()> {
     let install_id = file.install_id;
     let name = file.name;
@@ -687,7 +709,7 @@ async fn send_file(
     span_async(start, async {
         let mut outcome: anyhow::Result<()> = Ok(());
         let response_result = client.file_ready(request).await;
-        let response = match response_result {
+        let mut response = match response_result {
             Ok(r) => r.into_inner(),
             Err(status) => {
                 return (
@@ -717,6 +739,10 @@ async fn send_file(
             }
             .into());
         }
+        device_metadata
+            .lock()
+            .await
+            .append(&mut response.device_metadata);
 
         if let Some(error_detail) = response.error_detail {
             outcome = Err(InstallError::ProcessingFileReadyFailure {
