@@ -132,7 +132,7 @@ def _impl_example(ctx):
     ctx.output.print(subtarget)
 ```
 
-## Building a target/subtarget wihtout blocking
+## Building a target/subtarget without blocking
 
 `ctx.build` is synchronous and should only be used when the result of the build
 is needed inline during the bxl execution. To execute builds without blocking
