@@ -171,7 +171,6 @@ fn verify_buck_out_dir(paths: &InvocationPaths) -> anyhow::Result<()> {
 impl DaemonCommand {
     fn run(
         self,
-        fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
@@ -265,6 +264,8 @@ impl DaemonCommand {
         // Higher performance for jemalloc, recommended (but may not have any effect on Mac)
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
         memory::enable_background_threads()?;
+
+        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         if cfg!(target_os = "linux") {
             #[cfg(fbcode_build)]
@@ -426,7 +427,6 @@ impl DaemonCommand {
 
     pub fn exec(
         self,
-        init: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
@@ -447,7 +447,7 @@ impl DaemonCommand {
         //   and resolve all paths relative to original cwd.
         fs_util::set_current_dir(project_root.root())?;
 
-        self.run(init, log_reload_handle, paths, in_process, listener_created)?;
+        self.run(log_reload_handle, paths, in_process, listener_created)?;
         Ok(())
     }
 

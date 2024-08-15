@@ -103,9 +103,6 @@ buck_rust_binary(
         "//buck2/app/buck2_validation:buck2_validation",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
-        # @oss-disable: "//common/rust/folly/logging:logging", 
-        # @oss-disable: "//common/rust/gflags:gflags", 
-        "//common/rust/shed/fbinit:fbinit",
     ] + select({
         ":buck2_client_only_build": [],
         "DEFAULT": [

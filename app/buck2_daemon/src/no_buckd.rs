@@ -16,12 +16,10 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_util::threads::thread_spawn;
-use fbinit::FacebookInit;
 
 use crate::daemon::DaemonCommand;
 
 pub fn start_in_process_daemon(
-    init: FacebookInit,
     daemon_startup_config: &DaemonStartupConfig,
     paths: InvocationPaths,
     runtime: &tokio::runtime::Runtime,
@@ -49,7 +47,6 @@ pub fn start_in_process_daemon(
         thread_spawn("buck2-no-buckd", move || {
             let tx_clone = tx.clone();
             let result = DaemonCommand::new_in_process(daemon_startup_config).exec(
-                init,
                 <dyn LogConfigurationReloadHandle>::noop(),
                 paths,
                 true,

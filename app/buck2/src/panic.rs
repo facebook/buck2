@@ -19,13 +19,15 @@ use anyhow::Context as _;
 use fbinit::FacebookInit;
 
 /// Initializes the panic hook.
-pub fn initialize(fb: FacebookInit) -> anyhow::Result<()> {
+pub fn initialize() -> anyhow::Result<()> {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
+        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
         the_panic_hook(fb, info);
         hook(info);
     }));
     buck2_core::error::initialize(Box::new(move |category, err, loc, options| {
+        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
         imp::write_soft_error(
             fb,
             category,

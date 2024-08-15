@@ -26,6 +26,9 @@ rust_library(
             ],
         ),
     ],
+    test_deps = [
+        "//common/rust/shed/fbinit:fbinit",
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
@@ -48,6 +51,5 @@ rust_library(
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         # @oss-disable: "//common/rust/gflags:gflags", 
-        "//common/rust/shed/fbinit:fbinit",
     ],
 )

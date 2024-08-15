@@ -17,7 +17,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 
 /// State passed down from `main` to this crate.
 pub struct ProcessContext<'a> {
-    pub init: fbinit::FacebookInit,
     pub log_reload_handle: &'a Arc<dyn LogConfigurationReloadHandle>,
     pub stdin: &'a mut Stdin,
     pub working_dir: &'a WorkingDir,

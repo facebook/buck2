@@ -19,7 +19,6 @@ tracing = { workspace = true }
 allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
-fbinit = { workspace = true }
 
 buck2_cli_proto = { workspace = true }
 buck2_client_ctx = { workspace = true }
@@ -35,6 +34,9 @@ nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { workspace = true }
+
+[dev-dependencies]
+fbinit = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(client_only)", "cfg(fbcode_build)"] }

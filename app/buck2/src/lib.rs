@@ -308,13 +308,7 @@ impl CommandKind {
         #[cfg(not(client_only))]
         if let CommandKind::Daemon(cmd) = self {
             return cmd
-                .exec(
-                    process.init,
-                    process.log_reload_handle.dupe(),
-                    paths?,
-                    false,
-                    || {},
-                )
+                .exec(process.log_reload_handle.dupe(), paths?, false, || {})
                 .into();
         }
         thread::scope(|scope| {
@@ -347,13 +341,14 @@ impl CommandKind {
             }
         }
 
+        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
+
         let runtime = client_tokio_runtime()?;
         let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
             let v = buck2_daemon::no_buckd::start_in_process_daemon(
-                process.init,
                 immediate_config.daemon_startup_config()?,
                 paths.clone()?,
                 &runtime,
@@ -367,7 +362,7 @@ impl CommandKind {
         };
 
         let command_ctx = ClientCommandContext::new(
-            process.init,
+            fb,
             immediate_config,
             paths,
             process.working_dir.clone(),

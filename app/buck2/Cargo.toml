@@ -11,13 +11,13 @@ anyhow = { workspace = true }
 backtrace = { workspace = true }
 blake3 = { workspace = true }
 clap = { workspace = true }
+fbinit = { workspace = true }
 hex = { workspace = true }
 libc = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
 dupe = { workspace = true }
-fbinit = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
 

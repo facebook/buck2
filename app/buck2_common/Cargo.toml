@@ -18,6 +18,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 digest = { workspace = true }
 dirs = { workspace = true }
+fbinit = { workspace = true }
 futures = { workspace = true }
 globset = { workspace = true }
 hex = { workspace = true }

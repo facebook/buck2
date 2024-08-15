@@ -30,6 +30,7 @@ pub mod dice;
 pub mod events;
 pub mod external_cells;
 pub mod external_symlink;
+pub mod fbinit;
 pub mod file_ops;
 pub mod find_buildfile;
 pub mod global_cfg_options;

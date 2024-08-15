@@ -30,7 +30,6 @@ use buck2_core::logging::log_file::TracingLogFile;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
-use fbinit::FacebookInit;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -39,7 +38,7 @@ use fbinit::FacebookInit;
 #[cfg(all(any(target_os = "linux", target_os = "macos"), not(buck_build)))]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
+fn init_logging() -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
     let handle = match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
@@ -60,17 +59,6 @@ fn init_logging(_fb: FacebookInit) -> anyhow::Result<Arc<dyn LogConfigurationRel
     {
         use buck2_event_log::should_upload_log;
         use buck2_events::sink::remote;
-        use gflags::GflagValue;
-
-        // There are two sources of log spew when building buck2 with Buck and linking against fbcode:
-        //   1. folly/logging/xlog, which can be configured via a special configuration string, which we use to
-        //      log only critical-level logs. https://github.com/facebook/folly/blob/master/folly/logging/docs/Config.md
-        //   2. google log (glog), which is older but still used, which can configured using a flag at runtime.
-        //
-        // This first call handles the folly config.
-        logging::update_logging_config(_fb, "CRITICAL");
-        gflags::set_gflag_value(_fb, "minloglevel", GflagValue::U32(5))?;
-        gflags::set_gflag_value(_fb, "stderrthreshold", GflagValue::U32(5))?;
 
         if !should_upload_log()? {
             remote::disable();
@@ -105,8 +93,7 @@ fn print_retry() -> anyhow::Result<()> {
 // As this main() is used as the entry point for the `buck daemon` command,
 // it must be single-threaded. Commands that want to be multi-threaded/async
 // will start up their own tokio runtime.
-#[fbinit::main]
-fn main(init: fbinit::FacebookInit) -> ! {
+fn main() -> ! {
     buck2_core::client_only::CLIENT_ONLY_VAL.init(cfg!(client_only));
     #[cfg(not(client_only))]
     {
@@ -135,13 +122,13 @@ fn main(init: fbinit::FacebookInit) -> ! {
         release_timestamp: std::option_env!("BUCK2_RELEASE_TIMESTAMP"),
     });
 
-    fn main_with_result(init: fbinit::FacebookInit) -> ExitResult {
-        panic::initialize(init)?;
+    fn main_with_result() -> ExitResult {
+        panic::initialize()?;
         check_cargo();
 
         let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
 
-        let log_reload_handle = init_logging(init)?;
+        let log_reload_handle = init_logging()?;
 
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
@@ -154,7 +141,6 @@ fn main(init: fbinit::FacebookInit) -> ! {
         let first_trace_id = TraceId::from_env_or_new()?;
 
         let res = exec(ProcessContext {
-            init,
             log_reload_handle: &log_reload_handle,
             stdin: &mut stdin,
             working_dir: &cwd,
@@ -181,7 +167,6 @@ fn main(init: fbinit::FacebookInit) -> ! {
             }
 
             exec(ProcessContext {
-                init,
                 log_reload_handle: &log_reload_handle,
                 stdin: &mut stdin,
                 working_dir: &cwd,
@@ -199,5 +184,5 @@ fn main(init: fbinit::FacebookInit) -> ! {
         }
     }
 
-    main_with_result(init).report()
+    main_with_result().report()
 }
