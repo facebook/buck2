@@ -31,6 +31,7 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_util::truncate::truncate;
@@ -581,7 +582,7 @@ impl ConcurrencyHandler {
         }
 
         // create the on exit drop handler, which will take care of notifying tasks.
-        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data);
+        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
         // This adds the task to the list of all tasks (see ::new impl)
 
         Ok((drop_guard, transaction, preempt_receiver))
@@ -677,9 +678,14 @@ impl OnExecExit {
         command: CommandId,
         data: CommandData,
         mut guard: MutexGuard<'_, ConcurrencyHandlerData>,
-    ) -> Self {
-        guard.active_commands.insert(command, data);
-        Self(Some((handler, command)))
+    ) -> anyhow::Result<Self> {
+        let prev = guard.active_commands.insert(command, data);
+        if prev.is_some() {
+            return Err(internal_error!(
+                "command id `{command}` is already registered"
+            ));
+        }
+        Ok(OnExecExit(Some((handler, command))))
     }
 }
 
