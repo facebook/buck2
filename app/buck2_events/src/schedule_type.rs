@@ -15,6 +15,7 @@ pub struct ScheduleType {
 
 impl ScheduleType {
     const SCHEDULE_TYPE_CONTINUOUS: &'static str = "continuous";
+    const SCHEDULE_TYPE_DIFF: &'static str = "diff";
 
     pub fn new() -> anyhow::Result<Self> {
         // Same as RE does https://fburl.com/code/sj13r130
@@ -33,6 +34,10 @@ impl ScheduleType {
 
     pub fn is_some(&self) -> bool {
         self.schedule_type.is_some()
+    }
+
+    pub fn is_diff(&self) -> bool {
+        self.schedule_type == Some(Self::SCHEDULE_TYPE_DIFF)
     }
 
     pub fn testing_new(schedule_type: &'static str) -> Self {

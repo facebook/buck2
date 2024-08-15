@@ -29,6 +29,7 @@ mod fbcode {
     use prost::Message;
 
     use crate::metadata;
+    use crate::schedule_type::ScheduleType;
     use crate::sink::smart_truncate_event::smart_truncate_event;
     use crate::BuckEvent;
     use crate::Event;
@@ -46,6 +47,7 @@ mod fbcode {
     pub struct RemoteEventSink {
         category: String,
         client: scribe_client::ScribeClient,
+        schedule_type: ScheduleType,
     }
 
     impl RemoteEventSink {
@@ -65,7 +67,16 @@ mod fbcode {
                 retry_attempts,
                 message_batch_size,
             )?;
-            Ok(RemoteEventSink { category, client })
+
+            // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
+            // This would be problematic, because this is run just once on the daemon
+            // But in this case we only check for 'diff' type, which shouldn't change
+            let schedule_type = ScheduleType::new()?;
+            Ok(RemoteEventSink {
+                category,
+                client,
+                schedule_type,
+            })
         }
 
         // Send this event now, bypassing internal message queue.
@@ -162,7 +173,7 @@ mod fbcode {
         fn send(&self, event: Event) {
             match event {
                 Event::Buck(event) => {
-                    if should_send_event(event.data()) {
+                    if should_send_event(event.data(), &self.schedule_type) {
                         self.offer(event);
                     }
                 }
@@ -195,7 +206,7 @@ mod fbcode {
         }
     }
 
-    fn should_send_event(d: &buck2_data::buck_event::Data) -> bool {
+    fn should_send_event(d: &buck2_data::buck_event::Data, schedule_type: &ScheduleType) -> bool {
         use buck2_data::buck_event::Data;
 
         match d {
@@ -223,7 +234,7 @@ mod fbcode {
                             _ => true,
                         }
                     }
-                    Some(Data::Analysis(..)) => true,
+                    Some(Data::Analysis(..)) => !schedule_type.is_diff(),
                     Some(Data::Load(..)) => true,
                     Some(Data::CacheUpload(..)) => true,
                     Some(Data::DepFileUpload(..)) => true,
