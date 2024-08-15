@@ -10,6 +10,7 @@
 use buck2_common::manifold::Ttl;
 use buck2_core::buck2_env;
 use buck2_events::metadata::username;
+use buck2_events::schedule_type::ScheduleType;
 
 // Copied from "Is User Command" from scuba buck2_builds
 const ROBOTS: &[&str] = &[
@@ -25,33 +26,6 @@ const USER_TTL_DAYS: u64 = 365;
 const DEFAULT_TTL_DAYS: u64 = 60;
 // diff signal retention is 4 weeks
 const CI_EXCEPT_CONTINUOUS_TTL_DAYS: u64 = 28;
-
-struct ScheduleType {
-    schedule_type: Option<&'static str>,
-}
-
-impl ScheduleType {
-    const SCHEDULE_TYPE_CONTINUOUS: &'static str = "continuous";
-
-    pub fn new() -> anyhow::Result<Self> {
-        // Same as RE does https://fburl.com/code/sj13r130
-        let schedule_type =
-            if let Some(env) = buck2_env!("SCHEDULE_TYPE", applicability = internal)? {
-                Some(env)
-            } else {
-                buck2_env!("SANDCASTLE_SCHEDULE_TYPE", applicability = internal)?
-            };
-        Ok(Self { schedule_type })
-    }
-
-    fn is_continuous(&self) -> bool {
-        self.schedule_type == Some(Self::SCHEDULE_TYPE_CONTINUOUS)
-    }
-
-    fn is_some(&self) -> bool {
-        self.schedule_type.is_some()
-    }
-}
 
 pub fn manifold_event_log_ttl() -> anyhow::Result<Ttl> {
     manifold_event_log_ttl_impl(ROBOTS, username().ok().flatten(), ScheduleType::new()?)
@@ -87,20 +61,6 @@ fn manifold_event_log_ttl_impl(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    impl ScheduleType {
-        fn testing_new(schedule_type: &'static str) -> Self {
-            Self {
-                schedule_type: Some(schedule_type),
-            }
-        }
-
-        fn testing_empty() -> Self {
-            Self {
-                schedule_type: None,
-            }
-        }
-    }
 
     #[test]
     fn test_is_a_user() -> anyhow::Result<()> {

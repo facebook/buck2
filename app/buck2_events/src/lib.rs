@@ -29,6 +29,7 @@ pub mod daemon_id;
 pub mod dispatch;
 pub mod errors;
 pub mod metadata;
+pub mod schedule_type;
 pub mod sink;
 pub mod source;
 pub mod span;
