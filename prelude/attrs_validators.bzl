@@ -14,18 +14,10 @@ ATTRS_VALIDATORS_TYPE = attrs.dict(
         # The list of attrs you want.
         # If the attr key isn't available, it'll fail.
         attrs.list(attrs.string()),
-        attrs.one_of(
-            # The validation script which is going to run.
-            # It will be passed two positional args:
-            #  - a path to a JSON with the serialized args.
-            #  - a path to a file to write the output.
-            _RUNNABLE_EXEC_DEP,
-            attrs.tuple(
-                _RUNNABLE_EXEC_DEP,
-                # Additional args to pass to your script.
-                attrs.list(attrs.arg()),
-            ),
-        ),
+        # This will be passed two named args.
+        # --target-attrs, a path to a JSON file with the serialized args.
+        # --output, a path to the file the validation should be written to.
+        _RUNNABLE_EXEC_DEP,
     ),
     default = {},
 )
@@ -36,19 +28,15 @@ def get_attrs_validators_outputs(ctx: AnalysisContext) -> list[Artifact]:
 
     artifacts = []
     for key, (requested_attrs, validator) in ctx.attrs.attrs_validators.items():
-        if type(validator) == "tuple":
-            validator, validator_args = validator
-        else:
-            validator = validator
-            validator_args = []
-
         output = ctx.actions.declare_output(key)
         ctx.actions.run(
             cmd_args([
                 validator[RunInfo],
+                "--target-attrs",
                 _build_attr_json_args(ctx, key, requested_attrs),
+                "--output",
                 output.as_output(),
-            ] + validator_args),
+            ]),
             category = "attrs_validator",
             identifier = key,
         )
