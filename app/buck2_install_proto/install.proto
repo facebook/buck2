@@ -40,6 +40,22 @@ message FileResponse {
   string name = 2;
   string path = 3;
   ErrorDetail error_detail = 4;
+  // Connected device metadata to be logged to scuba.
+  // Should be sent once per device per install command,
+  // not per FileReadyRequest.
+  // Returned here in case the installer needs information
+  // from received files in order to connect.
+  repeated DeviceMetadata device_metadata = 5;
+}
+
+// Metadata about a connected device for logging.
+// ex. device name, os version.
+message DeviceMetadata {
+  message Entry {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Entry entry = 1;
 }
 
 message ErrorDetail {
