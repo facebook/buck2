@@ -243,12 +243,7 @@ where
                     CommandExecutionStatus::Error {
                         typ: CommandExecutionErrorType::StorageResourceExhausted,
                         ..
-                    } => {
-                        ignore_fallback_tracker
-                            || self
-                                .fallback_tracker
-                                .can_fallback_when_storage_resource_exhausted()
-                    }
+                    } => ignore_fallback_tracker,
                     // Errors are infra errors and are always retried because that is the point of
                     // falling back.
                     CommandExecutionStatus::Error { .. } => {
@@ -547,23 +542,6 @@ impl FallbackTracker {
         FallbackTracker {
             count_fallbacks: AtomicI64::new(0),
         }
-    }
-
-    pub fn can_fallback_when_storage_resource_exhausted(&self) -> bool {
-        #[cfg(all(fbcode_build, target_os = "linux"))]
-        if hostcaps::is_prod() {
-            justknobs::eval(
-                "buck2/buck2:allow_storage_resource_exhausted_fallback",
-                None,
-                None,
-            )
-            .unwrap_or(false)
-        } else {
-            false
-        }
-
-        #[cfg(not(all(fbcode_build, target_os = "linux")))]
-        false
     }
 
     pub fn can_fallback(&self) -> bool {
