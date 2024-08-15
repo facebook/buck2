@@ -45,7 +45,7 @@ pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -
 pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
     format!(
         "Low disk space: only {} remaining out of {}{}",
-        HumanizedBytes::new(low_disk_space.used_disk_space),
+        HumanizedBytes::new(low_disk_space.total_disk_space - low_disk_space.used_disk_space),
         HumanizedBytes::new(low_disk_space.total_disk_space),
         if is_open_source() {
             ""
