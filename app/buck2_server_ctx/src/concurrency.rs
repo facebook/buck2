@@ -528,8 +528,13 @@ impl ConcurrencyHandler {
                             }
                             BypassSemaphore::Block => {
                                 if exit_when_different_state {
+                                    let active_commands: Vec<String> = data
+                                        .active_commands
+                                        .values()
+                                        .map(|d| TraceId::to_string(&d.trace_id))
+                                        .collect();
                                     return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
-                                        .context("Buck daemon is busy processing another command");
+                                        .with_context(|| format!("Buck daemon is busy processing another command: {}", active_commands.join(", ")));
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
