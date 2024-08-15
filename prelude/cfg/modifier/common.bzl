@@ -77,8 +77,7 @@ def get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifie
 def get_modifier_info(
         refs: dict[str, ProviderCollection],
         modifier: Modifier,
-        location: ModifierLocation,
-        constraint_setting_order: list[TargetLabel]) -> ((TargetLabel, ModifierInfo) | None):
+        location: ModifierLocation) -> ((TargetLabel, ModifierInfo) | None):
     # Gets a modifier info from a modifier based on providers from `refs`.
     if modifier == None:
         return None
@@ -89,22 +88,14 @@ def get_modifier_info(
         for key, sub_modifier in modifier.items():
             if key == "DEFAULT":
                 if sub_modifier:
-                    default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
+                    default_constraint_setting, default = get_modifier_info(refs, sub_modifier, location)
                     constraint_settings[default_constraint_setting] = None
                 else:
                     default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
-                for cfg_constraint_setting, cfg_constraint_value_info in cfg_info.constraints.items():
-                    asserts.true(
-                        cfg_constraint_setting in constraint_setting_order,
-                        (
-                            "modifiers.match `{}` from `{}` selects on `{}` of constraint_setting `{}`, which is now allowed. " +
-                            "To select on this constraint, this constraint setting needs to be added to `buck2/cfg/experimental/cfg_constructor.bzl`"
-                        ).format(modifier, location_to_string(location), cfg_constraint_value_info.label, cfg_constraint_setting),
-                    )
                 if sub_modifier:
-                    sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location, constraint_setting_order)
+                    sub_constraint_setting, sub_modifier_info = get_modifier_info(refs, sub_modifier, location)
                     constraint_settings[sub_constraint_setting] = None
                 else:
                     sub_modifier_info = None
@@ -212,3 +203,21 @@ def resolve_alias(modifier: Modifier, aliases: struct) -> list[Modifier]:
     if resolved:
         return resolved if isinstance(resolved, list) else [resolved]
     fail("Found invalid modifier alias `{}`. A list of valid modifier aliases is in buck2/cfg/experimental/alias.bzl".format(modifier))
+
+def _get_constraint_setting_deps(
+        modifier_info: ModifierInfo) -> list[TargetLabel]:
+    deps = []
+    if isinstance(modifier_info, ModifiersMatchInfo):
+        for key, sub_modifier in modifier_info.selector:
+            for constraint_setting in key.constraints:
+                deps.append(constraint_setting)
+            deps += _get_constraint_setting_deps(sub_modifier)
+        if modifier_info.default:
+            deps += _get_constraint_setting_deps(modifier_info.default)
+    return deps
+
+def get_constraint_setting_deps(
+        modifier_info: ModifierInfo) -> list[TargetLabel]:
+    # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
+    # for these constraint settings must be resolved before this modifier can be resolved.
+    return dedupe(_get_constraint_setting_deps(modifier_info))

@@ -5,8 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
+    "get_constraint_setting_deps",
     "get_modifier_info",
     "json_to_tagged_modifiers",
     "modifier_to_refs",
@@ -14,7 +16,6 @@ load(
     "resolve_modifier",
 )
 load(":name.bzl", "cfg_name")
-load(":order.bzl", "CONSTRAINT_SETTING_ORDER", "get_constraint_setting_order")
 load(
     ":types.bzl",
     "Modifier",  # @unused
@@ -80,7 +81,7 @@ def cfg_constructor_pre_constraint_analysis(
     if cli_modifiers:
         merged_modifiers.append(TaggedModifiers(modifiers = cli_modifiers, location = ModifierCliLocation(), rule_name = None))
 
-    refs = list(CONSTRAINT_SETTING_ORDER)
+    refs = []
     for tagged_modifiers in merged_modifiers:
         for modifier in tagged_modifiers.modifiers:
             refs.extend(modifier_to_refs(modifier, tagged_modifiers.location))
@@ -118,7 +119,6 @@ def cfg_constructor_post_constraint_analysis(
         )
 
     constraint_setting_to_modifier_infos = {}
-    constraint_setting_order = get_constraint_setting_order(refs)
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
@@ -131,29 +131,39 @@ def cfg_constructor_post_constraint_analysis(
                     refs = refs,
                     modifier = modifier,
                     location = tagged_modifiers.location,
-                    constraint_setting_order = constraint_setting_order,
                 )
                 modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
                 modifier_infos.append(modifier_info)
                 constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+
+    # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
+    # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
+    # To determine this order, we first construct a dep graph of constraint settings based on the modifier
+    # selects. Then we perform a post order traversal of the said graph.
+    modifier_dep_graph = {
+        constraint_setting: [
+            dep
+            for modifier_info in modifier_infos
+            for dep in get_constraint_setting_deps(modifier_info)
+        ]
+        for constraint_setting, modifier_infos in constraint_setting_to_modifier_infos.items()
+    }
+
+    # For topo-sort, we need to fill in empty edges for nodes that have no deps
+    for deps in modifier_dep_graph.values():
+        for dep in deps:
+            if dep not in modifier_dep_graph:
+                modifier_dep_graph[dep] = []
+
+    constraint_setting_order = post_order_traversal(modifier_dep_graph)
 
     cfg = ConfigurationInfo(
         constraints = {},
         values = {},
     )
 
-    # Order modifiers by CONSTRAINT_SETTING_ORDER, then the rest of modifiers can go in any order
-    constraint_setting_order = [
-        constraint_setting
-        for constraint_setting in constraint_setting_order
-        if constraint_setting in constraint_setting_to_modifier_infos
-    ] + [
-        constraint_setting
-        for constraint_setting in constraint_setting_to_modifier_infos
-        if constraint_setting not in constraint_setting_order
-    ]
     for constraint_setting in constraint_setting_order:
-        for modifier_info in constraint_setting_to_modifier_infos[constraint_setting]:
+        for modifier_info in constraint_setting_to_modifier_infos.get(constraint_setting) or ():
             constraint_value = resolve_modifier(cfg, modifier_info)
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
