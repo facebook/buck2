@@ -100,7 +100,6 @@ buck_rust_binary(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_event_log:buck2_event_log",
         "//buck2/app/buck2_events:buck2_events",
-        "//buck2/app/buck2_validation:buck2_validation",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
     ] + select({
@@ -123,6 +122,7 @@ buck_rust_binary(
             "//buck2/app/buck2_starlark_server:buck2_starlark_server",
             "//buck2/app/buck2_test:buck2_test",
             "//buck2/app/buck2_transition:buck2_transition",
+            "//buck2/app/buck2_validation:buck2_validation",
         ],
     }),
 )
