@@ -68,9 +68,7 @@ impl Key for internal::BxlComputeKey {
                     eval(ctx, key, StarlarkProfileMode::None, observer)
                         .await
                         .map_err(buck2_error::Error::from)
-                        .map(|(result, _)| BxlComputeResult {
-                            bxl_result: Arc::new(result),
-                        })
+                        .map(|(result, _)| BxlComputeResult(Arc::new(result)))
                 }
                 .boxed()
             })

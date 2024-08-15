@@ -31,9 +31,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
 }
 
 #[derive(Allocative, Clone, Dupe)]
-pub struct BxlComputeResult {
-    pub bxl_result: Arc<BxlResult>,
-}
+pub struct BxlComputeResult(pub Arc<BxlResult>);
 
 /// Dependency injection for BXL.
 ///

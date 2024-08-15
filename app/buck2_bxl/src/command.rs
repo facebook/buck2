@@ -20,7 +20,6 @@ use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::build_report::BuildReportOpts;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
-use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::materialize::materialize_artifact_group;
 use buck2_build_api::materialize::MaterializationContext;
@@ -179,8 +178,8 @@ async fn bxl(
         global_cfg_options,
     );
 
-    let BxlComputeResult { bxl_result } = match eval_bxl(&mut ctx, bxl_key.clone()).await {
-        Ok(result) => result,
+    let bxl_result = match eval_bxl(&mut ctx, bxl_key.clone()).await {
+        Ok(result) => result.0,
         Err(e) => {
             // `buck2_error::Error` has more reliable downcasting
             let e: buck2_error::Error = e.into();

@@ -111,16 +111,14 @@ mod tests {
             })
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
-                buck2_error::Ok(BxlComputeResult {
-                    bxl_result: Arc::new(BxlResult::BuildsArtifacts {
-                        output_loc: mk_stream_cache("test", &bxl),
-                        error_loc: mk_stream_cache("errortest", &bxl),
-                        built: vec![],
-                        artifacts: vec![],
-                        deferred: deferred_result,
-                        analysis_values,
-                    }),
-                }),
+                buck2_error::Ok(BxlComputeResult(Arc::new(BxlResult::BuildsArtifacts {
+                    output_loc: mk_stream_cache("test", &bxl),
+                    error_loc: mk_stream_cache("errortest", &bxl),
+                    built: vec![],
+                    artifacts: vec![],
+                    deferred: deferred_result,
+                    analysis_values,
+                }))),
             );
 
         let mut dice_data = UserComputationData::new();

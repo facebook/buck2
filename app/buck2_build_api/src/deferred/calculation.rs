@@ -70,7 +70,7 @@ async fn lookup_deferred_inner(
                 .get()?
                 .eval_bxl(dice, bxl.dupe())
                 .await?
-                .bxl_result;
+                .0;
 
             Ok(DeferredHolder::Bxl(bxl_result))
         }
