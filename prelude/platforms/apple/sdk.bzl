@@ -14,6 +14,9 @@ _APPLE_SDKS = [
     "visionsimulator",
     "watchos",
     "watchsimulator",
+    # Marker entry used to help toolchain selectors define a set of
+    # tools outside the apple_toolchain definition.
+    "toolchain-tool",
 ]
 
 AppleSdk = enum(*_APPLE_SDKS)
