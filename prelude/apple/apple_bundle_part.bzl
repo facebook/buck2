@@ -13,6 +13,7 @@ load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo"
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
+load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
@@ -269,7 +270,7 @@ def assemble_bundle(
         prefer_local = not force_local_bundling,
         category = category,
         env = env,
-        error_handler = _apple_bundle_error_handler,
+        error_handler = apple_build_error_handler,
         **run_incremental_args
     )
     return AppleBundleConstructionResult(sub_targets = subtargets, providers = providers)
@@ -357,16 +358,6 @@ def _convert_bundle_manifest_to_json_object(manifest: AppleBundleManifest) -> di
             "spec": logs.spec_file,
         }
     return manifest_dict
-
-def _apple_bundle_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
-    categories = []
-
-    if "CodeSignProvisioningError" in ctx.stderr:
-        categories.append(ctx.new_sub_error(
-            category = "code_sign_provisioning_error",
-        ))
-
-    return categories
 
 def _get_fast_adhoc_signing_enabled(ctx: AnalysisContext) -> bool:
     fast_adhoc_signing_enabled = ctx.attrs.fast_adhoc_signing_enabled
