@@ -1,0 +1,8 @@
+load(":test_impl.bzl", "test_buck2_dep_graph")
+
+oncall("build_infra")
+
+# Note: This test is run by building this target
+test_buck2_dep_graph(
+    name = "test_buck2_dep_graph",
+)
