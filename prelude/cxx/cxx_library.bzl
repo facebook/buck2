@@ -1510,6 +1510,7 @@ def _shared_library(
             strip = impl_params.strip_executable,
             strip_args_factory = impl_params.strip_args_factory,
             link_execution_preference = link_execution_preference,
+            error_handler = impl_params.error_handler,
         ),
         name = soname if impl_params.use_soname else None,
         shared_library_flags = impl_params.shared_library_flags,
@@ -1567,6 +1568,7 @@ def _shared_library(
                     identifier = soname + "-interface",
                     link_execution_preference = link_execution_preference,
                     strip = impl_params.strip_executable,
+                    error_handler = impl_params.error_handler,
                 ),
                 name = soname,
             )

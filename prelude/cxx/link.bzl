@@ -287,6 +287,11 @@ def cxx_link_into(
         opts.link_execution_preference,
     )
 
+    # only specify error_handler if one exists
+    error_handler_args = {}
+    if opts.error_handler:
+        error_handler_args["error_handler"] = opts.error_handler
+
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local,
@@ -297,6 +302,7 @@ def cxx_link_into(
         identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
         allow_cache_upload = opts.allow_cache_upload,
+        **error_handler_args
     )
     unstripped_output = output
     if opts.strip:

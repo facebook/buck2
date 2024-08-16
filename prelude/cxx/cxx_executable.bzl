@@ -342,6 +342,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 anonymous = ctx.attrs.anonymous_link_groups,
                 allow_cache_upload = impl_params.exe_allow_cache_upload,
                 public_nodes = public_link_group_nodes,
+                error_handler = impl_params.error_handler,
             )
             link_group_libs_debug_info = linked_link_groups.libs_debug_info
             for name, linked_link_group in linked_link_groups.libs.items():
@@ -530,6 +531,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             strip_args_factory = impl_params.strip_args_factory,
             category_suffix = impl_params.exe_category_suffix,
             allow_cache_upload = impl_params.exe_allow_cache_upload,
+            error_handler = impl_params.error_handler,
         ),
     )
     binary = link_result.exe

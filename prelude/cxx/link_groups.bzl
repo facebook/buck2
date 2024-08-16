@@ -686,7 +686,8 @@ def _create_link_group(
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
         anonymous: bool = False,
-        allow_cache_upload = False) -> _CreatedLinkGroup | None:
+        allow_cache_upload = False,
+        error_handler = None) -> _CreatedLinkGroup | None:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -749,6 +750,7 @@ def _create_link_group(
             enable_distributed_thinlto = False if anonymous else spec.group.attrs.enable_distributed_thinlto,
             link_execution_preference = LinkExecutionPreference("any"),
             allow_cache_upload = allow_cache_upload,
+            error_handler = error_handler,
         ),
         anonymous = anonymous,
     )
@@ -873,7 +875,8 @@ def create_link_groups(
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_mappings: [dict[Label, str], None] = None,
         anonymous: bool = False,
-        allow_cache_upload = False) -> _LinkedLinkGroups:
+        allow_cache_upload = False,
+        error_handler: [typing.Callable, None] = None) -> _LinkedLinkGroups:
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     specs = []
@@ -931,6 +934,7 @@ def create_link_groups(
             category_suffix = "link_group",
             anonymous = anonymous,
             allow_cache_upload = allow_cache_upload,
+            error_handler = error_handler,
         )
 
         if created_link_group == None:

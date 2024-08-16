@@ -35,6 +35,18 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "command not found", categories = ["apple_command_not_found_failure"]),
     AppleErrorCategories(string_match = "command timed out", categories = ["apple_timeout_failure"]),
     AppleErrorCategories(string_match = "no such file or directory", categories = ["apple_no_such_file_failure"]),
+
+    #user errors
+    AppleErrorCategories(string_match = "unknown target", categories = ["apple_unknown_buck_target_failure"]),
+
+    #linker issues
+    AppleErrorCategories(string_match = "linker command failed", categories = ["apple_linker_failure"]),
+    AppleErrorCategories(string_match = "duplicate symbol", categories = ["apple_duplicate_symbol_failure"]),
+    AppleErrorCategories(string_match = "undefined symbol", categories = ["apple_undefined_symbol_failure"]),
+    AppleErrorCategories(string_match = "framework not found", categories = ["apple_framework_not_found_failure"]),
+
+    #buck configuration issues
+    AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_buck_configuration_failure", "apple_unknown_cell_alias_failure"]),
 ]
 
 def _add_category_strings(lowercase_stderr: str, category_string_target: set_type, source: list[AppleErrorCategories]):
