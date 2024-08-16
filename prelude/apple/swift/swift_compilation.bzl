@@ -12,6 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_target_sdk_version.bzl", "get_versioned_target_triple")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
@@ -405,7 +406,7 @@ def _compile_swiftmodule(
             "--tbd",
             output_tbd,
         ])
-        ctx.actions.run(extract_cmd, category = "extract_tbd_symbols")
+        ctx.actions.run(extract_cmd, category = "extract_tbd_symbols", error_handler = apple_build_error_handler)
 
     return ret
 
@@ -483,6 +484,7 @@ def _compile_with_argsfile(
         allow_cache_upload = True,
         # When building incrementally, we need to preserve local state between invocations.
         no_outputs_cleanup = should_build_swift_incrementally(ctx, len(srcs)),
+        error_handler = apple_build_error_handler,
     )
 
     argsfile = CompileArgsfile(
@@ -866,7 +868,12 @@ def _create_compilation_database(
 
     cmd.add("--")
     cmd.add(argfile.cmd_form)
-    ctx.actions.run(cmd, category = "swift_compilation_database", identifier = identifier)
+    ctx.actions.run(
+        cmd,
+        category = "swift_compilation_database",
+        identifier = identifier,
+        error_handler = apple_build_error_handler,
+    )
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
 
@@ -902,6 +909,7 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
         mk_swift_args,
         category = "mk_swift_interface",
         identifier = identifier,
+        error_handler = apple_build_error_handler,
     )
 
     return DefaultInfo(
