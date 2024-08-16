@@ -51,7 +51,6 @@ use tracing::Level;
 use crate::data::ArgValue;
 use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
-use crate::data::DisplayMetadata;
 use crate::data::ExecuteRequest2;
 use crate::data::ExecuteResponse;
 use crate::data::ExecutorConfigOverride;
@@ -59,6 +58,7 @@ use crate::data::PrepareForLocalExecutionResult;
 use crate::data::RequiredLocalResources;
 use crate::data::TestExecutable;
 use crate::data::TestResult;
+use crate::data::TestStage;
 use crate::protocol::TestOrchestrator;
 
 /// Test runner client to buck2 test orchestrator.
@@ -135,7 +135,7 @@ impl DownwardApi for TestOrchestratorClient {
 impl TestOrchestratorClient {
     pub async fn execute2(
         &self,
-        ui_prints: DisplayMetadata,
+        ui_prints: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -146,7 +146,7 @@ impl TestOrchestratorClient {
         required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<ExecuteResponse> {
         let test_executable = TestExecutable {
-            display: ui_prints,
+            stage: ui_prints,
             target,
             cmd,
             env,
@@ -238,7 +238,7 @@ impl TestOrchestratorClient {
 
     pub async fn prepare_for_local_execution(
         &self,
-        ui_prints: DisplayMetadata,
+        stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -246,7 +246,7 @@ impl TestOrchestratorClient {
         required_local_resources: RequiredLocalResources,
     ) -> anyhow::Result<PrepareForLocalExecutionResult> {
         let executable = TestExecutable {
-            display: ui_prints,
+            stage,
             target,
             cmd,
             env,
@@ -305,7 +305,7 @@ where
                 .context("Invalid execute2 request")?;
 
             let TestExecutable {
-                display,
+                stage,
                 target,
                 cmd,
                 env,
@@ -315,7 +315,7 @@ where
             let response = self
                 .inner
                 .execute2(
-                    display,
+                    stage,
                     target,
                     cmd,
                     env,
@@ -442,7 +442,7 @@ where
             };
 
             let TestExecutable {
-                display,
+                stage,
                 target,
                 cmd,
                 env,
@@ -455,7 +455,7 @@ where
 
             let result = self
                 .inner
-                .prepare_for_local_execution(display, target, cmd, env, pre_create_dirs, resources)
+                .prepare_for_local_execution(stage, target, cmd, env, pre_create_dirs, resources)
                 .await
                 .context("Prepare for local execution failed")?;
 

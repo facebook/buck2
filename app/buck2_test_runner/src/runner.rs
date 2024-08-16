@@ -11,7 +11,6 @@ use anyhow::Context;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
-use buck2_test_api::data::DisplayMetadata;
 use buck2_test_api::data::ExecuteResponse;
 use buck2_test_api::data::ExecutionResult2;
 use buck2_test_api::data::ExecutionStatus;
@@ -19,6 +18,7 @@ use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::ExternalRunnerSpecValue;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
+use buck2_test_api::data::TestStage;
 use buck2_test_api::data::TestStatus;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use clap::Parser;
@@ -119,7 +119,7 @@ impl Buck2TestRunner {
         &self,
         spec: ExternalRunnerSpec,
     ) -> anyhow::Result<ExecuteResponse> {
-        let display_metadata = DisplayMetadata::Testing {
+        let stage = TestStage::Testing {
             suite: spec.target.target,
             testcases: Vec::new(),
         };
@@ -175,7 +175,7 @@ impl Buck2TestRunner {
 
         self.orchestrator_client
             .execute2(
-                display_metadata,
+                stage,
                 target_handle,
                 command,
                 env,

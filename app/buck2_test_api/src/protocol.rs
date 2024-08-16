@@ -23,13 +23,13 @@ use sorted_vector_map::SortedVectorMap;
 use crate::data::ArgValue;
 use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
-use crate::data::DisplayMetadata;
 use crate::data::ExecuteResponse;
 use crate::data::ExecutorConfigOverride;
 use crate::data::ExternalRunnerSpec;
 use crate::data::PrepareForLocalExecutionResult;
 use crate::data::RequiredLocalResources;
 use crate::data::TestResult;
+use crate::data::TestStage;
 
 /// available to buck to interact with the test executor
 #[async_trait::async_trait]
@@ -53,7 +53,7 @@ pub trait TestOrchestrator: Send + Sync {
     async fn execute2(
         &self,
         // information about this execute request for Buck's UX
-        ui_prints: DisplayMetadata,
+        stage: TestStage,
         // the label of the rule being tested
         target: ConfiguredTargetHandle,
         // the command to run
@@ -93,7 +93,7 @@ pub trait TestOrchestrator: Send + Sync {
     /// Return the actual command with all the args, env and cwd to be executed locally.
     async fn prepare_for_local_execution(
         &self,
-        ui_prints: DisplayMetadata,
+        stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,

@@ -21,7 +21,7 @@ message Testing {
   repeated string testcases = 2;
 }
 
-message DisplayMetadata {
+message TestStage {
   message Listing {
     string suite = 1;
   }
@@ -179,7 +179,7 @@ message ExternalRunnerSpecValue {
 
 message TestExecutable {
   reserved 4;
-  DisplayMetadata ui_prints = 1;
+  TestStage stage = 1;
   ConfiguredTargetHandle target = 2;
   repeated ArgValue cmd = 3;
   repeated DeclaredOutput pre_create_dirs = 5;

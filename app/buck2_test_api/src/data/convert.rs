@@ -29,7 +29,6 @@ use crate::data::ArgValueContent;
 use crate::data::ConfiguredTarget;
 use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
-use crate::data::DisplayMetadata;
 use crate::data::EnvHandle;
 use crate::data::ExecuteRequest2;
 use crate::data::ExecutionResult2;
@@ -45,15 +44,16 @@ use crate::data::RemoteFile;
 use crate::data::RemoteObject;
 use crate::data::TestExecutable;
 use crate::data::TestResult;
+use crate::data::TestStage;
 use crate::data::TestStatus;
 use crate::protocol::convert::host_sharing_requirements_from_grpc;
 use crate::protocol::convert::host_sharing_requirements_to_grpc;
 
-impl TryFrom<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
+impl TryFrom<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
-    fn try_from(s: buck2_test_proto::DisplayMetadata) -> Result<Self, Self::Error> {
-        use buck2_test_proto::display_metadata::*;
+    fn try_from(s: buck2_test_proto::TestStage) -> Result<Self, Self::Error> {
+        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
 
         let res = match s.item.context("Missing `item`")? {
@@ -65,11 +65,11 @@ impl TryFrom<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
     }
 }
 
-impl TryInto<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
+impl TryInto<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<buck2_test_proto::DisplayMetadata, Self::Error> {
-        use buck2_test_proto::display_metadata::*;
+    fn try_into(self) -> Result<buck2_test_proto::TestStage, Self::Error> {
+        use buck2_test_proto::test_stage::*;
         use buck2_test_proto::Testing;
 
         let item = match self {
@@ -77,7 +77,7 @@ impl TryInto<buck2_test_proto::DisplayMetadata> for DisplayMetadata {
             Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
         };
 
-        Ok(buck2_test_proto::DisplayMetadata { item: Some(item) })
+        Ok(buck2_test_proto::TestStage { item: Some(item) })
     }
 }
 
@@ -803,13 +803,13 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
 
     fn try_from(s: buck2_test_proto::TestExecutable) -> Result<Self, Self::Error> {
         let buck2_test_proto::TestExecutable {
-            ui_prints,
+            stage,
             target,
             cmd,
             pre_create_dirs,
             env,
         } = s;
-        let ui_prints = ui_prints
+        let ui_prints = stage
             .context("Missing `ui_prints`")?
             .try_into()
             .context("Invalid `ui_prints`")?;
@@ -840,7 +840,7 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             .context("Invalid `pre_create_dirs`")?;
 
         Ok(TestExecutable {
-            display: ui_prints,
+            stage: ui_prints,
             target,
             cmd,
             env,
@@ -853,7 +853,7 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
     type Error = anyhow::Error;
 
     fn try_into(self) -> Result<buck2_test_proto::TestExecutable, Self::Error> {
-        let ui_prints = Some(self.display.try_into().context("Invalid `ui_prints`")?);
+        let stage = Some(self.stage.try_into().context("Invalid `ui_prints`")?);
         let target = Some(self.target.try_into().context("Invalid `target`")?);
         let cmd = self
             .cmd
@@ -878,7 +878,7 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
         let pre_create_dirs = self.pre_create_dirs.into_map(|i| i.into());
 
         Ok(buck2_test_proto::TestExecutable {
-            ui_prints,
+            stage,
             target,
             cmd,
             pre_create_dirs,
@@ -1068,7 +1068,7 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            display: DisplayMetadata::Listing("name".to_owned()),
+            stage: TestStage::Listing("name".to_owned()),
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {
@@ -1170,7 +1170,7 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            display: DisplayMetadata::Listing("name".to_owned()),
+            stage: TestStage::Listing("name".to_owned()),
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {

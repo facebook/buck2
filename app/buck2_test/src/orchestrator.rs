@@ -101,7 +101,6 @@ use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use buck2_test_api::data::DeclaredOutput;
-use buck2_test_api::data::DisplayMetadata;
 use buck2_test_api::data::ExecuteResponse;
 use buck2_test_api::data::ExecutionDetails;
 use buck2_test_api::data::ExecutionResult2;
@@ -114,6 +113,7 @@ use buck2_test_api::data::Output;
 use buck2_test_api::data::PrepareForLocalExecutionResult;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
+use buck2_test_api::data::TestStage;
 use buck2_test_api::protocol::TestOrchestrator;
 use derive_more::From;
 use dice::DiceTransaction;
@@ -213,7 +213,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
     async fn execute2(
         &self,
-        metadata: DisplayMetadata,
+        stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -307,7 +307,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_kind,
             outputs,
         } = self
-            .execute_request(&test_target, metadata, &test_executor, execution_request)
+            .execute_request(&test_target, stage, &test_executor, execution_request)
             .boxed()
             .await?;
 
@@ -405,7 +405,7 @@ enum ExecuteError {
 impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     async fn execute2(
         &self,
-        metadata: DisplayMetadata,
+        stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -417,7 +417,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     ) -> anyhow::Result<ExecuteResponse> {
         let res = BuckTestOrchestrator::execute2(
             self,
-            metadata,
+            stage,
             test_target,
             cmd,
             env,
@@ -487,7 +487,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
     async fn prepare_for_local_execution(
         &self,
-        _metadata: DisplayMetadata,
+        _stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -643,7 +643,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     async fn execute_request(
         &self,
         test_target: &ConfiguredProvidersLabel,
-        metadata: DisplayMetadata,
+        stage: TestStage,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
     ) -> Result<ExecuteData, ExecuteError> {
@@ -653,9 +653,9 @@ impl<'b> BuckTestOrchestrator<'b> {
             self.liveliness_observer.dupe(),
         );
 
-        let mut action_key_suffix = match &metadata {
-            DisplayMetadata::Listing(_) => "listing".to_owned(),
-            DisplayMetadata::Testing { testcases, .. } => testcases.join(" "),
+        let mut action_key_suffix = match &stage {
+            TestStage::Listing(_) => "listing".to_owned(),
+            TestStage::Testing { testcases, .. } => testcases.join(" "),
         };
         if action_key_suffix.len() > MAX_SUFFIX_LEN {
             let truncated = "(truncated)";
@@ -692,8 +692,8 @@ impl<'b> BuckTestOrchestrator<'b> {
                     ..
                 },
             ..
-        } = match metadata {
-            DisplayMetadata::Listing(listing) => {
+        } = match stage {
+            TestStage::Listing(listing) => {
                 let start = TestDiscoveryStart {
                     suite_name: listing.clone(),
                 };
@@ -713,7 +713,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                     })
                     .await
             }
-            DisplayMetadata::Testing { suite, testcases } => {
+            TestStage::Testing { suite, testcases } => {
                 let test_suite = Some(TestSuite {
                     suite_name: suite,
                     test_names: testcases,

@@ -49,7 +49,7 @@ pub struct ConfiguredTarget {
 
 /// Metadata about the execution to display
 #[derive(Debug, Clone, PartialEq)]
-pub enum DisplayMetadata {
+pub enum TestStage {
     // Listing the test binary to discover tests. The String is the name of the suite at the binary
     Listing(String),
     // the name of the test(s) that we are running for the suite of a target
@@ -355,7 +355,7 @@ pub enum ExecuteResponse {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TestExecutable {
-    pub display: DisplayMetadata,
+    pub stage: TestStage,
     pub target: ConfiguredTargetHandle,
     pub cmd: Vec<ArgValue>,
     pub env: SortedVectorMap<String, ArgValue>,
