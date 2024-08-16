@@ -40,7 +40,6 @@ load(
     "MergedLinkInfo",  # @unused Used as a type
     "SharedLibLinkable",
     "create_merged_link_info",
-    "create_merged_link_info_for_propagation",
     "get_lib_output_style",
     "legacy_output_style_to_link_style",
     "set_link_info_link_whole",
@@ -600,7 +599,7 @@ def _proc_macro_link_providers(
     return [RustLinkInfo(
         crate = attr_crate(ctx),
         strategies = rust_artifacts,
-        merged_link_info = create_merged_link_info_for_propagation(ctx, []),
+        merged_link_infos = {},
         exported_link_deps = [],
         shared_libs = merge_shared_libraries(ctx.actions),
         linkable_graphs = [],
@@ -631,7 +630,7 @@ def _advanced_unstable_link_providers(
         ctx,
         pic_behavior,
         link_infos,
-        deps = inherited_link_infos,
+        deps = inherited_link_infos.values(),
         exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
         preferred_linkage = preferred_linkage,
     )
@@ -716,15 +715,9 @@ def _advanced_unstable_link_providers(
     providers.append(RustLinkInfo(
         crate = crate,
         strategies = rust_artifacts,
-        merged_link_info = merged_link_info,
+        merged_link_infos = inherited_link_infos | {ctx.label.configured_target(): merged_link_info},
         exported_link_deps = inherited_exported_deps,
         shared_libs = shared_library_info,
-        # We've already reported transitive deps on the inherited graphs, so for
-        # most purposes it would be fine to just have `linkable_graph` here.
-        # However, link groups do an analysis that relies on each symbol
-        # reference having a matching edge in the link graph, and so reexports
-        # and generics mean that we have to report a dependency on all
-        # transitive Rust deps and their immediate non-Rust deps
         linkable_graphs = inherited_graphs + [linkable_graph],
     ))
 
@@ -741,13 +734,13 @@ def _stable_link_providers(
 
     crate = attr_crate(ctx)
 
-    merged_link_info, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx)
+    merged_link_infos, shared_libs, linkable_graphs, exported_link_deps = _rust_link_providers(ctx, compile_ctx.dep_ctx)
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
         crate = crate,
         strategies = rust_artifacts,
-        merged_link_info = merged_link_info,
+        merged_link_infos = merged_link_infos,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
         linkable_graphs = linkable_graphs,
@@ -760,7 +753,7 @@ def _stable_link_providers(
 def _rust_link_providers(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> (
-    MergedLinkInfo,
+    dict[ConfiguredTargetLabel, MergedLinkInfo],
     SharedLibraryInfo,
     list[LinkableGraph],
     list[Dependency],
@@ -770,12 +763,11 @@ def _rust_link_providers(
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
 
-    merged_link_info = create_merged_link_info_for_propagation(ctx, inherited_link_infos)
     shared_libs = merge_shared_libraries(
         ctx.actions,
         deps = inherited_shlibs,
     )
-    return (merged_link_info, shared_libs, inherited_graphs, inherited_exported_deps)
+    return (inherited_link_infos, shared_libs, inherited_graphs, inherited_exported_deps)
 
 def _native_link_providers(
         ctx: AnalysisContext,
@@ -790,7 +782,7 @@ def _native_link_providers(
     """
 
     # We collected transitive deps in the Rust link providers
-    inherited_link_infos = [rust_link_info.merged_link_info]
+    inherited_link_infos = rust_link_info.merged_link_infos
     inherited_shlibs = [rust_link_info.shared_libs]
     inherited_link_graphs = rust_link_info.linkable_graphs
     inherited_exported_deps = rust_link_info.exported_link_deps
@@ -807,7 +799,7 @@ def _native_link_providers(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        deps = inherited_link_infos,
+        deps = inherited_link_infos.values(),
         exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
         preferred_linkage = preferred_linkage,
     ))

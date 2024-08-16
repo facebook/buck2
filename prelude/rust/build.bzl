@@ -348,9 +348,9 @@ def generate_rustdoc_test(
                     ctx,
                     compile_ctx.cxx_toolchain_info.pic_behavior,
                     link_infos,
-                    deps = inherited_merged_link_infos(ctx, doc_dep_ctx),
+                    deps = inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                     preferred_linkage = Linkage("static"),
-                )] + inherited_merged_link_infos(ctx, doc_dep_ctx),
+                )] + inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                 params.dep_link_strategy,
             ),
         ],
@@ -577,7 +577,7 @@ def rust_compile(
                 inherited_merged_link_infos(
                     ctx,
                     compile_ctx.dep_ctx,
-                ),
+                ).values(),
                 params.dep_link_strategy,
             )
 

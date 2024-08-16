@@ -132,11 +132,28 @@ RustLinkInfo = provider(
         "crate": CrateName,
         # strategies - information about each LinkStrategy as RustLinkStrategyInfo
         "strategies": dict[LinkStrategy, RustLinkStrategyInfo],
-        # Rust interacts with the native link graph in a non-standard way. Specifically, imagine we
-        # have a Rust library `:B` with its only one dependency `:A`, another Rust library. The Rust
-        # rules give Rust -> Rust dependencies special treatment, and as a result, the
-        # `MergedLinkInfo` provided from `:B` is not a "superset" of the `MergedLinkInfo` provided
-        # from `:A` (concrete differences discussed below).
+        # Rust interacts with the native link graph in a non-standard way.
+        #
+        # The first difference is in the re-export behavior of Rust compared to C++. The native link
+        # providers make an assumption that if one node in the link graph references a symbol in
+        # another node in the link graph, there is also a corresponding edge in the link graph.
+        # Specifically, the first node must declare a direct dependency on the second, a transitive
+        # dependency is not enough. For C++, this just means that each library depends in the link
+        # graph on its direct deps and their exported deps.
+        #
+        # For Rust, the situation is different. Because of re-exports and generics causing delayed
+        # codegen, the generated object files for a Rust library can generate symbol references to
+        # any of the library's transitive Rust dependencies, as well as to the immediate C++
+        # dependencies of those libraries. So to account for that, each Rust library reports direct
+        # dependencies on all of those libraries in the link graph. The `merged_link_infos` and
+        # `linkable_graphs` lists are the providers from all of those libraries.
+        #
+        # The second difference is unique to the case where `advanced_unstable_linking` is not set
+        # on the toolchain. Imagine we have a Rust library `:B` with its only one dependency `:A`,
+        # another Rust library. The Rust rules give Rust -> Rust dependencies special treatment in
+        # the non-`advanced_unstable_linking` case. As a result, the `MergedLinkInfo` provided from
+        # `:B` is not a "superset" of the `MergedLinkInfo` provided from `:A` (concrete differences
+        # discussed below).
         #
         # This distinction is implemented by effectively having each Rust library provide two sets
         # of link providers. The first is the link providers used across Rust -> Rust dependency
@@ -145,28 +162,18 @@ RustLinkInfo = provider(
         # is a superset of the first, that is it includes anything that the first link providers
         # added.
         #
-        # The way in which the native link providers and Rust link providers differ depends on
-        # whether `advanced_unstable_linking` is set on the toolchain.
+        # The concrete difference is that the Rust `MergedLinkInfo` provided by `:A` is only the
+        # result of merging the `MergedLinkInfo`s from `:A`'s deps, and does not contain anything
+        # about `:A`. Instead, when `:B` produces the native `MergedLinkInfo`, it will add a single
+        # static library that bundles all transitive Rust deps, including `:A` (and similarly for
+        # the DSO case).
         #
-        #  * Without `advanced_unstable_linking`, the Rust `MergedLinkInfo` provided by `:A` is only
-        #    the result of merging the `MergedLinkInfo`s from `:A`'s deps, and does not contain
-        #    anything about `:A`. Instead, when `:B` produces the native `MergedLinkInfo`, it will
-        #    add a single static library that bundles all transitive Rust deps, including `:A` (and
-        #    similarly for the DSO case).
-        #  * With `advanced_unstable_linking`, the Rust `MergedLinkInfo` provided by a `:A` does
-        #    include a linkable from `:A`, however that linkable is always the rlib (a static
-        #    library), regardless of `:A`'s preferred linkage or the link strategy. This matches the
-        #    `force_rlib` behavior, in which Rust -> Rust dependency edges are always statically
-        #    linked. The native link provider then depends on that, and only adds a linkable for the
-        #    `shared_lib` case. TODO(pickett): Update this once force_rlib is disabled in advanced
-        #    unstable linking
-        "merged_link_info": MergedLinkInfo,
-        "shared_libs": SharedLibraryInfo,
-        # Because of the weird representation of `LinkableGraph`, there is no
-        # correct way to merge multiple linkable graphs without adding a new
-        # node at the same time. So we store a list to be able to depend on more
-        # than one
+        # With `advanced_unstable_linkin`, Rust libraries essentially behave just like C++
+        # libraries in the link graph, with the handling of transitive dependencies being the only
+        # difference.
+        "merged_link_infos": dict[ConfiguredTargetLabel, MergedLinkInfo],
         "linkable_graphs": list[LinkableGraph],
+        "shared_libs": SharedLibraryInfo,
         # LinkGroupLibInfo intentionally omitted because the Rust -> Rust version
         # never needs to be different from the Rust -> native version
         #
@@ -499,10 +506,14 @@ def inherited_rust_cxx_link_group_info(
 
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
-    infos = []
-    infos.extend([d[MergedLinkInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
-    infos.extend([d.merged_link_info for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx) if d.merged_link_info])
+        dep_ctx: DepCollectionContext) -> dict[ConfiguredTargetLabel, MergedLinkInfo]:
+    infos = {}
+    for d in _native_link_dependencies(ctx, dep_ctx):
+        g = d.get(MergedLinkInfo)
+        if g:
+            infos[d.label.configured_target()] = g
+    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
+        infos.update(info.merged_link_infos)
     return infos
 
 def inherited_shared_libs(
@@ -552,7 +563,7 @@ def inherited_external_debug_info(
     for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
             inherited_debug_infos.append(strategy_info(toolchain_info, d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
-            inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
+            inherited_link_infos.extend(d.dep[RustLinkInfo].merged_link_infos.values())
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 
