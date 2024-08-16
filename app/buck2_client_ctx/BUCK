@@ -71,7 +71,6 @@ rust_library(
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_build_info:buck2_build_info",
-        "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
