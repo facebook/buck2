@@ -131,6 +131,7 @@ CxxSrcCompileCommand = record(
     args = field(list[typing.Any]),
     # Is this a header file?
     is_header = field(bool, False),
+    error_handler = field([typing.Callable, None], None),
 )
 
 # Output of creating compile commands for Cxx source files.
@@ -333,6 +334,11 @@ def create_compile_cmds(
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
 
+    # only specify error_handler if one exists
+    error_handler_args = {}
+    if impl_params.error_handler:
+        error_handler_args["error_handler"] = impl_params.error_handler
+
     for src in srcs_with_flags:
         src_args = []
         src_args.extend(src.flags)
@@ -354,7 +360,7 @@ def create_compile_cmds(
             src_args.append("-c")
         src_args.append(src.file)
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header)
+        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header, **error_handler_args)
         if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
@@ -461,6 +467,12 @@ def _compile_single_cxx(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
         )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
+
+    # only specify error_handler if one exists
+    error_handler_args = {}
+    if src_compile_cmd.error_handler:
+        error_handler_args["error_handler"] = src_compile_cmd.error_handler
+
     ctx.actions.run(
         cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
@@ -468,6 +480,7 @@ def _compile_single_cxx(
         dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
+        **error_handler_args
     )
 
     # If we're building with split debugging, where the debug info is in the

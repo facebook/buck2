@@ -68,6 +68,7 @@ load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_l
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
+load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_preprocessor_flags")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
@@ -160,6 +161,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
             platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+            error_handler = apple_build_error_handler,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

@@ -15,6 +15,7 @@ load(
 load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
@@ -417,6 +418,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
+        error_handler = apple_build_error_handler,
     )
 
 def _get_extra_linker_flags_and_outputs(
