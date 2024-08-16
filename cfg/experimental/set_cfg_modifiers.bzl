@@ -35,7 +35,7 @@ def set_cfg_modifiers(
     # To ensure that modifiers set in PACKAGE files are easily codemoddable
     # We want to enforce that `set_cfg_modifiers` is only invokable from a PACKAGE file and not a bzl file
     module_path = call_stack_frame(1).module_path
-    if not module_path.endswith("/PACKAGE") and module_path != "PACKAGE":
+    if not module_path.endswith(("/PACKAGE", "/BUCK_TREE")) and module_path not in ("PACKAGE", "BUCK_TREE"):
         fail("set_cfg_modifiers is only allowed to be used from PACKAGE files, not a bzl file")
 
     cfg_modifiers = cfg_modifiers or []
