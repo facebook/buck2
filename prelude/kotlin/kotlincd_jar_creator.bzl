@@ -139,7 +139,6 @@ def create_jar_artifact_kotlincd(
             kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
             jvmTarget = get_kotlinc_compatible_target(str(target_level)),
             kosabiJvmAbiGenEarlyTerminationMessagePrefix = get_kosabi_jvm_abi_gen_early_termination_message_prefix(kotlin_toolchain.kotlinc_run_via_build_tools_api),
-            kosabiSupportedKspProviders = kotlin_toolchain.kosabi_supported_ksp_providers,
             shouldUseJvmAbiGen = should_use_jvm_abi_gen,
             shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
             shouldGenerateAnnotationProcessingStats = True,
