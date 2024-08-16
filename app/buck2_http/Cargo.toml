@@ -26,7 +26,6 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 
 buck2_certs = { workspace = true }
-buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]

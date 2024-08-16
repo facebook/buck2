@@ -16,7 +16,6 @@ use buck2_certs::certs::find_internal_cert;
 use buck2_certs::certs::supports_vpnless;
 use buck2_certs::certs::tls_config_with_single_cert;
 use buck2_certs::certs::tls_config_with_system_roots;
-use buck2_core::soft_error;
 use hyper::client::HttpConnector;
 use hyper::service::Service;
 use hyper::Body;
@@ -89,11 +88,7 @@ impl HttpClientBuilder {
             tracing::debug!("Using internal https client");
             builder.with_client_auth_cert(cert_path).await?;
         } else {
-            soft_error!(
-                "http_client_no_certs",
-                anyhow::anyhow!("Using default http client with no certs").into(),
-                quiet: true
-            )?;
+            tracing::debug!("Using default https client");
         }
 
         Ok(builder)

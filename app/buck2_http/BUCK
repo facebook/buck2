@@ -55,7 +55,6 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_certs:buck2_certs",
-        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/gazebo/dupe:dupe",
         # @oss-disable: "//common/rust/cpe:cpe", 
