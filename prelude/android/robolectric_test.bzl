@@ -99,6 +99,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         java_providers.template_placeholder_info,
         java_providers.default_info,
         java_providers.class_to_src_map,
+        java_providers.java_global_code_info,
     ]
 
     if ctx.attrs.used_as_dependency_deprecated_do_not_use:
