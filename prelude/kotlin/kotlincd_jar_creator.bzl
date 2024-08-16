@@ -148,7 +148,7 @@ def create_jar_artifact_kotlincd(
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
             shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
             shouldKotlincRunIncrementally = incremental_state_dir != None,
-            incremental_state_dir = incremental_state_dir.as_output() if incremental_state_dir else None,
+            incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
             shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
         )
 
