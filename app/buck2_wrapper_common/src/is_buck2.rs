@@ -25,7 +25,7 @@ pub(crate) fn is_buck2_exe(path: &Path, who_is_asking: WhoIsAsking) -> bool {
     let Some(file_stem) = path.file_stem() else {
         return false;
     };
-    if path.file_stem() == Some(OsStr::new("buck2")) {
+    if file_stem == OsStr::new("buck2") || file_stem == OsStr::new("buck2-daemon") {
         true
     } else {
         match who_is_asking {
