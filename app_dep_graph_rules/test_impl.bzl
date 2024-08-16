@@ -6,7 +6,7 @@
 # of this source tree.
 
 # @oss-disable: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils") 
-load(":rules.bzl", "LATE_BINDING_ONLY_CRATES")
+load(":rules.bzl", "BANNED_DEP_PATHS", "LATE_BINDING_ONLY_CRATES")
 
 platform_utils = None # @oss-enable
 
@@ -31,14 +31,25 @@ def _check_late_binding_only(ctx: AnalysisContext):
             m += "".join(["\n" + str(p.label) for p in all_paths])
             fail(m)
 
+def _check_banned_dep_paths(ctx: AnalysisContext):
+    for path in ctx.attrs.banned_dep_paths:
+        if len(path) > 0:
+            a = path[-1].label
+            b = path[0].label
+            m = str(a) + " may not depend on " + str(b) + "! Path:"
+            m += "".join(["\n" + str(p.label) for p in path])
+            fail(m)
+
 def _impl(ctx: AnalysisContext):
     _check_client_to_re_path(ctx)
     _check_late_binding_only(ctx)
+    _check_banned_dep_paths(ctx)
     return [DefaultInfo()]
 
 _test_buck2_dep_graph = rule(
     impl = _impl,
     attrs = {
+        "banned_dep_paths": attrs.list(attrs.query()),
         "client_to_re_path": attrs.query(),
         "late_binding_only_paths": attrs.list(attrs.query()),
     },
@@ -52,9 +63,21 @@ _RE_CLIENT_TARGET = "//remote_execution/client_lib/wrappers/rust:re_client_lib"
 _CLIENT_TO_RE = "somepath({}, filter(fbcode//remote_execution/, deps({})) + {})".format(_CLIENT_BIN, _CLIENT_BIN, _RE_CLIENT_TARGET)
 
 def test_buck2_dep_graph(name):
+    banned_dep_paths = []
+    for a, b in BANNED_DEP_PATHS:
+        if a > b:
+            m = "`BANNED_DEP_PATHS` entries must be sorted:\n"
+            m += "    " + str(a) + "\n"
+            m += "  > " + str(b)
+            fail(m)
+
+        banned_dep_paths.append("somepath({}, {})".format(a, b))
+        banned_dep_paths.append("somepath({}, {})".format(b, a))
+
     _test_buck2_dep_graph(
         name = name,
         client_to_re_path = _CLIENT_TO_RE,
         late_binding_only_paths = ["allpaths({}, {})".format(_BUCK2_BIN, c) for c in LATE_BINDING_ONLY_CRATES],
+        banned_dep_paths = banned_dep_paths,
         default_target_platform = _dtp(),
     )

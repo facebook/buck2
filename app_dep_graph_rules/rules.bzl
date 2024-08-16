@@ -17,3 +17,12 @@ LATE_BINDING_ONLY_CRATES = [
     _app("buck2_bxl"),
     _app("buck2_query_impls"),
 ]
+
+# Unordered pairs where neither crate may depend on the other
+BANNED_DEP_PATHS = [
+    (_app("buck2_common"), _app("buck2_directory")),
+    (_app("buck2_common"), "//buck2/starlark-rust/starlark:starlark"),
+    (_app("buck2_build_api"), _app("buck2_execute_impl")),
+    (_app("buck2_build_api"), _app("buck2_interpreter_for_build")),
+    (_app("buck2_server"), _app("buck2_server_commands")),
+]
