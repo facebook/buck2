@@ -24,11 +24,8 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 def get_cxx_platform_info(ctx: AnalysisContext) -> CxxPlatformInfo:
     apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
     if apple_toolchain:
-        return apple_toolchain[AppleToolchainInfo].cxx_platform_info
+        return apple_toolchain[CxxPlatformInfo]
     return ctx.attrs._cxx_toolchain[CxxPlatformInfo]
 
 def get_cxx_toolchain_info(ctx: AnalysisContext) -> CxxToolchainInfo:
-    apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
-    if apple_toolchain:
-        return apple_toolchain[AppleToolchainInfo].cxx_toolchain_info
     return ctx.attrs._cxx_toolchain[CxxToolchainInfo]

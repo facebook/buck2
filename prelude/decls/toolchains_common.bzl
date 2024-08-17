@@ -27,6 +27,7 @@ load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchai
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
@@ -39,6 +40,9 @@ def _csharp_toolchain():
 
 def _cxx_toolchain():
     return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
+
+def _apple_toolchain():
+    return _toolchain("apple", [AppleToolchainInfo])
 
 def _dex_toolchain():
     return _toolchain("dex", [DexToolchainInfo])
@@ -85,6 +89,7 @@ def _remote_test_execution_toolchain():
 
 toolchains_common = struct(
     android = _android_toolchain,
+    apple = _apple_toolchain,
     csharp = _csharp_toolchain,
     cxx = _cxx_toolchain,
     dex = _dex_toolchain,

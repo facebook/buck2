@@ -1,5 +1,12 @@
 load("@prelude//toolchains:demo.bzl", "system_demo_toolchains")
+load("@prelude//toolchains/apple:tools.bzl", "system_apple_toolchain")
 
 # All the default toolchains, suitable for a quick demo or early prototyping.
 # Most real projects should copy/paste the implementation to configure them.
 system_demo_toolchains()
+
+system_apple_toolchain(
+    name = "apple",
+    visibility = ["PUBLIC"],
+)
+

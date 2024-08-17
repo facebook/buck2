@@ -1,13 +1,35 @@
+apple_binary(
+    name = "main-mm",
+    srcs = ["main.mm"],
+    link_style = "static",
+    frameworks =  ["$SDKROOT/System/Library/Foundation.framework"],
+    compatible_with = ["config//os:macos" ],
+    target_sdk_version = "14.5",
+    deps = [":print-mm"],
+)
+
+apple_library(
+    name = "print-mm",
+    srcs = ["library.cpp"],
+    compatible_with = ["config//os:macos"],
+    exported_headers = glob(["**/*.hpp"]),
+    target_sdk_version = "14.5",
+    visibility = ["PUBLIC"],
+)
+
 cxx_binary(
     name = "main",
     srcs = ["main.cpp"],
+    compatible_with = ["config//os:linux", "config//os:windows" ],
     link_style = "static",
     deps = [":print"],
 )
 
+
 cxx_library(
     name = "print",
     srcs = ["library.cpp"],
+    compatible_with = ["config//os:linux", "config//os:windows" ],
     exported_headers = glob(["**/*.hpp"]),
     visibility = ["PUBLIC"],
 )

@@ -22,39 +22,35 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//decls/common.bzl", "LinkableDepType")
 
 def get_apple_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-default", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "toolchains//:apple", providers = [AppleToolchainInfo])
 
 def get_apple_bundle_toolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-bundle", providers = [AppleToolchainInfo])
+    return attrs.toolchain_dep(default = "toolchains//:apple", providers = [AppleToolchainInfo])
 
 def get_apple_xctoolchain_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain")
+    return attrs.toolchain_dep(default = "toolchains//:apple")
 
 def get_apple_xctoolchain_bundle_id_attr():
-    # FIXME: prelude// should be standalone (not refer to fbcode//)
-    return attrs.toolchain_dep(default = "fbcode//buck2/platform/toolchain:apple-xctoolchain-bundle-id")
+    return attrs.toolchain_dep(default = "toolchains//:apple")
 
 def get_enable_library_evolution():
     return attrs.bool(default = select({
         "DEFAULT": False,
-        "config//features/apple:swift_library_evolution_enabled": True,
+        "prelude//apple/constraints:swift_library_evolution_enabled": True,
     }))
 
 def _strict_provisioning_profile_search_default_attr():
     default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
     return attrs.bool(default = select({
         "DEFAULT": default_value,
-        "config//features/apple:strict_provisioning_profile_search_enabled": True,
+        "prelude//apple/constraints:strict_provisioning_profile_search_enabled": True,
     }))
 
 def _fast_adhoc_signing_enabled_default_attr():
     return attrs.bool(default = select({
         "DEFAULT": True,
-        "config//features/apple:fast_adhoc_signing_disabled": False,
-        "config//features/apple:fast_adhoc_signing_enabled": True,
+        "prelude//apple/constraints:fast_adhoc_signing_disabled": False,
+        "prelude//apple/constraints:fast_adhoc_signing_enabled": True,
     }))
 
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"

@@ -36,6 +36,7 @@ load(
     "apple_dsymutil_attrs",
     "apple_test_extra_attrs",
     "apple_xcuitest_extra_attrs",
+    "get_apple_bundle_toolchain_attr",
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
@@ -47,6 +48,7 @@ load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
 implemented_rules = {
     "apple_asset_catalog": apple_asset_catalog_impl,
@@ -63,8 +65,6 @@ implemented_rules = {
     "scene_kit_assets": scene_kit_assets_impl,
     "swift_toolchain": swift_toolchain_impl,
 }
-
-_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def _apple_binary_extra_attrs():
     attribs = {
@@ -83,7 +83,8 @@ def _apple_binary_extra_attrs():
         "stripped": attrs.option(attrs.bool(), default = None),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_toolchain": toolchains_common.apple(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
@@ -116,7 +117,8 @@ def _apple_library_extra_attrs():
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "use_archive": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_toolchain": toolchains_common.apple(),
+        "_cxx_toolchain": toolchains_common.cxx(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
@@ -150,6 +152,7 @@ extra_attributes = {
             ),
             default = [],
         ),
+        "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
         "_ipa_package": attrs.dep(),
@@ -218,7 +221,7 @@ extra_attributes = {
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "stripped": attrs.option(attrs.bool(), default = None),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_toolchain": toolchains_common.apple(),
         "_apple_tools": attrs.default_only(attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo])),
         "_stripped_default": attrs.bool(default = False),
     },

@@ -15,7 +15,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             assemble_bundle = ctx.attrs.assemble_bundle[RunInfo],
             split_arch_combine_dsym_bundles_tool = ctx.attrs.split_arch_combine_dsym_bundles_tool[RunInfo],
             dry_codesign_tool = ctx.attrs.dry_codesign_tool[RunInfo],
-            adhoc_codesign_tool = ctx.attrs.adhoc_codesign_tool[RunInfo],
+            adhoc_codesign_tool = ctx.attrs.adhoc_codesign_tool[RunInfo] if ctx.attrs.adhoc_codesign_tool else None,
             info_plist_processor = ctx.attrs.info_plist_processor[RunInfo],
             ipa_package_maker = ctx.attrs.ipa_package_maker[RunInfo],
             make_modulemap = ctx.attrs.make_modulemap[RunInfo],

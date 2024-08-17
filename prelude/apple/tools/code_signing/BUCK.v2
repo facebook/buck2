@@ -8,13 +8,13 @@ source_listing()
 configured_alias(
     name = "dummy_binary_for_signing_configured",
     actual = ":dummy_binary_for_signing",
-    platform = "config//platform/macos:base",
+    platform = "prelude//platforms:default",
 )
 
 cxx_binary(
     name = "dummy_binary_for_signing",
     srcs = ["dummy_binary_for_signing.c"],
-    default_target_platform = "config//platform/macos:base",
+#        default_target_platform = "prelude//platforms:default",
 )
 
 python_library(

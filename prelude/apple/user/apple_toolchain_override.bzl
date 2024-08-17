@@ -21,8 +21,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             codesign_allocate = base.codesign_allocate,
             copy_scene_kit_assets = base.copy_scene_kit_assets,
             compile_resources_locally = base.compile_resources_locally,
-            cxx_platform_info = base.cxx_platform_info,
-            cxx_toolchain_info = cxx_toolchain_override if cxx_toolchain_override != None else base.cxx_toolchain_info,
             dsymutil = base.dsymutil,
             dwarfdump = base.dwarfdump,
             extra_linker_outputs = base.extra_linker_outputs,
@@ -50,7 +48,6 @@ registration_spec = RuleRegistrationSpec(
     impl = _impl,
     attrs = {
         "base": attrs.toolchain_dep(providers = [AppleToolchainInfo]),
-        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
     },
     is_toolchain_rule = True,
 )

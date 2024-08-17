@@ -1,0 +1,45 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+load("@prelude//apple/constraints:defs.bzl", "generate_sdk_versions")
+
+oncall("build_infra")
+
+source_listing()
+
+prelude = native  # Avoid warnings and auto-formatters
+
+generate_sdk_versions()
+
+prelude.constraint_setting(
+  name = "maybe_swift_library_evolution",
+  visibility = ["PUBLIC"]
+)
+
+prelude.constraint_value(
+    name = "swift_library_evolution_enabled",
+    constraint_setting = ":maybe_swift_library_evolution",
+    visibility = ["PUBLIC"]
+)
+
+prelude.constraint_value(
+    name = "swift_library_evolution_disabled",
+    constraint_setting = ":maybe_swift_library_evolution",
+    visibility = ["PUBLIC"]
+)
+
+prelude.constraint_setting(
+  name = "fast_adhoc_signing_maybe",
+  visibility = ["PUBLIC"]
+)
+
+prelude.constraint_value(
+    name = "fast_adhoc_signing_disabled",
+    constraint_setting = ":fast_adhoc_signing_maybe",
+    visibility = ["PUBLIC"]
+)
+
+prelude.constraint_value(
+    name = "fast_adhoc_signing_enabled",
+    constraint_setting = ":fast_adhoc_signing_maybe",
+    visibility = ["PUBLIC"]
+)
+

@@ -41,8 +41,8 @@ def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
 target_sdk_version_transition = transition(
     impl = _impl,
     refs = dict(
-        [("version", "@config//version:constraint-setting-target-sdk-version")] + {
-            version: "@config//version:constraint-value-target-sdk-version-" + version
+        [("version", "@prelude//apple/constraints:constraint-setting-target-sdk-version")] + {
+            version: "@prelude//apple/constraints:constraint-value-target-sdk-version-" + version
             for version in TARGET_SDK_VERSIONS
         }.items(),
     ),

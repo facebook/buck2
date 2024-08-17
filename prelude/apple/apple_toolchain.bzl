@@ -23,8 +23,6 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             codesign_identities_command = ctx.attrs.codesign_identities_command[RunInfo] if ctx.attrs.codesign_identities_command else None,
             compile_resources_locally = ctx.attrs.compile_resources_locally,
             copy_scene_kit_assets = ctx.attrs.copy_scene_kit_assets[RunInfo],
-            cxx_platform_info = ctx.attrs.cxx_toolchain[CxxPlatformInfo],
-            cxx_toolchain_info = ctx.attrs.cxx_toolchain[CxxToolchainInfo],
             dsymutil = ctx.attrs.dsymutil[RunInfo],
             dwarfdump = ctx.attrs.dwarfdump[RunInfo] if ctx.attrs.dwarfdump else None,
             extra_linker_outputs = ctx.attrs.extra_linker_outputs,

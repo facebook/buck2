@@ -16,6 +16,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
@@ -1014,8 +1015,6 @@ swift_toolchain = prelude_rule(
     ),
 )
 
-_APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
-
 def _apple_universal_executable_attrs():
     attribs = {
         "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
@@ -1041,7 +1040,7 @@ def _apple_universal_executable_attrs():
                 of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
                 for more information on resolution.
             """),
-        "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
+        "_apple_toolchain": toolchains_common.apple(),
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
     attribs.update(apple_dsymutil_attrs())
