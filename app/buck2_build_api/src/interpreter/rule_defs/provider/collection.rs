@@ -304,6 +304,19 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
         Ok(ProviderCollection::<'v> { providers })
     }
 
+    /// Takes a value, e.g. a return from a `dynamic_output` function, and builds a `ProviderCollection` from it.
+    ///
+    /// An error is returned if:
+    ///  - `value` is not a list
+    ///  - Two instances of the same provider are provided
+    pub fn try_from_value_dynamic_output(
+        value: Value<'v>,
+    ) -> anyhow::Result<ProviderCollection<'v>> {
+        let providers = Self::try_from_value_impl(value)?;
+
+        Ok(ProviderCollection::<'v> { providers })
+    }
+
     /// Common implementation of `[]`, `in`, and `.get`.
     fn get_impl(
         &self,
@@ -453,7 +466,7 @@ impl FrozenProviderCollection {
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct FrozenProviderCollectionValue {
     #[allocative(skip)] // TODO(nga): do not skip.
-    value: OwnedFrozenValueTyped<FrozenProviderCollection>,
+    pub value: OwnedFrozenValueTyped<FrozenProviderCollection>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -503,6 +516,18 @@ impl FrozenProviderCollectionValue {
         heap: &'v FrozenHeap,
     ) -> FrozenValueTyped<'v, FrozenProviderCollection> {
         self.as_ref().add_heap_ref(heap)
+    }
+
+    pub fn add_heap_ref_static(
+        &self,
+        heap: &FrozenHeap,
+    ) -> FrozenValueTyped<'static, FrozenProviderCollection> {
+        unsafe {
+            mem::transmute::<
+                FrozenValueTyped<'_, FrozenProviderCollection>,
+                FrozenValueTyped<'_, FrozenProviderCollection>,
+            >(self.add_heap_ref(heap))
+        }
     }
 
     pub fn lookup_inner<'f>(

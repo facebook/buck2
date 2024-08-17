@@ -13,3 +13,5 @@ pub mod deferred;
 pub(crate) mod dynamic_actions;
 pub(crate) mod dynamic_actions_callable;
 pub(crate) mod dynamic_actions_globals;
+pub(crate) mod dynamic_value;
+pub(crate) mod resolved_dynamic_value;

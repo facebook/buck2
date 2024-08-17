@@ -31,7 +31,9 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
+use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -535,6 +537,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     project_filesystem: ProjectRoot,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -567,6 +570,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         digest_config,
         action_key,
         materialized_artifacts,
+        resolved_dynamic_values,
         project_filesystem,
 
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
@@ -619,6 +623,7 @@ struct BxlEvalContext<'v> {
     digest_config: DigestConfig,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     project_filesystem: ProjectRoot,
     print: EventDispatcherPrintHandler,
 }
@@ -642,6 +647,7 @@ impl BxlEvalContext<'_> {
                 self.self_key.dupe(),
                 &self.action_key,
                 &self.materialized_artifacts,
+                &self.resolved_dynamic_values,
                 &self.project_filesystem,
                 self.digest_config,
                 &env,
@@ -694,6 +700,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
          dice_ctx,
          action_key,
          materialized_artifacts,
+         resolved_dynamic_values,
          project_filesystem,
          digest_config,
          liveness| {
@@ -704,6 +711,7 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
                 dice_ctx,
                 action_key,
                 materialized_artifacts,
+                resolved_dynamic_values,
                 project_filesystem,
                 digest_config,
                 liveness,

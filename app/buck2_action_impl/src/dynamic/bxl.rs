@@ -14,6 +14,8 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
+use buck2_build_api::dynamic_value::DynamicValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -31,6 +33,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v mut DiceComputations,
         String,
         HashMap<Artifact, ProjectRelativePathBuf>,
+        HashMap<DynamicValue, FrozenProviderCollectionValue>,
         ProjectRoot,
         DigestConfig,
         CancellationObserver,
@@ -45,6 +48,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     project_filesystem: ProjectRoot,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -56,6 +60,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dice_ctx,
         action_key,
         materialized_artifacts,
+        resolved_dynamic_values,
         project_filesystem,
         digest_config,
         liveness,

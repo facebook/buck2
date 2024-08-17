@@ -11,13 +11,13 @@ use std::cell::OnceCell;
 
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::none::NoneType;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::typing::StarlarkCallable;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions_callable::DynamicActionsCallable;
 use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
+use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackReturnType;
 use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[starlark_module]
@@ -28,7 +28,7 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
             DynamicActionsCallbackParamSpec,
-            NoneType,
+            DynamicActionsCallbackReturnType,
         >,
     ) -> anyhow::Result<DynamicActionsCallable<'v>> {
         Ok(DynamicActionsCallable {

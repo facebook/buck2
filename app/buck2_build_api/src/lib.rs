@@ -35,6 +35,7 @@ pub mod configure_targets;
 pub mod context;
 pub mod deferred;
 pub mod dynamic;
+pub mod dynamic_value;
 pub mod interpreter;
 pub mod keep_going;
 pub mod materialize;

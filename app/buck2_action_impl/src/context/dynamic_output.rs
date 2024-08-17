@@ -18,6 +18,7 @@ use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::dynamic::params::DynamicLambdaParams;
 use buck2_build_api::dynamic::params::DynamicLambdaStaticFields;
+use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -37,6 +38,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
+use crate::dynamic::dynamic_value::StarlarkDynamicValue;
 
 #[derive(buck2_error::Error, Debug)]
 enum DynamicOutputError {
@@ -168,11 +170,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
                 dynamic,
+                dynamic_values: IndexSet::new(),
                 outputs,
                 execution_platform: this.actions.execution_platform.dupe(),
             },
         };
-
         this.analysis_value_storage
             .set_dynamic_actions(key, lambda_params)?;
         Ok(NoneType)
@@ -184,7 +186,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> anyhow::Result<StarlarkDynamicValue> {
         let dynamic_actions = dynamic_actions
             .data
             .try_borrow_mut()?
@@ -192,6 +194,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
         let StarlarkDynamicActionsData {
             dynamic,
+            dynamic_values,
             outputs,
             arg,
             callable,
@@ -214,14 +217,19 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
                 dynamic,
+                dynamic_values,
                 outputs,
                 execution_platform: this.actions.execution_platform.dupe(),
             },
         };
 
         this.analysis_value_storage
-            .set_dynamic_actions(key, lambda_params)?;
+            .set_dynamic_actions(key.dupe(), lambda_params)?;
 
-        Ok(NoneType)
+        Ok(StarlarkDynamicValue {
+            dynamic_value: DynamicValue {
+                dynamic_lambda_results_key: key,
+            },
+        })
     }
 }

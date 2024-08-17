@@ -29,6 +29,7 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
+use crate::dynamic_value::DynamicValue;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 use crate::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 
@@ -38,6 +39,8 @@ pub struct DynamicLambdaStaticFields {
     pub owner: BaseDeferredKey,
     /// Input artifacts required to be materialized by the lambda.
     pub dynamic: IndexSet<Artifact>,
+    /// Dynamic values I depend on.
+    pub dynamic_values: IndexSet<DynamicValue>,
     /// Things I produce
     pub outputs: Box<[BuildArtifact]>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
