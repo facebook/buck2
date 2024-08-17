@@ -31,6 +31,7 @@
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
 pub use layout::alloc_static_simple::AllocStaticSimple;
+pub use owned_frozen_ref::OwnedFrozenRef;
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::starlark_value;
 pub use starlark_derive::AllocFrozenValue;
@@ -50,7 +51,6 @@ pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
 pub use crate::values::freeze::Freeze;
 pub use crate::values::frozen_ref::FrozenRef;
-pub use crate::values::frozen_ref::OwnedFrozenRef;
 pub use crate::values::iter::StarlarkIterator;
 pub use crate::values::layout::complex::ValueTypedComplex;
 pub use crate::values::layout::heap::heap_type::Freezer;
@@ -114,6 +114,7 @@ pub(crate) mod iter;
 pub(crate) mod layout;
 pub(crate) mod num;
 mod owned;
+pub(crate) mod owned_frozen_ref;
 pub(crate) mod recursive_repr_or_json_guard;
 mod stack_guard;
 pub(crate) mod starlark_type_id;
