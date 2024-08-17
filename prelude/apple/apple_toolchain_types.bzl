@@ -6,8 +6,6 @@
 # of this source tree.
 
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
-load("@prelude//platforms/apple:sdk.bzl", "AppleSdk")
 
 AppleToolchainInfo = provider(
     # @unsorted-dict-items

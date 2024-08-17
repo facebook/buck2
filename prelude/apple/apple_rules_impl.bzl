@@ -37,7 +37,6 @@ load(
     "apple_test_extra_attrs",
     "apple_xcuitest_extra_attrs",
     "get_apple_bundle_toolchain_attr",
-    "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",

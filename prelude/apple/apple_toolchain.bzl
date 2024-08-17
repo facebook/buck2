@@ -7,7 +7,6 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 
 def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
