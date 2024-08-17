@@ -11,7 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")

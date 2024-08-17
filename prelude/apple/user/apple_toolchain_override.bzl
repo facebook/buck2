@@ -11,7 +11,6 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     base = ctx.attrs.base[AppleToolchainInfo]
-    cxx_toolchain_override = ctx.attrs.cxx_toolchain[CxxToolchainInfo]
     return [
         DefaultInfo(),
         AppleToolchainInfo(
