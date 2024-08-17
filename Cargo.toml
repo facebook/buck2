@@ -249,7 +249,7 @@ rustc-hash = { version = "1.1" }
 rustls = "0.21.5"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
-rustyline = "11.0"
+rustyline = "14.0"
 scopeguard = "1.0.0"
 sequence_trie = "0.3.6"
 serde = { version = "1.0", features = ["derive", "rc"] }
