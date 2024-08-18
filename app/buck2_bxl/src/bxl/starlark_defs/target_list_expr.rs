@@ -452,6 +452,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             ConfiguredTargetListArg::TargetList(unpack) => {
                 let mut resolved = vec![];
 
+                // FIXME(JakobDegen): These iterations don't run in parallel, which is pretty sad.
+                // Unfortunately, that's also not easy to fix because for some reason this code
+                // prints to console
                 for item in unpack.items {
                     let unpacked = Self::unpack_literal(
                         item,
