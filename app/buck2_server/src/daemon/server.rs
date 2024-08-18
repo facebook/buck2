@@ -423,6 +423,7 @@ impl BuckdServer {
         let snapshot_collector =
             SnapshotCollector::new(data.dupe(), daemon_state.paths.buck_out_path());
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
+        let cert_state = self.0.cert_state.dupe();
 
         let resp = streaming(
             req,
@@ -448,7 +449,16 @@ impl BuckdServer {
 
                         func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
                     };
-                    dispatch.command_result(result_to_command_result(result));
+
+                    match result {
+                        Ok(_) => dispatch.command_result(result_to_command_result(result)),
+                        Err(e) => match check_cert_state(cert_state).await {
+                            Some(err) => {
+                                dispatch.command_result(error_to_command_result(err.context(e)))
+                            }
+                            _ => dispatch.command_result(error_to_command_result(e)),
+                        },
+                    }
                 }
                 .boxed()
             },
