@@ -443,6 +443,7 @@ impl BuckdServer {
                             opts.starlark_profiler_instrumentation_override(&req)?,
                             req.build_options(),
                             &daemon_state.paths,
+                            cert_state.dupe(),
                             snapshot_collector,
                             cancellations,
                         )?;

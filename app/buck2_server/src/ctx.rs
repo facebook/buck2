@@ -30,6 +30,7 @@ use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_build_signals::CriticalPathBackendName;
 use buck2_build_signals::HasCriticalPathBackend;
+use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
@@ -195,6 +196,9 @@ pub struct ServerCommandContext<'a> {
     /// dropped.
     heartbeat_guard_handle: Option<HeartbeatGuard>,
 
+    /// The current state of the certificate. This is used to detect errors due to invalid certs.
+    cert_state: CertState,
+
     /// Daemon uuid passed in from the client side to detect nested invocation.
     pub(crate) daemon_uuid_from_client: Option<String>,
 
@@ -217,6 +221,7 @@ impl<'a> ServerCommandContext<'a> {
         starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
         build_options: Option<&CommonBuildOptions>,
         paths: &InvocationPaths,
+        cert_state: CertState,
         snapshot_collector: SnapshotCollector,
         cancellations: &'a ExplicitCancellationContext,
     ) -> anyhow::Result<Self> {
@@ -303,6 +308,7 @@ impl<'a> ServerCommandContext<'a> {
             oncall,
             client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
+            cert_state,
             starlark_profiler_instrumentation_override,
             buck_out_dir: paths.buck_out_dir(),
             isolation_prefix: paths.isolation.clone(),
@@ -766,6 +772,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     fn isolation_prefix(&self) -> &FileName {
         &self.isolation_prefix
+    }
+
+    fn cert_state(&self) -> CertState {
+        self.cert_state.dupe()
     }
 
     fn project_root(&self) -> &ProjectRoot {

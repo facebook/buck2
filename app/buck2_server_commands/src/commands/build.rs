@@ -290,12 +290,14 @@ async fn process_build_result(
 
     let result_reports = ResultReporter::convert(
         &artifact_fs,
+        server_ctx.cert_state(),
         ResultReporterOptions {
             return_outputs: response_options.return_outputs,
             return_default_other_outputs: response_options.return_default_other_outputs,
         },
         &build_result,
-    );
+    )
+    .await;
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
         let build_report_opts = build_report_opts(&mut ctx, &cell_resolver, build_opts).await?;

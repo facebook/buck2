@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_build_signals::BuildSignalsContext;
 use buck2_build_signals::DeferredBuildSignals;
 use buck2_build_signals::HasCriticalPathBackend;
+use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
@@ -48,6 +49,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
     fn isolation_prefix(&self) -> &FileName;
 
     fn project_root(&self) -> &ProjectRoot;
+
+    fn cert_state(&self) -> CertState;
 
     fn materializer(&self) -> Arc<dyn Materializer>;
 

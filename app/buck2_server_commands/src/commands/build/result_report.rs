@@ -13,6 +13,8 @@ use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ProviderArtifacts;
+use buck2_certs::validate::check_cert_state;
+use buck2_certs::validate::CertState;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -51,8 +53,9 @@ pub(crate) struct BuildTargetsAndErrors {
 }
 
 impl<'a> ResultReporter<'a> {
-    pub(crate) fn convert(
+    pub(crate) async fn convert(
         artifact_fs: &'a ArtifactFs,
+        cert_state: CertState,
         options: ResultReporterOptions,
         build_result: &BuildTargetResult,
     ) -> BuildTargetsAndErrors {
@@ -75,7 +78,7 @@ impl<'a> ResultReporter<'a> {
             out.collect_result(k, v);
         }
 
-        let error_list = if let Some(e) = non_action_errors.pop() {
+        let mut error_list = if let Some(e) = non_action_errors.pop() {
             // FIXME(JakobDegen): We'd like to return more than one error here, but we have
             // to get better at error deduplication first
             vec![e]
@@ -83,6 +86,12 @@ impl<'a> ResultReporter<'a> {
             // FIXME: Only one non-action error or all action errors is returned currently
             action_errors
         };
+
+        if !error_list.is_empty() {
+            if let Some(e) = check_cert_state(cert_state).await {
+                error_list.push(e.into());
+            }
+        }
 
         BuildTargetsAndErrors {
             build_targets: out.results,
