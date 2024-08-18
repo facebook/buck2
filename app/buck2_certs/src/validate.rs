@@ -8,8 +8,11 @@
  */
 
 use std::ffi::OsString;
+use std::sync::Arc;
 
 use buck2_util::process::async_background_command;
+use dupe::Dupe;
+use tokio::sync::Mutex;
 
 use crate::certs;
 use crate::certs::load_certs;
@@ -116,6 +119,34 @@ pub async fn validate_certs() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Clone, Dupe)]
+pub struct CertState {
+    pub state: Arc<Mutex<bool>>,
+}
+
+impl CertState {
+    pub async fn new() -> Self {
+        Self {
+            state: Arc::new(Mutex::new(validate_certs().await.is_ok())),
+        }
+    }
+}
+
+pub async fn check_cert_state(cert_state: CertState) -> Option<anyhow::Error> {
+    let mut valid = cert_state.state.lock().await;
+
+    // If previous state is error, then we need to check regardless of the current state
+    // since we are expecting users to actively fix the issue and retry
+    if !*valid {
+        match validate_certs().await {
+            Ok(_) => *valid = true,
+            Err(e) => return Some(e),
+        }
+    }
+
+    None
 }
 
 #[cfg(fbcode_build)]

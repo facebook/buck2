@@ -25,6 +25,9 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_certs::validate::check_cert_state;
+use buck2_certs::validate::validate_certs;
+use buck2_certs::validate::CertState;
 use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
@@ -214,6 +217,8 @@ pub(crate) struct BuckdServerData {
     daemon_shutdown: DaemonShutdown,
     daemon_state: Arc<DaemonState>,
     #[allocative(skip)]
+    cert_state: CertState,
+    #[allocative(skip)]
     command_channel: UnboundedSender<()>,
     #[allocative(skip)]
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
@@ -260,6 +265,9 @@ impl BuckdServer {
             Some(dir)
         };
 
+        let cert_state = CertState::new().await;
+        certs_validation_background_job(cert_state.dupe()).await;
+
         let daemon_state = Arc::new(
             DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await,
         );
@@ -279,6 +287,7 @@ impl BuckdServer {
                 shutdown_channel,
             },
             daemon_state,
+            cert_state,
             command_channel,
             log_reload_handle,
             rt,
@@ -472,10 +481,13 @@ impl BuckdServer {
         // send signal to register new command time
         _ = self.0.command_channel.unbounded_send(());
 
-        Ok(self
-            .run_streaming_anyhow(req, opts, func)
-            .await
-            .unwrap_or_else(error_to_response_stream))
+        match self.run_streaming_anyhow(req, opts, func).await {
+            Ok(resp) => Ok(resp),
+            Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
+                Some(err) => Ok(error_to_response_stream(err.context(e))),
+                _ => Ok(error_to_response_stream(e)),
+            },
+        }
     }
 
     async fn oneshot<
@@ -1504,6 +1516,19 @@ async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duratio
             futures::future::Either::Right(_) => break,
         };
     }
+}
+
+async fn certs_validation_background_job(cert_state: CertState) {
+    tokio::task::spawn(async move {
+        const CERTS_VALIDATION_INTERVAL: u64 = 60 * 60; // 1 hour
+        loop {
+            tokio::time::sleep(Duration::from_secs(CERTS_VALIDATION_INTERVAL)).await;
+            let result = validate_certs().await;
+            let mut valid = cert_state.state.lock().await;
+
+            *valid = result.is_ok();
+        }
+    });
 }
 
 /// No-op set of command options.
