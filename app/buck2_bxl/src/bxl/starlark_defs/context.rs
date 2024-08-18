@@ -240,6 +240,14 @@ pub(crate) struct BxlContextNoDice<'v> {
     core: BxlContextCoreData,
 }
 
+impl Deref for BxlContextNoDice<'_> {
+    type Target = BxlContextCoreData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.core
+    }
+}
+
 #[derive(Derivative, Display, Trace, Allocative)]
 #[derivative(Debug)]
 #[display(fmt = "{:?}", self)]
@@ -294,14 +302,6 @@ impl BxlContextCoreData {
 
     pub(crate) fn key(&self) -> &BxlKey {
         &self.current_bxl
-    }
-
-    pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
-        &self.artifact_fs
-    }
-
-    pub(crate) fn project_fs(&self) -> &ProjectRoot {
-        &self.project_fs
     }
 }
 
@@ -466,45 +466,47 @@ impl<'v> BxlContextNoDice<'v> {
         }
         Ok(())
     }
+}
 
+impl BxlContextCoreData {
     pub(crate) fn project_root(&self) -> &ProjectRoot {
-        &self.core.project_fs
+        &self.project_fs
     }
 
     pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
-        self.core.current_bxl.global_cfg_options()
+        self.current_bxl.global_cfg_options()
     }
 
     pub(crate) fn target_alias_resolver(&self) -> &BuckConfigTargetAliasResolver {
-        &self.core.target_alias_resolver
+        &self.target_alias_resolver
     }
 
     pub(crate) fn cell_resolver(&self) -> &CellResolver {
-        &self.core.cell_resolver
+        &self.cell_resolver
     }
 
     pub(crate) fn cell_name(&self) -> CellName {
-        self.core.cell_name
+        self.cell_name
     }
 
     pub(crate) fn cell_root_abs(&self) -> &AbsNormPathBuf {
-        &self.core.cell_root_abs
+        &self.cell_root_abs
     }
 
     pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.core.cell_alias_resolver
+        &self.cell_alias_resolver
     }
 
     pub(crate) fn current_bxl(&self) -> &BxlKey {
-        &self.core.current_bxl
+        &self.current_bxl
     }
 
     pub(crate) fn project_fs(&self) -> &ProjectRoot {
-        &self.core.project_fs
+        &self.project_fs
     }
 
     pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
-        &self.core.artifact_fs
+        &self.artifact_fs
     }
 
     /// Working dir for resolving literals.
