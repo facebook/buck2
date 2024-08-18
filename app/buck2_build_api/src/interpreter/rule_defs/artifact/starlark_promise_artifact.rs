@@ -10,6 +10,7 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -130,7 +131,7 @@ impl StarlarkPromiseArtifact {
     pub fn as_artifact(&self) -> ArtifactGroup {
         match self.artifact.get() {
             Some(artifact) => ArtifactGroup::Artifact(artifact.dupe()),
-            None => ArtifactGroup::Promise(self.artifact.dupe()),
+            None => ArtifactGroup::Promise(Arc::new(self.artifact.dupe())),
         }
     }
 

@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -199,12 +200,12 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     let mut dice = dice.commit().await;
 
     let result = dice
-        .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(
+        .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(Arc::new(
             TransitiveSetProjectionKey {
                 key: set.key.dupe(),
                 projection: 0,
             },
-        ))
+        )))
         .await?
         .iter()
         .cloned()

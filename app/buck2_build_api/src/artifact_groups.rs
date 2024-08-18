@@ -18,6 +18,7 @@ use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 pub mod registry;
 
 use std::hash::Hash;
+use std::sync::Arc;
 
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
@@ -26,6 +27,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use static_assertions::assert_eq_size;
 
 use self::calculation::EnsureTransitiveSetProjectionKey;
 use crate::artifact_groups::deferred::TransitiveSetKey;
@@ -46,9 +48,11 @@ use crate::artifact_groups::promise::PromiseArtifact;
 )]
 pub enum ArtifactGroup {
     Artifact(Artifact),
-    TransitiveSetProjection(TransitiveSetProjectionKey),
-    Promise(PromiseArtifact),
+    TransitiveSetProjection(Arc<TransitiveSetProjectionKey>),
+    Promise(Arc<PromiseArtifact>),
 }
+
+assert_eq_size!(ArtifactGroup, [usize; 2]);
 
 impl ArtifactGroup {
     /// Gets the resolved artifact group, which is used further downstream to use DICE to get

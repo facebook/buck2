@@ -9,6 +9,7 @@
 
 use std::io::sink;
 use std::io::Write;
+use std::sync::Arc;
 
 use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -324,7 +325,7 @@ pub fn visit_json_artifacts(
             }
         }
         JsonUnpack::TransitiveSetJsonProjection(x) => visitor.visit_input(
-            ArtifactGroup::TransitiveSetProjection(x.to_projection_key()?),
+            ArtifactGroup::TransitiveSetProjection(Arc::new(x.to_projection_key()?)),
             None,
         ),
         JsonUnpack::Artifact(_x) => {

@@ -10,6 +10,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::iter;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context as _;
@@ -241,10 +242,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
             .context("Invalid transitive_set")?;
 
         visitor.visit_input(
-            ArtifactGroup::TransitiveSetProjection(TransitiveSetProjectionKey {
+            ArtifactGroup::TransitiveSetProjection(Arc::new(TransitiveSetProjectionKey {
                 key: set.key().dupe(),
                 projection: self.projection,
-            }),
+            })),
             None,
         );
 

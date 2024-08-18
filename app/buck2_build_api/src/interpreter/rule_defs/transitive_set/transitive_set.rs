@@ -9,6 +9,7 @@
 
 use std::fmt;
 use std::iter;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -241,12 +242,12 @@ impl FrozenTransitiveSet {
         // Reuse the same projection for children sets.
         for v in self.children.iter() {
             let v = TransitiveSet::from_value(v.to_value()).context("Invalid deferred")?;
-            sub_inputs.push(ArtifactGroup::TransitiveSetProjection(
+            sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
                 TransitiveSetProjectionKey {
                     key: v.key().dupe(),
                     projection,
                 },
-            ));
+            )));
         }
         Ok(sub_inputs)
     }
