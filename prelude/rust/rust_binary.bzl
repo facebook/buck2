@@ -26,8 +26,8 @@ load(
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupContext",
+    "build_shared_libs_for_symlink_tree",
     "get_link_group_map_json",
-    "is_link_group_shlib",
 )
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
@@ -124,9 +124,6 @@ def _rust_binary_common(
     name = output_filename(simple_crate, Emit("link"), params)
     output = ctx.actions.declare_output(name)
 
-    # Gather and setup symlink tree of transitive shared library deps.
-    shared_libs = []
-
     rust_cxx_link_group_info = None
     link_group_mappings = {}
     link_group_libs = {}
@@ -161,15 +158,14 @@ def _rust_binary_common(
         targets_consumed_by_link_groups = {},
     )
 
-    for shlib in traverse_shared_library_info(shlib_info):
-        if not rust_cxx_link_group_info or is_link_group_shlib(shlib.label, link_group_ctx):
-            shared_libs.append(shlib)
-
-    if rust_cxx_link_group_info:
-        # When there are no matches for a pattern based link group,
-        # `link_group_mappings` will not have an entry associated with the lib.
-        for _name, link_group_lib in link_group_libs.items():
-            shared_libs.extend(link_group_lib.shared_libs.libraries)
+    # Gather and setup symlink tree of transitive shared library deps.
+    shared_libs = build_shared_libs_for_symlink_tree(
+        use_link_groups = rust_cxx_link_group_info != None,
+        link_group_ctx = link_group_ctx,
+        link_strategy = link_strategy,
+        shared_libraries = traverse_shared_library_info(shlib_info),
+        extra_shared_libraries = [],
+    )
 
     # link groups shared libraries link args are directly added to the link command,
     # we don't have to add them here
