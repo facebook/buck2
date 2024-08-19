@@ -43,8 +43,9 @@ GoPkgLinkInfo = provider(fields = {
 })
 
 GoBuildMode = enum(
-    "executable",
-    "c_shared",
+    "executable",  # non-pic executable
+    "c_shared",  # pic C-shared library
+    "c_archive",  # pic C-static library
 )
 
 def _build_mode_param(mode: GoBuildMode) -> str:
@@ -52,6 +53,8 @@ def _build_mode_param(mode: GoBuildMode) -> str:
         return "exe"
     if mode == GoBuildMode("c_shared"):
         return "c-shared"
+    if mode == GoBuildMode("c_archive"):
+        return "c-archive"
     fail("unexpected: {}", mode)
 
 def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
@@ -97,17 +100,27 @@ def link(
         link_style: LinkStyle = LinkStyle("static"),
         linker_flags: list[typing.Any] = [],
         external_linker_flags: list[typing.Any] = [],
-        shared: bool = False,
         race: bool = False,
         asan: bool = False):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     if go_toolchain.env_go_os == "windows":
         executable_extension = ".exe"
         shared_extension = ".dll"
+        archive_extension = ".lib"
     else:
         executable_extension = ""
         shared_extension = ".so"
-    file_extension = shared_extension if build_mode == GoBuildMode("c_shared") else executable_extension
+        archive_extension = ".a"
+
+    if build_mode == GoBuildMode("c_shared"):
+        file_extension = shared_extension
+        use_shared_code = True  # PIC
+    elif build_mode == GoBuildMode("c_archive"):
+        file_extension = archive_extension
+        use_shared_code = True  # PIC
+    else:  # GoBuildMode("executable")
+        file_extension = executable_extension
+        use_shared_code = False  # non-PIC
     output = ctx.actions.declare_output(ctx.label.name + file_extension)
 
     cmd = cmd_args()
@@ -131,7 +144,7 @@ def link(
         get_inherited_link_pkgs(deps),
     ])
 
-    importcfg = make_importcfg(ctx, "", all_pkgs, shared, with_importmap = False)
+    importcfg = make_importcfg(ctx, "", all_pkgs, use_shared_code, with_importmap = False)
 
     cmd.add("-importcfg", importcfg)
 
@@ -140,7 +153,7 @@ def link(
     if link_mode == None:
         if build_mode == GoBuildMode("c_shared"):
             link_mode = "external"
-        elif shared:
+        if build_mode == GoBuildMode("c_archive"):
             link_mode = "external"
 
     if link_mode != None:
@@ -193,7 +206,7 @@ def link(
 
     cmd.add(linker_flags)
 
-    cmd.add(main.pkg_shared if shared else main.pkg)
+    cmd.add(main.pkg_shared if use_shared_code else main.pkg)
 
     env = get_toolchain_env_vars(go_toolchain)
 

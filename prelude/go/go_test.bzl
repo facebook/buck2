@@ -116,7 +116,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,
-        shared = False,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         external_linker_flags = ctx.attrs.external_linker_flags,
