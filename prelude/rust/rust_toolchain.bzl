@@ -43,6 +43,8 @@ rust_toolchain_attrs = {
     # Rustc flags, except that they are applied on the command line after the
     # target's rustc flags
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
+    # Flags applied only on check builds
+    "rustc_check_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when building binaries
     "rustc_binary_flags": provider_field(list[typing.Any], default = []),
     # Extra flags for doing building tests
