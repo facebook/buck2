@@ -192,7 +192,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
 async def buck(request) -> AsyncIterator[Buck]:
     marker = request.node.get_closest_marker("buck_test")
     if marker is None:
-        raise Exception("You must use buck_test() to use the buck fixture.")
+        raise Exception(
+            "Test method must be decorated with @buck_test() to use the buck fixture."
+        )
     marker = marker.args[0]
     async with buck_fixture(marker) as buck:
         yield buck
