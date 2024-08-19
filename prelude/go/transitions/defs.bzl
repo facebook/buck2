@@ -13,12 +13,12 @@ def _cgo_enabled_transition(platform, refs, attrs):
 
     # Cancel transition if the value already set
     # to enable using configuration modifiers for overriding this option
-    cgo_enabled_setting = refs.cgo_enabled_auto[ConstraintValueInfo].setting
+    cgo_enabled_setting = refs.cgo_enabled_true[ConstraintValueInfo].setting
     if cgo_enabled_setting.label in constraints:
         return platform
 
     if attrs.cgo_enabled == None:
-        cgo_enabled_ref = refs.cgo_enabled_auto
+        return platform
     elif attrs.cgo_enabled == True:
         cgo_enabled_ref = refs.cgo_enabled_true
     else:
@@ -46,10 +46,11 @@ def _race_transition(platform, refs, attrs):
     if race_setting.label in constraints:
         return platform
 
+    # change configuration only when we can't avoid it
     if attrs.race == True:
         race_ref = refs.race_true
     else:
-        race_ref = refs.race_false
+        return platform
 
     race_value = race_ref[ConstraintValueInfo]
     constraints[race_value.setting.label] = race_value
@@ -73,10 +74,11 @@ def _asan_transition(platform, refs, attrs):
     if asan_setting.label in constraints:
         return platform
 
+    # change configuration only when we can't avoid it
     if attrs.asan == True:
         asan_ref = refs.asan_true
     else:
-        asan_ref = refs.asan_false
+        return platform
 
     asan_value = asan_ref[ConstraintValueInfo]
     constraints[asan_value.setting.label] = asan_value
@@ -126,6 +128,10 @@ def _coverage_mode_transition(platform, refs, attrs):
 
 def _tags_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
+
+    if not attrs.tags:
+        return platform
+
     for tag in attrs.tags:
         ref_name = "tag_{}__value".format(tag)
         if not hasattr(refs, ref_name):
@@ -157,7 +163,6 @@ _tansitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tag
 _refs = {
     "asan_false": "prelude//go/constraints:asan_false",
     "asan_true": "prelude//go/constraints:asan_true",
-    "cgo_enabled_auto": "prelude//go/constraints:cgo_enabled_auto",
     "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
     "cgo_enabled_true": "prelude//go/constraints:cgo_enabled_true",
     "race_false": "prelude//go/constraints:race_false",
@@ -193,7 +198,6 @@ go_exported_library_transition = transition(
 
 cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = select({
     "DEFAULT": None,
-    "prelude//go/constraints:cgo_enabled_auto": None,
     "prelude//go/constraints:cgo_enabled_false": False,
     "prelude//go/constraints:cgo_enabled_true": True,
 })))

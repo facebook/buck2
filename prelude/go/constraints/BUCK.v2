@@ -11,12 +11,6 @@ constraint_setting(
 )
 
 constraint_value(
-    name = "cgo_enabled_auto",
-    constraint_setting = ":cgo_enabled",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
     name = "cgo_enabled_true",
     constraint_setting = ":cgo_enabled",
     visibility = ["PUBLIC"],
