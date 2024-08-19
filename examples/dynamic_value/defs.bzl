@@ -29,6 +29,53 @@ PackageInfo = provider(fields = {
     "dynamic": provider_field(DynamicValue),
 })
 
+def _dynamic_actions_impl(actions, artifacts, dynamic_values, outputs, arg):
+    name = arg.name
+    modules = arg.modules
+    deps = arg.deps
+
+    graph = {}
+    for name, module in modules.items():
+        json = artifacts[module.source].read_json()
+        graph[name] = json["deps"]
+
+    tsets = {}
+    externals = {}
+    for dep in deps:
+        pkg_info = dep[PackageInfo]
+        dyn_info = dynamic_values[pkg_info.dynamic].providers[DynamicPackageInfo]
+        for name in pkg_info.modules.keys():
+            graph[name] = []
+            tsets[name] = dyn_info.modules[name].transitive_outputs
+            externals[name] = None
+
+    for name in post_order_traversal(graph):
+        if name in externals:
+            continue
+
+        inputs = actions.tset(
+            ModuleTSet,
+            children = [tsets[dep] for dep in graph[name]],
+        )
+        print(name, name, "INPUTS", list(inputs.traverse()))
+        actions.write(outputs[modules[name].output], inputs.project_as_args("paths"))
+        tsets[name] = actions.tset(
+            ModuleTSet,
+            value = modules[name].output,
+            children = [inputs],
+        )
+
+    return [DynamicPackageInfo(
+        modules = {
+            name: DynamicModuleInfo(
+                transitive_outputs = tsets[name],
+            )
+            for name in modules.keys()
+        },
+    )]
+
+_dynamic_actions = dynamic_actions(impl = _dynamic_actions_impl)
+
 def _dynamic_value_impl(ctx: AnalysisContext) -> list[Provider]:
     modules = {}
     for src in ctx.attrs.srcs:
@@ -39,59 +86,20 @@ def _dynamic_value_impl(ctx: AnalysisContext) -> list[Provider]:
             output = output,
         )
 
-    def dynamic_action(ctx, artifacts, resolved, outputs, modules=modules, deps=ctx.attrs.deps):
-        graph = {}
-        for name, module in modules.items():
-            json = artifacts[module.source].read_json()
-            graph[name] = json["deps"]
-
-        tsets = {}
-        externals = {}
-        for dep in deps:
-            pkg_info = dep[PackageInfo]
-            dyn_info = resolved[pkg_info.dynamic][DynamicPackageInfo]
-            for name in pkg_info.modules.keys():
-                graph[name] = []
-                tsets[name] = dyn_info.modules[name].transitive_outputs
-                externals[name] = None
-
-        for name in post_order_traversal(graph):
-            if name in externals:
-                continue
-
-            inputs = ctx.actions.tset(
-                ModuleTSet,
-                children = [tsets[dep] for dep in graph[name]],
-            )
-            print(ctx.label.name, name, "INPUTS", list(inputs.traverse()))
-            ctx.actions.write(outputs[modules[name].output], inputs.project_as_args("paths"))
-            tsets[name] = ctx.actions.tset(
-                ModuleTSet,
-                value = modules[name].output,
-                children = [inputs],
-            )
-
-        return [DynamicPackageInfo(
-            modules = {
-                name: DynamicModuleInfo(
-                    transitive_outputs = tsets[name],
-                )
-                for name in modules.keys()
-            },
-        )]
-
-
     print([module.output for module in modules.values()])
-    dynamic_value = ctx.actions.dynamic_output(
+    dynamic_value = ctx.actions.dynamic_output_new(_dynamic_actions(
         dynamic = ctx.attrs.srcs,
-        inputs = [],
-        promises = [
+        dynamic_values = [
             dep[PackageInfo].dynamic
             for dep in ctx.attrs.deps
         ],
         outputs = [module.output.as_output() for module in modules.values()],
-        f = dynamic_action,
-    )
+        arg = struct(
+            name = ctx.label.name,
+            modules = modules,
+            deps = ctx.attrs.deps,
+        ),
+    ))
 
     print("dynamic_value", dynamic_value)
 
