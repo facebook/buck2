@@ -59,7 +59,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
                 let analysis_values = prepare_and_execute_lambda(
                     ctx,
                     cancellation,
-                    &lambda,
+                    lambda,
                     self.0.dupe(),
                     self.0.action_key(),
                 )

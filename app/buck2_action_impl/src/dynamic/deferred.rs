@@ -57,6 +57,7 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
 use starlark::values::type_repr::DictType;
 use starlark::values::FrozenValue;
+use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -141,7 +142,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
 }
 
 async fn execute_lambda(
-    lambda: &FrozenDynamicLambdaParams,
+    lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     action_key: String,
@@ -151,11 +152,11 @@ async fn execute_lambda(
     digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> anyhow::Result<RecordedAnalysisValues> {
-    if let BaseDeferredKey::BxlLabel(key) = &lambda.static_fields.owner {
+    if let BaseDeferredKey::BxlLabel(key) = &lambda.as_ref().static_fields.owner {
         eval_bxl_for_dynamic_output(
             key,
             self_key,
-            &lambda,
+            lambda,
             dice,
             action_key,
             materialized_artifacts,
@@ -170,7 +171,7 @@ async fn execute_lambda(
 
         let start_event = buck2_data::AnalysisStart {
             target: Some(buck2_data::analysis_start::Target::DynamicLambda(
-                lambda.static_fields.owner.to_proto().into(),
+                lambda.as_ref().static_fields.owner.to_proto().into(),
             )),
             rule: proto_rule.clone(),
         };
@@ -189,7 +190,7 @@ async fn execute_lambda(
                     eval.set_print_handler(&print);
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                     let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                        &lambda,
+                        lambda,
                         self_key,
                         &action_key,
                         &materialized_artifacts,
@@ -201,7 +202,7 @@ async fn execute_lambda(
                     let ctx = AnalysisContext::prepare(
                         heap,
                         dynamic_lambda_ctx_data.lambda.attributes()?,
-                        lambda.static_fields.owner.configured_label(),
+                        lambda.as_ref().static_fields.owner.configured_label(),
                         dynamic_lambda_ctx_data.lambda.plugins()?,
                         dynamic_lambda_ctx_data.registry,
                         dynamic_lambda_ctx_data.digest_config,
@@ -254,7 +255,7 @@ async fn execute_lambda(
                 output,
                 buck2_data::AnalysisEnd {
                     target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                        lambda.static_fields.owner.to_proto().into(),
+                        lambda.as_ref().static_fields.owner.to_proto().into(),
                     )),
                     rule: proto_rule,
                     profile: None,
@@ -270,18 +271,18 @@ async fn execute_lambda(
 pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
-    lambda: &FrozenDynamicLambdaParams,
+    lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_holder_key: DynamicLambdaResultsKey,
     action_key: String,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
-    ensure_artifacts_built(&lambda.static_fields.dynamic, ctx).await?;
+    ensure_artifacts_built(&lambda.as_ref().static_fields.dynamic, ctx).await?;
 
     Ok(span_async_simple(
         buck2_data::DynamicLambdaStart {
-            owner: Some(lambda.static_fields.owner.to_proto().into()),
+            owner: Some(lambda.as_ref().static_fields.owner.to_proto().into()),
         },
         async move {
             let (materialized_artifacts, resolved_dynamic_values) = span_async_simple(
@@ -289,10 +290,15 @@ pub(crate) async fn prepare_and_execute_lambda(
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
                 },
                 ctx.try_compute2(
-                    |ctx| Box::pin(materialize_inputs(&lambda.static_fields.dynamic, ctx)),
+                    |ctx| {
+                        Box::pin(materialize_inputs(
+                            &lambda.as_ref().static_fields.dynamic,
+                            ctx,
+                        ))
+                    },
                     |ctx| {
                         Box::pin(resolve_dynamic_values(
-                            &lambda.static_fields.dynamic_values,
+                            &lambda.as_ref().static_fields.dynamic_values,
                             ctx,
                         ))
                     },
@@ -407,7 +413,7 @@ pub struct DynamicLambdaCtxData<'v> {
 
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
-    dynamic_lambda: &'v FrozenDynamicLambdaParams,
+    dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: DynamicLambdaResultsKey,
     action_key: &str,
     materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
@@ -418,13 +424,15 @@ pub fn dynamic_lambda_ctx_data<'v>(
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
     let self_key = Arc::new(self_key);
 
-    if &dynamic_lambda.static_fields.owner != self_key.owner() {
+    if &dynamic_lambda.as_ref().static_fields.owner != self_key.owner() {
         return Err(internal_error!(
             "Dynamic lambda owner `{}` does not match self key `{}`",
-            dynamic_lambda.static_fields.owner,
+            dynamic_lambda.as_ref().static_fields.owner,
             self_key
         ));
     }
+
+    let dynamic_lambda = dynamic_lambda.add_heap_ref(env.frozen_heap());
 
     let heap = env.heap();
     let mut outputs = Vec::with_capacity(dynamic_lambda.static_fields.outputs.len());

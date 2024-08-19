@@ -48,6 +48,7 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
@@ -673,10 +674,21 @@ impl RecordedAnalysisValues {
         self.actions.iter_actions()
     }
 
+    fn analysis_storage(
+        &self,
+    ) -> anyhow::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage>> {
+        Ok(self
+            .analysis_storage
+            .as_ref()
+            .internal_error("missing analysis storage")?
+            .as_owned_ref_frozen_ref()
+            .map(|v| &v.value))
+    }
+
     pub(crate) fn lookup_lambda<'f>(
         &'f self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<&'f FrozenDynamicLambdaParams> {
+    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
         if key.holder_key() != &self.self_key {
             return Err(internal_error!(
                 "Wrong owner for lambda: expecting `{}`, got `{}`",
@@ -684,12 +696,8 @@ impl RecordedAnalysisValues {
                 key
             ));
         }
-        self.analysis_storage
-            .as_ref()
-            .with_internal_error(|| format!("missing analysis storage for lambda `{}`", key))?
-            .value
-            .lambda_params
-            .get(key)
+        self.analysis_storage()?
+            .try_map_option(|storage| storage.lambda_params.get(key))
             .with_internal_error(|| format!("missing lambda `{}`", key))
     }
 

@@ -24,6 +24,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::Future;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedRefFrozenRef;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -112,10 +113,10 @@ impl DeferredHolder {
         self.analysis_values().lookup_action(key)
     }
 
-    pub fn lookup_lambda(
-        &self,
+    pub fn lookup_lambda<'f>(
+        &'f self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<&FrozenDynamicLambdaParams> {
+    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
         self.analysis_values().lookup_lambda(key)
     }
 

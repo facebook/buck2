@@ -99,6 +99,7 @@ use starlark::values::structs::StructRef;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::OwnedRefFrozenRef;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -535,7 +536,7 @@ impl BxlContextCoreData {
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DynamicLambdaResultsKey,
-    dynamic_lambda: &'v FrozenDynamicLambdaParams,
+    dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
     materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
@@ -616,11 +617,11 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     }
 }
 
-struct BxlEvalContext<'v> {
+struct BxlEvalContext<'f> {
     data: BxlContextCoreData,
     self_key: DynamicLambdaResultsKey,
     liveness: CancellationObserver,
-    dynamic_lambda: &'v FrozenDynamicLambdaParams,
+    dynamic_lambda: OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>,
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     action_key: String,
