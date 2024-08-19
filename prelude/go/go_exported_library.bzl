@@ -31,7 +31,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
         force_disable_cgo = True,
     )
-    (bin, runtime_files, _external_debug_info) = link(
+    (bin, _, _) = link(
         ctx,
         lib,
         deps = ctx.attrs.deps,
@@ -46,7 +46,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(
             default_output = bin,
-            other_outputs = runtime_files,
         ),
         pkg_info,
     ]
