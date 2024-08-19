@@ -37,20 +37,6 @@ def _cgo_enabled_transition(platform, refs, attrs):
         configuration = new_cfg,
     )
 
-def _compile_shared_transition(platform, refs, _):
-    compile_shared_value = refs.compile_shared_value[ConstraintValueInfo]
-    constraints = platform.configuration.constraints
-    constraints[compile_shared_value.setting.label] = compile_shared_value
-    new_cfg = ConfigurationInfo(
-        constraints = constraints,
-        values = platform.configuration.values,
-    )
-
-    return PlatformInfo(
-        label = platform.label,
-        configuration = new_cfg,
-    )
-
 def _race_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
@@ -166,7 +152,7 @@ def _chain_transitions(transitions):
 
     return tr
 
-_tansitions = [_asan_transition, _cgo_enabled_transition, _compile_shared_transition, _race_transition, _tags_transition]
+_tansitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition]
 
 _refs = {
     "asan_false": "prelude//go/constraints:asan_false",
@@ -185,16 +171,13 @@ _attrs = ["asan", "cgo_enabled", "race", "tags"]
 
 go_binary_transition = transition(
     impl = _chain_transitions(_tansitions),
-    refs = _refs | {
-        "compile_shared_value": "prelude//go/constraints:compile_shared_false",
-    },
+    refs = _refs,
     attrs = _attrs,
 )
 
 go_test_transition = transition(
     impl = _chain_transitions(_tansitions + [_coverage_mode_transition]),
     refs = _refs | {
-        "compile_shared_value": "prelude//go/constraints:compile_shared_false",
         "coverage_mode_atomic": "prelude//go/constraints:coverage_mode_atomic",
         "coverage_mode_count": "prelude//go/constraints:coverage_mode_count",
         "coverage_mode_set": "prelude//go/constraints:coverage_mode_set",
@@ -204,9 +187,7 @@ go_test_transition = transition(
 
 go_exported_library_transition = transition(
     impl = _chain_transitions(_tansitions),
-    refs = _refs | {
-        "compile_shared_value": "prelude//go/constraints:compile_shared_true",
-    },
+    refs = _refs,
     attrs = _attrs,
 )
 
@@ -215,12 +196,6 @@ cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = selec
     "prelude//go/constraints:cgo_enabled_auto": None,
     "prelude//go/constraints:cgo_enabled_false": False,
     "prelude//go/constraints:cgo_enabled_true": True,
-})))
-
-compile_shared_attr = attrs.default_only(attrs.bool(default = select({
-    "DEFAULT": False,
-    "prelude//go/constraints:compile_shared_false": False,
-    "prelude//go/constraints:compile_shared_true": True,
 })))
 
 race_attr = attrs.default_only(attrs.bool(default = select({

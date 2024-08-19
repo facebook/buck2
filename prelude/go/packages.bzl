@@ -20,7 +20,9 @@ GoPackageInfo = provider(
 )
 
 GoPkg = record(
+    # We have to produce allways shared (PIC) and non-shared (non-PIC) archives
     pkg = field(Artifact),
+    pkg_shared = field(Artifact),
     coverage_vars = field(cmd_args),
     srcs_list = field(cmd_args),
 )
@@ -28,7 +30,9 @@ GoPkg = record(
 GoStdlib = provider(
     fields = {
         "importcfg": provider_field(Artifact),
+        "importcfg_shared": provider_field(Artifact),
         "pkgdir": provider_field(Artifact),
+        "pkgdir_shared": provider_field(Artifact),
     },
 )
 
@@ -54,25 +58,28 @@ def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
 
     return all_pkgs
 
-def pkg_artifacts(pkgs: dict[str, GoPkg]) -> dict[str, Artifact]:
+def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
     return {
-        name: pkg.pkg
+        name: pkg.pkg_shared if shared else pkg.pkg
         for name, pkg in pkgs.items()
     }
 
 def make_importcfg(
         ctx: AnalysisContext,
         pkg_name: str,
-        own_pkgs: dict[str, typing.Any],
+        own_pkgs: dict[str, GoPkg],
+        shared: bool,
         with_importmap: bool) -> cmd_args:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     stdlib = ctx.attrs._go_stdlib[GoStdlib]
+    suffix = "__shared" if shared else ""  # suffix to make artifacts unique
 
     content = []
-    for name_, pkg_ in own_pkgs.items():
+    pkg_artifacts_map = pkg_artifacts(own_pkgs, shared)
+    for name_, pkg_ in pkg_artifacts_map.items():
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
@@ -84,20 +91,20 @@ def make_importcfg(
                 real_name_ = name_.removeprefix(vendor_prefix)
                 content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
-    own_importcfg = ctx.actions.declare_output("{}.importcfg".format(pkg_name))
+    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(pkg_name, suffix))
     ctx.actions.write(own_importcfg, content)
 
-    final_importcfg = ctx.actions.declare_output("{}.final.importcfg".format(pkg_name))
+    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(pkg_name, suffix))
     ctx.actions.run(
         [
             go_toolchain.concat_files,
             "--output",
             final_importcfg.as_output(),
-            stdlib.importcfg,
+            stdlib.importcfg_shared if shared else stdlib.importcfg,
             own_importcfg,
         ],
         category = "concat_importcfgs",
-        identifier = pkg_name,
+        identifier = pkg_name + suffix,
     )
 
-    return cmd_args(final_importcfg, hidden = [stdlib.pkgdir, own_pkgs.values()])
+    return cmd_args(final_importcfg, hidden = [stdlib.pkgdir_shared if shared else stdlib.pkgdir, pkg_artifacts_map.values()])

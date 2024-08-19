@@ -35,7 +35,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,
-        lib.pkg,
+        lib,
         deps = ctx.attrs.deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
         linker_flags = ctx.attrs.linker_flags,

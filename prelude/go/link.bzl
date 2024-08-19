@@ -34,7 +34,6 @@ load(
     "GoPkg",  # @Unused used as type
     "make_importcfg",
     "merge_pkgs",
-    "pkg_artifacts",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
@@ -90,8 +89,8 @@ def _process_shared_dependencies(
 
 def link(
         ctx: AnalysisContext,
-        main: Artifact,
-        pkgs: dict[str, Artifact] = {},
+        main: GoPkg,
+        pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
         build_mode: GoBuildMode = GoBuildMode("executable"),
         link_mode: [str, None] = None,
@@ -129,10 +128,10 @@ def link(
     # Add inherited Go pkgs to library search path.
     all_pkgs = merge_pkgs([
         pkgs,
-        pkg_artifacts(get_inherited_link_pkgs(deps)),
+        get_inherited_link_pkgs(deps),
     ])
 
-    importcfg = make_importcfg(ctx, "", all_pkgs, with_importmap = False)
+    importcfg = make_importcfg(ctx, "", all_pkgs, shared, with_importmap = False)
 
     cmd.add("-importcfg", importcfg)
 
@@ -194,7 +193,7 @@ def link(
 
     cmd.add(linker_flags)
 
-    cmd.add(main)
+    cmd.add(main.pkg_shared if shared else main.pkg)
 
     env = get_toolchain_env_vars(go_toolchain)
 

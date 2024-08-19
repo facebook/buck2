@@ -28,7 +28,6 @@ load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
 
-    shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
     asan = ctx.attrs._asan
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -40,7 +39,6 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.go_srcs + ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
-        shared = shared,
         race = race,
         asan = asan,
         coverage_mode = coverage_mode,

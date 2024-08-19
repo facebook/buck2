@@ -33,7 +33,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
     pkg_name = go_attr_pkg_name(ctx)
 
-    shared = ctx.attrs._compile_shared
     race = ctx.attrs._race
     asan = ctx.attrs._asan
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -46,7 +45,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         compiler_flags = ctx.attrs.compiler_flags,
         assembler_flags = ctx.attrs.assembler_flags,
-        shared = shared,
         race = race,
         asan = asan,
         coverage_mode = coverage_mode,

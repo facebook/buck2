@@ -99,9 +99,9 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         for name, pkg in get_inherited_compile_pkgs(deps).items():
             if ctx.label != None and is_subpackage_of(name, ctx.label.package):
                 coverage_vars[name] = pkg.coverage_vars
-                pkgs[name] = pkg.pkg
+                pkgs[name] = pkg
 
-    pkgs[pkg_name] = tests.pkg
+    pkgs[pkg_name] = tests
 
     # Generate a main function which runs the tests and build that into another
     # package.
@@ -111,7 +111,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Link the above into a Go binary.
     (bin, runtime_files, external_debug_info) = link(
         ctx = ctx,
-        main = main.pkg,
+        main = main,
         pkgs = pkgs,
         deps = deps,
         link_style = value_or(map_val(LinkStyle, ctx.attrs.link_style), LinkStyle("static")),
