@@ -457,30 +457,36 @@ def get_filtered_labels_to_links_map(
 
     for target in linkables:
         node = linkable_graph_node_map[target]
+        target_link_group = link_group_mappings.get(target)
+
         output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+
+        # We should always add force-static libs to the link.
+        is_force_static_lib = force_static_follows_dependents and node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents
+
+        # If this belongs to the match all link group or the group currently being evaluated
+        matches_current_link_group = target_link_group == MATCH_ALL_LABEL or target_link_group == link_group
 
         # Always link any shared dependencies
         if output_style == LibOutputStyle("shared_lib"):
             # filter out any dependencies to be discarded
-            group = link_groups.get(link_group_mappings.get(target))
+            group = link_groups.get(target_link_group)
             if group != None and group.attrs.discard_group:
                 continue
 
             # If this target is a link group root library, we
             # 1) don't propagate shared linkage down the tree, and
             # 2) use the provided link info in lieu of what's in the grph.
-            target_link_group = link_group_roots.get(target)
-            if target_link_group != None and target_link_group != link_group:
-                add_link_group(target, target_link_group)
+            root_link_group = link_group_roots.get(target)
+            if root_link_group != None and root_link_group != link_group:
+                add_link_group(target, root_link_group)
             else:
                 add_link(target, LibOutputStyle("shared_lib"))
         else:  # static or static_pic
             target_link_group = link_group_mappings.get(target)
 
             # Always add force-static libs to the link.
-            if (force_static_follows_dependents and
-                node.preferred_linkage == Linkage("static") and
-                not node.ignore_force_static_follows_dependents):
+            if is_force_static_lib:
                 add_link(target, output_style)
             elif not target_link_group and not link_group:
                 # Ungrouped linkable targets belong to the unlabeled executable
@@ -488,7 +494,7 @@ def get_filtered_labels_to_links_map(
             elif is_executable_link and target_link_group == NO_MATCH_LABEL:
                 # Targets labeled NO_MATCH belong to the unlabeled executable
                 add_link(target, output_style)
-            elif target_link_group == MATCH_ALL_LABEL or target_link_group == link_group:
+            elif matches_current_link_group:
                 # If this belongs to the match all link group or the group currently being evaluated
                 add_link(target, output_style)
             elif target_link_group not in filtered_groups:
