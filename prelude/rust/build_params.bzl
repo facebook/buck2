@@ -85,12 +85,19 @@ MetadataKind = enum(
 
 # Emitting this artifact generates code
 def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
-    if emit.value in ("asm", "llvm-bc", "llvm-ir", "obj", "link", "mir"):
-        return MetadataKind("link")
-    elif emit.value == "metadata-fast" or emit.value == "clippy":
-        return MetadataKind("fast")
-    else:
-        return MetadataKind("full")
+    return {
+        Emit("asm"): MetadataKind("link"),
+        Emit("llvm-bc"): MetadataKind("link"),
+        Emit("llvm-ir"): MetadataKind("link"),
+        Emit("obj"): MetadataKind("link"),
+        Emit("link"): MetadataKind("link"),
+        Emit("mir"): MetadataKind("link"),
+        Emit("metadata-fast"): MetadataKind("fast"),
+        Emit("clippy"): MetadataKind("fast"),
+        Emit("dep-info"): MetadataKind("full"),
+        Emit("expand"): MetadataKind("full"),
+        Emit("metadata-full"): MetadataKind("full"),
+    }[emit]
 
 # Represents a way of invoking rustc to produce an artifact. These values are computed from
 # information such as the rule type, linkstyle, crate type, etc.
