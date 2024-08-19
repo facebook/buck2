@@ -37,6 +37,8 @@ enum ValidationInfoError {
     SpecsWithDuplicateName(String),
     #[error("Validations should be a list of `ValidationSpec` values")]
     ValidationsAreNotListOfSpecs,
+    #[error("`ValidationInfo` should contain at least one validation.")]
+    ValidationSpecsEmpty,
 }
 
 /// Provider describing how a given target node should be validated.
@@ -75,6 +77,9 @@ where
         if !spec_names.insert(name) {
             return Err(ValidationInfoError::SpecsWithDuplicateName(name.to_owned()).into());
         }
+    }
+    if spec_names.is_empty() {
+        return Err(ValidationInfoError::ValidationSpecsEmpty.into());
     }
     Ok(())
 }

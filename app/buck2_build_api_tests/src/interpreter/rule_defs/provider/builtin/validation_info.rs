@@ -29,7 +29,6 @@ fn test_construction() -> anyhow::Result<()> {
     let test = indoc!(
         r#"
         def test():
-            ValidationInfo(validations=[])
             a = declared_bound_artifact("//foo:bar", "baz/quz.h")
             ValidationInfo(validations=[ValidationSpec(name="foo", validation_result=a)])
         "#
@@ -85,6 +84,19 @@ fn test_validation_failure() -> anyhow::Result<()> {
             tester.run_starlark_bzl_test(test),
             test,
             "Multiple specs with same name `foo` which is not allowed.",
+        );
+    }
+    {
+        let test = indoc!(
+            r#"
+            def test():
+                ValidationInfo(validations=[])
+            "#
+        );
+        expect_error(
+            tester.run_starlark_bzl_test(test),
+            test,
+            "`ValidationInfo` should contain at least one validation.",
         );
     }
     Ok(())
