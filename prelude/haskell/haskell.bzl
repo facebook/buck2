@@ -958,6 +958,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     sos = []
 
+    link_strategy = to_link_strategy(link_style)
     if link_group_info != None:
         own_binary_link_flags = []
         auto_link_groups = {}
@@ -980,6 +981,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         if auto_link_group_specs != None:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
+                link_strategy = link_strategy,
                 link_group_mappings = link_group_info.mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = executable_deps,
@@ -1018,7 +1020,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
             },
-            link_strategy = to_link_strategy(link_style),
+            link_strategy = link_strategy,
             roots = (
                 [
                     d.linkable_graph.nodes.value.label

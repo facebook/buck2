@@ -690,13 +690,13 @@ def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
         roots: list[Label],
+        link_strategy: LinkStrategy,
         public_nodes: set_record = set(),
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         linker_flags: list[typing.Any] = [],
         link_groups: dict[str, Group] = {},
         link_group_mappings: dict[Label, str] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
-        link_strategy: LinkStrategy = LinkStrategy("static_pic"),
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
@@ -880,6 +880,7 @@ def _symbol_flags_for_link_groups(
 def create_link_groups(
         ctx: AnalysisContext,
         public_nodes: set_record,
+        link_strategy: LinkStrategy,
         link_groups: dict[str, Group] = {},
         link_group_specs: list[LinkGroupLibSpec] = [],
         executable_deps: list[Label] = [],
@@ -892,6 +893,10 @@ def create_link_groups(
         anonymous: bool = False,
         allow_cache_upload = False,
         error_handler: [typing.Callable, None] = None) -> _LinkedLinkGroups:
+    # We linking libraries here so we need pic
+    if link_strategy == LinkStrategy("static"):
+        link_strategy = LinkStrategy("static_pic")
+
     # Generate stubs first, so that subsequent links can link against them.
     link_group_shared_links = {}
     specs = []
@@ -930,6 +935,7 @@ def create_link_groups(
             ctx = ctx,
             spec = link_group_spec,
             roots = roots[link_group_spec.group.name],
+            link_strategy = link_strategy,
             linkable_graph_node_map = linkable_graph_node_map,
             public_nodes = public_nodes,
             linker_flags = (

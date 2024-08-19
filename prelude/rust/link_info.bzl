@@ -455,6 +455,7 @@ def inherited_rust_cxx_link_group_info(
     linked_link_groups = create_link_groups(
         ctx = ctx,
         link_groups = link_groups,
+        link_strategy = link_strategy,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
         executable_deps = executable_deps,

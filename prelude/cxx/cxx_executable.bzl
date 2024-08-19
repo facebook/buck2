@@ -337,6 +337,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             linked_link_groups = create_link_groups(
                 ctx = ctx,
                 link_groups = link_groups,
+                link_strategy = link_strategy,
                 link_group_mappings = link_group_mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = exec_dep_roots,
