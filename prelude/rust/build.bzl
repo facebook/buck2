@@ -1258,21 +1258,24 @@ def _rustc_emit(
         # command or else there are "found possibly newer version of crate" errors.
         emit_env["RUSTC_BOOTSTRAP"] = "1"
 
-        # We don't ever have metadata-only deps on codegen crates, so no need to do
-        # the slower thing
-        if emit == Emit("metadata-full") and \
-           not crate_type_codegen(crate_type):
-            # As we're doing a pipelined build, instead of emitting an actual rmeta
-            # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
-            # code. It should contain full information needed by any dependent
-            # crate which is generating code (MIR, etc).
-            #
-            # IMPORTANT: this flag is the only way that the Emit("metadata") and
-            # Emit("link") operations are allowed to diverge without causing them to
-            # get different crate hashes.
-            emit_args.add("-Zno-codegen")
-            effective_emit = "link"
-        elif emit == Emit("metadata-full") or emit == Emit("metadata-fast") or emit == Emit("clippy"):
+        if emit == Emit("metadata-full"):
+            if crate_type_codegen(crate_type):
+                # We don't ever have metadata-only deps on codegen crates, so we can
+                # fall back to the `metadata-fast` behavior. Normally though, this
+                # artifact should be unused and so this shouldn't matter.
+                effective_emit = "metadata"
+            else:
+                # As we're doing a pipelined build, instead of emitting an actual rmeta
+                # we emit a "hollow" .rlib - ie, it only contains lib.rmeta and no object
+                # code. It should contain full information needed by any dependent
+                # crate which is generating code (MIR, etc).
+                #
+                # IMPORTANT: this flag is the only way that the Emit("metadata") and
+                # Emit("link") operations are allowed to diverge without causing them to
+                # get different crate hashes.
+                emit_args.add("-Zno-codegen")
+                effective_emit = "link"
+        elif emit == Emit("metadata-fast") or emit == Emit("clippy"):
             effective_emit = "metadata"
         else:
             effective_emit = emit.value
