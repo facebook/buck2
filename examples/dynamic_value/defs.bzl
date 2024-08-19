@@ -30,7 +30,6 @@ PackageInfo = provider(fields = {
 })
 
 def _dynamic_actions_impl(actions, artifacts, dynamic_values, outputs, arg):
-    name = arg.name
     modules = arg.modules
     deps = arg.deps
 
@@ -57,7 +56,7 @@ def _dynamic_actions_impl(actions, artifacts, dynamic_values, outputs, arg):
             ModuleTSet,
             children = [tsets[dep] for dep in graph[name]],
         )
-        print(name, name, "INPUTS", list(inputs.traverse()))
+        print(arg.name, name, "INPUTS", list(inputs.traverse()))
         actions.write(outputs[modules[name].output], inputs.project_as_args("paths"))
         tsets[name] = actions.tset(
             ModuleTSet,
