@@ -134,6 +134,7 @@ load(
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupContext",
+    "build_shared_libs_for_symlink_tree",
     "create_debug_linkable_entries",
     "create_link_groups",
     "find_relevant_roots",
@@ -145,7 +146,6 @@ load(
     "get_link_group_preferred_linkage",
     "get_public_link_group_nodes",
     "get_transitive_deps_matching_labels",
-    "is_link_group_shlib",
 )
 load(
     ":link_types.bzl",
@@ -452,14 +452,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         dep_links = LinkArgs(infos = filtered_links)
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
 
-    # Set up shared libraries symlink tree only when needed
-    shared_libs = []
-
-    # Add in extra, rule-specific shared libs.
-    shared_libs.extend(impl_params.extra_shared_libs)
-
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
-    gnu_use_link_groups = cxx_is_gnu(ctx) and link_group_mappings
+    gnu_use_link_groups = cxx_is_gnu(ctx) and len(link_group_mappings) > 0
     shlib_deps = []
     if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
         shlib_deps = (
@@ -476,15 +470,13 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         labels_to_links_map = labels_to_links.map,
     )
 
-    for shlib in traverse_shared_library_info(shlib_info):
-        if not gnu_use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
-            shared_libs.append(shlib)
-
-    if gnu_use_link_groups:
-        # When there are no matches for a pattern based link group,
-        # `link_group_mappings` will not have an entry associated with the lib.
-        for _name, link_group_lib in link_group_libs.items():
-            shared_libs.extend(link_group_lib.shared_libs.libraries)
+    # Set up shared libraries symlink tree only when needed
+    shared_libs = build_shared_libs_for_symlink_tree(
+        gnu_use_link_groups,
+        link_group_ctx,
+        traverse_shared_library_info(shlib_info),
+        impl_params.extra_shared_libs,
+    )
 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info

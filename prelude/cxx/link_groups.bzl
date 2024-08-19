@@ -50,6 +50,7 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraries",
+    "SharedLibrary",
     "create_shlib",
 )
 load("@prelude//linking:types.bzl", "Linkage")
@@ -1048,3 +1049,23 @@ def get_transitive_deps_matching_labels(
             continue
         nodes.append(dep)
     return nodes
+
+def build_shared_libs_for_symlink_tree(
+        use_link_groups: bool,
+        link_group_ctx: LinkGroupContext,
+        shared_libraries: list[SharedLibrary],
+        extra_shared_libraries: list[SharedLibrary]) -> list[SharedLibrary]:
+    symlink_tree_shared_libraries = []
+    if use_link_groups:
+        # When there are no matches for a pattern based link group,
+        # `link_group_mappings` will not have an entry associated with the lib.
+        for _name, link_group_lib in link_group_ctx.link_group_libs.items():
+            symlink_tree_shared_libraries.extend(link_group_lib.shared_libs.libraries)
+
+    for shlib in shared_libraries:
+        if not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
+            symlink_tree_shared_libraries.append(shlib)
+
+    # Add in extra, rule-specific shared libs.
+    symlink_tree_shared_libraries.extend(extra_shared_libraries)
+    return symlink_tree_shared_libraries
