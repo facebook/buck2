@@ -69,7 +69,7 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_importcfg(
         ctx: AnalysisContext,
-        pkg_name: str,
+        prefix_name: str,
         own_pkgs: dict[str, GoPkg],
         shared: bool,
         with_importmap: bool) -> cmd_args:
@@ -91,10 +91,10 @@ def make_importcfg(
                 real_name_ = name_.removeprefix(vendor_prefix)
                 content.append(cmd_args("importmap ", real_name_, "=", name_, delimiter = ""))
 
-    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(pkg_name, suffix))
+    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(prefix_name, suffix))
     ctx.actions.write(own_importcfg, content)
 
-    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(pkg_name, suffix))
+    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix))
     ctx.actions.run(
         [
             go_toolchain.concat_files,
@@ -104,7 +104,7 @@ def make_importcfg(
             own_importcfg,
         ],
         category = "concat_importcfgs",
-        identifier = pkg_name + suffix,
+        identifier = prefix_name + suffix,
     )
 
     return cmd_args(final_importcfg, hidden = [stdlib.pkgdir_shared if shared else stdlib.pkgdir, pkg_artifacts_map.values()])

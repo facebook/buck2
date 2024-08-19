@@ -6,9 +6,17 @@
 # of this source tree.
 
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
     "create_merged_link_info_for_propagation",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "create_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -67,6 +75,11 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_shared_libraries(
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
+        ),
+        merge_link_group_lib_info(deps = ctx.attrs.deps),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
         ),
         pkg_info,
     ]

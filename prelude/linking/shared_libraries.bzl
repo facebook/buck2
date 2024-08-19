@@ -62,7 +62,7 @@ def create_shlib(
         # The soname can either be a string or an artifact with the soname in
         # text form.
         soname: str | Artifact | Soname,
-        **kwargs):
+        **kwargs) -> SharedLibrary:
     return SharedLibrary(
         soname = to_soname(soname),
         **kwargs
