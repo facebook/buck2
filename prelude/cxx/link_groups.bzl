@@ -51,6 +51,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraries",
     "SharedLibrary",
+    "Soname",
     "create_shlib",
 )
 load("@prelude//linking:types.bzl", "Linkage")
@@ -1055,17 +1056,39 @@ def build_shared_libs_for_symlink_tree(
         link_group_ctx: LinkGroupContext,
         shared_libraries: list[SharedLibrary],
         extra_shared_libraries: list[SharedLibrary]) -> list[SharedLibrary]:
+    # Which targets we actually materialized as symlinks to link group
+    added_link_group_symlinks_libs = set()
     symlink_tree_shared_libraries = []
+
+    def is_shlib_added(soname: Soname) -> bool:
+        return soname.is_str() and added_link_group_symlinks_libs.contains(soname.ensure_str())
+
+    def add_shib(shlib: SharedLibrary):
+        if shlib.soname.is_str():
+            added_link_group_symlinks_libs.add(shlib.soname.ensure_str())
+        symlink_tree_shared_libraries.append(shlib)
+
     if use_link_groups:
         # When there are no matches for a pattern based link group,
         # `link_group_mappings` will not have an entry associated with the lib.
         for _name, link_group_lib in link_group_ctx.link_group_libs.items():
-            symlink_tree_shared_libraries.extend(link_group_lib.shared_libs.libraries)
+            for link_group_shlib in link_group_lib.shared_libs.libraries:
+                add_shib(link_group_shlib)
 
     for shlib in shared_libraries:
+        if is_shlib_added(shlib.soname):
+            # Shlib was already materialised as link group.
+            # This may happen if link group spec had this target
+            # as root. That will produce link group with exact
+            # .so file and dynamic linker will be satisfied.
+            continue
+
         if not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
             symlink_tree_shared_libraries.append(shlib)
 
     # Add in extra, rule-specific shared libs.
-    symlink_tree_shared_libraries.extend(extra_shared_libraries)
+    for extra_shlib in extra_shared_libraries:
+        if not is_shlib_added(extra_shlib.soname):
+            add_shib(extra_shlib)
+
     return symlink_tree_shared_libraries
