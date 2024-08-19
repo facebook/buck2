@@ -129,6 +129,7 @@ def _rust_binary_common(
     link_group_libs = {}
     link_group_preferred_linkage = {}
     labels_to_links_map = {}
+    targets_consumed_by_link_groups = {}
     filtered_targets = []
 
     if enable_link_groups(ctx, link_strategy):
@@ -141,6 +142,7 @@ def _rust_binary_common(
         link_group_libs = rust_cxx_link_group_info.link_group_libs
         link_group_preferred_linkage = rust_cxx_link_group_info.link_group_preferred_linkage
         labels_to_links_map = rust_cxx_link_group_info.labels_to_links_map
+        targets_consumed_by_link_groups = rust_cxx_link_group_info.targets_consumed_by_link_groups
         filtered_targets = rust_cxx_link_group_info.filtered_targets
 
     shlib_deps = []
@@ -154,8 +156,7 @@ def _rust_binary_common(
         link_group_libs = link_group_libs,
         link_group_preferred_linkage = link_group_preferred_linkage,
         labels_to_links_map = labels_to_links_map,
-        # TODO(patskovn): Unify link shlib materialisation logic with C++
-        targets_consumed_by_link_groups = {},
+        targets_consumed_by_link_groups = targets_consumed_by_link_groups,
     )
 
     # Gather and setup symlink tree of transitive shared library deps.

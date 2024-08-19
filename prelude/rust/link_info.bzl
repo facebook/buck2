@@ -233,6 +233,8 @@ RustCxxLinkGroupInfo = record(
     link_group_libs = field(dict[str, [LinkGroupLib, None]]),
     # mapping from target labels to the corresponding link group link_info
     labels_to_links_map = field(dict[Label, LinkGroupLinkInfo]),
+    # Target to link group name where it was actually linked into
+    targets_consumed_by_link_groups = field(dict[Label, str]),
     # preferred linkage mode for link group libraries
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
@@ -501,6 +503,7 @@ def inherited_rust_cxx_link_group_info(
         link_group_info = link_group_info,
         link_group_libs = link_group_libs,
         labels_to_links_map = labels_to_links.map,
+        targets_consumed_by_link_groups = linked_link_groups.targets_consumed_by_link_groups,
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
