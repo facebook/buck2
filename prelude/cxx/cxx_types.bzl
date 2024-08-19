@@ -156,6 +156,8 @@ CxxRuleConstructorParams = record(
     soname = field([str, None], None),
     # Optional argument to override the default name of the executable being produced.
     executable_name = field([str, None], None),
+    # Optional argument to set the deffile for the windows linker on a dll
+    deffile = field([Artifact, None], None),
     # If passed to cxx_executable, this field will be used to determine
     # a shared subtarget's default output should be stripped.
     strip_executable = field(bool, False),

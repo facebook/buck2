@@ -527,6 +527,10 @@ cxx_library = prelude_rule(
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
         {
+            "deffile": attrs.option(attrs.source(), default = None, doc = """
+                Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
+                 The default is to not use a defile.
+            """),
             "used_by_wrap_script": attrs.bool(default = False, doc = """
                 When using an exopackage
                  Android, if this parameter is set to `True`, then the library is
@@ -1130,6 +1134,10 @@ prebuilt_cxx_library = prelude_rule(
             "can_be_asset": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "deffile": attrs.option(attrs.source(), default = None, doc = """
+                Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
+                 The default is to not use a defile.
+            """),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),

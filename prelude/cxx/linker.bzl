@@ -255,6 +255,16 @@ def get_import_library(
     else:
         return None, []
 
+def get_deffile_flags(
+        ctx: AnalysisContext,
+        linker_type: str) -> list[ArgLike]:
+    if linker_type == "windows" and ctx.attrs.deffile != None:
+        return [
+            cmd_args(ctx.attrs.deffile, format = "/DEF:{}"),
+        ]
+    else:
+        return []
+
 def get_rpath_origin(
         linker_type: str) -> str:
     """

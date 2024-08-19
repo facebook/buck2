@@ -65,6 +65,7 @@ load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options"
 load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",  # @unused Used as a type
+    "get_deffile_flags",
     "get_import_library",
     "get_output_flags",
     "get_shared_library_flags",
@@ -513,7 +514,9 @@ def cxx_link_shared_library(
         output,
     )
 
-    links_with_extra_args = [LinkArgs(flags = extra_args)] + opts.links + [LinkArgs(flags = import_library_args)]
+    deffile_args = get_deffile_flags(ctx, linker_type)
+
+    links_with_extra_args = [LinkArgs(flags = extra_args)] + opts.links + [LinkArgs(flags = import_library_args + deffile_args)]
 
     opts = merge_link_options(
         opts,
