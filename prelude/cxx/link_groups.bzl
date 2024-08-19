@@ -159,6 +159,8 @@ _LinkedLinkGroups = record(
     libs = field(dict[str, _LinkedLinkGroup]),
     symbol_ldflags = field(list[typing.Any], []),
     libs_debug_info = field(dict[typing.Any, typing.Any]),
+    # Mapping from a target to a link group name it was linked into.
+    targets_consumed_by_link_groups = field(dict[Label, str]),
 )
 
 def get_link_group(ctx: AnalysisContext) -> [str, None]:
@@ -904,6 +906,7 @@ def create_link_groups(
                 anonymous = anonymous,
             )
 
+    targets_consumed_by_link_groups = {}
     linked_link_groups = {}
     link_groups_debug_info = {}
     undefined_symfiles = []
@@ -956,6 +959,15 @@ def create_link_groups(
             link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
                 ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links.map),
             )
+
+        for (linked_target, link_info) in created_link_group.labels_to_links.map.items():
+            if link_info.output_style != LibOutputStyle("shared_lib"):
+                # Remember all targets that were statically linked into link group
+                targets_consumed_by_link_groups[linked_target] = link_group_spec.group.name
+
+        if link_group_spec.root:
+            # If link group has root it always being linked statically
+            targets_consumed_by_link_groups[link_group_spec.root.label] = link_group_spec.group.name
 
         # On GNU, use shlib interfaces.
         if cxx_is_gnu(ctx):
@@ -1018,6 +1030,7 @@ def create_link_groups(
         libs = linked_link_groups,
         symbol_ldflags = symbol_ldflags,
         libs_debug_info = link_groups_debug_info,
+        targets_consumed_by_link_groups = targets_consumed_by_link_groups,
     )
 
 def get_transitive_deps_matching_labels(
