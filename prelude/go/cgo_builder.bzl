@@ -42,19 +42,25 @@ _LINKAGE_FOR_LINK_STYLE = {
     LinkStyle("shared"): Linkage("shared"),
 }
 
+CGoToolOut = record(
+    cgo_gotypes = field(Artifact),  # _cgo_gotypes.go
+    cgo_export_h = field(Artifact),  # _cgo_export.h
+    cgo_export_c = field(Artifact),  # _cgo_export.c
+    cgo1_go_files = field(list[Artifact]),  # *.cgo1.go
+    cgo2_c_files = field(list[Artifact]),  # *.cgo2.c
+)
+
 def _cgo(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         own_pre: list[CPreprocessor],
         inherited_pre: list[CPreprocessorInfo],
         c_flags: list[str],
-        cpp_flags: list[str]) -> (list[Artifact], list[Artifact], list[Artifact], Artifact):
+        cpp_flags: list[str]) -> (CGoToolOut, Artifact):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
     gen_dir = ctx.actions.declare_output("cgo_gen_tmp", dir = True)
-
-    go_srcs, c_headers, c_srcs = project_go_and_c_files(srcs, gen_dir)
 
     # Return a `cmd_args` to use as the generated sources.
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -74,20 +80,16 @@ def _cgo(
 
     ctx.actions.run(cmd, env = env, category = "cgo")
 
-    return go_srcs, c_headers, c_srcs, gen_dir
+    return project_go_and_c_files(srcs, gen_dir), gen_dir
 
-def project_go_and_c_files(cgo_srcs: list[Artifact], gen_dir: Artifact) -> (list[Artifact], list[Artifact], list[Artifact]):
-    go_srcs = []
-    c_headers = []
-    c_srcs = []
-    go_srcs.append(gen_dir.project("_cgo_gotypes.go"))
-    c_srcs.append(gen_dir.project("_cgo_export.c"))
-    c_headers.append(gen_dir.project("_cgo_export.h"))
-    for src in cgo_srcs:
-        go_srcs.append(gen_dir.project(paths.replace_extension(src.basename, ".cgo1.go")))
-        c_srcs.append(gen_dir.project(paths.replace_extension(src.basename, ".cgo2.c")))
-
-    return go_srcs, c_headers, c_srcs
+def project_go_and_c_files(cgo_srcs: list[Artifact], gen_dir: Artifact) -> CGoToolOut:
+    return CGoToolOut(
+        cgo_gotypes = gen_dir.project("_cgo_gotypes.go"),
+        cgo_export_h = gen_dir.project("_cgo_export.h"),
+        cgo_export_c = gen_dir.project("_cgo_export.c"),
+        cgo1_go_files = [gen_dir.project(paths.replace_extension(src.basename, ".cgo1.go")) for src in cgo_srcs],
+        cgo2_c_files = [gen_dir.project(paths.replace_extension(src.basename, ".cgo2.c")) for src in cgo_srcs],
+    )
 
 def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_pre: list[CPreprocessorInfo]) -> cmd_args:
     pre = cxx_merge_cpreprocessors(ctx, own_pre, inherited_pre)
@@ -137,7 +139,10 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
 
     # Separate sources into C++ and GO sources.
-    go_gen_srcs, c_gen_headers, c_gen_srcs, gen_dir = _cgo(ctx, cgo_files, [own_pre], inherited_pre, c_flags, cpp_flags)
+    cgo_tool_out, gen_dir = _cgo(ctx, cgo_files, [own_pre], inherited_pre, c_flags, cpp_flags)
+    go_gen_srcs = [cgo_tool_out.cgo_gotypes] + cgo_tool_out.cgo1_go_files
+    c_gen_headers = [cgo_tool_out.cgo_export_h]
+    c_gen_srcs = [cgo_tool_out.cgo_export_c] + cgo_tool_out.cgo2_c_files
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
     cgo_headers_pre = CPreprocessor(args = CPreprocessorArgs(args = [
