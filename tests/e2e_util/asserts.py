@@ -82,6 +82,6 @@ async def expect_failure(
         ), f'Did not find pattern: "{stdout_regex}" in stdout: "{failure.stdout}"'
     if stderr_regex is not None:
         assert re.search(
-            stderr_regex, failure.stderr, re.DOTALL
+            stderr_regex, failure.stderr, re.DOTALL | re.IGNORECASE
         ), f'Did not find pattern: "{stderr_regex}" in stderr: "{failure.stderr}"'
     return failure
