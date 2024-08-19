@@ -460,6 +460,8 @@ def get_filtered_labels_to_links_map(
         target_link_group = link_group_mappings.get(target)
 
         output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        output_style_for_static_strategy = get_lib_output_style(LinkStrategy("static_pic"), link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        is_forced_shared_linkage = output_style_for_static_strategy == LibOutputStyle("shared_lib")
 
         # We should always add force-static libs to the link.
         is_force_static_lib = force_static_follows_dependents and node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents
@@ -467,8 +469,7 @@ def get_filtered_labels_to_links_map(
         # If this belongs to the match all link group or the group currently being evaluated
         matches_current_link_group = target_link_group == MATCH_ALL_LABEL or target_link_group == link_group
 
-        # Always link any shared dependencies
-        if output_style == LibOutputStyle("shared_lib"):
+        if is_forced_shared_linkage:
             # filter out any dependencies to be discarded
             group = link_groups.get(target_link_group)
             if group != None and group.attrs.discard_group:
@@ -482,23 +483,44 @@ def get_filtered_labels_to_links_map(
                 add_link_group(target, root_link_group)
             else:
                 add_link(target, LibOutputStyle("shared_lib"))
-        else:  # static or static_pic
-            target_link_group = link_group_mappings.get(target)
 
-            # Always add force-static libs to the link.
-            if is_force_static_lib:
-                add_link(target, output_style)
-            elif not target_link_group and not link_group:
-                # Ungrouped linkable targets belong to the unlabeled executable
-                add_link(target, output_style)
-            elif is_executable_link and target_link_group == NO_MATCH_LABEL:
-                # Targets labeled NO_MATCH belong to the unlabeled executable
-                add_link(target, output_style)
-            elif matches_current_link_group:
-                # If this belongs to the match all link group or the group currently being evaluated
-                add_link(target, output_style)
-            elif target_link_group not in filtered_groups:
-                add_link_group(target, target_link_group)
+        else:
+            # Shared vs static linkage branches are similar, but separated for
+            # clarity and ease of debugging.
+            if link_strategy == LinkStrategy("shared"):
+                if (target_link_group and matches_current_link_group) or is_force_static_lib:
+                    # Target linked statically if:
+                    # 1. It belongs to current link group (unique symbols across graph)
+                    # 2. It matches all link groups (can duplicate symbols across graph)
+                    # 3. It forces static linkage (can duplicate symbols across graph)
+                    add_link(target, output_style_for_static_strategy)
+
+                elif not target_link_group or target_link_group == NO_MATCH_LABEL:
+                    # Target directly linked dynamically if:
+                    # 1. It doesn't belong to any link group
+                    # 2. It belongs to NO_MATCH group
+                    add_link(target, output_style)
+
+                elif target_link_group not in filtered_groups:
+                    # Targets linked through other link group dynamically if:
+                    # 1. It matches other link group
+                    add_link_group(target, target_link_group)
+
+            else:  # static or static_pic
+                # Always add force-static libs to the link.
+                if is_force_static_lib:
+                    add_link(target, output_style)
+                elif not target_link_group and not link_group:
+                    # Ungrouped linkable targets belong to the unlabeled executable
+                    add_link(target, output_style)
+                elif is_executable_link and target_link_group == NO_MATCH_LABEL:
+                    # Targets labeled NO_MATCH belong to the unlabeled executable
+                    add_link(target, output_style)
+                elif matches_current_link_group:
+                    # If this belongs to the match all link group or the group currently being evaluated
+                    add_link(target, output_style)
+                elif target_link_group not in filtered_groups:
+                    add_link_group(target, target_link_group)
 
     return FinalLabelsToLinks(
         map = linkable_map,
