@@ -230,6 +230,7 @@ extra_attributes = {
         "res": attrs.option(attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)), default = None),
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_java_toolchain": toolchains_common.java_for_android(),
     },
     "apk_genrule": genrule_attributes() | {
         "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),

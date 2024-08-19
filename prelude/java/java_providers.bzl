@@ -412,7 +412,7 @@ def get_java_packaging_info(
 # Each framework (like "di") can use a Buck rule to identify dependencies with matching values for their framework key in the `global_code_info` provider.
 # They can then compile all the .jars needed for global code generation.
 
-def _get_global_code_info(
+def get_global_code_info(
         ctx: AnalysisContext,
         declared_deps: list[Dependency],
         packaging_deps: list[Dependency],
@@ -526,7 +526,7 @@ def _create_non_template_providers(
 
     compiling_deps = derive_compiling_deps(ctx.actions, library_output, exported_deps + exported_provided_deps)
 
-    global_code_info = _get_global_code_info(
+    global_code_info = get_global_code_info(
         ctx,
         declared_deps,
         packaging_deps,
