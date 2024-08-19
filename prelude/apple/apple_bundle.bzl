@@ -17,6 +17,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleTo
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
+load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
 load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -369,6 +370,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
+    validation_specs = get_debug_artifacts_validators(ctx, aggregated_debug_info.debug_info.debug_info_tset)
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(
@@ -395,7 +397,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
         extra_output_provider,
         link_cmd_debug_info,
-    ] + bundle_result.providers
+    ] + bundle_result.providers + (
+        # Currently, buck throws an error if you pass a ValidationInfo with no validations in it.
+        [ValidationInfo(validations = validation_specs)] if validation_specs else []
+    )
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
     data = {
