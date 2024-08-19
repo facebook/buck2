@@ -32,6 +32,7 @@
 
 pub use layout::alloc_static_simple::AllocStaticSimple;
 pub use owned_frozen_ref::OwnedFrozenRef;
+pub use owned_frozen_ref::OwnedRefFrozenRef;
 pub use starlark_derive::starlark_attrs;
 pub use starlark_derive::starlark_value;
 pub use starlark_derive::AllocFrozenValue;
