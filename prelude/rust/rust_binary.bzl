@@ -157,6 +157,8 @@ def _rust_binary_common(
         link_group_libs = link_group_libs,
         link_group_preferred_linkage = link_group_preferred_linkage,
         labels_to_links_map = labels_to_links_map,
+        # TODO(patskovn): Unify link shlib materialisation logic with C++
+        targets_consumed_by_link_groups = {},
     )
 
     for shlib in traverse_shared_library_info(shlib_info):

@@ -256,6 +256,8 @@ LinkGroupContext = record(
     link_group_libs = field(dict[str, typing.Any]),
     link_group_preferred_linkage = field(dict[Label, Linkage]),
     labels_to_links_map = field(dict[Label, LinkGroupLinkInfo]),
+    # Mapping from a target to a link group name it was linked into.
+    targets_consumed_by_link_groups = field(dict[Label, str]),
 )
 
 def is_link_group_shlib(
@@ -1054,6 +1056,7 @@ def get_transitive_deps_matching_labels(
 def build_shared_libs_for_symlink_tree(
         use_link_groups: bool,
         link_group_ctx: LinkGroupContext,
+        link_strategy: LinkStrategy,
         shared_libraries: list[SharedLibrary],
         extra_shared_libraries: list[SharedLibrary]) -> list[SharedLibrary]:
     # Which targets we actually materialized as symlinks to link group
@@ -1083,8 +1086,15 @@ def build_shared_libs_for_symlink_tree(
             # .so file and dynamic linker will be satisfied.
             continue
 
-        if not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
-            symlink_tree_shared_libraries.append(shlib)
+        if link_strategy == LinkStrategy("shared") and shlib.label in link_group_ctx.targets_consumed_by_link_groups:
+            link_group_link = create_link_group_link(
+                link_group_ctx.link_group_libs[link_group_ctx.targets_consumed_by_link_groups[shlib.label]],
+                shlib,
+            )
+            add_shib(link_group_link)
+
+        elif not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
+            add_shib(shlib)
 
     # Add in extra, rule-specific shared libs.
     for extra_shlib in extra_shared_libraries:
@@ -1092,3 +1102,37 @@ def build_shared_libs_for_symlink_tree(
             add_shib(extra_shlib)
 
     return symlink_tree_shared_libraries
+
+def create_link_group_link(
+        link_group_lib: LinkGroupLib,
+        consumed_library: SharedLibrary) -> SharedLibrary:
+    """
+    This method implements symlinking from original .so to link group .so
+    for link groups in **dynamic linking**.
+    Current problem is: with following setup
+    ```
+        :bin
+       |    |
+      :A   :C
+       |    │
+       └ :B ┘
+    ```
+
+    If we put `:A` and `:B` to link group, `lib_c.so` will still add `lib_b.so` to `NEEDS` section.
+    But `lib_b.so` is gonna be grouped to `lib_a_b_lg.so` and there is no way to propagate this information to `lib_c.so`.
+    But we actually can have "stubs" for `lib_a.so` and `lib_b.so` that all point to actual `lib_a_b_lg.so`.
+    This approach satisfies dynamic linker.
+    """
+
+    if len(link_group_lib.shared_libs.libraries) != 1:
+        fail("This method should only be used with auto link groups that produce exactly one shared libray")
+    link_group_shlib = link_group_lib.shared_libs.libraries[0]
+
+    return create_shlib(
+        lib = link_group_shlib.lib,
+        link_args = link_group_shlib.link_args,
+        shlib_deps = link_group_shlib.shlib_deps,
+        can_be_asset = link_group_shlib.can_be_asset,
+        soname = consumed_library.soname,  # <=== we match original target soname that will symlink to link group
+        label = consumed_library.label,
+    )

@@ -289,6 +289,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Link group libs.
     link_group_libs = {}
+
+    # Target label to which link group it was included
+    targets_consumed_by_link_groups = {}
     auto_link_groups = {}
     labels_to_links = FinalLabelsToLinks(
         map = {},
@@ -353,6 +356,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 if linked_link_group.library != None:
                     link_group_libs[name] = linked_link_group.library
             own_binary_link_flags += linked_link_groups.symbol_ldflags
+            targets_consumed_by_link_groups = linked_link_groups.targets_consumed_by_link_groups
 
         else:
             # NOTE(agallagher): We don't use version scripts and linker scripts
@@ -468,12 +472,14 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         link_group_libs = link_group_libs,
         link_group_preferred_linkage = link_group_preferred_linkage,
         labels_to_links_map = labels_to_links.map,
+        targets_consumed_by_link_groups = targets_consumed_by_link_groups,
     )
 
     # Set up shared libraries symlink tree only when needed
     shared_libs = build_shared_libs_for_symlink_tree(
         gnu_use_link_groups,
         link_group_ctx,
+        link_strategy,
         traverse_shared_library_info(shlib_info),
         impl_params.extra_shared_libs,
     )
