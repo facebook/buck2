@@ -15,6 +15,7 @@ def _archive_flags(
         archiver_type: str,
         linker_type: str,
         use_archiver_flags: bool,
+        symbol_table: bool,
         thin: bool) -> list[str]:
     if not use_archiver_flags:
         return []
@@ -34,8 +35,8 @@ def _archive_flags(
     # Suppress warning about creating a new archive.
     flags += "c"
 
-    # Run ranlib to generate symbol index for faster linking.
-    flags += "s"
+    # Run ranlib to generate symbol index for faster linking if requested.
+    flags += "s" if symbol_table else "S"
 
     # Generate thin archives.
     if thin:
@@ -57,6 +58,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
         archiver_type,
         toolchain.linker_info.type,
         toolchain.linker_info.use_archiver_flags,
+        toolchain.linker_info.archive_symbol_table,
         thin,
     ))
     if archiver_type == "windows" or archiver_type == "windows_clang":

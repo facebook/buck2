@@ -94,6 +94,7 @@ def cxx_toolchain_impl(ctx):
         archiver_type = ctx.attrs.archiver_type,
         archive_contents = ctx.attrs.archive_contents,
         archive_objects_locally = False,
+        archive_symbol_table = ctx.attrs.archive_symbol_table,
         binary_extension = value_or(ctx.attrs.binary_extension, ""),
         generate_linker_maps = ctx.attrs.generate_linker_maps,
         is_pdb_generated = is_pdb_generated(ctx.attrs.linker_type, ctx.attrs.linker_flags),
@@ -185,6 +186,7 @@ def cxx_toolchain_impl(ctx):
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
     dep_type = attrs.exec_dep if is_toolchain_rule else attrs.dep
     return {
+        "archive_symbol_table": attrs.bool(default = True),
         "archiver": dep_type(providers = [RunInfo]),
         "archiver_supports_argfiles": attrs.bool(default = False),
         "asm_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),

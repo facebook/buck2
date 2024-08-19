@@ -22,6 +22,7 @@ LinkerInfo = provider(
         "archiver_type": provider_field(typing.Any, default = None),
         "archive_contents": provider_field(typing.Any, default = None),
         "archive_objects_locally": provider_field(typing.Any, default = None),
+        "archive_symbol_table": provider_field(bool, default = True),
         # "archiver_platform",
         # "" on Unix, "exe" on Windows
         "binary_extension": provider_field(typing.Any, default = None),  # str
