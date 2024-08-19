@@ -129,6 +129,7 @@ load(
 )
 load(
     ":link_groups.bzl",
+    "FinalLabelsToLinks",
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
@@ -289,7 +290,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Link group libs.
     link_group_libs = {}
     auto_link_groups = {}
-    labels_to_links_map = {}
+    labels_to_links = FinalLabelsToLinks(
+        map = {},
+    )
 
     if not link_group_mappings:
         # We cannot support deriving link execution preference off the included links, as we've already
@@ -364,7 +367,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
         # scenarios for which we need to propagate up link info and simplify this logic. For now
         # base which links to use based on whether link groups are defined.
-        labels_to_links_map = get_filtered_labels_to_links_map(
+        labels_to_links = get_filtered_labels_to_links_map(
             public_link_group_nodes,
             linkable_graph_node_map,
             link_group,
@@ -393,7 +396,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
         link_groups_debug_info = LinkGroupsDebugLinkInfo(
             binary = LinkGroupsDebugLinkableItem(
-                ordered_linkables = create_debug_linkable_entries(labels_to_links_map),
+                ordered_linkables = create_debug_linkable_entries(labels_to_links.map),
             ),
             libs = link_group_libs_debug_info,
         )
@@ -407,7 +410,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
-            labels_to_links_map = labels_to_links_map | get_filtered_labels_to_links_map(
+            labels_to_links_to_merge = get_filtered_labels_to_links_map(
                 public_link_group_nodes,
                 linkable_graph_node_map,
                 None,
@@ -420,6 +423,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 is_executable_link = True,
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )
+            labels_to_links.map |= labels_to_links_to_merge.map
 
         # NOTE: Our Haskell DLL support impl currently links transitive haskell
         # deps needed by DLLs which get linked into the main executable as link-
@@ -433,10 +437,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 roots = get_dedupped_roots_from_groups(link_group_info.groups.values()),
             )
 
-        filtered_links = get_filtered_links(labels_to_links_map, set(public_nodes))
-        filtered_targets = get_filtered_targets(labels_to_links_map)
+        filtered_links = get_filtered_links(labels_to_links.map, set(public_nodes))
+        filtered_targets = get_filtered_targets(labels_to_links.map)
 
-        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links_map.keys(), impl_params.force_full_hybrid_if_capable)
+        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links.map.keys(), impl_params.force_full_hybrid_if_capable)
 
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
@@ -469,7 +473,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         link_group_mappings = link_group_mappings,
         link_group_libs = link_group_libs,
         link_group_preferred_linkage = link_group_preferred_linkage,
-        labels_to_links_map = labels_to_links_map,
+        labels_to_links_map = labels_to_links.map,
     )
 
     for shlib in traverse_shared_library_info(shlib_info):

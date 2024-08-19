@@ -324,6 +324,13 @@ def create_debug_linkable_entries(
 
     return entries
 
+# This stores final information about link arguments
+# that maps to linker.argsfile for link group or final binary.
+FinalLabelsToLinks = record(
+    # Static archives and shared libraries inputs.
+    map = field(dict[Label, LinkGroupLinkInfo]),
+)
+
 def get_filtered_labels_to_links_map(
         public_nodes: [set_record, None],
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -337,7 +344,7 @@ def get_filtered_labels_to_links_map(
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped: bool = False,
         is_executable_link: bool = False,
-        force_static_follows_dependents: bool = True) -> dict[Label, LinkGroupLinkInfo]:
+        force_static_follows_dependents: bool = True) -> FinalLabelsToLinks:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -481,7 +488,9 @@ def get_filtered_labels_to_links_map(
             elif target_link_group not in filtered_groups:
                 add_link_group(target, target_link_group)
 
-    return linkable_map
+    return FinalLabelsToLinks(
+        map = linkable_map,
+    )
 
 # Find all link group libraries that are first order deps or exported deps of
 # the exectuble or another link group's libs
@@ -668,7 +677,7 @@ def _get_roots_from_mappings(
 
 _CreatedLinkGroup = record(
     linked_object = field(LinkedObject),
-    labels_to_links_map = field(dict[Label, LinkGroupLinkInfo] | None),
+    labels_to_links = field(FinalLabelsToLinks | None),
 )
 
 def _create_link_group(
@@ -717,7 +726,7 @@ def _create_link_group(
         ))
 
     # Add roots...
-    filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+    filtered_labels_to_links = get_filtered_labels_to_links_map(
         public_nodes,
         linkable_graph_node_map,
         spec.group.name,
@@ -731,9 +740,9 @@ def _create_link_group(
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
     )
-    inputs.extend(get_filtered_links(filtered_labels_to_links_map, public_nodes))
+    inputs.extend(get_filtered_links(filtered_labels_to_links.map, public_nodes))
 
-    if not filtered_labels_to_links_map and not spec.root:
+    if not filtered_labels_to_links.map and not spec.root:
         # don't create empty shared libraries
         return None
 
@@ -756,7 +765,7 @@ def _create_link_group(
     )
     return _CreatedLinkGroup(
         linked_object = link_result.linked_object,
-        labels_to_links_map = filtered_labels_to_links_map,
+        labels_to_links = filtered_labels_to_links,
     )
 
 def _stub_library(
@@ -943,9 +952,9 @@ def create_link_groups(
 
         link_group_lib = created_link_group.linked_object
 
-        if created_link_group.labels_to_links_map:
+        if created_link_group.labels_to_links.map:
             link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
-                ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links_map),
+                ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links.map),
             )
 
         # On GNU, use shlib interfaces.

@@ -473,7 +473,7 @@ def inherited_rust_cxx_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
-    labels_to_links_map = get_filtered_labels_to_links_map(
+    labels_to_links = get_filtered_labels_to_links_map(
         public_link_group_nodes,
         linkable_graph_node_map,
         link_group,
@@ -493,14 +493,14 @@ def inherited_rust_cxx_link_group_info(
     )
 
     return RustCxxLinkGroupInfo(
-        filtered_links = get_filtered_links(labels_to_links_map),
+        filtered_links = get_filtered_links(labels_to_links.map),
         symbol_files_info = LinkInfo(
             pre_flags = linked_link_groups.symbol_ldflags,
         ),
-        filtered_targets = get_filtered_targets(labels_to_links_map),
+        filtered_targets = get_filtered_targets(labels_to_links.map),
         link_group_info = link_group_info,
         link_group_libs = link_group_libs,
-        labels_to_links_map = labels_to_links_map,
+        labels_to_links_map = labels_to_links.map,
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 

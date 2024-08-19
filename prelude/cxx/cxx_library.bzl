@@ -1257,7 +1257,7 @@ def _get_shared_library_links(
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
     linkable_graph_label_to_node_map = linkable_graph_node_map_func()
 
-    filtered_labels_to_links_map = get_filtered_labels_to_links_map(
+    filtered_labels_to_links = get_filtered_labels_to_links_map(
         None,
         linkable_graph_label_to_node_map,
         link_group,
@@ -1274,10 +1274,10 @@ def _get_shared_library_links(
         prefer_stripped = prefer_stripped,
         force_static_follows_dependents = force_static_follows_dependents,
     )
-    filtered_links = get_filtered_links(filtered_labels_to_links_map)
-    filtered_targets = get_filtered_targets(filtered_labels_to_links_map)
+    filtered_links = get_filtered_links(filtered_labels_to_links.map)
+    filtered_targets = get_filtered_targets(filtered_labels_to_links.map)
 
-    link_execution_preference = get_link_execution_preference(ctx, filtered_labels_to_links_map.keys())
+    link_execution_preference = get_link_execution_preference(ctx, filtered_labels_to_links.map.keys())
 
     # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
     # for the resolved nodes in the graph.
@@ -1290,7 +1290,7 @@ def _get_shared_library_links(
     # interface output then interface generation is disabled and we can skip collection.
     shared_interface_infos = []
     if len(exported_symbol_outputs) > 0:
-        for label in filtered_labels_to_links_map.keys():
+        for label in filtered_labels_to_links.map.keys():
             linkable_node = linkable_graph_label_to_node_map[label]
             if linkable_node.shared_interface_info != None:
                 shared_interface_infos.append(linkable_node.shared_interface_info)
