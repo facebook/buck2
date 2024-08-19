@@ -24,7 +24,7 @@ CommonArgsInfo = record(
     crate_type = field(CrateType),
     params = field(BuildParams),
     emit = field(Emit),
-    is_check = field(bool),
+    emit_requires_linking = field(bool),
     crate_map = field(list[(CrateName, Label)]),
 )
 

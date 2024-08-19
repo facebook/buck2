@@ -559,7 +559,7 @@ def rust_compile(
 
     pdb_artifact = None
     dwp_inputs = []
-    if crate_type_linked(params.crate_type) and not common_args.is_check:
+    if crate_type_linked(params.crate_type) and common_args.emit_requires_linking:
         subdir = common_args.subdir
         tempfile = common_args.tempfile
 
@@ -850,13 +850,13 @@ def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> 
         format = "-{}{{}}".format(flag),
     )
 
-def _lint_flags(compile_ctx: CompileContext, is_check: bool, is_clippy: bool) -> cmd_args:
+def _lint_flags(compile_ctx: CompileContext, infallible_diagnostics: bool, is_clippy: bool) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
 
     return cmd_args(
         _lintify("A", is_clippy, toolchain_info.allow_lints),
         _lintify("D", is_clippy, toolchain_info.deny_lints),
-        _lintify("D" if is_check else "W", is_clippy, toolchain_info.deny_on_check_lints),
+        _lintify("D" if infallible_diagnostics else "W", is_clippy, toolchain_info.deny_on_check_lints),
         _lintify("W", is_clippy, toolchain_info.warn_lints),
     )
 
@@ -923,7 +923,9 @@ def _compute_common_args(
     # dependency's generated code be provided to the linker via an rlib. It
     # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)
-    is_check = dep_metadata_kind != MetadataKind("link")
+
+    # FIXME(JakobDegen): This computation is an awfully broad over-approximation
+    emit_requires_linking = dep_metadata_kind == MetadataKind("link")
     if compile_ctx.dep_ctx.advanced_unstable_linking or not crate_type_codegen(crate_type):
         if dep_metadata_kind == MetadataKind("link"):
             dep_metadata_kind = MetadataKind("full")
@@ -942,7 +944,7 @@ def _compute_common_args(
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
 
-    if crate_type in [CrateType("cdylib"), CrateType("dylib")] and not is_check:
+    if crate_type in [CrateType("cdylib"), CrateType("dylib")] and emit_requires_linking:
         linker_info = compile_ctx.cxx_toolchain_info.linker_info
         shlib_name = attr_soname(ctx)
         dep_args.add(cmd_args(
@@ -1071,7 +1073,7 @@ def _compute_common_args(
         crate_type = crate_type,
         params = params,
         emit = emit,
-        is_check = is_check,
+        emit_requires_linking = emit_requires_linking,
         crate_map = crate_map,
     )
 
