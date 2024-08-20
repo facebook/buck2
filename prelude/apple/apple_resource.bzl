@@ -5,8 +5,32 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//ide_integrations:xcode.bzl",
+    "XCODE_DATA_SUB_TARGET",
+    "generate_xcode_data",
+)
 load(":apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load(":resource_groups.bzl", "create_resource_graph")
+
+def _artifacts(deps: (list[[Artifact, Dependency]])) -> list[Artifact]:
+    artifacts = []
+    for dep in deps:
+        if isinstance(dep, Dependency):
+            artifacts.extend(dep[DefaultInfo].default_outputs)
+        else:
+            artifacts.append(dep)
+    return artifacts
+
+def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
+    data = {
+        "product_name": ctx.attrs.name.replace(".", "_"),
+    }
+    artifacts = _artifacts(ctx.attrs.files)
+    if artifacts:
+        data["extra_xcode_files"] = artifacts
+
+    return data
 
 def apple_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     destination = ctx.attrs.destination or "resources"
@@ -32,10 +56,13 @@ def apple_resource_impl(ctx: AnalysisContext) -> list[Provider]:
         exported_deps = [],
         resource_spec = resource_spec,
     )
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_resource", None, _xcode_populate_attributes)
+
     return [DefaultInfo(
         sub_targets = {
             "headers": [
                 DefaultInfo(default_outputs = []),
             ],
+            XCODE_DATA_SUB_TARGET: xcode_data_default_info,
         },
-    ), graph]
+    ), graph, xcode_data_info]
