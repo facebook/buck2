@@ -425,12 +425,10 @@ def _link_infos(
                 default = LinkInfo(
                     linkables = [SharedLibLinkable(lib = lib.output)],
                     external_debug_info = external_debug_info,
-                    pre_flags = ctx.attrs.exported_linker_flags,
                 ),
                 stripped = LinkInfo(
                     linkables = [SharedLibLinkable(lib = lib.stripped_output)],
                     external_debug_info = external_debug_info,
-                    pre_flags = ctx.attrs.exported_linker_flags,
                 ),
             )
         else:
@@ -441,14 +439,12 @@ def _link_infos(
                         linker_type = linker_type,
                     )],
                     external_debug_info = external_debug_info,
-                    pre_flags = ctx.attrs.exported_linker_flags,
                 ),
                 stripped = LinkInfo(
                     linkables = [ArchiveLinkable(
                         archive = Archive(artifact = lib.stripped_output),
                         linker_type = linker_type,
                     )],
-                    pre_flags = ctx.attrs.exported_linker_flags,
                 ),
             )
     return link_infos

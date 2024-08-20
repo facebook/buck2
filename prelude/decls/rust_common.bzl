@@ -70,14 +70,6 @@ def _linker_flags_arg():
 """),
     }
 
-def _exported_linker_flags_arg():
-    return {
-        "exported_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
-    A set of additional flag to pass before this item on the link line, even if
-    this items is compiled to a DSO.
-"""),
-    }
-
 def _crate(crate_type):
     return {
         "crate": crate_type,
@@ -165,7 +157,6 @@ rust_common = struct(
     edition_arg = _edition_arg,
     rustc_flags_arg = _rustc_flags_arg,
     linker_flags_arg = _linker_flags_arg,
-    exported_linker_flags_arg = _exported_linker_flags_arg,
     crate = _crate,
     crate_root = _crate_root,
     env_arg = _env_arg,

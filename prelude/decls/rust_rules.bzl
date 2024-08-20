@@ -182,7 +182,6 @@ rust_library = prelude_rule(
         # don't have to know whether we're building a rust_binary or a
         # rust_library.
         rust_common.linker_flags_arg() |
-        rust_common.exported_linker_flags_arg() |
         rust_common.env_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
