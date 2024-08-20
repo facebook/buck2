@@ -151,6 +151,7 @@ LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
     # or when constructing intermediate output paths and does not need to be unique.
     name = field([str, None], None),
+    dist_thin_lto_codegen_flags = field(list[typing.Any], []),
     # Opaque cmd_arg-likes to be added pre/post this item on a linker command line.
     pre_flags = field(list[typing.Any], []),
     post_flags = field(list[typing.Any], []),
@@ -713,7 +714,7 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
     res = []
 
     def append(v):
-        if v.pre_flags or v.post_flags or v.linkables:
+        if v.pre_flags or v.post_flags or v.dist_thin_lto_codegen_flags or v.linkables:
             res.append(v)
 
     for link in links:

@@ -69,6 +69,7 @@ _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 def _apple_binary_extra_attrs():
     attribs = {
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
+        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -97,6 +98,7 @@ def _apple_binary_extra_attrs():
 
 def _apple_library_extra_attrs():
     attribs = {
+        "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),

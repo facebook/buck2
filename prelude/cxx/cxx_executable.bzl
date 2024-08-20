@@ -490,6 +490,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     links = [
         LinkArgs(infos = [
             LinkInfo(
+                dist_thin_lto_codegen_flags = getattr(ctx.attrs, "dist_thin_lto_codegen_flags", []),
                 pre_flags = own_binary_link_flags,
                 linkables = [ObjectsLinkable(
                     objects = [out.object for out in cxx_outs] + impl_params.extra_link_input,

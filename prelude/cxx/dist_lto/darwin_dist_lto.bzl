@@ -423,13 +423,15 @@ def cxx_darwin_dist_link(
     link_plan_out = ctx.actions.declare_output(output.basename + ".link-plan.json")
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index)
 
-    def prepare_opt_flags() -> cmd_args:
-        opt_cmd = cmd_args(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
-        opt_cmd.add(extra_codegen_flags)
-        return opt_cmd
+    def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
+        opt_flags = cmd_args(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
+        opt_flags.add(extra_codegen_flags)
+        for link in link_infos:
+            opt_flags.add(link.dist_thin_lto_codegen_flags)
+        return opt_flags
 
     common_opt_cmd = cmd_args(cxx_toolchain.linker_info.linker)
-    common_opt_cmd.add(prepare_opt_flags())
+    common_opt_cmd.add(prepare_opt_flags(link_infos))
 
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
@@ -438,7 +440,7 @@ def cxx_darwin_dist_link(
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
 
     # We don't want the linker itself in the argsfile for debugging / testing codegen flags
-    opt_flags_for_debugging = prepare_opt_flags()
+    opt_flags_for_debugging = prepare_opt_flags(link_infos)
     opt_flags_for_debugging_argsfile = ctx.actions.declare_output(output.basename + ".thin_lto_codegen_debugging_argsfile")
     ctx.actions.write(opt_flags_for_debugging_argsfile.as_output(), opt_flags_for_debugging, allow_args = True)
 

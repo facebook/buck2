@@ -1469,6 +1469,7 @@ def _shared_library(
     # generating a link product.
     linker_flags = cxx_attr_linker_flags_all(ctx)
     link_info = LinkInfo(
+        dist_thin_lto_codegen_flags = getattr(ctx.attrs, "dist_thin_lto_codegen_flags", []),
         pre_flags = (
             linker_flags.flags +
             linker_flags.exported_flags +
