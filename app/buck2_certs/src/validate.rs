@@ -21,15 +21,15 @@ use crate::certs::load_certs;
 #[buck2(input, tag = NoValidCerts)]
 enum InvalidCertsError {
     #[error(
-        "Could not find valid root certs. Please check your machine certificate settings.\nFailure Reason: {0}"
+        "Could not find valid root certs. Please check your machine certificate settings. Instructions: https://fburl.com/devcert\nFailure Reason: {0}"
     )]
     SystemCerts(String),
     #[error(
-        "Could not find valid client certs. Try refreshing your internal certs or re-login and try again.\nFailure Reason: {0}"
+        "Could not find valid client certs. Try refreshing your internal certs or re-login and try again. Instructions: https://fburl.com/devcert\nFailure Reason: {0}"
     )]
     ClientCerts(String),
     #[error(
-        "Could not find valid certs for VPNless. Please refresh/renew certs with SKS agent and try again."
+        "Could not find valid certs for VPNless. Please refresh/renew certs with SKS agent and try again. Instructions: https://fburl.com/devcert"
     )]
     VPNlessCerts,
 }
