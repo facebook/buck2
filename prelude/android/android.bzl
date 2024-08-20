@@ -201,6 +201,10 @@ extra_attributes = {
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        "_compose_stability_config": attrs.option(attrs.source(), default = select({
+            "DEFAULT": None,
+            "fbsource//third-party/java/androidx/compose/config:enable-compose-stability-config": "fbsource//third-party/java/androidx/compose/config:stability_config",
+        })),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),

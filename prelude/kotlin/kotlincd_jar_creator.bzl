@@ -69,7 +69,7 @@ def create_jar_artifact_kotlincd(
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
-        extra_kotlinc_arguments: list[str],
+        extra_kotlinc_arguments: list,
         k2: bool,
         incremental: bool,
         is_creating_subtarget: bool = False,
@@ -118,7 +118,7 @@ def create_jar_artifact_kotlincd(
         current_language_version = None
         for arg in extra_kotlinc_arguments:
             # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
-            if "-language-version" in arg:
+            if isinstance(arg, str) and "-language-version" in arg:
                 current_language_version = arg.split("=")[1].strip()
 
         if k2 == True and kotlin_toolchain.allow_k2_usage:

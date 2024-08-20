@@ -319,6 +319,11 @@ def build_kotlin_library(
         )
 
     else:
+        compose_stability_config = getattr(ctx.attrs, "compose_stability_config", None)
+        if compose_stability_config != None:
+            ctx.attrs.extra_kotlinc_arguments.append("-P")
+            ctx.attrs.extra_kotlinc_arguments.append(cmd_args(["plugin:androidx.compose.compiler.plugins.kotlin:stabilityConfigurationPath", ctx.attrs._compose_stability_config], delimiter = "="))
+
         deps_query = getattr(ctx.attrs, "deps_query", []) or []
         provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
         _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
