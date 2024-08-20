@@ -374,12 +374,12 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
 def _srcs_to_objfiles(
         ctx: AnalysisContext,
         odir: Artifact,
-        osuf: str) -> cmd_args:
-    objfiles = cmd_args()
+        osuf: str) -> list[Artifact]:
+    objfiles = []
     for src, _ in srcs_to_pairs(ctx.attrs.srcs):
         # Don't link boot sources, as they're only meant to be used for compiling.
         if is_haskell_src(src):
-            objfiles.add(cmd_args([odir, "/", paths.replace_extension(src, "." + osuf)], delimiter = ""))
+            objfiles.append(odir.project(paths.replace_extension(src, "." + osuf)))
     return objfiles
 
 _REGISTER_PACKAGE = """\
@@ -592,7 +592,7 @@ def _build_haskell_lib(
     else:  # static flavours
         # TODO: avoid making an archive for a single object, like cxx does
         # (but would that work with Template Haskell?)
-        archive = make_archive(ctx, lib_short_path, [compiled.objects], objfiles)
+        archive = make_archive(ctx, lib_short_path, objfiles)
         lib = archive.artifact
         libs = [lib] + archive.external_objects
         link_infos = LinkInfos(
