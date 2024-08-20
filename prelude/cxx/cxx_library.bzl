@@ -1334,12 +1334,7 @@ def _static_library(
 
     # If we have extra hidden deps of this target add them to the archive action
     # so they are forced to build for static library output.
-    archive_args = cmd_args(
-        objects,
-        hidden = impl_params.extra_hidden or [],
-    )
-
-    archive = make_archive(ctx, name, objects, archive_args)
+    archive = make_archive(ctx, name, objects, impl_params.extra_hidden)
 
     bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, pic, stripped)
     if False:

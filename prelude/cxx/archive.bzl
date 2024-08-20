@@ -111,12 +111,11 @@ def make_archive(
         ctx: AnalysisContext,
         name: str,
         objects: list[Artifact],
-        args: [cmd_args, None] = None) -> Archive:
+        hidden: list[Artifact] = []) -> Archive:
     if len(objects) == 0:
         fail("no objects to archive")
 
-    if args == None:
-        args = cmd_args(objects)
+    args = cmd_args(objects, hidden = hidden)
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     thin = linker_info.archive_contents == "thin"
