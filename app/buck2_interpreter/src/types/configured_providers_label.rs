@@ -29,7 +29,6 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
@@ -278,9 +277,8 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkProvidersLabel, heap: &Heap) -> anyhow::Result<Value<'v>> {
-        let path = StarlarkCellPath(this.label.target().pkg().to_cell_path());
-        Ok(path.alloc_value(heap))
+    fn path<'v>(this: &StarlarkProvidersLabel) -> anyhow::Result<StarlarkCellPath> {
+        Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
     }
 
     #[starlark(attribute)]
