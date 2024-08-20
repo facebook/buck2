@@ -132,7 +132,7 @@ def _rust_binary_common(
     targets_consumed_by_link_groups = {}
     filtered_targets = []
 
-    if enable_link_groups(ctx, link_strategy):
+    if enable_link_groups(ctx):
         rust_cxx_link_group_info = inherited_rust_cxx_link_group_info(
             ctx,
             compile_ctx.dep_ctx,

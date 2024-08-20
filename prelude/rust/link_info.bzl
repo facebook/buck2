@@ -239,17 +239,10 @@ RustCxxLinkGroupInfo = record(
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
 
-def enable_link_groups(
-        ctx: AnalysisContext,
-        link_strategy: LinkStrategy):
+def enable_link_groups(ctx: AnalysisContext):
     if not cxx_is_gnu(ctx):
         # check minimum requirements
         return False
-    if link_strategy == LinkStrategy("shared"):
-        # check whether we should run link groups analysis for the given link strategy
-        return False
-
-    # check whether link groups is enabled
     return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
 
 # Returns all first-order dependencies.
