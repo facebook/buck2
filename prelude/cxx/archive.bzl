@@ -115,10 +115,10 @@ def make_archive(
     if len(objects) == 0:
         fail("no objects to archive")
 
-    args = cmd_args(objects, hidden = hidden)
-
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     thin = linker_info.archive_contents == "thin"
+    object_args = cmd_args(objects, ignore_artifacts = not linker_info.archiver_reads_inputs)
+    args = cmd_args(object_args, hidden = hidden)
     archive = _archive(ctx, name, args, thin = thin, prefer_local = _archive_locally(ctx, linker_info))
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.

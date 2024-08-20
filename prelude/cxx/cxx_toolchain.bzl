@@ -90,6 +90,7 @@ def cxx_toolchain_impl(ctx):
     linker_info = LinkerInfo(
         archiver = ctx.attrs.archiver[RunInfo],
         archiver_flags = cmd_args(ctx.attrs.archiver_flags),
+        archiver_reads_inputs = ctx.attrs.archiver_reads_inputs,
         archiver_supports_argfiles = ctx.attrs.archiver_supports_argfiles,
         archiver_type = ctx.attrs.archiver_type,
         archive_contents = ctx.attrs.archive_contents,
@@ -188,6 +189,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
     return {
         "archive_symbol_table": attrs.bool(default = True),
         "archiver": dep_type(providers = [RunInfo]),
+        "archiver_reads_inputs": attrs.bool(default = True),
         "archiver_supports_argfiles": attrs.bool(default = False),
         "asm_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "asm_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
