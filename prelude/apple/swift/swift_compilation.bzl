@@ -473,18 +473,29 @@ def _compile_with_argsfile(
     # so that CI builds populate caches used by developer machines.
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
+    build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
+
+    # When Swift code is built incrementally, the swift-driver embeds absolute paths into the artifacts.
+    # Unfortunately, this compels us to execute these actions locally and prevents cache uploads.
+    run_extra_args = {
+        "allow_cache_upload": not build_swift_incrementally,
+    }
+    if build_swift_incrementally:
+        run_extra_args["local_only"] = True
+    else:
+        # Swift compilation on RE without explicit modules is impractically expensive
+        # because there's no shared module cache across different libraries.
+        run_extra_args["prefer_local"] = not explicit_modules_enabled
+
     # Make it easier to debug whether Swift actions get compiled with explicit modules or not
     category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
     ctx.actions.run(
         cmd,
         category = category,
-        # Swift compilation on RE without explicit modules is impractically expensive
-        # because there's no shared module cache across different libraries.
-        prefer_local = not explicit_modules_enabled,
-        allow_cache_upload = True,
         # When building incrementally, we need to preserve local state between invocations.
-        no_outputs_cleanup = should_build_swift_incrementally(ctx, len(srcs)),
+        no_outputs_cleanup = build_swift_incrementally,
         error_handler = apple_build_error_handler,
+        **run_extra_args
     )
 
     argsfile = CompileArgsfile(
