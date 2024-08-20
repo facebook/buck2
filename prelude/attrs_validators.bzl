@@ -22,11 +22,11 @@ ATTRS_VALIDATORS_TYPE = attrs.dict(
     default = {},
 )
 
-def get_attrs_validators_outputs(ctx: AnalysisContext) -> list[Artifact]:
+def get_attrs_validators_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
     if not hasattr(ctx.attrs, ATTRS_VALIDATORS_NAME):
         return []
 
-    artifacts = []
+    specs = []
     for key, (requested_attrs, validator) in ctx.attrs.attrs_validators.items():
         output = ctx.actions.declare_output(key)
         ctx.actions.run(
@@ -40,9 +40,9 @@ def get_attrs_validators_outputs(ctx: AnalysisContext) -> list[Artifact]:
             category = "attrs_validator",
             identifier = key,
         )
-        artifacts.append(output)
+        specs.append(ValidationSpec(name = key, validation_result = output))
 
-    return artifacts
+    return specs
 
 def _build_attr_json_args(ctx: AnalysisContext, key: str, requested_attrs: list[str]):
     attr_args = {}

@@ -12,7 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_specs")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
@@ -330,6 +330,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
         providers.append(xctest_swift_support_provider)
+
+        validation_specs = get_attrs_validators_specs(ctx)
+        if validation_specs:
+            providers.append(ValidationInfo(validations = validation_specs))
+
         return providers
 
     framework_search_path_pre = CPreprocessor(
@@ -353,7 +358,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         is_test = (params.rule_type == "apple_test"),
         headers_layout = get_apple_cxx_headers_layout(ctx),
         extra_exported_link_flags = params.extra_exported_link_flags,
-        extra_hidden = validation_deps_outputs + get_attrs_validators_outputs(ctx),
+        extra_hidden = validation_deps_outputs,
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],

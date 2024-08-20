@@ -9,7 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactInfoTag",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -122,7 +122,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             rule_type = "apple_binary",
             headers_layout = get_apple_cxx_headers_layout(ctx),
             extra_link_flags = extra_link_flags,
-            extra_hidden = validation_deps_outputs + get_attrs_validators_outputs(ctx),
+            extra_hidden = validation_deps_outputs,
             srcs = cxx_srcs,
             additional = CxxRuleAdditionalParams(
                 srcs = swift_srcs,
@@ -206,6 +206,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         if cxx_output.sanitizer_runtime_files:
             sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_files = cxx_output.sanitizer_runtime_files))
 
+        validation_specs = get_attrs_validators_specs(ctx)
+        validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
@@ -215,7 +217,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
-        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers
+        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
