@@ -155,8 +155,6 @@ async def buck_fixture(  # noqa C901 : "too complex"
                     json.dump(
                         {
                             "ignore_dirs": ["buck-out"],
-                            "fsevents_watch_files": True,
-                            "prefer_split_fsevents_watcher": False,
                         },
                         f,
                     )
