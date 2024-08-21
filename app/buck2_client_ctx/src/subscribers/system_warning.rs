@@ -55,7 +55,7 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
     )
 }
 
-pub(crate) fn slow_download_speed_smg() -> String {
+pub(crate) fn slow_download_speed_msg() -> String {
     let msg = "Slow download speed is detected. This may significantly impact build speed.";
     if !is_open_source() {
         format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")

@@ -19,7 +19,7 @@ use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
 use crate::subscribers::system_warning::low_disk_space_msg;
-use crate::subscribers::system_warning::slow_download_speed_smg;
+use crate::subscribers::system_warning::slow_download_speed_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
@@ -56,7 +56,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
             self.system_info,
             self.avg_re_download_speed,
         ) {
-            lines.push(warning_styled(&slow_download_speed_smg())?);
+            lines.push(warning_styled(&slow_download_speed_msg())?);
         }
         Ok(Lines(lines))
     }
