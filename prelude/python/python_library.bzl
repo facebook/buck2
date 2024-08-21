@@ -215,7 +215,10 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
     cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
     all_resources = {}
     all_resources.update(from_named_set(ctx.attrs.resources))
-    for resources in get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_resources):
+
+    # `python_binary` doesn't have `platform_resources`
+    platform_resources = getattr(ctx.attrs, "platform_resources", [])
+    for resources in get_platform_attr(python_platform, cxx_platform, platform_resources):
         all_resources.update(from_named_set(resources))
     return all_resources
 

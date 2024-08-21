@@ -103,6 +103,7 @@ load(
     ":python_library.bzl",
     "create_python_library_info",
     "gather_dep_libraries",
+    "py_attr_resources",
     "py_resources",
     "qualify_srcs",
 )
@@ -816,12 +817,13 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.main != None:
         srcs[ctx.attrs.main.short_path] = ctx.attrs.main
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
 
     pex = python_executable(
         ctx,
         main,
         srcs,
-        {},
+        resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
