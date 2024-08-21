@@ -221,7 +221,10 @@ def buck2_e2e_test(
             executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
-            cfg_modifiers = buck2_modifiers(),
+            cfg_modifiers = buck2_modifiers() + [
+                # Always run these tests under rust opt build
+                "ovr_config//build_mode:opt",
+            ],
             **kwargs
         )
 

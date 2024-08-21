@@ -17,6 +17,14 @@ def buck_rust_binary(**kwargs):
             "ovr_config//os:macos": "static",
         })
 
+    # Link group is currently used automatically for rust in dev mode. Unfortunately, it builds
+    # a binary that is not relocatable and it checks for dev mode by reading the build mode buckconfig.
+    # If we don't disable link groups, we will also end up building a non-relocatable binary when
+    # using opt modifier because opt modifier does not change build mode buckconfig. Work around this
+    # by disabling link groups for now.
+    # TODO(scottcao): Delete this line once link group macros are properly selectified.
+    kwargs["link_group_map"] = []
+
     # JEMalloc is not (yet!) the default on MacOS so add the allocator
     # explicitly on all platforms here.
     kwargs.setdefault("allocator", "jemalloc")
