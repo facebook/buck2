@@ -191,6 +191,7 @@ impl ExitResult {
             }
             match e.tier.and_then(buck2_data::error::ErrorTier::from_i32) {
                 Some(buck2_data::error::ErrorTier::Tier0) => has_infra = true,
+                Some(buck2_data::error::ErrorTier::Environment) => has_infra = true,
                 Some(buck2_data::error::ErrorTier::Input) => has_user = true,
                 Some(buck2_data::error::ErrorTier::UnusedDefaultCategory) | None => (),
             }

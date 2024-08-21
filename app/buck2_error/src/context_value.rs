@@ -86,6 +86,7 @@ impl<'a> From<&'a str> for ContextValue {
 )]
 pub enum Tier {
     Input,
+    Environment,
     Tier0,
 }
 
@@ -145,7 +146,12 @@ mod tests {
     fn test_combine() {
         assert_eq!(Tier::Input.combine(None), Tier::Input);
         assert_eq!(Tier::Input.combine(Some(Tier::Input)), Tier::Input);
+        assert_eq!(
+            Tier::Input.combine(Some(Tier::Environment)),
+            Tier::Environment
+        );
         assert_eq!(Tier::Input.combine(Some(Tier::Tier0)), Tier::Tier0);
+        assert_eq!(Tier::Environment.combine(Some(Tier::Tier0)), Tier::Tier0);
         assert_eq!(Tier::Tier0.combine(Some(Tier::Input)), Tier::Tier0);
     }
 }

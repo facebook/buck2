@@ -32,7 +32,15 @@ enum ErrorType {
 enum ErrorTier {
   // Same as above
   UNUSED_DEFAULT_CATEGORY = 0;
+  // Unexpected errors in buck2 or core dependencies.
+  // It should be possible to eliminate these, in theory.
   TIER0 = 1;
+  // Errors that may be triggered by issues with the host,
+  // resource limits, non-explicit dependencies or potentially
+  // ambiguous input errors.
+  // These can be tracked but not eliminated.
+  ENVIRONMENT = 3;
+  // Expected errors in inputs explicitly tracked by buck.
   INPUT = 2;
 }
 

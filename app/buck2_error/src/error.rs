@@ -177,11 +177,13 @@ impl Error {
             }
             _ => Either::Left(None.into_iter()),
         });
+
         for t in context_tiers {
             // It's a tier0 error if it was ever marked as a tier0 error
             match t {
                 Tier::Tier0 => return Some(t),
-                Tier::Input => out = Some(t),
+                Tier::Environment => out = std::cmp::max(out, Some(t)),
+                Tier::Input => out = std::cmp::max(out, Some(t)),
             }
         }
         out
@@ -267,6 +269,8 @@ impl Error {
 mod tests {
     use std::sync::Arc;
 
+    use crate::Tier;
+
     #[derive(Debug, thiserror::Error)]
     #[error("Test")]
     struct TestError;
@@ -295,5 +299,17 @@ mod tests {
         assert_eq!(e1x.root_id(), e1y.root_id());
 
         assert_ne!(e1.root_id(), e2.root_id());
+    }
+
+    #[test]
+    fn test_get_tier() {
+        let e: crate::Error = crate::Error::new(TestError)
+            .context(Tier::Tier0)
+            .context(Tier::Environment);
+        assert_eq!(e.get_tier(), Some(Tier::Tier0));
+        let e: crate::Error = crate::Error::new(TestError)
+            .context(Tier::Environment)
+            .context(Tier::Input);
+        assert_eq!(e.get_tier(), Some(Tier::Environment));
     }
 }
