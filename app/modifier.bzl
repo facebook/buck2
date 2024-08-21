@@ -10,7 +10,7 @@ load("@fbcode//buck2/cfg/experimental:modifiers.bzl", "modifiers")
 def buck2_modifiers():
     # **WARNING**: This is not vetted for correctness and should only be used in fbcode/buck2.
     # A somewhat hacked together list of modifiers to enable mode-free builds and opt-by-default-cxx builds.
-    # This currently only works for linux
+    # This currently only works for linux and mac but not for cross-building (ex. build mac from linux)
     # - Mode-free builds: Users can use `-m opt` or `--modifier opt` instead of `@fbcode//mode/opt` to trigger builds
     #   E2e tests build with opt buck2 by default.
     # - Opt-by-default cxx: Dev mode builds of buck2 comes with optimized, sanitizer-free cxx deps by default, making
@@ -82,6 +82,35 @@ def buck2_modifiers():
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": "ovr_config//build_mode/constraints:python-default-package-style-inplace",
                 "ovr_config//build_mode:opt": "ovr_config//build_mode/constraints:python-default-package-style-standalone",
+            }),
+        }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:macos": "ovr_config//build_mode/constraints:fbcode-build-info-ldflags-accepted",
+            }),
+        }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:macos": "ovr_config//build_mode/constraints:fbcode-custom-allocators-enabled",
+            }),
+        }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:macos": "ovr_config//toolchain/fb/constraints:macos-minimal",
+            }),
+        }),
+        # TODO(scottcao): This modifier can be deleted if D61497000 lands successfully
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:macos": "ovr_config//toolchain/xcode/force_minimal_xcode:yes",
             }),
         }),
     ]
