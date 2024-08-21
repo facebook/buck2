@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
@@ -29,7 +30,8 @@ def buck_e2e_test(
         pytest_expr = None,
         pytest_confcutdir = None,
         serialize_test_cases = True,
-        require_nano_prelude = None):
+        require_nano_prelude = None,
+        cfg_modifiers = ()):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -105,6 +107,9 @@ def buck_e2e_test(
     if "windows" in skip_for_os:
         labels += ci.remove_labels(ci.windows(ci.opt()))
 
+    metadata = {}
+    metadata["buck.cfg_modifiers"] = cfg_modifiers
+
     python_pytest(
         name = name,
         base_module = base_module,
@@ -121,6 +126,7 @@ def buck_e2e_test(
         pytest_expr = pytest_expr,
         pytest_confcutdir = pytest_confcutdir,
         labels = labels,
+        metadata = metadata,
     )
 
 def buck2_e2e_test(
@@ -215,6 +221,7 @@ def buck2_e2e_test(
             executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            cfg_modifiers = buck2_modifiers(),
             **kwargs
         )
 
