@@ -106,13 +106,26 @@ impl Develop {
         }
 
         if let crate::Command::DevelopJson {
+            sysroot_mode,
             args,
             log_scuba_to_stdout: _,
         } = command
         {
             let out = Output::Stdout;
-            let sysroot = SysrootConfig::BuckConfig;
             let mode = select_mode(None);
+
+            let sysroot = match sysroot_mode {
+                crate::SysrootMode::BuckConfig => SysrootConfig::BuckConfig,
+                crate::SysrootMode::Rustc => SysrootConfig::Rustup,
+                crate::SysrootMode::FullPath(path) => SysrootConfig::Sysroot(path),
+                crate::SysrootMode::Command(cmd_args) => {
+                    let cmd = cmd_args[0].clone();
+                    let args = cmd_args[1..].to_vec();
+                    let output = std::process::Command::new(cmd).args(args).output().unwrap();
+                    let path = String::from_utf8(output.stdout).unwrap();
+                    SysrootConfig::Sysroot(PathBuf::from(path.trim()))
+                }
+            };
 
             let buck = buck::Buck::new(mode);
 

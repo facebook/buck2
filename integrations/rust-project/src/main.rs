@@ -120,6 +120,16 @@ enum Command {
         #[clap(long, hide = true)]
         log_scuba_to_stdout: bool,
 
+        // FIXME XXX: remove this after everything in fbcode is migrated off
+        // of buckconfig implicitly.
+        #[cfg(fbcode_build)]
+        #[clap(long, default_value = "buckconfig")]
+        sysroot_mode: SysrootMode,
+
+        #[cfg(not(fbcode_build))]
+        #[clap(long, default_value = "rustc")]
+        sysroot_mode: SysrootMode,
+
         args: JsonArguments,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
@@ -135,6 +145,43 @@ enum Command {
         #[clap(long, hide = true)]
         log_scuba_to_stdout: bool,
     },
+}
+
+/// The 'develop-json' command needs to have 3 modes:
+/// 1. Static `.buckconfig` setting
+/// 2. Absolute path setting
+/// 3. Use `rustc --print=sysroot` ("rustup mode")
+/// 4. Run a command and take the output from stdout
+#[derive(PartialEq, Clone, Debug, Deserialize)]
+enum SysrootMode {
+    Rustc,
+    Command(Vec<String>),
+    FullPath(PathBuf),
+    BuckConfig,
+}
+
+impl FromStr for SysrootMode {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "rustc" {
+            Ok(SysrootMode::Rustc)
+        } else if s == "buckconfig" {
+            Ok(SysrootMode::BuckConfig)
+        } else if s.starts_with("path:") {
+            let s = s.trim_start_matches("path:");
+            Ok(SysrootMode::FullPath(PathBuf::from(s)))
+        } else if s.starts_with("cmd:") {
+            let s = s.trim_start_matches("cmd:");
+            Ok(SysrootMode::Command(
+                s.split_whitespace()
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<String>>(),
+            ))
+        } else {
+            Err(anyhow::anyhow!("Invalid mode: {}", s))
+        }
+    }
 }
 
 #[derive(PartialEq, Clone, Debug, Deserialize)]
@@ -325,6 +372,7 @@ fn json_args_pass() {
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
+            sysroot_mode: SysrootMode::Rustc,
             log_scuba_to_stdout: false,
         }),
         version: false,
@@ -341,6 +389,7 @@ fn json_args_pass() {
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
+            sysroot_mode: SysrootMode::Rustc,
             log_scuba_to_stdout: false,
         }),
         version: false,
@@ -357,6 +406,7 @@ fn json_args_pass() {
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
+            sysroot_mode: SysrootMode::Rustc,
             log_scuba_to_stdout: false,
         }),
         version: false,
