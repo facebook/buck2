@@ -1589,6 +1589,20 @@ def _create_merged_link_args(
 # 5. extract the list of undefined symbols in the relinked libs (i.e. those symbols needed from dependencies and what had been
 #    used in (1) above from higher nodes).
 def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
+    relinker_extra_deps = getattr(ctx.attrs, "relinker_extra_deps", None)
+    red_linkables = {}
+    if relinker_extra_deps:
+        for red_elem in relinker_extra_deps:
+            for platform, red in red_elem.items():
+                red_link_graph = red.get(LinkableGraph)
+                expect(red_link_graph != None, "relinker_extra_deps (`{}`) should be a linkable target", red.label)
+                red_linkable = red_link_graph.nodes.value.linkable
+                expect(red_linkable != None, "relinker_extra_deps (`{}`) should be a linkable target", red.label)
+                expect(red_linkable.preferred_linkage == Linkage("static"), "buck2 currently only supports preferred_linkage='static' relinker_extra_deps")
+                if platform not in red_linkables:
+                    red_linkables[platform] = []
+                red_linkables[platform].append((red.label, red_linkable.link_infos[LibOutputStyle("pic_archive")].default))
+
     relinked_libraries_by_platform = {}
     for platform, shared_libraries in libraries_by_platform.items():
         cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
@@ -1625,7 +1639,11 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                 provided_symbols = provided_symbols_file,
                 needed_symbols = needed_symbols_for_this,
             )
-            relinker_link_args = original_shared_library.link_args + [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])]
+            relinker_link_args = (
+                original_shared_library.link_args +
+                [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])] +
+                ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else [])
+            )
 
             shared_lib = create_shared_lib(
                 ctx,
