@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":packages.bzl", "GoStdlib")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
@@ -25,8 +26,8 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     env["GODEBUG"] = "installgoroot=all"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
-    cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
-    if cxx_toolchain != None:
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+    if cgo_enabled and cxx_toolchain != None:
         c_compiler = cxx_toolchain.c_compiler_info
 
         env["CC"] = cmd_args(c_compiler.compiler, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")

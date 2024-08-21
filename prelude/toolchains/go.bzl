@@ -39,7 +39,7 @@ def _system_go_toolchain_impl(ctx):
             concat_files = ctx.attrs.concat_files[RunInfo],
             compiler = RunInfo(cmd_script(ctx, "compile", cmd_args(go, "tool", "compile"), script_os)),
             cover = RunInfo(cmd_script(ctx, "cover", cmd_args(go, "tool", "cover"), script_os)),
-            cxx_toolchain_for_linking = None,
+            default_cgo_enabled = False,
             env_go_arch = go_arch,
             env_go_os = go_os,
             external_linker_flags = [],

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -44,7 +45,6 @@ load(
 )
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
-load(":toolchain.bzl", "GoToolchainInfo")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     lib, pkg_info = build_package(
@@ -78,10 +78,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     c_archive = link_variant(GoBuildMode("c_archive"))  # .a - PIC-arcive
     c_shared = link_variant(GoBuildMode("c_shared"))  # .so - PIC-shared_lib
 
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    if go_toolchain.cxx_toolchain_for_linking == None:
-        fail("cxx_toolchain required for go_exported_library")
-    cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
 
     soname = get_default_shared_library_name(cxx_toolchain.linker_info, ctx.label)
 

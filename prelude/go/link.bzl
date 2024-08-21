@@ -12,6 +12,7 @@ load(
     "executable_shared_lib_arguments",
     "make_link_args",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name", "get_shared_library_name_linker_flags")
 load(
     "@prelude//linking:link_info.bzl",
@@ -86,7 +87,7 @@ def _process_shared_dependencies(
 
     return executable_shared_lib_arguments(
         ctx,
-        ctx.attrs._go_toolchain[GoToolchainInfo].cxx_toolchain_for_linking,
+        ctx.attrs._cxx_toolchain[CxxToolchainInfo],
         artifact,
         shared_libs,
     )
@@ -162,9 +163,7 @@ def link(
     if link_mode != None:
         cmd.add("-linkmode", link_mode)
 
-    cxx_toolchain = go_toolchain.cxx_toolchain_for_linking
-    if cxx_toolchain == None and link_mode == "external":
-        fail("cxx_toolchain required for link_mode='external'")
+    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     if cxx_toolchain != None:
         is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
