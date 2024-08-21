@@ -6,9 +6,10 @@
 # of this source tree.
 
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
+load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapToolchainInfo")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 
-def _system_go_toolchain_impl(ctx):
+def go_platform() -> (str, str):
     arch = host_info().arch
     if arch.is_aarch64:
         go_arch = "arm64"
@@ -27,8 +28,42 @@ def _system_go_toolchain_impl(ctx):
     else:
         fail("Unsupported go os: {}".format(os))
 
-    script_os = ScriptOs("windows" if os.is_windows else "unix")
-    go = "go.exe" if os.is_windows else "go"
+    return go_os, go_arch
+
+def _system_go_bootstrap_toolchain_impl(ctx):
+    go_os, go_arch = go_platform()
+
+    script_os = ScriptOs("windows" if go_os == "windows" else "unix")
+    go = "go.exe" if go_os == "windows" else "go"
+
+    return [
+        DefaultInfo(),
+        GoBootstrapToolchainInfo(
+            env_go_arch = go_arch,
+            env_go_os = go_os,
+            go = RunInfo(cmd_script(ctx, "go", cmd_args(go), script_os)),
+            go_wrapper = ctx.attrs.go_wrapper[RunInfo],
+        ),
+    ]
+
+system_go_bootstrap_toolchain = rule(
+    impl = _system_go_bootstrap_toolchain_impl,
+    doc = """Example system go toolchain rules (WIP). Usage:
+  system_go_bootstrap_toolchain(
+      name = "go_bootstrap",
+      visibility = ["PUBLIC"],
+  )""",
+    attrs = {
+        "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper")),
+    },
+    is_toolchain_rule = True,
+)
+
+def _system_go_toolchain_impl(ctx):
+    go_os, go_arch = go_platform()
+
+    script_os = ScriptOs("windows" if go_os == "windows" else "unix")
+    go = "go.exe" if go_os == "windows" else "go"
 
     return [
         DefaultInfo(),

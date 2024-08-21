@@ -5,7 +5,15 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
+GoBootstrapToolchainInfo = provider(
+    fields = {
+        "env_go_arch": provider_field(str),
+        "env_go_os": provider_field(str),
+        "env_go_root": provider_field(typing.Any, default = None),
+        "go": provider_field(RunInfo),
+        "go_wrapper": provider_field(RunInfo),
+    },
+)
 
 def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """
@@ -13,13 +21,13 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     It doesn't depend on other Go rules and uses `go build` under the hood.
     CGo is disabled minimise dependencies.
     """
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    go_toolchain = ctx.attrs._go_bootstrap_toolchain[GoBootstrapToolchainInfo]
 
     target_is_win = go_toolchain.env_go_os == "windows"
     exe_suffix = ".exe" if target_is_win else ""
     output = ctx.actions.declare_output(ctx.label.name + exe_suffix)
 
-    # Copy files, becode go:embed doesn't work with symlinks
+    # Copy files, because go:embed doesn't work with symlinks
     srcs_dir = ctx.actions.copied_dir(
         "__srcs_dir__",
         {src.short_path: src for src in ctx.attrs.srcs},
@@ -34,8 +42,16 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.entrypoints,
     ])
 
-    env = get_toolchain_env_vars(go_toolchain)
-    env["CGO_ENABLED"] = "0"
+    env = {
+        "CGO_ENABLED": "0",
+        "GO111MODULE": "",
+        "GOARCH": go_toolchain.env_go_arch,
+        "GOOS": go_toolchain.env_go_os,
+        "GOTOOLCHAIN": "local",
+    }
+
+    if go_toolchain.env_go_root != None:
+        env["GOROOT"] = go_toolchain.env_go_root
 
     ctx.actions.run(cmd, env = env, category = "go_bootstrap_binary")
 

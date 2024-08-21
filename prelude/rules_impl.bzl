@@ -23,12 +23,12 @@ load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
 load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
-load("@prelude//go:go_bootstrap_binary.bzl", "go_bootstrap_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
 load("@prelude//go/transitions:defs.bzl", "asan_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_test_transition", "race_attr", "tags_attr")
+load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
 load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
@@ -477,7 +477,7 @@ inlined_extra_attributes = {
     },
     "go_bootstrap_binary": {
         "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_toolchain": toolchains_common.go(),
+        "_go_bootstrap_toolchain": toolchains_common.go_bootstrap(),
     },
     "go_exported_library": {
         "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
