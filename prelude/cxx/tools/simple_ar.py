@@ -66,8 +66,9 @@ class ThinArchive:
         self._name_offsets = []
         for input_path in inputs:
             # Paths are stored relative to the archive. We use os.path.relpath instead
-            # of Pathlib.relative_to because the latter requires a common root.
-            relative_path = os.path.relpath(input_path, output_dir)
+            # of Pathlib.relative_to because the latter requires a common root. We use
+            # forward slashes everywhere for consistency and to mimic llvm-ar.
+            relative_path = Path(os.path.relpath(input_path, output_dir)).as_posix()
             encoded = (relative_path + "/\n").encode()  # add terminator
             self._name_offsets.append(len(self._name_data))
             self._name_data.extend(encoded)
@@ -110,7 +111,7 @@ def main() -> None:
     )
     parser.add_argument("modifiers", help="Operation and modifiers (limited support)")
     parser.add_argument("output", type=Path, help="The output file")
-    parser.add_argument("inputs", nargs="+", type=Path, help="The input files")
+    parser.add_argument("inputs", nargs="+", help="The input files")
     args = parser.parse_args()
 
     if args.output.exists():
@@ -128,7 +129,9 @@ def main() -> None:
     if not thin:
         raise ValueError("Only thin archives are supported")
 
-    archive = ThinArchive(args.inputs, args.output)
+    # Strip any leading or trailing quotes (present in Windows argsfiles)
+    inputs = [Path(p.lstrip('"').rstrip('"')) for p in args.inputs]
+    archive = ThinArchive(inputs, args.output)
     archive.write()
 
 
