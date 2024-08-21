@@ -13,7 +13,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
-use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
@@ -283,12 +282,7 @@ impl Develop {
         };
 
         // We always want the targets that directly own these Rust files.
-        let mut targets = self.buck.query_owners(input, max_extra_targets)?;
-        for targets in targets.values_mut() {
-            *targets = dedupe_targets(targets);
-        }
-
-        Ok(targets)
+        self.buck.query_owners(input, max_extra_targets)
     }
 }
 
@@ -301,46 +295,4 @@ fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
     } else {
         Ok(path.to_path_buf())
     }
-}
-
-/// Remove duplicate targets, but preserve order.
-///
-/// This function will also remove `foo` if `foo-unittest` is present.
-fn dedupe_targets(targets: &[Target]) -> Vec<Target> {
-    let mut seen = FxHashSet::default();
-    let mut unique_targets_acc = vec![];
-    let unique_targets = targets.iter().collect::<FxHashSet<_>>();
-
-    let targets: Vec<Target> = targets
-        .iter()
-        .filter(|t| !unique_targets.contains(&Target::new(format!("{}-unittest", t))))
-        .cloned()
-        .collect();
-
-    for target in targets {
-        if !seen.contains(&target) {
-            seen.insert(target.clone());
-            unique_targets_acc.push(target);
-        }
-    }
-
-    unique_targets_acc
-}
-
-#[test]
-fn test_dedupe_unittest() {
-    let targets = vec![
-        Target::new("foo-unittest".to_owned()),
-        Target::new("bar".to_owned()),
-        Target::new("foo".to_owned()),
-        Target::new("baz-unittest".to_owned()),
-    ];
-
-    let expected = vec![
-        Target::new("foo-unittest".to_owned()),
-        Target::new("bar".to_owned()),
-        Target::new("baz-unittest".to_owned()),
-    ];
-
-    assert_eq!(dedupe_targets(&targets), expected);
 }
