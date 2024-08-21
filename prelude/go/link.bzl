@@ -180,7 +180,7 @@ def link(
         ext_link_args.add(external_linker_flags)
         ext_link_args.add(ext_link_args_output.link_args)
 
-        if build_mode == GoBuildMode("c_shared"):
+        if build_mode == GoBuildMode("c_shared") and go_toolchain.env_go_os != "windows":
             soname = get_default_shared_library_name(cxx_toolchain.linker_info, ctx.label)
             soname_flags = get_shared_library_name_linker_flags(cxx_toolchain.linker_info.type, soname)
             ext_link_args.add(soname_flags)
