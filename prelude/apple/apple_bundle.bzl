@@ -370,7 +370,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-    validation_specs = get_debug_artifacts_validators(ctx, aggregated_debug_info.debug_info.debug_info_tset)
+    (validation_providers, validation_subtargets) = _get_debug_validators_subtargets_and_providers(
+        ctx,
+        aggregated_debug_info.debug_info.debug_info_tset,
+    )
+    sub_targets.update(validation_subtargets)
+
     return [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(
@@ -397,10 +402,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
         extra_output_provider,
         link_cmd_debug_info,
-    ] + bundle_result.providers + (
-        # Currently, buck throws an error if you pass a ValidationInfo with no validations in it.
-        [ValidationInfo(validations = validation_specs)] if validation_specs else []
-    )
+    ] + bundle_result.providers + validation_providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
     data = {
@@ -414,6 +416,36 @@ def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_r
 
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
+
+def _get_debug_validators_subtargets_and_providers(ctx, artifacts: ArtifactTSet) -> (list[Provider], dict[str, list[Provider]]):
+    name_to_debug_validator_artifact = get_debug_artifacts_validators(ctx, artifacts)
+    if not name_to_debug_validator_artifact:
+        return ([], {})
+
+    return (
+        [
+            ValidationInfo(
+                validations = [
+                    ValidationSpec(
+                        name = name,
+                        validation_result = artifact,
+                    )
+                    for name, artifact in name_to_debug_validator_artifact.items()
+                ],
+            ),
+        ],
+        {
+            "debug-artifacts-validators": [
+                DefaultInfo(
+                    default_outputs = name_to_debug_validator_artifact.values(),
+                    sub_targets = {
+                        name: [DefaultInfo(default_output = artifact)]
+                        for name, artifact in name_to_debug_validator_artifact.items()
+                    },
+                ),
+            ],
+        },
+    )
 
 def _linker_maps_data(ctx: AnalysisContext) -> (Artifact, AppleBundleLinkerMapInfo):
     deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)

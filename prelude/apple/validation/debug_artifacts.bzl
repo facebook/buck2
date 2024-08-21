@@ -15,21 +15,18 @@ _AnalysisInput = record(
     identifier = field(int),
 )
 
-def get_debug_artifacts_validators(ctx, artifacts: ArtifactTSet) -> list[ValidationSpec]:
+def get_debug_artifacts_validators(ctx, artifacts: ArtifactTSet) -> dict[str, Artifact]:
     label_to_input_artifacts = _get_analysis_input_artifacts(ctx, artifacts)
     if not label_to_input_artifacts:
-        return []
+        return {}
 
-    specs = []
+    name_to_validation_result = {}
     for key, validator in ctx.attrs.debug_artifacts_validators.items():
         analysis, reducer = validator
         label_to_analysis_artifacts = _analyze_artifacts(ctx, key, analysis[RunInfo], label_to_input_artifacts)
-        specs.append(ValidationSpec(
-            name = key,
-            validation_result = _reduce_analysis_artifacts(ctx, key, reducer[RunInfo], label_to_analysis_artifacts),
-        ))
+        name_to_validation_result[key] = _reduce_analysis_artifacts(ctx, key, reducer[RunInfo], label_to_analysis_artifacts)
 
-    return specs
+    return name_to_validation_result
 
 def _get_analysis_input_artifacts(ctx, artifacts: ArtifactTSet) -> dict[Label, list[_AnalysisInput]]:
     underlying_tset = artifacts._tset
