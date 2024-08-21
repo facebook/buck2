@@ -6,6 +6,7 @@
 # of this source tree.
 
 import json
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -86,6 +87,30 @@ async def test_alias(buck: Buck) -> None:
     assert result["expanded_targets"] == [
         "fbcode//buck2/integrations/rust-project/tests/targets/alias:l",
         "fbcode//buck2/integrations/rust-project/tests/targets/alias:l_alias",
+    ]
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_resolve_owning_buildfile_no_extra_targets(buck: Buck) -> None:
+    result = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",
+        "--",
+        "--max_extra_targets=0",
+        "--files",
+        str(
+            Path("buck2/integrations/rust-project/tests/targets/foo/lib_f.rs").resolve()
+        ),
+    )
+    result = json.loads(result.stdout)
+    assert len(result) == 1
+    buildfile_path, owners = result.popitem()
+    assert buildfile_path.endswith(
+        "buck2/integrations/rust-project/tests/targets/foo/TARGETS.v2"
+    )
+    owners.sort()
+    assert owners == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:f",
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:f-unittest",
     ]
 
 
