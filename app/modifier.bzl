@@ -113,6 +113,26 @@ def buck2_modifiers():
                 "ovr_config//os:macos": "ovr_config//toolchain/xcode/force_minimal_xcode:yes",
             }),
         }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//runtime:fbcode": modifiers.conditional({
+                    "ovr_config//cpu:arm64": "ovr_config//runtime/constraints:platform010-aarch64",
+                    "ovr_config//cpu:x86_64": "ovr_config//runtime/constraints:platform010",
+                }),
+            }),
+        }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//runtime:fbcode": modifiers.conditional({
+                    "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:nosve2",
+                    "ovr_config//cpu:x86_64": "ovr_config//cpu/constraints:sve2",
+                }),
+            }),
+        }),
     ]
 
 def disable_buck2_modifiers():
