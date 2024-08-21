@@ -343,6 +343,11 @@ def create_jar_artifact_kotlincd(
 
             dep_files["classpath_jars"] = classpath_jars_tag
 
+        common_params = {
+            "metadata_env_var": "ACTION_METADATA",
+            "metadata_path": "action_metadata.json",
+            "no_outputs_cleanup": True,
+        } if (incremental_state_dir != None) and ("nullsafe" != actions_identifier) else {}
         actions.run(
             args,
             env = {
@@ -359,7 +364,7 @@ def create_jar_artifact_kotlincd(
             low_pass_filter = False,
             weight = 2,
             error_handler = kotlin_toolchain.kotlin_error_handler,
-            no_outputs_cleanup = incremental,
+            **common_params
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
