@@ -402,8 +402,6 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
         if dep.proc_macro_marker != None:
             continue
 
-        if dep_ctx.advanced_unstable_linking:
-            deps[dep.label] = dep.dep
         for dep in dep.info.exported_link_deps:
             deps[dep.label] = dep
 
