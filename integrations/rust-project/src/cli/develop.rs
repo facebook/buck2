@@ -226,7 +226,9 @@ impl Develop {
         let project_root = buck.resolve_project_root()?;
 
         info!("building generated code");
-        let expanded_and_resolved = buck.expand_and_resolve(&targets)?;
+        let exclude_workspaces =
+            std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
+        let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
 
         info!("resolving aliased libraries");
         let aliased_libraries =

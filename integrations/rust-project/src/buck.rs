@@ -593,6 +593,7 @@ impl Buck {
     pub(crate) fn expand_and_resolve(
         &self,
         targets: &[Target],
+        exclude_workspaces: bool,
     ) -> anyhow::Result<ExpandedAndResolved> {
         if targets.is_empty() {
             return Ok(ExpandedAndResolved::default());
@@ -605,6 +606,8 @@ impl Buck {
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
             "--",
+            "--exclude_workspaces",
+            exclude_workspaces.to_string().as_str(),
             "--targets",
         ]);
         command.args(targets);

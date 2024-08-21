@@ -114,6 +114,21 @@ async def test_resolve_owning_buildfile_no_extra_targets(buck: Buck) -> None:
     ]
 
 
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_exclude_workspaces(buck: Buck) -> None:
+    result = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:e",
+        "--exclude_workspaces=true",
+    )
+    result = json.loads(result.stdout)
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:e",
+    ]
+
+
 # FIXME: Remove once actual tests work on mac and windows
 @buck_test(inplace=True)
 async def test_noop(buck: Buck) -> None:
