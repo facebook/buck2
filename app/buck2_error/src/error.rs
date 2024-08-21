@@ -212,6 +212,10 @@ impl Error {
         best_tag(self.tags_unsorted())
     }
 
+    pub fn has_tag(&self, tag: crate::ErrorTag) -> bool {
+        self.tags_unsorted().any(|t| t == tag)
+    }
+
     pub(crate) fn compute_context<
         TC: TypedContext,
         C1: Into<ContextValue>,

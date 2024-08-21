@@ -17,6 +17,7 @@ use std::ops::FromResidual;
 use std::process::Command;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::ErrorTag;
 
 #[derive(Debug)]
 pub struct ExecArgs {
@@ -134,13 +135,15 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
-        let exit_code = match err.downcast_ref::<ClientIoError>() {
-            Some(ClientIoError::BrokenPipe(_)) => ExitCode::BrokenPipe,
-            _ => ExitCode::UnknownFailure,
+        let err: buck2_error::Error = err.into();
+        let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
+            ExitCode::BrokenPipe
+        } else {
+            ExitCode::UnknownFailure
         };
 
         Self {
-            variant: ExitResultVariant::StatusWithErr(exit_code, err),
+            variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
         }
     }
@@ -332,7 +335,7 @@ impl ExitResultVariant {
 pub enum ClientIoError {
     /// A broken pipe when writing to stdout is expected if stdout is closed before the command finishes.
     /// An easy way to trigger this is `buck2 audit config | head`
-    #[buck2(tag = IoBrokenPipe)]
+    #[buck2(tag = IoClientBrokenPipe)]
     #[buck2(environment)]
     BrokenPipe(io::Error),
     #[buck2(tier0)]

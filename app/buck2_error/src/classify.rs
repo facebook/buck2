@@ -59,6 +59,7 @@ fn tag_rank(tag: ErrorTag) -> u32 {
         ErrorTag::IoEdenCheckoutInProgress => line!(),
         ErrorTag::IoEdenOutOfDateParent => line!(),
         ErrorTag::IoEdenUnknownField => line!(),
+        ErrorTag::IoClientBrokenPipe => line!(),
         ErrorTag::ProjectMissingPath => line!(),
         ErrorTag::StarlarkFail => line!(),
         ErrorTag::StarlarkStackOverflow => line!(),
@@ -121,6 +122,7 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
         ErrorTag::IoEdenCheckoutInProgress => Some(Tier::Input), // User switching branches during Eden operation
         ErrorTag::IoEdenOutOfDateParent => Some(Tier::Tier0),
         ErrorTag::IoEdenUnknownField => None,
+        ErrorTag::IoClientBrokenPipe => Some(Tier::Environment),
         ErrorTag::ProjectMissingPath => Some(Tier::Input),
         ErrorTag::StarlarkFail => Some(Tier::Input),
         ErrorTag::StarlarkStackOverflow => Some(Tier::Input),
