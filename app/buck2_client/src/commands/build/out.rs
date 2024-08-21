@@ -267,7 +267,7 @@ async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
 }
 
 fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
-    anyhow::Error::new(ClientIoError(e)).context("Error writing build artifact to --out")
+    anyhow::Error::new(ClientIoError::new(e)).context("Error writing build artifact to --out")
 }
 
 #[cfg(test)]

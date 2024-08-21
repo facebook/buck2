@@ -134,13 +134,11 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
-        let exit_code = if let Some(io_error) = err.downcast_ref::<ClientIoError>()
-            && io_error.0.kind() == io::ErrorKind::BrokenPipe
-        {
-            ExitCode::BrokenPipe
-        } else {
-            ExitCode::UnknownFailure
+        let exit_code = match err.downcast_ref::<ClientIoError>() {
+            Some(ClientIoError::BrokenPipe(_)) => ExitCode::BrokenPipe,
+            _ => ExitCode::UnknownFailure,
         };
+
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err),
             stdout: Vec::new(),
@@ -331,7 +329,25 @@ impl ExitResultVariant {
 #[derive(buck2_error::Error, derivative::Derivative)]
 #[derivative(Debug = "transparent")]
 #[error(transparent)]
-pub struct ClientIoError(pub io::Error);
+pub enum ClientIoError {
+    /// A broken pipe when writing to stdout is expected if stdout is closed before the command finishes.
+    /// An easy way to trigger this is `buck2 audit config | head`
+    #[buck2(tag = IoBrokenPipe)]
+    #[buck2(environment)]
+    BrokenPipe(io::Error),
+    #[buck2(tier0)]
+    Other(io::Error),
+}
+
+impl ClientIoError {
+    pub fn new(io_err: io::Error) -> Self {
+        if io_err.kind() == io::ErrorKind::BrokenPipe {
+            ClientIoError::BrokenPipe(io_err)
+        } else {
+            ClientIoError::Other(io_err)
+        }
+    }
+}
 
 /// Common exit codes for buck with stronger semantic meanings
 #[derive(Clone, Copy, Debug)]

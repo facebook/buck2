@@ -91,21 +91,21 @@ pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
     stdout()?
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError(e).into())
+        .map_err(|e| ClientIoError::new(e).into())
 }
 
 pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
     io::stderr()
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError(e).into())
+        .map_err(|e| ClientIoError::new(e).into())
 }
 
 pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
     stdout()?
         .lock()
         .write_all(bytes)
-        .map_err(|e| ClientIoError(e).into())
+        .map_err(|e| ClientIoError::new(e).into())
 }
 
 pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
@@ -114,7 +114,7 @@ pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
 }
 
 pub fn flush() -> anyhow::Result<()> {
-    stdout()?.flush().map_err(|e| ClientIoError(e).into())
+    stdout()?.flush().map_err(|e| ClientIoError::new(e).into())
 }
 
 fn stdout_to_file(stdout: &Stdout) -> anyhow::Result<File> {
@@ -164,7 +164,7 @@ where
         Err(e) => {
             let e: anyhow::Error = e.into();
             return match e.downcast::<io::Error>() {
-                Ok(io_error) => Err(ClientIoError(io_error).into()),
+                Ok(io_error) => Err(ClientIoError::new(io_error).into()),
                 Err(e) => Err(e),
             };
         }
