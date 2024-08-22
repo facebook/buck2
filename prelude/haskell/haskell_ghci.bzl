@@ -43,6 +43,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
     "LinkableRootInfo",
     "create_linkable_graph",
     "get_deps_for_link",
@@ -179,7 +180,11 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
         for nlabel, n in graph_nodes.items()
     }
 
-    all_direct_deps = [dep.label for dep in all_deps]
+    all_direct_deps = []
+    for dep in all_deps:
+        graph = dep.get(LinkableGraph)
+        if graph:
+            all_direct_deps.append(graph.label)
     dep_graph[ctx.label] = all_direct_deps
 
     # Need to exclude all transitive deps of excluded deps
@@ -342,16 +347,16 @@ def _replace_macros_in_script_template(
         # Optional string args
         srcs: [str, None] = None,
         output_name: [str, None] = None,
-        ghci_iserv_path: [str, None] = None,
+        ghci_iserv_path: [Artifact, None] = None,
         preload_libs: [str, None] = None) -> Artifact:
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
-        GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path,
+        GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path.get(DefaultInfo).default_outputs[0],
         CC_PATH: haskell_toolchain.ghci_cc_path,
         CPP_PATH: haskell_toolchain.ghci_cpp_path,
         CXX_PATH: haskell_toolchain.ghci_cxx_path,
-        GHCI_PACKAGER: haskell_toolchain.ghci_packager,
-        GHCI_GHC_PATH: haskell_toolchain.ghci_ghc_path,
+        GHCI_PACKAGER: haskell_toolchain.ghci_packager.get(DefaultInfo).default_outputs[0],
+        GHCI_GHC_PATH: haskell_toolchain.ghci_ghc_path.get(DefaultInfo).default_outputs[0],
     }
 
     if ghci_bin != None:
@@ -365,7 +370,7 @@ def _replace_macros_in_script_template(
     replace_cmd = cmd_args(script_template_processor)
     replace_cmd.add(cmd_args(script_template, format = "--script_template={}"))
     for name, path in toolchain_paths.items():
-        replace_cmd.add(cmd_args("--{}={}".format(name, path)))
+        replace_cmd.add(cmd_args(path, format = "--{}={{}}".format(name)))
 
     replace_cmd.add(cmd_args(
         final_script.as_output(),
@@ -462,7 +467,7 @@ def _write_iserv_script(
         script_template = ghci_iserv_template,
         output_name = iserv_script_name,
         haskell_toolchain = haskell_toolchain,
-        ghci_iserv_path = ghci_iserv_path,
+        ghci_iserv_path = ghci_iserv_path.get(DefaultInfo).default_outputs[0],
         preload_libs = preload_libs,
     )
     return iserv_script
