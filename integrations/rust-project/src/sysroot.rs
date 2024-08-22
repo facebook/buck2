@@ -68,15 +68,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
     }
     // Spawn both `rustc` and `buck audit config` in parallel without blocking.
     let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/basic/bin/rustc");
-    let mut sysroot_cmd = if cfg!(target_os = "macos") {
-        // On Apple silicon, buck builds at Meta run under Rosetta.
-        // So we force an x86-64 sysroot to avoid mixing architectures.
-        let mut cmd = Command::new("arch");
-        cmd.arg("-x86_64").arg(fbsource_rustc);
-        cmd
-    } else {
-        Command::new(fbsource_rustc)
-    };
+    let mut sysroot_cmd = Command::new(fbsource_rustc);
     sysroot_cmd
         .arg("--print=sysroot")
         .stdin(Stdio::null())
