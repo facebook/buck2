@@ -582,13 +582,25 @@ impl RemoteExecutionClientImpl {
 
                 let minimal_blob_ttl_threshold =
                     static_metadata.minimal_blob_ttl_seconds.unwrap_or(3600);
+                let remaining_ttl_fraction_refresh_threshold = static_metadata
+                    .remaining_ttl_fraction_refresh_threshold
+                    .unwrap_or(0.1)
+                    as f64;
+                let remaining_ttl_random_extra_threshold = static_metadata
+                    .remaining_ttl_random_extra_threshold
+                    .unwrap_or(0.25)
+                    as f64;
                 embedded_cas_daemon_config.ttl_extending_config = Some(TTLExtendingConfig {
                     blocking_ttl_extending_seconds_threshold: minimal_blob_ttl_threshold,
+                    remaining_ttl_fraction_refresh_threshold,
+                    remaining_ttl_random_extra_threshold,
                     ..Default::default()
                 });
                 embedded_cas_daemon_config.action_cache_ttl_extending_config =
                     Some(TTLExtendingConfig {
                         blocking_ttl_extending_seconds_threshold: minimal_blob_ttl_threshold,
+                        remaining_ttl_fraction_refresh_threshold,
+                        remaining_ttl_random_extra_threshold,
                         ..Default::default()
                     });
 

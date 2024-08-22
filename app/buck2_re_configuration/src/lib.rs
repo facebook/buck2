@@ -68,6 +68,11 @@ mod fbcode {
 
         // ttl management
         pub minimal_blob_ttl_seconds: Option<i64>,
+        // When less than (X*100)% of TTL remains, refresh data in the store
+        pub remaining_ttl_fraction_refresh_threshold: Option<f32>,
+        // Adds a randomness to when refresh the TTL
+        pub remaining_ttl_random_extra_threshold: Option<f32>,
+
         pub disable_fallocate: bool,
     }
 
@@ -199,6 +204,16 @@ mod fbcode {
                     })?
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
+                remaining_ttl_fraction_refresh_threshold: legacy_config.parse(
+                    BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "remaining_ttl_fraction_refresh_threshold",
+                    },
+                )?,
+                remaining_ttl_random_extra_threshold: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "remaining_ttl_random_extra_threshold",
+                })?,
             })
         }
 
