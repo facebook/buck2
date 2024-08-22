@@ -16,6 +16,7 @@
  */
 
 use std::fmt;
+use std::mem;
 
 use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
@@ -32,6 +33,8 @@ use crate::diagnostic::WithDiagnostic;
 /// In order to prevent accidental conversions to `anyhow::Error`, this type intentionally does not
 /// implement `std::error::Error`. That should probably change in the future.
 pub struct Error(pub(crate) WithDiagnostic<ErrorKind>);
+
+const _: () = assert!(mem::size_of::<Error>() == mem::size_of::<usize>());
 
 impl Error {
     /// Create a new error
