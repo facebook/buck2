@@ -75,7 +75,6 @@ cgo_library = prelude_rule(
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.cxx_compiler_flags_arg() |
-        cxx_common.linker_flags_arg() |
         native_common.link_style() |
         {
             "go_compiler_flags": attrs.list(attrs.string(), default = [], doc = """
