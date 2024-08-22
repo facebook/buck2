@@ -10,8 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
 load(":native_common.bzl", "native_common")
@@ -73,16 +72,11 @@ cgo_library = prelude_rule(
         } |
         cxx_common.headers_arg() |
         cxx_common.preprocessor_flags_arg() |
-        cxx_common.platform_preprocessor_flags_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         cxx_common.compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
-        cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
-        cxx_common.platform_linker_flags_arg() |
         native_common.link_style() |
-        cxx_common.raw_headers_arg() |
         {
             "go_compiler_flags": attrs.list(attrs.string(), default = [], doc = """
                 The set of additional compiler flags to pass to `go tool compile`.
@@ -91,42 +85,13 @@ cgo_library = prelude_rule(
                 The set of additional assembler flags to pass to `go tool asm`.
             """),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
-            "deps_query": attrs.option(attrs.query(), default = None),
-            "devirt_enabled": attrs.bool(default = False),
-            "executable_name": attrs.option(attrs.string(), default = None),
             "exported_deps": attrs.list(attrs.dep(), default = []),
-            "fat_lto": attrs.bool(default = False),
-            "focused_list_target": attrs.option(attrs.dep(), default = None),
-            "frameworks": attrs.list(attrs.string(), default = []),
             "header_namespace": attrs.option(attrs.string(), default = None),
-            "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "labels": attrs.list(attrs.string(), default = []),
-            "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "link_deps_query_whole": attrs.bool(default = False),
-            "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": LINK_GROUP_MAP_ATTR,
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "platform_srcs": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), sorted = True)), default = []),
-            "post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "precompiled_header": attrs.option(attrs.source(), default = None),
-            "prefer_stripped_objects": attrs.bool(default = False),
-            "prefix_header": attrs.option(attrs.source(), default = None),
-            "thin_lto": attrs.bool(default = False),
-            "version_universe": attrs.option(attrs.string(), default = None),
-            "weak_framework_names": attrs.list(attrs.string(), default = []),
         } |
         buck.allow_cache_upload_arg()
     ),
