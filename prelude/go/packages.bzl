@@ -42,7 +42,7 @@ def go_attr_pkg_name(ctx: AnalysisContext) -> str:
     """
     return value_or(ctx.attrs.package_name, ctx.label.package)
 
-def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
+def merge_pkgs(pkgss: list[dict[str, GoPkg]]) -> dict[str, GoPkg]:
     """
     Merge mappings of packages into a single mapping, throwing an error on
     conflicts.
@@ -51,10 +51,10 @@ def merge_pkgs(pkgss: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
     all_pkgs = {}
 
     for pkgs in pkgss:
-        for name, path in pkgs.items():
-            if name in pkgs and pkgs[name] != path:
-                fail("conflict for package {!r}: {} and {}".format(name, path, all_pkgs[name]))
-            all_pkgs[name] = path
+        for name, pkg in pkgs.items():
+            if name in all_pkgs and all_pkgs[name] != pkg:
+                fail("conflict for package {!r}: {} and {}".format(name, pkg, all_pkgs[name]))
+            all_pkgs[name] = pkg
 
     return all_pkgs
 
