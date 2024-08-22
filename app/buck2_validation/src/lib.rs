@@ -14,6 +14,7 @@
 use std::sync::Once;
 
 mod cached_validation_result;
+pub mod enabled_optional_validations_key;
 mod single_validation_key;
 mod transitive_validation_key;
 mod validation;
