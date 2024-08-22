@@ -57,7 +57,12 @@ impl RawPointer {
     #[inline]
     pub(crate) unsafe fn new_unchecked(ptr: usize) -> RawPointer {
         debug_assert!(ptr != 0);
-        RawPointer(NonZeroUsize::new_unchecked(ptr))
+        let ptr = RawPointer(NonZeroUsize::new_unchecked(ptr));
+
+        // Run debug assertions.
+        let _ignore = PointerTags::from_pointer(ptr);
+
+        ptr
     }
 
     #[inline]
