@@ -76,13 +76,9 @@ cgo_library = prelude_rule(
         go_common.cxx_preprocessor_flags_arg() |
         go_common.cxx_compiler_flags_arg() |
         native_common.link_style() |
+        go_common.compiler_flags_arg() |
+        go_common.assembler_flags_arg() |
         {
-            "go_compiler_flags": attrs.list(attrs.string(), default = [], doc = """
-                The set of additional compiler flags to pass to `go tool compile`.
-            """),
-            "go_assembler_flags": attrs.list(attrs.string(), default = [], doc = """
-                The set of additional assembler flags to pass to `go tool asm`.
-            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
