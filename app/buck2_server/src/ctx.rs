@@ -100,6 +100,7 @@ use buck2_server_starlark_debug::create_debugger_handle;
 use buck2_server_starlark_debug::BuckStarlarkDebuggerHandle;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
+use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -543,6 +544,14 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
         )?;
 
         ctx.set_buck_out_path(Some(self.cmd_ctx.buck_out_dir.clone()))?;
+
+        let optional_validations = self
+            .cmd_ctx
+            .build_options
+            .as_ref()
+            .map_or(Vec::new(), |opts| opts.enable_optional_validations.clone());
+
+        ctx.set_enabled_optional_validations(optional_validations)?;
 
         setup_interpreter(
             &mut ctx,
