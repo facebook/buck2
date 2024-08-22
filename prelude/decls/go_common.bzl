@@ -58,13 +58,6 @@ def _link_mode_arg():
 """),
     }
 
-def _cgo_compiler_flags_arg():
-    return {
-        "cgo_compiler_flags": attrs.list(attrs.string(), default = [], doc = """
-    The set of additional compiler flags to pass to `go tool cgo`.
-"""),
-    }
-
 def _package_name_arg():
     return {
         "package_name": attrs.option(attrs.string(), default = None, doc = """
@@ -169,7 +162,6 @@ go_common = struct(
     package_root_arg = _package_root_arg,
     link_style_arg = _link_style_arg,
     link_mode_arg = _link_mode_arg,
-    cgo_compiler_flags_arg = _cgo_compiler_flags_arg,
     package_name_arg = _package_name_arg,
     compiler_flags_arg = _compiler_flags_arg,
     assembler_flags_arg = _assembler_flags_arg,

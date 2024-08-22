@@ -74,7 +74,6 @@ cgo_library = prelude_rule(
         cxx_common.headers_arg() |
         cxx_common.preprocessor_flags_arg() |
         cxx_common.platform_preprocessor_flags_arg() |
-        go_common.cgo_compiler_flags_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         cxx_common.compiler_flags_arg() |
@@ -232,7 +231,6 @@ go_exported_library = prelude_rule(
             srcs = [
                 "export-to-c.go",  # file with //export annotations
             ],
-            cgo_compiler_flags = [],
             compiler_flags = [],
             headers = [],
         )
