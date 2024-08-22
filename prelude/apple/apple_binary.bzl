@@ -5,10 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(
-    "@prelude//:artifact_tset.bzl",
-    "ArtifactInfoTag",
-)
 load("@prelude//:attrs_validators.bzl", "get_attrs_validators_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
@@ -140,7 +136,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                         ),
                     ],
                 },
-                external_debug_info_tags = [ArtifactInfoTag("swiftmodule")] if swift_compile else [],
+                external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
