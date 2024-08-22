@@ -44,7 +44,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compiled_pkg, pkg_info = build_package(
         ctx,
         pkg_name,
-        ctx.attrs.go_srcs + ctx.attrs.srcs + ctx.attrs.headers,
+        ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         race = race,

@@ -60,16 +60,7 @@ cgo_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         go_common.package_name_arg() |
-        {
-            "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), default = [], doc = """
-                The set of source files to be compiled by this rule. .go files will be compiled with the CGO
-                 compiler. Each file needs to have `import "C"` declared.
-            """),
-            "go_srcs": attrs.list(attrs.source(), default = [], doc = """
-                The set of source files to be compiled by this rule. Go (`.go`) files are compiled with the Go
-                 compiler. In contrast to the `srcs` argument, these files *cannot* have `import "C"` declared.
-            """),
-        } |
+        go_common.srcs_arg() |
         cxx_common.headers_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
