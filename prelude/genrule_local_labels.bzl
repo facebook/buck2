@@ -218,9 +218,6 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # targets
     "zeratul_windows_capacity_hog",
 
-    # Uses fakeroot which is not on RE
-    "uses_fakeroot",
-
     # The compilation databases produced by Buck have paths relative to the root of
     # fbsource. This isn't compatible with RE.
     "uses_compilation_database",
