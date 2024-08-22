@@ -32,9 +32,6 @@ def build_package(
         embedcfg: Artifact | None = None,
         tests: bool = False,
         force_disable_cgo: bool = False,
-        # If you change this dir or naming convention, please
-        # update the corresponding logic in `fbgolist`.
-        # Otherwise editing and linting for Go will break.
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")

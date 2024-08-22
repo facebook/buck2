@@ -57,12 +57,8 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name: compiled_pkg,
     }
 
-    # We need to keep pre-processed cgo source files,
-    # because they are required for any editing and linting (like VSCode+gopls)
-    # to work with cgo. And when nearly every FB service client is cgo,
-    # we need to support it well.
     return [
-        DefaultInfo(default_output = compiled_pkg.pkg, other_outputs = [pkg_info.cgo_gen_dir]),
+        DefaultInfo(default_output = compiled_pkg.pkg),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
