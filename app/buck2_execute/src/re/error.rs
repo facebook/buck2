@@ -7,11 +7,35 @@
  * of this source tree.
  */
 
+use buck2_error::ErrorTag;
 use remote_execution::REClientError;
 use remote_execution::TCode;
 
+fn get_re_error_tag(tcode: TCode) -> ErrorTag {
+    match tcode {
+        TCode::CANCELLED => ErrorTag::ReCancelled,
+        TCode::UNKNOWN => ErrorTag::ReUnknown,
+        TCode::INVALID_ARGUMENT => ErrorTag::ReInvalidArgument,
+        TCode::DEADLINE_EXCEEDED => ErrorTag::ReDeadlineExceeded,
+        TCode::NOT_FOUND => ErrorTag::ReNotFound,
+        TCode::ALREADY_EXISTS => ErrorTag::ReAlreadyExists,
+        TCode::PERMISSION_DENIED => ErrorTag::RePermissionDenied,
+        TCode::RESOURCE_EXHAUSTED => ErrorTag::ReResourceExhausted,
+        TCode::FAILED_PRECONDITION => ErrorTag::ReFailedPrecondition,
+        TCode::ABORTED => ErrorTag::ReAborted,
+        TCode::OUT_OF_RANGE => ErrorTag::ReOutOfRange,
+        TCode::UNIMPLEMENTED => ErrorTag::ReUnimplemented,
+        TCode::INTERNAL => ErrorTag::ReInternal,
+        TCode::UNAVAILABLE => ErrorTag::ReUnavailable,
+        TCode::DATA_LOSS => ErrorTag::ReDataLoss,
+        TCode::UNAUTHENTICATED => ErrorTag::ReUnauthenticated,
+        _ => ErrorTag::ReUnknownTcode,
+    }
+}
+
 #[derive(Debug, buck2_error::Error)]
 #[error("Remote Execution Error on {} for ReSession {}\nError: ({})", .re_action, .re_session_id, .message)]
+#[buck2(tier0, tag = Some(get_re_error_tag(self.code)))]
 pub struct RemoteExecutionError {
     re_action: String,
     re_session_id: String,

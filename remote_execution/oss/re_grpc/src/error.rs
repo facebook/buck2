@@ -34,10 +34,22 @@ pub struct TCode(pub i32);
 
 impl TCode {
     pub const OK: Self = TCode(0i32);
+    pub const CANCELLED: Self = TCode(1i32);
     pub const UNKNOWN: Self = TCode(2i32);
     pub const INVALID_ARGUMENT: Self = TCode(3i32);
+    pub const DEADLINE_EXCEEDED: Self = TCode(4i32);
     pub const NOT_FOUND: Self = TCode(5i32);
+    pub const ALREADY_EXISTS: Self = TCode(6i32);
     pub const PERMISSION_DENIED: Self = TCode(7i32);
+    pub const RESOURCE_EXHAUSTED: Self = TCode(8i32);
+    pub const FAILED_PRECONDITION: Self = TCode(9i32);
+    pub const ABORTED: Self = TCode(10i32);
+    pub const OUT_OF_RANGE: Self = TCode(11i32);
+    pub const UNIMPLEMENTED: Self = TCode(12i32);
+    pub const INTERNAL: Self = TCode(13i32);
+    pub const UNAVAILABLE: Self = TCode(14i32);
+    pub const DATA_LOSS: Self = TCode(15i32);
+    pub const UNAUTHENTICATED: Self = TCode(16i32);
 }
 
 impl Display for TCode {
