@@ -77,14 +77,16 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     """
 
     os = ctx.attrs._target_os_type[OsLookup].platform
+    arch_name = ctx.attrs._target_os_type[OsLookup].cpu
     cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
     cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
-    return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info)
+    target_name = os + "-" + arch_name
+    return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info, target_name)
 
 def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
     return _cxx_toolchain_from_cxx_tools_info(ctx, ctx.attrs.cxx_tools_info[CxxToolsInfo])
 
-def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo):
+def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo, target_name = "x86_64"):
     os = ctx.attrs._target_os_type[OsLookup].platform
     archiver_supports_argfiles = os != "macos"
     additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
@@ -200,7 +202,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
             pic_behavior = pic_behavior,
             llvm_link = llvm_link,
         ),
-        CxxPlatformInfo(name = "x86_64"),
+        CxxPlatformInfo(name = target_name),
     ]
 
 def _run_info(args):
