@@ -150,6 +150,31 @@ def _tags_transition(platform, refs, attrs):
         configuration = new_cfg,
     )
 
+def _force_mingw_on_windows(platform, refs, _):
+    constraints = platform.configuration.constraints
+
+    abi_gnu_value = refs.abi_gnu[ConstraintValueInfo]
+    if abi_gnu_value.setting.label in constraints and constraints[abi_gnu_value.setting.label] == abi_gnu_value:
+        # Already MinGW/GNU, do nothing
+        return platform
+
+    os_windows_value = refs.os_windows[ConstraintValueInfo]
+    if os_windows_value.setting.label in constraints and constraints[os_windows_value.setting.label] != os_windows_value:
+        # Non-Windows, do nothing
+        return platform
+
+    constraints[abi_gnu_value.setting.label] = abi_gnu_value
+
+    new_cfg = ConfigurationInfo(
+        constraints = constraints,
+        values = platform.configuration.values,
+    )
+
+    return PlatformInfo(
+        label = platform.label,
+        configuration = new_cfg,
+    )
+
 def _chain_transitions(transitions):
     def tr(platform, refs, attrs):
         for t in transitions:
@@ -158,9 +183,15 @@ def _chain_transitions(transitions):
 
     return tr
 
-_tansitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition]
+_all_level_tansitions = [_force_mingw_on_windows]
+_top_level_tansitions = [_asan_transition, _cgo_enabled_transition, _race_transition, _tags_transition] + _all_level_tansitions
 
-_refs = {
+_all_level_refs = {
+    "abi_gnu": "prelude//abi/constraints:gnu",
+    "os_windows": "prelude//os/constraints:windows",
+}
+
+_top_level_refs = {
     "asan_false": "prelude//go/constraints:asan_false",
     "asan_true": "prelude//go/constraints:asan_true",
     "cgo_enabled_false": "prelude//go/constraints:cgo_enabled_false",
@@ -170,19 +201,19 @@ _refs = {
 } | {
     "tag_{}__value".format(tag): constrant_value
     for tag, constrant_value in tag_to_constrant_value().items()
-}
+} | _all_level_refs
 
 _attrs = ["asan", "cgo_enabled", "race", "tags"]
 
 go_binary_transition = transition(
-    impl = _chain_transitions(_tansitions),
-    refs = _refs,
+    impl = _chain_transitions(_top_level_tansitions),
+    refs = _top_level_refs,
     attrs = _attrs,
 )
 
 go_test_transition = transition(
-    impl = _chain_transitions(_tansitions + [_coverage_mode_transition]),
-    refs = _refs | {
+    impl = _chain_transitions(_top_level_tansitions + [_coverage_mode_transition]),
+    refs = _top_level_refs | {
         "coverage_mode_atomic": "prelude//go/constraints:coverage_mode_atomic",
         "coverage_mode_count": "prelude//go/constraints:coverage_mode_count",
         "coverage_mode_set": "prelude//go/constraints:coverage_mode_set",
@@ -191,9 +222,27 @@ go_test_transition = transition(
 )
 
 go_exported_library_transition = transition(
-    impl = _chain_transitions(_tansitions),
-    refs = _refs,
+    impl = _chain_transitions(_top_level_tansitions),
+    refs = _top_level_refs,
     attrs = _attrs,
+)
+
+go_library_transition = transition(
+    impl = _chain_transitions(_all_level_tansitions),
+    refs = _all_level_refs,
+    attrs = [],
+)
+
+cgo_library_transition = transition(
+    impl = _chain_transitions(_all_level_tansitions),
+    refs = _all_level_refs,
+    attrs = [],
+)
+
+go_stdlib_transition = transition(
+    impl = _chain_transitions(_all_level_tansitions),
+    refs = _all_level_refs,
+    attrs = [],
 )
 
 cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = select({
