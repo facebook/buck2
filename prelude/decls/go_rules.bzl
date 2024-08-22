@@ -71,9 +71,9 @@ cgo_library = prelude_rule(
             """),
         } |
         cxx_common.headers_arg() |
-        cxx_common.preprocessor_flags_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
         go_common.cxx_compiler_flags_arg() |
         native_common.link_style() |
         {

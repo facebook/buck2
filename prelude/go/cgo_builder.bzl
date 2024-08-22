@@ -167,7 +167,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
             compiler_flags = c_flags + ctx.attrs.cxx_compiler_flags,
-            preprocessor_flags = cpp_flags + ctx.attrs.preprocessor_flags,
+            preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
         ),
         # Create private header tree and propagate via args.
         [own_pre, cgo_headers_pre],

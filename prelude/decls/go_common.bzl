@@ -163,6 +163,13 @@ def _cxx_compiler_flags_arg():
 """),
     }
 
+def _cxx_preprocessor_flags_arg():
+    return {
+        "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = [], doc = """
+    GCC/Clang flags to use when preprocessing any of the above C/C++ sources (which require preprocessing).
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -180,4 +187,5 @@ go_common = struct(
     asan_arg = _asan_arg,
     tags_arg = _tags_arg,
     cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
+    cxx_preprocessor_flags_arg = _cxx_preprocessor_flags_arg,
 )
