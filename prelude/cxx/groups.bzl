@@ -217,7 +217,23 @@ def _find_targets_in_mapping(
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if not mapping.roots:
-            fail("no filter or explicit root given: {}", mapping)
+            # Some link groups may want to partially define their mapping roots based on constraint
+            # that potentially can be resolved to `None`.
+            #
+            # E.g:
+            # ```
+            # ("evict-mkl", [
+            #   (":mkl_ilp64_omp", "node", None, "shared"),
+            #   (select(
+            #     {"DEFAULT": None, "ovr_config//runtime:platform010": "//IntelComposerXE:mkl_ilp64_omp" }),
+            #     "node", None, "shared"
+            #   ),
+            # ])
+            # ```
+            # Second mapping will be resolved to `(None, "node", None, "shared")` and will not handle anything.
+            # There is no convenient way to gracefully handle that in user-facing link groups API.
+            return []
+
         elif mapping.traversal != Traversal("intersect_any_roots"):
             return mapping.roots
 
