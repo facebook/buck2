@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -23,11 +25,13 @@ use dice::DiceComputations;
 use dice::DiceError;
 use dice::Key;
 use dupe::Dupe;
+use either::Either;
 use futures::future::FutureExt;
 
 use crate::cached_validation_result::CachedValidationResult;
 use crate::cached_validation_result::CachedValidationResultData;
 use crate::cached_validation_result::ValidationFailedUserFacingError;
+use crate::enabled_optional_validations_key::EnabledOptionalValidationsKey;
 use crate::single_validation_key::SingleValidationKey;
 
 /// DICE key that corresponds to a validation of a whole target subgraph rooted at the given node.
@@ -48,8 +52,19 @@ impl TransitiveValidationKey {
             Some(info) => info,
             None => return Ok(()),
         };
+
+        let enabled_optional_validations = if info.validations().any(|spec| spec.optional()) {
+            Either::Left(ctx.compute(&EnabledOptionalValidationsKey).await?)
+        } else {
+            Either::Right(Cow::Owned(BTreeSet::new()))
+        };
+
+        let enabled_optional_validations: &BTreeSet<String> =
+            AsRef::as_ref(&enabled_optional_validations);
+
         let artifacts = info
             .validations()
+            .filter(|spec| !spec.optional() || enabled_optional_validations.contains(spec.name()))
             .map(|spec| spec.validation_result().get_bound_artifact())
             .map(|r| r.map_err(buck2_error::Error::from))
             .collect::<buck2_error::Result<Vec<Artifact>>>()?;
