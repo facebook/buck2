@@ -461,66 +461,6 @@ go_test = prelude_rule(
         re_test_common.test_args()
     ),
 )
-
-go_test_runner = prelude_rule(
-    name = "go_test_runner",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "test_runner_generator": attrs.source(),
-        }
-    ),
-)
-
-prebuilt_go_library = prelude_rule(
-    name = "prebuilt_go_library",
-    docs = """
-        A prebuilt\\_go\\_library() rule provides a native library from the specified file.
-    """,
-    examples = """
-        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
-
-
-        ```
-
-        prebuilt_go_library(
-          name='greeting',
-          package_name='greeting',
-          library='greeting.a',
-          deps=[
-            ':join',
-          ],
-        )
-
-        ```
-    """,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "library": attrs.source(doc = """
-                Path to the precompiled Go library - typically of the form 'foo.a'.
-            """),
-        } |
-        go_common.package_name_arg() |
-        go_common.deps_arg() |
-        {
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
-    ),
-)
-
 go_bootstrap_binary = prelude_rule(
     name = "go_bootstrap_binary",
     attrs = (
@@ -536,6 +476,4 @@ go_rules = struct(
     go_exported_library = go_exported_library,
     go_library = go_library,
     go_test = go_test,
-    go_test_runner = go_test_runner,
-    prebuilt_go_library = prebuilt_go_library,
 )
