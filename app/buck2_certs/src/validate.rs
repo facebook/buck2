@@ -18,7 +18,7 @@ use crate::certs;
 use crate::certs::load_certs;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(input, tag = NoValidCerts)]
+#[buck2(environment, tag = NoValidCerts)]
 enum InvalidCertsError {
     #[error(
         "Could not find valid root certs. Please check your machine certificate settings. Instructions: https://fburl.com/devcert\nFailure Reason: {0}"
