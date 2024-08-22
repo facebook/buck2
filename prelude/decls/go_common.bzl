@@ -156,6 +156,13 @@ def _tags_arg():
 """),
     }
 
+def _cxx_compiler_flags_arg():
+    return {
+        "cxx_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+    GCC/Clang flags to use when compiling any of the above C/C++ sources (which require compilation).
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -172,4 +179,5 @@ go_common = struct(
     race_arg = _race_arg,
     asan_arg = _asan_arg,
     tags_arg = _tags_arg,
+    cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
 )
