@@ -384,7 +384,7 @@ pub fn transitive_validations(
         });
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info: owned_info,
-            children: deps,
+            children: deps.into_keys().collect(),
         })))
     } else {
         assert!(

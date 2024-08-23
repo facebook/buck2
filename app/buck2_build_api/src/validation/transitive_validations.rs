@@ -13,7 +13,7 @@ use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dupe::Dupe;
 use starlark::values::OwnedFrozenRef;
-use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::builtin::validation_info::FrozenValidationInfo;
 
@@ -29,5 +29,5 @@ pub struct TransitiveValidationsData {
     pub info: Option<OwnedFrozenRef<FrozenValidationInfo>>,
     /// If empty it means that there are no transitive dependencies of current node
     /// which contain `ValidationInfo` providers.
-    pub children: SmallMap<ConfiguredTargetLabel, TransitiveValidations>,
+    pub children: SmallSet<ConfiguredTargetLabel>,
 }

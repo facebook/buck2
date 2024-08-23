@@ -25,6 +25,7 @@ use dice::DiceComputations;
 use dice::DiceError;
 use dice::Key;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use either::Either;
 use futures::future::FutureExt;
 
@@ -80,10 +81,9 @@ impl TransitiveValidationKey {
         ctx: &mut DiceComputations<'_>,
         transitive_validations: TransitiveValidations,
     ) -> Result<(), TreatValidationFailureAsError> {
-        let duped = |x: (&ConfiguredTargetLabel, &TransitiveValidations)| (x.0.dupe(), x.1.dupe());
         ctx.try_compute_join(
-            transitive_validations.0.children.iter().map(duped),
-            |ctx, (label, _validations)| {
+            transitive_validations.0.children.iter().duped(),
+            |ctx, label| {
                 let key = TransitiveValidationKey(label);
                 async move {
                     let result = ctx.compute(&key).await?;
