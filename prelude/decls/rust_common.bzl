@@ -76,6 +76,10 @@ def _exported_linker_flags_arg():
     A set of additional flag to pass before this item on the link line, even if
     this items is compiled to a DSO.
 """),
+        "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+    A set of additional flag to pass after this item on the link line, even if
+    this items is compiled to a DSO.
+"""),
     }
 
 def _crate(crate_type):
