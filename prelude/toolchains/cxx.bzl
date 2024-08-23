@@ -80,7 +80,9 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     arch_name = ctx.attrs._target_os_type[OsLookup].cpu
     cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
     cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
-    target_name = os + "-" + arch_name
+    target_name = os
+    if arch_name:
+        target_name += "-" + arch_name
     return _cxx_toolchain_from_cxx_tools_info(ctx, cxx_tools_info, target_name)
 
 def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
