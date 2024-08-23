@@ -18,11 +18,9 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
@@ -470,27 +468,24 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let configured_node: MaybeCompatible<ConfiguredTargetNode> = ctx
+    let configured_node = ctx
         .get()
         .get_configured_target_node(providers_label.target())
-        .await?;
-    let validation_result = match configured_node {
-        MaybeCompatible::Compatible(target_node) => VALIDATION_IMPL
-            .get()?
-            .validate_target_node_transitively(ctx, target_node)
-            .map({
-                let providers_label = providers_label.dupe();
-                move |result| ConfiguredBuildEvent {
-                    label: providers_label,
-                    variant: ConfiguredBuildEventVariant::Validation { result },
-                }
-            }),
-        MaybeCompatible::Incompatible(..) => {
-            return Err(internal_error!(
-                "Incompatible node unexpected as compatibility should have been checked earlier"
-            ));
-        }
-    };
+        .await?
+        .require_compatible()
+        .internal_error(
+            "Incompatible node unexpected as compatibility should have been checked earlier",
+        )?;
+    let validation_result = VALIDATION_IMPL
+        .get()?
+        .validate_target_node_transitively(ctx, configured_node)
+        .map({
+            let providers_label = providers_label.dupe();
+            move |result| ConfiguredBuildEvent {
+                label: providers_label,
+                variant: ConfiguredBuildEventVariant::Validation { result },
+            }
+        });
 
     let outputs = outputs
         .into_iter()
