@@ -160,6 +160,7 @@ load(
     "PDB_SUB_TARGET",
     "get_dumpbin_providers",
     "get_pdb_providers",
+    "get_shared_library_name",
 )
 load(
     ":preprocessor.bzl",
@@ -580,34 +581,13 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         for shlib in shared_libs
         if shlib.soname.is_str()
     }
-    sub_targets["shared-libraries"] = [DefaultInfo(
-        default_output = ctx.actions.write_json(
-            binary.output.basename + ".shared-libraries.json",
-            {
-                "libraries": [
-                    "{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, soname)
-                    for soname in str_soname_shlibs
-                ],
-                "librariesdwp": [
-                    "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
-                    for soname, shlib in str_soname_shlibs.items()
-                    if shlib.lib.dwp
-                ],
-                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
-            },
-        ),
-        sub_targets = {
-            soname: [DefaultInfo(
-                default_output = shlib.lib.output,
-                sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
-            )]
-            for soname, shlib in str_soname_shlibs.items()
-        },
-    )]
 
+    readable_mappings = {}
+    soname_to_group_mappings = {}
     if link_group_mappings:
-        readable_mappings = {}
         for node, group in link_group_mappings.items():
+            soname = get_shared_library_name(linker_info, group, True)
+            soname_to_group_mappings[soname] = group
             readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
 
         sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
@@ -626,6 +606,43 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 },
             ),
         )]
+
+    shared_libraries_sub_targets = {}
+    for soname, shlib in str_soname_shlibs.items():
+        targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {}
+
+        group = soname_to_group_mappings.get(soname)
+        if group in readable_mappings:
+            output_json_file = binary.output.basename + "." + group + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX
+            targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
+                default_output = ctx.actions.write_json(
+                    output_json_file,
+                    {group: readable_mappings[group]},
+                ),
+            )]
+        shared_libraries_sub_targets[soname] = [DefaultInfo(
+            default_output = shlib.lib.output,
+            sub_targets = targets,
+        )]
+
+    sub_targets["shared-libraries"] = [DefaultInfo(
+        default_output = ctx.actions.write_json(
+            binary.output.basename + ".shared-libraries.json",
+            {
+                "libraries": [
+                    "{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, soname)
+                    for soname in str_soname_shlibs
+                ],
+                "librariesdwp": [
+                    "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
+                    for soname, shlib in str_soname_shlibs.items()
+                    if shlib.lib.dwp
+                ],
+                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
+            },
+        ),
+        sub_targets = shared_libraries_sub_targets,
+    )]
 
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize
