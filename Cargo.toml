@@ -299,7 +299,7 @@ unicode-segmentation = "1.7"
 uuid = { version = "1.2", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
-winapi = { version = "0.3", features = ["everything"] }
+winapi = { version = "0.3", features = ["everything", "std"] }
 x509-parser = "0.14.0"
 xattr = "0.2.2"
 zip = "0.5"
