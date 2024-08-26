@@ -112,7 +112,7 @@ fn parse_error_add_span(
 /// The internal details (statements/expressions) are deliberately omitted, as they change
 /// more regularly. A few methods to obtain information about the AST are provided.
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Debug, Clone)]
 pub struct AstModule {
     #[derivative(Debug = "ignore")]
     pub(crate) codemap: CodeMap,

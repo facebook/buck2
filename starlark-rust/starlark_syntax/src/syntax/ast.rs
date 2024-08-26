@@ -334,7 +334,7 @@ pub enum Visibility {
     Public,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefP<P: AstPayload> {
     pub name: AstAssignIdentP<P>,
     pub params: Vec<AstParameterP<P>>,
@@ -356,7 +356,7 @@ impl<P: AstPayload> DefP<P> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ForP<P: AstPayload> {
     pub var: AstAssignTargetP<P>,
     pub over: AstExprP<P>,
@@ -371,7 +371,7 @@ pub struct FStringP<P: AstPayload> {
     pub expressions: Vec<AstExprP<P>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StmtP<P: AstPayload> {
     Break,
     Continue,
