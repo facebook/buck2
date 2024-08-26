@@ -60,8 +60,8 @@ use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
 
-/// A trait for values which are more complex - because they are either mutable,
-/// or contain references to other values.
+/// A trait for values which are more complex - because they are either mutable
+/// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.
 ///
 /// For values that contain nested [`Value`] types (mutable or not) there are a bunch of helpers
 /// and macros.
