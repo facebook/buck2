@@ -19,6 +19,7 @@ use std::time::Instant;
 use anyhow::Context;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
+use dashmap::DashMap;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Future;
@@ -492,7 +493,7 @@ pub struct REClient {
     instance_name: InstanceName,
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
-    prev_uploads: dashmap::DashMap<TDigest, OngoingUploadStatus>,
+    prev_uploads: DashMap<TDigest, OngoingUploadStatus>,
 }
 
 impl Drop for REClient {
@@ -567,7 +568,7 @@ impl REClient {
                 ttl: Duration::from_secs(12 * 60 * 60), // 12 hours TODO: Tune this parameter
                 last_check: Instant::now(),
             }),
-            prev_uploads: dashmap::DashMap::new(),
+            prev_uploads: DashMap::new(),
         }
     }
 
@@ -1196,7 +1197,7 @@ async fn upload_impl<Byt, Cas>(
     request: UploadRequest,
     max_total_batch_size: usize,
     max_concurrent_uploads: Option<usize>,
-    prev_uploads: &dashmap::DashMap<TDigest, OngoingUploadStatus>,
+    prev_uploads: &DashMap<TDigest, OngoingUploadStatus>,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -2132,7 +2133,7 @@ mod tests {
             req,
             10000,
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2216,7 +2217,7 @@ mod tests {
             req,
             10, // kept small to simulate a large file upload
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2291,7 +2292,7 @@ mod tests {
             req,
             10, // kept small to simulate a large inlined upload
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2353,7 +2354,7 @@ mod tests {
             req,
             10,
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |_req| async move {
                 panic!("This should not be called as there are no blobs to upload in batch");
             },
@@ -2415,7 +2416,7 @@ mod tests {
             req,
             3,
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -2457,7 +2458,7 @@ mod tests {
             req,
             0,
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -2504,7 +2505,7 @@ mod tests {
             req,
             1,
             None,
-            &dashmap::DashMap::new(),
+            &DashMap::new(),
             |_req| async move {
                 panic!("Not called");
             },
