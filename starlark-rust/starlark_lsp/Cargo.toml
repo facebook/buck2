@@ -16,7 +16,7 @@ version = "0.12.0"
 [dependencies]
 anyhow = "1.0.65"
 derivative = "2.2"
-derive_more = "0.99"
+derive_more.workspace = true
 dupe = { workspace = true }
 itertools = "0.10"
 lsp-server = "0.7.2"

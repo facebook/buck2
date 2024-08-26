@@ -23,9 +23,9 @@ use futures::future::FutureExt;
 async fn test_linear_recompute_tracks_deps() {
     #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
     enum K {
-        #[display(fmt = "K::Top")]
+        #[display("K::Top")]
         Top,
-        #[display(fmt = "K::Mid({})", .0)]
+        #[display("K::Mid({})", _0)]
         Mid(u32),
     }
 

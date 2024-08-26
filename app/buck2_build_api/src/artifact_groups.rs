@@ -96,7 +96,7 @@ pub enum ResolvedArtifactGroupBuildSignalsKey {
 }
 
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
-#[display(fmt = "TransitiveSetProjection({}, {})", key, projection)]
+#[display("TransitiveSetProjection({}, {})", key, projection)]
 pub struct TransitiveSetProjectionKey {
     pub key: TransitiveSetKey,
     pub projection: usize,

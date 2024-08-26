@@ -637,7 +637,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "<attrs>")]
+#[display("<attrs>")]
 struct Attrs;
 
 #[starlark_value(type = "attrs")]

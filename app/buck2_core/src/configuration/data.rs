@@ -351,7 +351,7 @@ impl ConfigurationDataData {
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "{}", full_name)]
+#[display("{}", full_name)]
 pub(crate) struct HashedConfigurationPlatform {
     configuration_platform: ConfigurationPlatform,
     // The remaining fields are computed from `platform_configuration_data`.

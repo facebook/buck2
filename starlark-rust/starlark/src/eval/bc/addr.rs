@@ -37,7 +37,7 @@ use crate::eval::bc::repr::BC_INSTR_ALIGN;
 #[derive(
     Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display, Hash, Default
 )]
-#[display(fmt = "@{}", _0)]
+#[display("@{}", _0)]
 pub(crate) struct BcAddr(pub(crate) u32);
 
 impl BcAddr {

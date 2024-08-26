@@ -9,7 +9,6 @@
 
 use std::cell::RefCell;
 use std::fmt;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -322,7 +321,7 @@ impl<'v> Freeze for RuleCallable<'v> {
 }
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "{}()", "rule.rule_type.name()")]
+#[display("{}()", rule.rule_type.name())]
 pub struct FrozenRuleCallable {
     rule: Arc<Rule>,
     /// Identical to `rule.rule_type` but more specific type.

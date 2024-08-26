@@ -74,7 +74,7 @@ pub trait PatternType:
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "")]
+#[display("")]
 pub struct TargetPatternExtra;
 
 impl PatternType for TargetPatternExtra {
@@ -169,15 +169,15 @@ impl PatternType for ProvidersPatternExtra {
 pub enum ConfigurationPredicate {
     /// Matches any configuration.
     #[default]
-    #[display(fmt = "<any>")]
+    #[display("<any>")]
     Any,
     /// Matches builtin platform.
     Builtin(BuiltinPlatform),
     /// Matches user defined configuration.
     #[display(
-        fmt = "{}{}",
-        "_0",
-        "_1.as_ref().map_or(String::new(), |h| format!(\"#{}\", h))"
+        "{}{}",
+        _0,
+        _1.as_ref().map_or(String::new(), |h| format!("#{}", h))
     )]
     Bound(
         BoundConfigurationLabel,

@@ -21,7 +21,7 @@ use crate::actions::key::ActionKey;
 #[allow(clippy::derived_hash_with_manual_eq)] // The Eq is equivalent to what would have been generated
 #[derive(Clone, Debug, Dupe, Display, Derivative, Allocative)]
 #[derivative(PartialEq, Eq, Hash)]
-#[display(fmt = "`{}`, action: {}", path, key)]
+#[display("`{}`, action: {}", path, key)]
 pub struct BuildArtifact {
     path: BuckOutPath,
     key: ActionKey,

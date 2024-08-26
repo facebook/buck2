@@ -36,7 +36,7 @@
 //!     }
 //!
 //!     #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-//!     #[display(fmt = "{:?}", self)]
+//!     #[display("{:?}", self)]
 //!     struct ConfigKey;
 //!
 //!     #[async_trait]
@@ -54,7 +54,7 @@
 //!         // declaring a computation function
 //!         pub async fn compute_a(&mut self, a: usize, s: String) -> Arc<String> {
 //!             #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-//!             #[display(fmt = "{:?}", self)]
+//!             #[display("{:?}", self)]
 //!             struct ComputeA(usize, String);
 //!
 //!             #[async_trait]
@@ -82,7 +82,7 @@
 //!     }
 //!
 //!     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-//!     #[display(fmt = "{:?}", self)]
+//!     #[display("{:?}", self)]
 //!     struct ComputeB(usize);
 //!
 //!     #[async_trait]

@@ -33,7 +33,7 @@ use crate::values::StarlarkValue;
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "foo")]
+#[display("foo")]
 struct Foo;
 
 #[starlark_value(type = "Foo")]

@@ -1340,7 +1340,7 @@ mod tests {
 
     #[derive(Clone, Dupe, Derivative, Allocative, Display)]
     #[derivative(Hash, Eq, PartialEq, Debug)]
-    #[display(fmt = "CleanupTestKey")]
+    #[display("CleanupTestKey")]
     struct CleanupTestKey {
         #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
         is_executing: Arc<Mutex<()>>,

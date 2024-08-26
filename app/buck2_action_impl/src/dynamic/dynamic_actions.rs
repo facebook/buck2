@@ -43,7 +43,7 @@ pub(crate) struct StarlarkDynamicActionsData<'v> {
     Trace,
     Allocative
 )]
-#[display(fmt = "DynamicActions<...>")]
+#[display("DynamicActions<...>")]
 pub(crate) struct StarlarkDynamicActions<'v> {
     pub(crate) data: RefCell<Option<StarlarkDynamicActionsData<'v>>>,
 }

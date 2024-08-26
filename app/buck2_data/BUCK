@@ -14,7 +14,7 @@ rust_protobuf_library(
         "error.proto",
     ],
     deps = [
-        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:derive_more-1",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",

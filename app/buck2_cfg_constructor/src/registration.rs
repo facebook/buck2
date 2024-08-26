@@ -56,7 +56,7 @@ enum RegisterCfgConstructorError {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 struct StarlarkCfgConstructor<'v> {
     stage0: Value<'v>,
     stage1: Value<'v>,
@@ -71,7 +71,7 @@ struct StarlarkCfgConstructor<'v> {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 struct FrozenStarlarkCfgConstructor {
     stage0: FrozenValue,
     stage1: FrozenValue,

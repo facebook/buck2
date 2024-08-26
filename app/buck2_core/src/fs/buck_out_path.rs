@@ -26,7 +26,7 @@ use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
-#[display(fmt = "({})/{}", owner, "path.as_str()")]
+#[display("({})/{}", owner, path.as_str())]
 struct BuckOutPathData {
     /// The owner responsible for creating this path.
     owner: BaseDeferredKey,
@@ -84,7 +84,7 @@ impl BuckOutPath {
 }
 
 #[derive(Clone, Debug, Display, Eq, PartialEq)]
-#[display(fmt = "tmp/({})/{}", owner, "path.as_str()")]
+#[display("tmp/({})/{}", owner, path.as_str())]
 pub struct BuckOutScratchPath {
     /// The deferred responsible for creating this path.
     owner: BaseDeferredKey,

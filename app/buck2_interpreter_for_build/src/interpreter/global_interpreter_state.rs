@@ -94,7 +94,7 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
             PartialEq,
             Allocative
         )]
-        #[display(fmt = "{:?}", self)]
+        #[display("{:?}", self)]
         struct GisKey();
 
         #[async_trait]

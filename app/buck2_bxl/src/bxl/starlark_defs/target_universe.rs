@@ -48,7 +48,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "<universe of {} nodes>", "self.target_universe.len()")]
+#[display("<universe of {} nodes>", self.target_universe.len())]
 pub(crate) struct StarlarkTargetUniverse<'v> {
     // Cquery universe for performing
     target_universe: CqueryUniverse,

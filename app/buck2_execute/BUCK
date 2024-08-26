@@ -20,7 +20,7 @@ rust_library(
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:derivative",
-        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:derive_more-1",
         "fbsource//third-party/rust:digest",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:faccess",

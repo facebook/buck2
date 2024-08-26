@@ -20,5 +20,5 @@ thiserror = "1.0.36"
 unicode-segmentation = "1.7"
 
 [dev-dependencies]
-derive_more = "0.99"
+derive_more = { version = "1.0.0", features = ["full"] }
 tokio = { version = "1.5", features = ["macros", "rt-multi-thread", "time"] }

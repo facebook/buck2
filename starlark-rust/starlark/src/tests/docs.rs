@@ -95,7 +95,7 @@ def _do_not_export():
     Allocative,
     NoSerialize
 )]
-#[display(fmt = "magic")]
+#[display("magic")]
 struct Magic;
 
 #[starlark_value(type = "magic")]
@@ -183,7 +183,7 @@ fn module(builder: &mut GlobalsBuilder) {
 }
 
 #[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
-#[display(format = "obj")]
+#[display("obj")]
 struct Obj;
 
 #[starlark_value(type = "obj")]

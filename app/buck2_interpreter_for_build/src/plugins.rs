@@ -40,9 +40,9 @@ use crate::interpreter::build_context::BuildContext;
 
 #[derive(Debug, derive_more::Display, Allocative)]
 enum InnerStarlarkPluginKind {
-    #[display(fmt = "<plugin_kind <unbound>>")]
+    #[display("<plugin_kind <unbound>>")]
     Unbound(CellPath),
-    #[display(fmt = "<plugin_kind _0>")]
+    #[display("<plugin_kind _0>")]
     Bound(PluginKind),
 }
 
@@ -57,7 +57,7 @@ enum InnerStarlarkPluginKind {
     Trace,
     Allocative
 )]
-#[display(fmt = "{}", "RefCell::borrow(_0)")]
+#[display("{}", RefCell::borrow(_0))]
 pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
 #[starlark_value(type = "PluginKind")]
@@ -109,7 +109,7 @@ impl<'v> AllocValue<'v> for StarlarkPluginKind {
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "{_0}")]
+#[display("{_0}")]
 pub struct FrozenStarlarkPluginKind(PluginKind);
 starlark_simple_value!(FrozenStarlarkPluginKind);
 
@@ -137,7 +137,7 @@ pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginK
 
 /// The value yielded by `plugins.ALL`
 #[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
-#[display(fmt = "<all_plugins>")]
+#[display("<all_plugins>")]
 pub struct AllPlugins;
 starlark_simple_value!(AllPlugins);
 
@@ -193,7 +193,7 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "<plugins>")]
+#[display("<plugins>")]
 struct Plugins;
 
 #[starlark_value(type = "plugins")]

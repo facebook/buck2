@@ -47,7 +47,7 @@ use crate::values::ValueOfUnchecked;
     NoSerialize,
     ProvidesStaticType
 )]
-#[display(fmt = "input")]
+#[display("input")]
 struct InputTypeRepr;
 #[derive(
     Debug,
@@ -56,7 +56,7 @@ struct InputTypeRepr;
     NoSerialize,
     ProvidesStaticType
 )]
-#[display(fmt = "output")]
+#[display("output")]
 struct OutputTypeRepr;
 
 #[starlark_value(type = "input")]

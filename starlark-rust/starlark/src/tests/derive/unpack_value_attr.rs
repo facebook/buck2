@@ -33,7 +33,7 @@ use crate::values::Value;
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "ValueWithLifetimeParam")]
+#[display("ValueWithLifetimeParam")]
 struct ValueWithLifetimeParam<'v>(Value<'v>);
 #[derive(
     Debug,
@@ -42,7 +42,7 @@ struct ValueWithLifetimeParam<'v>(Value<'v>);
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "ValueWithoutParam")]
+#[display("ValueWithoutParam")]
 struct ValueWithoutParam(String);
 
 #[starlark_value(type = "ValueWithLifetimeParam", StarlarkTypeRepr, UnpackValue)]

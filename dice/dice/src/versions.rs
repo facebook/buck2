@@ -16,7 +16,6 @@
 use std::cmp;
 use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::ops::Bound;
 use std::ops::RangeBounds;
@@ -30,7 +29,7 @@ use dupe::Dupe;
 #[derive(Copy, Eq, Debug, Display, Dupe)]
 // split this due to formatters not agreeing
 #[derive(PartialEq, Hash, Clone, Ord, PartialOrd, Allocative)]
-#[display(fmt = "v{}", "_0")]
+#[display("v{}", _0)]
 pub struct VersionNumber(pub(crate) usize);
 
 impl VersionNumber {

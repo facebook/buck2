@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -119,11 +118,11 @@ pub struct RemoteExecutorOptions {
 /// with a RE backend for caching".
 #[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative)]
 pub enum RemoteEnabledExecutor {
-    #[display(fmt = "local")]
+    #[display("local")]
     Local(LocalExecutorOptions),
-    #[display(fmt = "remote")]
+    #[display("remote")]
     Remote(RemoteExecutorOptions),
-    #[display(fmt = "hybrid")]
+    #[display("hybrid")]
     Hybrid {
         local: LocalExecutorOptions,
         remote: RemoteExecutorOptions,
@@ -247,9 +246,9 @@ impl Default for OutputPathsBehavior {
 
 #[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
 pub enum CacheUploadBehavior {
-    #[display(fmt = "enabled")]
+    #[display("enabled")]
     Enabled { max_bytes: Option<u64> },
-    #[display(fmt = "disabled")]
+    #[display("disabled")]
     Disabled,
 }
 

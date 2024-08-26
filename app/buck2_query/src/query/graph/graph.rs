@@ -378,7 +378,7 @@ mod tests {
     use crate::query::traversal::AsyncNodeLookup;
 
     #[derive(Clone, Copy, Dupe, Eq, PartialEq, Hash, derive_more::Display, Debug)]
-    #[display(fmt = "{}", _0)]
+    #[display("{}", _0)]
     struct Ref(u32);
 
     #[derive(Clone, Dupe)]

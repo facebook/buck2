@@ -116,7 +116,7 @@ pub struct TyUserParams {
 
 /// Type description for arbitrary type.
 #[derive(Allocative, Debug, derive_more::Display)]
-#[display(fmt = "{}", name)]
+#[display("{}", name)]
 pub struct TyUser {
     name: String,
     /// Base type for this custom type, e.g. generic record for record with known fields.
@@ -318,7 +318,7 @@ mod tests {
         Allocative,
         NoSerialize
     )]
-    #[display(fmt = "plant")]
+    #[display("plant")]
     enum AbstractPlant {}
 
     #[starlark_value(type = "plant")]
@@ -335,7 +335,7 @@ mod tests {
         Allocative,
         NoSerialize
     )]
-    #[display(fmt = "fruit_callable")]
+    #[display("fruit_callable")]
     struct FruitCallable {
         name: String,
         ty_fruit_callable: Ty,

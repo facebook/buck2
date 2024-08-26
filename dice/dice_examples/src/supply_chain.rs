@@ -214,7 +214,7 @@ async fn lookup_company_resource_cost(
     resource: &Resource,
 ) -> Result<Option<u16>, Arc<anyhow::Error>> {
     #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
     impl Key for LookupCompanyResourceCost {

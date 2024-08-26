@@ -70,7 +70,7 @@ struct RuleAnalysisCalculationInstance;
     PartialEq,
     Allocative
 )]
-#[display(fmt = "{}", "_0")]
+#[display("{}", _0)]
 pub struct AnalysisKey(pub ConfiguredTargetLabel);
 
 pub(crate) fn init_rule_analysis_calculation() {

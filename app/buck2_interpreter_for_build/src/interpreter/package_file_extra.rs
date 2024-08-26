@@ -46,7 +46,7 @@ use crate::super_package::package_value::StarlarkPackageValue;
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub struct PackageFileExtra<'v> {
     pub cfg_constructor: OnceCell<Value<'v>>,
     pub(crate) package_values: RefCell<SmallMap<MetadataKey, StarlarkPackageValue<'v>>>,
@@ -74,7 +74,7 @@ unsafe impl<'v> Trace<'v> for PackageFileExtra<'v> {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub struct FrozenPackageFileExtra {
     pub(crate) cfg_constructor: Option<FrozenValue>,
     pub(crate) package_values: SmallMap<MetadataKey, FrozenStarlarkPackageValue>,

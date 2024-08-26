@@ -57,7 +57,7 @@ use crate::values::StarlarkValue;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "{}", Self::TYPE)]
+#[display("{}", Self::TYPE)]
 pub(crate) struct TypingNever;
 
 #[starlark_value(type = "typing.Never")]

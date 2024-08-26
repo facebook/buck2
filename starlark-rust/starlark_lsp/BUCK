@@ -29,7 +29,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derivative",
-        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:derive_more-1",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lsp-server",
         "fbsource//third-party/rust:lsp-types",

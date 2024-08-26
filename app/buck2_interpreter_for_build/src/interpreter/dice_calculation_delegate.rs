@@ -92,7 +92,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
         build_file_cell: BuildFileCell,
     ) -> anyhow::Result<DiceCalculationDelegate<'c, 'd>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "{}@{}", _0, _1)]
+        #[display("{}@{}", _0, _1)]
         struct InterpreterConfigForCellKey(CellName, BuildFileCell);
 
         #[async_trait]

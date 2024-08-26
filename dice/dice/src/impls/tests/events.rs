@@ -38,7 +38,7 @@ impl DiceEventListener for Tracker {
 }
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Injected;
 
 #[async_trait]
@@ -51,7 +51,7 @@ impl InjectedKey for Injected {
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Stage0;
 
 #[async_trait]
@@ -72,7 +72,7 @@ impl Key for Stage0 {
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Stage1;
 
 #[async_trait]

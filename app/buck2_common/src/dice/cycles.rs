@@ -100,7 +100,7 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D> {
 /// flow of data that is potentially not tracked by dice, and while we may be able to identify those
 /// and fix them it'll still be fragile and its best to just make sure they aren't cached).
 #[derive(Allocative, Debug, Display, Clone, PartialEq, Eq, Hash)]
-#[display(fmt = "poisoned_due_to_detected_cycle")]
+#[display("poisoned_due_to_detected_cycle")]
 struct PoisonedDueToDetectedCycleKey;
 
 #[async_trait]

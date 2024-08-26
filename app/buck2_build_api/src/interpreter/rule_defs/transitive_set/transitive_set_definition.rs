@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -87,7 +86,7 @@ pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
 #[derive(Debug, Clone, Display, Allocative, Hash)]
-#[display(fmt = "{}", "name")]
+#[display("{}", name)]
 struct TransitiveSetId {
     module_id: ImportPath,
     name: String,
@@ -286,7 +285,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
 }
 
 #[derive(Display, ProvidesStaticType, Allocative)]
-#[display(fmt = "{}", "exported.id")]
+#[display("{}", exported.id)]
 pub struct FrozenTransitiveSetDefinition {
     pub(crate) exported: TransitiveSetDefinitionExported,
 

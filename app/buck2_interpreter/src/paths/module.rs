@@ -36,7 +36,7 @@ use crate::paths::path::StarlarkPath;
     Eq,
     PartialEq
 )]
-#[display(fmt = "{}", self.id())]
+#[display("{}", self.id())]
 pub enum StarlarkModulePath<'a> {
     /// a file to be imported
     LoadFile(&'a ImportPath),
@@ -85,7 +85,7 @@ impl<'a> StarlarkModulePath<'a> {
 }
 
 #[derive(Clone, derive_more::Display, Debug, Eq, PartialEq, Allocative)]
-#[display(fmt = "{}", self.borrow())]
+#[display("{}", self.borrow())]
 pub enum OwnedStarlarkModulePath {
     LoadFile(ImportPath),
     BxlFile(BxlFilePath),

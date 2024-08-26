@@ -9,7 +9,6 @@
 
 use std::cell::RefCell;
 use std::fmt;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -168,7 +167,7 @@ impl<'v> Freeze for BxlFunction<'v> {
 }
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "{}()", "bxl_id.name")]
+#[display("{}()", bxl_id.name)]
 pub(crate) struct FrozenBxlFunction {
     implementation: FrozenValue,
     cli_args: SmallMap<String, CliArgs>,

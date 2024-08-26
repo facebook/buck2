@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
@@ -88,7 +87,7 @@ impl Key for K {
 }
 
 #[derive(Allocative, Clone, Debug, Display)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct IsRan(Arc<AtomicBool>);
 
 #[async_trait]
@@ -250,7 +249,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     }
 
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct InstanceEqualKey(Arc<AtomicUsize>);
 
     #[async_trait]
@@ -587,7 +586,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     #[allocative(skip)]
     struct DontRunTwice {
         is_started: Arc<Notify>,
@@ -736,7 +735,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct NeverEqual;
 
     #[async_trait]

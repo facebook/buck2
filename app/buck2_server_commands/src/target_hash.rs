@@ -48,7 +48,7 @@ use siphasher::sip128::Hasher128;
 use siphasher::sip128::SipHasher24;
 
 #[derive(Clone, Dupe, derive_more::Display)]
-#[display(fmt = "{:032x}", _0)]
+#[display("{:032x}", _0)]
 pub struct BuckTargetHash(pub u128);
 
 trait BuckTargetHasher: Hasher + Send + 'static {

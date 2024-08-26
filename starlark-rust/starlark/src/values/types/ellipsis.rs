@@ -37,7 +37,7 @@ use crate::values::StarlarkValue;
     derive_more::Display,
     ProvidesStaticType
 )]
-#[display(fmt = "Ellipsis")]
+#[display("Ellipsis")]
 pub(crate) struct Ellipsis;
 
 pub(crate) static VALUE_ELLIPSIS: AValueRepr<AValueImpl<'static, AValueBasic<Ellipsis>>> =

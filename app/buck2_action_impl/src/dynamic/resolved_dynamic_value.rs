@@ -32,7 +32,7 @@ use starlark::values::ValueTyped;
     NoSerialize,
     ProvidesStaticType
 )]
-#[display(fmt = "ResolvedDynamicValue<{}>", "self.value")]
+#[display("ResolvedDynamicValue<{}>", self.value)]
 pub struct StarlarkResolvedDynamicValue {
     pub(crate) value: FrozenValueTyped<'static, FrozenProviderCollection>,
 }

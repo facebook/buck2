@@ -1314,7 +1314,7 @@ pub struct ConfiguredTargetNodeKey(pub ConfiguredTargetLabel);
 /// Similar to [`ConfiguredTargetNodeKey`], but used when the target
 /// is transitioned to different configuration because rule definition requires it.
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "ConfiguredTransitionedNodeKey({}, {})", forward, transitioned)]
+#[display("ConfiguredTransitionedNodeKey({}, {})", forward, transitioned)]
 pub struct ConfiguredTransitionedNodeKey {
     /// Forward node label.
     forward: ConfiguredTargetLabel,

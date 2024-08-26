@@ -20,7 +20,6 @@
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Write;
 use std::ptr;
 
@@ -300,7 +299,7 @@ pub(crate) struct CopySlotFromParent {
 /// Static info for `def`, `lambda` or module.
 #[derive(Derivative, Display)]
 #[derivative(Debug)]
-#[display(fmt = "DefInfo")]
+#[display("DefInfo")]
 pub(crate) struct DefInfo {
     pub(crate) name: FrozenStringValue,
     /// Span of function signature.

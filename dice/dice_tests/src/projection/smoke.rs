@@ -56,7 +56,7 @@ struct GlobalConfig {
 
 /// "Evaluate" a file.
 #[derive(Debug, derive_more::Display, Clone, Hash, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}", name)]
+#[display("{}", name)]
 struct FileKey {
     name: String,
 }
@@ -116,7 +116,7 @@ impl Key for FileKey {
     Eq,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct ConfigKey;
 
 #[async_trait]
@@ -153,7 +153,7 @@ impl Key for ConfigKey {
 
 /// One "property" of the "configuration".
 #[derive(Debug, derive_more::Display, Clone, Hash, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}", key)]
+#[display("{}", key)]
 struct ConfigPropertyKey {
     key: String,
 }
@@ -351,7 +351,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     }
 
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct DependsOnProjection(Arc<AtomicBool>);
 
     #[async_trait]

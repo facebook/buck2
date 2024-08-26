@@ -223,7 +223,7 @@ impl FileDigest {
 /// Stores the relevant metadata for a file.
 // New fields should be added as needed, and unused fields removed.
 #[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Display, Allocative)]
-#[display(fmt = "File(digest={}, is_executable={})", digest, is_executable)]
+#[display("File(digest={}, is_executable={})", digest, is_executable)]
 pub struct FileMetadata {
     pub digest: TrackedFileDigest,
     pub is_executable: bool,

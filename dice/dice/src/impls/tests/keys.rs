@@ -28,7 +28,7 @@ use crate::impls::dice::DiceModern;
 #[tokio::test]
 async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct ComputeOnce(#[allocative(skip)] Arc<Mutex<u8>>);
 
     impl PartialEq for ComputeOnce {
@@ -93,7 +93,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let n_thread = 10usize;
 
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     // purposely use a sync barrier to see that our compute is spawned
     struct ComputeParallel(#[allocative(skip)] Arc<std::sync::Barrier>);
 

@@ -23,7 +23,7 @@ use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 #[derive(Derivative, Display, Allocative)]
 #[derivative(Debug(bound = "D: ::std::fmt::Debug, L: ::std::fmt::Debug"))]
 #[derivative(Clone(bound = "D: ::std::clone::Clone, L: ::std::clone::Clone"))]
-#[display(fmt = "Directory({})", "self.fingerprint")]
+#[display("Directory({})", self.fingerprint)]
 pub struct DirectoryData<D, L, H>
 where
     H: DirectoryDigest,

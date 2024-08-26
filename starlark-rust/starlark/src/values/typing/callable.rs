@@ -66,7 +66,7 @@ use crate::values::Value;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "{}", Self::TYPE)]
+#[display("{}", Self::TYPE)]
 pub(crate) struct TypingCallable;
 
 #[starlark_value(type = "typing.Callable")]
@@ -112,7 +112,7 @@ impl AllocFrozenValue for TypingCallable {
     NoSerialize,
     derive_more::Display
 )]
-#[display(fmt = "{}", "callable")]
+#[display("{}", callable)]
 pub(crate) struct TypingCallableAt2 {
     callable: TyCallable,
 }

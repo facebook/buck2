@@ -262,7 +262,7 @@ impl Key for ReadFileKey {
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", path)]
+#[display("{}", path)]
 struct ReadDirKey {
     path: CellPath,
     check_ignores: CheckIgnores,

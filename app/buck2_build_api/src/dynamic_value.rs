@@ -21,7 +21,7 @@ use dupe::Dupe;
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "{}", "self.dynamic_lambda_results_key")]
+#[display("{}", self.dynamic_lambda_results_key)]
 pub struct DynamicValue {
     pub dynamic_lambda_results_key: DynamicLambdaResultsKey,
 }

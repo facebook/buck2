@@ -161,7 +161,7 @@ pub trait SetLegacyConfigs {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct LegacyExternalBuckConfigDataKey;
 
 impl InjectedKey for LegacyExternalBuckConfigDataKey {
@@ -173,7 +173,7 @@ impl InjectedKey for LegacyExternalBuckConfigDataKey {
 }
 
 #[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative)]
-#[display(fmt = "LegacyBuckConfigForCellKey({})", "self.cell_name")]
+#[display("LegacyBuckConfigForCellKey({})", self.cell_name)]
 struct LegacyBuckConfigForCellKey {
     cell_name: CellName,
 }
@@ -233,7 +233,7 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
 }
 
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
-#[display(fmt = "{}.{}", section, property)]
+#[display("{}.{}", section, property)]
 struct LegacyBuckConfigPropertyProjectionKey {
     section: String,
     property: String,

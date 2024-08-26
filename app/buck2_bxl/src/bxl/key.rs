@@ -118,7 +118,7 @@ impl BxlKey {
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}", "spec")]
+#[display("{}", spec)]
 struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,
@@ -143,7 +143,7 @@ impl BxlKeyData {
 // construct the hashed path. However, we still need to include them in the BxlDynamicKeyData so that we can pass
 // them from the root BXL to the dynamic BXL context, and then access them on the dynamic BXL context's actions factory.
 #[derive(Clone, derive_more::Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{}", "key")]
+#[display("{}", key)]
 pub(crate) struct BxlDynamicKeyData {
     key: Arc<BxlKeyData>,
     pub(crate) execution_resolution: BxlExecutionResolution,

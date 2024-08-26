@@ -492,7 +492,7 @@ impl CasDownloadInfo {
 
 /// Information about a CAS download we might require when an artifact is not materialized.
 #[derive(Debug, Display)]
-#[display(fmt = "{} declared by {}", "self.url", "self.owner")]
+#[display("{} declared by {}", self.url, self.owner)]
 pub struct HttpDownloadInfo {
     /// URL to download the file from.
     pub url: Arc<str>,

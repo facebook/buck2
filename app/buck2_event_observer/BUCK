@@ -13,7 +13,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:derivative",
-        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:derive_more-1",
         "fbsource//third-party/rust:linked-hash-map",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:shlex",

@@ -185,7 +185,7 @@ pub(crate) fn validate_action_instantiation(
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct BxlActions<'v> {
     actions: ValueTyped<'v, AnalysisActions<'v>>,
     exec_deps: ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>,

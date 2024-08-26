@@ -65,7 +65,7 @@ mod tests {
             NoSerialize,
             Allocative
         )]
-        #[display(fmt = "MySimpleValue")]
+        #[display("MySimpleValue")]
         struct MySimpleValue(u32);
 
         #[starlark_value(type = "MySimpleValue")]

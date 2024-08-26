@@ -27,7 +27,7 @@ use crate::directory::directory::Directory;
     UnpackVariants,
     Allocative
 )]
-#[display(bound = "D: ::std::fmt::Display, L: ::std::fmt::Display")]
+#[display(bound(D: ::std::fmt::Display, L: ::std::fmt::Display))]
 pub enum DirectoryEntry<D, L> {
     Dir(D),
     Leaf(L),

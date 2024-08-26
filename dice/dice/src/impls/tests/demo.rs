@@ -37,7 +37,7 @@ enum Encoding {
 }
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct EncodingConfig();
 
 impl InjectedKey for EncodingConfig {
@@ -82,7 +82,7 @@ impl SetEncodings for DiceTransactionUpdater {
 struct Filesystem<'c, 'd>(&'c mut DiceComputations<'d>);
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "File({})", "_0.display()")]
+#[display("File({})", _0.display())]
 struct File(PathBuf);
 
 #[async_trait]

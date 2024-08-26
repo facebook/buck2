@@ -21,7 +21,7 @@ enum BoundConfigurationIdError {
 }
 
 #[derive(derive_more::Display, Eq, PartialEq, Clone, Debug)]
-#[display(fmt = "{}#{}", label, hash)]
+#[display("{}#{}", label, hash)]
 pub struct BoundConfigurationId {
     pub label: BoundConfigurationLabel,
     pub hash: ConfigurationHash,

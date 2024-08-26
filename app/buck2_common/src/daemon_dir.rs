@@ -12,7 +12,7 @@ use buck2_core::fs::paths::file_name::FileName;
 
 /// `~/.buck/buckd/repo-path` directory.
 #[derive(Debug, Clone, derive_more::Display)]
-#[display(fmt = "{}", path.display())]
+#[display("{}", path.display())]
 pub struct DaemonDir {
     pub path: AbsNormPathBuf,
 }

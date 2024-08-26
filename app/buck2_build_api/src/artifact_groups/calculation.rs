@@ -283,7 +283,7 @@ async fn dir_artifact_value(
     // using that directory now only depends on one DirArtifactValueKey, and that DirArtifactValueKey
     // depends on the PathMetadataKey of every member of the directory.
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "dir_artifact_value({})", .0)]
+    #[display("dir_artifact_value({})", _0)]
     struct DirArtifactValueKey(Arc<CellPath>);
 
     #[async_trait]

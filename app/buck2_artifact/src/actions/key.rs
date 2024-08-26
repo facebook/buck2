@@ -28,7 +28,7 @@ use crate::deferred::key::DeferredHolderKey;
     derive_more::Display,
     Allocative
 )]
-#[display(fmt = "(target: `{parent}`, id: `{id}`)")]
+#[display("(target: `{parent}`, id: `{id}`)")]
 pub struct ActionKey {
     parent: DeferredHolderKey,
     id: ActionIndex,

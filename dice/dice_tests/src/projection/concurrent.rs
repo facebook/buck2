@@ -47,7 +47,7 @@ impl Key for BaseK {
 #[tokio::test]
 async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
     #[derive(Allocative, Clone, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct ComputeOnce(#[allocative(skip)] Arc<AtomicU8>);
 
     impl PartialEq for ComputeOnce {

@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::iter;
 
@@ -152,7 +151,7 @@ impl ProvidersName {
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}{}", target, name)]
+#[display("{}{}", target, name)]
 pub struct ProvidersLabel {
     target: TargetLabel,
     name: ProvidersName,
@@ -253,7 +252,7 @@ impl Serialize for ProvidersLabel {
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}{} ({})", "target.unconfigured()", "name", "target.cfg()")]
+#[display("{}{} ({})", target.unconfigured(), name, target.cfg())]
 pub struct ConfiguredProvidersLabel {
     target: ConfiguredTargetLabel,
     name: ProvidersName,

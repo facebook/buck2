@@ -38,7 +38,7 @@ use crate::util::arc_or_static::ArcOrStatic;
     derive_more::Display,
     Allocative
 )]
-#[display(fmt = "{}", "&**self")]
+#[display("{}", &**self)]
 pub(crate) struct ArcStr(ArcOrStatic<str>);
 
 impl ArcStr {

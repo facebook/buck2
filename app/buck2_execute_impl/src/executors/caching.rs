@@ -534,11 +534,11 @@ impl CacheUploadOutcome {
 /// A reason why we chose not to upload.
 #[derive(Clone, Debug, Display)]
 enum CacheUploadRejectionReason {
-    #[display(fmt = "SymlinkOutput")]
+    #[display("SymlinkOutput")]
     SymlinkOutput,
-    #[display(fmt = "OutputExceedsLimit({})", max_bytes)]
+    #[display("OutputExceedsLimit({})", max_bytes)]
     OutputExceedsLimit { max_bytes: u64 },
-    #[display(fmt = "PermissionDenied (permission check error: {})", _0)]
+    #[display("PermissionDenied (permission check error: {})", _0)]
     PermissionDenied(String),
 }
 

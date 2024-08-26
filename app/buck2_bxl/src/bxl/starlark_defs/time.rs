@@ -34,7 +34,7 @@ use starlark::StarlarkDocs;
     Allocative
 )]
 #[starlark_docs(directory = "bxl")]
-#[display(fmt = "{:?}", _0)]
+#[display("{:?}", _0)]
 pub(crate) struct StarlarkInstant(pub(crate) Instant);
 
 /// Instant methods, to aid in debugging/timing individual pieces of the bxl script.

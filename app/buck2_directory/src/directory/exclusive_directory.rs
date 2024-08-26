@@ -28,7 +28,7 @@ use crate::directory::shared_directory::SharedDirectory;
 #[derive(Derivative, Display, Allocative)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
 #[derivative(Clone(bound = "L: ::std::clone::Clone"))]
-#[display(fmt = "{}", "self.data")]
+#[display("{}", self.data)]
 pub struct ExclusiveDirectory<L, H>
 where
     H: DirectoryDigest,

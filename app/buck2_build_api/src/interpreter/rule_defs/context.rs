@@ -11,7 +11,6 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::convert::Infallible;
 use std::fmt;
-use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
@@ -63,7 +62,7 @@ use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
     Allocative,
     StarlarkDocs
 )]
-#[display(fmt = "<ctx.actions>")]
+#[display("<ctx.actions>")]
 pub struct AnalysisActions<'v> {
     /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
     /// we can take the internal state without having to clone it.

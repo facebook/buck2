@@ -111,7 +111,7 @@ impl Future for ExecutorFuture {
 
 #[derive(Debug, Display)]
 #[display(
-    fmt = "Test executor exited unexpectedly with status {}.\nStdout:\n{}\nStderr:\n{}",
+    "Test executor exited unexpectedly with status {}.\nStdout:\n{}\nStderr:\n{}",
     exit_code,
     stdout,
     stderr

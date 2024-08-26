@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
@@ -23,7 +22,7 @@ pub struct LoadCycleDescriptor;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Display)]
 pub enum LoadCycleKey {
-    #[display(fmt = "{}", _0)]
+    #[display("{}", _0)]
     Module(OwnedStarlarkModulePath),
 }
 

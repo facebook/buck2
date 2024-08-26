@@ -26,7 +26,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:crossbeam-channel",
-        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:derive_more-1",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:is_proc_translated",

@@ -65,7 +65,7 @@ use crate::values::ValueError;
     Hash,
     Allocative
 )]
-#[display(fmt = "{}", value)]
+#[display("{}", value)]
 pub struct StarlarkBigInt {
     /// `value` is strictly either smaller than `i32::MIN` or larger than `i32::MAX`.
     /// Many operation implementations depend on this fact.

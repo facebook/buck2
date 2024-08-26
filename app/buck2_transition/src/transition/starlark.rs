@@ -69,7 +69,7 @@ enum TransitionError {
 struct TargetLabelTrace(TargetLabel);
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "transition")]
+#[display("transition")]
 pub(crate) struct Transition<'v> {
     /// The name of this transition, filled in by `export_as()`. This must be set before this
     /// object can be used.
@@ -86,7 +86,7 @@ pub(crate) struct Transition<'v> {
 }
 
 #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "transition")]
+#[display("transition")]
 pub(crate) struct FrozenTransition {
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,

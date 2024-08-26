@@ -216,7 +216,7 @@ where
 /// use starlark_derive::starlark_value;
 ///
 /// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-/// #[display(fmt = "Foo")]
+/// #[display("Foo")]
 /// struct Foo;
 /// # starlark_simple_value!(Foo);
 /// #[starlark_value(type = "foo")]

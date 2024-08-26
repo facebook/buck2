@@ -529,9 +529,9 @@ struct ChromeTraceWriter {
 
 #[derive(Copy, Clone, Dupe, Debug, Display, Hash, PartialEq, Eq)]
 enum SpanCategorization {
-    #[display(fmt = "uncategorized")]
+    #[display("uncategorized")]
     Uncategorized,
-    #[display(fmt = "critical-path")]
+    #[display("critical-path")]
     CriticalPath,
 }
 

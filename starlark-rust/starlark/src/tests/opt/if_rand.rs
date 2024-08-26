@@ -19,7 +19,6 @@
 
 use std::cell::Cell;
 use std::fmt;
-use std::fmt::Display;
 
 use derive_more::Display;
 use dupe::Dupe;
@@ -76,9 +75,9 @@ fn bool_fns(globals: &mut GlobalsBuilder) {
 
 #[derive(Display, Debug, Copy, Clone, Dupe)]
 enum TestBinOp {
-    #[display(fmt = "and")]
+    #[display("and")]
     And,
-    #[display(fmt = "or")]
+    #[display("or")]
     Or,
 }
 

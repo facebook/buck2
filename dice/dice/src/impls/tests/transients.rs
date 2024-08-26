@@ -27,7 +27,7 @@ use crate::impls::dice::DiceModern;
 async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative)]
     #[derivative(Hash, PartialEq, Eq)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct AlwaysTransient(#[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>);
 
     #[async_trait]
@@ -91,7 +91,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 async fn demo_with_transient() -> anyhow::Result<()> {
     #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative)]
     #[derivative(Hash, PartialEq, Eq)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct MaybeTransient(
         usize,
         #[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>,

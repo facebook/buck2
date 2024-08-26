@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -99,10 +98,10 @@ pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
 /// A key used to associate a RunAction with a possible previous dep file.
 #[derive(Eq, PartialEq, Hash, Display, Allocative)]
 #[display(
-    fmt = "{} {} {}",
+    "{} {} {}",
     owner,
     category,
-    "identifier.as_deref().unwrap_or(\"<no identifier>\")"
+    identifier.as_deref().unwrap_or("<no identifier>")
 )]
 pub(crate) struct DepFilesKey {
     owner: BaseDeferredKey,

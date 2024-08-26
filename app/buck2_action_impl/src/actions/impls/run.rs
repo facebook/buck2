@@ -8,7 +8,6 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Display;
 use std::ops::ControlFlow;
 
 use allocative::Allocative;
@@ -191,7 +190,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "run_action_values")]
+#[display("run_action_values")]
 pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
@@ -202,7 +201,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "run_action_values")]
+#[display("run_action_values")]
 pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
     pub(crate) args: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,

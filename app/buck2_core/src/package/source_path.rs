@@ -28,7 +28,7 @@ use crate::package::PackageLabel;
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}", "self.as_ref()")]
+#[display("{}", self.as_ref())]
 pub struct SourcePath {
     pkg: PackageLabel,
     path: ArcS<PackageRelativePath>,
@@ -73,7 +73,7 @@ impl SourcePath {
 }
 
 #[derive(Display, Debug, Eq, Hash, PartialEq, Copy, Clone, Dupe)]
-#[display(fmt = "{}/{}", pkg, "path.as_str()")]
+#[display("{}/{}", pkg, path.as_str())]
 pub struct SourcePathRef<'a> {
     pkg: PackageLabel,
     path: &'a ArcS<PackageRelativePath>,

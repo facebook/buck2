@@ -30,7 +30,7 @@ pub trait DirectoryHasher<L, H> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Display)]
-#[display(fmt = "NoDigest")]
+#[display("NoDigest")]
 pub struct NoDigest(());
 
 impl Dupe for NoDigest {}

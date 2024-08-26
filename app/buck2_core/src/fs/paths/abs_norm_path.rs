@@ -39,7 +39,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 /// * TODO(nga): validate UTF-8
 /// * the path is **not** canonicalized
 #[derive(Display, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RefCast)]
-#[display(fmt = "{}", "_0.display()")]
+#[display("{}", _0.display())]
 #[repr(transparent)]
 pub struct AbsNormPath(AbsPath);
 
@@ -47,7 +47,7 @@ pub struct AbsNormPath(AbsPath);
 #[derive(
     Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}", "_0.display()")]
+#[display("{}", _0.display())]
 pub struct AbsNormPathBuf(AbsPathBuf);
 
 impl AsRef<Path> for AbsNormPath {

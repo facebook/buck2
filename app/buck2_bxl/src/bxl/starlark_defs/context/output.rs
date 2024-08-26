@@ -8,7 +8,6 @@
  */
 
 use std::cell::RefCell;
-use std::fmt::Display;
 use std::io::Write;
 use std::ops::DerefMut;
 use std::rc::Rc;
@@ -79,7 +78,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
     StarlarkDocs,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 pub(crate) struct OutputStream<'v> {

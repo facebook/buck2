@@ -9,8 +9,6 @@
 
 pub mod parser;
 
-use std::fmt::Display;
-
 use allocative::Allocative;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
@@ -280,7 +278,7 @@ pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvide
 pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Display)]
-#[display(fmt = "{}", string_with_macros)]
+#[display("{}", string_with_macros)]
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
     pub anon_target_compatible: bool,

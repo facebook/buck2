@@ -71,7 +71,7 @@ enum StarlarkProfilerConfigurationResolved {
     Hash,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct StarlarkProfilerConfigurationResolvedKey;
 
 #[async_trait]
@@ -266,7 +266,7 @@ impl ProjectionKey for StarlarkProfileModeForLoadingKey {
     Hash,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub struct StarlarkProfilerConfigurationKey;
 
 impl InjectedKey for StarlarkProfilerConfigurationKey {

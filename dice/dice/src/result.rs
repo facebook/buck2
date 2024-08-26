@@ -19,5 +19,5 @@ pub(crate) type CancellableResult<T> = Result<T, Cancelled>;
 
 #[allow(unused)] // TODO temporary
 #[derive(Clone, Dupe, Display, Debug, Error, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct Cancelled;

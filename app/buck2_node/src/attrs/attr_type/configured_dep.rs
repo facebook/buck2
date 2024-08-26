@@ -50,7 +50,7 @@ impl ExplicitConfiguredDepAttrType {
 /// Represents the value of an `attrs.configured_dep()`
 /// in its unconfigured form.
 #[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone, Allocative)]
-#[display(fmt = "({}, {})", label, platform)]
+#[display("({}, {})", label, platform)]
 pub struct UnconfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,
     pub label: ProvidersLabel,
@@ -60,7 +60,7 @@ pub struct UnconfiguredExplicitConfiguredDep {
 /// Represents the value of an `attrs.configured_dep()`
 /// in its configured form.
 #[derive(derive_more::Display, Hash, PartialEq, Eq, Debug, Clone, Allocative)]
-#[display(fmt = "{}", label)]
+#[display("{}", label)]
 pub struct ConfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,
     pub label: ConfiguredProvidersLabel,

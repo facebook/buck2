@@ -352,7 +352,7 @@ pub(crate) async fn get_file_ops_delegate(
         Hash,
         allocative::Allocative
     )]
-    #[display(fmt = "({}, {})", _0, _1)]
+    #[display("({}, {})", _0, _1)]
     struct GitFileOpsDelegateKey(CellName, GitCellSetup);
 
     #[async_trait::async_trait]

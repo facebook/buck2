@@ -44,7 +44,7 @@ use crate::values::StarlarkValue;
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct LocalAsValue {
     #[allocative(skip)]
     pub(crate) local: LocalSlotId,

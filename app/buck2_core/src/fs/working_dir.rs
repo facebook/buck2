@@ -20,7 +20,7 @@ use crate::fs::paths::abs_path::AbsPathBuf;
 /// Can be different from process working directory if process changes the directory.
 /// So relative paths should be resolved against this.
 #[derive(Clone, Debug, derive_more::Display)]
-#[display(fmt = "{}", path)]
+#[display("{}", path)]
 pub struct WorkingDir {
     path: AbsNormPathBuf,
 }

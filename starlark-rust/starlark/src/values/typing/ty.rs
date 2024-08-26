@@ -33,7 +33,7 @@ use crate::values::StarlarkValue;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "type")]
+#[display("type")]
 pub enum AbstractType {}
 
 #[starlark_value(type = "type")]

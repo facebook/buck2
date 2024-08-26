@@ -34,7 +34,7 @@ struct StripPrefixError(CellName, CellName);
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}", "self.as_ref()")]
+#[display("{}", self.as_ref())]
 pub struct CellPath {
     cell: CellName,
     path: Box<CellRelativePath>,
@@ -304,7 +304,7 @@ impl CellPath {
 }
 
 #[derive(Debug, Clone, Dupe, Copy, Eq, PartialEq, Hash, derive_more::Display)]
-#[display(fmt = "{}//{}", cell, path)]
+#[display("{}//{}", cell, path)]
 pub struct CellPathRef<'a> {
     cell: CellName,
     path: &'a CellRelativePath,

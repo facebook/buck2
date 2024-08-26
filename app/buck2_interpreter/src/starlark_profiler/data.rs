@@ -23,11 +23,11 @@ use starlark::StarlarkResultExt;
 
 #[derive(Clone, Debug, derive_more::Display, Allocative)]
 pub enum ProfileTarget {
-    #[display(fmt = "analysis:{}", _0)]
+    #[display("analysis:{}", _0)]
     Analysis(ConfiguredTargetLabel),
-    #[display(fmt = "loading:{}", _0)]
+    #[display("loading:{}", _0)]
     Loading(PackageLabel),
-    #[display(fmt = "bxl")]
+    #[display("bxl")]
     Bxl,
 }
 

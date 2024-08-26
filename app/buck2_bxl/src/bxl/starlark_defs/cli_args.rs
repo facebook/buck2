@@ -10,7 +10,6 @@
 //! Command line arguments definition for bxl functions
 
 use std::collections::HashSet;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -62,7 +61,7 @@ use crate::bxl::eval::CliResolutionCtx;
 
 /// Defines the cli args for the bxl function
 #[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct CliArgs {
     /// The default value. If None, the value is not optional and must be provided by the user
     pub(crate) default: Option<Arc<CliArgValue>>,
@@ -165,11 +164,11 @@ pub(crate) enum JsonCliArgValueData {
     Float(String),
     Int(String),
     String(String),
-    #[display(fmt = "{}", "_0.iter().map(|v| v.to_string()).join(\",\")")]
+    #[display("{}", _0.iter().map(|v| v.to_string()).join(","))]
     List(Vec<JsonCliArgValueData>),
     #[display(
-        fmt = "{}",
-        "_0.iter().map(|(k, v)| format!(\"(k={},v={})\", k, v.to_string())).join(\",\")"
+        "{}",
+        _0.iter().map(|(k, v)| format!("(k={},v={})", k, v)).join(",")
     )]
     Object(OrderedMap<String, JsonCliArgValueData>),
 }
@@ -251,7 +250,7 @@ pub(crate) enum CliArgValue {
     // Type of list elements is used to verify that concatenation is valid.
     // That only can be checked after configuration took place,
     // so pass the type info together with values to be used later.
-    #[display(fmt = "{}", "_0.iter().map(|v| v.to_string()).join(\",\")")]
+    #[display("{}", _0.iter().map(|v| v.to_string()).join(","))]
     List(Vec<CliArgValue>),
     None,
     TargetLabel(TargetLabel),

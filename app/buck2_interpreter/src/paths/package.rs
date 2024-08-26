@@ -15,7 +15,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileName;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, derive_more::Display)]
-#[display(fmt = "{}", path)]
+#[display("{}", path)]
 pub struct PackageFilePath {
     /// Including `/PACKAGE`.
     path: CellPath,

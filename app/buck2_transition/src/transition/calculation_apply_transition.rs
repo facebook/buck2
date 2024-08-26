@@ -251,7 +251,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
         transition_id: &TransitionId,
     ) -> anyhow::Result<Arc<TransitionApplied>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative)]
-        #[display(fmt = "{} ({}){}", transition_id, cfg, "self.fmt_attrs()")]
+        #[display("{} ({}){}", transition_id, cfg, self.fmt_attrs())]
         struct TransitionKey {
             cfg: ConfigurationData,
             transition_id: TransitionId,

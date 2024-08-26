@@ -42,7 +42,7 @@ impl VisibilityPattern {
 }
 
 #[derive(derive_more::Display)]
-#[display(fmt = "\"{}\"", _0)]
+#[display("\"{}\"", _0)]
 struct VisibilityPatternQuoted<'a>(&'a VisibilityPattern);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]

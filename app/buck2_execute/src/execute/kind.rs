@@ -23,7 +23,7 @@ use crate::re::convert::platform_to_proto;
 #[derive(Debug, Display, Clone)]
 pub enum CommandExecutionKind {
     /// This action was executed locally.
-    #[display(fmt = "local")]
+    #[display("local")]
     Local {
         // Even though this did not run on RE, we still produced this, so we might as well report
         // it.
@@ -32,7 +32,7 @@ pub enum CommandExecutionKind {
         env: SortedVectorMap<String, String>,
     },
     /// This action was executed via a remote executor.
-    #[display(fmt = "remote")]
+    #[display("remote")]
     Remote {
         details: RemoteCommandExecutionDetails,
 
@@ -44,23 +44,23 @@ pub enum CommandExecutionKind {
         materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
     },
     /// This action was served by the action cache and not executed.
-    #[display(fmt = "action_cache")]
+    #[display("action_cache")]
     ActionCache {
         details: RemoteCommandExecutionDetails,
     },
     /// This action was served by the action cache (remote dep file) and not executed.
-    #[display(fmt = "remote_dep_file_cache")]
+    #[display("remote_dep_file_cache")]
     RemoteDepFileCache {
         details: RemoteCommandExecutionDetails,
     },
     /// This action would have executed via a local worker but failed during worker initialization.
-    #[display(fmt = "worker_init")]
+    #[display("worker_init")]
     LocalWorkerInit {
         command: Vec<String>,
         env: SortedVectorMap<String, String>,
     },
     /// This action was executed via a local worker.
-    #[display(fmt = "worker")]
+    #[display("worker")]
     LocalWorker {
         digest: ActionDigest,
         command: Vec<String>,

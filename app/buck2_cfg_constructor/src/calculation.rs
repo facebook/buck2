@@ -84,7 +84,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         rule_type: &RuleType,
     ) -> anyhow::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "CfgConstructorInvocationKey")]
+        #[display("CfgConstructorInvocationKey")]
         struct CfgConstructorInvocationKey {
             package_cfg_modifiers: Option<MetadataValue>,
             target_cfg_modifiers: Option<MetadataValue>,

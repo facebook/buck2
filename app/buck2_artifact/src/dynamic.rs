@@ -28,7 +28,7 @@ use crate::deferred::key::DeferredHolderKey;
     Debug,
     Allocative
 )]
-#[display(fmt = "{_0}_{_1}")]
+#[display("{_0}_{_1}")]
 pub struct DynamicLambdaResultsKey(DeferredHolderKey, DynamicLambdaIndex);
 
 impl DynamicLambdaResultsKey {

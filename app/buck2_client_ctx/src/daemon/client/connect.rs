@@ -77,17 +77,17 @@ pub struct DaemonConstraintsRequest {
 
 #[derive(Debug, derive_more::Display)]
 pub(crate) enum ConstraintUnsatisfiedReason {
-    #[display(fmt = "Version mismatch")]
+    #[display("Version mismatch")]
     Version,
-    #[display(fmt = "User version mismatch")]
+    #[display("User version mismatch")]
     UserVersion,
-    #[display(fmt = "Startup config mismatch")]
+    #[display("Startup config mismatch")]
     StartupConfig,
-    #[display(fmt = "Reject daemon id")]
+    #[display("Reject daemon id")]
     RejectDaemonId,
-    #[display(fmt = "Trace IO mismatch")]
+    #[display("Trace IO mismatch")]
     TraceIo,
-    #[display(fmt = "Materializer state identity mismatch")]
+    #[display("Materializer state identity mismatch")]
     MaterializerStateIdentity,
 }
 

@@ -20,7 +20,7 @@ use dupe::Dupe;
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct BuildContextKey();
 
 impl InjectedKey for BuildContextKey {

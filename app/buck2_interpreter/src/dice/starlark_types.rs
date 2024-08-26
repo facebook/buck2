@@ -31,7 +31,7 @@ struct StarlarkTypesValue {
     Hash,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct StarlarkTypesKey;
 
 impl InjectedKey for StarlarkTypesKey {

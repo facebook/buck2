@@ -691,7 +691,7 @@ impl ResolvedSpan {
 
 /// File and line number.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, derive_more::Display)]
-#[display(fmt = "{}:{}", file, "line + 1")]
+#[display("{}:{}", file, line + 1)]
 pub struct ResolvedFileLine {
     /// File name.
     pub file: String,

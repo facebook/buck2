@@ -39,7 +39,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
-#[display(fmt = "TaggedValue({}, tagged {})", inner, tag)]
+#[display("TaggedValue({}, tagged {})", inner, tag)]
 pub struct TaggedValueGen<V: ValueLifetimeless> {
     inner: V,
     tag: ArtifactTag,

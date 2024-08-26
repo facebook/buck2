@@ -82,7 +82,7 @@ pub trait TyCustomFunctionImpl:
     Debug,
     derive_more::Display
 )]
-#[display(fmt = "\"function\"")]
+#[display("\"function\"")]
 pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 
 impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {

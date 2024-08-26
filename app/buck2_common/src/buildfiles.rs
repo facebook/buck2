@@ -82,7 +82,7 @@ pub trait HasBuildfiles {
     PartialEq,
     allocative::Allocative
 )]
-#[display(fmt = "BuildfilesKey({})", "self.0")]
+#[display("BuildfilesKey({})", self.0)]
 struct BuildfilesKey(CellName);
 
 #[async_trait::async_trait]

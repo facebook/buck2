@@ -55,7 +55,7 @@ struct TargetLabelHeader {
 /// that contains this 'target', and a 'name' which is a 'TargetName'
 /// representing the target name given to the particular target.
 #[derive(Clone, derive_more::Display, Eq, PartialEq, Allocative, RefCastCustom)]
-#[display(fmt = "{}", "self.as_ref()")]
+#[display("{}", self.as_ref())]
 #[repr(transparent)]
 pub struct TargetLabel(
     ThinArc<
@@ -251,7 +251,7 @@ impl ToProtoMessage for TargetLabel {
     Debug,
     derive_more::Display
 )]
-#[display(fmt = "{}:{}", pkg, name)]
+#[display("{}:{}", pkg, name)]
 pub struct TargetLabelRef<'a> {
     pkg: PackageLabel,
     name: &'a TargetNameRef,

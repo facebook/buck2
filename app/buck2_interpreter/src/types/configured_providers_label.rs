@@ -59,7 +59,7 @@ impl StarlarkConfiguredProvidersLabel {
     StarlarkDocs,
     Allocative
 )]
-#[display(fmt = "{}", label)]
+#[display("{}", label)]
 #[repr(C)]
 pub struct StarlarkConfiguredProvidersLabel {
     #[freeze(identity)]
@@ -211,7 +211,7 @@ impl StarlarkProvidersLabel {
     StarlarkDocs,
     Allocative
 )]
-#[display(fmt = "{}", label)]
+#[display("{}", label)]
 #[repr(C)]
 #[serde(transparent)]
 pub struct StarlarkProvidersLabel {

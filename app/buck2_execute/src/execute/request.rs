@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::time::Duration;
 
 use allocative::Allocative;

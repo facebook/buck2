@@ -63,7 +63,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "template_placeholder_info_query({})", template_name)]
+        #[display("template_placeholder_info_query({})", template_name)]
         struct TemplatePlaceholderInfoQueryKey {
             template_name: &'static str,
             // Use `ConfiguredTargetLabel` instead of `ConfiguredGraphNodeRef` here because `ConfiguredGraphNodeRef`

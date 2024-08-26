@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::ops::Add;
 use std::time::Duration;
 use std::time::Instant;
 

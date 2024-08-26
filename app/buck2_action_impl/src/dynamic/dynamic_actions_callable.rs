@@ -94,8 +94,8 @@ enum DynamicActionCallableError {
     Trace
 )]
 #[display(
-    fmt = "DynamicActionCallable[{}]",
-    "self.name.get().map(|s| s.as_str()).unwrap_or(\"(unbound)\")"
+    "DynamicActionCallable[{}]",
+    self.name.get().map(|s| s.as_str()).unwrap_or("(unbound)")
 )]
 pub(crate) struct DynamicActionsCallable<'v> {
     pub(crate) implementation:
@@ -110,7 +110,7 @@ pub(crate) struct DynamicActionsCallable<'v> {
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "DynamicActionsCallable[{}]", "name")]
+#[display("DynamicActionsCallable[{}]", name)]
 pub(crate) struct FrozenStarlarkDynamicActionsCallable {
     pub(crate) implementation:
         FrozenStarlarkCallable<DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,

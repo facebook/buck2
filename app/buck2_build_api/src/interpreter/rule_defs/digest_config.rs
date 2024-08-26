@@ -39,7 +39,7 @@ use starlark::values::Value;
     Allocative,
     StarlarkDocs
 )]
-#[display(fmt = "{}", "self.digest_config")]
+#[display("{}", self.digest_config)]
 pub struct StarlarkDigestConfig {
     #[freeze(identity)]
     pub digest_config: DigestConfig,

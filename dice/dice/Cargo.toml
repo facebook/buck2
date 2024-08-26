@@ -14,7 +14,7 @@ buck2_futures = { path = "../../app/buck2_futures" }
 cmp_any = { workspace = true }
 dashmap = "5.5.3"
 derivative = { workspace = true }
-derive_more = "0.99.3"
+derive_more = { version = "1.0.0", features = ["full"] }
 dupe = { workspace = true }
 futures = "0.3"
 fxhash = "0.2.1"

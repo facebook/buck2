@@ -24,7 +24,7 @@ use crate::target::label::label::TargetLabel;
 #[derive(
     Clone, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{name}")]
+#[display("{name}")]
 struct PluginKindInner {
     // The name and cell path aren't used for anything except that they serve as a unique identifier
     // for the plugin kind. This allows us to treat `plugins.kind()` as if it returns a new value

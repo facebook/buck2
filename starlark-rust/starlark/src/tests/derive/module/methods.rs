@@ -40,7 +40,7 @@ use crate::values::ValueLike;
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Applaud {
     value: i32,
 }

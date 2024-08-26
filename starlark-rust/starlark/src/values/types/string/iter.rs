@@ -47,7 +47,7 @@ use crate::values::ValueOfUnchecked;
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "iterator")]
+#[display("iterator")]
 #[repr(C)]
 struct StringIterableGen<'v, V: ValueLike<'v>> {
     string: V::String,

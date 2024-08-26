@@ -47,7 +47,7 @@ pub struct Artifact(Arc<ArtifactData>);
 
 #[derive(Clone, Debug, Display, Dupe, Allocative, Derivative)]
 #[derivative(Hash, Eq, PartialEq)]
-#[display(fmt = "{}", data)]
+#[display("{}", data)]
 struct ArtifactData {
     data: Hashed<ArtifactKind>,
 
@@ -220,7 +220,7 @@ impl From<BuildArtifact> for Artifact {
 /// An intermediate struct to respond to calls to `ensure_bound`.
 #[derive(Clone, Dupe, Debug, Display, Allocative, Derivative)]
 #[derivative(Hash, Eq, PartialEq)]
-#[display(fmt = "{}", "self.get_path()")]
+#[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
     projected_path: Option<Arc<ForwardRelativePathBuf>>,
@@ -276,7 +276,7 @@ impl BoundBuildArtifact {
 ///
 /// All 'DeclaredArtifact's are forced to be bound at the end of the analysis phase.
 #[derive(Clone, Debug, Dupe, Display, Allocative)]
-#[display(fmt = "{}", "self.get_path()")]
+#[display("{}", self.get_path())]
 pub struct DeclaredArtifact {
     /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
@@ -492,7 +492,7 @@ impl Deref for OutputArtifact {
 }
 
 #[derive(Clone, Dupe, Debug, Display, Allocative)]
-#[display(fmt = "{}", "self.0")]
+#[display("{}", self.0)]
 pub struct UnboundArtifact(BuckOutPath, OutputType);
 
 impl UnboundArtifact {

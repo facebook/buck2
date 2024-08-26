@@ -138,7 +138,7 @@ fn display_configured_graph_cycle_error(cycle: &[ConfiguredGraphCycleKeys]) -> S
 // configured graph cycles.
 #[derive(Debug, Display, Clone, Eq, PartialEq, Hash)]
 pub enum ConfiguredGraphCycleKeys {
-    #[display(fmt = "{}", _0)]
+    #[display("{}", _0)]
     ConfiguredTargetNode(ConfiguredTargetNodeKey),
 }
 

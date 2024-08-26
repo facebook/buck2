@@ -37,7 +37,7 @@ use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Foo(i32);
 
 #[async_trait]
@@ -51,7 +51,7 @@ impl InjectedKey for Foo {
 
 #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
 #[derivative(PartialEq, Eq, Hash)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 struct KeyThatRuns {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
@@ -133,7 +133,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct K(i32);
 
 #[async_trait]
@@ -176,7 +176,7 @@ fn dice_computations_are_parallel() {
 
     #[derive(Clone, Debug, Display, Derivative, Allocative)]
     #[derivative(Hash, PartialEq, Eq)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Blocking {
         index: usize,
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
@@ -237,7 +237,7 @@ async fn different_data_per_compute_ctx() {
     struct U(usize);
 
     #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct DataRequest(u8);
     #[async_trait]
     impl Key for DataRequest {
@@ -312,7 +312,7 @@ fn invalid_update() {
 }
 
 #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct Fib(u8);
 
 #[async_trait]
@@ -486,7 +486,7 @@ async fn dropping_request_future_cancels_execution() {
 
     #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
     #[derivative(PartialEq, Eq, Hash)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     #[allocative(skip)]
     struct KeyThatShouldntRun {
         #[derivative(Hash = "ignore", PartialEq = "ignore")]
@@ -600,7 +600,7 @@ async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
 
 async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
     #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct AccessCycleGuardKey;
 
     #[async_trait]

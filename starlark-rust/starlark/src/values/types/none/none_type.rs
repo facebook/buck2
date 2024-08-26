@@ -46,7 +46,7 @@ use crate::values::Value;
 
 /// Define the None type, use [`NoneType`] in Rust.
 #[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, Allocative)]
-#[display(fmt = "None")]
+#[display("None")]
 pub struct NoneType;
 
 impl NoneType {

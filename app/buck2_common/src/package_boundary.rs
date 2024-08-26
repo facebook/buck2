@@ -95,7 +95,7 @@ impl CellPackageBoundaryExceptions {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct CellPackageBoundaryExceptionsKey(CellName);
 
 #[async_trait]

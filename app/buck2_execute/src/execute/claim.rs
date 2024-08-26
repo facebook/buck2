@@ -79,7 +79,7 @@ impl ClaimManager for MutexClaimManager {
 }
 
 #[derive(Display, Derivative)]
-#[display(fmt = "MutexClaim")]
+#[display("MutexClaim")]
 #[derivative(Debug)]
 pub struct MutexClaim {
     // No point in printing this as it will *always* be Claimed.

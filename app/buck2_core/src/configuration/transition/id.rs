@@ -14,7 +14,7 @@ use crate::bzl::ImportPath;
 
 /// Identifier of transition function.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Display, Allocative)]
-#[display(fmt = "{}#{}", path, name)]
+#[display("{}#{}", path, name)]
 pub struct TransitionId {
     pub path: ImportPath,
     pub name: String,

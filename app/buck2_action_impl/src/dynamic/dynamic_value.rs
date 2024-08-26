@@ -31,7 +31,7 @@ use starlark_map::StarlarkHasher;
     Allocative,
     NoSerialize
 )]
-#[display(fmt = "DynamicValue<{}>", "self.dynamic_value")]
+#[display("DynamicValue<{}>", self.dynamic_value)]
 pub struct StarlarkDynamicValue {
     pub(crate) dynamic_value: DynamicValue,
 }

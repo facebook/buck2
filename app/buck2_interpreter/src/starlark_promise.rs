@@ -54,7 +54,7 @@ use crate::error::BuckStarlarkError;
     Allocative
 )]
 #[derivative(Debug)]
-#[display(fmt = "promise()")]
+#[display("promise()")]
 pub struct StarlarkPromise<'v> {
     /// The value of the promise.
     value: RefCell<PromiseValue<'v>>,
@@ -362,7 +362,7 @@ mod tests {
         Display,
         Allocative
     )]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Promises<'v>(RefCell<Vec<(String, ValueTyped<'v, StarlarkPromise<'v>>)>>);
 
     #[starlark_value(type = "promises")]

@@ -49,7 +49,7 @@ mod tests {
     use crate::HashMap;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct KeyA(usize);
 
     #[async_trait]
@@ -74,7 +74,7 @@ mod tests {
     }
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct KeyB;
 
     #[async_trait]

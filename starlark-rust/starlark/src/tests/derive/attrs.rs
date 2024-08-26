@@ -38,7 +38,7 @@ fn test_derive_attrs() {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Example {
         hello: String,
         #[starlark(skip)]
@@ -64,7 +64,7 @@ fn test_derive_attrs() {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "{}", foo)]
+    #[display("{}", foo)]
     struct Nested {
         foo: String,
     }

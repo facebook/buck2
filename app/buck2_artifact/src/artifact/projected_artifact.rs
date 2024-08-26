@@ -19,7 +19,7 @@ use crate::artifact::artifact_type::BaseArtifactKind;
 
 /// A path within another Artifact.
 #[derive(Clone, Debug, Display, Dupe, Hash, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}/{}", base, path)]
+#[display("{}/{}", base, path)]
 pub struct ProjectedArtifact {
     base: BaseArtifactKind,
     path: Arc<ForwardRelativePathBuf>,

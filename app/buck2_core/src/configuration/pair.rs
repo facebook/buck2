@@ -74,7 +74,7 @@ impl Configuration {
     Allocative,
     derive_more::Display
 )]
-#[display(fmt = "{}", "self.cfg()")]
+#[display("{}", self.cfg())]
 pub struct ConfigurationNoExec(Configuration);
 
 impl ConfigurationNoExec {

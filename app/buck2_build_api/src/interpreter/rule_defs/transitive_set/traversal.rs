@@ -66,7 +66,7 @@ impl TransitiveSetOrdering {
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "Traversal({})", inner)]
+#[display("Traversal({})", inner)]
 #[repr(C)]
 pub struct TransitiveSetTraversalGen<V: ValueLifetimeless> {
     pub(super) inner: V,
@@ -99,7 +99,7 @@ where
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "Traversal({}[\"{}\"])", transitive_set, projection)]
+#[display("Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
 pub struct TransitiveSetProjectionTraversalGen<V: ValueLifetimeless> {
     pub(super) transitive_set: V,

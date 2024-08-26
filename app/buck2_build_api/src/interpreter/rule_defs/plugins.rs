@@ -66,7 +66,7 @@ impl Borrow<PluginKind> for PluginKindWrapper {
     NoSerialize,
     Allocative
 )]
-#[display(fmt = "<ctx.plugins>")]
+#[display("<ctx.plugins>")]
 #[repr(transparent)]
 pub struct AnalysisPluginsGen<V: ValueLifetimeless> {
     plugins: SmallMap<PluginKindWrapper, V>,

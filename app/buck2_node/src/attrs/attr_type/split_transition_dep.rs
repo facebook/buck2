@@ -97,7 +97,7 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
 }
 
 #[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone, Allocative)]
-#[display(fmt = "{}", label)]
+#[display("{}", label)]
 pub struct SplitTransitionDep {
     pub label: ProvidersLabel,
     pub transition: Arc<TransitionId>,

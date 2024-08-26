@@ -28,7 +28,7 @@ use starlark::values::StarlarkValue;
     NoSerialize,
     Display
 )]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub struct OpaqueMetadata;
 
 starlark_simple_value!(OpaqueMetadata);

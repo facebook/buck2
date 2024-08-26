@@ -54,7 +54,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkIter<T> {
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "{}", Self::TYPE)]
+#[display("{}", Self::TYPE)]
 pub(crate) struct TypingIterable;
 
 #[starlark_value(type = "typing.Iterable")]

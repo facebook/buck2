@@ -117,7 +117,7 @@ pub struct ActionExecutionMetadata {
 /// The *way* that a particular action was executed.
 #[derive(Debug, Display, Clone)]
 pub enum ActionExecutionKind {
-    #[display(fmt = "command({})", kind)]
+    #[display("command({})", kind)]
     Command {
         kind: Box<CommandExecutionKind>,
         prefers_local: bool,
@@ -130,13 +130,13 @@ pub enum ActionExecutionKind {
         dep_file_key: Option<DepFileDigest>,
     },
     /// This action is simple and executed inline within buck2 (e.g. write, symlink_dir)
-    #[display(fmt = "simple")]
+    #[display("simple")]
     Simple,
     /// This action logically executed, but didn't do all the work.
-    #[display(fmt = "deferred")]
+    #[display("deferred")]
     Deferred,
     /// This action was served by the local dep file cache and not executed.
-    #[display(fmt = "local_dep_files")]
+    #[display("local_dep_files")]
     LocalDepFile,
 }
 

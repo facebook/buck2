@@ -53,9 +53,9 @@ impl NodeDuration {
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
 pub enum CriticalPathBackendName {
-    #[display(fmt = "longest-path-graph")]
+    #[display("longest-path-graph")]
     LongestPathGraph,
-    #[display(fmt = "default")]
+    #[display("default")]
     Default,
 }
 

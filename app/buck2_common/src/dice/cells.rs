@@ -50,7 +50,7 @@ pub trait SetCellResolver {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct CellResolverKey;
 
 impl InjectedKey for CellResolverKey {

@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
-use std::fmt::Display;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -81,7 +80,7 @@ mod attr_resolution_ctx;
 
 #[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
-#[display(fmt = "configured_target_node(name = {}, ...)", "self.0.label()")]
+#[display("configured_target_node(name = {}, ...)", self.0.label())]
 #[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
 
@@ -534,7 +533,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct StarlarkLazyAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
@@ -622,7 +621,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]

@@ -36,7 +36,7 @@ pub struct BuildData {
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 struct BuildDataKey;
 
 impl InjectedKey for BuildDataKey {

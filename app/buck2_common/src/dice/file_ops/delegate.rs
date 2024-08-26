@@ -55,7 +55,7 @@ mod keys {
     use crate::dice::file_ops::CheckIgnores;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     pub(crate) struct FileOpsKey {
         pub cell: CellName,
         pub check_ignores: CheckIgnores,

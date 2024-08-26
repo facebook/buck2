@@ -38,13 +38,13 @@ use crate::values::Value;
 use crate::values::ValueLike;
 
 #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize, Allocative)]
-#[display(fmt = "{:?}", self)] // This type should never be user visible
+#[display("{:?}", self)] // This type should never be user visible
 #[repr(transparent)]
 #[allocative(skip)]
 pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 
 #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
-#[display(fmt = "{:?}", self)] // Type is not user visible
+#[display("{:?}", self)] // Type is not user visible
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
 

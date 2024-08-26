@@ -212,11 +212,11 @@ impl<'v, V: ValueLike<'v>> Serialize for ProviderCollectionGen<V> {
 /// Provider collection access operator.
 #[derive(derive_more::Display, Debug)]
 enum GetOp {
-    #[display(fmt = "[]")]
+    #[display("[]")]
     At,
-    #[display(fmt = "in")]
+    #[display("in")]
     In,
-    #[display(fmt = ".get")]
+    #[display(".get")]
     Get,
 }
 

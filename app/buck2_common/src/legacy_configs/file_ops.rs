@@ -31,9 +31,9 @@ use crate::file_ops::RawPathMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
 pub enum ConfigPath {
-    #[display(fmt = "{}", .0)]
+    #[display("{}", _0)]
     Project(ProjectRelativePathBuf),
-    #[display(fmt = "{}", .0)]
+    #[display("{}", _0)]
     Global(AbsPathBuf),
 }
 

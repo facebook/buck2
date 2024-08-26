@@ -45,7 +45,7 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
-#[display(fmt = "TaggedCommandLine({})", inner)]
+#[display("TaggedCommandLine({})", inner)]
 pub struct TaggedCommandLineGen<V: ValueLifetimeless> {
     inner: TaggedValueGen<V>,
 }

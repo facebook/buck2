@@ -42,7 +42,7 @@ use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
-#[display(fmt = "{}", "self.0")]
+#[display("{}", self.0)]
 #[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkAction(pub(crate) Arc<RegisteredAction>);
 
@@ -89,7 +89,7 @@ fn action_methods(builder: &mut MethodsBuilder) {
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
 #[derive(NoSerialize)]
-#[display(fmt = "{}", "self.0.key()")]
+#[display("{}", self.0.key())]
 #[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkActionQueryNode(pub(crate) ActionQueryNode);
 

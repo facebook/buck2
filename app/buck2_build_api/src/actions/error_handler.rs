@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
-
 use allocative::Allocative;
 use buck2_data::ActionErrorLocation;
 use buck2_data::ActionErrorLocations;
@@ -60,9 +58,9 @@ pub(crate) enum ActionErrorHandlerError {
     Clone
 )]
 #[display(
-    fmt = "ActionErrorCtx(stderr: {}, stdout: {})",
-    "self.stderr",
-    "self.stdout"
+    "ActionErrorCtx(stderr: {}, stdout: {})",
+    self.stderr,
+    self.stdout
 )]
 pub struct StarlarkActionErrorContext {
     stderr: String,
@@ -170,9 +168,9 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     PartialEq
 )]
 #[display(
-    fmt = "ActionErrorLocation(file={}, line={})",
-    "self.file",
-    "self.line.map_or(\"None\".to_owned(), |l| l.to_string())"
+    "ActionErrorLocation(file={}, line={})",
+    self.file,
+    self.line.map_or("None".to_owned(), |l| l.to_string())
 )]
 pub struct StarlarkActionErrorLocation {
     file: String,

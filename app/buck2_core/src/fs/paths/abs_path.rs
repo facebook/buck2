@@ -45,7 +45,7 @@ pub struct AbsPath(Path);
     serde::Serialize,
     serde::Deserialize
 )]
-#[display(fmt = "{}", "_0.display()")]
+#[display("{}", _0.display())]
 pub struct AbsPathBuf(PathBuf);
 
 impl fmt::Debug for AbsPath {

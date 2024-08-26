@@ -77,7 +77,7 @@ impl<'a> Eq for BorrowedExportedName<'a> {}
 ///     Allocative,
 ///     derive_more::Display
 /// )]
-/// #[display(fmt = "{:?}", "self")]
+/// #[display("{:?}", self)]
 /// struct MyStruct<T: ExportedName + 'static> {
 ///     name: T,
 /// }

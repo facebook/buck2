@@ -94,7 +94,7 @@ mod tests {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "SomeType")]
+    #[display("SomeType")]
     struct MyValue {
         payload: u32,
     }

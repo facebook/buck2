@@ -31,7 +31,7 @@ enum CellInstanceError {
 
 /// A 'CellInstance', contains a 'CellName' and a path for that cell.
 #[derive(Clone, Debug, derive_more::Display, Dupe, PartialEq, Eq, Allocative)]
-#[display(fmt = "{}", "_0.name")]
+#[display("{}", _0.name)]
 pub struct CellInstance(Arc<CellData>);
 
 #[derive(Derivative, PartialEq, Eq, Allocative)]

@@ -66,7 +66,7 @@ use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 )]
 #[derivative(Debug)]
 #[starlark_docs(directory = "bxl")]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct BxlFilesystem<'v> {
     #[trace(unsafe_ignore)]

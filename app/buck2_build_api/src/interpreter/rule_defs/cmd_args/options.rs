@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
@@ -778,6 +777,6 @@ pub(crate) enum CommandLineOptionsIterItem<'v, 'a> {
     Str(&'static str),
     StringValue(StringValue<'v>),
     Replacements(OptionsReplacementsRef<'v, 'a>),
-    #[display(fmt = "\"{}\"", _0)]
+    #[display("\"{}\"", _0)]
     QuoteStyle(QuoteStyle),
 }

@@ -148,14 +148,14 @@ pub enum LspUrlError {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Display)]
 pub enum LspUrl {
     /// A "file://" url with a path sent from the LSP client.
-    #[display(fmt = "file://{}", "_0.display()")]
+    #[display("file://{}", _0.display())]
     File(PathBuf),
     /// A "starlark:" url. This is mostly used for native types that don't actually
     /// exist on the filesystem. The path component always has a leading slash.
-    #[display(fmt = "starlark:{}", "_0.display()")]
+    #[display("starlark:{}", _0.display())]
     Starlark(PathBuf),
     /// Any other type. Often should just be ignored, or return an error.
-    #[display(fmt = "{}", "_0")]
+    #[display("{}", _0)]
     Other(Url),
 }
 

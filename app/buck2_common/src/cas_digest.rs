@@ -123,13 +123,13 @@ impl fmt::Display for RawDigest {
 )]
 #[repr(u8)]
 pub enum DigestAlgorithmKind {
-    #[display(fmt = "SHA1")]
+    #[display("SHA1")]
     Sha1,
-    #[display(fmt = "SHA256")]
+    #[display("SHA256")]
     Sha256,
-    #[display(fmt = "BLAKE3")]
+    #[display("BLAKE3")]
     Blake3,
-    #[display(fmt = "BLAKE3-KEYED")]
+    #[display("BLAKE3-KEYED")]
     Blake3Keyed,
 }
 
@@ -442,7 +442,7 @@ impl<Kind: CasDigestKind> Digester<Kind> {
 #[derive(
     Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe, Copy
 )]
-#[display(fmt = "{}:{}", digest, size)]
+#[display("{}:{}", digest, size)]
 pub struct CasDigestData {
     size: u64,
     digest: RawDigest,
@@ -494,7 +494,7 @@ impl CasDigestData {
 #[derive(Display, Derivative, Allocative, Clone_, Dupe_, Copy_)]
 #[allocative(bound = "")]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[display(fmt = "{}", data)]
+#[display("{}", data)]
 #[repr(transparent)]
 pub struct CasDigest<Kind: CasDigestKind> {
     data: CasDigestData,
@@ -667,7 +667,7 @@ pub trait CasDigestKind: Sized + 'static {
 }
 
 #[derive(Display)]
-#[display(fmt = "{}", "hex::encode(&of.raw_digest().as_bytes()[0..4])")]
+#[display("{}", hex::encode(&of.raw_digest().as_bytes()[0..4]))]
 pub struct TinyDigest<'a, Kind: CasDigestKind> {
     of: &'a CasDigest<Kind>,
 }
@@ -706,7 +706,7 @@ struct TrackedCasDigestInner<Kind: CasDigestKind> {
 
 #[derive(Display, Dupe_, Allocative)]
 #[allocative(bound = "")]
-#[display(fmt = "{}", "self.data()")]
+#[display("{}", self.data())]
 pub struct TrackedCasDigest<Kind: CasDigestKind> {
     inner: Arc<TrackedCasDigestInner<Kind>>,
 }

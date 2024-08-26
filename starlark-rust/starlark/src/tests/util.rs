@@ -44,7 +44,7 @@ use crate::values::ValueLike;
     ProvidesStaticType,
     NoSerialize
 )]
-#[display(fmt = "TestComplexValue<{}>", "_0")]
+#[display("TestComplexValue<{}>", _0)]
 pub(crate) struct TestComplexValue<V: ValueLifetimeless>(pub(crate) V);
 
 #[starlark_value(type = "TestComplexValue")]

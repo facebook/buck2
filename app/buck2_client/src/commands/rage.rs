@@ -387,9 +387,9 @@ struct RageSection<T> {
 
 #[derive(Display)]
 pub enum MaterializerRageUploadData {
-    #[display(fmt = "state")]
+    #[display("state")]
     State,
-    #[display(fmt = "fsck")]
+    #[display("fsck")]
     Fsck,
 }
 

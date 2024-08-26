@@ -195,7 +195,7 @@ impl NativeCallableRawDocs {
 /// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
 #[derive(Derivative, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{}", name)]
+#[display("{}", name)]
 pub struct NativeFunction {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -357,7 +357,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
 
 #[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{}", name)]
+#[display("{}", name)]
 pub(crate) struct NativeMethod {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -388,7 +388,7 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 /// Used by the `#[starlark(attribute)]` tag of [`#[starlark_module]`](macro@starlark_module)
 /// to define a function that pretends to be an attribute.
 #[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
-#[display(fmt = "Attribute")]
+#[display("Attribute")]
 #[derivative(Debug)]
 pub(crate) struct NativeAttribute {
     /// Safe to evaluate speculatively.
@@ -440,7 +440,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
     Allocative
 )]
 #[repr(C)]
-#[display(fmt = "{}", method)]
+#[display("{}", method)]
 pub(crate) struct BoundMethodGen<V: ValueLifetimeless> {
     pub(crate) method: FrozenValueTyped<'static, NativeMethod>,
     pub(crate) this: V,

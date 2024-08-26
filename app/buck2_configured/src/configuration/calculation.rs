@@ -73,7 +73,7 @@ async fn get_target_platform_detector(
     // This requires a bit of computation so cache it on the graph.
     // TODO(cjhopman): Should we construct this (and similar buckconfig-derived objects) as part of the buck config itself?
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    #[display(fmt = "TargetPlatformDetectorKey")]
+    #[display("TargetPlatformDetectorKey")]
     struct TargetPlatformDetectorKey;
 
     #[async_trait]
@@ -335,11 +335,11 @@ async fn configuration_matches(
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "ExecutionPlatforms")]
+#[display("ExecutionPlatforms")]
 pub struct ExecutionPlatformsKey;
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "ConfigurationNode({}, {})", cfg_target, target_cfg)]
+#[display("ConfigurationNode({}, {})", cfg_target, target_cfg)]
 struct ConfigurationNodeKey {
     target_cfg: ConfigurationData,
     target_cell: CellName,
@@ -348,10 +348,10 @@ struct ConfigurationNodeKey {
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display(
-    fmt = "ResolvedConfigurationKey(target_cfg: {}, cell: {}, configuration_deps size {})",
+    "ResolvedConfigurationKey(target_cfg: {}, cell: {}, configuration_deps size {})",
     target_cfg,
     target_cell,
-    "configuration_deps.len()"
+    configuration_deps.len()
 )]
 struct ResolvedConfigurationKey {
     target_cfg: ConfigurationData,
@@ -645,7 +645,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display(fmt = "{:?}", self)]
+        #[display("{:?}", self)]
         struct ExecutionPlatformResolutionKey {
             target_node_cell: CellName,
             exec_compatible_with: Arc<[ConfigurationSettingKey]>,

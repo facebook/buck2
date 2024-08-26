@@ -186,7 +186,7 @@ mod tests {
     use crate::query::traversal::AsyncNodeLookup;
 
     #[derive(Copy, Clone, Dupe, derive_more::Display, Debug, Eq, PartialEq, Hash)]
-    #[display(fmt = "{:?}", "self")]
+    #[display("{:?}", self)]
     struct TestNodeKey(u32);
     #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq)]
     struct TestNode(TestNodeKey);

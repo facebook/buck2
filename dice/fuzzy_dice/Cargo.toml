@@ -13,7 +13,7 @@ async-trait = "0.1.24"
 clap = { version = "3.2.24", features = ["derive"] }
 crossbeam = "0.8"
 derivative = "2.1.1"
-derive_more = "0.99.3"
+derive_more = { version = "1.0.0", features = ["full"] }
 futures = "0.3"
 itertools = "0.10.3"
 parking_lot = { version = "0.11.2", features = ["send_guard"] }

@@ -10,7 +10,7 @@ allocative = { workspace = true }
 anyhow = "1.0.65"
 async-trait = "0.1.24"
 buck2_futures = { path = "../../app/buck2_futures" }
-derive_more = "0.99.3"
+derive_more = { version = "1.0.0", features = ["full"] }
 dupe = { workspace = true }
 futures = "0.3"
 gazebo = { workspace = true }

@@ -39,7 +39,7 @@ enum ProjectRootError {
 /// library. The cwd will be the directory from which the command was invoked,
 /// which is within the project root and hence relativized against it.
 #[derive(Clone, Debug, Dupe, PartialEq, derive_more::Display, Allocative)]
-#[display(fmt = "{root}")]
+#[display("{root}")]
 pub struct ProjectRoot {
     root: Arc<AbsNormPathBuf>,
 }

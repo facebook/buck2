@@ -87,7 +87,7 @@ pub fn display_precise_pattern<'a, T: PatternType>(
     extra: &'a T,
 ) -> impl Display + 'a {
     #[derive(derive_more::Display)]
-    #[display(fmt = "{}:{}{}", package, target_name, extra)]
+    #[display("{}:{}{}", package, target_name, extra)]
     struct Impl<'a, T: PatternType> {
         package: &'a PackageLabel,
         target_name: &'a TargetNameRef,

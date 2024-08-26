@@ -93,7 +93,7 @@ impl HasImportPaths for DiceComputations<'_> {
         cell_name: BuildFileCell,
     ) -> anyhow::Result<Arc<ImplicitImportPaths>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
-        #[display(fmt = "{}", cell_name)]
+        #[display("{}", cell_name)]
         struct ImportPathsKey {
             cell_name: BuildFileCell,
         }

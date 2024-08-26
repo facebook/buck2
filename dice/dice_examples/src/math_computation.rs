@@ -31,7 +31,7 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 
 #[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
-#[display(fmt = "Var({})", _0)]
+#[display("Var({})", _0)]
 pub struct Var(pub Arc<String>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Allocative)]
@@ -125,7 +125,7 @@ impl MathEquations for DiceTransactionUpdater {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Eval({})", _0)]
+#[display("Eval({})", _0)]
 pub struct EvalVar(pub Var);
 #[async_trait]
 impl Key for EvalVar {
@@ -187,7 +187,7 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: &Var) -> anyhow::Resul
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display(fmt = "Lookup({})", _0)]
+#[display("Lookup({})", _0)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Equation>;

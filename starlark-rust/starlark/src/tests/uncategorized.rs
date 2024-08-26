@@ -286,7 +286,7 @@ fn test_radd() {
     // We want select append to always produce a select, much like the
     // Bazel/Buck `select` function.
     #[derive(Debug, Display, Clone, ProvidesStaticType, NoSerialize, Allocative)]
-    #[display(fmt = "${:?}", _0)]
+    #[display("${:?}", _0)]
     struct Select(Vec<i32>);
     starlark_simple_value!(Select);
 
@@ -757,7 +757,7 @@ fn test_label_assign() {
     // No builtin Starlark types support it, so we have to define a custom type (wapping a dictionary)
 
     #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize, Allocative)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Wrapper<'v>(RefCell<SmallMap<String, Value<'v>>>);
 
     #[starlark_value(type = "wrapper")]
@@ -773,7 +773,7 @@ fn test_label_assign() {
     }
 
     #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
-    #[display(fmt = "FrozenWrapper")]
+    #[display("FrozenWrapper")]
     struct FrozenWrapper;
 
     #[starlark_value(type = "wrapper")]

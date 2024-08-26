@@ -25,7 +25,7 @@ use buck2_core::cells::paths::CellRelativePathBuf;
     PartialOrd,
     Allocative
 )]
-#[display(fmt = "{}", path)]
+#[display("{}", path)]
 pub struct BxlFilePath {
     /// The path of this bxl file, including the `bxl` extension
     path: CellPath,

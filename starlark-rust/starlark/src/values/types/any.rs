@@ -90,7 +90,7 @@ use crate::values::ValueLike;
 /// [`StarlarkAnyComplex`](crate::values::types::any_complex::StarlarkAnyComplex).
 #[derive(ProvidesStaticType, NoSerialize, Allocative, derive_more::Display)]
 #[allocative(bound = "")]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub struct StarlarkAny<T: Debug + Send + Sync + 'static>(
     #[allocative(skip)] // TODO(nga): do not skip.
     pub  T,

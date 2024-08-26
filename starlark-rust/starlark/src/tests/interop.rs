@@ -192,7 +192,7 @@ fn test_load_symbols_extra() -> crate::Result<()> {
         NoSerialize,
         Allocative
     )]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Extra<'v>(Arc<Mutex<SmallMap<String, Value<'v>>>>);
 
     #[starlark_value(type = "Extra")]
@@ -224,7 +224,7 @@ fn test_load_symbols_extra() -> crate::Result<()> {
 #[test]
 fn test_repr_str() {
     #[derive(ProvidesStaticType, Debug, Display)]
-    #[display(fmt = "{:?}", self)]
+    #[display("{:?}", self)]
     struct Foo(Option<usize>);
 
     #[starlark_module]

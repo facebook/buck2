@@ -20,7 +20,7 @@ use serde::Serializer;
 #[derive(
     Debug, Clone, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
-#[display(fmt = "{}:{}", bxl_path, name)]
+#[display("{}:{}", bxl_path, name)]
 pub struct BxlFunctionLabel {
     /// The cell, package, and file that contains the output of `bxl()`
     pub bxl_path: BxlFilePath,

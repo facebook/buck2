@@ -61,7 +61,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkUQueryCtx<'v> {
     #[trace(unsafe_ignore)]

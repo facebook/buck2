@@ -52,7 +52,7 @@ enum CommandExecutorConfigErrors {
 }
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
-#[display(fmt = "{:?}", _0)]
+#[display("{:?}", _0)]
 pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);

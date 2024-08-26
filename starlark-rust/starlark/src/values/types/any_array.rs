@@ -32,7 +32,7 @@ use crate::values::StarlarkValue;
 
 #[derive(derive_more::Display, ProvidesStaticType, NoSerialize, Allocative)]
 #[repr(C)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 #[allocative(bound = "")]
 pub(crate) struct AnyArray<T: Debug + 'static> {
     pub(crate) len: usize,

@@ -43,7 +43,7 @@ enum ExtraValueError {
     Allocative,
     Trace
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub(crate) struct InterpreterExtraValue<'v> {
     /// Set when evaluating `PACKAGE` files.
     pub(crate) package_extra: OnceCell<PackageFileExtra<'v>>,
@@ -56,7 +56,7 @@ pub(crate) struct InterpreterExtraValue<'v> {
     ProvidesStaticType,
     Allocative
 )]
-#[display(fmt = "{:?}", "self")]
+#[display("{:?}", self)]
 pub(crate) struct FrozenExtraValue {
     pub(crate) package_extra: Option<FrozenPackageFileExtra>,
 }

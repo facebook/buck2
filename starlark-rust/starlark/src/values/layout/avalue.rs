@@ -714,7 +714,7 @@ where
 }
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative)]
-#[display(fmt = "BlackHole")]
+#[display("BlackHole")]
 pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 
 #[cfg(test)]

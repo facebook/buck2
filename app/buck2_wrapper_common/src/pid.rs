@@ -14,7 +14,7 @@ use dupe::Dupe;
 
 /// Process id.
 #[derive(Debug, Clone, Copy, Dupe, derive_more::Display)]
-#[display(fmt = "{}", pid)]
+#[display("{}", pid)]
 pub struct Pid {
     pid: NonZeroU32,
 }

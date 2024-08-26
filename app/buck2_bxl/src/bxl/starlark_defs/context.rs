@@ -11,7 +11,6 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::io::Write;
 use std::iter;
 use std::ops::Deref;
@@ -215,7 +214,7 @@ impl<'v> Display for BxlContextType<'v> {
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct BxlContext<'v> {
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
@@ -234,7 +233,7 @@ impl<'v> Deref for BxlContext<'v> {
 
 #[derive(Derivative, Display, Trace, NoSerialize, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct BxlContextNoDice<'v> {
     pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
     pub(crate) context_type: BxlContextType<'v>,
@@ -251,7 +250,7 @@ impl Deref for BxlContextNoDice<'_> {
 
 #[derive(Derivative, Display, Trace, Allocative)]
 #[derivative(Debug)]
-#[display(fmt = "{:?}", self)]
+#[display("{:?}", self)]
 pub(crate) struct BxlContextCoreData {
     current_bxl: BxlKey,
     #[derivative(Debug = "ignore")]

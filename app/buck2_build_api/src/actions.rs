@@ -301,7 +301,7 @@ pub enum ActionErrors {
 
 #[derive(Derivative, Debug, Display, Allocative)]
 #[derivative(Eq, Hash, PartialEq)]
-#[display(fmt = "Action(key={}, name={})", key, "action.name()")]
+#[display("Action(key={}, name={})", key, action.name())]
 pub struct RegisteredAction {
     /// The key uniquely identifies a registered action.
     /// The key to the action is a one to one mapping.

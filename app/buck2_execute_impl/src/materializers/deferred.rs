@@ -18,7 +18,6 @@ mod tests;
 
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
@@ -583,7 +582,7 @@ pub type ActionDirectoryFingerprint = TrackedFileDigest;
 pub struct ArtifactMetadata(pub ActionDirectoryEntry<DirectoryMetadata>);
 
 #[derive(Clone, Dupe, Debug, Display)]
-#[display(fmt = "DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
+#[display("DirectoryMetadata(digest:{},size:{})", fingerprint, total_size)]
 pub struct DirectoryMetadata {
     pub fingerprint: ActionDirectoryFingerprint,
     /// Size on disk, if the artifact is a directory.
@@ -669,7 +668,7 @@ enum ArtifactMaterializationStage {
 #[derive(Debug, Display)]
 pub enum ArtifactMaterializationMethod {
     /// The files must be copied from a local path.
-    #[display(fmt = "local copy")]
+    #[display("local copy")]
     LocalCopy(
         /// A map `[dest => src]`, meaning that a file at
         /// `{artifact_path}/{dest}/{p}` needs to be copied from `{src}/{p}`.
@@ -678,18 +677,18 @@ pub enum ArtifactMaterializationMethod {
         Vec<CopiedArtifact>,
     ),
 
-    #[display(fmt = "write")]
+    #[display("write")]
     Write(Arc<WriteFile>),
 
     /// The files must be fetched from the CAS.
-    #[display(fmt = "cas download (action: {})", "info.origin")]
+    #[display("cas download (action: {})", info.origin)]
     CasDownload {
         /// The digest of the action that produced this output
         info: Arc<CasDownloadInfo>,
     },
 
     /// The file must be fetched over HTTP.
-    #[display(fmt = "http download ({})", info)]
+    #[display("http download ({})", info)]
     HttpDownload { info: HttpDownloadInfo },
 
     #[cfg(test)]
