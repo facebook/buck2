@@ -13,6 +13,7 @@ import re
 import string
 import sys
 import typing
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 
@@ -99,3 +100,7 @@ def replace_hashes(strings: typing.List[str]) -> typing.List[str]:
 
 def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
+
+
+def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
+    return json.loads(record.read_text())["data"]["Record"]["data"]["InvocationRecord"]

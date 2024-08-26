@@ -29,6 +29,7 @@ use buck2_common::systemd::SystemdPropertySetType;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
+use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::kill::process_exists;
@@ -569,8 +570,7 @@ impl BootstrapBuckdClient {
                 establish_connection(paths, constraints, event_subscribers).await
             }
         }
-        .with_context(|| daemon_connect_error(paths))
-        .context(error_message)
+        .map_err(|e| daemon_connect_error(e, paths).context(error_message).into())
     }
 
     pub fn with_subscribers<'a>(
@@ -646,7 +646,7 @@ impl<'a> BuckdConnectOptions<'a> {
 
 pub async fn establish_connection_existing(
     daemon_dir: &DaemonDir,
-) -> anyhow::Result<BootstrapBuckdClient> {
+) -> buck2_error::Result<BootstrapBuckdClient> {
     let deadline = StartupDeadline::duration_from_now(buckd_startup_timeout()?)?;
     deadline
         .run(
@@ -660,13 +660,14 @@ pub async fn establish_connection_existing(
             },
         )
         .await
+        .map_err(buck2_error::Error::from)
 }
 
 async fn establish_connection(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
     event_subscribers: &mut EventSubscribers<'_>,
-) -> anyhow::Result<BootstrapBuckdClient> {
+) -> buck2_error::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
     let timeout = buckd_startup_timeout()? * 9;
@@ -677,6 +678,7 @@ async fn establish_connection(
             |timeout| establish_connection_inner(paths, constraints, timeout, event_subscribers),
         )
         .await
+        .map_err(buck2_error::Error::from)
 }
 
 fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) -> &'static str {
@@ -752,8 +754,8 @@ async fn establish_connection_inner(
                             match reason {
                                 ConstraintUnsatisfiedReason::TraceIo
                                 | ConstraintUnsatisfiedReason::StartupConfig => {
-                                    return Err(BuckdConnectError::ConnectError {
-                                        stderr: format!("buck2 daemon constraint mismatch during nested invocation: {}", reason),
+                                    return Err(BuckdConnectError::NestedConstraintMismatch {
+                                        reason,
                                     }
                                     .into());
                                 }
@@ -1074,12 +1076,11 @@ enum BuckdConnectError {
         expected: DaemonConstraintsRequest,
         actual: buck2_cli_proto::DaemonConstraints,
     },
-    #[error("Error connecting to the daemon, daemon stderr follows:\n{stderr}")]
-    #[buck2(tag = Some(classify_server_stderr(stderr)))]
-    ConnectError { stderr: String },
+    #[error("buck2 daemon constraint mismatch during nested invocation: {reason}")]
+    NestedConstraintMismatch { reason: ConstraintUnsatisfiedReason },
 }
 
-fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
+fn daemon_connect_error(error: buck2_error::Error, paths: &InvocationPaths) -> buck2_error::Error {
     let stderr = paths
         .daemon_dir()
         .and_then(|dir| {
@@ -1088,9 +1089,13 @@ fn daemon_connect_error(paths: &InvocationPaths) -> BuckdConnectError {
         })
         .unwrap_or_else(|_| "<none>".to_owned());
 
-    BuckdConnectError::ConnectError {
-        stderr: truncate(&stderr, 64000),
-    }
+    let stderr = truncate(&stderr, 64000);
+    error
+        .context(format!(
+            "Error connecting to the daemon, daemon stderr follows:\n{}",
+            stderr
+        ))
+        .tag([classify_server_stderr(&stderr), ErrorTag::DaemonConnect])
 }
 
 fn is_nested_invocation(

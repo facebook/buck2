@@ -60,7 +60,7 @@ enum ExitResultVariant {
     Exec(ExecArgs),
     /// We failed (i.e. due to a Buck internal error).
     /// At this time, when execution does fail, we print out the error message to stderr.
-    StatusWithErr(ExitCode, anyhow::Error),
+    StatusWithErr(ExitCode, buck2_error::Error),
 }
 
 impl Display for ExitResult {
@@ -150,7 +150,7 @@ impl ExitResult {
 
     pub fn err_with_exit_code(err: anyhow::Error, exit_code: ExitCode) -> Self {
         Self {
-            variant: ExitResultVariant::StatusWithErr(exit_code, err),
+            variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
         }
     }
