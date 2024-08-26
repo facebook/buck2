@@ -369,7 +369,7 @@ def create_jar_artifact_kotlincd(
 
     library_classpath_jars_tag = actions.artifact_tag()
     incremental_state_dir = None
-    shouldKotlincRunIncrementally = kotlin_toolchain.kotlinc_run_via_build_tools_api and incremental
+    shouldKotlincRunIncrementally = kotlin_toolchain.enable_incremental_compilation and incremental
     if shouldKotlincRunIncrementally:
         incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True)
     command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag, incremental_state_dir)
