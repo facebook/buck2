@@ -159,6 +159,7 @@ pub trait StringValueLike<'v>:
     Trace<'v>
     + Freeze<Frozen = FrozenStringValue>
     + CoerceKey<StringValue<'v>>
+    + Borrow<str>
     + Display
     + Debug
     + Default
