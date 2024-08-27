@@ -106,6 +106,12 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
 
     # Add on %* to handle any other args passed through the command
     cmd.add("%*")
+
+    if "close_stdin" in ctx.attrs.labels:
+        # Avoids waiting for input on the "Terminate batch job (Y/N)?" prompt.
+        # The prompt itself is unavoidable, but we can avoid having to wait for input.
+        cmd.add("<NUL")
+
     trampoline_args.add(cmd)
 
     trampoline = _relativize_path(
