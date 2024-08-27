@@ -93,14 +93,14 @@ mod types {
 use types::*;
 
 #[derive(Debug)]
-pub enum WatchmanEventType {
+pub(crate) enum WatchmanEventType {
     Create,
     Modify,
     Delete,
 }
 
 #[derive(Debug)]
-pub enum WatchmanKind {
+pub(crate) enum WatchmanKind {
     File,
     Directory,
     Symlink,
@@ -117,7 +117,7 @@ impl WatchmanKind {
 }
 
 #[derive(Debug)]
-pub struct WatchmanEvent {
+pub(crate) struct WatchmanEvent {
     pub kind: WatchmanKind,
     pub event: WatchmanEventType,
     pub path: PathBuf,
@@ -136,7 +136,7 @@ impl Display for WatchmanEvent {
 }
 
 #[derive(Dupe, Clone)]
-pub struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
+struct WatchmanClient(Arc<(watchman_client::Client, ResolvedRoot)>);
 
 impl Debug for WatchmanClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -165,10 +165,7 @@ async fn with_timeout<R>(
 }
 
 impl WatchmanClient {
-    pub async fn connect(
-        connector: &Connector,
-        path: CanonicalPath,
-    ) -> anyhow::Result<WatchmanClient> {
+    async fn connect(connector: &Connector, path: CanonicalPath) -> anyhow::Result<WatchmanClient> {
         let client = with_timeout(connector.connect())
             .await
             .context("Connecting to watchman")?;
@@ -178,9 +175,7 @@ impl WatchmanClient {
         Ok(Self(Arc::new((client, root))))
     }
 
-    pub async fn query<
-        F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList,
-    >(
+    async fn query<F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList>(
         &self,
         query: QueryRequestCommon,
     ) -> anyhow::Result<QueryResult<F>> {
@@ -199,7 +194,7 @@ impl WatchmanClient {
 }
 
 #[async_trait]
-pub trait SyncableQueryProcessor: Send + Sync {
+pub(crate) trait SyncableQueryProcessor: Send + Sync {
     type Output;
     type Payload;
 
@@ -240,7 +235,7 @@ pub struct SyncableQuery<T, P> {
     control_tx: UnboundedSender<SyncableQueryCommand<T, P>>,
 }
 
-pub enum WatchmanSyncResult {
+enum WatchmanSyncResult {
     FreshInstance {
         merge_base: Option<String>,
         clock: ClockSpec,
@@ -465,7 +460,10 @@ where
     P: Send + 'static,
 {
     /// Ensures that the processor has been sent all changes that watchman has seen.
-    pub fn sync(&self, dice: P) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
+    pub(crate) fn sync(
+        &self,
+        dice: P,
+    ) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
@@ -483,7 +481,7 @@ where
         }
     }
 
-    pub fn new(
+    pub(crate) fn new(
         connector: Connector,
         path: impl AsRef<Path>,
         expr: Expr,
