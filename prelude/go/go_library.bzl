@@ -6,13 +6,13 @@
 # of this source tree.
 
 load(
-    "@prelude//linking:link_groups.bzl",
-    "LinkGroupLibInfo",
-)
-load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
     "create_merged_link_info_for_propagation",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "create_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -58,7 +58,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_output = default_output),
-        LinkGroupLibInfo(libs = {}),
         GoPkgCompileInfo(pkgs = merge_pkgs([
             pkgs,
             get_inherited_compile_pkgs(ctx.attrs.exported_deps),
@@ -76,6 +75,10 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_shared_libraries(
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
+        ),
+        create_linkable_graph(
+            ctx,
+            deps = ctx.attrs.deps,
         ),
         pkg_info,
     ]
