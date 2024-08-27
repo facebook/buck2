@@ -163,7 +163,8 @@ pub(crate) struct InvocationRecorder<'a> {
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    errors: Vec<ErrorIntermediate>,
+    client_errors: Vec<ErrorIntermediate>,
+    command_errors: Vec<ErrorIntermediate>,
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
@@ -274,7 +275,8 @@ impl<'a> InvocationRecorder<'a> {
             daemon_connection_failure: false,
             daemon_was_started: None,
             client_metadata,
-            errors: Vec::new(),
+            client_errors: Vec::new(),
+            command_errors: Vec::new(),
             server_stderr: String::new(),
             target_rule_type_names: Vec::new(),
             re_max_download_speeds: vec![
@@ -333,7 +335,7 @@ impl<'a> InvocationRecorder<'a> {
     }
 
     fn maybe_add_server_stderr_to_errors(&mut self) {
-        for error in &mut self.errors {
+        for error in &mut self.client_errors {
             if !error.want_stderr {
                 continue;
             }
@@ -368,27 +370,20 @@ impl<'a> InvocationRecorder<'a> {
         }
     }
 
-    fn best_error_tag(&self) -> Option<&'static str> {
-        if self.errors.is_empty() {
+    fn best_error_tag(&self, errors: &[ErrorIntermediate]) -> Option<&'static str> {
+        if errors.is_empty() {
             None
         } else {
-            Some(
-                best_tag(self.errors.iter().filter_map(|e| e.best_tag)).map_or(
-                    // If we don't have tags on the errors,
-                    // we still want to add a tag to Scuba column.
-                    ERROR_TAG_UNCLASSIFIED,
-                    |t| t.as_str_name(),
-                ),
-            )
+            Some(best_tag(errors.iter().filter_map(|e| e.best_tag)).map_or(
+                // If we don't have tags on the errors,
+                // we still want to add a tag to Scuba column.
+                ERROR_TAG_UNCLASSIFIED,
+                |t| t.as_str_name(),
+            ))
         }
     }
 
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
-        self.maybe_add_server_stderr_to_errors();
-
-        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
-        let best_error_tag = self.best_error_tag();
-
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
@@ -422,6 +417,17 @@ impl<'a> InvocationRecorder<'a> {
 
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
+
+        self.maybe_add_server_stderr_to_errors();
+
+        let mut errors = std::mem::take(&mut self.client_errors);
+        let command_errors = std::mem::take(&mut self.command_errors);
+        errors.extend(command_errors);
+
+        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
+        let best_error_tag = self.best_error_tag(&errors);
+
+        let errors = errors.into_map(|e| e.processed);
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
@@ -532,7 +538,7 @@ impl<'a> InvocationRecorder<'a> {
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            errors: std::mem::take(&mut self.errors).into_map(|e| e.processed),
+            errors,
             best_error_tag: best_error_tag.map(|t| t.to_owned()),
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
@@ -643,7 +649,7 @@ impl<'a> InvocationRecorder<'a> {
         event: &BuckEvent,
     ) -> anyhow::Result<()> {
         let mut command = command.clone();
-        self.errors
+        self.command_errors
             .extend(std::mem::take(&mut command.errors).into_iter().map(|e| {
                 let best_tag = best_tag(e.tags.iter().filter_map(|t| {
                     // This should never be `None`, but with weak prost types,
@@ -1343,7 +1349,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         let want_stderr = error.tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
         let best_tag = error.best_tag();
         let error = create_error_report(error);
-        self.errors.push(ErrorIntermediate {
+        self.client_errors.push(ErrorIntermediate {
             processed: process_error_report(error),
             want_stderr,
             best_tag,
@@ -1381,7 +1387,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         self.daemon_connection_failure = true;
         let best_tag = error.best_tag();
         let error = create_error_report(error);
-        self.errors.push(ErrorIntermediate {
+        self.client_errors.push(ErrorIntermediate {
             processed: process_error_report(error),
             want_stderr: false,
             best_tag,
