@@ -217,6 +217,7 @@ extra_attributes = {
         "path": attrs.source(allow_directory = True),
     },
     "prebuilt_apple_framework": {
+        "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "stripped": attrs.option(attrs.bool(), default = None),

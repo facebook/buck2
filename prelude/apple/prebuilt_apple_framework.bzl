@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -44,9 +45,11 @@ load(
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
+load(":apple_dsym.bzl", "DSYM_SUBTARGET")
 load(":apple_frameworks.bzl", "to_framework_name")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback")
+load(":debug.bzl", "AppleDebuggableInfo")
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
@@ -113,6 +116,10 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {
         "distribution": _sanitize_framework_for_app_distribution(ctx, framework_directory_artifact) + providers,
     }
+
+    if ctx.attrs.dsyms:
+        sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = ctx.attrs.dsyms)]
+        providers.append(AppleDebuggableInfo(dsyms = ctx.attrs.dsyms, debug_info_tset = ArtifactTSet()))
 
     providers.append(DefaultInfo(default_output = framework_directory_artifact, sub_targets = sub_targets))
     providers.append(AppleBundleInfo(
