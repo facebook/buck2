@@ -76,7 +76,11 @@ def _compatible_device_type_from_runtime(runtime: XCSimRuntime) -> Optional[str]
         return None
     default = next(iphones)
     return next(
-        (device_type.name for device_type in iphones if device_type.name == "iPhone 8"),
+        (
+            device_type.name
+            for device_type in iphones
+            if device_type.name == "iPhone 11"
+        ),
         default.name,
     )
 
