@@ -170,6 +170,14 @@ def _cxx_preprocessor_flags_arg():
 """),
     }
 
+def _generate_exported_header():
+    return {
+        "generate_exported_header": attrs.bool(default = False, doc = """
+    Generate header file with declaration for functions exported with `//export`
+    The header name for target `cell//foo/bar:lib` will be `foo/bar/lib.h`
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -188,4 +196,5 @@ go_common = struct(
     tags_arg = _tags_arg,
     cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
     cxx_preprocessor_flags_arg = _cxx_preprocessor_flags_arg,
+    generate_exported_header = _generate_exported_header,
 )

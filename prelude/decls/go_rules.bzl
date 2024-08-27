@@ -61,21 +61,22 @@ cgo_library = prelude_rule(
         # @unsorted-dict-items
         go_common.package_name_arg() |
         go_common.srcs_arg() |
-        cxx_common.headers_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
         go_common.cxx_preprocessor_flags_arg() |
         go_common.cxx_compiler_flags_arg() |
         native_common.link_style() |
         go_common.compiler_flags_arg() |
         go_common.assembler_flags_arg() |
+        go_common.generate_exported_header() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
-            "header_namespace": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         } |
@@ -217,6 +218,10 @@ go_exported_library = prelude_rule(
                  `gcflags`, `ldflags` and `asmflags``
             """),
         } |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         go_common.link_style_arg() |
         go_common.link_mode_arg() |
         go_common.compiler_flags_arg() |
@@ -228,6 +233,7 @@ go_exported_library = prelude_rule(
         go_common.race_arg() |
         go_common.asan_arg() |
         go_common.tags_arg() |
+        go_common.generate_exported_header() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your

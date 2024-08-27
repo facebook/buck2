@@ -5,6 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:headers.bzl", "prepare_headers")
+load(
+    "@prelude//cxx:preprocessor.bzl",
+    "CPreprocessor",
+    "CPreprocessorArgs",
+)
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 
@@ -108,3 +114,14 @@ def make_importcfg(
     )
 
     return cmd_args(final_importcfg, hidden = [stdlib.pkgdir_shared if shared else stdlib.pkgdir, pkg_artifacts_map.values()])
+
+# Return "_cgo_export.h" to expose exported C declarations to non-Go rules
+def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> CPreprocessor:
+    return CPreprocessor(args = CPreprocessorArgs(args = [
+        "-I",
+        prepare_headers(
+            ctx,
+            {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
+            "cgo-exported-headers",
+        ).include_path,
+    ]))

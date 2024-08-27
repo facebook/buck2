@@ -50,6 +50,7 @@ load(
 )
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
+load(":packages.bzl", "cgo_exported_preprocessor")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     lib, pkg_info = build_package(
@@ -62,8 +63,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        force_disable_cgo = True,
     )
 
     def link_variant(build_mode: GoBuildMode):
@@ -118,6 +117,8 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ])
 
+    own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
+
     return [
         DefaultInfo(
             default_output = c_archive if ctx.attrs.build_mode == "c_archive" else c_shared,
@@ -148,6 +149,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             deps = ctx.attrs.deps,
         ),
-        cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
+        cxx_merge_cpreprocessors(ctx, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]

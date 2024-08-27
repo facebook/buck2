@@ -36,7 +36,7 @@ load(":compile.bzl", "GoPkgCompileInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
-load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pkgs")
 
 def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
@@ -62,6 +62,8 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name: compiled_pkg,
     }
 
+    own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
+
     return [
         DefaultInfo(default_output = compiled_pkg.pkg),
         GoPkgCompileInfo(pkgs = merge_pkgs([
@@ -82,6 +84,6 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             deps = ctx.attrs.deps,
         ),
-        cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
+        cxx_merge_cpreprocessors(ctx, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]
