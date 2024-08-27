@@ -167,27 +167,13 @@ fn render_function(name: &str, function: &DocFunction) -> String {
 
 fn render_members<'a>(
     name: &str,
-    object: bool,
     docs: &Option<DocString>,
+    prefix: &str,
     members: impl IntoIterator<Item = (&'a str, DocMember)>,
 ) -> String {
-    // If this is a native, top level object, render it with a larger
-    // header. Sub objects will be listed along side members, so use
-    // smaller headers there.
-    let title = if object {
-        format!("# `{name}` type")
-    } else {
-        format!("# {name}")
-    };
     let summary = render_doc_string(DSOpts::Combined, docs)
         .map(|s| format!("\n\n{}", s))
         .unwrap_or_default();
-
-    let prefix = if object {
-        format!("{name}.")
-    } else {
-        String::new()
-    };
 
     let member_details: Vec<String> = members
         .into_iter()
@@ -196,7 +182,7 @@ fn render_members<'a>(
         .collect();
     let members_details = member_details.join("\n\n---\n\n");
 
-    format!("{title}{summary}\n\n{members_details}")
+    format!("# {name}{summary}\n\n{members_details}")
 }
 
 /// Used by LSP.
@@ -204,8 +190,8 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
     match item {
         DocItem::Module(m) => render_members(
             name,
-            false,
             &m.docs,
+            "",
             m.members.iter().filter_map(|(n, m)| {
                 m.try_as_member_with_collapsed_object()
                     .ok()
@@ -213,9 +199,9 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
             }),
         ),
         DocItem::Type(o) => render_members(
-            name,
-            true,
+            &format!("`{name}` type"),
             &o.docs,
+            &format!("{name}."),
             o.members.iter().map(|(n, m)| (&**n, m.clone())),
         ),
         DocItem::Member(DocMember::Function(f)) => render_function(name, f),
