@@ -55,10 +55,13 @@ pub enum MaterializationError {
     /// The artifact wasn't found. This typically means it expired in the CAS.
     #[error(
         "Your build requires materializing an artifact that has expired in the \
-        RE CAS and Buck does not have it (path: {}, digest origin: {}). \
+        RE CAS and Buck does not have it. \
         This likely happened because your Buck daemon \
         has been online for a long time. This error is currently unrecoverable. \
-        To proceed, you should restart Buck using `buck2 killall` (debug info: {})",
+        To proceed, you should restart Buck using `buck2 killall`\n\
+        path: {}\n\
+        digest origin: {}\n\
+        debug info: {}",
         .path,
         .info.origin.as_display_for_not_found(),
         .debug
