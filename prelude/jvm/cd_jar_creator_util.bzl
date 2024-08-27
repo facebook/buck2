@@ -96,7 +96,6 @@ OutputPaths = record(
     jar = Artifact,
     classes = Artifact,
     annotations = Artifact,
-    scratch = Artifact,
 )
 
 def qualified_name_with_subtarget(label: Label) -> str:
@@ -126,7 +125,6 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
         jar = jar_parent.project("{}.jar".format(label.name)),
         classes = declare_prefixed_output(actions, prefix, "__classes__", dir = True),
         annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
-        scratch = declare_prefixed_output(actions, prefix, "scratch", dir = True),
     )
 
 # buildifier: disable=uninitialized
@@ -138,7 +136,6 @@ def output_paths_to_hidden_cmd_args(output_paths: OutputPaths, path_to_class_has
     hidden.append(output_paths.jar.as_output())
     hidden.append(output_paths.classes.as_output())
     hidden.append(output_paths.annotations.as_output())
-    hidden.append(output_paths.scratch.as_output())
     return cmd_args(hidden = hidden)
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
@@ -146,8 +143,6 @@ def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetTyp
         classesDir = paths.classes.as_output(),
         outputJarDirPath = paths.jar_parent.as_output(),
         annotationPath = paths.annotations.as_output(),
-        pathToSourcesList = cmd_args([paths.scratch.as_output(), "/", "__srcs__"], delimiter = ""),
-        workingDirectory = paths.scratch.as_output(),
         outputJarPath = paths.jar.as_output(),
     )
 
