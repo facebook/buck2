@@ -528,6 +528,8 @@ def _get_shared_flags(
         cmd.add(["-working-directory="])
 
     cmd.add([
+        # Always use color, consistent with clang.
+        "-color-diagnostics",
         # Unset the working directory in the debug information.
         "-file-compilation-dir",
         ".",
