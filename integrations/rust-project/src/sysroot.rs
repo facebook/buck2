@@ -112,10 +112,16 @@ pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
     let mut output = utf8_output(cmd.output(), &cmd)?;
     truncate_line_ending(&mut output);
     let sysroot = PathBuf::from(output);
+    let sysroot_src = sysroot
+        .join("lib")
+        .join("rustlib")
+        .join("src")
+        .join("rust")
+        .join("library");
 
     let sysroot = Sysroot {
         sysroot,
-        sysroot_src: None,
+        sysroot_src: Some(sysroot_src),
     };
     Ok(sysroot)
 }
