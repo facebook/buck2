@@ -185,7 +185,7 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_instrumentation_test": {
-        "extra_instrumentation_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None),
+        "extra_instrumentation_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg()), default = None),
         "instrumentation_test_listener": attrs.option(attrs.exec_dep(), default = None),
         "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
         "is_self_instrumenting": attrs.bool(default = False),
