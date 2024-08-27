@@ -8,8 +8,9 @@
 load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 
 def check_targets_impl(ctx: bxl.Context) -> None:
-    target_universe = ctx.uquery().owner(ctx.cli_args.file)
-    owners = ctx.cquery().owner(ctx.cli_args.file, target_universe)
+    uquery_owners = ctx.uquery().owner(ctx.cli_args.file)
+    target_universe = ctx.target_universe(uquery_owners)
+    owners = ctx.cquery().owner(ctx.cli_args.file, target_universe.target_set())
     nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
 
     if len(nodes) == 0:
