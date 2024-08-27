@@ -12,6 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use either::Either;
+use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::classify::best_tag;
@@ -144,9 +145,13 @@ impl Error {
 
     /// Stable identifier for grouping errors.
     pub fn category_key(&self) -> String {
-        self.source_location()
-            .unwrap_or("unknown_location")
-            .to_owned()
+        let tags = self.tags().into_iter().map(|tag| tag.as_str_name());
+
+        let mut values = vec![self.source_location().unwrap_or("unknown_location")]
+            .into_iter()
+            .chain(tags);
+
+        values.join(":").to_owned()
     }
 
     pub fn source_location(&self) -> Option<&str> {
@@ -329,5 +334,11 @@ mod tests {
     fn test_category_key() {
         let err: crate::Error = TestError.into();
         assert_eq!(err.category_key(), err.source_location().unwrap());
+
+        let err = err.tag([crate::ErrorTag::Analysis]);
+        assert_eq!(
+            err.category_key(),
+            format!("{}:{}", err.source_location().unwrap(), "ANALYSIS")
+        );
     }
 }
