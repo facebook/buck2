@@ -35,8 +35,6 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
-use crate::eval::ParametersParser;
-use crate::eval::ParametersSpec;
 use crate::private::Private;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
@@ -169,66 +167,24 @@ impl<T> NativeAttr for T where
 #[derive(Derivative, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[derivative(Debug)]
 #[display("{}", name)]
-pub struct NativeFunction {
+pub(crate) struct NativeFunction {
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
     /// `.type` attribute and a type when this function is used in type expression.
     pub(crate) as_type: Option<Ty>,
-    pub(crate) ty: Option<Ty>,
+    pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) docs: Option<DocFunction>,
+    pub(crate) docs: DocFunction,
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
 impl AllocFrozenValue for NativeFunction {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
-    }
-}
-
-impl NativeFunction {
-    /// Create a new [`NativeFunction`] from the Rust function which works directly on the parameters.
-    /// The called function is responsible for validating the parameters are correct.
-    pub fn new_direct<F>(function: F, name: String) -> Self
-    where
-        // If I switch this to the trait alias then it fails to resolve the usages
-        F: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        NativeFunction {
-            function: Box::new(function),
-            name,
-            as_type: None,
-            ty: None,
-            speculative_exec_safe: false,
-            docs: None,
-            special_builtin_function: None,
-        }
-    }
-
-    /// Create a new [`NativeFunction`] from the Rust function, plus the parameter specification.
-    pub fn new<F>(function: F, name: String, parameters: ParametersSpec<FrozenValue>) -> Self
-    where
-        F: for<'v> Fn(
-                &mut Evaluator<'v, '_, '_>,
-                ParametersParser<'v, '_>,
-            ) -> crate::Result<Value<'v>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        Self::new_direct(
-            move |eval, params| {
-                parameters.parser(params, eval, |parser, eval| function(eval, parser))
-            },
-            name,
-        )
     }
 }
 
@@ -277,13 +233,11 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.docs
-            .as_ref()
-            .map(|raw_docs| DocItem::Member(DocMember::Function(raw_docs.clone())))
+        Some(DocItem::Member(DocMember::Function(self.docs.clone())))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        self.ty.clone()
+        Some(self.ty.dupe())
     }
 
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {

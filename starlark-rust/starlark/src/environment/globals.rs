@@ -271,10 +271,10 @@ impl GlobalsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
                 as_type: as_type.dupe(),
-                ty: Some(ty.unwrap_or_else(|| {
+                ty: ty.unwrap_or_else(|| {
                     Ty::from_native_callable_components(&components, as_type.dupe())
-                })),
-                docs: Some(components.into_docs(as_type)),
+                }),
+                docs: components.into_docs(as_type),
                 special_builtin_function,
             },
         )
