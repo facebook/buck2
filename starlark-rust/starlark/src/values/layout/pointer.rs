@@ -275,7 +275,7 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn new_unfrozen(x: &'p AValueHeader, is_string: bool) -> Self {
+    pub(crate) fn new_unfrozen(x: &'p AValueHeader, is_string: bool) -> Self {
         unsafe { Self::new(RawPointer::new_unfrozen(x, is_string)) }
     }
 
@@ -285,12 +285,12 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn is_unfrozen(self) -> bool {
+    pub(crate) fn is_unfrozen(self) -> bool {
         self.ptr.is_unfrozen()
     }
 
     #[inline]
-    pub fn unpack(self) -> Either<&'p AValueOrForward, &'static PointerI32> {
+    pub(crate) fn unpack(self) -> Either<&'p AValueOrForward, &'static PointerI32> {
         if !self.ptr.is_int() {
             Either::Left(unsafe { self.ptr.unpack_ptr_no_int_unchecked() })
         } else {
@@ -299,12 +299,12 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn unpack_int(self) -> Option<InlineInt> {
+    pub(crate) fn unpack_int(self) -> Option<InlineInt> {
         self.ptr.unpack_int()
     }
 
     #[inline]
-    pub fn unpack_ptr(self) -> Option<&'p AValueOrForward> {
+    pub(crate) fn unpack_ptr(self) -> Option<&'p AValueOrForward> {
         if !self.ptr.is_int() {
             Some(unsafe { untag_pointer(self.ptr.0.get()) })
         } else {
@@ -327,17 +327,17 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub fn ptr_eq(self, other: Pointer<'_>) -> bool {
+    pub(crate) fn ptr_eq(self, other: Pointer<'_>) -> bool {
         self.ptr == other.ptr
     }
 
     #[inline]
-    pub fn raw(self) -> RawPointer {
+    pub(crate) fn raw(self) -> RawPointer {
         self.ptr
     }
 
     #[inline]
-    pub unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2> {
+    pub(crate) unsafe fn cast_lifetime<'p2>(self) -> Pointer<'p2> {
         Pointer {
             ptr: self.ptr,
             _phantom: PhantomData,
@@ -361,7 +361,7 @@ impl<'p> FrozenPointer<'p> {
     }
 
     #[inline]
-    pub fn new_frozen_usize_with_str_tag(x: usize) -> Self {
+    pub(crate) fn new_frozen_usize_with_str_tag(x: usize) -> Self {
         debug_assert!((x & TAG_MASK & !TAG_STR) == 0);
         unsafe { Self::new(RawPointer::new_unchecked(x)) }
     }
