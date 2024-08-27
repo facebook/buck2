@@ -57,6 +57,7 @@ enum ErrorTag {
   STARLARK_FAIL = 1;
   STARLARK_STACK_OVERFLOW = 102;
   WATCHMAN_TIMEOUT = 2;
+  WATCHMAN_REQUEST_ERROR = 201;
   HTTP = 3;
   // Client error (4xx).
   HTTP_CLIENT = 301;
