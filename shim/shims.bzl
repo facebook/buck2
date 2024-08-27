@@ -406,7 +406,7 @@ def _fix_dep(x: str) -> [
         xs = x.split("-")
         for i in range(len(xs)):
             s = xs[i]
-            if s == "old" or isdigit(s):
+            if s == "old" or s.isdigit():
                 xs.pop(i)
             else:
                 break
@@ -471,4 +471,4 @@ def _assert_eq(x, y):
         fail("Expected {} == {}".format(x, y))
 
 def _test():
-    _assert_eq("fbsource//third-party/rust:derive_more-1", "shim//third-party/rust:derive_more")
+    _assert_eq("fbsource//third-party/rust:derive_more", "shim//third-party/rust:derive_more")
