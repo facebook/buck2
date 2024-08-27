@@ -205,9 +205,7 @@ impl MethodsBuilder {
     {
         assert_eq!(components.signature.len(), components.parameter_types.len());
 
-        let as_type = None;
-
-        let ty = Ty::from_native_callable_components(&components, as_type.dupe());
+        let ty = Ty::from_native_callable_components(&components, None);
 
         let function = FrozenRef::<dyn NativeMeth + 'static>::new(
             self.heap.alloc_any_debug_type_name(f).as_ref(),
@@ -219,7 +217,7 @@ impl MethodsBuilder {
                     function,
                     name: name.to_owned(),
                     speculative_exec_safe: components.speculative_exec_safe,
-                    docs: components.into_docs(as_type),
+                    docs: components.into_docs(None),
                     ty,
                 }))
                 .unwrap(),

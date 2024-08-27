@@ -30,6 +30,7 @@ use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::docs::DocType;
 use crate::environment::NativeCallableComponents;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
@@ -255,7 +256,7 @@ impl GlobalsBuilder {
         &mut self,
         name: &str,
         components: NativeCallableComponents,
-        as_type: Option<Ty>,
+        as_type: Option<(Ty, DocType)>,
         ty: Option<Ty>,
         special_builtin_function: Option<SpecialBuiltinFunction>,
         f: F,
@@ -270,9 +271,12 @@ impl GlobalsBuilder {
                 function: Box::new(f),
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
-                as_type: as_type.dupe(),
+                as_type: as_type.as_ref().map(|x| x.0.dupe()),
                 ty: ty.unwrap_or_else(|| {
-                    Ty::from_native_callable_components(&components, as_type.dupe())
+                    Ty::from_native_callable_components(
+                        &components,
+                        as_type.as_ref().map(|x| x.0.dupe()),
+                    )
                 }),
                 docs: components.into_docs(as_type),
                 special_builtin_function,

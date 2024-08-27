@@ -19,6 +19,7 @@ use std::collections::HashMap;
 
 use crate::docs::DocFunction;
 use crate::docs::DocStringKind;
+use crate::docs::DocType;
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::FrozenValue;
@@ -34,7 +35,9 @@ pub struct NativeCallableComponents {
 }
 
 impl NativeCallableComponents {
-    pub(crate) fn into_docs(self, as_type: Option<Ty>) -> DocFunction {
+    pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>) -> DocFunction {
+        // TODO(JakobDegen): Use the docs
+        let as_type = as_type.map(|x| x.0);
         DocFunction::from_docstring(
             DocStringKind::Rust,
             self.signature
