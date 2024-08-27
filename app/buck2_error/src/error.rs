@@ -137,8 +137,16 @@ impl Error {
         s
     }
 
+    /// Identifier for deduplication during a build.
     pub fn root_id(&self) -> UniqueRootId {
         self.root().id()
+    }
+
+    /// Stable identifier for grouping errors.
+    pub fn category_key(&self) -> String {
+        self.source_location()
+            .unwrap_or("unknown_location")
+            .to_owned()
     }
 
     pub fn source_location(&self) -> Option<&str> {
@@ -315,5 +323,11 @@ mod tests {
             .context(Tier::Environment)
             .context(Tier::Input);
         assert_eq!(e.get_tier(), Some(Tier::Environment));
+    }
+
+    #[test]
+    fn test_category_key() {
+        let err: crate::Error = TestError.into();
+        assert_eq!(err.category_key(), err.source_location().unwrap());
     }
 }

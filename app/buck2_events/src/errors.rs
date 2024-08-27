@@ -25,6 +25,7 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
     };
 
     let source_location = err.source_location().map(ToOwned::to_owned);
+    let category_key = err.category_key();
 
     let sub_error_categories = if let Some(error_diagnostics) = err
         .action_error()
@@ -53,5 +54,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         source_location,
         tags: err.tags().map(|t| *t as i32),
         sub_error_categories,
+        category_key: Some(category_key),
     }
 }

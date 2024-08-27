@@ -2149,6 +2149,7 @@ message ErrorReport {
   optional string source_location = 5;
   repeated buck.data.error.ErrorTag tags = 6;
   repeated string sub_error_categories = 7;
+  optional string category_key = 8;
 }
 
 // Identical to `ErrorReport`, but with the typ and tags converted to strings.
@@ -2166,6 +2167,7 @@ message ProcessedErrorReport {
   // among all error tags. This is such tag.
   optional string best_tag = 7;
   repeated string sub_error_categories = 8;
+  optional string category_key = 9;
 }
 
 message MaterializerStateInfo {
