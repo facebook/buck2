@@ -28,6 +28,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
 use buck2_error::classify::best_tag;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
@@ -334,7 +335,8 @@ impl<'a> InvocationRecorder<'a> {
         Ok(Default::default())
     }
 
-    fn maybe_add_server_stderr_to_errors(&mut self) {
+    fn finalize_errors(&mut self) -> (Vec<ProcessedErrorReport>, Option<String>) {
+        // Add stderr to GRPC connection errors if available
         for error in &mut self.client_errors {
             if !error.want_stderr {
                 continue;
@@ -368,19 +370,30 @@ impl<'a> InvocationRecorder<'a> {
                 .tags
                 .push(stderr_tag.as_str_name().to_owned());
         }
-    }
 
-    fn best_error_tag(&self, errors: &[ErrorIntermediate]) -> Option<&'static str> {
-        if errors.is_empty() {
+        let mut errors = std::mem::take(&mut self.client_errors);
+        let command_errors = std::mem::take(&mut self.command_errors);
+        errors.extend(command_errors);
+
+        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
+        let best_error_tag = if errors.is_empty() {
             None
         } else {
-            Some(best_tag(errors.iter().filter_map(|e| e.best_tag)).map_or(
-                // If we don't have tags on the errors,
-                // we still want to add a tag to Scuba column.
-                ERROR_TAG_UNCLASSIFIED,
-                |t| t.as_str_name(),
-            ))
-        }
+            Some(
+                best_tag(errors.iter().filter_map(|e| e.best_tag))
+                    .map_or(
+                        // If we don't have tags on the errors,
+                        // we still want to add a tag to Scuba column.
+                        ERROR_TAG_UNCLASSIFIED,
+                        |t| t.as_str_name(),
+                    )
+                    .to_owned(),
+            )
+        };
+
+        let errors = errors.into_map(|e| e.processed);
+
+        (errors, best_error_tag)
     }
 
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
@@ -418,16 +431,7 @@ impl<'a> InvocationRecorder<'a> {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        self.maybe_add_server_stderr_to_errors();
-
-        let mut errors = std::mem::take(&mut self.client_errors);
-        let command_errors = std::mem::take(&mut self.command_errors);
-        errors.extend(command_errors);
-
-        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
-        let best_error_tag = self.best_error_tag(&errors);
-
-        let errors = errors.into_map(|e| e.processed);
+        let (errors, best_error_tag) = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
@@ -539,7 +543,7 @@ impl<'a> InvocationRecorder<'a> {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             client_metadata: std::mem::take(&mut self.client_metadata),
             errors,
-            best_error_tag: best_error_tag.map(|t| t.to_owned()),
+            best_error_tag,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
                 self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),
