@@ -26,7 +26,6 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
-use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -120,18 +119,6 @@ impl<T: StarlarkTypeRepr> Display for StarlarkValueAsType<T> {
     }
 }
 
-fn docs_for_type<T: StarlarkValue<'static>>() -> DocType {
-    let ty = T::starlark_type_repr();
-    match T::get_methods() {
-        Some(methods) => methods.documentation(ty),
-        None => DocType {
-            docs: None,
-            members: SmallMap::new(),
-            ty,
-        },
-    }
-}
-
 impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     /// Constructor.
     ///
@@ -144,7 +131,7 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
             &const {
                 alloc_static(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
-                    || Some(docs_for_type::<T>()),
+                    || Some(DocType::from_starlark_value::<T>()),
                 ))
             },
             PhantomData,

@@ -34,6 +34,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::typing::Ty;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
@@ -194,6 +195,20 @@ pub struct DocType {
     /// Name and details of each attr/function that can be accessed on this type.
     pub members: SmallMap<String, DocMember>,
     pub ty: Ty,
+}
+
+impl DocType {
+    pub fn from_starlark_value<T: StarlarkValue<'static>>() -> DocType {
+        let ty = T::starlark_type_repr();
+        match T::get_methods() {
+            Some(methods) => methods.documentation(ty),
+            None => DocType {
+                docs: None,
+                members: SmallMap::new(),
+                ty,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Allocative)]
