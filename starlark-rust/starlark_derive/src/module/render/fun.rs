@@ -225,7 +225,7 @@ impl StarFun {
                 );
             })
         } else {
-            let typ = self.as_type_expr();
+            let as_type = self.as_type_expr();
             let ty_custom = self.ty_custom_expr();
             Ok(syn::parse_quote! {
                 #[allow(clippy::redundant_closure)]
@@ -233,7 +233,7 @@ impl StarFun {
                     #name_str,
                     #speculative_exec_safe,
                     #documentation_var,
-                    #typ,
+                    #as_type,
                     #ty_custom,
                     #special_builtin_function,
                     #struct_name {

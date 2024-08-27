@@ -202,7 +202,7 @@ pub struct NativeFunction {
     pub(crate) function: Box<dyn NativeFunc>,
     pub(crate) name: String,
     /// `.type` attribute and a type when this function is used in type expression.
-    pub(crate) type_attr: Option<Ty>,
+    pub(crate) as_type: Option<Ty>,
     pub(crate) ty: Option<Ty>,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
@@ -231,7 +231,7 @@ impl NativeFunction {
         NativeFunction {
             function: Box::new(function),
             name,
-            type_attr: None,
+            as_type: None,
             ty: None,
             speculative_exec_safe: false,
             raw_docs: None,
@@ -278,7 +278,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        if let Some(s) = self.type_attr.as_ref().map(|t| t.as_name()) {
+        if let Some(s) = self.as_type.as_ref().map(|t| t.as_name()) {
             if attribute == "type" {
                 return Some(heap.alloc(s));
             }
@@ -287,7 +287,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        self.type_attr.clone()
+        self.as_type.clone()
     }
 
     fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
@@ -296,7 +296,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn dir_attr(&self) -> Vec<String> {
-        if self.type_attr.is_some() {
+        if self.as_type.is_some() {
             vec!["type".to_owned()]
         } else {
             Vec::new()
