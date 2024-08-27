@@ -29,6 +29,7 @@ use starlark_derive::Trace;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
+use crate::environment::NativeCallableComponents;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
@@ -45,7 +46,6 @@ use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ParamSpec;
 use crate::values::bool::StarlarkBool;
-use crate::values::function::NativeCallableRawDocs;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
 use crate::values::typing::never::TypingNever;
 use crate::values::StarlarkValue;
@@ -300,11 +300,9 @@ impl Ty {
     }
 
     /// Create a function, where the first argument is the result of `.type`.
-    pub fn ctor_function(type_attr: &Ty, params: Vec<Param>, result: Ty) -> Self {
+    pub fn ctor_function(type_attr: Ty, params: Vec<Param>, result: Ty) -> Self {
         Self::custom(TyCustomFunction(TyFunction::new_with_type_attr(
-            params,
-            result,
-            type_attr.clone(),
+            params, result, type_attr,
         )))
     }
 
@@ -477,20 +475,23 @@ impl Ty {
         }
     }
 
-    pub(crate) fn from_native_callable_docs(native_docs: &NativeCallableRawDocs) -> Self {
-        let params: Vec<_> = native_docs
+    pub(crate) fn from_native_callable_components(
+        comp: &NativeCallableComponents,
+        as_type: Option<Ty>,
+    ) -> Self {
+        let params: Vec<_> = comp
             .signature
             .iter_param_modes()
-            .zip_eq(&native_docs.parameter_types)
+            .zip_eq(&comp.parameter_types)
             .map(|((_, mode), ty)| Param {
                 mode,
                 ty: ty.dupe(),
             })
             .collect();
 
-        let result = native_docs.return_type.clone();
+        let result = comp.return_type.clone();
 
-        match &native_docs.as_type {
+        match as_type {
             None => Ty::function(params, result),
             Some(type_attr) => Ty::ctor_function(type_attr, params, result),
         }

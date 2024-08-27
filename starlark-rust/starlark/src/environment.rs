@@ -22,6 +22,7 @@
 //! User executions store their values in a [`Module`], which have to be converted to a
 //! [`FrozenModule`] using [`freeze`](Module::freeze) before they can be `load()`'d as a dependency.
 
+mod components;
 mod globals;
 mod methods;
 mod module_dump;
@@ -29,6 +30,7 @@ mod modules;
 pub(crate) mod names;
 pub(crate) mod slots;
 
+pub use components::NativeCallableComponents;
 pub use globals::*;
 pub use methods::*;
 pub use modules::*;

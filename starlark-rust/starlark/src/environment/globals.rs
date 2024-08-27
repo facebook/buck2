@@ -30,10 +30,10 @@ use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::environment::NativeCallableComponents;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;
-use crate::values::function::NativeCallableRawDocs;
 use crate::values::function::NativeFunc;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::structs::AllocStruct;
@@ -254,8 +254,7 @@ impl GlobalsBuilder {
     pub fn set_function<F>(
         &mut self,
         name: &str,
-        speculative_exec_safe: bool,
-        raw_docs: NativeCallableRawDocs,
+        components: NativeCallableComponents,
         as_type: Option<Ty>,
         ty: Option<Ty>,
         special_builtin_function: Option<SpecialBuiltinFunction>,
@@ -263,17 +262,19 @@ impl GlobalsBuilder {
     ) where
         F: NativeFunc,
     {
-        assert_eq!(raw_docs.signature.len(), raw_docs.parameter_types.len());
+        assert_eq!(components.signature.len(), components.parameter_types.len());
 
         self.set(
             name,
             NativeFunction {
                 function: Box::new(f),
                 name: name.to_owned(),
-                speculative_exec_safe,
-                as_type,
-                ty: Some(ty.unwrap_or_else(|| Ty::from_native_callable_docs(&raw_docs))),
-                raw_docs: Some(raw_docs),
+                speculative_exec_safe: components.speculative_exec_safe,
+                as_type: as_type.dupe(),
+                ty: Some(ty.unwrap_or_else(|| {
+                    Ty::from_native_callable_components(&components, as_type.dupe())
+                })),
+                docs: Some(components.into_docs(as_type)),
                 special_builtin_function,
             },
         )

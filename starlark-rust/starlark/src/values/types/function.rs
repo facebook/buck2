@@ -17,8 +17,6 @@
 
 //! Function types, including native functions and `object.member` functions.
 
-use std::collections::HashMap;
-
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
@@ -165,31 +163,6 @@ impl<T> NativeAttr for T where
 {
 }
 
-/// Enough details to get the documentation for a callable ([`NativeFunction`] or [`NativeMethod`])
-#[doc(hidden)]
-#[derive(Allocative)]
-pub struct NativeCallableRawDocs {
-    pub rust_docstring: Option<&'static str>,
-    pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: Vec<Ty>,
-    pub return_type: Ty,
-    pub as_type: Option<Ty>,
-}
-
-#[doc(hidden)]
-impl NativeCallableRawDocs {
-    pub fn documentation(&self) -> DocFunction {
-        DocFunction::from_docstring(
-            DocStringKind::Rust,
-            self.signature
-                .documentation(self.parameter_types.clone(), HashMap::new()),
-            self.return_type.clone(),
-            self.rust_docstring,
-            self.as_type.clone(),
-        )
-    }
-}
-
 /// Starlark representation of native (Rust) functions.
 ///
 /// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
@@ -207,7 +180,7 @@ pub struct NativeFunction {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) raw_docs: Option<NativeCallableRawDocs>,
+    pub(crate) docs: Option<DocFunction>,
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
@@ -234,7 +207,7 @@ impl NativeFunction {
             as_type: None,
             ty: None,
             speculative_exec_safe: false,
-            raw_docs: None,
+            docs: None,
             special_builtin_function: None,
         }
     }
@@ -304,9 +277,9 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn documentation(&self) -> Option<DocItem> {
-        self.raw_docs
+        self.docs
             .as_ref()
-            .map(|raw_docs| DocItem::Member(DocMember::Function(raw_docs.documentation())))
+            .map(|raw_docs| DocItem::Member(DocMember::Function(raw_docs.clone())))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -367,7 +340,7 @@ pub(crate) struct NativeMethod {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) raw_docs: NativeCallableRawDocs,
+    pub(crate) docs: DocFunction,
 }
 
 starlark_simple_value!(NativeMethod);
@@ -375,9 +348,7 @@ starlark_simple_value!(NativeMethod);
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
     fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Member(DocMember::Function(
-            self.raw_docs.documentation(),
-        )))
+        Some(DocItem::Member(DocMember::Function(self.docs.clone())))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

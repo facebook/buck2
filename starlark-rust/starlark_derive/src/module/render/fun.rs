@@ -190,13 +190,10 @@ impl StarFun {
     }
 
     /// Globals builder call to register the function.
-    fn builder_set(
-        &self,
-        documentation_var: &Ident,
-        struct_fields_init: TokenStream,
-    ) -> syn::Result<syn::Stmt> {
+    fn builder_set(&self, struct_fields_init: TokenStream) -> syn::Result<syn::Stmt> {
         let name_str = self.name_str();
-        let speculative_exec_safe = self.speculative_exec_safe;
+        let components = render_native_callable_components(self)?;
+
         let struct_name = self.struct_name();
         let special_builtin_function = self.special_builtin_function_expr();
 
@@ -217,8 +214,7 @@ impl StarFun {
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
-                    #speculative_exec_safe,
-                    #documentation_var,
+                    #components,
                     #struct_name {
                         #struct_fields_init
                     },
@@ -231,8 +227,7 @@ impl StarFun {
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_function(
                     #name_str,
-                    #speculative_exec_safe,
-                    #documentation_var,
+                    #components,
                     #as_type,
                     #ty_custom,
                     #special_builtin_function,
@@ -246,8 +241,6 @@ impl StarFun {
 }
 
 pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
-    let (documentation_var, documentation) = render_documentation(&x)?;
-
     let (this_param, this_param_type, this_arg) = x.this_param_arg();
     let (eval_param, eval_param_type, eval_arg) = x.eval_param_arg();
     let (heap_param, heap_param_type, heap_arg) = x.heap_param_arg();
@@ -258,7 +251,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
 
     let struct_name = x.struct_name();
 
-    let builder_set = x.builder_set(&documentation_var, struct_fields_init)?;
+    let builder_set = x.builder_set(struct_fields_init)?;
 
     let StarFun {
         attrs,
@@ -326,7 +319,6 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 }
             }
 
-            #documentation
             #builder_set
         }
     })
@@ -511,7 +503,7 @@ fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     })
 }
 
-fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
+fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     // A signature is not needed to invoke positional-only functions, but we still want
     // information like names, order, type, etc to be available to call '.documentation()' on.
     let name_str = ident_string(&x.name);
@@ -574,21 +566,19 @@ fn render_documentation(x: &StarFun) -> syn::Result<(Ident, TokenStream)> {
         .collect();
 
     let return_type_str = render_starlark_return_type(x);
-    let var_name = format_ident!("__documentation");
-    let as_type = x.as_type_expr();
-    let documentation = quote!(
-        let #var_name = {
+    let speculative_exec_safe = x.speculative_exec_safe;
+    Ok(quote!(
+        {
             let parameter_types = std::vec![#(#parameter_types),*];
-            starlark::values::function::NativeCallableRawDocs {
+            starlark::environment::NativeCallableComponents {
+                speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
                 signature: #documentation_signature,
                 parameter_types,
                 return_type: #return_type_str,
-                as_type: #as_type,
             }
-        };
-    );
-    Ok((var_name, documentation))
+        }
+    ))
 }
 
 fn render_signature_args(
