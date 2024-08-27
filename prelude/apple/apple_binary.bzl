@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_specs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -202,10 +202,9 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         if cxx_output.sanitizer_runtime_files:
             sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_files = cxx_output.sanitizer_runtime_files))
 
-        validation_specs = get_attrs_validators_specs(ctx)
-        validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
+        attrs_validators_providers, attrs_validators_subtargets = get_attrs_validators_outputs(ctx)
         return [
-            DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
+            DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets | attrs_validators_subtargets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
             AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
             AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = cxx_output.external_debug_info),
@@ -213,7 +212,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
-        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers
+        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + attrs_validators_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)

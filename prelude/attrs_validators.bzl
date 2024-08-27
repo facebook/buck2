@@ -22,12 +22,11 @@ ATTRS_VALIDATORS_TYPE = attrs.dict(
     default = {},
 )
 
-def get_attrs_validators_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
-    if not hasattr(ctx.attrs, ATTRS_VALIDATORS_NAME):
-        return []
+def get_attrs_validators_outputs(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
+    key_to_validator_info = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, {})
 
-    specs = []
-    for key, (requested_attrs, validator) in ctx.attrs.attrs_validators.items():
+    validator_to_output = {}
+    for key, (requested_attrs, validator) in key_to_validator_info.items():
         output = ctx.actions.declare_output(key)
         ctx.actions.run(
             cmd_args([
@@ -40,9 +39,29 @@ def get_attrs_validators_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
             category = "attrs_validator",
             identifier = key,
         )
-        specs.append(ValidationSpec(name = key, validation_result = output))
+        validator_to_output[key] = output
 
-    return specs
+    if not validator_to_output:
+        # You can't pass a `ValidationInfo` that has no specs in it.
+        return ([], {})
+
+    sub_targets = {}
+    specs = []
+    for name, artifact in validator_to_output.items():
+        specs.append(ValidationSpec(name = name, validation_result = artifact))
+        sub_targets[name] = [DefaultInfo(artifact)]
+    return (
+        [ValidationInfo(validations = specs)],
+        {
+            "attrs-validators": [
+                DefaultInfo(
+                    # It'll be expensive to put all the artifacts in here, just skip it.
+                    default_outputs = None,
+                    sub_targets = sub_targets,
+                ),
+            ],
+        },
+    )
 
 def _build_attr_json_args(ctx: AnalysisContext, key: str, requested_attrs: list[str]):
     attr_args = {}
