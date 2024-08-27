@@ -13,7 +13,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::io::Write;
-use std::iter;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -66,8 +65,6 @@ use crate::subscribers::subscriber::EventSubscriber;
 
 struct ErrorIntermediate {
     processed: buck2_data::ProcessedErrorReport,
-    /// Append stderr to the message before sending the report.
-    want_stderr: bool,
     best_tag: Option<ErrorTag>,
 }
 
@@ -164,7 +161,7 @@ pub(crate) struct InvocationRecorder<'a> {
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    client_errors: Vec<ErrorIntermediate>,
+    client_errors: Vec<buck2_error::Error>,
     command_errors: Vec<ErrorIntermediate>,
     /// To append to gRPC errors.
     server_stderr: String,
@@ -337,42 +334,33 @@ impl<'a> InvocationRecorder<'a> {
 
     fn finalize_errors(&mut self) -> (Vec<ProcessedErrorReport>, Option<String>) {
         // Add stderr to GRPC connection errors if available
-        for error in &mut self.client_errors {
-            if !error.want_stderr {
-                continue;
-            }
+        let connection_errors: Vec<buck2_error::Error> = self
+            .client_errors
+            .extract_if(|e| e.has_tag(ErrorTag::ClientGrpc))
+            .collect();
 
-            if error.processed.message.is_empty() {
-                error.processed.message =
-                    "Error is empty? But it is too late to do anything about it\n".to_owned();
-            } else if !error.processed.message.ends_with('\n') {
-                error.processed.message.push('\n');
-            }
-
-            error.processed.message.push('\n');
-
-            if self.server_stderr.is_empty() {
-                error.processed.message.push_str("buckd stderr is empty\n");
+        for error in connection_errors {
+            let error = if self.server_stderr.is_empty() {
+                error.context("buckd stderr is empty")
             } else {
-                error.processed.message.push_str("buckd stderr:\n");
                 // Scribe sink truncates messages, but here we can do it better:
                 // - truncate even if total message is not large enough
                 // - truncate stderr, but keep the error message
                 let server_stderr = truncate_stderr(&self.server_stderr);
-                error.processed.message.push_str(server_stderr);
-            }
+                error.context(format!("buckd stderr:\n{}", server_stderr))
+            };
 
-            let stderr_tag = classify_server_stderr(&self.server_stderr);
-            // Note: side effect, `best_error_tag` must be called after this function.
-            error.best_tag = best_tag(error.best_tag.into_iter().chain(iter::once(stderr_tag)));
-            error
-                .processed
-                .tags
-                .push(stderr_tag.as_str_name().to_owned());
+            self.client_errors
+                .push(error.tag([classify_server_stderr(&self.server_stderr)]));
         }
 
-        let mut errors = std::mem::take(&mut self.client_errors);
-        let command_errors = std::mem::take(&mut self.command_errors);
+        let client_best_tags = self.client_errors.iter().filter_map(|e| e.best_tag());
+        let command_best_tags = self.command_errors.iter().filter_map(|e| e.best_tag);
+        let best_tag = best_tag(client_best_tags.chain(command_best_tags));
+
+        let mut errors = std::mem::take(&mut self.client_errors)
+            .into_map(|e| process_error_report(create_error_report(&e)));
+        let command_errors = std::mem::take(&mut self.command_errors).into_map(|e| e.processed);
         errors.extend(command_errors);
 
         // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
@@ -380,7 +368,7 @@ impl<'a> InvocationRecorder<'a> {
             None
         } else {
             Some(
-                best_tag(errors.iter().filter_map(|e| e.best_tag))
+                best_tag
                     .map_or(
                         // If we don't have tags on the errors,
                         // we still want to add a tag to Scuba column.
@@ -390,8 +378,6 @@ impl<'a> InvocationRecorder<'a> {
                     .to_owned(),
             )
         };
-
-        let errors = errors.into_map(|e| e.processed);
 
         (errors, best_error_tag)
     }
@@ -662,7 +648,6 @@ impl<'a> InvocationRecorder<'a> {
                 }));
                 ErrorIntermediate {
                     processed: process_error_report(e),
-                    want_stderr: false,
                     best_tag,
                 }
             }));
@@ -1350,14 +1335,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     }
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
-        let want_stderr = error.tags().iter().any(|t| *t == ErrorTag::ClientGrpc);
-        let best_tag = error.best_tag();
-        let error = create_error_report(error);
-        self.client_errors.push(ErrorIntermediate {
-            processed: process_error_report(error),
-            want_stderr,
-            best_tag,
-        });
+        self.client_errors.push(error.clone());
         Ok(())
     }
 
@@ -1389,13 +1367,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
 
     fn handle_daemon_connection_failure(&mut self, error: &buck2_error::Error) {
         self.daemon_connection_failure = true;
-        let best_tag = error.best_tag();
-        let error = create_error_report(error);
-        self.client_errors.push(ErrorIntermediate {
-            processed: process_error_report(error),
-            want_stderr: false,
-            best_tag,
-        });
+        self.client_errors.push(error.clone());
     }
 
     fn handle_daemon_started(&mut self, daemon_was_started: buck2_data::DaemonWasStartedReason) {
