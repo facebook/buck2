@@ -8,6 +8,11 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name")
 load(
+    "@prelude//cxx:preprocessor.bzl",
+    "cxx_inherited_preprocessor_infos",
+    "cxx_merge_cpreprocessors",
+)
+load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
 )
@@ -143,5 +148,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             deps = ctx.attrs.deps,
         ),
+        cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]

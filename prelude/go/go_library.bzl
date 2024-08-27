@@ -6,6 +6,11 @@
 # of this source tree.
 
 load(
+    "@prelude//cxx:preprocessor.bzl",
+    "cxx_inherited_preprocessor_infos",
+    "cxx_merge_cpreprocessors",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
     "create_merged_link_info_for_propagation",
@@ -80,5 +85,6 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             deps = ctx.attrs.deps,
         ),
+        cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]
