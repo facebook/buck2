@@ -373,10 +373,7 @@ impl<'p> FrozenPointer<'p> {
 
     #[inline]
     pub(crate) fn new_int(x: InlineInt) -> Self {
-        FrozenPointer {
-            ptr: RawPointer::new_int(x),
-            phantom: PhantomData,
-        }
+        unsafe { Self::new(RawPointer::new_int(x)) }
     }
 
     /// It is safe to bitcast `FrozenPointer` to `Pointer`
