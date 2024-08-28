@@ -8,6 +8,7 @@
  */
 
 use std::fmt;
+use std::fmt::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -17,6 +18,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_directory::directory::walk::ordered_entry_walk;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use chrono::DateTime;
@@ -42,6 +44,23 @@ pub struct WriteRequest {
     pub is_executable: bool,
 }
 
+#[cold]
+fn format_directory_entry_leaves(
+    directory: &ActionDirectoryEntry<ActionSharedDirectory>,
+) -> String {
+    let mut walk = ordered_entry_walk(directory.as_ref());
+    let mut result = String::new();
+    while let Some((path, entry)) = walk.next() {
+        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
+            writeln!(result, "  {}: {}", path.get(), f.digest).unwrap();
+        } else {
+            // We only download files from RE, not symlinks or directories.
+            // https://fburl.com/code/3o8ht6b6.
+        }
+    }
+    result
+}
+
 #[derive(buck2_error::Error, Debug)]
 pub enum MaterializationError {
     #[error("Error materializing artifact at path `{}`", .path)]
@@ -61,15 +80,19 @@ pub enum MaterializationError {
         To proceed, you should restart Buck using `buck2 killall`\n\
         path: {}\n\
         digest origin: {}\n\
-        debug info: {}",
+        debug info: {}\n\
+        directory:\n\
+        {}",
         .path,
         .info.origin.as_display_for_not_found(),
-        .debug
+        .debug,
+        format_directory_entry_leaves(.directory),
     )]
     NotFound {
         path: ProjectRelativePathBuf,
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
+        directory: ActionDirectoryEntry<ActionSharedDirectory>,
     },
 
     #[error("Error inserting entry into materializer state sqlite for artifact at `{}`", .path)]

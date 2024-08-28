@@ -869,12 +869,17 @@ pub async fn materialize_inputs(
     while let Some(res) = stream.next().await {
         match res {
             Ok(()) => {}
-            Err(MaterializationError::NotFound { path, info, debug }) => {
+            Err(MaterializationError::NotFound {
+                path,
+                info,
+                debug,
+                directory,
+            }) => {
                 let corrupted = info.origin.guaranteed_by_action_cache();
 
                 return Err(tag_error!(
                     "cas_missing_fatal",
-                    MaterializationError::NotFound { path, info, debug }.into(),
+                    MaterializationError::NotFound { path, info, debug, directory }.into(),
                     quiet: true,
                     task: false,
                     daemon_in_memory_state_is_corrupted: true,

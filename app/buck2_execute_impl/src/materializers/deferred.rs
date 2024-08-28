@@ -335,6 +335,7 @@ pub enum SharedMaterializingError {
     NotFound {
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
+        directory: ActionDirectoryEntry<ActionSharedDirectory>,
     },
 }
 
@@ -348,6 +349,7 @@ pub enum MaterializeEntryError {
     NotFound {
         info: Arc<CasDownloadInfo>,
         debug: Arc<str>,
+        directory: ActionDirectoryEntry<ActionSharedDirectory>,
     },
 }
 
@@ -361,7 +363,15 @@ impl From<MaterializeEntryError> for SharedMaterializingError {
     fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {
             MaterializeEntryError::Error(e) => Self::Error(e.into()),
-            MaterializeEntryError::NotFound { info, debug } => Self::NotFound { info, debug },
+            MaterializeEntryError::NotFound {
+                info,
+                debug,
+                directory,
+            } => Self::NotFound {
+                info,
+                debug,
+                directory,
+            },
         }
     }
 }
@@ -1547,9 +1557,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             path,
                             source: source.into(),
                         },
-                        SharedMaterializingError::NotFound { info, debug } => {
-                            MaterializationError::NotFound { path, info, debug }
-                        }
+                        SharedMaterializingError::NotFound {
+                            info,
+                            debug,
+                            directory,
+                        } => MaterializationError::NotFound {
+                            path,
+                            info,
+                            debug,
+                            directory,
+                        },
                     })
                 })
         });

@@ -229,6 +229,7 @@ impl DefaultIoHandler {
                         Some(e) if e.code == TCode::NOT_FOUND => MaterializeEntryError::NotFound {
                             info: info.dupe(),
                             debug: Arc::from(e.message.as_str()),
+                            directory: entry,
                         },
                         _ => MaterializeEntryError::Error(e.context({
                             format!(
