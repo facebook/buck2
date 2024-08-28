@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_core::soft_error;
 use buck2_interpreter::error::BuckStarlarkError;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -23,16 +24,20 @@ use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::DictType;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::values::ValueOf;
 
 /// Representation of `select()` in Starlark.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
@@ -221,6 +226,9 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
 
     fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
+        if let Err(e) = ValueOf::<DictType<StringValue, Value>>::unpack_value_err(d) {
+            soft_error!("select_not_dict", e.into())?;
+        }
         Ok(StarlarkSelector::new(d))
     }
 
