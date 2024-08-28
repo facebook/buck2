@@ -30,7 +30,9 @@ use buck2_data::error::ErrorTag;
 use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
+use buck2_error::classify::best_error;
 use buck2_error::classify::best_tag;
+use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
@@ -350,20 +352,13 @@ impl<'a> InvocationRecorder<'a> {
                 .push(error.tag([classify_server_stderr(&self.server_stderr)]));
         }
 
-        let client_best_tags = self.client_errors.iter().filter_map(|e| e.best_tag());
-        let command_best_tags = self.command_errors.iter().filter_map(|e| {
-            best_tag(e.tags.iter().filter_map(|t| {
-                // This should never be `None`, but with weak prost types,
-                // it is safer to just ignore incorrect integers.
-                ErrorTag::from_i32(*t)
-            }))
-        });
-        let best_tag = best_tag(client_best_tags.chain(command_best_tags));
-
         let mut errors =
             std::mem::take(&mut self.client_errors).into_map(|e| create_error_report(&e));
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
+
+        let best_tag = best_error(&errors).map(|e| e.best_tag()).flatten();
+
         let errors = errors.into_map(process_error_report);
 
         // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.

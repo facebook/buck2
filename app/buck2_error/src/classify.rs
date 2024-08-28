@@ -14,6 +14,28 @@ use crate::Tier;
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
 
+pub trait ErrorLike {
+    fn best_tag(&self) -> Option<ErrorTag>;
+}
+
+impl ErrorLike for buck2_data::ErrorReport {
+    fn best_tag(&self) -> Option<ErrorTag> {
+        best_tag(self.tags.iter().filter_map(|t| {
+            // This should never be `None`, but with weak prost types,
+            // it is safer to just ignore incorrect integers.
+            ErrorTag::from_i32(*t)
+        }))
+    }
+}
+
+/// Pick the most interesting error by best tag.
+pub fn best_error<'a>(
+    tags: impl IntoIterator<Item = &'a buck2_data::ErrorReport>,
+) -> Option<&'a buck2_data::ErrorReport> {
+    tags.into_iter()
+        .min_by_key(|e| e.best_tag().map(tag_rank).unwrap_or(u32::MAX))
+}
+
 /// Pick the most interesting tag from a list of tags.
 pub fn best_tag(tags: impl IntoIterator<Item = ErrorTag>) -> Option<ErrorTag> {
     tags.into_iter().min_by_key(|t| tag_rank(*t))
