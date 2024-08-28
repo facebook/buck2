@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -61,16 +62,8 @@ impl Check {
                 // we rewrite the file paths in the diagnostics to be relative to the buck2 project root, resulting in a fully absolute
                 // path.
                 if let Ok(mut message) = serde_json::from_str::<diagnostics::Message>(l) {
-                    for span in message.spans.iter_mut() {
-                        span.file_name = cell_root.join(&span.file_name);
-                    }
-                    for span in message
-                        .children
-                        .iter_mut()
-                        .flat_map(|child| child.spans.iter_mut())
-                    {
-                        span.file_name = cell_root.join(&span.file_name);
-                    }
+                    make_message_absolute(&mut message, &cell_root);
+
                     let span = serde_json::to_value(message)?;
                     // this is done under the assumption that the number of diagnostics inside the vector
                     // is small (e.g., 32 or 64), so a linear seach of a vector will faster than hashing each element.
@@ -94,4 +87,22 @@ impl Check {
 
         Ok(())
     }
+}
+
+fn make_message_absolute(message: &mut diagnostics::Message, base_dir: &Path) {
+    for span in message.spans.iter_mut() {
+        make_span_absolute(span, base_dir);
+    }
+
+    for span in message
+        .children
+        .iter_mut()
+        .flat_map(|child| child.spans.iter_mut())
+    {
+        make_span_absolute(span, base_dir);
+    }
+}
+
+fn make_span_absolute(span: &mut diagnostics::Span, base_dir: &Path) {
+    span.file_name = base_dir.join(&span.file_name);
 }
