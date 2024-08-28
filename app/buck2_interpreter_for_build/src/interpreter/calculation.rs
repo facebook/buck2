@@ -52,6 +52,7 @@ use starlark_map::small_map::SmallMap;
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
+use crate::interpreter::package_file_calculation::EvalPackageFile;
 
 // Key for 'InterpreterCalculation::get_interpreter_results'
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -244,18 +245,10 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
-        let listing = DicePackageListingResolver(ctx)
-            .resolve_package_listing(package.dupe())
-            .await?;
-        let super_package = ctx
-            .get_interpreter_calculator(
-                package.cell_name(),
-                BuildFileCell::new(package.cell_name()),
-            )
+        ctx.eval_package_file(package)
             .await?
-            .eval_package_file_for_build_file(package, &listing)
-            .await?;
-        super_package.package_values().package_values_json()
+            .package_values()
+            .package_values_json()
     }
 }
 
