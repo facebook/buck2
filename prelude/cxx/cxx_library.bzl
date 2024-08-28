@@ -697,6 +697,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers
 
+    # Index store from swift compile
+    index_stores = impl_params.index_stores if impl_params.index_stores else []
+    sub_targets["index-store"] = [DefaultInfo(default_outputs = index_stores)]
+
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
     # Omnibus root provider.

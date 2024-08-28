@@ -129,11 +129,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
                 subtargets = {
-                    "index-store": [
-                        DefaultInfo(
-                            default_outputs = swift_compile.index_stores if swift_compile else [],
-                        ),
-                    ],
                     "swift-compilation-database": [
                         DefaultInfo(
                             default_output = swift_compile.compilation_database.db if swift_compile else None,
@@ -163,6 +158,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
             error_handler = apple_build_error_handler,
+            index_stores = swift_compile.index_stores if swift_compile else None,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 

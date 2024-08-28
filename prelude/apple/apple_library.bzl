@@ -371,11 +371,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             static_external_debug_info = swift_debug_info.static,
             shared_external_debug_info = swift_debug_info.shared,
             subtargets = {
-                "index-store": [
-                    DefaultInfo(
-                        default_outputs = swift_compile.index_stores if swift_compile else [],
-                    ),
-                ],
                 "swift-compilation-database": [
                     DefaultInfo(
                         default_output = swift_compile.compilation_database.db if swift_compile else None,
@@ -427,6 +422,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
         error_handler = apple_build_error_handler,
+        index_stores = swift_compile.index_stores if swift_compile else None,
     )
 
 def _get_extra_linker_flags_and_outputs(
