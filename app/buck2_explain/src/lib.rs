@@ -10,6 +10,8 @@
 use std::fs;
 use std::io::Cursor;
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
 #[allow(unused_imports)]
@@ -33,7 +35,7 @@ pub async fn main(
     let fbs = flatbuffers::gen_fbs(data)?;
 
     let fbs = fbs.finished_data();
-    let base64 = base64::encode(&fbs);
+    let base64 = STANDARD.encode(&fbs);
 
     // For dev purposes, dump the base64 encoded flatbuffer to a file
     if let Some(fbs_dump) = fbs_dump {
