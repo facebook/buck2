@@ -517,6 +517,7 @@ impl Module {
         self.docstring.replace(Some(docstring));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn add_eval_duration(&self, duration: Duration) {
         self.eval_duration.set(self.eval_duration.get() + duration);
     }

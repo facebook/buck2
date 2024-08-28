@@ -25,6 +25,7 @@ pub(crate) mod soft_error;
 
 use std::collections::HashMap;
 use std::mem;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 use dupe::Dupe;
@@ -62,6 +63,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
     /// Evaluate an [`AstModule`] with this [`Evaluator`], modifying the in-scope
     /// [`Module`](crate::environment::Module) as appropriate.
     pub fn eval_module(&mut self, ast: AstModule, globals: &Globals) -> crate::Result<Value<'v>> {
+        #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
         let (codemap, statement, dialect, typecheck) = ast.into_parts();
@@ -135,6 +137,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
 
         self.module_def_info = old_def_info;
 
+        #[cfg(not(target_arch = "wasm32"))]
         self.module_env.add_eval_duration(start.elapsed());
 
         // Return the result of evaluation
