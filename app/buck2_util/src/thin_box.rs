@@ -219,22 +219,29 @@ impl<T: Allocative> Allocative for ThinBoxSlice<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
-            let mut visitor =
-                visitor.enter_unique(allocative::Key::new("ptr"), mem::size_of_val(&self.ptr));
-            {
-                let mut visitor = visitor.enter(
-                    allocative::Key::new("alloc"),
-                    Self::layout_for_len(self.len()).size(),
-                );
-                visitor.visit_simple(allocative::Key::new("len"), mem::size_of::<usize>());
+            let ptr_key = allocative::Key::new("ptr");
+            if self.len() == 0 {
+                // Statically allocated data, so just report the pointer itself
+                visitor.visit_simple(ptr_key, mem::size_of_val(&self.ptr));
+            } else {
+                let mut visitor =
+                    visitor.enter_unique(allocative::Key::new("ptr"), mem::size_of_val(&self.ptr));
                 {
-                    let mut visitor = visitor.enter(allocative::Key::new("data"), self.len());
-                    visitor.visit_slice::<T>(self);
+                    let mut visitor = visitor.enter(
+                        allocative::Key::new("alloc"),
+                        Self::layout_for_len(self.len()).size(),
+                    );
+                    visitor.visit_simple(allocative::Key::new("len"), mem::size_of::<usize>());
+                    {
+                        let mut visitor = visitor
+                            .enter(allocative::Key::new("data"), mem::size_of_val::<[_]>(self));
+                        visitor.visit_slice::<T>(self);
+                        visitor.exit();
+                    }
                     visitor.exit();
                 }
                 visitor.exit();
             }
-            visitor.exit();
         }
         visitor.exit();
     }
