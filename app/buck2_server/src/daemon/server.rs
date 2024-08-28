@@ -116,6 +116,7 @@ use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
 use crate::trace_io::trace_io_command;
+use crate::version_control_revision;
 
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
@@ -425,6 +426,11 @@ impl BuckdServer {
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
         let cert_state = self.0.cert_state.dupe();
 
+        // Spawn an async task to collect expensive info
+        // We start collecting inmediately, and emit the event as soon as it is ready
+        let version_control_revision_collector =
+            version_control_revision::spawn_version_control_collector(dispatch.dupe());
+
         let resp = streaming(
             req,
             events,
@@ -450,7 +456,8 @@ impl BuckdServer {
 
                         func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
                     };
-
+                    // Do not kill the process prematurely.
+                    drop(version_control_revision_collector);
                     match result {
                         Ok(_) => dispatch.command_result(result_to_command_result(result)),
                         Err(e) => match check_cert_state(cert_state).await {

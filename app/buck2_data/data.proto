@@ -301,6 +301,8 @@ message InstantEvent {
     InstallFinished install_finished = 39;
 
     SystemInfo system_info = 40;
+
+    VersionControlRevision version_control_revision = 42;
   }
 }
 
@@ -534,6 +536,17 @@ message RageResult {
   map<string, uint64> int_data = 10;
   google.protobuf.Timestamp timestamp = 11;
   google.protobuf.Duration command_duration = 12;
+}
+
+message VersionControlRevision {
+  // 40 characters hash.
+  optional string hg_revision = 1;
+  // Here are the possible values:
+  // True: Has local changes that are not committed.
+  // False: All changes committed and can be identified by revision hash.
+  // Unset: Unknown state.
+  optional bool has_local_changes = 2;
+  optional string command_error = 3;
 }
 
 // A snapshot of current system state, with useful info.
