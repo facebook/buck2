@@ -27,6 +27,7 @@ use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
 use buck2_error::classify::best_tag;
@@ -62,11 +63,6 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
-
-struct ErrorIntermediate {
-    processed: buck2_data::ProcessedErrorReport,
-    best_tag: Option<ErrorTag>,
-}
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
@@ -162,7 +158,7 @@ pub(crate) struct InvocationRecorder<'a> {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     client_metadata: Vec<buck2_data::ClientMetadata>,
     client_errors: Vec<buck2_error::Error>,
-    command_errors: Vec<ErrorIntermediate>,
+    command_errors: Vec<ErrorReport>,
     /// To append to gRPC errors.
     server_stderr: String,
     target_rule_type_names: Vec<String>,
@@ -355,13 +351,20 @@ impl<'a> InvocationRecorder<'a> {
         }
 
         let client_best_tags = self.client_errors.iter().filter_map(|e| e.best_tag());
-        let command_best_tags = self.command_errors.iter().filter_map(|e| e.best_tag);
+        let command_best_tags = self.command_errors.iter().filter_map(|e| {
+            best_tag(e.tags.iter().filter_map(|t| {
+                // This should never be `None`, but with weak prost types,
+                // it is safer to just ignore incorrect integers.
+                ErrorTag::from_i32(*t)
+            }))
+        });
         let best_tag = best_tag(client_best_tags.chain(command_best_tags));
 
-        let mut errors = std::mem::take(&mut self.client_errors)
-            .into_map(|e| process_error_report(create_error_report(&e)));
-        let command_errors = std::mem::take(&mut self.command_errors).into_map(|e| e.processed);
+        let mut errors =
+            std::mem::take(&mut self.client_errors).into_map(|e| create_error_report(&e));
+        let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
+        let errors = errors.into_map(process_error_report);
 
         // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
         let best_error_tag = if errors.is_empty() {
@@ -640,17 +643,7 @@ impl<'a> InvocationRecorder<'a> {
     ) -> anyhow::Result<()> {
         let mut command = command.clone();
         self.command_errors
-            .extend(std::mem::take(&mut command.errors).into_iter().map(|e| {
-                let best_tag = best_tag(e.tags.iter().filter_map(|t| {
-                    // This should never be `None`, but with weak prost types,
-                    // it is safer to just ignore incorrect integers.
-                    ErrorTag::from_i32(*t)
-                }));
-                ErrorIntermediate {
-                    processed: process_error_report(e),
-                    best_tag,
-                }
-            }));
+            .extend(std::mem::take(&mut command.errors));
 
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
