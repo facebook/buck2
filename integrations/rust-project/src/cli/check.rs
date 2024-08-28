@@ -94,15 +94,19 @@ fn make_message_absolute(message: &mut diagnostics::Message, base_dir: &Path) {
         make_span_absolute(span, base_dir);
     }
 
-    for span in message
-        .children
-        .iter_mut()
-        .flat_map(|child| child.spans.iter_mut())
-    {
-        make_span_absolute(span, base_dir);
+    for message in message.children.iter_mut() {
+        make_message_absolute(message, base_dir);
     }
 }
 
 fn make_span_absolute(span: &mut diagnostics::Span, base_dir: &Path) {
     span.file_name = base_dir.join(&span.file_name);
+
+    if let Some(expansion) = &mut span.expansion {
+        if let Some(def_site_span) = &mut expansion.def_site_span {
+            make_span_absolute(def_site_span, base_dir);
+        }
+
+        make_span_absolute(&mut expansion.span, base_dir);
+    }
 }
