@@ -116,7 +116,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         None => quote_spanned! { span=> },
     };
 
-    let body = freeze_impl(&input.input)?;
+    let body = freeze_impl(input.input)?;
 
     let gen = syn::parse_quote_spanned! {
         span=>
