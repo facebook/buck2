@@ -129,7 +129,7 @@ pub(crate) fn derive_provides_static_type(
 }
 
 /// Single lifetime parameter for `ProvidesStaticType`
-fn pst_lifetime<'a>(generics: &'a syn::Generics) -> syn::Result<syn::Lifetime> {
+fn pst_lifetime(generics: &syn::Generics) -> syn::Result<syn::Lifetime> {
     let generics = GenericsUtil::new(generics);
     let lifetime = generics
         .assert_at_most_one_lifetime_param()?
