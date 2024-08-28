@@ -330,7 +330,7 @@ impl<'a> InvocationRecorder<'a> {
         Ok(Default::default())
     }
 
-    fn finalize_errors(&mut self) -> (Vec<ProcessedErrorReport>, Option<String>) {
+    fn finalize_errors(&mut self) -> (Vec<ProcessedErrorReport>, Option<String>, Option<String>) {
         // Add stderr to GRPC connection errors if available
         let connection_errors: Vec<buck2_error::Error> = self
             .client_errors
@@ -357,7 +357,9 @@ impl<'a> InvocationRecorder<'a> {
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
 
-        let best_tag = best_error(&errors).map(|e| e.best_tag()).flatten();
+        let best_error = best_error(&errors);
+        let best_error_category_key = best_error.map(|e| e.category_key.clone()).flatten();
+        let best_tag = best_error.map(|e| e.best_tag()).flatten();
 
         let errors = errors.into_map(process_error_report);
 
@@ -377,7 +379,7 @@ impl<'a> InvocationRecorder<'a> {
             )
         };
 
-        (errors, best_error_tag)
+        (errors, best_error_tag, best_error_category_key)
     }
 
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
@@ -415,7 +417,7 @@ impl<'a> InvocationRecorder<'a> {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        let (errors, best_error_tag) = self.finalize_errors();
+        let (errors, best_error_tag, best_error_category_key) = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
@@ -528,6 +530,7 @@ impl<'a> InvocationRecorder<'a> {
             client_metadata: std::mem::take(&mut self.client_metadata),
             errors,
             best_error_tag,
+            best_error_category_key,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
                 self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),

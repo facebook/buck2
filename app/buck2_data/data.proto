@@ -1969,6 +1969,8 @@ message InvocationRecord {
   uint64 min_attempted_build_count_since_rebase = 98;
   // Metadata about devices installed to by an install command.
   repeated DeviceMetadata install_device_metadata = 99;
+  // The category key for the error with best error tag.
+  optional string best_error_category_key = 100;
 }
 
 // Record event sent directly to scribe.
