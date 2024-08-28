@@ -12,6 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_target_sdk_version.bzl", "get_versioned_target_triple")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -126,6 +127,8 @@ SwiftCompilationOutput = record(
     exported_symbols = field(Artifact | None),
     # An optional artifact with files that support consuming the generated library with later versions of the swift compiler.
     swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
+    # A list of artifacts that stores the index data
+    index_stores = field(list[Artifact]),
 )
 
 SwiftDebugInfo = record(
@@ -289,6 +292,8 @@ def compile_swift(
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
+    index_stores = _compile_index_stores(ctx, toolchain, shared_flags, srcs)
+
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
     exported_swift_header = CHeader(
@@ -329,6 +334,7 @@ def compile_swift(
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,
+        index_stores = index_stores,
     ), swift_interface_info)
 
 # We use separate actions for swiftmodule and object file output. This
@@ -451,6 +457,57 @@ def _compile_object(
         output_map_artifact = output_map_artifact,
     )
 
+def _compile_index_stores(
+        ctx: AnalysisContext,
+        toolchain: SwiftToolchainInfo,
+        shared_flags: cmd_args,
+        srcs: list[CxxSrcWithFlags]) -> list[Artifact]:
+    index_stores = []
+    for src in srcs:
+        additional_flags = cmd_args()
+
+        # With -index-file flag, swiftc will not go through all phases of the compiler
+        # and will not ouput anything except the index data
+        # The output here is only used for the identifier of the index unit file
+        # The output path is used for computing the hash value in the unit file name
+        output_name = paths.join(
+            ctx.label.cell,
+            ctx.label.package,
+            ctx.label.name,
+            "{}.indexData".format(src.file.short_path),
+        )
+        additional_flags.add(["-o", output_name])
+
+        index_store_folder_name = paths.join("__indexstore__", get_module_name(ctx), src.file.short_path, "index_store")
+        index_store = ctx.actions.declare_output(index_store_folder_name, dir = True)
+
+        additional_flags.add([
+            "-index-file",
+            "-index-ignore-system-modules",
+            "-index-store-path",
+            index_store.as_output(),
+        ])
+
+        # -index-file-path only can accept one file, so we need to build index data for each source file
+        additional_flags.add([
+            "-index-file-path",
+            src.file,
+        ])
+
+        _compile_with_argsfile(
+            ctx,
+            "swift_index_compile",
+            index_store_folder_name,
+            shared_flags,
+            srcs,
+            additional_flags,
+            toolchain,
+            index_store_folder_name,
+        )
+        index_stores.append(index_store)
+
+    return index_stores
+
 def _compile_with_argsfile(
         ctx: AnalysisContext,
         category_prefix: str,
@@ -458,7 +515,8 @@ def _compile_with_argsfile(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
         additional_flags: cmd_args,
-        toolchain: SwiftToolchainInfo) -> CompileArgsfiles:
+        toolchain: SwiftToolchainInfo,
+        identifier: str | None = None) -> CompileArgsfiles:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
@@ -492,6 +550,7 @@ def _compile_with_argsfile(
     ctx.actions.run(
         cmd,
         category = category,
+        identifier = identifier,
         # When building incrementally, we need to preserve local state between invocations.
         no_outputs_cleanup = build_swift_incrementally,
         error_handler = apple_build_error_handler,
