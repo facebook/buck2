@@ -197,8 +197,9 @@ where
 /// Every Rust value stored in a [`Value`] must implement this trait.
 /// You _must_ also implement [`ComplexValue`] if:
 ///
-/// * A type is _mutable_, if you ever need to get a `&mut self` reference to it.
-/// * A type _contains_ nested Starlark [`Value`]s.
+/// * A type is not [`Send`] and [`Sync`], typically because it contains
+///   interior mutability such as a [`RefCell`](std::cell::RefCell).
+/// * A type contains nested Starlark [`Value`]s.
 ///
 /// There are only two required members of [`StarlarkValue`], namely
 /// [`TYPE`](StarlarkValue::TYPE)
