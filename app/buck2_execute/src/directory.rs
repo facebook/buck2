@@ -36,6 +36,7 @@ use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInte
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::DirectoryHasher;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::directory_selector::DirectorySelector;

@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
+use std::iter;
 use std::marker::PhantomData;
 use std::vec;
 
 use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use derivative::Derivative;
+use either::Either;
 
 use crate::directory::directory_iterator::DirectoryIterator;
 use crate::directory::directory_iterator::DirectoryIteratorPathAccessor;
@@ -68,7 +68,7 @@ impl<'a, T: WalkType<'a>> DirectoryIteratorPathStack for Walk<'a, T> {
 }
 
 impl<'a, T: WalkType<'a>> DirectoryIterator for Walk<'a, T> {
-    type PathStack = Self;
+    type PathStack<'b> = DirectoryIteratorPathAccessor<'b, Self> where Self: 'b;
     type Item = DirectoryEntry<T::Directory, &'a T::Leaf>;
 
     fn next<'b>(&'b mut self) -> Option<(DirectoryIteratorPathAccessor<'b, Self>, Self::Item)> {
@@ -141,7 +141,7 @@ where
     pub fn next<'this>(
         &'this mut self,
     ) -> Option<(
-        DirectoryEntryWalkPathAccessor<'this, <I as DirectoryIterator>::PathStack>,
+        DirectoryEntryWalkPathAccessor<<I as DirectoryIterator>::PathStack<'this>>,
         DirectoryEntry<D, &'a L>,
     )> {
         match self {
@@ -165,20 +165,19 @@ where
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug(bound = "T: DirectoryIteratorPathStack"))]
-pub struct DirectoryEntryWalkPathAccessor<'a, T> {
-    inner: Option<DirectoryIteratorPathAccessor<'a, T>>,
+#[derive(Debug)]
+pub struct DirectoryEntryWalkPathAccessor<T> {
+    inner: Option<T>,
 }
 
-impl<'a, T> DirectoryEntryWalkPathAccessor<'a, T>
+impl<T> DirectoryIteratorPathStack for DirectoryEntryWalkPathAccessor<T>
 where
     T: DirectoryIteratorPathStack,
 {
-    pub fn get(&self) -> ForwardRelativePathBuf {
-        match self.inner.as_ref() {
-            Some(i) => i.get(),
-            None => ForwardRelativePathBuf::unchecked_new("".to_owned()),
+    fn path(&self) -> impl Iterator<Item = &FileName> {
+        match &self.inner {
+            Some(inner) => Either::Left(inner.path()),
+            None => Either::Right(iter::empty()),
         }
     }
 }

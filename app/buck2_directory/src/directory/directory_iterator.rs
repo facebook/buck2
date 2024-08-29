@@ -18,18 +18,15 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 /// itself, which is why this cannot be an iterator).
 pub trait DirectoryIterator: Sized {
     /// The way this iterator will report its current path.
-    type PathStack: DirectoryIteratorPathStack;
+    type PathStack<'a>: DirectoryIteratorPathStack + 'a
+    where
+        Self: 'a;
 
     /// The items this iterator will yield.
     type Item;
 
     /// Provide the next item.
-    fn next<'a>(
-        &'a mut self,
-    ) -> Option<(
-        DirectoryIteratorPathAccessor<'a, Self::PathStack>,
-        Self::Item,
-    )>;
+    fn next<'a>(&'a mut self) -> Option<(Self::PathStack<'a>, Self::Item)>;
 
     /// Compute all paths in this iterator. This returns a regular Iterator since we no longer
     /// need to borrow from self in next.
@@ -47,7 +44,7 @@ pub trait DirectoryIterator: Sized {
         self.with_paths().map(|(path, _)| path)
     }
 
-    fn filter_map<F, B>(self, f: F) -> impl DirectoryIterator<Item = B, PathStack = Self::PathStack>
+    fn filter_map<F, B>(self, f: F) -> impl DirectoryIterator<Item = B>
     where
         F: FnMut(Self::Item) -> Option<B>,
     {
@@ -61,12 +58,10 @@ pub trait DirectoryIterator: Sized {
             T: DirectoryIterator,
             F: FnMut(T::Item) -> Option<B>,
         {
-            type PathStack = T::PathStack;
+            type PathStack<'a> = T::PathStack<'a> where Self: 'a;
             type Item = B;
 
-            fn next<'b>(
-                &'b mut self,
-            ) -> Option<(DirectoryIteratorPathAccessor<'b, T::PathStack>, B)> {
+            fn next<'b>(&'b mut self) -> Option<(T::PathStack<'b>, B)> {
                 loop {
                     let (path, item) = self.inner.next()?;
                     if let Some(item) = (self.f)(item) {
@@ -74,12 +69,8 @@ pub trait DirectoryIterator: Sized {
                         // of this trait. The compiler otherwise does not understand that our borrow
                         // of `self.inner` expires in the none case. However, because `item` does
                         // not have a lifetime tied to `'b`, it indeed does.
-                        let path = unsafe {
-                            mem::transmute::<
-                                DirectoryIteratorPathAccessor<'_, T::PathStack>,
-                                DirectoryIteratorPathAccessor<'b, T::PathStack>,
-                            >(path)
-                        };
+                        let path =
+                            unsafe { mem::transmute::<T::PathStack<'_>, T::PathStack<'b>>(path) };
                         return Some((path, item));
                     }
                 }
@@ -94,6 +85,12 @@ pub trait DirectoryIterator: Sized {
 /// components htat make up the DirectoryIterator's current location.
 pub trait DirectoryIteratorPathStack {
     fn path(&self) -> impl Iterator<Item = &FileName>;
+
+    fn get(&self) -> ForwardRelativePathBuf {
+        let mut path = ForwardRelativePathBuf::with_capacity_for_concat(self.path());
+        path.extend(self.path());
+        path
+    }
 }
 
 /// A thin struct that can be used to produce a path on demand.
@@ -102,22 +99,21 @@ pub struct DirectoryIteratorPathAccessor<'a, T> {
     pub(super) leaf: Option<&'a FileName>,
 }
 
-impl<'a, T> DirectoryIteratorPathAccessor<'a, T>
+impl<'a, T> DirectoryIteratorPathStack for DirectoryIteratorPathAccessor<'a, T>
 where
     T: DirectoryIteratorPathStack,
 {
     fn path(&self) -> impl Iterator<Item = &FileName> {
         self.stack.path().chain(self.leaf)
     }
+}
 
+impl<'a, T> DirectoryIteratorPathAccessor<'a, T>
+where
+    T: DirectoryIteratorPathStack,
+{
     pub fn name(&self) -> Option<&'a FileName> {
         self.leaf
-    }
-
-    pub fn get(&self) -> ForwardRelativePathBuf {
-        let mut path = ForwardRelativePathBuf::with_capacity_for_concat(self.path());
-        path.extend(self.path());
-        path
     }
 }
 

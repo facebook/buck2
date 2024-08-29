@@ -32,6 +32,7 @@ use crate::directory::directory::Directory;
 use crate::directory::directory_hasher::DirectoryHasher;
 use crate::directory::directory_hasher::NoDigest;
 use crate::directory::directory_iterator::DirectoryIterator;
+use crate::directory::directory_iterator::DirectoryIteratorPathStack;
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::directory_selector::DirectorySearchError;
 use crate::directory::directory_selector::DirectorySelector;

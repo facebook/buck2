@@ -175,7 +175,7 @@ impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
 }
 
 impl<'a, 'b, T: WalkType<'b>> DirectoryIterator for Search<'a, 'b, T> {
-    type PathStack = Self;
+    type PathStack<'c> = DirectoryIteratorPathAccessor<'c, Self> where Self: 'c;
     type Item =
         Result<DirectoryEntry<T::Directory, &'b T::Leaf>, DirectorySearchError<&'b T::Leaf>>;
 
