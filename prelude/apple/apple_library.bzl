@@ -351,6 +351,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     if not is_test_target:
         extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution_output)
 
+    # Always provide a valid JSON object, so that tooling can depend on its existance
+    modulemap_info_json = {"modulemap": exported_pre.modulemap_path} if (exported_pre and exported_pre.modulemap_path) else {}
+    modulemap_info_json_file = ctx.actions.declare_output("modulemap-info.json")
+    modulemap_info_json_cmd_args = ctx.actions.write_json(modulemap_info_json_file, modulemap_info_json, with_inputs = True, pretty = True)
+    modulemap_info_providers = [DefaultInfo(default_output = modulemap_info_json_file, other_outputs = [modulemap_info_json_cmd_args])]
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -371,6 +377,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             static_external_debug_info = swift_debug_info.static,
             shared_external_debug_info = swift_debug_info.shared,
             subtargets = {
+                "modulemap-info": modulemap_info_providers,
                 "swift-compilation-database": [
                     DefaultInfo(
                         default_output = swift_compile.compilation_database.db if swift_compile else None,
