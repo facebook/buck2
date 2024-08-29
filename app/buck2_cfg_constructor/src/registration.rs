@@ -62,6 +62,7 @@ struct StarlarkCfgConstructor<'v> {
     stage1: Value<'v>,
     key: String,
     aliases: Option<Value<'v>>,
+    extra_data: Option<Value<'v>>,
 }
 
 #[derive(
@@ -77,6 +78,7 @@ struct FrozenStarlarkCfgConstructor {
     stage1: FrozenValue,
     key: String,
     aliases: Option<FrozenValue>,
+    extra_data: Option<FrozenValue>,
 }
 
 #[starlark_value(type = "StarlarkCfgConstructor")]
@@ -96,13 +98,16 @@ impl<'v> Freeze for StarlarkCfgConstructor<'v> {
             stage1,
             key,
             aliases,
+            extra_data,
         } = self;
-        let (stage0, stage1, aliases) = (stage0, stage1, aliases).freeze(freezer)?;
+        let (stage0, stage1, aliases, extra_data) =
+            (stage0, stage1, aliases, extra_data).freeze(freezer)?;
         Ok(FrozenStarlarkCfgConstructor {
             stage0,
             stage1,
             key,
             aliases,
+            extra_data,
         })
     }
 }
@@ -115,12 +120,16 @@ fn make_cfg_constructor(
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,
         aliases,
+        extra_data,
     ) = unsafe {
         (
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage0),
             OwnedFrozenValue::new(cfg_constructor.owner().dupe(), cfg_constructor.stage1),
             cfg_constructor
                 .aliases
+                .map(|v| OwnedFrozenValue::new(cfg_constructor.owner().dupe(), v)),
+            cfg_constructor
+                .extra_data
                 .map(|v| OwnedFrozenValue::new(cfg_constructor.owner().dupe(), v)),
         )
     };
@@ -130,6 +139,7 @@ fn make_cfg_constructor(
         cfg_constructor_post_constraint_analysis,
         key,
         aliases,
+        extra_data,
     }))
 }
 
@@ -143,11 +153,15 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
     ///   stage0: The first cfg constructor that will be invoked before configuration rules are analyzed.
     ///   stage1: The second cfg constructor that will be invoked after configuration rules are analyzed.
     ///   key: The key for cfg modifiers on PACKAGE values and metadata.
+    ///   aliases: The aliases map to use for input modifiers.
+    ///   extra_data: Some extra data that may be used by `set_cfg_constructor` implementation that is
+    ///     custom to our implementation and may not be used in other context like open-source.
     fn set_cfg_constructor<'v>(
         #[starlark(require=named)] stage0: Value<'v>,
         #[starlark(require=named)] stage1: Value<'v>,
         #[starlark(require=named)] key: &str,
         #[starlark(require = named, default = NoneOr::None)] aliases: NoneOr<Value<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] extra_data: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
@@ -173,6 +187,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
                 stage1,
                 key: key.to_owned(),
                 aliases: aliases.into_option(),
+                extra_data: extra_data.into_option(),
             })
         });
         Ok(NoneType)

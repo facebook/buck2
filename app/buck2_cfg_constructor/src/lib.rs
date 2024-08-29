@@ -66,6 +66,7 @@ pub(crate) struct CfgConstructor {
     pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
     pub(crate) key: MetadataKey,
     pub(crate) aliases: Option<OwnedFrozenValue>,
+    pub(crate) extra_data: Option<OwnedFrozenValue>,
 }
 
 async fn eval_pre_constraint_analysis<'v>(
