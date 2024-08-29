@@ -32,7 +32,7 @@ do(Source, InFile, OutSpec) ->
             OutData = unicode:characters_to_binary(json:encode(Dependencies)),
             case OutSpec of
                 {file, File} ->
-                    file:write_file(File, OutData);
+                    ok = file:write_file(File, OutData);
                 stdout ->
                     io:format("~s~n", [OutData])
             end;
