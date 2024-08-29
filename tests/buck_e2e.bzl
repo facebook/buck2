@@ -232,7 +232,7 @@ def buck2_e2e_test(
         deps = deps or []
 
         # Add a buck2 version file as dep so we can run deployed buck2 tests on version bumps.
-        deps.append("fbsource//tools/buck2-versions:stable")
+        deps += ["fbsource//tools/buck2-versions:stable"]
         buck_e2e_test(
             name = name,
             env = deployed_env,

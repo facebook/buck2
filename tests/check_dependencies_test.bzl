@@ -18,6 +18,7 @@ def check_dependencies_test(
         blocklist_patterns = None,
         expect_failure_msg = None,
         env = None,
+        deps = None,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -54,6 +55,14 @@ def check_dependencies_test(
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
+        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
+        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
+        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
+        # target graph.
+        deps = (deps or []) + select({
+            "DEFAULT": [],
+            "ovr_config//:none": [target],
+        }),
         **kwargs
     )
 
@@ -63,6 +72,7 @@ def assert_dependencies_test(
         contacts,
         expected_deps,
         expect_failure_msg = None,
+        deps = None,
         **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
@@ -88,6 +98,14 @@ def assert_dependencies_test(
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
+        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
+        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
+        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
+        # target graph.
+        deps = (deps or []) + select({
+            "DEFAULT": [],
+            "ovr_config//:none": [target],
+        }),
         **kwargs
     )
 
@@ -98,6 +116,7 @@ def audit_dependents_test(
         source_target,
         allowlist_patterns,
         expect_failure_msg = None,
+        deps = None,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -127,5 +146,13 @@ def audit_dependents_test(
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
+        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
+        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
+        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
+        # target graph.
+        deps = (deps or []) + select({
+            "DEFAULT": [],
+            "ovr_config//:none": [target],
+        }),
         **kwargs
     )
