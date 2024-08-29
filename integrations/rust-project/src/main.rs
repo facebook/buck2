@@ -257,7 +257,6 @@ fn main() -> Result<(), anyhow::Error> {
             ..
         } => {
             let subscriber = tracing_subscriber::registry()
-                .with(fmt.json().with_filter(LevelFilter::INFO))
                 .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter))
                 .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
             tracing::subscriber::set_global_default(subscriber)?;
