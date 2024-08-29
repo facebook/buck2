@@ -31,6 +31,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             libtool = base.libtool,
             lipo = base.lipo,
             mapc = base.mapc,
+            merge_index_store = base.merge_index_store,
             momc = base.momc,
             objdump = base.objdump,
             platform_path = base.platform_path,
