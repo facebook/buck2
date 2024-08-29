@@ -156,7 +156,7 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(":gcno.bzl", "GcnoFilesInfo")
-load(":index_store.bzl", "INDEX_STORE_SUBTARGET", "merge_index_store")
+load(":index_store.bzl", "create_index_store_subtargets_and_provider")
 load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type
@@ -706,8 +706,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Index stores from cxx compile. We only generate the index store for pic
     if compiled_srcs.pic:
         index_stores.extend(compiled_srcs.pic.index_stores)
-    merged_index_store = merge_index_store(ctx, index_stores)
-    sub_targets[INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = merged_index_store)]
+    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)
+    sub_targets.update(index_store_subtargets)
+    providers.append(index_store_info)
 
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
