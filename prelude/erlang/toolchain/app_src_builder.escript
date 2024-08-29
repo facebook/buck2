@@ -334,7 +334,7 @@ render_app_file(AppName, Terms, Output, Srcs) ->
     Spec =
         {application, App, [{modules, Modules} | Props1]},
     ToWrite = io_lib:format("~kp.\n", [Spec]),
-    file:write_file(Output, ToWrite, [raw]).
+    ok = file:write_file(Output, ToWrite, [raw]).
 
 -spec generate_modules([file:filename()]) -> [atom()].
 generate_modules(Sources) ->

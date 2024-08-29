@@ -72,7 +72,7 @@ remove_loggers() ->
     [logger:remove_handler(H) || H <- logger:get_handler_ids()].
 
 generate_empty_chunk(File, OutputDir) ->
-    file:write_file(
+    ok = file:write_file(
         chunk_path(File, OutputDir),
         erlang:term_to_binary(failed_to_build_doc_chunk)
     ).
