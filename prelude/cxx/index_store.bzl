@@ -60,6 +60,36 @@ def _merge_index_store(ctx: AnalysisContext, index_stores: list[Artifact] | Tran
     ctx.actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True)
     return merged_index_store
 
+def _merge_all_index_store(ctx: AnalysisContext, index_stores: TransitiveSet) -> Artifact | None:
+    index_store_output_path = read_config("apple", "index_store_output", None)
+    if index_store_output_path:
+        index_stores = list(index_stores.traverse())
+        merge_index_store_tool = _get_merge_index_store_tool(ctx)
+        if merge_index_store_tool == None:
+            return None
+        outputs = []
+        for index_store in index_stores:
+            owner = index_store.owner
+            name = "{}/{}/{}".format(owner.cell, owner.package, owner.name)
+            local_merged_index_store = ctx.actions.declare_output(name, "local_merge", dir = False)  # this is a dummy output, it will be empty. It is used to make buck2 to run the actions
+            cmd = cmd_args([merge_index_store_tool, "--dest", index_store_output_path, "--sources", index_store])
+            cmd.add(["--dummy-output", local_merged_index_store.as_output()])
+
+            # each index_store will run local action to merge to the same local index store,
+            # in this cases , each index store will not wait for all index stores to be materalized
+            ctx.actions.run(cmd, category = "index_store_local_merge", identifier = name, local_only = True)
+            outputs.append(local_merged_index_store)
+
+        final_output = ctx.actions.declare_output("dummy_final_local_merge", dir = False)  # this is a dummy output, it will be empty. It is used to make buck2 to run the actions
+
+        # Pass `outputs` to hidden to make the `final_output` depends on the `outputs``.
+        cmd = cmd_args(["touch", final_output.as_output()], hidden = outputs)
+
+        ctx.actions.run(cmd, category = "index_store_local_merge", identifier = "final_local_merge (dummy)", local_only = True)
+        return final_output
+    else:
+        return _merge_index_store(ctx, index_stores, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+
 def _gather_deps_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSet]:
     deps_indexstore_infos = filter(None, [dep.get(IndexStoreInfo) for dep in deps])
     return [info.tset for info in deps_indexstore_infos]
@@ -78,10 +108,7 @@ def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_tar
         index_store_tset = ctx.actions.tset(IndexStoreTSet, children = deps_indexstore_tsets)
     index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset)
 
-    if len(deps_indexstore_tsets) == 0:
-        sub_targets[FULL_INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = merged_index_store)]
-    else:
-        merged_all_index_stores = _merge_index_store(ctx, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
-        sub_targets[FULL_INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = merged_all_index_stores)]
+    output = _merge_all_index_store(ctx, index_store_tset)
+    sub_targets[FULL_INDEX_STORE_SUBTARGET] = [DefaultInfo(default_output = output)]
 
     return (sub_targets, index_store_info)
