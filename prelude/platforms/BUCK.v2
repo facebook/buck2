@@ -73,7 +73,7 @@ prelude.constraint_value(
 # execution configuration, but that's not implemented yet.
 export_file(
     name = "fat_platform_incompatible",
-    src = "BUCK", # @oss-enable
+    src = "BUCK.v2", # @oss-enable
     # @oss-disable: src = "TARGETS.v2", 
     target_compatible_with = select({
         ":fat_platform_enabled": ["config//:none"],
