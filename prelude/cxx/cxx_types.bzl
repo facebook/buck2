@@ -213,6 +213,7 @@ CxxRuleConstructorParams = record(
     # modulename-Swift.h header for building objc targets that rely on this swift dep
     swift_objc_header = field([Artifact, None], None),
     error_handler = field([typing.Callable, None], None),
+    index_store_factory = field(typing.Callable | None, None),
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
 )

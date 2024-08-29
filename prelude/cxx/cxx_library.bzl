@@ -294,6 +294,8 @@ _CxxLibraryCompileOutput = record(
     objects_have_external_debug_info = field(bool),
     # sub_target for each object
     objects_sub_targets = field(dict[str, list[DefaultInfo]]),
+    # the generated index stores
+    index_stores = field(list[Artifact]),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -699,6 +701,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Index store from swift compile
     index_stores = impl_params.index_stores if impl_params.index_stores else []
+
+    # We only generate the index store for pic
+    if compiled_srcs.pic:
+        index_stores.extend(compiled_srcs.pic.index_stores)
     sub_targets["index-store"] = [DefaultInfo(default_outputs = index_stores)]
 
     linker_flags = cxx_attr_linker_flags_all(ctx)
@@ -935,6 +941,12 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
     objects += extra_link_input
     stripped_objects += extra_link_input
 
+    index_stores = [
+        out.index_store
+        for out in outs
+        if out.index_store
+    ]
+
     return _CxxLibraryCompileOutput(
         objects = objects,
         stripped_objects = stripped_objects,
@@ -945,6 +957,7 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
         external_debug_info = [out.external_debug_info for out in outs if out.external_debug_info != None],
         objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
         objects_sub_targets = objects_sub_targets,
+        index_stores = index_stores,
     )
 
 def cxx_compile_srcs(

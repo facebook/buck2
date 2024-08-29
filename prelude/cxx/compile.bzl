@@ -131,6 +131,8 @@ CxxSrcCompileCommand = record(
     args = field(list[typing.Any]),
     # Is this a header file?
     is_header = field(bool, False),
+    # The index store factory to use to generate index store for this source file.
+    index_store_factory = field(typing.Callable | None, None),
     error_handler = field([typing.Callable, None], None),
 )
 
@@ -156,6 +158,7 @@ CxxCompileOutput = record(
     clang_remarks = field(Artifact | None, None),
     clang_trace = field(Artifact | None, None),
     gcno_file = field(Artifact | None, None),
+    index_store = field(Artifact | None, None),
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -360,7 +363,7 @@ def create_compile_cmds(
             src_args.append("-c")
         src_args.append(src.file)
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header, **error_handler_args)
+        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header, index_store_factory = impl_params.index_store_factory, **error_handler_args)
         if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
@@ -377,6 +380,11 @@ def create_compile_cmds(
         ),
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
+
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+    if src_compile_cmd.index_store_factory:
+        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd, pic)
+    return None
 
 def _compile_single_cxx(
         ctx: AnalysisContext,
@@ -396,26 +404,16 @@ def _compile_single_cxx(
         identifier = identifier + "_" + str(src_compile_cmd.index)
 
     filename_base = identifier + (".pic" if pic else "")
+    if pic:
+        identifier += " (pic)"
+
     object = ctx.actions.declare_output(
         "__objects__",
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
     )
 
-    cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
-
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-    cmd.add(get_output_flags(compiler_type, object))
-
-    args = cmd_args()
-
-    if pic:
-        args.add(get_pic_flags(compiler_type))
-
-    args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
-    args.add(src_compile_cmd.args)
-
-    cmd.add(args)
-    cmd.add(bitcode_args)
+    cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args(get_output_flags(compiler_type, object)))
 
     action_dep_files = {}
 
@@ -441,12 +439,9 @@ def _compile_single_cxx(
 
         action_dep_files["headers"] = headers_dep_files.tag
 
-    if pic:
-        identifier += " (pic)"
-
     clang_remarks = None
     if toolchain.clang_remarks and compiler_type == "clang":
-        args.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
+        cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
         clang_remarks = ctx.actions.declare_output(
             paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
         )
@@ -454,7 +449,7 @@ def _compile_single_cxx(
 
     clang_trace = None
     if toolchain.clang_trace and compiler_type == "clang":
-        args.add(["-ftime-trace"])
+        cmd.add(["-ftime-trace"])
         clang_trace = ctx.actions.declare_output(
             paths.join("__objects__", "{}.json".format(filename_base)),
         )
@@ -462,7 +457,7 @@ def _compile_single_cxx(
 
     gcno_file = None
     if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
-        args.add(["--coverage"])
+        cmd.add(["--coverage"])
         gcno_file = ctx.actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
         )
@@ -502,6 +497,9 @@ def _compile_single_cxx(
     else:
         object_format = default_object_format
 
+    compile_index_store_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic)
+    index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
+
     return CxxCompileOutput(
         object = object,
         object_format = object_format,
@@ -509,7 +507,36 @@ def _compile_single_cxx(
         clang_remarks = clang_remarks,
         clang_trace = clang_trace,
         gcno_file = gcno_file,
+        index_store = index_store,
     )
+
+def _get_base_compile_cmd(
+        bitcode_args: cmd_args,
+        src_compile_cmd: CxxSrcCompileCommand,
+        pic: bool,
+        output_args: cmd_args | None = None) -> cmd_args:
+    """
+    Construct a shared compile command for a single CXX source based on
+    `src_compile_command` and other compilation options.
+    """
+    cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
+    if output_args:
+        cmd.add(output_args)
+
+    compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+
+    args = cmd_args()
+
+    if pic:
+        args.add(get_pic_flags(compiler_type))
+
+    args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+    args.add(src_compile_cmd.args)
+
+    cmd.add(args)
+    cmd.add(bitcode_args)
+
+    return cmd
 
 def compile_cxx(
         ctx: AnalysisContext,

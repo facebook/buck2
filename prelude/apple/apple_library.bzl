@@ -12,6 +12,7 @@ load(
     "project_artifacts",
 )
 load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
@@ -36,6 +37,11 @@ load(
     "CompileArgsfiles",
 )
 load(
+    "@prelude//cxx:compile.bzl",
+    "AsmExtensions",
+    "CxxSrcCompileCommand",  # @unused Used as a type
+)
+load(
     "@prelude//cxx:cxx_library.bzl",
     "CxxLibraryOutput",  # @unused Used as a type
     "cxx_library_parameterized",
@@ -49,6 +55,10 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
     "get_srcs_with_flags",
+)
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",  # @unused Used as type
 )
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -171,6 +181,53 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         return get_swift_anonymous_targets(ctx, get_apple_library_providers)
     else:
         return get_apple_library_providers([])
+
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+    identifier = src_compile_cmd.src.short_path
+    if src_compile_cmd.index != None:
+        # Add a unique postfix if we have duplicate source files with different flags
+        identifier = identifier + "_" + str(src_compile_cmd.index)
+    filename_base = identifier
+    identifier += " (index_store)"
+
+    # We generate the index only for pic compilations
+    if not pic:
+        return None
+
+    if src_compile_cmd.src.extension in AsmExtensions.values():
+        return None
+
+    cmd = compile_cmd.copy()
+
+    # We use `-fsyntax-only` flag, so output will be not generated.
+    # The output here is used for the identifier of the index unit file
+    output_name = paths.join(
+        ctx.label.cell,
+        ctx.label.package,
+        ctx.label.name,
+        "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
+    )
+    cmd.add(["-o", output_name])
+
+    index_store = ctx.actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
+
+    # Haven't use `-fdebug-prefix-map` for now, will use index-import to remap the path. But it's not ideal.
+    cmd.add([
+        "-fsyntax-only",
+        "-index-ignore-system-symbols",
+        "-index-store-path",
+        index_store.as_output(),
+    ])
+
+    category = "apple_cxx_index_store"
+    ctx.actions.run(
+        cmd,
+        category = category,
+        identifier = identifier,
+        allow_cache_upload = True,
+    )
+
+    return index_store
 
 def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]) -> list[AppleLibraryForDistributionInfo]:
     if not swift_library_for_distribution:
@@ -429,6 +486,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
         error_handler = apple_build_error_handler,
+        index_store_factory = _compile_index_store,
         index_stores = swift_compile.index_stores if swift_compile else None,
     )
 
