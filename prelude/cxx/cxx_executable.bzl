@@ -196,6 +196,7 @@ CxxExecutableOutput = record(
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
     dist_info = DistInfo,
     sanitizer_runtime_files = field(list[Artifact], []),
+    index_stores = field(list[Artifact], []),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -240,6 +241,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
     comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+
+    # Index Stores created by cxx compile
+    index_stores = [out.index_store for out in cxx_outs if out.index_store]
 
     # Link deps
     link_deps = linkables(cxx_attr_deps(ctx)) + impl_params.extra_link_deps
@@ -761,6 +765,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             nondebug_runtime_files = runtime_files,
         ),
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
+        index_stores = index_stores,
     )
 
 _CxxLinkExecutableResult = record(

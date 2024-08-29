@@ -42,6 +42,7 @@ load(
     "cxx_get_regular_cxx_headers_layout",
     "prepare_headers",
 )
+load("@prelude//cxx:index_store.bzl", "create_index_store_subtargets_and_provider")
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
@@ -185,11 +186,13 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         min_version = get_min_deployment_version_for_node(ctx)
         min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
 
+        non_exported_deps = cxx_attr_deps(ctx)
+        exported_deps = cxx_attr_exported_deps(ctx)
         resource_graph = create_resource_graph(
             ctx = ctx,
             labels = ctx.attrs.labels,
-            deps = cxx_attr_deps(ctx),
-            exported_deps = cxx_attr_exported_deps(ctx),
+            deps = non_exported_deps,
+            exported_deps = exported_deps,
         )
         bundle_infos = get_bundle_infos_from_graph(resource_graph)
         if cxx_output.linker_map_data:
@@ -204,6 +207,15 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_files = cxx_output.sanitizer_runtime_files))
 
         attrs_validators_providers, attrs_validators_subtargets = get_attrs_validators_outputs(ctx)
+
+        index_stores = []
+        if swift_compile and swift_compile.index_stores:
+            index_stores.extend(swift_compile.index_stores)
+        index_stores.extend(cxx_output.index_stores)
+
+        index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)
+        cxx_output.sub_targets.update(index_store_subtargets)
+
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets | attrs_validators_subtargets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
@@ -213,6 +225,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_output.compilation_db,
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
+            index_store_info,
         ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + attrs_validators_providers
 
     if uses_explicit_modules(ctx):
