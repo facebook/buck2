@@ -19,6 +19,11 @@ load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
 load(
+    "@prelude//cxx:index_store.bzl",
+    "IndexStoreInfo",  # @unused Used as a type
+    "create_index_store_subtargets_and_provider",
+)
+load(
     "@prelude//ide_integrations:xcode.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfoKeys",
@@ -358,6 +363,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     # @oss-disable: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider) 
     # @oss-disable: sub_targets.update(extra_output_subtargets) 
 
+    # index store
+    index_store_subtargets, index_store_info = _index_store_data(ctx)
+    sub_targets.update(index_store_subtargets)
+
     bundle_and_dsym_info_json = {
         "bundle": bundle,
         "dsym": dsym_info_json,
@@ -402,6 +411,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         xcode_data_info,
         extra_output_provider,
         link_cmd_debug_info,
+        index_store_info,
     ] + bundle_result.providers + validation_providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
@@ -471,6 +481,11 @@ def _link_command_debug_data(ctx: AnalysisContext) -> (Artifact, LinkCommandDebu
     all_debug_infos = flatten([debug_info.debug_outputs for debug_info in debug_output_infos])
     link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, all_debug_infos)
     return link_cmd_debug_output_file, LinkCommandDebugOutputInfo(debug_outputs = all_debug_infos)
+
+def _index_store_data(ctx: AnalysisContext) -> (dict[str, list[Provider]], IndexStoreInfo):
+    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
+    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, [], deps_with_binary)
+    return index_store_subtargets, index_store_info
 
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.
