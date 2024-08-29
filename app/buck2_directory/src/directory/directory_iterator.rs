@@ -13,6 +13,8 @@ use std::mem;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
+use crate::directory::entry::DirectoryEntry;
+
 /// A trait shared by iterators on Directories. Unlike a regular Iterator, this returns an accessor
 /// to give us the current path in addition to the current item (which borrows from the iterator
 /// itself, which is why this cannot be an iterator).
@@ -78,6 +80,14 @@ pub trait DirectoryIterator: Sized {
         }
 
         FilterMap { inner: self, f }
+    }
+
+    /// Only include leaves.
+    fn leaves<D, L>(self) -> impl DirectoryIterator<Item = L>
+    where
+        Self: DirectoryIterator<Item = DirectoryEntry<D, L>>,
+    {
+        self.filter_map(|entry| entry.leaf())
     }
 }
 
