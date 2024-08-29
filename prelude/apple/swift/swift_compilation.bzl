@@ -534,9 +534,21 @@ def _compile_with_argsfile(
     build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
 
     # When Swift code is built incrementally, the swift-driver embeds absolute paths into the artifacts.
-    # Unfortunately, this compels us to execute these actions locally and prevents cache uploads.
+    # Unfortunately, this compels us to execute these actions locally.
     run_extra_args = {
-        "allow_cache_upload": not build_swift_incrementally,
+        # Even though the incremental artifacts (`.priors`, `.swiftdeps`) contain abs paths and
+        # are not cacheable, it's actually fine to still upload to the cache. This is because
+        # the downside of cached incremental artifacts with abs paths is that it will perform
+        # a full module compile on the first source change in a module (or any of its transitive
+        # deps where the public API changes). But this is exactly what would happen if we did not
+        # allow any caching at all - instead, every cold build would have to rebuild *everything*
+        # as there will be zero caching (as all incremental actions must run locally and do not
+        # allow cache upload).
+        #
+        # Thus, by allowing cache uploads, we get cold build caching, even if we end up caching
+        # non-hermetic Swift incremental artifacts. It's just that those non-hermetic artifacts
+        # do not result in further build perf efficiency later on when modules need to be recompiled.
+        "allow_cache_upload": True,
     }
     if build_swift_incrementally:
         run_extra_args["local_only"] = True
