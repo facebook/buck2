@@ -17,6 +17,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;

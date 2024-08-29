@@ -40,6 +40,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
 use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;

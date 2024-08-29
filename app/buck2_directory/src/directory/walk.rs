@@ -133,12 +133,18 @@ pub enum DirectoryEntryWalk<'a, L, I> {
     Leaf { entry: Option<&'a L> },
 }
 
-impl<'a, D, L, I> DirectoryEntryWalk<'a, L, I>
+impl<'a, D, L, I> DirectoryIterator for DirectoryEntryWalk<'a, L, I>
 where
     I: DirectoryIterator<Item = DirectoryEntry<D, &'a L>>,
     D: 'a,
 {
-    pub fn next<'this>(
+    type PathStack<'b> = DirectoryEntryWalkPathAccessor<<I as DirectoryIterator>::PathStack<'b>>
+    where
+        Self: 'b;
+
+    type Item = DirectoryEntry<D, &'a L>;
+
+    fn next<'this>(
         &'this mut self,
     ) -> Option<(
         DirectoryEntryWalkPathAccessor<<I as DirectoryIterator>::PathStack<'this>>,
