@@ -58,7 +58,8 @@ CPreprocessor = record(
     uses_modules = field(bool, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field(list[typing.Any], []),
-    modulemap_path = field(typing.Any, None),
+    # Path to the modulemap which defines the API exposed to Swift
+    modulemap_path = field([cmd_args, None], None),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
