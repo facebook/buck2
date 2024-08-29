@@ -135,12 +135,14 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
     sub_targets: ValueOfUncheckedGeneric<V, DictType<String, FrozenProviderCollection>>,
     /// A list of `Artifact`s that are built by default if this rule is requested
-    /// explicitly, or depended on as as a "source".
+    /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
+    /// (i.e., `attrs.source()`).
     default_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsArtifactLike<'static>>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
-    /// be built by default if this rule is requested, but _not_ when it's depended
-    /// on as as a "source". `ArtifactTraversable` can be an `Artifact` (which yields
-    /// itself), or `cmd_args`, which expand to all their inputs.
+    /// be built by default if this rule is requested (via CLI or `$(location)` etc),
+    /// but _not_ when it's depended on as as a "source" (i.e., `attrs.source()`).
+    /// `ArtifactTraversable` can be an `Artifact` (which yields itself), or
+    /// `cmd_args`, which expand to all their inputs.
     other_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsCommandLineLike<'static>>>,
 }
 
