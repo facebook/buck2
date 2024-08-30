@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use core::fmt;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -90,9 +91,18 @@ enum CoercedAttrError {
     InconsistentTupleLength,
 }
 
-enum CoercedSelectorKeyRef<'a> {
+pub enum CoercedSelectorKeyRef<'a> {
     Target(&'a ConfigurationSettingKey),
     Default,
+}
+
+impl<'a> fmt::Display for CoercedSelectorKeyRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CoercedSelectorKeyRef::Target(target) => write!(f, "{}", target.0),
+            CoercedSelectorKeyRef::Default => write!(f, "DEFAULT"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
@@ -146,7 +156,7 @@ impl CoercedSelector {
         Ok(())
     }
 
-    fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef, &CoercedAttr)> {
+    pub fn all_entries(&self) -> impl Iterator<Item = (CoercedSelectorKeyRef, &CoercedAttr)> {
         self.entries
             .iter()
             .map(|(k, v)| (CoercedSelectorKeyRef::Target(k), v))

@@ -69,7 +69,7 @@ unsafe impl<From: Coerce<To>, To> Coerce<StarlarkSelectorGen<To>> for StarlarkSe
 starlark_complex_value!(pub StarlarkSelector);
 
 impl<'v> StarlarkSelector<'v> {
-    fn new(d: Value<'v>) -> Self {
+    pub fn new(d: Value<'v>) -> Self {
         StarlarkSelector::Inner(d)
     }
 

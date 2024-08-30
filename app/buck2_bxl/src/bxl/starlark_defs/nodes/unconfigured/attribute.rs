@@ -22,6 +22,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_interpreter_for_build::interpreter::selector::StarlarkSelector;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -224,9 +225,12 @@ impl CoercedAttrExt for CoercedAttr {
                 SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
             ))),
             CoercedAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
-            CoercedAttr::Selector(_) => {
-                // TODO(@wendyy) - this needs better support
-                heap.alloc_str("selector(...)").to_value()
+            CoercedAttr::Selector(selector) => {
+                let map: SmallMap<String, Value> = selector
+                    .all_entries()
+                    .map(|(k, v)| v.to_value(pkg.dupe(), heap).map(|v| (k.to_string(), v)))
+                    .collect::<anyhow::Result<_>>()?;
+                heap.alloc(StarlarkSelector::new(heap.alloc(map)))
             }
             CoercedAttr::Concat(_) => {
                 // TODO(@wendyy) - this needs better support
