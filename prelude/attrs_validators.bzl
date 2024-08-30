@@ -5,53 +5,37 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-_RUNNABLE_EXEC_DEP = attrs.exec_dep(providers = [RunInfo])
-
-ATTRS_VALIDATORS_NAME = "attrs_validators"
-ATTRS_VALIDATORS_TYPE = attrs.dict(
-    attrs.string(),
-    attrs.tuple(
-        # The list of attrs you want.
-        # If the attr key isn't available, it'll fail.
-        attrs.list(attrs.string()),
-        # This will be passed two named args.
-        # --target-attrs, a path to a JSON file with the serialized args.
-        # --output, a path to the file the validation should be written to.
-        _RUNNABLE_EXEC_DEP,
-    ),
-    default = {},
+AttrsValidatorsInfo = provider(
+    fields = {
+        "func": typing.Callable[[AnalysisActions, Label, struct], dict[str, Artifact]],
+    },
 )
 
+ATTRS_VALIDATORS_NAME = "attrs_validators"
+ATTRS_VALIDATORS_TYPE = attrs.option(attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])), default = None)
+
 def get_attrs_validators_outputs(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
-    key_to_validator_info = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, {})
-
-    validator_to_output = {}
-    for key, (requested_attrs, validator) in key_to_validator_info.items():
-        output = ctx.actions.declare_output(key)
-        ctx.actions.run(
-            cmd_args([
-                validator[RunInfo],
-                "--target-attrs",
-                _build_attr_json_args(ctx, key, requested_attrs),
-                "--output",
-                output.as_output(),
-            ]),
-            category = "attrs_validator",
-            identifier = key,
-        )
-        validator_to_output[key] = output
-
-    if not validator_to_output:
-        # You can't pass a `ValidationInfo` that has no specs in it.
+    validators = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, [])
+    if not validators:
         return ([], {})
 
-    sub_targets = {}
     specs = []
-    for name, artifact in validator_to_output.items():
-        specs.append(ValidationSpec(name = name, validation_result = artifact))
-        sub_targets[name] = [DefaultInfo(artifact)]
+    sub_targets = {}
+    for validator in validators:
+        for name, output in validator[AttrsValidatorsInfo].func(ctx.actions, ctx.label, ctx.attrs).items():
+            specs.append(ValidationSpec(name = name, validation_result = output))
+
+            if name in sub_targets:
+                fail("Collison: two attrs_validators with the same name '{}': {} and {}".format(
+                    name,
+                    output,
+                    sub_targets[name],
+                ))
+
+            sub_targets[name] = [DefaultInfo(output)]
+
     return (
-        [ValidationInfo(validations = specs)],
+        [ValidationInfo(validations = specs)] if specs else [],
         {
             "attrs-validators": [
                 DefaultInfo(
@@ -60,32 +44,5 @@ def get_attrs_validators_outputs(ctx: AnalysisContext) -> (list[Provider], dict[
                     sub_targets = sub_targets,
                 ),
             ],
-        },
+        } if sub_targets else {},
     )
-
-def _build_attr_json_args(ctx: AnalysisContext, key: str, requested_attrs: list[str]):
-    attr_args = {}
-    missing_attrs = []
-    for attr in requested_attrs:
-        if attr == "configured_target_label":
-            attr_args["configured_target_label"] = ctx.label.configured_target()
-        elif attr == "target_label":
-            attr_args["target_label"] = ctx.label.raw_target()
-        elif hasattr(ctx.attrs, attr):
-            attr_args[attr] = getattr(ctx.attrs, attr)
-        else:
-            missing_attrs.append(attr)
-
-    if missing_attrs:
-        fail("The following attrs are not available on {}: {}".format(
-            ctx.label,
-            ", ".join(sorted(missing_attrs)),
-        ))
-
-    attr_args = ctx.actions.write_json(
-        "{}-attrs.json".format(key),
-        attr_args,
-        with_inputs = True,
-    )
-
-    return attr_args
