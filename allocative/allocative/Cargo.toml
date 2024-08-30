@@ -15,7 +15,7 @@ ctor = { workspace = true }
 
 anyhow = { version = "1.0.65", optional = true }
 bumpalo = { version = "3.11.1", optional = true }
-compact_str = { version = "0.6.1", optional = true }
+compact_str = { version = "0.8", optional = true }
 dashmap = { version = "5.5.3", optional = true }
 either = { version = "1.8", optional = true }
 futures = { version = "0.3.24", optional = true }

@@ -141,7 +141,7 @@ chrono = "=0.4.34"
 clap = { version = "4.5.6", features = ["derive", "env", "string"] }
 clap_complete = "4.5.5"
 common-path = "1.0.0"
-compact_str = "0.6.1"
+compact_str = "0.8"
 constant_time_eq = "0.2.4"
 convert_case = "0.4.0"
 criterion = { version = "0.3.1", features = [] }
