@@ -14,7 +14,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:crossbeam",
-        "fbsource//third-party/rust:derive_more-1",
+        "fbsource//third-party/rust:derive_more",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/starlark-rust/starlark_map:starlark_map",
     ],

@@ -10,7 +10,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     crate_root = "src/lib.rs",
-    test_deps = ["fbsource//third-party/rust:derive_more-1"],
+    test_deps = ["fbsource//third-party/rust:derive_more"],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:crossbeam-channel",
@@ -39,7 +39,7 @@ rust_binary(
     srcs = ["examples/finalization.rs"],
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:derive_more-1",
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:tokio",
         ":superconsole",
     ],
@@ -69,7 +69,7 @@ rust_binary(
     srcs = ["examples/stylized.rs"],
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:derive_more-1",
+        "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:tokio",
         ":superconsole",
     ],
