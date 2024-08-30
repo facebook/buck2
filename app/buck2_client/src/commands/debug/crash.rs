@@ -29,10 +29,6 @@ pub struct CrashCommand {
 impl StreamingCommand for CrashCommand {
     const COMMAND_NAME: &'static str = "crash";
 
-    fn existing_only() -> bool {
-        true
-    }
-
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
@@ -47,7 +43,7 @@ impl StreamingCommand for CrashCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::simple_ref()
+        CommonConsoleOptions::default_ref()
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
