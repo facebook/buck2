@@ -246,6 +246,15 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
+    llvm_ir = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir"),
+        params = static_library_params,
+        default_roots = default_roots,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    )
+
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
     doctests_enabled = \
@@ -308,6 +317,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
+        llvm_ir = llvm_ir.output,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
     )
@@ -519,6 +529,7 @@ def _default_providers(
         check_artifacts: dict[str, Artifact | None],
         expand: Artifact,
         sources: Artifact,
+        llvm_ir: Artifact,
         rustdoc_coverage: Artifact,
         named_deps_names: Artifact | None) -> list[Provider]:
     targets = {}
@@ -527,6 +538,7 @@ def _default_providers(
     targets["expand"] = expand
     targets["doc"] = rustdoc
     targets["doc-coverage"] = rustdoc_coverage
+    targets["llvm-ir"] = llvm_ir
     if named_deps_names:
         targets["named_deps"] = named_deps_names
     sub_targets = {

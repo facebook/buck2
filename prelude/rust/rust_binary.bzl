@@ -323,16 +323,17 @@ def _rust_binary_common(
     incr_enabled = ctx.attrs.incremental_enabled
     extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]))
 
-    expand = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("expand"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-    extra_compiled_targets["expand"] = expand.output
+    for emit in ("expand", "llvm-ir"):
+        compile = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit(emit),
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        )
+        extra_compiled_targets[emit] = compile.output
 
     doc_output = generate_rustdoc(
         ctx = ctx,

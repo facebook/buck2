@@ -1217,6 +1217,9 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
     if emit == Emit("expand"):
         return "expand"
 
+    if emit == Emit("llvm-ir"):
+        return "llvm-ir"
+
     fail("unrecognized rustc action:", crate_type, link_strategy, emit)
 
 EmitOperation = record(
