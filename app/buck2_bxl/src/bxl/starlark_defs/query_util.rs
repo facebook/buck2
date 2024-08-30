@@ -8,6 +8,7 @@
  */
 
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use starlark::eval::Evaluator;
@@ -38,7 +39,7 @@ pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
                         eval.heap()
                             .alloc(q)
                             .get_hashed()
-                            .map_err(BuckStarlarkError::new)?,
+                            .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))?,
                         match res? {
                             QueryEvaluationValue::TargetSet(targets) => {
                                 eval.heap().alloc(StarlarkTargetSet::from(targets))

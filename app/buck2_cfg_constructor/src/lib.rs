@@ -28,6 +28,7 @@ use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -132,7 +133,7 @@ async fn eval_pre_constraint_analysis<'v>(
                     &[],
                     &pre_constraint_analysis_args,
                 )
-                .map_err(BuckStarlarkError::new)?,
+                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?,
             )?;
 
             // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
@@ -216,7 +217,7 @@ async fn eval_post_constraint_analysis<'v>(
                     &[],
                     &post_constraint_analysis_args,
                 )
-                .map_err(BuckStarlarkError::new)?;
+                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
 
             // Type check + unpack
             <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()

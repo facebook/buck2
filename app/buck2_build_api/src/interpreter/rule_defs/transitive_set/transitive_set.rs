@@ -15,6 +15,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -412,7 +413,8 @@ impl<'v> TransitiveSet<'v> {
                     let projected_value = eval
                         .eval_function(spec.projection, &[value], &[])
                         .map_err(|error| TransitiveSetError::ProjectionError {
-                            error: BuckStarlarkError::new(error).into(),
+                            error: BuckStarlarkError::new(error, OtherErrorHandling::InputError)
+                                .into(),
                             name: name.clone(),
                         })?;
                     match spec.kind {
@@ -449,7 +451,7 @@ impl<'v> TransitiveSet<'v> {
                 let reduced = eval
                     .eval_function(*reduce, &[children_values, value], &[])
                     .map_err(|error| TransitiveSetError::ReductionError {
-                        error: BuckStarlarkError::new(error).into(),
+                        error: BuckStarlarkError::new(error, OtherErrorHandling::InputError).into(),
                         name: name.clone(),
                     })?;
 

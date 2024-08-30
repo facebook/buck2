@@ -9,9 +9,11 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
 use dice::Key;
@@ -61,10 +63,13 @@ pub(crate) async fn check_starlark_stack_size(
                         "#
                     );
                     let ast = AstModule::parse("x.star", content.to_owned(), &Dialect::Extended)
-                        .map_err(BuckStarlarkError::new)?;
+                        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))
+                        .internal_error("Failed to parse check module")?;
                     match eval.eval_module(ast, &Globals::standard()) {
                         Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
-                        Err(p) => Err(BuckStarlarkError::new(p).into()),
+                        Err(p) => {
+                            Err(BuckStarlarkError::new(p, OtherErrorHandling::Unknown).into())
+                        }
                         Ok(_) => {
                             Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into())
                         }

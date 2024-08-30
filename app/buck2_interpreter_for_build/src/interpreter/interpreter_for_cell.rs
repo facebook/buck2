@@ -29,6 +29,7 @@ use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -449,7 +450,7 @@ impl InterpreterForCell {
             Ok(ast) => ast,
             Err(e) => {
                 return Ok(Err(ParseError(
-                    BuckStarlarkError::new(e),
+                    BuckStarlarkError::new(e, OtherErrorHandling::InputError),
                     OwnedStarlarkPath::new(import),
                 )));
             }
@@ -536,7 +537,9 @@ impl InterpreterForCell {
 
                     cpu_instruction_count
                 }
-                Err(p) => return Err(BuckStarlarkError::new(p).into()),
+                Err(p) => {
+                    return Err(BuckStarlarkError::new(p, OtherErrorHandling::InputError).into());
+                }
             }
         };
         Ok(EvalResult {

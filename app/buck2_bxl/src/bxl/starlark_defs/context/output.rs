@@ -25,6 +25,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -424,7 +425,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     .into_iter()
                     .map(|(label, bxl_build_result)| {
                         Ok((
-                            label.get_hashed().map_err(BuckStarlarkError::new)?,
+                            label.get_hashed().map_err(|e| {
+                                BuckStarlarkError::new(e, OtherErrorHandling::Unknown)
+                            })?,
                             heap.alloc(get_artifacts_from_bxl_build_result(
                                 bxl_build_result,
                                 this,

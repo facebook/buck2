@@ -9,6 +9,13 @@
 
 use std::fmt;
 
+/// Whether or not to mark a starlark error as an input/user error.
+#[derive(PartialEq)]
+pub enum OtherErrorHandling {
+    InputError,
+    Unknown,
+}
+
 /// Wrapper for an error that was returned by starlark.
 ///
 /// This type implements all the buck2-specific error categorization that is needed for starlark
@@ -16,13 +23,15 @@ use std::fmt;
 pub struct BuckStarlarkError {
     e: starlark::Error,
     print_stacktrace: bool,
+    error_handling: OtherErrorHandling,
 }
 
 impl BuckStarlarkError {
-    pub fn new(e: starlark::Error) -> Self {
+    pub fn new(e: starlark::Error, error_handling: OtherErrorHandling) -> Self {
         Self {
             e,
             print_stacktrace: true,
+            error_handling,
         }
     }
 
@@ -62,6 +71,11 @@ impl std::error::Error for BuckStarlarkError {
             starlark::ErrorKind::Function(_) => Some(buck2_error::Tier::Input),
             starlark::ErrorKind::Scope(_) => Some(buck2_error::Tier::Input),
             starlark::ErrorKind::Lexer(_) => Some(buck2_error::Tier::Input),
+            starlark::ErrorKind::Other(_)
+                if self.error_handling == OtherErrorHandling::InputError =>
+            {
+                Some(buck2_error::Tier::Input)
+            }
             _ => None,
         };
         let tags = match self.e.kind() {

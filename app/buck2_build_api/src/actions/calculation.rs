@@ -33,6 +33,7 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -408,8 +409,11 @@ fn try_run_error_handler(
                             )),
                         },
                         Err(e) => {
-                            let e = buck2_error::Error::from(BuckStarlarkError::new(e))
-                                .context("Error handler failed");
+                            let e = buck2_error::Error::from(BuckStarlarkError::new(
+                                e,
+                                OtherErrorHandling::InputError,
+                            ))
+                            .context("Error handler failed");
                             Data::HandlerInvocationError(format!("{:#}", e))
                         }
                     };

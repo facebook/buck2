@@ -32,6 +32,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -336,7 +337,7 @@ fn eval_bxl<'v>(
             _ => false,
         };
 
-    let mut e = BuckStarlarkError::new(e);
+    let mut e = BuckStarlarkError::new(e, OtherErrorHandling::Unknown);
     if should_skip_backtrace {
         let dispatcher = get_dispatcher();
         dispatcher.instant_event(StarlarkFailNoStacktrace {

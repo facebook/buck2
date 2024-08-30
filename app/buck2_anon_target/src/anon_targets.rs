@@ -55,6 +55,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -452,7 +453,7 @@ impl AnonTargetKey {
         for (id, func) in promise_artifact_mappings.values().enumerate() {
             let artifact = eval
                 .eval_function(*func, &[anon_target_result], &[])
-                .map_err(BuckStarlarkError::new)?;
+                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
 
             let promise_id =
                 PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);

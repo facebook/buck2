@@ -17,6 +17,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -128,9 +129,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg, ctx)?
-                            .get_hashed()
-                            .map_err(BuckStarlarkError::new)?,
+                        k.resolve_single(pkg, ctx)?.get_hashed().map_err(|e| {
+                            BuckStarlarkError::new(e, OtherErrorHandling::InputError)
+                        })?,
                         v.resolve_single(pkg, ctx)?,
                     );
                 }
@@ -236,7 +237,7 @@ fn configured_attr_to_value<'v>(
                 res.insert_hashed(
                     configured_attr_to_value(&k, pkg, heap)?
                         .get_hashed()
-                        .map_err(BuckStarlarkError::new)?,
+                        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?,
                     configured_attr_to_value(&v, pkg, heap)?,
                 );
             }
@@ -262,7 +263,7 @@ fn configured_attr_to_value<'v>(
                 map.insert_hashed(
                     heap.alloc(trans)
                         .get_hashed()
-                        .map_err(BuckStarlarkError::new)?,
+                        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?,
                     heap.alloc(StarlarkConfiguredProvidersLabel::new(p.dupe())),
                 );
             }

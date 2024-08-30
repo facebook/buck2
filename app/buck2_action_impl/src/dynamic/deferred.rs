@@ -45,6 +45,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::CancellationContext;
@@ -118,7 +119,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
     };
     let return_value = eval
         .eval_function(lambda, pos, named)
-        .map_err(BuckStarlarkError::new)?;
+        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
 
     let provider_collection = match args {
         DynamicLambdaArgs::OldPositional { .. } => {

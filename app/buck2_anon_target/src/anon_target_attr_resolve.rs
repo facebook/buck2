@@ -27,6 +27,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::error::BuckStarlarkError;
+use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
@@ -115,7 +116,9 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     res.insert_hashed(
                         k.resolve_single(pkg, anon_resolution_ctx)?
                             .get_hashed()
-                            .map_err(BuckStarlarkError::new)?,
+                            .map_err(|e| {
+                                BuckStarlarkError::new(e, OtherErrorHandling::InputError)
+                            })?,
                         v.resolve_single(pkg, anon_resolution_ctx)?,
                     );
                 }

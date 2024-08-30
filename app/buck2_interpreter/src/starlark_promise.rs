@@ -42,6 +42,7 @@ use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::error::BuckStarlarkError;
+use crate::error::OtherErrorHandling;
 
 /// A type that corresponds to a Rust promise.
 #[derive(
@@ -174,7 +175,7 @@ impl<'v> StarlarkPromise<'v> {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         eval.eval_function(f.0, &[x], &[])
-            .map_err(|e| BuckStarlarkError::new(e).into())
+            .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError).into())
     }
 
     pub fn map(
