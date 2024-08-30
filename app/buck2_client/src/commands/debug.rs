@@ -29,7 +29,6 @@ use crate::commands::debug::exe::ExeCommand;
 use crate::commands::debug::log_perf::LogPerfCommand;
 use crate::commands::debug::paranoid::ParanoidCommand;
 use crate::commands::debug::persist_event_logs::PersistEventLogsCommand;
-use crate::commands::debug::segfault::SegfaultCommand;
 use crate::commands::debug::set_log_filter::SetLogFilterCommand;
 use crate::commands::debug::thread_dump::ThreadDumpCommand;
 use crate::commands::debug::trace_io::TraceIoCommand;
@@ -53,7 +52,6 @@ mod log_perf;
 mod materialize;
 mod paranoid;
 mod persist_event_logs;
-mod segfault;
 mod set_log_filter;
 mod thread_dump;
 mod trace_io;
@@ -64,10 +62,6 @@ pub(crate) mod upload_re_logs;
 pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
-    /// Causes a segfault in the daemon.
-    ///
-    /// Useful to make sure that we're reporting it correctly.
-    SegFault(SegfaultCommand),
     HeapDump(HeapDumpCommand),
     /// Dumps allocator stat
     AllocatorStats(AllocatorStatsCommand),
@@ -119,7 +113,6 @@ impl DebugCommand {
             DebugCommand::Replay(cmd) => cmd.exec(matches, ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
             DebugCommand::ChromeTrace(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::SegFault(cmd) => cmd.exec(matches, ctx),
             DebugCommand::FlushDepFiles(cmd) => cmd.exec(matches, ctx),
             DebugCommand::WhatRan(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Materialize(cmd) => cmd.exec(matches, ctx),

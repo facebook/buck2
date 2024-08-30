@@ -599,13 +599,15 @@ message NewGenericResponseMessage {
   string new_generic_response = 1;
 }
 
-message UnstableCrashRequest {}
+message UnstableCrashRequest {
+  enum CrashType {
+    PANIC = 0;
+    SEGFAULT = 1;
+  }
+  CrashType crash_type = 1;
+}
 
 message UnstableCrashResponse {}
-
-message SegfaultRequest {}
-
-message SegfaultResponse {}
 
 message CommandError {
   reserved 1;
@@ -920,12 +922,8 @@ service DaemonApi {
       returns (stream MultiCommandProgress);
 
   // Crashes the Buck daemon. Unless you are writing tests or checking Buck2's
-  // panic behavior, you probably don't want this.
+  // behavior when it crashes, you probably don't want this.
   rpc Unstable_Crash(UnstableCrashRequest) returns (CommandResult);
-
-  // Crashes the Buck daemon with a segfault.  Unless you are writing tests or
-  // checking Buck2's segfault behavior, you probably don't want this.
-  rpc Segfault(SegfaultRequest) returns (SegfaultResponse);
 
   // Requests the daemon to perform a heap dump and save the dump to a file.
   rpc Unstable_HeapDump(UnstableHeapDumpRequest)

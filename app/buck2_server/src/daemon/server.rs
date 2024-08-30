@@ -105,6 +105,7 @@ use crate::active_commands::ActiveCommand;
 use crate::active_commands::ActiveCommandStateWriter;
 use crate::clean_stale::clean_stale_command;
 use crate::ctx::ServerCommandContext;
+use crate::daemon::crash::crash;
 use crate::daemon::multi_event_stream::MultiEventStream;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
@@ -1161,23 +1162,12 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UnstableCrashRequest>,
     ) -> Result<Response<CommandResult>, Status> {
-        self.oneshot(req, DefaultCommandOptions, move |_req| async move {
-            panic!("explicitly requested panic (via unstable_crash)");
-            #[allow(unreachable_code)]
-            Ok(GenericResponse {})
-        })
+        self.oneshot(
+            req,
+            DefaultCommandOptions,
+            move |req| async move { crash(req) },
+        )
         .await
-    }
-
-    async fn segfault(
-        &self,
-        _req: Request<SegfaultRequest>,
-    ) -> Result<Response<SegfaultResponse>, Status> {
-        unsafe {
-            std::ptr::null_mut::<&'static str>()
-                .write("Explicitly requested segfault (via `segfault`)")
-        };
-        unreachable!()
     }
 
     async fn unstable_heap_dump(

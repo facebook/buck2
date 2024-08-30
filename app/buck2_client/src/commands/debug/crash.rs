@@ -18,8 +18,26 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+enum CrashType {
+    Panic,
+    Segfault,
+}
+
+impl CrashType {
+    fn to_proto(&self) -> i32 {
+        let crash_type = match self {
+            CrashType::Panic => buck2_cli_proto::unstable_crash_request::CrashType::Panic,
+            CrashType::Segfault => buck2_cli_proto::unstable_crash_request::CrashType::Segfault,
+        };
+        crash_type as i32
+    }
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct CrashCommand {
+    #[arg(value_enum)]
+    crash_type: CrashType,
     /// Event-log options.
     #[clap(flatten)]
     pub event_log_opts: CommonEventLogOptions,
@@ -37,7 +55,9 @@ impl StreamingCommand for CrashCommand {
     ) -> ExitResult {
         let _err = buckd
             .with_flushing()
-            .unstable_crash(UnstableCrashRequest {})
+            .unstable_crash(UnstableCrashRequest {
+                crash_type: self.crash_type.to_proto(),
+            })
             .await;
         ExitResult::success()
     }
