@@ -369,9 +369,7 @@ where
         &mut self,
         client: &mut Option<WatchmanClient>,
     ) -> anyhow::Result<WatchmanSyncResult> {
-        self.reconnect(client)
-            .await
-            .context("Error reconnecting to Watchman")?;
+        self.reconnect(client).await?;
 
         let out = self.sync_query(client).await?;
 
