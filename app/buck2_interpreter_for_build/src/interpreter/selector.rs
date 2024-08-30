@@ -77,6 +77,39 @@ impl<'v> StarlarkSelector<'v> {
         heap.alloc(StarlarkSelector::Added(left, right))
     }
 
+    pub fn from_concat<I>(iter: I, heap: &'v Heap) -> Value<'v>
+    where
+        I: IntoIterator<Item = Value<'v>>,
+    {
+        fn values_to_selector<'v, I>(
+            selector: Option<StarlarkSelector<'v>>,
+            values: &mut I,
+            heap: &'v Heap,
+        ) -> Option<StarlarkSelector<'v>>
+        where
+            I: Iterator<Item = Value<'v>>,
+        {
+            match (selector, values.next()) {
+                (None, None) => None,
+                (None, Some(v)) => {
+                    if let Some(next_v) = values.next() {
+                        let head = StarlarkSelector::Added(v, next_v);
+                        values_to_selector(Some(head), values, heap)
+                    } else {
+                        Some(StarlarkSelector::new(v))
+                    }
+                }
+                (Some(s), None) => Some(s),
+                (Some(s), Some(v)) => {
+                    let head = Some(StarlarkSelector::Added(heap.alloc(s), v));
+                    values_to_selector(head, values, heap)
+                }
+            }
+        }
+        let selector = values_to_selector(None, &mut iter.into_iter(), heap);
+        heap.alloc(selector)
+    }
+
     fn select_map<'a>(
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_, '_>,

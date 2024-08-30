@@ -232,9 +232,9 @@ impl CoercedAttrExt for CoercedAttr {
                     .collect::<anyhow::Result<_>>()?;
                 heap.alloc(StarlarkSelector::new(heap.alloc(map)))
             }
-            CoercedAttr::Concat(_) => {
-                // TODO(@wendyy) - this needs better support
-                heap.alloc_str("concat(...)").to_value()
+            CoercedAttr::Concat(l) => {
+                let list = l.as_ref().try_map(|attr| attr.to_value(pkg.dupe(), heap))?;
+                StarlarkSelector::from_concat(list, heap)
             }
         })
     }
