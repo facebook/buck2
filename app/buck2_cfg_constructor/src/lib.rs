@@ -78,6 +78,7 @@ async fn eval_pre_constraint_analysis<'v>(
     cli_modifiers: &[String],
     rule_type: &RuleType,
     aliases: Option<&'v OwnedFrozenValue>,
+    extra_data: Option<&'v OwnedFrozenValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
@@ -108,6 +109,10 @@ async fn eval_pre_constraint_analysis<'v>(
                 Some(v) => v.value(),
                 None => Value::new_none(),
             };
+            let extra_data = match extra_data {
+                Some(v) => v.value(),
+                None => Value::new_none(),
+            };
 
             // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
             let pre_constraint_analysis_args = vec![
@@ -117,6 +122,7 @@ async fn eval_pre_constraint_analysis<'v>(
                 ("cli_modifiers", cli_modifiers),
                 ("rule_name", rule_name),
                 ("aliases", aliases),
+                ("extra_data", extra_data),
             ];
 
             // Type check + unpack
@@ -243,6 +249,7 @@ async fn eval_underlying(
         cli_modifiers,
         rule_type,
         cfg_constructor.aliases.as_ref(),
+        cfg_constructor.extra_data.as_ref(),
         &module,
         &print,
     )
