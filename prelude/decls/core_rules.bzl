@@ -660,8 +660,8 @@ genrule = prelude_rule(
                 ```
                 is not.
             """),
-            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         } |
+        genrule_common.env_arg() |
         genrule_common.environment_expansion_separator() |
         {
             "enable_sandbox": attrs.option(attrs.bool(), default = None, doc = """

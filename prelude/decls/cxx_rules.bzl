@@ -367,6 +367,7 @@ cxx_genrule = prelude_rule(
         genrule_common.type_arg() |
         genrule_common.weight_arg() |
         genrule_common.out_arg() |
+        genrule_common.env_arg() |
         genrule_common.environment_expansion_separator() |
         {
             "enable_sandbox": attrs.option(attrs.bool(), default = None, doc = """
