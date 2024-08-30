@@ -23,6 +23,8 @@ load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModu
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
+_REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
+
 def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -> SwiftCompiledModuleTset:
     pcm_deps = [
         pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
@@ -188,9 +190,10 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             ),
         ]
 
+    required_sdk_modules = _REQUIRED_SDK_CXX_MODULES if ctx.attrs.enable_cxx_interop else _REQUIRED_SDK_MODULES
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.dep[SwiftPCMUncompiledInfo].uncompiled_sdk_modules,
-        _REQUIRED_SDK_MODULES,
+        required_sdk_modules,
         ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
     )
 
