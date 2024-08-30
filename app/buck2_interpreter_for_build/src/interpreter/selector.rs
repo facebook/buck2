@@ -12,7 +12,6 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::soft_error;
-use buck2_interpreter::error::BuckStarlarkError;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -114,14 +113,13 @@ impl<'v> StarlarkSelector<'v> {
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_, '_>,
         func: Value<'a>,
-    ) -> anyhow::Result<Value<'a>> {
+    ) -> starlark::Result<Value<'a>> {
         fn invoke<'v>(
             eval: &mut Evaluator<'v, '_, '_>,
             func: Value<'v>,
             val: Value<'v>,
-        ) -> anyhow::Result<Value<'v>> {
+        ) -> starlark::Result<Value<'v>> {
             eval.eval_function(func, &[val], &[])
-                .map_err(|e| BuckStarlarkError::new(e).into())
         }
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
@@ -152,17 +150,18 @@ impl<'v> StarlarkSelector<'v> {
         val: Value<'a>,
         eval: &mut Evaluator<'a, '_, '_>,
         func: Value<'a>,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         fn invoke<'v>(
             eval: &mut Evaluator<'v, '_, '_>,
             func: Value<'v>,
             val: Value<'v>,
-        ) -> anyhow::Result<bool> {
-            eval.eval_function(func, &[val], &[])
-                .map_err(BuckStarlarkError::new)?
+        ) -> starlark::Result<bool> {
+            eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
                 .ok_or_else(|| {
-                    anyhow::anyhow!("Expected testing function to have a boolean return type")
+                    starlark::Error::new(starlark::ErrorKind::Other(anyhow::anyhow!(
+                        "Expected testing function to have a boolean return type"
+                    )))
                 })
         }
 
@@ -281,7 +280,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         StarlarkSelector::select_map(d, eval, func)
     }
 
@@ -299,7 +298,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] d: Value<'v>,
         #[starlark(require = pos)] func: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         StarlarkSelector::select_test(d, eval, func)
     }
 
