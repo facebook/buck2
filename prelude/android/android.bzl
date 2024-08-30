@@ -206,7 +206,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_compose_stability_config": attrs.option(attrs.source(), default = select({
             "DEFAULT": None,
-            "fbsource//third-party/java/androidx/compose/config:enable-compose-stability-config": "fbsource//third-party/java/androidx/compose/config:stability_config",
+            "fbsource//tools/build_defs/android/compose:enable-compose-stability-config": "fbsource//tools/build_defs/android/compose:stability_config",
         })),
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
