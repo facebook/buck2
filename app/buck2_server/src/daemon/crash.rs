@@ -19,12 +19,12 @@ pub(crate) fn crash(req: UnstableCrashRequest) -> anyhow::Result<GenericResponse
             #[allow(unreachable_code)]
             Ok(GenericResponse {})
         }
-        CrashType::Segfault => {
-            unsafe {
-                std::ptr::null_mut::<&'static str>()
-                    .write("Explicitly requested segfault (via `segfault`)")
-            };
-            unreachable!()
+        CrashType::Abort => {
+            // Crash with SIGABRT.
+            // Should trigger folly signal handler to dump stack trace.
+            // SIGSEGV,SIGTERM,SIGBUS,SIGILL,etc. should behave similarly.
+            // https://fburl.com/code/ap385ats
+            std::process::abort();
         }
     }
 }

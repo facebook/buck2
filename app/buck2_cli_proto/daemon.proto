@@ -602,7 +602,7 @@ message NewGenericResponseMessage {
 message UnstableCrashRequest {
   enum CrashType {
     PANIC = 0;
-    SEGFAULT = 1;
+    ABORT = 2;
   }
   CrashType crash_type = 1;
 }

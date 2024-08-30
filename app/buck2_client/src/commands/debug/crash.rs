@@ -21,14 +21,14 @@ use buck2_client_ctx::streaming::StreamingCommand;
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum CrashType {
     Panic,
-    Segfault,
+    Abort,
 }
 
 impl CrashType {
     fn to_proto(&self) -> i32 {
         let crash_type = match self {
             CrashType::Panic => buck2_cli_proto::unstable_crash_request::CrashType::Panic,
-            CrashType::Segfault => buck2_cli_proto::unstable_crash_request::CrashType::Segfault,
+            CrashType::Abort => buck2_cli_proto::unstable_crash_request::CrashType::Abort,
         };
         crash_type as i32
     }
