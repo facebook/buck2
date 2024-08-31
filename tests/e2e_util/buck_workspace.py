@@ -113,6 +113,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
     if test_repo_data is not None:
         os.environ["TEST_REPO_DATA_SRC"] = str(Path(test_repo_data).absolute())
 
+    # Create a temporary file to store all lines of extra buck config values.
+    extra_config_lines = []
+
     try:
         if marker.inplace:
             # We need a unique isolated prefix per test case.
@@ -128,20 +131,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
             buck_cwd = Path.cwd()
 
-            extra_config = os.path.join(temp_dir, "extra.bcfg")
-            with open(extra_config, "w") as f:
-                # NOTE: In theory, this isn't true of all Linux hosts, but all
-                # our tests actually rely on it and will break if you ran them
-                # on a host without this, so just make it the default.
-                if sys.platform == "linux":
-                    f.write("[host_features]\ngvfs = true\n")
-                for section, config in marker.extra_buck_config.items():
-                    f.write(f"[{section}]\n")
-                    for key, value in config.items():
-                        f.write(f"{key} = {value}\n")
-                f.write("[buildfile]\nextra_for_test = TARGETS.test\n")
-
-            env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
+            # NOTE: In theory, this isn't true of all Linux hosts, but all
+            # our tests actually rely on it and will break if you ran them
+            # on a host without this, so just make it the default.
+            if sys.platform == "linux":
+                extra_config_lines.append("[host_features]\ngvfs = true\n")
+            extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
 
         else:
             repo_dir = temp_dir / "repo"
@@ -160,6 +155,17 @@ async def buck_fixture(  # noqa C901 : "too complex"
                     )
 
             buck_cwd = repo_dir
+
+        for section, config in marker.extra_buck_config.items():
+            extra_config_lines.append(f"[{section}]\n")
+            for key, value in config.items():
+                extra_config_lines.append(f"{key} = {value}\n")
+
+        extra_config = os.path.join(temp_dir, "extra.bcfg")
+        with open(extra_config, "w") as f:
+            for line in extra_config_lines:
+                f.write(line)
+        env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
 
         buck = Buck(
             test_executable_type,
@@ -334,10 +340,6 @@ def buck_test(
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
     if platform.system().lower() in skip_for_os:
         return lambda *args: None
-
-    if extra_buck_config is not None:
-        if not inplace:
-            raise Exception("extra_buck_config is only useful for inplace tests")
 
     if data_dir is not None and inplace:
         raise Exception(
