@@ -387,9 +387,7 @@ def _cxx_toolchain_macro_stub(**kwargs):
         cache_links = kwargs.get("cache_links")
         kwargs["cache_links"] = select({
             "DEFAULT": cache_links,
-            "ovr_config//build_mode:fbcode-build-info-mode-disable": True,
-            "ovr_config//build_mode:fbcode-build-info-mode-full": False,
-            "ovr_config//build_mode:fbcode-build-info-mode-stable": True,
+            "ovr_config//platform/execution/constraints:execution-platform-transitioned": True,
         })
     cxx_toolchain_macro_impl(
         cxx_toolchain_rule = cxx_toolchain_inheriting_target_platform,
