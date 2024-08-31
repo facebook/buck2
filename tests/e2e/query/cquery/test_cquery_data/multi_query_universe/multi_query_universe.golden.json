@@ -1,0 +1,13 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "root//:macos-bin": [
+    "root//:only-on-macos (root//:p-macos#<HASH>)",
+    "root//:common-dep (root//:p-macos#<HASH>)",
+    "root//:macos-bin (root//:p-macos#<HASH>)"
+  ],
+  "//:common-dep": [
+    "root//:only-on-linux (root//:p-linux#<HASH>)",
+    "root//:common-dep (root//:p-linux#<HASH>)"
+  ]
+}

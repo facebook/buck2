@@ -1,0 +1,3 @@
+test_rule(
+    name = "test_rule",
+)

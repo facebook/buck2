@@ -1,0 +1,5 @@
+
+target(
+    name = "outer",
+    visibility = ["PUBLIC"],
+)

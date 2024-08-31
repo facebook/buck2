@@ -1,0 +1,11 @@
+load(":defs.bzl", "unicorn_library")
+
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+unicorn_library(
+    name = "rainbow",
+    default_target_platform = ":p",
+)

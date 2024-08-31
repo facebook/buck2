@@ -1,0 +1,24 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_cell_aliases",
+    srcs = ["test_cell_aliases.py"],
+    data_dir = "test_cell_aliases_data",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_file_watcher_resolution",
+    srcs = ["test_file_watcher_resolution.py"],
+    data_dir = "test_file_watcher_resolution_data",
+)
+
+buck2_e2e_test(
+    name = "test_buckconfig_paths",
+    srcs = ["test_buckconfig_paths.py"],
+    data_dir = "test_buckconfig_paths_data",
+)

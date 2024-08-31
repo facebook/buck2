@@ -1,0 +1,18 @@
+load(":defs.bzl", "nested_subtargets", "one", "two")
+
+nested_subtargets(
+    name = "nested",
+)
+
+one(
+    name = "rule0",
+)
+
+one(
+    name = "rule1",
+    deps = [":rule0"],
+)
+
+two(
+    name = "a_writer",
+)

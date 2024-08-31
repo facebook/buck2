@@ -1,0 +1,6 @@
+gen_files(
+    name = "gen",
+    script = "gen.py",
+    files = ["file1", "file2", "file3"],
+    action_index = int(read_config("gen", "idx", 0)),
+)

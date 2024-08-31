@@ -1,0 +1,3 @@
+load("bad.bzl", "x")
+
+ttt(name = x)

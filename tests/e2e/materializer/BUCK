@@ -1,0 +1,48 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_materializer",
+    srcs = ["test_materializer.py"],
+    data_dir = "test_materializer_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_clean_stale",
+    srcs = ["test_clean_stale.py"],
+    data_dir = "test_clean_stale_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_clean_stale_bxl",
+    srcs = ["test_clean_stale_bxl.py"],
+    data_dir = "test_clean_stale_bxl_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_symlink_to_parent_bug",
+    srcs = ["test_symlink_to_parent_bug.py"],
+    data_dir = "test_symlink_to_parent_bug_data",
+)
+
+buck2_e2e_test(
+    name = "test_symlink_local_remote_bug",
+    srcs = ["test_symlink_local_remote_bug.py"],
+    data_dir = "test_symlink_local_remote_bug_data",
+)

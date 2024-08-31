@@ -1,0 +1,6 @@
+prelude = native
+
+prelude.export_file(
+    name = "test",
+    src = "src.txt",
+)

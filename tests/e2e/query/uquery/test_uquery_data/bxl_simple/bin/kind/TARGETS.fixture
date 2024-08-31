@@ -1,0 +1,24 @@
+load(":rules.bzl", "rule1", "rule2", "rule3", "rule4", "rule_tset")
+
+rule1(name = "foo", foo = "hello")
+rule2(name = "bar", foo = "world")
+rule3(name = "bzzt", foo = "henlo")
+rule4(name = "target_with_outputs", foo = "blah")
+
+rule_tset(name = "tset1")
+rule_tset(name = "tset2")
+rule_tset(
+    name = "tset3",
+    deps = [
+        ":tset1",
+        ":tset2",
+    ],
+)
+
+rule_tset(
+    name = "target_with_tset",
+    deps = [
+        ":tset3",
+        ":tset1",
+    ],
+)

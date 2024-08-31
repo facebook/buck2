@@ -1,0 +1,8 @@
+load("@prelude//:prelude.bzl", "check_config")
+
+# This does not use check_config from the prelude, and instead loads it
+# explicitly. If we let the config of this build file be used when loading
+# imports from the prelude, we'll load it with the "wrong" config,
+# which is our test case.
+
+check_config(name = "cell2")

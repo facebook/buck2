@@ -1,0 +1,35 @@
+myr(
+    name = "inherit-visibility",
+)
+
+myr(
+    name = "override-to-default",
+    visibility = [],
+    within_view = [],
+)
+
+myr(
+    name = "override-to-none",
+    visibility = None,
+    within_view = None,
+)
+
+myr(
+    name = "override-non-default",
+    visibility = [
+        "//:",
+    ],
+    within_view = [
+        "//:",
+    ],
+)
+
+myr(
+    name = "override-to-public",
+    visibility = [
+        "PUBLIC",
+    ],
+    within_view = [
+        "PUBLIC",
+    ],
+)

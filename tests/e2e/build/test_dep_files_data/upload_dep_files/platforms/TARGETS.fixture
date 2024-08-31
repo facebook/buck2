@@ -1,0 +1,26 @@
+load("@root//platforms:rules.bzl", "config_setting", "platform", "platforms", "target_platform")
+
+config_setting(name = "setting")
+
+target_platform(name = "target")
+
+platform(
+    name = "cache_uploads",
+    setting = ":setting",
+    allow_cache_uploads = True,
+)
+
+platform(
+    name = "cache_uploads_with_remote_dep_file_query",
+    setting = ":setting",
+    allow_cache_uploads = True,
+    remote_dep_file_cache_enabled = True,
+)
+
+platforms(
+    name = "platforms",
+    platforms = [
+        ":cache_uploads",
+        ":cache_uploads_with_remote_dep_file_query",
+    ],
+)

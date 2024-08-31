@@ -1,0 +1,29 @@
+constraint_setting(name = "os")
+constraint_value(name = "linux", constraint_setting = ":os")
+constraint_value(name = "macos", constraint_setting = ":os")
+
+platform(name = "p-linux", constraint_values = [":linux"])
+platform(name = "p-macos", constraint_values = [":macos"])
+
+stub(
+    name = "only-on-linux",
+)
+
+stub(
+    name = "only-on-macos",
+)
+
+stub(
+    name = "common-dep",
+    deps = select({
+        ":linux": [":only-on-linux"],
+        ":macos": [":only-on-macos"],
+    }),
+    default_target_platform = ":p-linux",
+)
+
+stub(
+    name = "macos-bin",
+    deps = [":common-dep"],
+    default_target_platform = ":p-macos",
+)

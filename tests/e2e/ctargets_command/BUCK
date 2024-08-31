@@ -1,0 +1,29 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_ctargets_basic",
+    srcs = ["test_ctargets_basic.py"],
+    data_dir = "test_ctargets_basic_data",
+)
+
+buck2_e2e_test(
+    name = "test_ctargets_transition",
+    srcs = ["test_ctargets_transition.py"],
+    data_dir = "test_ctargets_transition_data",
+)
+
+buck2_e2e_test(
+    name = "test_ctargets_incompatible",
+    srcs = ["test_ctargets_incompatible.py"],
+    data_dir = "test_ctargets_incompatible_data",
+)
+
+buck2_e2e_test(
+    name = "test_ctargets_skip_missing_targets",
+    srcs = ["test_ctargets_skip_missing_targets.py"],
+    data_dir = "test_ctargets_skip_missing_targets_data",
+)
+
+# Test for `--stack` lives in `test_target_call_stacks.py`.

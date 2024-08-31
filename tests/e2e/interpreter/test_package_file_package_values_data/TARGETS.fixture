@@ -1,0 +1,12 @@
+load(":defs.bzl", "test_target")
+load(":util.bzl", "read")
+
+# buildifier: disable=no-effect
+read_package_value("aaa.bbb") == "ccc" or fail()
+
+# buildifier: disable=no-effect
+read() == "zzz" or fail()
+
+print("TEST PASSED")  # buildifier: disable=print
+
+test_target(name = "test_target")

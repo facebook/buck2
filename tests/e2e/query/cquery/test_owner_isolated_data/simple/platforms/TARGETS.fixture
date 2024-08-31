@@ -1,0 +1,9 @@
+platform(
+    name = "platform1",
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "platform2",
+    visibility = ["PUBLIC"],
+)

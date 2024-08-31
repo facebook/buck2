@@ -1,0 +1,5 @@
+load("//fail_analysis:fail_analysis.bzl", "fail_analysis")
+
+fail_analysis(
+    name = "available",
+)

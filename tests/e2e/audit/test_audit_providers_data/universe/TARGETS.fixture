@@ -1,0 +1,12 @@
+platform(name = "p-aaa")
+platform(name = "p-bbb")
+
+stub(
+    name = "aaa",
+    default_target_platform = ":p-aaa",
+)
+stub(
+    name = "bbb",
+    deps = [":aaa"],
+    default_target_platform = ":p-bbb",
+)

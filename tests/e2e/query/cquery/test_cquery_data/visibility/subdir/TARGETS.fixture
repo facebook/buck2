@@ -1,0 +1,49 @@
+stub(
+    name = "public",
+    visibility = ["PUBLIC"],
+)
+
+stub(
+    name = "default",
+)
+
+stub(
+    name = "target",
+    visibility = ["//:pass2"],
+)
+
+stub(
+    name = "package",
+    visibility = ["//:"],
+)
+
+stub(
+    name = "recursive",
+    visibility = ["//..."],
+)
+
+stub(
+    name = "badtarget",
+    visibility = ["//:nothing"],
+)
+
+stub(
+    name = "badpackage",
+    # TODO(cjhopman): This should check a package that's a prefix of the dependent, but buck2 doesn't handle that correctly currently.
+    visibility = ["//buck2:"],
+)
+
+stub(
+    name = "badrecursive",
+    visibility = ["//buck2/..."],
+)
+
+stub(
+    name = "badvisibility",
+    visibility = ["//:pass2"],
+)
+
+stub(
+    name = "badtransitivevisibility",
+    visibility = ["//subdir:badvisibility"],
+)

@@ -1,0 +1,15 @@
+load(":rules.bzl", "test_platform", "test_rule")
+
+test_platform(
+    name = "platform",
+)
+
+test_rule(
+    name = "test",
+    default_target_platform = ":platform",
+    metadata = {"buck.cfg_modifiers": {}},
+)
+
+test_rule(
+    name = "not_a_constraint",
+)

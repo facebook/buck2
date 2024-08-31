@@ -1,0 +1,8 @@
+[repositories]
+    test_read_root_config = .
+    prelude = .
+    other = other
+[buildfile]
+    name = TARGETS.fixture
+[unlike]
+    harsh = regular

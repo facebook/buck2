@@ -1,0 +1,17 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_uquery",
+    srcs = ["test_uquery.py"],
+    data_dir = "test_uquery_data",
+    deps = [
+        "//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_target_call_stacks",
+    srcs = ["test_target_call_stacks.py"],
+)

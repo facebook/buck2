@@ -1,0 +1,5 @@
+load(":defs.bzl", "cp", "exec_platforms")
+
+cp(name = "cp", src = "src")
+
+exec_platforms(name = "exec_platforms")

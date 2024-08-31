@@ -1,0 +1,4 @@
+load(":defs.bzl", "mixed", "slow")
+
+slow(name = "slow")
+mixed(name = "mixed")

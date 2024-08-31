@@ -1,0 +1,14 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_run_inplace",
+    srcs = ["test_run_inplace.py"],
+)
+
+buck2_e2e_test(
+    name = "test_run_isolated",
+    srcs = ["test_run_isolated.py"],
+    data_dir = "test_run_isolated_data",
+)

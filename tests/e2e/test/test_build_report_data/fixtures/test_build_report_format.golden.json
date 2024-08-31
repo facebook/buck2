@@ -1,0 +1,42 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {},
+  "results": {
+    "root//:fail_test": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    },
+    "root//:ok": {
+      "configured": {
+        "<unspecified>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {},
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "SUCCESS"
+    }
+  },
+  "strings": {},
+  "success": true,
+  "truncated": false
+}

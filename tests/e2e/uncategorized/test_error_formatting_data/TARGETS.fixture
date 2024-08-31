@@ -1,0 +1,10 @@
+load(":defs.bzl", "action_fail", "with_dep")
+
+action_fail(
+    name = "action_fail",
+)
+
+with_dep(
+    name = "missing_dep",
+    dep = ":xxx",
+)

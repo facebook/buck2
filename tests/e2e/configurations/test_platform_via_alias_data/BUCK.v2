@@ -1,0 +1,18 @@
+prelude = native
+
+prelude.platform(
+    name = "ppp",
+    constraint_values = [],
+)
+
+prelude.alias(
+    name = "ppp-alias",
+    actual = ":ppp",
+)
+
+prelude.genrule(
+    name = "gr",
+    out = "gr.txt",
+    cmd = "echo rrr >$OUT",
+    default_target_platform = ":ppp-alias",
+)

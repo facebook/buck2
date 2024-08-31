@@ -1,0 +1,35 @@
+load(":rules.bzl", "constraint_setting", "constraint_value", "foo_rule", "foo_runnable", "foo_toolchain", "rule_with_output")
+
+rule_with_output(
+    name = "my_output",
+    content = "my_content",
+)
+
+foo_rule(
+    name = "rule1",
+    env = {
+        "OUTPUT": "$(location :my_output)",
+    },
+)
+
+foo_runnable(
+    name = "runnable",
+)
+
+foo_toolchain(
+    name = "toolchain",
+)
+
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "disable",
+    setting = ":constraint",
+)
+
+foo_rule(
+    name = "incompatible",
+    target_compatible_with = ["//:disable"],
+)

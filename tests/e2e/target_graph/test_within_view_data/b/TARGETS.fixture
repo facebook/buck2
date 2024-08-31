@@ -1,0 +1,10 @@
+test_within_view_rule(
+    name = "b",
+    deps = [
+        # This is not within view, so it should fail.
+        "//a:a",
+    ],
+    within_view = [
+        "//c/...",
+    ],
+)

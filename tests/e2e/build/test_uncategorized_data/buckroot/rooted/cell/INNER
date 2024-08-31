@@ -1,0 +1,5 @@
+
+target(
+    name = "inner",
+    deps = ["root//:outer"],
+)

@@ -1,0 +1,17 @@
+myr(
+    name = "a0",
+    deps = [":a1", ":a2"],
+)
+
+myr(
+    name = "a1",
+    deps = [":a2"],
+)
+
+myr(
+    name = "a2",
+)
+
+myr(
+    name = "a3",
+)

@@ -1,0 +1,54 @@
+load(":rules.bzl", "config_setting", "configuration", "lib_rule", "platform", "test_rule")
+
+config_setting(
+    name = "_",
+)
+
+configuration(
+    name = "none",
+    config_setting = ":_",
+)
+
+config_setting(
+    name = "setting",
+)
+
+configuration(
+    name = "config_lib",
+    config_setting = ":setting",
+)
+
+configuration(
+    name = "config_test",
+    config_setting = ":setting",
+)
+
+platform(
+    name = "platform_lib",
+    configuration = ":config_lib",
+)
+
+platform(
+    name = "platform_test",
+    configuration = ":config_test",
+)
+
+lib_rule(
+    name = "my_rule",
+    tests = select({
+        ":config_lib": [":my_test"],
+        "DEFAULT": [":incompatible_test"],
+    }),
+    default_target_platform = ":platform_lib",
+)
+
+test_rule(
+    name = "my_test",
+    compatible_with = [":config_test"],
+    default_target_platform = ":platform_test",
+)
+
+test_rule(
+    name = "incompatible_test",
+    compatible_with = [":none"],
+)

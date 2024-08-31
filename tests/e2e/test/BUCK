@@ -1,0 +1,99 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_test_inplace",
+    srcs = ["test_test_inplace.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_test_coverage",
+    srcs = glob([
+        "test_test_coverage/**/*.py",
+    ]),
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_test_artifacts",
+    srcs = ["test_test_artifacts.py"],
+    env = {
+        "TESTX_BIN": "$(exe_target fbsource//xplat/tools:testx)",
+    },
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+        "//remote_execution/client_lib/wrappers/python:py_re_client_lib",
+        "//remote_execution/lib/if:common-py3-types",
+        "//remote_execution/lib/if/client_lib:re-client-lib-if-py3-types",
+        "//tae/testx:py",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_platform_resolution",
+    srcs = ["test_platform_resolution.py"],
+    data_dir = "test_platform_resolution_data",
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_selection",
+    srcs = ["test_selection.py"],
+    data_dir = "test_selection_data",
+    serialize_test_cases = False,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_startup",
+    srcs = ["test_startup.py"],
+    data_dir = "test_startup_data",
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_skip_incompatible_targets",
+    srcs = ["test_skip_incompatible_targets.py"],
+    data_dir = "test_skip_incompatible_targets_data",
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_build_report",
+    srcs = ["test_build_report.py"],
+    data_dir = "test_build_report_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    serialize_test_cases = False,
+    use_compiled_buck2_client_and_tpx = True,
+    deps = [
+        "fbcode//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_testname_formatting",
+    srcs = ["test_testname_formatting.py"],
+    test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+    deps = [
+        "//remote_execution/client_lib/wrappers/python:py_re_client_lib",
+    ],
+)

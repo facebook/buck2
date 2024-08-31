@@ -1,0 +1,17 @@
+load("//:rules.bzl", "simple")
+
+simple(
+    name = "declared_dep",
+    deps = [],
+)
+
+simple(
+    name = "target1",
+    deps = [":declared_dep"],
+)
+
+simple(
+    name = "target2",
+    deps = [":target1"],
+    visibility = ["PUBLIC"],
+)

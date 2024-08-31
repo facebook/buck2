@@ -1,0 +1,64 @@
+load(":rules.bzl", "alias", "rust_binary", "rust_library", "rust_proc_macro")
+
+rust_proc_macro(
+    name = "reg_a",
+    data = select({
+        "//config:linux": "Reg A (linux)",
+        "//config:windows": "Reg A (windows)",
+    }),
+)
+
+alias(
+    name = "reg_a_alias_one",
+    actual = ":reg_a",
+)
+
+alias(
+    name = "reg_a_alias_two",
+    actual = ":reg_a_alias_one",
+)
+
+rust_proc_macro(
+    name = "reg_b",
+    data = select({
+        "//config:linux": "Reg B (linux)",
+        "//config:windows": "Reg B (windows)",
+    }),
+)
+
+rust_proc_macro(
+    name = "doc_a",
+    data = select({
+        "//config:linux": "Doc A (linux)",
+        "//config:windows": "Doc A (windows)",
+    }),
+)
+
+rust_proc_macro(
+    name = "doc_b",
+    target_compatible_with = ["//config:windows"],
+    data = select({
+        "//config:linux": "Doc B (linux)",
+        "//config:windows": "Doc B (windows)",
+    }),
+)
+
+rust_library(
+    name = "l",
+    deps = [":reg_a_alias_two"],
+    doc_deps = [":doc_b"],
+    default_target_platform = "//config:platform_linux",
+)
+
+rust_library(
+    name = "doc_only_lib",
+    deps = [":doc_a"],
+    doc_deps = [],
+)
+
+rust_binary(
+    name = "b",
+    deps = [":l", ":reg_b"],
+    doc_deps = [":doc_only_lib"],
+    default_target_platform = "//config:platform_linux",
+)

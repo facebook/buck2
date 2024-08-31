@@ -1,0 +1,5 @@
+load(":rules.bzl", "zzz")
+
+zzz(name = "zzz")
+
+platform(name = "p")

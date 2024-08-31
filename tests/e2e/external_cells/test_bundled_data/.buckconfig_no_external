@@ -1,0 +1,8 @@
+[cells]
+  root = .
+  test_bundled_cell = test_bundled_cell
+  prelude = prelude
+  other = other
+
+[buildfile]
+  name = TARGETS.fixture

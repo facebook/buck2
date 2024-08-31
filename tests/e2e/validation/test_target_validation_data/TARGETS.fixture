@@ -1,0 +1,35 @@
+china(
+    name = "plate",
+    dep = ":mate",
+    fail = False,
+)
+
+china(
+    name = "mate",
+    fail = True,
+)
+
+china(
+    name = "date",
+    dep = ":wait",
+    fail = False,
+)
+
+china(
+    name = "wait",
+    fail = False,
+)
+
+china(
+    name = "optional_failing",
+    dep = ":wait",
+    fail = True,
+    optional = True,
+)
+
+china(
+    name = "optional_passing",
+    dep = ":wait",
+    fail = False,
+    optional = True,
+)

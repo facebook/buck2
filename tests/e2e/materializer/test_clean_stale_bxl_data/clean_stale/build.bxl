@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl(ctx):
+    ctx.output.print("123")
+    action_factory = ctx.bxl_actions().actions
+    out = action_factory.declare_output("foo_out")
+    action_factory.write(out, "foo")
+
+    ctx.output.print(ctx.output.ensure(out).abs_path())
+
+    build = ctx.build("//clean_stale:write_json")
+
+    for values in build.values():
+        for v in values.artifacts():
+            ctx.output.print(ctx.output.ensure(v).abs_path())
+
+build_test = bxl_main(
+    impl = _impl,
+    cli_args = {},
+)

@@ -1,0 +1,5 @@
+[repositories]
+    root = .
+    other = other
+[repository_aliases]
+    prelude = root
