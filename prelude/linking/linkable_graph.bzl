@@ -8,7 +8,9 @@
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:platform.bzl", "cxx_by_platform")
-load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
+
+# TODO(mattpayne): Add this back once the type is supported by dependency mgmt
+# load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//utils:expect.bzl", "expect")
@@ -109,7 +111,10 @@ LinkableNode = record(
     ignore_force_static_follows_dependents = field(bool),
 
     # Shared interface provider for this node.
-    shared_interface_info = field(SharedInterfaceInfo | None),
+    # TODO(mattpayne): This type is incompatible with Autodeps.
+    # Once the pyautotargets service is rolled out, we can change it back.
+    # It should be SharedInterfaceInfo | None
+    shared_interface_info = field(typing.Any),
 
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
@@ -177,7 +182,10 @@ def create_linkable_node(
         include_in_android_mergemap: bool = True,
         linker_flags: [LinkerFlags, None] = None,
         ignore_force_static_follows_dependents: bool = False,
-        shared_interface_info: SharedInterfaceInfo | None = None) -> LinkableNode:
+        # TODO(mattpayne): This type is incompatible with Autodeps.
+        # Once the pyautotargets service is rolled out, we can change it back.
+        # It should be SharedInterfaceInfo | None
+        shared_interface_info: typing.Any = None) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
             output_style in link_infos,
