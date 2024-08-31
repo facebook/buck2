@@ -1,0 +1,11 @@
+load("@root//:rules.bzl", "simple")
+
+simple(
+    name = "inner",
+    deps = ["root//good_targets:target2", ":inner_declared_dep"],
+)
+
+simple(
+    name = "inner_declared_dep",
+    deps = [],
+)

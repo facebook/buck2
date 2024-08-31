@@ -1,0 +1,43 @@
+load(":defs.bzl", "cas_artifact")
+
+# If you need to re-upload the CAS blobs, use the following commands:
+#
+# ```
+# $ cd artifacts
+# $ frecli --use-case apple_build_infra_tools cas upload-blob empty --skip-find-missing
+# $ frecli --use-case apple_build_infra_tools cas upload-tree tree --skip-find-missing
+# $ frecli --use-case apple_build_infra_tools cas upload-directory dir --skip-find-missing
+# ```
+#
+# To verify the TTLs, you can use:
+#
+# ```
+# $ frecli --use-case apple_build_infra_tools cas get-ttl $BLOB_OR_DIR_DIGEST
+# $ frecli --use-case apple_build_infra_tools cas get-tree-ttl $TREE_DIGEST
+# ```
+
+cas_artifact(
+    name = "empty",
+    # The empty file is guaranteed to exist in RE.
+    digest = "da39a3ee5e6b4b0d3255bfef95601890afd80709:0",
+    use_case = "buck2-testing",
+    expires_after_timestamp = 0,
+)
+
+cas_artifact(
+    name = "tree",
+    # A small tree uploaded in RE with a very large expiration
+    digest = "0424991a08d1a857d9a4ea858b2f0c9d17f41abbc927d18a8147f0d9e708a77b:77",
+    use_case = "apple_build_infra_tools",
+    expires_after_timestamp = 0,
+    is_tree = True,
+)
+
+cas_artifact(
+    name = "dir",
+    # A small directory uploaded in RE with a very large expiration
+    digest = "a00a566911ba695e1dab11c31fc81110fe98cb7250bf17242f6a048165ce72a8:75",
+    use_case = "apple_build_infra_tools",
+    expires_after_timestamp = 0,
+    is_directory = True,
+)

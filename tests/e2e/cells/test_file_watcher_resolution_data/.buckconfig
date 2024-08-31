@@ -1,0 +1,5 @@
+[cells]
+  foo = foo
+  bar = bar
+  root = .
+  prelude = .

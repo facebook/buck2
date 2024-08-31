@@ -1,0 +1,110 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_internal_runner",
+    srcs = ["test_internal_runner.py"],
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_clean",
+    srcs = ["test_clean.py"],
+)
+
+buck2_e2e_test(
+    name = "test_completion",
+    srcs = ["test_completion.py"],
+    data_dir = "test_completion_data",
+)
+
+buck2_e2e_test(
+    name = "test_starlark",
+    srcs = ["test_starlark.py"],
+    data_dir = "test_starlark_data",
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_rust_project",
+    srcs = ["test_rust_project.py"],
+    env = {
+        "RUST_PROJECT_BIN": "$(location fbcode//buck2/integrations/rust-project:rust-project)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_install",
+    srcs = ["test_install.py"],
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_scrub_archive",
+    srcs = ["test_scrub_archive.py"],
+)
+
+buck2_e2e_test(
+    name = "test_intellij_project",
+    srcs = ["intellij_project/test_intellij_project.py"],
+)
+
+buck2_e2e_test(
+    name = "test_linker_argsfile",
+    srcs = ["test_linker_argsfile.py"],
+)
+
+buck2_e2e_test(
+    name = "test_common_opts",
+    srcs = ["test_common_opts.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_errors",
+    srcs = ["test_errors.py"],
+    data_dir = "test_errors_data",
+    env = {
+        "BUCK2_HARD_ERROR": "1",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_lsp",
+    srcs = ["test_lsp.py"],
+    data_dir = "test_lsp_data",
+)
+
+buck2_e2e_test(
+    name = "test_daemon",
+    srcs = ["test_daemon.py"],
+    data_dir = "test_daemon_data",
+)
+
+buck2_e2e_test(
+    name = "test_cpp_gen_cdb",
+    srcs = ["test_cpp_gen_cdb.py"],
+)
+
+buck2_e2e_test(
+    name = "test_tools",
+    srcs = ["test_tools.py"],
+    test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_exit_code",
+    srcs = ["test_exit_code.py"],
+    use_compiled_buck2_client_and_tpx = True,
+)

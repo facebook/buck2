@@ -1,0 +1,11 @@
+[repositories]
+    root = .
+[repository_aliases]
+    prelude = root
+[buildfile]
+    name = TARGETS.fixture
+[buck2]
+  materializations = deferred
+  digest_algorithms = BLAKE3-KEYED,SHA1
+[build]
+  execution_platforms = root//:exec_platforms

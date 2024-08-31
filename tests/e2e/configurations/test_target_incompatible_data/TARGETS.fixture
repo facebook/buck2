@@ -1,0 +1,23 @@
+platform(
+    name = "platform",
+)
+
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "disable",
+    constraint_setting = ":constraint",
+)
+
+platform(
+    name = "disabled",
+    constraint_values = [":disable"],
+)
+
+trivial_build(
+    name = "incompatible",
+    default_target_platform = ":platform",
+    target_compatible_with = ["//:disable"],
+)

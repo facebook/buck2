@@ -1,0 +1,13 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+  materializations = deferred
+  hash_all_commands = true

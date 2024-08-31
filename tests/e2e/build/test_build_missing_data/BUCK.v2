@@ -1,0 +1,12 @@
+prelude = native
+
+prelude.platform(
+    name = "p",
+    constraint_values = [],
+)
+
+prelude.genrule(
+    name = "existing",
+    out = "existing.txt",
+    cmd = "echo existing > $OUT",
+)

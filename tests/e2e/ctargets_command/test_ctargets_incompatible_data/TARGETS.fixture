@@ -1,0 +1,28 @@
+constraint_setting(
+    name = "number-of-corners",
+)
+
+constraint_value(
+    name = "three",
+    constraint_setting = ":number-of-corners",
+)
+
+constraint_value(
+    name = "four",
+    constraint_setting = ":number-of-corners",
+)
+
+platform(
+    name = "rectangular",
+    constraint_values = [":four"],
+)
+
+trivial_build(
+    name = "triangle",
+    compatible_with = [":three"],
+)
+
+trivial_build(
+    name = "square",
+    compatible_with = [":four"],
+)

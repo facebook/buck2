@@ -1,0 +1,15 @@
+no_subtargets(
+    name = "no_subtargets",
+)
+
+subtargets(
+    name = "foo",
+)
+
+nested_subtargets(
+    name = "nested",
+)
+
+deeply_nested_subtargets(
+    name = "deeply_nested",
+)

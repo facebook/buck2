@@ -1,0 +1,60 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_audit",
+    srcs = ["test_audit.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+)
+
+buck2_e2e_test(
+    name = "test_audit_includes",
+    srcs = ["test_audit_includes.py"],
+    data_dir = "test_audit_includes_data",
+)
+
+buck2_e2e_test(
+    name = "test_audit_configurations",
+    srcs = ["test_audit_configurations.py"],
+)
+
+buck2_e2e_test(
+    name = "test_audit_execution_platform_resolution",
+    srcs = ["test_audit_execution_platform_resolution.py"],
+    data_dir = "test_audit_execution_platform_resolution_data",
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
+
+buck2_e2e_test(
+    name = "test_audit_providers",
+    srcs = ["test_audit_providers.py"],
+    data_dir = "test_audit_providers_data",
+)
+
+buck2_e2e_test(
+    name = "test_audit_subtargets",
+    srcs = ["test_audit_subtargets.py"],
+    data_dir = "test_audit_subtargets_data",
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
+
+buck2_e2e_test(
+    name = "test_audit_config",
+    srcs = ["test_audit_config.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:assert_occurrences",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_audit_common_opts",
+    srcs = ["test_audit_common_opts.py"],
+    data_dir = "test_audit_common_opts_data",
+)
+
+buck2_e2e_test(
+    name = "test_audit_output",
+    srcs = ["test_audit_output.py"],
+)

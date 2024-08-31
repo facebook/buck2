@@ -1,0 +1,7 @@
+load(":defs.bzl", "bad_anon_rule", "plugin")
+
+plugin(
+    name = "plugin",
+)
+
+bad_anon_rule(name = "bad_anon_rule", attrs = {"bad_attr": ":plugin"})

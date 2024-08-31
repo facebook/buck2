@@ -1,0 +1,163 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _dynamic(ctx):
+    action_factory = ctx.bxl_actions().actions
+
+    foo = action_factory.write("foo", "content")
+    dynamic = action_factory.declare_output("dynamic")
+
+    def my_deferred(ctx, artifacts, outputs):
+        content = artifacts[foo].read_string()
+        ctx.bxl_actions().actions.write(outputs[dynamic], content)
+
+    action_factory.dynamic_output(dynamic = [foo], inputs = [], outputs = [dynamic.as_output()], f = my_deferred)
+
+    ctx.output.print(ctx.output.ensure(dynamic).abs_path())
+
+dynamic_test = bxl_main(
+    impl = _dynamic,
+    cli_args = {
+    },
+)
+
+def _dynamic_test_with_bxl_ctx(ctx):
+    action_factory = ctx.bxl_actions().actions
+
+    query_params = action_factory.write_json("query_params", {"rule_type": "foo_rule", "universe": "root//..."})
+
+    configured_targets_output = action_factory.declare_output("configured_targets")
+    configured_targets_different_platform_output = action_factory.declare_output("configured_targets_different_platform")
+    providers_output = action_factory.declare_output("providers")
+    resolved_attrs_lazy_output = action_factory.declare_output("resolved_attrs_lazy")
+    resolved_attrs_eager_output = action_factory.declare_output("resolved_attrs_eager")
+
+    def my_deferred(ctx, artifacts, outputs):
+        params = artifacts[query_params].read_json()
+
+        # BXL-specific operations:
+
+        # Run cquery with platform1. Then, run analysis and get the providers and resolved attrs
+        target1 = ctx.cquery(target_platform = "root//platforms:platform1").kind(params["rule_type"], params["universe"])[0]
+        node1 = ctx.configured_targets(target1.label)
+        providers_collection = ctx.analysis(node1).providers()
+        lazy_attrs = node1.resolved_attrs_lazy(ctx)
+        eager_attrs = node1.resolved_attrs_eager(ctx)
+
+        # Run cquery with platform2
+        target2 = ctx.cquery(target_platform = "root//platforms:platform2").kind(params["rule_type"], params["universe"])[0]
+        node2 = ctx.configured_targets(target2.label)
+
+        actions = ctx.bxl_actions().actions
+        actions.write(outputs[configured_targets_output], str(node1))
+        actions.write(outputs[configured_targets_different_platform_output], str(node2))
+        actions.write(outputs[providers_output], str(providers_collection))
+        actions.write(outputs[resolved_attrs_eager_output], str(lazy_attrs.get("env")))
+        actions.write(outputs[resolved_attrs_lazy_output], str(eager_attrs.env))
+
+    action_factory.dynamic_output(
+        dynamic = [query_params],
+        inputs = [],
+        outputs = [
+            configured_targets_output.as_output(),
+            configured_targets_different_platform_output.as_output(),
+            providers_output.as_output(),
+            resolved_attrs_eager_output.as_output(),
+            resolved_attrs_lazy_output.as_output(),
+        ],
+        f = my_deferred,
+    )
+
+    output = {}
+    output.update({"node1": ctx.output.ensure(configured_targets_output).abs_path()})
+    output.update({"node2": ctx.output.ensure(configured_targets_different_platform_output).abs_path()})
+    output.update({"node1_providers": ctx.output.ensure(providers_output).abs_path()})
+    output.update({"node1_resolved_env_attr_eager": ctx.output.ensure(resolved_attrs_eager_output).abs_path()})
+    output.update({"node1_resolved_env_attr_lazy": ctx.output.ensure(resolved_attrs_lazy_output).abs_path()})
+
+    ctx.output.print_json(output)
+
+dynamic_test_with_bxl_ctx = bxl_main(
+    impl = _dynamic_test_with_bxl_ctx,
+    cli_args = {
+    },
+)
+
+def _dynamic_test_execution_resolution(ctx):
+    root_bxl_actions = ctx.bxl_actions(exec_deps = ["//:runnable"], toolchains = ["//:toolchain"])
+    action_factory = root_bxl_actions.actions
+
+    dynamic = action_factory.declare_output("dynamic")
+
+    # unused - just used as a placeholder for `dynamic` in the dynamic_output call
+    foo = action_factory.write("foo", "content")
+
+    def my_deferred(ctx, _artifacts, outputs):
+        bxl_actions = ctx.bxl_actions()
+        actions = bxl_actions.actions
+
+        dynamic_output = {}
+        dynamic_output.update({"exec_dep_label": str(bxl_actions.exec_deps.keys()[0])})
+        dynamic_output.update({"exec_dep": str(bxl_actions.exec_deps.values()[0])})
+        dynamic_output.update({"toolchains_label": str(bxl_actions.toolchains.keys()[0])})
+        dynamic_output.update({"toolchain_dep": str(bxl_actions.toolchains.values()[0])})
+
+        actions.write_json(outputs[dynamic], dynamic_output)
+
+    action_factory.dynamic_output(
+        dynamic = [foo],
+        inputs = [],
+        outputs = [dynamic.as_output()],
+        f = my_deferred,
+    )
+
+    root_output = {}
+    root_output.update({"exec_dep_label": str(root_bxl_actions.exec_deps.keys()[0])})
+    root_output.update({"exec_dep": str(root_bxl_actions.exec_deps.values()[0])})
+    root_output.update({"toolchains_label": str(root_bxl_actions.toolchains.keys()[0])})
+    root_output.update({"toolchain_dep": str(root_bxl_actions.toolchains.values()[0])})
+
+    root = action_factory.write_json("root", root_output)
+
+    outputs = {}
+    outputs.update({"dynamic": ctx.output.ensure(dynamic).abs_path()})
+    outputs.update({"root": ctx.output.ensure(root).abs_path()})
+
+    ctx.output.print_json(outputs)
+
+dynamic_test_execution_resolution = bxl_main(
+    impl = _dynamic_test_execution_resolution,
+    cli_args = {
+    },
+)
+
+def _dynamic_test_incompatible_targets(ctx):
+    action_factory = ctx.bxl_actions().actions
+
+    output = action_factory.declare_output("output")
+
+    # unused - just used as a placeholder for `dynamic` in the dynamic_output call
+    foo = action_factory.write("foo", "content")
+
+    def my_deferred(ctx, _artifacts, outputs):
+        result = ctx.cquery(target_platform = "//platforms:platform1").deps("//:incompatible", 1)
+        ctx.bxl_actions().actions.write(outputs[output], str(result))
+
+    action_factory.dynamic_output(
+        dynamic = [foo],
+        inputs = [],
+        outputs = [output.as_output()],
+        f = my_deferred,
+    )
+
+    ctx.output.print(ctx.output.ensure(output).abs_path())
+
+dynamic_test_incompatible_targets = bxl_main(
+    impl = _dynamic_test_incompatible_targets,
+    cli_args = {
+    },
+)

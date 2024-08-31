@@ -1,0 +1,6 @@
+load(":defs.bzl", "r")
+
+r(
+    name = "t",
+    dep = "bar_alias//:fake_target",  # uquery only test
+)

@@ -1,0 +1,42 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "prelude//override/a:inherit-visibility": {
+    "visibility": [
+      "prelude//in-child/..."
+    ],
+    "within_view": [
+      "prelude//in-child/..."
+    ]
+  },
+  "prelude//override/a:override-non-default": {
+    "visibility": [
+      "prelude//:"
+    ],
+    "within_view": [
+      "prelude//:"
+    ]
+  },
+  "prelude//override/a:override-to-default": {
+    "visibility": [],
+    "within_view": [
+      "PUBLIC"
+    ]
+  },
+  "prelude//override/a:override-to-none": {
+    "visibility": [
+      "prelude//in-child/..."
+    ],
+    "within_view": [
+      "prelude//in-child/..."
+    ]
+  },
+  "prelude//override/a:override-to-public": {
+    "visibility": [
+      "PUBLIC"
+    ],
+    "within_view": [
+      "PUBLIC"
+    ]
+  }
+}

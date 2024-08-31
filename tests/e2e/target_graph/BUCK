@@ -1,0 +1,16 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_visibility_from_package",
+    srcs = ["test_visibility_from_package.py"],
+    data_dir = "test_visibility_from_package_data",
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
+
+buck2_e2e_test(
+    name = "test_within_view",
+    srcs = ["test_within_view.py"],
+    data_dir = "test_within_view_data",
+)

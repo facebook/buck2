@@ -1,0 +1,5 @@
+load(":terminal_colors.bzl", "terminal_colors")
+
+terminal_colors(
+    name = "terminal_colors",
+)

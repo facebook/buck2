@@ -1,0 +1,11 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+prelude = prelude
+
+[alias]
+alias = root//targets:target
+chain = alias
+bad = root//bad:bad

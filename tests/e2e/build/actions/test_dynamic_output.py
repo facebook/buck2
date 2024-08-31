@@ -1,0 +1,27 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+# pyre-strict
+
+
+from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.buck_workspace import buck_test
+
+
+@buck_test(inplace=False, data_dir="everything")
+async def test_dynamic_output(buck: Buck) -> None:
+    await buck.build("root//:")
+
+
+@buck_test(inplace=False, data_dir="everything_new")
+async def test_dynamic_output_new(buck: Buck) -> None:
+    await buck.build("root//:")
+
+
+@buck_test(inplace=False, data_dir="empty_dynamic_list")
+async def test_empty_dynamic_list(buck: Buck) -> None:
+    await buck.build("root//:empty_test")

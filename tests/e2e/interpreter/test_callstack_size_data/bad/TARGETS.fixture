@@ -1,0 +1,9 @@
+load("@root//:defs.bzl", "test_target")
+load("@root//:util.bzl", "foo")
+
+# 50 minus 1 "empty" call stack frame, that always pushed at start of evaluation
+max_stack_size = 49
+
+foo(max_stack_size)
+
+test_target(name = "test_target")

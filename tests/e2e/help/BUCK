@@ -1,0 +1,24 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_help",
+    srcs = ["test_help.py"],
+    data_dir = "test_help_data",
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
+
+buck2_e2e_test(
+    name = "test_help_env",
+    srcs = ["test_help_env.py"],
+    data_dir = "test_help_env_data",
+    use_compiled_buck2_client_and_tpx = True,
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
+
+buck2_e2e_test(
+    name = "test_no_repo",
+    srcs = ["test_no_repo.py"],
+    data_dir = "test_no_repo_data",
+)

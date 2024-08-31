@@ -1,0 +1,13 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+BUILD FAILED
+Error parsing: `root//during_parse:TARGETS.fixture`
+
+Caused by:
+    error: Parse error: unexpected identifier 'code' here, expected one of "\n", "!=", "%", "%=", "&", "&=", "(", ")", "*", "*=", "+", "+=", ",", "-", "-=", ".", "/", "//", "//=", "/=", ":", ";", "<", "<<", "<<=", "<=", "=", "==", ">", ">=", ">>", ">>=", "[", "]", "^", "^=", "and", "else", "for", "if", "in", "not", "or", "|", "|=" or "}"
+     --> during_parse/TARGETS.fixture:2:14
+      |
+    2 | not starlark code
+      |              ^^^^
+      |
+    

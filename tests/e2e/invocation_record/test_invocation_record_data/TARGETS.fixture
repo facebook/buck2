@@ -1,0 +1,12 @@
+load(":defs.bzl", "fail", "hang", "kill", "one", "pass_", "two")
+
+hang(name = "hang", touch = read_config("test", "hang_path", ""))
+pass_(name = "pass")
+kill(name = "kill", pid = read_config("test", "pid", ""))
+
+fail(name = "fail")
+
+one(name = "a_one")
+two(name = "and_a_two")
+pass_(name = "last_three")
+two(name = "duplicate")

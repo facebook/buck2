@@ -1,0 +1,3 @@
+load(":defs.bzl", "test")
+
+test(name = "test", seed = read_config("test", "seed"))

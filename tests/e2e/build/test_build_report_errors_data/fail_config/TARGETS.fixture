@@ -1,0 +1,9 @@
+load(":fail_config.bzl", "string_rule")
+
+string_rule(
+    name = "cat_only",
+    str = select({
+        "//config:cat": "s",
+    }),
+    default_target_platform = "//config:not_a_target_platform",
+)

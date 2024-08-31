@@ -1,0 +1,21 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_bundled",
+    srcs = ["test_bundled.py"],
+    data_dir = "test_bundled_data",
+)
+
+buck2_e2e_test(
+    name = "test_prelude",
+    srcs = ["test_prelude.py"],
+    data_dir = "test_prelude_data",
+)
+
+buck2_e2e_test(
+    name = "test_git",
+    srcs = ["test_git.py"],
+    data_dir = "test_git_data",
+)

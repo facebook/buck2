@@ -1,0 +1,24 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _fail_no_stacktrace_impl(_ctx):
+    fail_no_stacktrace("failing with no stacktrace")
+
+fail_no_stacktrace_test = bxl_main(
+    impl = _fail_no_stacktrace_impl,
+    cli_args = {
+    },
+)
+
+def _fail_with_stacktrace_impl(_ctx):
+    fail("failing with stacktrace")
+
+fail_with_stacktrace_test = bxl_main(
+    impl = _fail_with_stacktrace_impl,
+    cli_args = {
+    },
+)

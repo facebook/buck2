@@ -1,0 +1,8 @@
+load("//:defs.bzl", "my_binary")
+
+oncall("buck2")
+
+my_binary(
+    name = "welcome",
+    srcs = ["main.cpp"],
+)

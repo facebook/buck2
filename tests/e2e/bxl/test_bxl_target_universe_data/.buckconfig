@@ -1,0 +1,10 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+package_boundary_exceptions=.
+
+[repositories]
+root = .
+prelude = prelude
+some_cell = some_cell

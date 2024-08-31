@@ -1,0 +1,4 @@
+test(
+    name = "does_not_exist",
+    src = "does_not_exist",
+)

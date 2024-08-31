@@ -1,0 +1,3 @@
+load(":defs.bzl", "top")
+
+top(name = "top", src = "touch.bat" if host_info().os.is_windows else "touch.sh")

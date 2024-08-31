@@ -1,0 +1,5 @@
+load(":defs.bzl", "action_fail", "dep")
+
+dep(name = "dep", script = "remote_only.py")
+
+action_fail(name = "action_fail", dep = ":dep")

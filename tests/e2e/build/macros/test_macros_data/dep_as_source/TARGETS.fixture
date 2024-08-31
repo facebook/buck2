@@ -1,0 +1,11 @@
+load("//source:defs.bzl", "echo_rule")
+load(":defs.bzl", "trivial")
+
+trivial(
+    name = "trivial",
+)
+
+echo_rule(
+    name = "uses_dep",
+    arg = "$(source :trivial)",
+)

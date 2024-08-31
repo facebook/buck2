@@ -1,0 +1,4 @@
+load(":attributes.bzl", "bad_short_path", "build")
+
+build(name = "promise_artifact")
+bad_short_path(name = "bad_short_path", src = ":promise_artifact")

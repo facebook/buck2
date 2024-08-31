@@ -1,0 +1,14 @@
+load(":rules.bzl", "test_rule")
+
+test_rule(
+    name = "no_modifiers",
+    default_target_platform = "ovr_config//platform:base",
+)
+
+test_rule(
+    name = "has_target_modifier",
+    default_target_platform = "ovr_config//platform:base",
+    metadata = {
+        "buck.cfg_modifiers": ["ovr_config//os:linux"],
+    }
+)

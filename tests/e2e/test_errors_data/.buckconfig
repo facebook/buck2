@@ -1,0 +1,14 @@
+[buildfile]
+name=TARGETS.fixture
+
+[repositories]
+root = .
+toolchains = toolchains
+prelude = prelude
+cell = package_listing/cell
+
+[project]
+ignore = package_listing/*red/**
+
+[buck2]
+allow_eden_io = false

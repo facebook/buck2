@@ -1,0 +1,31 @@
+load("//defs.bzl", "suite")
+
+suite(
+    name = "top",
+    deps = [] + (
+        ["//load_cycle:target"] if read_config("cycles", "load") == "yes" else []
+    ) + (
+        ["//:cycle_top"] if read_config("cycles", "cfg_graph") == "yes" else []
+    ),
+)
+
+suite(
+    name = "cycle_top",
+    deps = [
+        ":cycle_mid",
+    ],
+)
+
+suite(
+    name = "cycle_mid",
+    deps = [
+        ":cycle_bot",
+    ],
+)
+
+suite(
+    name = "cycle_bot",
+    deps = [
+        ":cycle_top",
+    ],
+)

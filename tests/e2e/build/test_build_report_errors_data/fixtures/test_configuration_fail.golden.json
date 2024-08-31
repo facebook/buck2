@@ -1,0 +1,28 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//fail_config:cat_only": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\n\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?"
+  },
+  "results": {
+    "root//fail_config:cat_only": {
+      "configured": {},
+      "configured_graph_size": null,
+      "errors": [
+        {
+          "action_error": null,
+          "cause_index": 0,
+          "message_content": "<STRING_HASH>"
+        }
+      ],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "Error running analysis for `root//config:not_a_target_platform (<unbound>)`\n\nCaused by:\n    0: Error looking up configured node root//config:not_a_target_platform (<unbound>)\n    1: looking up unconfigured target node `root//config:not_a_target_platform`\n    2: Unknown target `not_a_target_platform` from package `root//config`.\n       Did you mean one of the 5 targets in root//config:TARGETS.fixture?"
+  },
+  "success": false,
+  "truncated": false
+}

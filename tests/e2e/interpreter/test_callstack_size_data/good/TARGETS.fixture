@@ -1,0 +1,11 @@
+load("@root//:defs.bzl", "test_target")
+load("@root//:util.bzl", "foo")
+
+# 10 minus 1 "empty" call stack frame, that always pushed at start of evaluation
+max_stack_size = 9
+
+foo(max_stack_size - 1)
+
+print("TEST PASSED")  # buildifier: disable=print
+
+test_target(name = "test_target")

@@ -1,0 +1,11 @@
+[repositories]
+    root = .
+[repository_aliases]
+    prelude = root
+[buildfile]
+    name = TARGETS.fixture
+[buck2]
+  materializations = deferred
+  sqlite_materializer_state = true
+  sqlite_materializer_state_version = 0
+  restarter = true

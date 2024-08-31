@@ -1,0 +1,18 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_analysis_queries",
+    srcs = ["test_analysis_queries.py"],
+    data_dir = "test_analysis_queries_data",
+    deps = [
+        "//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_analysis_action_ids_unique",
+    srcs = ["test_analysis_action_ids_unique.py"],
+    data_dir = "test_analysis_action_ids_unique_data",
+)

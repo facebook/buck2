@@ -1,0 +1,5 @@
+[repository_aliases]
+  bar_alias = bar
+
+[buildfile]
+name=TARGETS.fixture

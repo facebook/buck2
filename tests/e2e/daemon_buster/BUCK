@@ -1,0 +1,12 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_daemon_buster",
+    srcs = ["test_daemon_buster.py"],
+    data_dir = "test_daemon_buster_data",
+    serialize_test_cases = False,
+    deps = [
+    ],
+)

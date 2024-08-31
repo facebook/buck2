@@ -1,0 +1,4 @@
+export_file(
+    name = "file.txt",
+    src = "file.txt",
+)

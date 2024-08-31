@@ -1,0 +1,70 @@
+load(":platforms.bzl", "platform", "platforms")
+load(":rules.bzl", "two_dep_rule", "two_exec_dep_rule")
+
+prelude = native
+
+prelude.constraint_setting(
+    name = "os",
+)
+
+prelude.constraint_value(
+    name = "windows",
+    constraint_setting = ":os",
+)
+
+prelude.constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+
+platform(
+    name = "p-linux",
+    constraint_values = [
+        ":linux",
+    ],
+)
+
+platform(
+    name = "p-windows",
+    constraint_values = [
+        ":windows",
+    ],
+)
+
+platforms(
+    name = "platforms",
+    platforms = [":p-windows", ":p-linux"],
+)
+
+prelude.export_file(
+    name = "windows-only",
+    src = select({
+        # In test we run the query with target platform linux,
+        # this select does not have DEFAULT,
+        # but it should not fail because it should not be evaluated at all,
+        # because of `compatible_with` check.
+        ":windows": "TARGETS.fixture",
+    }),
+    compatible_with = [":windows"],
+)
+
+prelude.export_file(
+    name = "windows-only-undeclared",
+    src = select({
+        # This rule is only compatible with windows, however we don't declare that
+        ":windows": "TARGETS.fixture",
+    }),
+)
+
+two_dep_rule(
+    name = "windows-only-deps",
+    a = ":windows-only-undeclared",
+    b = ":windows-only",
+    compatible_with = [":windows"],
+)
+
+two_exec_dep_rule(
+    name = "windows-only-exec-deps",
+    a = ":windows-only-undeclared",
+    b = ":windows-only",
+)

@@ -1,0 +1,49 @@
+stub(
+    name = "pass1",
+    deps = ["//subdir:public"],
+)
+
+stub(
+    name = "pass2",
+    deps = ["//subdir:target"],
+)
+
+stub(
+    name = "pass3",
+    deps = ["//subdir:package"],
+)
+
+stub(
+    name = "pass4",
+    deps = ["//subdir:recursive"],
+)
+
+stub(
+    name = "fail1",
+    deps = ["//subdir:badtarget"],
+)
+
+stub(
+    name = "fail2",
+    deps = ["//subdir:badpackage"],
+)
+
+stub(
+    name = "fail3",
+    deps = ["//subdir:badrecursive"],
+)
+
+stub(
+    name = "fail4",
+    deps = ["//subdir:default"],
+)
+
+stub(
+    name = "fail5",
+    deps = ["//subdir:badvisibility"],
+)
+
+stub(
+    name = "fail6",
+    deps = ["//subdir:badtransitivevisibility"],
+)

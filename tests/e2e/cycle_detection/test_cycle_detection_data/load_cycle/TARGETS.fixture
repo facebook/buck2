@@ -1,0 +1,4 @@
+load(":1.bzl", "one")
+
+one()
+# the load above is a cycle so doesn't matter what comes next

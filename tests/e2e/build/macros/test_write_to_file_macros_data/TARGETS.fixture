@@ -1,0 +1,5 @@
+load(":defs.bzl", "test_rule", "write_file")
+
+write_file(name = "write_file")
+
+test_rule(name = "test_rule", arg = "$(@query_outputs :write_file)")

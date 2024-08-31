@@ -1,0 +1,28 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "failures": {
+    "root//:doesnt_exist": "Unknown target `<TARGET>` from package <IRRELEVANT>"
+  },
+  "results": {
+    "root//:doesnt_exist": {
+      "configured": {},
+      "configured_graph_size": null,
+      "errors": [
+        {
+          "action_error": null,
+          "cause_index": 0,
+          "message_content": "17742238780201989333"
+        }
+      ],
+      "other_outputs": {},
+      "outputs": {},
+      "success": "FAIL"
+    }
+  },
+  "strings": {
+    "17742238780201989333": "Unknown target `<TARGET>` from package <IRRELEVANT>"
+  },
+  "success": false,
+  "truncated": false
+}

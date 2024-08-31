@@ -1,0 +1,18 @@
+stub(
+    name = "dep_incompatible",
+    default_target_platform = "//:platform",
+    deps = ["//:incompatible"],
+)
+
+stub(
+    name = "transitive_dep_incompatible",
+    default_target_platform = "//:platform",
+    deps = [":dep_incompatible"],
+)
+
+stub(
+    name = "target_and_dep_incompatible",
+    default_target_platform = "//:platform",
+    target_compatible_with = ["//:disable"],
+    deps = [":dep_incompatible"],
+)

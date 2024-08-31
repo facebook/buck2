@@ -1,0 +1,75 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_log",
+    srcs = ["test_log.py"],
+    data_dir = "test_log_data",
+    use_compiled_buck2_client_and_tpx = True,
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_log_format",
+    srcs = ["test_log_format.py"],
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_whatup",
+    srcs = ["test_whatup.py"],
+)
+
+buck2_e2e_test(
+    name = "test_persist_event_logs",
+    srcs = ["test_persist_event_logs.py"],
+    deps = [
+        "//manifold/clients/python:manifold_client_deprecated",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_user_event_log",
+    srcs = ["test_user_event_log.py"],
+    data_dir = "test_user_event_log_data",
+    deps = [
+        "//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_summary",
+    srcs = ["test_summary.py"],
+    data_dir = "test_summary_data",
+)
+
+buck2_e2e_test(
+    name = "test_upload_re_logs",
+    srcs = ["test_upload_re_logs.py"],
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+        "//manifold/clients/python:manifold_client_deprecated",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_what_ran_incomplete",
+    srcs = ["test_what_ran_incomplete.py"],
+    data_dir = "test_what_ran_incomplete_data",
+)
+
+buck2_e2e_test(
+    name = "test_what_materialized",
+    srcs = ["test_what_materialized.py"],
+    data_dir = "test_what_materialized_data",
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_what_uploaded",
+    srcs = ["test_what_uploaded.py"],
+    data_dir = "test_what_uploaded_data",
+)

@@ -1,0 +1,48 @@
+platform(
+    name = "target",
+)
+
+platform(
+    name = "exec",
+)
+
+simple_rule(
+    name = "top",
+    default_target_platform = ":target",
+    deps = [":mid1"],
+)
+
+simple_rule(
+    name = "mid1",
+    deps = [":mid2"],
+)
+
+simple_rule(
+    name = "mid2",
+    deps = [":mid3"],
+)
+
+simple_rule(
+    name = "mid3",
+    deps = [(":next1", ":exec")],
+)
+
+simple_rule(
+    name = "next1",
+    deps = [":next2"],
+)
+
+simple_rule(
+    name = "next2",
+    deps = [":next3"],
+)
+
+simple_rule(
+    name = "next3",
+    deps = [":broken"],
+)
+
+simple_rule(
+    name = "broken",
+    deps = [":missing"],
+)

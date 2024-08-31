@@ -1,0 +1,14 @@
+load(":rules.bzl", "proto_genrule")
+
+proto_genrule(
+    name = "urandom",
+    out = "output.txt",
+    python = "import os; out = open(os.getenv('OUT'), 'wb'); out.write(os.urandom(50))",
+    labels = ["__NOT_A_REAL_LABEL__"],
+)
+
+proto_genrule(
+    name = "urandom_dep",
+    out = "output.txt",
+    python = "import os; inp = open(r'$(location :urandom)', 'rb'); out = open(os.getenv('OUT'), 'w'); print(len(inp.read()), file=out)",
+)

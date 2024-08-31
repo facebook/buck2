@@ -1,0 +1,19 @@
+[buildfile]
+name=TARGETS.fixture
+
+[project]
+ignore=ignored
+
+[repositories]
+root = .
+prelude = prelude
+
+[buck2]
+materializations = deferred
+enable_local_caching_of_re_artifacts = true
+sqlite_materializer_state = true
+sqlite_materializer_state_version = 0
+defer_write_actions = true
+
+[build]
+  execution_platforms = root//platforms:platforms

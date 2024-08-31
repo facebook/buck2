@@ -1,0 +1,17 @@
+[cells]
+  root = .
+  prelude = prelude
+
+[cell_aliases]
+  ovr_config = prelude
+  # Just have to exist, not actually used for this test
+  toolchains = root
+  fbsource = root
+  fbcode = root
+  buck = root
+
+[external_cells]
+  prelude = bundled
+
+[buildfile]
+  name = TARGETS.fixture
