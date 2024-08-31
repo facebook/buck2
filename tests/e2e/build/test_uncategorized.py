@@ -182,6 +182,9 @@ async def test_cell_deletion(buck: Buck) -> None:
     inplace=False,
     data_dir="invalid_file_invalidation",
     skip_for_os=["windows"],
+    # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
+    # watchman file watcher here.
+    extra_buck_config={"buck2": {"file_watcher": "watchman"}},
 )
 async def test_invalid_file_invalidation(buck: Buck) -> None:
     """
