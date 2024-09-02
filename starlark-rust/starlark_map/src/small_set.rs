@@ -405,6 +405,14 @@ impl<T> SmallSet<T> {
     pub fn reverse(&mut self) {
         self.0.reverse();
     }
+
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.0.retain(|k, _| f(k))
+    }
 }
 
 impl<'a, T> IntoIterator for &'a SmallSet<T> {

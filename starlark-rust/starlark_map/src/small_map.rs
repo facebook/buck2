@@ -724,6 +724,20 @@ impl<K, V> SmallMap<K, V> {
             }
         }
     }
+
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        let mut res = SmallMap::new();
+        for (k, mut v) in mem::take(self).into_iter_hashed() {
+            if f(&*k, &mut v) {
+                res.insert_hashed_unique_unchecked(k, v);
+            }
+        }
+        *self = res;
+    }
 }
 
 /// Reference to the actual entry in the map.
@@ -1385,5 +1399,21 @@ mod tests {
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut map = SmallMap::new();
+        for i in 0..100 {
+            map.insert(i.to_string(), i);
+        }
+        map.retain(|_, v| {
+            let res = *v % 2 == 0;
+            *v += 3;
+            res
+        });
+        assert_eq!(map.len(), 50);
+        assert_eq!(map.get("7"), None);
+        assert_eq!(map.get("8"), Some(&11));
     }
 }
