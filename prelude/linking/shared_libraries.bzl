@@ -233,7 +233,7 @@ def gen_shared_libs_action(
     dynamic_sonames = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str]
     if dynamic_sonames:
         actions.dynamic_output(
-            dynamic = [shlib.soname._soname for shlib in shared_libs if not shlib.soname.is_str],
+            dynamic = dynamic_sonames,
             inputs = [],
             outputs = [output.as_output()],
             f = lambda ctx, artifacts, outputs: func(ctx.actions, artifacts, outputs[output]),
