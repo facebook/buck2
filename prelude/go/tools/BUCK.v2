@@ -6,17 +6,6 @@ source_listing()
 
 prelude = native
 
-prelude.go_bootstrap_binary(
-    name = "concat_files",
-    srcs = [
-        "concat_files.go",
-    ],
-    entrypoints = [
-        "concat_files.go",
-    ],
-    visibility = ["PUBLIC"],
-)
-
 prelude.python_bootstrap_binary(
     name = "cgo_wrapper",
     main = "cgo_wrapper.py",
@@ -33,30 +22,6 @@ prelude.python_bootstrap_binary(
     name = "go_wrapper_py",
     main = "go_wrapper.py",
     visibility = ["PUBLIC"],
-)
-
-prelude.go_bootstrap_binary(
-    name = "go_wrapper",
-    srcs = [
-        "go_wrapper.go",
-    ],
-    entrypoints = [
-        "go_wrapper.go",
-    ],
-    visibility = ["PUBLIC"],
-)
-
-prelude.go_bootstrap_binary(
-    name = "testmaingen",
-    srcs = [
-        "testmaingen.go",
-    ],
-    entrypoints = [
-        "testmaingen.go",
-    ],
-    visibility = [
-        "PUBLIC",
-    ],
 )
 
 prelude.go_stdlib(

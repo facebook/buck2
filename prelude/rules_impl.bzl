@@ -521,7 +521,7 @@ inlined_extra_attributes = {
         "_go_toolchain": toolchains_common.go(),
         "_race": race_attr,
         "_tags": tags_attr,
-        "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:testmaingen")),
+        "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_testmaingen")),
     },
 
     # groovy
