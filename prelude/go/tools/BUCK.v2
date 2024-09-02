@@ -30,8 +30,19 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "go_wrapper",
+    name = "go_wrapper_py",
     main = "go_wrapper.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.go_bootstrap_binary(
+    name = "go_wrapper",
+    srcs = [
+        "go_wrapper.go",
+    ],
+    entrypoints = [
+        "go_wrapper.go",
+    ],
     visibility = ["PUBLIC"],
 )
 

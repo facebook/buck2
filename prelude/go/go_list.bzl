@@ -51,7 +51,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
 
     go_list_args = [
         go_toolchain.go_wrapper,
-        go_toolchain.go,
+        ["--go", go_toolchain.go],
         ["--workdir", srcs_dir],
         ["--output", go_list_out.as_output()],
         "list",

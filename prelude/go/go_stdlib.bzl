@@ -30,9 +30,9 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     if cgo_enabled and cxx_toolchain != None:
         c_compiler = cxx_toolchain.c_compiler_info
 
-        env["CC"] = cmd_args(c_compiler.compiler, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
-        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
-        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = " ", quote = "shell", absolute_prefix = "%cwd%/")
+        env["CC"] = cmd_args(c_compiler.compiler, delimiter = "\t", absolute_prefix = "%cwd%/")
+        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
+        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
 
     importcfg = ctx.actions.declare_output("stdlib.importcfg")
     importcfg_shared = ctx.actions.declare_output("stdlib_shared.importcfg")
@@ -47,7 +47,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             local_compiler_flags += ["-shared"]
         return cmd_args([
             go_toolchain.go_wrapper,
-            go_toolchain.go,
+            ["--go", go_toolchain.go],
             "install",
             "-pkgdir",
             out.as_output(),
