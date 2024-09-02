@@ -6,9 +6,14 @@ source_listing()
 
 prelude = native
 
-prelude.python_bootstrap_binary(
+prelude.go_bootstrap_binary(
     name = "concat_files",
-    main = "concat_files.py",
+    srcs = [
+        "concat_files.go",
+    ],
+    entrypoints = [
+        "concat_files.go",
+    ],
     visibility = ["PUBLIC"],
 )
 
