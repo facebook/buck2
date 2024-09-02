@@ -1098,10 +1098,10 @@ def build_shared_libs_for_symlink_tree(
     symlink_tree_shared_libraries = []
 
     def is_shlib_added(soname: Soname) -> bool:
-        return soname.is_str() and added_link_group_symlinks_libs.contains(soname.ensure_str())
+        return soname.is_str and added_link_group_symlinks_libs.contains(soname.ensure_str())
 
     def add_shib(shlib: SharedLibrary):
-        if shlib.soname.is_str():
+        if shlib.soname.is_str:
             added_link_group_symlinks_libs.add(shlib.soname.ensure_str())
         symlink_tree_shared_libraries.append(shlib)
 

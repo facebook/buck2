@@ -583,7 +583,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     str_soname_shlibs = {
         shlib.soname.ensure_str(): shlib
         for shlib in shared_libs
-        if shlib.soname.is_str()
+        if shlib.soname.is_str
     }
 
     readable_mappings = {}

@@ -553,7 +553,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
                     # Provide a sub-target that always provides the shared lib
                     # using the soname.
-                    if soname and soname.is_str() and shared_lib.output.basename != paths.basename(soname.ensure_str()):
+                    if soname and soname.is_str and shared_lib.output.basename != paths.basename(soname.ensure_str()):
                         soname_lib = ctx.actions.copy_file(soname.ensure_str(), shared_lib.output)
                     else:
                         soname_lib = shared_lib.output
@@ -630,7 +630,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Omnibus root provider.
-    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str():
+    if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str:
         # TODO(cjhopman): This doesn't support thin archives
         linkable_root = create_linkable_root(
             label = ctx.label,

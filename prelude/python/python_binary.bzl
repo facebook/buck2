@@ -639,7 +639,7 @@ def _convert_python_library_to_executable(
             # TODO(agallagher) There appears to be pre-existing soname conflicts
             # when building this (when using link groups), which prevents using
             # `with_unique_str_sonames`.
-            if shlib.soname.is_str():
+            if shlib.soname.is_str:
                 extra[shlib.soname.ensure_str()] = [DefaultInfo(default_output = shlib.lib.output)]
 
         for name, group in executable_info.auto_link_groups.items():

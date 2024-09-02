@@ -233,7 +233,7 @@ def _rust_binary_common(
     str_soname_shlibs = {
         shlib.soname.ensure_str(): shlib
         for shlib in shared_libs
-        if shlib.soname.is_str()
+        if shlib.soname.is_str
     }
     sub_targets["shared-libraries"] = [DefaultInfo(
         default_output = ctx.actions.write_json(
