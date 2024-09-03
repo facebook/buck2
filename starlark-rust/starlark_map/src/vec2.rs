@@ -417,6 +417,23 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Retains only the elements specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut A, &mut B) -> bool,
+    {
+        let mut j = 0;
+        for i in 0..self.len {
+            let (a, b) = self.get_mut(i).unwrap();
+            if f(a, b) {
+                self.aaa_mut().swap(i, j);
+                self.bbb_mut().swap(i, j);
+                j += 1;
+            }
+        }
+        self.truncate(j);
+    }
+
     /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> Iter<'_, A, B> {
@@ -658,6 +675,25 @@ mod tests {
         assert_eq!(Rc::strong_count(&rs[3]), 1);
         assert_eq!(Rc::strong_count(&rs[4]), 1);
         assert_eq!(Rc::strong_count(&rs[5]), 1);
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut v = Vec2::new();
+        v.push(1, 2);
+        v.push(2, 3);
+        v.push(3, 4);
+        v.retain(|a, b| {
+            if *a == 2 {
+                assert_eq!(b, &3);
+                false
+            } else {
+                true
+            }
+        });
+        assert_eq!(2, v.len());
+        assert_eq!(Some((&1, &2)), v.get(0));
+        assert_eq!(Some((&3, &4)), v.get(1));
     }
 
     #[test]
