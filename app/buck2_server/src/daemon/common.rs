@@ -30,6 +30,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::BuckErrorContext;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
@@ -174,7 +175,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 return Err(anyhow::anyhow!(
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
                     self.strategy,
-                ));
+                )).input();
             }
 
             return Ok(CommandExecutorResponse {
@@ -397,9 +398,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = response
-            .with_context(|| format!(
-"The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}",
-self.strategy, executor_config))?;
+            .with_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input()?;
 
         Ok(response)
     }
