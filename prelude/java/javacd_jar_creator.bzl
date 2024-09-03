@@ -248,9 +248,6 @@ def create_jar_artifact_javacd(
 
         args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
 
-        # TODO(cjhopman): make sure this works both locally and remote.
-        event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
-
         dep_files = {}
         if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
             abi_to_abi_dir_map = None
@@ -279,7 +276,6 @@ def create_jar_artifact_javacd(
             args,
             env = {
                 "BUCK_CLASSPATH": compiler,
-                "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
             category = "{}javacd_jar".format(category_prefix),

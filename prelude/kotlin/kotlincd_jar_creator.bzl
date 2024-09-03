@@ -324,8 +324,6 @@ def create_jar_artifact_kotlincd(
             )
         args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
 
-        event_pipe_out = declare_prefixed_output(actions, actions_identifier, "events.data")
-
         dep_files = {}
         if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
             used_classes_json_outputs = [
@@ -352,7 +350,6 @@ def create_jar_artifact_kotlincd(
             args,
             env = {
                 "BUCK_CLASSPATH": compiler,
-                "BUCK_EVENT_PIPE": event_pipe_out.as_output(),
                 "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
             },
             category = "{}kotlincd_jar".format(category_prefix),
