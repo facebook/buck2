@@ -544,7 +544,7 @@ impl Buck {
     }
 
     /// Determines the owning target(s) of the saved file and builds them.
-    #[instrument(fields(use_clippy, saved_file = %saved_file.display()))]
+    #[instrument]
     pub(crate) fn check_saved_file(
         &self,
         use_clippy: bool,

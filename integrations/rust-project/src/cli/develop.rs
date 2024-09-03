@@ -16,8 +16,6 @@ use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
-use tracing::instrument;
-use tracing::warn;
 
 use super::Input;
 use crate::buck;
@@ -66,7 +64,6 @@ impl Develop {
             relative_paths,
             mode,
             check_cycles,
-            log_scuba_to_stdout: _,
         } = command
         {
             let out = if stdout {
@@ -105,12 +102,7 @@ impl Develop {
             return (develop, input, out);
         }
 
-        if let crate::Command::DevelopJson {
-            sysroot_mode,
-            args,
-            log_scuba_to_stdout: _,
-        } = command
-        {
+        if let crate::Command::DevelopJson { sysroot_mode, args } = command {
             let out = Output::Stdout;
             let mode = select_mode(None);
 
@@ -161,8 +153,8 @@ pub(crate) struct OutputData {
 }
 
 impl Develop {
-    #[instrument(name = "develop", skip_all, fields(develop_input = ?input))]
     pub(crate) fn run(self, input: Input, cfg: OutputCfg) -> Result<(), anyhow::Error> {
+        let start = std::time::Instant::now();
         let input = match input {
             Input::Targets(targets) => Input::Targets(targets),
             Input::Files(files) => {
@@ -223,11 +215,12 @@ impl Develop {
             }
         }
 
+        crate::scuba::log_develop(start.elapsed(), input);
+
         Ok(())
     }
 
     pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
-        let start = std::time::Instant::now();
         let Develop {
             sysroot,
             relative_paths,
@@ -273,12 +266,6 @@ impl Develop {
             *relative_paths,
             *check_cycles,
         )?;
-
-        let duration = start.elapsed();
-        info!(
-            duration_ms = duration.as_millis(),
-            "finished generating rust-project"
-        );
 
         Ok(rust_project)
     }

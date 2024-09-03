@@ -11,9 +11,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use tracing::info;
-use tracing::instrument;
-
 use crate::buck;
 use crate::buck::select_mode;
 use crate::diagnostics;
@@ -38,7 +35,6 @@ impl Check {
         }
     }
 
-    #[instrument(name = "check", skip_all, fields(saved_file = %self.saved_file.display()))]
     pub(crate) fn run(&self) -> Result<(), anyhow::Error> {
         let start = std::time::Instant::now();
         let buck = &self.buck;
@@ -82,8 +78,7 @@ impl Check {
             println!("{}", out);
         }
 
-        let duration = start.elapsed();
-        info!(duration_ms = duration.as_millis(), "finished check");
+        crate::scuba::log_check(start.elapsed(), &self.saved_file, self.use_clippy);
 
         Ok(())
     }

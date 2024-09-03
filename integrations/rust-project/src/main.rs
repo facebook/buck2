@@ -107,19 +107,11 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
-
-        /// Write Scuba sample to stdout.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
     /// This is meant to be called by rust-analyzer directly.
     DevelopJson {
-        /// Write Scuba sample to stdout instead.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
-
         // FIXME XXX: remove this after everything in fbcode is migrated off
         // of buckconfig implicitly.
         #[cfg(fbcode_build)]
@@ -141,9 +133,6 @@ enum Command {
         use_clippy: bool,
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
-        /// Write Scuba sample to stdout.
-        #[clap(long, hide = true)]
-        log_scuba_to_stdout: bool,
     },
 }
 
@@ -228,13 +217,8 @@ fn main() -> Result<(), anyhow::Error> {
         .with_writer(io::stderr);
 
     match command {
-        c @ Command::Develop {
-            log_scuba_to_stdout,
-            ..
-        } => {
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+        c @ Command::Develop { .. } => {
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
@@ -252,13 +236,9 @@ fn main() -> Result<(), anyhow::Error> {
                 }
             }
         }
-        c @ Command::DevelopJson {
-            log_scuba_to_stdout,
-            ..
-        } => {
+        c @ Command::DevelopJson { .. } => {
             let subscriber = tracing_subscriber::registry()
-                .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+                .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
@@ -286,12 +266,10 @@ fn main() -> Result<(), anyhow::Error> {
             mode,
             use_clippy,
             saved_file,
-            log_scuba_to_stdout,
         } => {
-            let subscriber = tracing_subscriber::registry()
-                .with(fmt.with_filter(filter))
-                .with(scuba::ScubaLayer::new(log_scuba_to_stdout));
+            let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
+
             cli::Check::new(mode, use_clippy, saved_file).run()
         }
     }
@@ -373,7 +351,6 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
         }),
         version: false,
     };
@@ -390,7 +367,6 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
         }),
         version: false,
     };
@@ -407,7 +383,6 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
-            log_scuba_to_stdout: false,
         }),
         version: false,
     };
