@@ -38,7 +38,7 @@ pub(crate) trait AstModuleLoadedSymbols {
 }
 
 impl AstModuleLoadedSymbols for AstModule {
-    fn loaded_symbols<'a>(&'a self) -> Vec<LoadedSymbol<'a>> {
+    fn loaded_symbols(&self) -> Vec<LoadedSymbol<'_>> {
         top_level_stmts(self.statement())
             .into_iter()
             .filter_map(|x| match &x.node {
