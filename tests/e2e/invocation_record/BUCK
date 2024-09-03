@@ -8,5 +8,6 @@ buck2_e2e_test(
     data_dir = "test_invocation_record_data",
     serialize_test_cases = False,
     deps = [
+        "//buck2/tests/e2e_util:utils",
     ],
 )

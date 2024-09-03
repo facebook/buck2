@@ -8,7 +8,6 @@
 # pyre-strict
 
 
-import json
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck

@@ -103,4 +103,6 @@ def _replace_hash(s: str) -> str:
 
 
 def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
-    return json.loads(record.read_text())["data"]["Record"]["data"]["InvocationRecord"]
+    return json.loads(record.read_text(encoding="utf-8"))["data"]["Record"]["data"][
+        "InvocationRecord"
+    ]

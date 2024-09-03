@@ -16,6 +16,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 # FIXME(JakobDegen): Flakey in CI
 if False:
@@ -46,8 +47,7 @@ if False:
         cmd.send_signal(signal.SIGINT)
         await cmd.communicate()
 
-        with open(record) as f:
-            record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+        record = read_invocation_record(record)
 
         assert not record["has_end_of_stream"]
         assert not record["has_command_result"]
@@ -59,8 +59,7 @@ async def test_has_end_of_stream_true(buck: Buck, tmp_path: Path) -> None:
 
     await buck.build(":pass", "--unstable-write-invocation-record", str(record))
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["has_end_of_stream"]
     assert record["has_command_result"]
@@ -89,8 +88,7 @@ async def test_has_no_command_result(buck: Buck, tmp_path: Path) -> None:
         stderr_regex="Buck daemon event bus encountered an error",
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["has_end_of_stream"]
     assert not record["has_command_result"]
@@ -103,8 +101,7 @@ async def test_metadata(buck: Buck, tmp_path: Path) -> None:
     # Start the daemon
     await buck.build("--unstable-write-invocation-record", str(record))
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert "username" in record["metadata"]["strings"]
 
@@ -121,8 +118,7 @@ async def test_client_metadata(buck: Buck, tmp_path: Path) -> None:
         str(record),
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["client_metadata"] == [
         {"key": "foo", "value": "bar"},
@@ -144,8 +140,7 @@ async def test_client_metadata_clean(buck: Buck, tmp_path: Path) -> None:
         str(record),
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["client_metadata"] == [
         {"key": "foo", "value": "bar"},
@@ -162,8 +157,7 @@ async def test_action_error_message_in_record(buck: Buck, tmp_path: Path) -> Non
         buck.build(":fail", "--unstable-write-invocation-record", str(record))
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert len(record["command_end"]["errors"]) == 0
     assert len(record["errors"]) == 1
@@ -181,8 +175,7 @@ async def test_non_action_error_message_in_record(buck: Buck, tmp_path: Path) ->
         buck.build(":missing_target", "--unstable-write-invocation-record", str(record))
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert len(record["errors"]) == 1
     assert record["errors"][0]["message"].startswith(
@@ -206,8 +199,7 @@ async def test_rule_type_names_ci(buck: Buck, tmp_path: Path) -> None:
         env={"CI": "true"},
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["target_rule_type_names"] == [
         "one",
@@ -231,8 +223,7 @@ async def test_rule_type_names_sandcastle(buck: Buck, tmp_path: Path) -> None:
         env={"SANDCASTLE": "my_fake_job"},
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["target_rule_type_names"] == [
         "one",
@@ -254,8 +245,7 @@ async def test_rule_type_names_user(buck: Buck, tmp_path: Path) -> None:
         str(record),
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["target_rule_type_names"] == [
         "one",
@@ -279,8 +269,7 @@ async def test_rule_type_names_on_failure(buck: Buck, tmp_path: Path) -> None:
         )
     )
 
-    with open(record) as f:
-        record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    record = read_invocation_record(record)
 
     assert record["target_rule_type_names"] == [
         "fail",

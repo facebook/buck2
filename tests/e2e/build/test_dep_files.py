@@ -24,6 +24,7 @@ from buck2.tests.e2e_util.helper.utils import (
     expect_exec_count,
     filter_events,
     random_string,
+    read_invocation_record,
     read_what_ran,
 )
 
@@ -426,8 +427,7 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     key = await _dep_file_key_from_executions(buck)
     await _check_uploaded_dep_file_key(buck, key)
 
-    with open(record) as f:
-        invocation_record = json.load(f)["data"]["Record"]["data"]["InvocationRecord"]
+    invocation_record = read_invocation_record(record)
 
     assert invocation_record["dep_file_upload_count"] == 1
     assert (
