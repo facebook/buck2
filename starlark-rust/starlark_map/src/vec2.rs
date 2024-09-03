@@ -383,6 +383,34 @@ impl<A, B> Vec2<A, B> {
         }
     }
 
+    /// Truncate the vector to the given length.
+    ///
+    /// If the vector is already shorter than the given length, do nothing.
+    pub fn truncate(&mut self, len: usize) {
+        let Some(drop_len) = self.len().checked_sub(len) else {
+            return;
+        };
+        unsafe {
+            let drop_a = ptr::slice_from_raw_parts_mut(self.aaa_ptr().as_ptr().add(len), drop_len);
+            let drop_b = ptr::slice_from_raw_parts_mut(self.bbb_ptr().as_ptr().add(len), drop_len);
+            self.len = len;
+
+            struct DropInPlace<X>(*mut [X]);
+
+            impl<X> Drop for DropInPlace<X> {
+                fn drop(&mut self) {
+                    unsafe {
+                        ptr::drop_in_place(self.0);
+                    }
+                }
+            }
+
+            // Drop with `Drop` implementation to continue panicking if `drop_a` panics.
+            let _drop_a = DropInPlace(drop_a);
+            let _drop_b = DropInPlace(drop_b);
+        }
+    }
+
     /// Iterate over the elements.
     #[inline]
     pub fn iter(&self) -> Iter<'_, A, B> {
@@ -518,6 +546,9 @@ impl<A: Allocative, B: Allocative> Allocative for Vec2<A, B> {
 mod tests {
     use std::alloc::Layout;
     use std::marker::PhantomData;
+    use std::rc::Rc;
+
+    use dupe::Dupe;
 
     use crate::vec2::Vec2;
     use crate::vec2::Vec2Layout;
@@ -605,6 +636,22 @@ mod tests {
                     .collect::<Vec<_>>()
             );
         }
+    }
+
+    #[test]
+    fn test_truncate() {
+        let mut v = Vec2::new();
+        let rs = (0..6).map(|i| Rc::new(i * 100)).collect::<Vec<_>>();
+        v.push(rs[0].dupe(), rs[1].dupe());
+        v.push(rs[2].dupe(), rs[3].dupe());
+        v.push(rs[4].dupe(), rs[5].dupe());
+        v.truncate(1);
+        assert_eq!(Rc::strong_count(&rs[0]), 2);
+        assert_eq!(Rc::strong_count(&rs[1]), 2);
+        assert_eq!(Rc::strong_count(&rs[2]), 1);
+        assert_eq!(Rc::strong_count(&rs[3]), 1);
+        assert_eq!(Rc::strong_count(&rs[4]), 1);
+        assert_eq!(Rc::strong_count(&rs[5]), 1);
     }
 
     #[test]
