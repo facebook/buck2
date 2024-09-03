@@ -274,4 +274,11 @@ impl<K, V> VecMap<K, V> {
         self.buckets.aaa_mut().reverse();
         self.buckets.bbb_mut().reverse();
     }
+
+    pub(crate) fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&K, &mut V) -> bool,
+    {
+        self.buckets.retain(|(k, v), _| f(k, v));
+    }
 }

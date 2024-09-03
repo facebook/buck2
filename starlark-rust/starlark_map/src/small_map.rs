@@ -440,6 +440,18 @@ impl<K, V> SmallMap<K, V> {
         self.index = Some(Box::new(index));
     }
 
+    /// Rebuild the index after entries are reordered or removed.
+    fn rebuild_index(&mut self) {
+        if let Some(index) = &mut self.index {
+            index.clear();
+            for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
+                index.insert_unique(k.hash().promote(), i, |_| {
+                    unreachable!("Must have enough capacity")
+                });
+            }
+        }
+    }
+
     /// Hasher for index resize.
     #[inline(always)]
     fn hasher(entries: &VecMap<K, V>) -> impl Fn(&usize) -> u64 + '_ {
@@ -685,14 +697,7 @@ impl<K, V> SmallMap<K, V> {
 
         impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
             fn drop(&mut self) {
-                if let Some(index) = &mut self.map.index {
-                    index.clear();
-                    for (i, (k, _)) in self.map.entries.iter_hashed().enumerate() {
-                        index.insert_unique(k.hash().promote(), i, |_| {
-                            unreachable!("Must have enough capacity")
-                        });
-                    }
-                }
+                self.map.rebuild_index();
             }
         }
 
@@ -732,17 +737,30 @@ impl<K, V> SmallMap<K, V> {
     }
 
     /// Retains only the elements specified by the predicate.
-    pub fn retain<F>(&mut self, mut f: F)
+    pub fn retain<F>(&mut self, f: F)
     where
         F: FnMut(&K, &mut V) -> bool,
     {
-        let mut res = SmallMap::new();
-        for (k, mut v) in mem::take(self).into_iter_hashed() {
-            if f(&*k, &mut v) {
-                res.insert_hashed_unique_unchecked(k, v);
+        struct RebuildIndexOnDrop<'a, K, V> {
+            original_len: usize,
+            map: &'a mut SmallMap<K, V>,
+        }
+
+        impl<'a, K, V> Drop for RebuildIndexOnDrop<'a, K, V> {
+            fn drop(&mut self) {
+                debug_assert!(self.map.entries.len() <= self.original_len);
+                if self.map.len() < self.original_len {
+                    self.map.rebuild_index();
+                }
             }
         }
-        *self = res;
+
+        let work = RebuildIndexOnDrop {
+            original_len: self.len(),
+            map: self,
+        };
+
+        work.map.entries.retain(f);
     }
 }
 
