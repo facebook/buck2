@@ -7,26 +7,15 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "make_artifact_tset",
-    "project_artifacts",
+    "ArtifactTSet",
 )
 load("@prelude//:paths.bzl", "paths")
-load(
-    "@prelude//cxx:cxx_bolt.bzl",
-    "bolt",
-    "cxx_use_bolt",
-)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
     "get_extra_darwin_linker_flags",
     "linker_map_args",
-)
-load("@prelude//cxx:debug.bzl", "SplitDebugMode")
-load(
-    "@prelude//cxx:dwp.bzl",
-    "run_dwp_action",
 )
 load("@prelude//cxx:link_types.bzl", "LinkOptions")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_linker_flags")
@@ -42,7 +31,6 @@ load(
     "SwiftmoduleLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
-    "unpack_external_debug_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
@@ -89,10 +77,7 @@ def cxx_darwin_dist_link(
         # The destination for the link output.
         output: Artifact,
         opts: LinkOptions,
-        linker_map: Artifact | None = None,
-        # This action will only happen if split_dwarf is enabled via the toolchain.
-        generate_dwp: bool = True,
-        executable_link: bool = True) -> LinkedObject:
+        linker_map: Artifact | None = None) -> LinkedObject:
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -465,19 +450,6 @@ def cxx_darwin_dist_link(
             opt_cmd.add("--input", initial_object)
             opt_cmd.add("--index", bc_file)
 
-            # When invoking opt and llc via clang, clang will not respect IR metadata to generate
-            # dwo files unless -gsplit-dwarf is explicitly passed in. In other words, even if
-            # 'splitDebugFilename' set in IR 'DICompileUnit', we still need to force clang to tell
-            # llc to generate dwo sections.
-            #
-            # Local thinlto generates .dwo files by default. For distributed thinlto, however, we
-            # want to keep all dwo debug info in the object file to reduce the number of files to
-            # materialize.
-            if cxx_toolchain.split_debug_mode == SplitDebugMode("none"):
-                opt_cmd.add("--split-dwarf=none")
-            elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
-                opt_cmd.add("--split-dwarf=single")
-
             opt_cmd.add(cmd_args(hidden = common_opt_cmd))
             opt_cmd.add("--args", opt_argsfile)
 
@@ -526,11 +498,6 @@ def cxx_darwin_dist_link(
                 opt_cmd.add("--out", opt_object.as_output())
                 opt_cmd.add("--input", entry["path"])
                 opt_cmd.add("--index", entry["bitcode_file"])
-
-                if cxx_toolchain.split_debug_mode == SplitDebugMode("none") or getattr(ctx.attrs, "distributed_thinlto_partial_split_dwarf", False):
-                    opt_cmd.add("--split-dwarf=none")
-                elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
-                    opt_cmd.add("--split-dwarf=single")
 
                 opt_cmd.add(cmd_args(hidden = common_opt_cmd))
                 opt_cmd.add("--args", opt_argsfile)
@@ -629,34 +596,8 @@ def cxx_darwin_dist_link(
         f = thin_lto_final_link,
     )
 
-    external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        children = [
-            unpack_external_debug_info(ctx.actions, link_args)
-            for link_args in links
-        ],
-    )
-
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, identifier)
-    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
-
-    if generate_dwp:
-        materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
-        referenced_objects = final_link_inputs + materialized_external_debug_info
-        run_dwp_action(
-            ctx = ctx,
-            toolchain = cxx_toolchain,
-            obj = final_output,
-            identifier = identifier,
-            category_suffix = category_suffix,
-            referenced_objects = referenced_objects,
-            dwp_output = dwp_output,
-            # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
-            # ensure all dwo source files are available
-            local_only = True,
-        )
-
-    unstripped_output = final_output
+    final_output = output
+    unstripped_output = output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix)
@@ -665,8 +606,8 @@ def cxx_darwin_dist_link(
         output = final_output,
         unstripped_output = unstripped_output,
         prebolt_output = output,
-        dwp = dwp_output,
-        external_debug_info = external_debug_info,
+        dwp = None,
+        external_debug_info = ArtifactTSet(),
         linker_argsfile = linker_argsfile_out,
         linker_filelist = None,  # DistLTO doesn't use filelists
         linker_command = None,  # There is no notion of a single linker command for DistLTO

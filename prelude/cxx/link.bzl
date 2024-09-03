@@ -152,8 +152,6 @@ def cxx_link_into(
                 output,
                 opts,
                 linker_map,
-                should_generate_dwp,
-                is_result_executable,
             )
         elif linker_type == "gnu":
             exe = cxx_gnu_dist_link(
