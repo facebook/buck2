@@ -282,11 +282,7 @@ impl<A, B> Vec2<A, B> {
     #[inline]
     pub fn get(&self, index: usize) -> Option<(&A, &B)> {
         if index < self.len {
-            unsafe {
-                let a = self.aaa().get_unchecked(index);
-                let b = self.bbb().get_unchecked(index);
-                Some((a, b))
-            }
+            Some(unsafe { self.get_unchecked(index) })
         } else {
             None
         }
