@@ -300,6 +300,16 @@ impl<A, B> Vec2<A, B> {
 
     /// Get an element mutable reference by index.
     #[inline]
+    pub fn get_mut(&mut self, index: usize) -> Option<(&mut A, &mut B)> {
+        if index < self.len {
+            Some(unsafe { self.get_unchecked_mut(index) })
+        } else {
+            None
+        }
+    }
+
+    /// Get an element mutable reference by index.
+    #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> (&mut A, &mut B) {
         debug_assert!(index < self.len);
         let k_ptr = self.aaa_ptr().as_ptr();
