@@ -14,10 +14,12 @@ use buck2_common::file_ops::FileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
 use futures::future;
+use remote_execution::InlinedBlobWithDigest;
 use remote_execution::TDigest;
 
 use crate::digest::CasDigestConversionResultExt;
 use crate::digest::CasDigestFromReExt;
+use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::streams::RemoteCommandStdStreams;
@@ -238,12 +240,13 @@ impl CommandStdStreams {
         self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
+        digest_config: DigestConfig,
     ) -> buck2_error::Result<StdStreamPair<ReStdStream>> {
         match self {
             Self::Local { stdout, stderr } => {
                 let (stdout, stderr) = future::try_join(
-                    maybe_upload_to_re(client, use_case, stdout),
-                    maybe_upload_to_re(client, use_case, stderr),
+                    maybe_upload_to_re(client, use_case, stdout, digest_config),
+                    maybe_upload_to_re(client, use_case, stderr, digest_config),
                 )
                 .await?;
 
@@ -277,11 +280,17 @@ async fn maybe_upload_to_re(
     client: &ManagedRemoteExecutionClient,
     use_case: RemoteExecutorUseCase,
     bytes: Vec<u8>,
+    digest_config: DigestConfig,
 ) -> buck2_error::Result<ReStdStream> {
     const MIN_STREAM_UPLOAD_SIZE: usize = 50 * 1024; // Same as RE
     if bytes.len() < MIN_STREAM_UPLOAD_SIZE {
         return Ok(ReStdStream::Raw(bytes));
     }
-    let digest = client.upload_blob(bytes, use_case).await?;
+    let inline_blob = InlinedBlobWithDigest {
+        digest: FileDigest::from_content(&bytes, digest_config.cas_digest_config()).to_re(),
+        blob: bytes,
+        ..Default::default()
+    };
+    let digest = client.upload_blob(inline_blob, use_case).await?;
     Ok(ReStdStream::Digest(digest))
 }

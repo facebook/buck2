@@ -760,13 +760,25 @@ impl REClient {
         .await
     }
 
-    pub async fn upload_blob(
+    pub async fn upload_blob_with_digest(
         &self,
-        _blob: Vec<u8>,
-        _metadata: RemoteExecutionMetadata,
-    ) -> anyhow::Result<TDigest> {
-        // TODO(aloiscochard)
-        Err(anyhow::anyhow!("Not implemented (RE upload_blob)"))
+        blob: Vec<u8>,
+        digest: TDigest,
+        metadata: RemoteExecutionMetadata,
+    ) -> anyhow::Result<()> {
+        let blob = InlinedBlobWithDigest{digest:digest.clone(), blob, ..Default::default()};
+        self.upload(
+            metadata,
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![blob]),
+                files_with_digest: None,
+                directories: None,
+                upload_only_missing: false,
+                ..Default::default()
+            },
+        )
+        .await?;
+        Ok(())
     }
 
     pub async fn download(
