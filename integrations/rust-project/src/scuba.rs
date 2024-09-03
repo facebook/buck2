@@ -17,7 +17,18 @@ pub(crate) fn log_develop(duration: Duration, input: Input) {
     let mut sample = new_sample("develop");
     sample.add("duration_ms", duration.as_millis() as i64);
     sample.add("input", format!("{:?}", input));
+    sample.add("revision", get_sl_revision());
     sample.log();
+}
+
+#[cfg(fbcode_build)]
+fn get_sl_revision() -> String {
+    std::process::Command::new("sl")
+        .arg("id")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .unwrap_or("unknown".to_owned())
 }
 
 #[cfg(not(fbcode_build))]
