@@ -34,6 +34,62 @@ _APPLE_MIN_VERSION_FLAG_SDK_MAP = {
     "watchsimulator": "-mwatchsimulator-version-min",
 }
 
+_MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
+    "13.0": "10.15",  # Catalina
+    "13.1": "10.15",
+    "13.2": "10.15.1",
+    "13.3": "10.15.2",
+    "13.4": "10.15.4",
+    "13.5": "10.15.5",
+    "13.6": "10.15.5",  # Xcode reported 10.15
+    "14.0": "11.0",  # Big Sur
+    "14.1": "11.0",
+    "14.2": "11.0",
+    "14.3": "11.1",
+    "14.4": "11.2",
+    "14.5": "11.3",
+    "14.6": "11.4",
+    "14.7": "11.5",
+    "15.0": "12.0",  # Monterey
+    "15.1": "12.0",  # Xcode reported 10.15
+    "15.2": "12.1",
+    "15.3": "12.2",
+    "15.4": "12.3",
+    "15.5": "12.4",
+    "15.6": "12.5",
+    "16.0": "13.0",  # Ventura
+    "16.1": "13.0",
+    "16.2": "13.1",
+    "16.3": "13.2",
+    "16.4": "13.3",
+    "16.5": "13.4",
+    "16.6": "13.5",
+    "17.0": "14.0",  # Sonoma
+    "17.1": "14.1",
+    "17.2": "14.2",
+    "17.3": "14.3",
+    "17.4": "14.4",
+    "17.5": "14.5",
+    "18.0": "15.0",
+    "18.1": "15.1",
+}
+
+_SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
+    "maccatalyst": "macosx",
+}
+
+def get_platform_version_for_sdk_version(sdk_name: str, sdk_version: str) -> str:
+    if sdk_name == "maccatalyst":
+        macos_version = _MACCATALYST_IOS_TO_MACOS_VERSION_MAP.get(sdk_version, None)
+        if macos_version == None:
+            fail("No macos version for maccatalyst version {}".format(sdk_version))
+        return macos_version
+
+    return sdk_version
+
+def get_platform_name_for_sdk(sdk_name: str) -> str:
+    return _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP.get(sdk_name, sdk_name)
+
 # Returns the target_sdk_version specified for this build, falling
 # back to the toolchain version when unset.
 def get_min_deployment_version_for_node(ctx: AnalysisContext) -> str:
