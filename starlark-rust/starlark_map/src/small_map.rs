@@ -29,7 +29,7 @@ use std::mem;
 
 use allocative::Allocative;
 use equivalent::Equivalent;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -72,7 +72,7 @@ pub struct SmallMap<K, V> {
     entries: VecMap<K, V>,
     /// Map a key to the index in `entries`.
     /// This field is initialized when the size of the map exceeds `NO_INDEX_THRESHOLD`.
-    index: Option<Box<RawTable<usize>>>,
+    index: Option<Box<HashTable<usize>>>,
 }
 
 impl<K, V> Default for SmallMap<K, V> {
@@ -109,7 +109,7 @@ impl<K, V> SmallMap<K, V> {
         } else {
             SmallMap {
                 entries: VecMap::with_capacity(n),
-                index: Some(Box::new(RawTable::with_capacity(n))),
+                index: Some(Box::new(HashTable::with_capacity(n))),
             }
         }
     }
@@ -124,7 +124,7 @@ impl<K, V> SmallMap<K, V> {
             assert_eq!(index.len(), self.entries.len());
             for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
                 let j = *index
-                    .get(k.hash().promote(), |j| {
+                    .find(k.hash().promote(), |j| {
                         &self.entries.get_index(*j).unwrap().0 == k.key()
                     })
                     .unwrap();
@@ -296,10 +296,10 @@ impl<K, V> SmallMap<K, V> {
         &self,
         hash: StarlarkHashValue,
         mut eq: impl FnMut(&K) -> bool,
-        index: &RawTable<usize>,
+        index: &HashTable<usize>,
     ) -> Option<usize> {
         index
-            .get(hash.promote(), |&index| unsafe {
+            .find(hash.promote(), |&index| unsafe {
                 eq(self.entries.get_unchecked(index).0.key())
             })
             .copied()
@@ -431,10 +431,11 @@ impl<K, V> SmallMap<K, V> {
     fn create_index(&mut self, capacity: usize) {
         debug_assert!(self.index.is_none());
         debug_assert!(capacity >= self.entries.len());
-        let mut index = RawTable::with_capacity(capacity);
+        let mut index = HashTable::with_capacity(capacity);
         for (i, (k, _)) in self.entries.iter_hashed().enumerate() {
-            // SAFETY: capacity >= self.entries.len()
-            unsafe { index.insert_no_grow(k.hash().promote(), i) };
+            index.insert_unique(k.hash().promote(), i, |_| {
+                unreachable!("Must have enough capacity")
+            });
         }
         self.index = Some(Box::new(index));
     }
@@ -455,7 +456,7 @@ impl<K, V> SmallMap<K, V> {
         let entry_index = self.entries.len();
         self.entries.insert_hashed_unique_unchecked(key, val);
         if let Some(index) = &mut self.index {
-            index.insert(hash.promote(), entry_index, Self::hasher(&self.entries));
+            index.insert_unique(hash.promote(), entry_index, Self::hasher(&self.entries));
         } else if self.entries.len() == NO_INDEX_THRESHOLD + 1 {
             self.create_index(self.entries.len());
         } else {
@@ -524,17 +525,18 @@ impl<K, V> SmallMap<K, V> {
         let hash = key.hash();
         if let Some(index) = &mut self.index {
             let entries = &self.entries;
-            let i = index.remove_entry(hash.promote(), |&i| unsafe {
+            let i = match index.find_entry(hash.promote(), |&i| unsafe {
                 key.key().equivalent(entries.get_unchecked(i).0.key())
-            })?;
-            unsafe {
-                // No need to update the index when the last entry is removed.
-                if i != self.entries.len() - 1 {
-                    for bucket in index.iter() {
-                        debug_assert!(*bucket.as_ref() != i);
-                        if *bucket.as_mut() > i {
-                            *bucket.as_mut() -= 1;
-                        }
+            }) {
+                Ok(found) => found.remove().0,
+                Err(_) => return None,
+            };
+            // No need to update the index when the last entry is removed.
+            if i != self.entries.len() - 1 {
+                for bucket in index.iter_mut() {
+                    debug_assert!(*bucket != i);
+                    if *bucket > i {
+                        *bucket -= 1;
                     }
                 }
             }
@@ -589,9 +591,17 @@ impl<K, V> SmallMap<K, V> {
             None => None,
             Some((key, value)) => {
                 if let Some(index) = &mut self.index {
-                    let removed =
-                        index.remove_entry(key.hash().promote(), |&i| i == self.entries.len());
-                    debug_assert!(removed.unwrap() == self.entries.len());
+                    match index.find_entry(key.hash().promote(), |&i| i == self.entries.len()) {
+                        Ok(found) => {
+                            let removed = found.remove().0;
+                            debug_assert!(removed == self.entries.len());
+                        }
+                        Err(_) => {
+                            if cfg!(debug_assertions) {
+                                unreachable!("The entry must be in the index")
+                            }
+                        }
+                    }
                 }
                 Some((key.into_key(), value))
             }
@@ -640,12 +650,10 @@ impl<K, V> SmallMap<K, V> {
         if let Some(index) = &self.index {
             assert_eq!(self.entries.len(), index.len());
             let mut set_fields = vec![false; self.entries.len()];
-            unsafe {
-                for bucket in index.iter() {
-                    let i = *bucket.as_ref();
-                    let prev = mem::replace(&mut set_fields[i], true);
-                    assert!(!prev);
-                }
+            for bucket in index.iter() {
+                let i = *bucket;
+                let prev = mem::replace(&mut set_fields[i], true);
+                assert!(!prev);
             }
         } else {
             assert!(self.entries.len() <= NO_INDEX_THRESHOLD);
@@ -680,8 +688,9 @@ impl<K, V> SmallMap<K, V> {
                 if let Some(index) = &mut self.map.index {
                     index.clear();
                     for (i, (k, _)) in self.map.entries.iter_hashed().enumerate() {
-                        // SAFETY: capacity >= self.entries.len()
-                        unsafe { index.insert_no_grow(k.hash().promote(), i) };
+                        index.insert_unique(k.hash().promote(), i, |_| {
+                            unreachable!("Must have enough capacity")
+                        });
                     }
                 }
             }
@@ -716,11 +725,8 @@ impl<K, V> SmallMap<K, V> {
         self.entries.reverse();
         if let Some(index) = &mut self.index {
             let len = self.entries.len();
-            // Safety: iterator does not escape.
-            unsafe {
-                for entry in index.iter() {
-                    *entry.as_mut() = len - 1 - *entry.as_ref();
-                }
+            for entry in index.iter_mut() {
+                *entry = len - 1 - *entry;
             }
         }
     }
