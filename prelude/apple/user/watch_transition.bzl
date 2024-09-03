@@ -11,20 +11,8 @@ Transforms both OS and SDK constraints.
 Only sanity check for source configuration is done.
 """
 
+load("@prelude//transitions:utils.bzl", "filtered_platform_constraints", "get_constraint_value")
 load("@prelude//utils:expect.bzl", "expect")
-
-def _os_and_sdk_unrelated_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
-    return {
-        constraint_setting_label: constraint_setting_value
-        for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
-        if constraint_setting_label not in [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label]
-    }
-
-def _old_os_constraint_value(platform: PlatformInfo, refs: struct) -> [None, ConstraintValueInfo]:
-    return platform.configuration.constraints.get(refs.os[ConstraintSettingInfo].label)
-
-def _old_sdk_constraint_value(platform: PlatformInfo, refs: struct) -> [None, ConstraintValueInfo]:
-    return platform.configuration.constraints.get(refs.sdk[ConstraintSettingInfo].label)
 
 def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     # This functions operates in the following way:
@@ -32,10 +20,10 @@ def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     #  - If the old OS constraint was iOS or watchOS, set the new constraint to be always watchOS.
     #  - If the old SDK constraint was iOS, replace with the equivalent watchOS constraint.
     #  - Return a new platform with the updated constraints.
-    updated_constraints = _os_and_sdk_unrelated_constraints(platform, refs)
+    updated_constraints = filtered_platform_constraints(platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label])
 
     # Update OS constraint
-    old_os = _old_os_constraint_value(platform, refs)
+    old_os = get_constraint_value(platform, refs.os[ConstraintSettingInfo])
     watchos = refs.watchos[ConstraintValueInfo]
     ios = refs.ios[ConstraintValueInfo]
     if old_os != None:
@@ -43,7 +31,7 @@ def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     updated_constraints[refs.os[ConstraintSettingInfo].label] = watchos
 
     # Update SDK constraint
-    old_sdk = _old_sdk_constraint_value(platform, refs)
+    old_sdk = get_constraint_value(platform, refs.sdk[ConstraintSettingInfo])
     watchos_device_sdk = refs.watchos_device_sdk[ConstraintValueInfo]
     watchos_simulator_sdk = refs.watchos_simulator_sdk[ConstraintValueInfo]
     ios_device_sdk = refs.ios_device_sdk[ConstraintValueInfo]

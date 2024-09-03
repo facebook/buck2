@@ -335,6 +335,13 @@ def _apple_watchos_bundle_macro_stub(**kwargs):
         **kwargs
     )
 
+def _apple_macos_bundle_macro_stub(**kwargs):
+    apple_bundle_macro_impl(
+        apple_bundle_rule = _user_rules["apple_macos_bundle"],
+        apple_resource_bundle_rule = _user_rules["apple_resource_bundle"],
+        **kwargs
+    )
+
 def _apple_test_macro_stub(**kwargs):
     apple_test_macro_impl(
         apple_test_rule = __rules__["apple_test"],
@@ -443,6 +450,7 @@ __extra_rules__ = {
     "apple_binary": _apple_binary_macro_stub,
     "apple_bundle": _apple_bundle_macro_stub,
     "apple_library": _apple_library_macro_stub,
+    "apple_macos_bundle": _apple_macos_bundle_macro_stub,
     "apple_package": _apple_package_macro_stub,
     "apple_test": _apple_test_macro_stub,
     "apple_universal_executable": _apple_universal_executable_macro_stub,

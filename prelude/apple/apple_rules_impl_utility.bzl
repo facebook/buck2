@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
-load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load("@prelude//apple:apple_common.bzl", "apple_common")
@@ -70,6 +69,12 @@ APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default 
 def apple_dsymutil_attrs():
     return {
         "_dsymutil_extra_flags": attrs.list(attrs.string()),
+    }
+
+def get_apple_info_plist_build_system_identification_attrs():
+    return {
+        "info_plist_identify_build_system": attrs.option(attrs.bool(), default = None),
+        "_info_plist_identify_build_system_default": attrs.bool(default = False),
     }
 
 def _apple_bundle_like_common_attrs():

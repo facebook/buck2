@@ -38,7 +38,7 @@
 #          +------>|      Binary       |<--------+
 #                  +-------------------+
 
-load("@prelude//apple:apple_bundle_attrs.bzl", "get_apple_info_plist_build_system_identification_attrs")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_info_plist_build_system_identification_attrs")
 
 _RESOURCE_BUNDLE_FIELDS = [
     "asset_catalogs_compilation_options",
