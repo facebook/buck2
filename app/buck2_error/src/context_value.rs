@@ -18,6 +18,8 @@ pub enum ContextValue {
     Tier(Tier),
     Tags(SmallVec<[crate::ErrorTag; 1]>),
     Typed(Arc<dyn TypedContext>),
+    // Stable value for category key
+    Key(Arc<str>),
 }
 
 impl ContextValue {
@@ -28,6 +30,7 @@ impl ContextValue {
             // Displaying the category in the middle of an error message doesn't seem useful
             Self::Tier(_) => false,
             Self::Tags(_) => false,
+            Self::Key(..) => false,
         }
     }
 
@@ -46,6 +49,9 @@ impl ContextValue {
             (ContextValue::Typed(left), ContextValue::Typed(right)) => {
                 assert!(left.eq(&**right))
             }
+            (ContextValue::Key(a), ContextValue::Key(b)) => {
+                assert_eq!(a, b);
+            }
             (_, _) => panic!("context variants don't match!"),
         }
     }
@@ -58,6 +64,7 @@ impl std::fmt::Display for ContextValue {
             Self::Tier(category) => write!(f, "{:?}", category),
             Self::Tags(tags) => write!(f, "{:?}", tags),
             Self::Typed(v) => std::fmt::Display::fmt(v, f),
+            Self::Key(v) => f.write_str(v),
         }
     }
 }

@@ -147,9 +147,16 @@ impl Error {
     pub fn category_key(&self) -> String {
         let tags = self.tags().into_iter().map(|tag| tag.as_str_name());
 
+        let key_values = self.iter_context().filter_map(|kind| match kind {
+            ContextValue::Key(val) => Some(val.to_string()),
+            _ => None,
+        });
+
         let mut values = vec![self.source_location().unwrap_or("unknown_location")]
             .into_iter()
-            .chain(tags);
+            .chain(tags)
+            .map(|s| s.to_owned())
+            .chain(key_values);
 
         values.join(":").to_owned()
     }
@@ -160,6 +167,13 @@ impl Error {
 
     pub fn context<C: Into<ContextValue>>(self, context: C) -> Self {
         Self(Arc::new(ErrorKind::WithContext(context.into(), self)))
+    }
+
+    pub fn context_for_key(self, context: &str) -> Self {
+        Self(Arc::new(ErrorKind::WithContext(
+            ContextValue::Key(context.into()),
+            self,
+        )))
     }
 
     #[cold]
