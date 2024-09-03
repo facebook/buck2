@@ -110,7 +110,7 @@ impl DiceKeyErased {
         }
     }
 
-    pub(crate) fn as_ref<'a>(&'a self) -> DiceKeyErasedRef<'a> {
+    pub(crate) fn as_ref(&self) -> DiceKeyErasedRef<'_> {
         match self {
             DiceKeyErased::Key(k) => DiceKeyErasedRef::Key(&**k),
             DiceKeyErased::Projection(proj) => {
