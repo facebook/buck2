@@ -365,6 +365,7 @@ impl CliArgType {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 pub(crate) enum CliArgError {
     #[error("Expected default value of type `{}`, but got `{}`", _0, _1)]
     DefaultValueTypeError(CliArgType, String),
