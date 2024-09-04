@@ -353,9 +353,13 @@ def _compile_swiftmodule(
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-emit-module",
-        "-Xfrontend",
-        "-experimental-skip-non-inlinable-function-bodies-without-types",
     ])
+
+    if ctx.attrs.swift_module_skip_function_bodies:
+        argfile_cmd.add([
+            "-Xfrontend",
+            "-experimental-skip-non-inlinable-function-bodies-without-types",
+        ])
 
     if _should_compile_with_evolution(ctx):
         argfile_cmd.add(["-enable-library-evolution"])
