@@ -241,8 +241,11 @@ def get_android_binary_native_library_info(
 
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         get_module_from_target = all_targets_in_root_module
+        get_module_tdeps = all_targets_in_root_module
         if apk_module_graph_file:
-            get_module_from_target = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts).target_to_module_mapping_function
+            apk_module_graph = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts)
+            get_module_from_target = apk_module_graph.target_to_module_mapping_function
+            get_module_tdeps = apk_module_graph.transitive_module_deps_function
 
         split_groups = None
         merged_shared_lib_targets_by_platform = {}  # dict[str, dict[Label, str]]
@@ -356,6 +359,22 @@ def get_android_binary_native_library_info(
             "{}/{}".format(platform, lib.short_path): lib
             for lib, platform in unstripped_libs.items()
         })
+
+        if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check:
+            # note: can only detect these if linkable_nodes_by_platform is created, ie. if using relinker or merging
+            cross_module_link_errors = []
+            for linkable_nodes in linkable_nodes_by_platform.values():
+                for target, node in linkable_nodes.items():
+                    node_target = str(target.raw_target())
+                    node_module = get_module_from_target(node_target)
+                    for dep in node.deps:
+                        dep_target = str(dep.raw_target())
+                        dep_module = get_module_from_target(dep_target)
+                        if not is_root_module(dep_module) and node_module != dep_module and dep_module not in get_module_tdeps(node_module):
+                            cross_module_link_errors.append("{} (module: {}) -> {} (module: {}) - module t deps {}".format(node_target, node_module, dep_target, dep_module, get_module_tdeps(node_module)))
+
+            if cross_module_link_errors:
+                fail("Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n" + "\n".join(cross_module_link_errors))
 
         dynamic_info = _get_native_libs_and_assets(
             ctx,

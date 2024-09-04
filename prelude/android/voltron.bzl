@@ -227,6 +227,7 @@ APKModuleGraphInfo = record(
     module_to_canary_class_name_function = typing.Callable,
     module_to_module_deps_function = typing.Callable,
     target_to_module_mapping_function = typing.Callable,
+    transitive_module_deps_function = typing.Callable,
 )
 
 def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
@@ -243,6 +244,7 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
         module_to_canary_class_name_function = root_module_canary_class_name,
         module_to_module_deps_function = root_module_deps,
         target_to_module_mapping_function = all_targets_in_root_module,
+        transitive_module_deps_function = root_module_deps,
     )
 
 def get_apk_module_graph_info(
@@ -257,6 +259,7 @@ def get_apk_module_graph_info(
 
     module_to_canary_class_name_map = {}
     module_to_module_deps_map = {}
+    transitive_module_deps_map = {}
     for line in module_infos:
         line_data = line.split(" ")
         module_name = line_data[0]
@@ -270,6 +273,19 @@ def get_apk_module_graph_info(
         target, module = line.split(" ")
         target_to_module_mapping[target] = module
 
+    for module, deps in module_to_module_deps_map.items():
+        visited_modules = set()
+        queue = [d for d in deps]
+        for _ in range(1, 1000):
+            if len(queue) == 0:
+                transitive_module_deps_map[module] = visited_modules.list()
+                continue
+            node = queue.pop()
+            visited_modules.add(node)
+            for d in module_to_module_deps_map[node]:
+                if not visited_modules.contains(d):
+                    queue.append(d)
+
     def target_to_module_mapping_function(raw_target: str) -> str:
         mapped_module = target_to_module_mapping.get(raw_target)
         expect(mapped_module != None, "No module found for target {}!".format(raw_target))
@@ -281,9 +297,13 @@ def get_apk_module_graph_info(
     def module_to_module_deps_function(voltron_module: str) -> list:
         return module_to_module_deps_map.get(voltron_module)
 
+    def transitive_module_deps_function(voltron_module: str) -> list:
+        return transitive_module_deps_map.get(voltron_module)
+
     return APKModuleGraphInfo(
         module_list = module_to_canary_class_name_map.keys(),
         module_to_canary_class_name_function = module_to_canary_class_name_function,
         module_to_module_deps_function = module_to_module_deps_function,
         target_to_module_mapping_function = target_to_module_mapping_function,
+        transitive_module_deps_function = transitive_module_deps_function,
     )
