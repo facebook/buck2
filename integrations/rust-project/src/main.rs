@@ -121,6 +121,11 @@ enum Command {
         /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
         #[clap(long)]
         include_all_buildfiles: bool,
+
+        /// Enables clippy in the flycheck commands in `rust-project.json`
+        /// Default is true, pass `--use-clippy false` to disable
+        #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
+        use_clippy: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
@@ -151,6 +156,11 @@ enum Command {
         #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
         max_extra_targets: Option<usize>,
 
+        /// Enables clippy in the flycheck commands in `rust-project.json`
+        /// Default is true, pass `--use-clippy false` to disable
+        #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
+        use_clippy: bool,
+
         args: JsonArguments,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
@@ -159,6 +169,8 @@ enum Command {
         #[clap(short = 'm', long)]
         mode: Option<String>,
 
+        /// Enables clippy in the flycheck commands in `rust-project.json`
+        /// Default is true, pass `--use-clippy false` to disable
         #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
         use_clippy: bool,
 
@@ -415,6 +427,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: None,
             mode: None,
+            use_clippy: true,
         }),
         version: false,
     };
@@ -435,6 +448,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: None,
             mode: None,
+            use_clippy: true,
         }),
         version: false,
     };
@@ -455,6 +469,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: None,
             mode: None,
+            use_clippy: true,
         }),
         version: false,
     };

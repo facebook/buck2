@@ -55,6 +55,7 @@ pub(crate) fn to_project_json(
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     check_cycles: bool,
     include_all_buildfiles: bool,
+    use_clippy: bool,
     extra_cfgs: &[String],
     buck: &Buck,
 ) -> Result<ProjectJson, anyhow::Error> {
@@ -236,7 +237,21 @@ pub(crate) fn to_project_json(
     //
     #[cfg(not(fbcode_build))]
     {
+        let rust_project_executable = std::env::args().next().unwrap();
         runnables.extend([
+            Runnable {
+                kind: RunnableKind::Flycheck,
+                program: rust_project_executable,
+                args: {
+                    let mut args = vec!["check".to_owned(), "{label}".to_owned()];
+                    if !use_clippy {
+                        args.push("--use-clippy".to_owned());
+                        args.push("false".to_owned());
+                    }
+                    args
+                },
+                cwd: project_root.clone(),
+            },
             Runnable {
                 kind: RunnableKind::Run,
                 program: "buck2".to_string(),
