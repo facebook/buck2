@@ -562,6 +562,8 @@ impl Buck {
             command.current_dir(parent_dir);
         }
 
+        tracing::debug!(?command, "running bxl");
+
         let output = command.output();
 
         let files = deserialize_output(output, &command)?;
@@ -590,6 +592,9 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
+
+        tracing::debug!(?command, "running bxl");
+
         deserialize_file_output(command.output(), &command)
     }
 
