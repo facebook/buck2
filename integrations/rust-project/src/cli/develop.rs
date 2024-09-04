@@ -10,7 +10,6 @@
 
 use std::io::BufWriter;
 use std::io::Write;
-use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
@@ -29,6 +28,7 @@ use crate::project_json::ProjectJson;
 use crate::project_json::Sysroot;
 use crate::sysroot::SysrootConfig;
 use crate::sysroot::resolve_buckconfig_sysroot;
+use crate::sysroot::resolve_provided_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
 use crate::target::Target;
 
@@ -63,6 +63,7 @@ impl Develop {
             stdout,
             prefer_rustup_managed_toolchain,
             sysroot,
+            sysroot_src,
             pretty,
             mode,
             check_cycles,
@@ -80,10 +81,18 @@ impl Develop {
             };
 
             let sysroot = if prefer_rustup_managed_toolchain {
-                SysrootConfig::Rustup
+                SysrootConfig::Rustup { sysroot_src }
             } else if let Some(sysroot) = sysroot {
-                SysrootConfig::Sysroot(sysroot)
+                SysrootConfig::Sysroot {
+                    sysroot,
+                    sysroot_src,
+                }
             } else {
+                if sysroot_src.is_some() {
+                    tracing::warn!(
+                        "Ignoring --sysroot-src, must use with --sysroot or --prefer-rustup-managed-toolchain. Using value from buckconfig."
+                    )
+                }
                 SysrootConfig::BuckConfig
             };
 
@@ -129,14 +138,20 @@ impl Develop {
 
             let sysroot = match sysroot_mode {
                 crate::SysrootMode::BuckConfig => SysrootConfig::BuckConfig,
-                crate::SysrootMode::Rustc => SysrootConfig::Rustup,
-                crate::SysrootMode::FullPath(path) => SysrootConfig::Sysroot(path),
+                crate::SysrootMode::Rustc => SysrootConfig::Rustup { sysroot_src: None },
+                crate::SysrootMode::FullPath(sysroot) => SysrootConfig::Sysroot {
+                    sysroot,
+                    sysroot_src: None,
+                },
                 crate::SysrootMode::Command(cmd_args) => {
                     let cmd = cmd_args[0].clone();
                     let args = cmd_args[1..].to_vec();
                     let output = std::process::Command::new(cmd).args(args).output().unwrap();
                     let path = String::from_utf8(output.stdout).unwrap();
-                    SysrootConfig::Sysroot(PathBuf::from(path.trim()))
+                    SysrootConfig::Sysroot {
+                        sysroot: PathBuf::from(path.trim()),
+                        sysroot_src: None,
+                    }
                 }
             };
 
@@ -285,15 +300,15 @@ impl Develop {
 
         info!(kind = "progress", "finding std source code");
         let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => {
-                let sysroot_path = safe_canonicalize(&expand_tilde(path)?);
-                Sysroot::with_default_sysroot_src(sysroot_path)
-            }
+            SysrootConfig::Sysroot {
+                sysroot,
+                sysroot_src,
+            } => resolve_provided_sysroot(sysroot, sysroot_src.as_deref())?,
             SysrootConfig::BuckConfig => {
                 let project_root = buck.resolve_project_root()?;
                 resolve_buckconfig_sysroot(&buck, &project_root)?
             }
-            SysrootConfig::Rustup => resolve_rustup_sysroot()?,
+            SysrootConfig::Rustup { sysroot_src } => resolve_rustup_sysroot(sysroot_src.clone())?,
         };
 
         let exclude_workspaces =
@@ -329,17 +344,6 @@ impl Develop {
 
         // We always want the targets that directly own these Rust files.
         self.buck.query_owners(input, max_extra_targets)
-    }
-}
-
-fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
-    if path.starts_with("~") {
-        let path = path.strip_prefix("~")?;
-        let home = std::env::var("HOME")?;
-        let home = PathBuf::from(home);
-        Ok(home.join(path))
-    } else {
-        Ok(path.to_path_buf())
     }
 }
 

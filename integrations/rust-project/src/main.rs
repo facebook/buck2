@@ -87,6 +87,8 @@ enum Command {
         ///
         /// This option requires the presence of `rustc` in the `$PATH`, as rust-project
         /// will run `rustc --print sysroot` and ignore any other `sysroot` configuration.
+        ///
+        /// The sysroot_src is set to `${sysroot}/lib/rustlib/src/rust/library`
         #[clap(long, conflicts_with = "sysroot")]
         prefer_rustup_managed_toolchain: bool,
 
@@ -94,6 +96,11 @@ enum Command {
         /// Default value is determined based on platform.
         #[clap(short = 's', long)]
         sysroot: Option<PathBuf>,
+
+        /// Default is `${sysroot}/lib/rustlib/src/rust/library`. Not used when using
+        /// `.buckconfig`-managed sysroot.
+        #[clap(long)]
+        sysroot_src: Option<PathBuf>,
 
         /// Pretty-print generated `rust-project.json` file.
         #[clap(short, long)]
