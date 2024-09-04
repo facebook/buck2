@@ -80,7 +80,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         no_dx_target_labels = [no_dx_target.label.raw_target() for no_dx_target in ctx.attrs.no_dx]
         java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, all_deps) if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
         targets_to_jars_args = [cmd_args([str(packaging_dep.label.raw_target()), packaging_dep.jar], delimiter = " ") for packaging_dep in java_packaging_deps]
-        targets_to_jars = argfile(actions = ctx.actions, name = "targets_to_jars.txt", args = targets_to_jars_args)
+        targets_to_jars = argfile(name = "targets_to_jars.txt", actions = ctx.actions, args = targets_to_jars_args)
         cmd.add([
             "--targets-to-jars",
             targets_to_jars,
@@ -88,7 +88,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.should_include_libraries:
         targets_to_so_names_args = [cmd_args([str(shared_lib.label.raw_target()), shared_lib.soname.ensure_str()], delimiter = " ") for shared_lib in traversed_shared_library_info]
-        targets_to_so_names = argfile(actions = ctx.actions, name = "targets_to_so_names.txt", args = targets_to_so_names_args)
+        targets_to_so_names = argfile(name = "targets_to_so_names.txt", actions = ctx.actions, args = targets_to_so_names_args)
         cmd.add([
             "--targets-to-so-names",
             targets_to_so_names,
@@ -101,8 +101,8 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
             if not prebuilt_native_library_dir.is_asset and not prebuilt_native_library_dir.for_primary_apk
         ]
         targets_to_non_assets_prebuilt_native_library_dirs = argfile(
-            actions = ctx.actions,
             name = "targets_to_non_assets_prebuilt_native_library_dirs.txt",
+            actions = ctx.actions,
             args = targets_to_non_assets_prebuilt_native_library_dirs_args,
         )
         cmd.add([
@@ -152,8 +152,14 @@ def _get_base_cmd_and_output(
         shared_libraries: list[SharedLibrary],
         android_toolchain: AndroidToolchainInfo,
         application_module_configs: dict[str, list[Dependency]],
-        application_module_dependencies: [dict[str, list[str]], None],
-        application_module_blocklist: [list[Dependency], None]) -> (cmd_args, Artifact):
+        application_module_dependencies: [
+            dict[str, list[str]],
+            None,
+        ],
+        application_module_blocklist: [
+            list[Dependency],
+            None,
+        ]) -> (cmd_args, Artifact):
     deps_map = {}
     primary_apk_deps = set()
     for android_packageable_info in android_packageable_infos:
@@ -218,9 +224,9 @@ def all_targets_in_root_module(_module: str) -> str:
 
 APKModuleGraphInfo = record(
     module_list = list[str],
-    target_to_module_mapping_function = typing.Callable,
     module_to_canary_class_name_function = typing.Callable,
     module_to_module_deps_function = typing.Callable,
+    target_to_module_mapping_function = typing.Callable,
 )
 
 def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
@@ -234,9 +240,9 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
 
     return APKModuleGraphInfo(
         module_list = [ROOT_MODULE],
-        target_to_module_mapping_function = all_targets_in_root_module,
         module_to_canary_class_name_function = root_module_canary_class_name,
         module_to_module_deps_function = root_module_deps,
+        target_to_module_mapping_function = all_targets_in_root_module,
     )
 
 def get_apk_module_graph_info(
@@ -277,7 +283,7 @@ def get_apk_module_graph_info(
 
     return APKModuleGraphInfo(
         module_list = module_to_canary_class_name_map.keys(),
-        target_to_module_mapping_function = target_to_module_mapping_function,
         module_to_canary_class_name_function = module_to_canary_class_name_function,
         module_to_module_deps_function = module_to_module_deps_function,
+        target_to_module_mapping_function = target_to_module_mapping_function,
     )
