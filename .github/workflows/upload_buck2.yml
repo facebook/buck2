@@ -22,7 +22,7 @@ jobs:
           git rev-parse HEAD > ../artifacts/prelude_hash
           echo "prelude_hash=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Upload prelude_hash
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: artifacts/prelude_hash
           name: prelude_hash
@@ -82,11 +82,15 @@ jobs:
         shell: bash
         run: |
           if [ -n "${{ matrix.target.is_windows }}" ]; then
-            echo "cargo_out=target/${{ matrix.target.triple }}/release/buck2.exe" >> "$GITHUB_OUTPUT"
+            echo "buck2_out=target/${{ matrix.target.triple }}/release/buck2.exe" >> "$GITHUB_OUTPUT"
             echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
+            echo "buck2_rust_project_out=target/${{ matrix.target.triple }}/release/rust-project.exe" >> "$GITHUB_OUTPUT"
+            echo "buck2_rust_project_zst=artifacts/rust-project-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
           else
-            echo "cargo_out=target/${{ matrix.target.triple }}/release/buck2" >> "$GITHUB_OUTPUT"
+            echo "buck2_out=target/${{ matrix.target.triple }}/release/buck2" >> "$GITHUB_OUTPUT"
             echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
+            echo "buck2_rust_project_out=target/${{ matrix.target.triple }}/release/rust-project" >> "$GITHUB_OUTPUT"
+            echo "buck2_rust_project_zst=artifacts/rust-project-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
           fi
       - name: Build
         shell: bash
@@ -104,24 +108,25 @@ jobs:
           else
             CARGO=cargo
           fi
-          $CARGO build --release --bin buck2 --target ${{ matrix.target.triple }}
+          $CARGO build --release --bin buck2 --bin rust-project --target ${{ matrix.target.triple }}
       - name: Sanity check with examples/with_prelude
         if: ${{ !matrix.target.cross }}
         shell: bash
         run: |
-          BUCK2="$(pwd)/${{ steps.set_variables.outputs.cargo_out }}"
+          BUCK2="$(pwd)/${{ steps.set_variables.outputs.buck2_out }}"
           cd examples/with_prelude
           "$BUCK2" build //rust/... //cpp/... //python/... -v=2
       - name: Move binary to artifacts/
         shell: bash
         run: |
           mkdir artifacts
-          zstd -z ${{ steps.set_variables.outputs.cargo_out }} -o ${{ steps.set_variables.outputs.buck2_zst }}
+          zstd -z ${{ steps.set_variables.outputs.buck2_out }} -o ${{ steps.set_variables.outputs.buck2_zst }}
+          zstd -z ${{ steps.set_variables.outputs.buck2_rust_project_out }} -o ${{ steps.set_variables.outputs.buck2_rust_project_zst }}
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: buck2-${{ matrix.target.triple }}
-          path: ${{ steps.set_variables.outputs.buck2_zst }}
+          path: artifacts/
 
   release_latest:
     name: Release `latest` tag
@@ -215,7 +220,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
     - name: Download Buck2
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: buck2-x86_64-unknown-linux-gnu
         path: artifacts
