@@ -440,8 +440,9 @@ def cxx_darwin_dist_link(
 
             # If the object was not compiled with thinlto flags, then there
             # won't be valid outputs for it from the indexing, but we still
-            # need to bind the artifact.
-            if not plan_json["is_bc"]:
+            # need to bind the artifact. Similarily, if a bitcode file is not
+            # loaded by the indexing phase, there is no point optimizing it.
+            if "not_loaded_by_linker" in plan_json or not plan_json["is_bc"]:
                 ctx.actions.write(outputs[opt_object], "")
                 return
 
@@ -475,6 +476,9 @@ def cxx_darwin_dist_link(
             output_dir = {}
             output_manifest = cmd_args()
             for entry in plan_json["objects"]:
+                if "not_loaded_by_linker" in entry:
+                    continue
+
                 base_dir = plan_json["base_dir"]
                 source_path = paths.relativize(entry["path"], base_dir)
                 if not entry["is_bc"]:

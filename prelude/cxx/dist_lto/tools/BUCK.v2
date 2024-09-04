@@ -14,6 +14,12 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
+    name = "dist_lto_planner_darwin",
+    main = "dist_lto_planner_darwin.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "dist_lto_opt",
     main = "dist_lto_opt.py",
     visibility = ["PUBLIC"],
@@ -41,7 +47,7 @@ dist_lto_tools(
     name = "dist_lto_tools_darwin",
     copy = ":dist_lto_copy",
     opt = ":dist_lto_opt_darwin",
-    planner = ":dist_lto_planner",
+    planner = ":dist_lto_planner_darwin",
     prepare = ":dist_lto_prepare",
     visibility = ["PUBLIC"],
 )
