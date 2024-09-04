@@ -349,7 +349,7 @@ impl<'a> InvocationRecorder<'a> {
             };
 
             self.client_errors
-                .push(error.tag([classify_server_stderr(&self.server_stderr)]));
+                .push(classify_server_stderr(error, &self.server_stderr));
         }
 
         let mut errors =

@@ -1090,12 +1090,13 @@ fn daemon_connect_error(error: buck2_error::Error, paths: &InvocationPaths) -> b
         .unwrap_or_else(|_| "<none>".to_owned());
 
     let stderr = truncate(&stderr, 64000);
-    error
+    let error = error
         .context(format!(
             "Error connecting to the daemon, daemon stderr follows:\n{}",
             stderr
         ))
-        .tag([classify_server_stderr(&stderr), ErrorTag::DaemonConnect])
+        .tag([ErrorTag::DaemonConnect]);
+    classify_server_stderr(error, &stderr)
 }
 
 fn is_nested_invocation(

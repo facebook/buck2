@@ -15,6 +15,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import (
     filter_events,
+    is_running_on_linux,
     is_running_on_windows,
     read_invocation_record,
 )
@@ -202,10 +203,15 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     assert "panicked at" in error["message"]
 
     assert invocation_record["best_error_tag"] == "SERVER_PANICKED"
-    assert (
-        invocation_record["best_error_category_key"]
-        == "buck2_client_ctx/src/daemon/client.rs:CLIENT_GRPC:SERVER_PANICKED"
-    )
+    category_key = invocation_record["best_error_category_key"].split(":")
+    category_key[0:2] = [
+        "buck2_client_ctx/src/daemon/client.rs",
+        "CLIENT_GRPC",
+        "SERVER_PANICKED",
+    ]
+    # TODO dump stack trace on windows
+    if not is_running_on_windows():
+        assert category_key[4].startswith("crash("), category_key[4]
 
 
 @buck_test(inplace=False)
@@ -251,3 +257,12 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
         assert "*** Signal 6 (SIGABRT)" in error["message"]
 
     assert invocation_record["best_error_tag"] == "CLIENT_GRPC"
+    category_key = invocation_record["best_error_category_key"].split(":")
+    category_key[0:2] = [
+        "buck2_client_ctx/src/daemon/client.rs",
+        "CLIENT_GRPC",
+        "SERVER_PANICKED",
+    ]
+    # TODO dump stack trace on mac and windows
+    if is_running_on_linux():
+        assert category_key[4].startswith("crash("), category_key[4]
