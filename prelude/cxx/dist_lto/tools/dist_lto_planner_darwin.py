@@ -155,19 +155,6 @@ def main(argv):
     index = {}
     index_files_set = set()
     loaded_input_bitcode_files = set()
-    # TODO(T130322878): since we call linker wrapper twice (in index and in final_link), to avoid these libs get
-    # added twice we remove them from the index file for now.
-    KNOWN_REMOVABLE_DEPS_SUFFIX = [
-        "glibc/lib/crt1.o",
-        "glibc/lib/crti.o",
-        "glibc/lib/Scrt1.o",
-        "crtbegin.o",
-        "crtbeginS.o",
-        ".build_info.o",
-        "crtend.o",
-        "crtendS.o",
-        "glibc/lib/crtn.o",
-    ]
     with open(index_path("index")) as indexfile:
         for line in indexfile:
             line = line.strip()
@@ -305,8 +292,6 @@ def main(argv):
         final_link_index_output.write("\n".join(lib_search_path) + "\n")
         for line in full_index_input:
             line = line.strip()
-            if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
-                continue
             path = os.path.relpath(line, start=args.index)
             if line in index_files_set:
                 if mapping[path]["output"]:
