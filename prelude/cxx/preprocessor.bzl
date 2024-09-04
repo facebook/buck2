@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -336,7 +337,7 @@ def _cxx_private_preprocessor_info(
 
 def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact]) -> CPreprocessorArgs:
     # Create private header tree and propagate via args.
-    args = []
+    args = get_target_sdk_version_flags(ctx)
     file_prefix_args = []
     header_root = prepare_headers(ctx, headers, "buck-private-headers")
     if header_root != None:

@@ -18,7 +18,7 @@ load(
     "linker_map_args",
 )
 load("@prelude//cxx:link_types.bzl", "LinkOptions")
-load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_linker_flags")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
@@ -156,8 +156,8 @@ def cxx_darwin_dist_link(
     index_link_data = []
     linkables_index = {}
     pre_post_flags = {}
-    common_link_flags = cmd_args(get_target_sdk_version_linker_flags(ctx), get_extra_darwin_linker_flags())
-    extra_codegen_flags = get_target_sdk_version_linker_flags(ctx)
+    common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
+    extra_codegen_flags = get_target_sdk_version_flags(ctx)
 
     # buildifier: disable=uninitialized
     def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, ObjectsLinkable, FrameworksLinkable]):

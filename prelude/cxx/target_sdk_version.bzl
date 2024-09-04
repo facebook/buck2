@@ -72,20 +72,26 @@ _PLATFORM_TARGET_TRIPLE_MAP = {
     "watchsimulator": "{architecture}-apple-watchos{version}-simulator",
 }
 
-def get_target_triple(ctx: AnalysisContext) -> [None, str]:
-    target_sdk_version = get_target_sdk_version(ctx)
-    if target_sdk_version == None:
-        return None
-
+def _format_target_triple(ctx: AnalysisContext, version: str) -> str:
     platform_info = get_cxx_platform_info(ctx)
     platform_components = platform_info.name.split("-")
     if platform_components[0] not in _PLATFORM_TARGET_TRIPLE_MAP:
         fail("missing target triple for {}".format(platform_components[0]))
 
     triple_format_str = _PLATFORM_TARGET_TRIPLE_MAP[platform_components[0]]
-    return triple_format_str.format(architecture = platform_components[1], version = target_sdk_version)
+    return triple_format_str.format(architecture = platform_components[1], version = version)
 
-def get_target_sdk_version_linker_flags(ctx: AnalysisContext) -> list[str]:
+def get_target_triple(ctx: AnalysisContext) -> [None, str]:
+    target_sdk_version = get_target_sdk_version(ctx)
+    if target_sdk_version == None:
+        return None
+
+    return _format_target_triple(ctx, target_sdk_version)
+
+def get_unversioned_target_triple(ctx: AnalysisContext) -> str:
+    return _format_target_triple(ctx, "")
+
+def get_target_sdk_version_flags(ctx: AnalysisContext) -> list[str]:
     if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
         return []
 

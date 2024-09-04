@@ -67,7 +67,7 @@ load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
-load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_preprocessor_flags")
+load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":resource_groups.bzl", "create_resource_graph")
@@ -141,7 +141,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
-            extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [framework_search_path_pre] + swift_preprocessor,
+            extra_preprocessors = [framework_search_path_pre] + swift_preprocessor,
             strip_executable = stripped,
             strip_args_factory = apple_strip_args,
             cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: apple_populate_xcode_attributes(local_ctx, contains_swift_sources = contains_swift_sources, **kwargs),

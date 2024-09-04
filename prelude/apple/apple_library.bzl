@@ -78,6 +78,7 @@ load(
     "CPreprocessorArgs",
     "CPreprocessorInfo",  # @unused Used as a type
 )
+load("@prelude//cxx:target_sdk_version.bzl", "get_unversioned_target_triple")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
@@ -88,7 +89,7 @@ load("@prelude//apple/mockingbird/mockingbird_types.bzl", "MockingbirdLibraryInf
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
-load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node", "get_min_deployment_version_target_preprocessor_flags", "get_unversioned_target_triple")
+load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
     ":debug.bzl",
@@ -422,7 +423,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         extra_hidden = validation_deps_outputs,
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
-        extra_preprocessors = get_min_deployment_version_target_preprocessor_flags(ctx) + [swift_pre, modular_pre],
+        extra_preprocessors = [swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [framework_search_path_pre, exported_pre]),
         srcs = cxx_srcs,
         additional = CxxRuleAdditionalParams(
