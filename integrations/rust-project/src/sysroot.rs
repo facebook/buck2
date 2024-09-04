@@ -79,7 +79,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
         vec![sysroot_targets],
         Sysroot {
             sysroot: sysroot.clone(),
-            sysroot_src: Some(sysroot_src.clone()),
+            sysroot_src: sysroot_src.clone(),
             sysroot_project: None,
         },
         true,
@@ -99,7 +99,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
 
     Ok(Sysroot {
         sysroot,
-        sysroot_src: Some(sysroot_src),
+        sysroot_src,
         sysroot_project: Some(sysroot_project),
     })
 }
@@ -124,7 +124,7 @@ pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
 
     let sysroot = Sysroot {
         sysroot,
-        sysroot_src: Some(sysroot_src),
+        sysroot_src,
         sysroot_project: None, // rustup sysroot is not buckified
     };
     Ok(sysroot)

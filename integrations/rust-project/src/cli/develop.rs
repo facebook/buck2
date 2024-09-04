@@ -285,11 +285,10 @@ impl Develop {
 
         info!(kind = "progress", "finding std source code");
         let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => Sysroot {
-                sysroot: safe_canonicalize(&expand_tilde(path)?),
-                sysroot_src: None,
-                sysroot_project: None,
-            },
+            SysrootConfig::Sysroot(path) => {
+                let sysroot_path = safe_canonicalize(&expand_tilde(path)?);
+                Sysroot::with_default_sysroot_src(sysroot_path)
+            }
             SysrootConfig::BuckConfig => {
                 let project_root = buck.resolve_project_root()?;
                 resolve_buckconfig_sysroot(&buck, &project_root)?

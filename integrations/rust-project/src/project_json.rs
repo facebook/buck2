@@ -220,7 +220,7 @@ pub(crate) struct Dep {
 ///
 /// <https://rust-analyzer.github.io/book/non_cargo_based_projects.html>
 ///
-/// rust-analyzer treats both paths as optional, but we always provide sysroot.
+/// rust-analyzer treats both paths as optional, but we always provide both.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Sysroot {
     /// Path to the directory of the sysroot; this is a superset of `sysroot_src`.
@@ -240,9 +240,14 @@ pub(crate) struct Sysroot {
     /// as `std` and core`.
     ///
     /// Inside Meta, this is necessary on non-Linux platforms since the sources
-    /// are packaged separately from binaries such as `rust-analyzer-proc-macro-srv`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) sysroot_src: Option<PathBuf>,
+    /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
+    //
+    /// rust-analyzer's documentation says it will only auto-add a dependency on
+    /// std/core to crates if sysroot_src is supplied.
+    /// It also claims that `${sysroot}/lib/rustlib/src/rust/library` is the
+    /// default value. But it fails to add `std` and `core` as dependencies
+    /// if you do not provide a value. So we will always provide one.
+    pub(crate) sysroot_src: PathBuf,
     /// A nested rust-project for the sysroot itself. If not provided, rust-analyzer
     /// will attempt to compute the sysroot layout with Cargo.
     ///
@@ -250,4 +255,21 @@ pub(crate) struct Sysroot {
     /// sysroot layout directly with Buck.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) sysroot_project: Option<ProjectJson>,
+}
+
+impl Sysroot {
+    pub(crate) fn with_default_sysroot_src(sysroot: PathBuf) -> Self {
+        let mut sysroot_src = sysroot.clone();
+        sysroot_src.push("lib");
+        sysroot_src.push("rustlib");
+        sysroot_src.push("src");
+        sysroot_src.push("rust");
+        sysroot_src.push("library");
+
+        Self {
+            sysroot_src,
+            sysroot,
+            sysroot_project: None,
+        }
+    }
 }
