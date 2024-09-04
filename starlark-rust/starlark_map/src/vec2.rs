@@ -422,16 +422,61 @@ impl<A, B> Vec2<A, B> {
     where
         F: FnMut(&mut A, &mut B) -> bool,
     {
-        let mut j = 0;
-        for i in 0..self.len {
-            let (a, b) = self.get_mut(i).unwrap();
-            if f(a, b) {
-                self.aaa_mut().swap(i, j);
-                self.bbb_mut().swap(i, j);
-                j += 1;
+        struct Retain<'a, A, B> {
+            /// Data in `vec` is valid in ranges `[0, written)` and `[next, vec.len)`.
+            vec: &'a mut Vec2<A, B>,
+            /// Processed and retained element count.
+            written: usize,
+            /// Next element to check.
+            next: usize,
+        }
+
+        impl<'a, A, B> Drop for Retain<'a, A, B> {
+            fn drop(&mut self) {
+                debug_assert!(self.written <= self.next);
+                debug_assert!(self.next <= self.vec.len);
+                unsafe {
+                    // Copy remaining elements to the beginning.
+                    // Copy occurs only if `f` or `{A,B}::drop` panics.
+                    ptr::copy(
+                        self.vec.aaa_ptr().as_ptr().add(self.next),
+                        self.vec.aaa_ptr().as_ptr().add(self.written),
+                        self.vec.len - self.next,
+                    );
+                    ptr::copy(
+                        self.vec.bbb_ptr().as_ptr().add(self.next),
+                        self.vec.bbb_ptr().as_ptr().add(self.written),
+                        self.vec.len - self.next,
+                    );
+
+                    // Set correct length.
+                    self.vec.len = self.written + self.vec.len - self.next;
+                }
             }
         }
-        self.truncate(j);
+
+        let mut retain = Retain {
+            vec: self,
+            next: 0,
+            written: 0,
+        };
+
+        unsafe {
+            while retain.next < retain.vec.len {
+                let (a, b) = retain.vec.get_unchecked_mut(retain.next);
+                let retain_elem = f(a, b);
+                let a = ptr::read(a);
+                let b = ptr::read(b);
+                retain.next += 1;
+                if retain_elem {
+                    ptr::write(retain.vec.aaa_ptr().as_ptr().add(retain.written), a);
+                    ptr::write(retain.vec.bbb_ptr().as_ptr().add(retain.written), b);
+                    retain.written += 1;
+                } else {
+                    drop((a, b));
+                }
+            }
+        }
     }
 
     /// Iterate over the elements.
