@@ -26,6 +26,7 @@ use buck2_cli_proto::command_result;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
 use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
@@ -658,8 +659,16 @@ impl<'a> InvocationRecorder<'a> {
             buck2_data::command_end::Data::Build(..)
             | buck2_data::command_end::Data::Test(..)
             | buck2_data::command_end::Data::Install(..) => {
-                self.build_count(command.is_success, command_data.variant_name())
-                    .await?
+                match self
+                    .build_count(command.is_success, command_data.variant_name())
+                    .await
+                {
+                    Ok(build_count) => build_count,
+                    Err(e) => {
+                        let _ignored = soft_error!("build_count_error", e.into());
+                        Default::default()
+                    }
+                }
             }
             // other events don't count builds
             _ => Default::default(),
