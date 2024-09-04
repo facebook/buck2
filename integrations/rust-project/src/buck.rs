@@ -98,7 +98,7 @@ pub(crate) fn to_project_json(
 
     let mut crates: Vec<Crate> = Vec::with_capacity(targets_vec.len());
     for target in &targets_vec {
-        let info = target_index.get(&target).unwrap();
+        let info = target_index.get(target).unwrap();
 
         let dep_targets = resolve_aliases(&info.deps, &aliases, &proc_macros);
         let deps = as_deps(&dep_targets, info, &targets_to_ids, &target_index);
@@ -542,17 +542,10 @@ impl Buck {
 
         command.arg("prelude//rust/rust-analyzer/check.bxl:check");
 
-        let mut file_path = saved_file.to_owned();
-        if !file_path.is_absolute() {
-            if let Ok(cwd) = std::env::current_dir() {
-                file_path = cwd.join(saved_file);
-            }
-        }
-
         // apply BXL scripts-specific arguments:
-        command.args(["--", "--file"]);
-        command.arg(file_path.as_os_str());
-
+        command.arg("--");
+        command.args(["--file"]);
+        command.arg(saved_file.as_os_str());
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
         // Set working directory to the containing directory of the target file.
@@ -561,6 +554,33 @@ impl Buck {
         if let Some(parent_dir) = saved_file.parent() {
             command.current_dir(parent_dir);
         }
+
+        tracing::debug!(?command, "running bxl");
+
+        let output = command.output();
+
+        let files = deserialize_output(output, &command)?;
+        Ok(files)
+    }
+
+    #[instrument(fields(use_clippy, target = %target))]
+    pub(crate) fn check_target(
+        &self,
+        use_clippy: bool,
+        target: &Target,
+    ) -> Result<CheckOutput, anyhow::Error> {
+        let mut command = self.command(["bxl"]);
+
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
+
+        command.arg("prelude//rust/rust-analyzer/check.bxl:check");
+
+        command.arg("--");
+        command.arg("--target");
+        command.arg(target);
+        command.args(["--use-clippy", &use_clippy.to_string()]);
 
         tracing::debug!(?command, "running bxl");
 

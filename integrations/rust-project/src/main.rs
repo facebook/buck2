@@ -34,6 +34,7 @@ use tracing_subscriber::layer::SubscriberExt;
 
 use crate::buck::Buck;
 use crate::cli::ProjectKind;
+use crate::cli::TargetOrFile;
 use crate::project_json::Crate;
 use crate::project_json::Dep;
 
@@ -169,8 +170,11 @@ enum Command {
         #[clap(long)]
         buck2_command: Option<String>,
 
+        /// The target the users wishes to check. Contains a ":" character.
+        /// OR
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
-        saved_file: PathBuf,
+        #[clap(id = "TARGET_OR_SAVED_FILE")]
+        target_or_saved_file: TargetOrFile,
     },
 }
 
@@ -313,8 +317,8 @@ fn main() -> Result<(), anyhow::Error> {
         Command::Check {
             mode,
             use_clippy,
-            saved_file,
             buck2_command,
+            target_or_saved_file,
             ..
         } => {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
@@ -322,9 +326,11 @@ fn main() -> Result<(), anyhow::Error> {
 
             let buck = Buck::new(buck2_command, mode);
 
-            cli::Check::new(buck, use_clippy, saved_file.clone())
+            cli::Check::new(buck, use_clippy, target_or_saved_file.clone())
                 .run()
-                .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
+                .inspect_err(|e| {
+                    crate::scuba::log_check_error(&e, &target_or_saved_file, use_clippy)
+                })
         }
     }
 }
