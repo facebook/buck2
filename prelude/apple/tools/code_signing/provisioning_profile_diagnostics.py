@@ -23,7 +23,11 @@ META_IOS_DEVELOPER_CERTIFICATE_LINK: str = (
 META_IOS_PROVISIONING_PROFILES_LINK: str = (
     "https://www.internalfb.com/intern/apple/download-provisioning-profile/"
 )
-META_IOS_PROVISIONING_PROFILES_COMMAND: str = "arc download-provisioning-profiles"
+META_IOS_PROVISIONING_PROFILES_COMMAND: str = (
+    "arc ios-certs --download-provisioning-profiles"
+)
+META_IOS_CERTS_ALL_COMMAND: str = "arc ios-certs --all"
+# TODO(T197258387): Remove references to `arc download-provisioning-profile` in this wiki page.
 META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK: str = (
     "https://www.internalfb.com/intern/wiki/Ios-first-steps/running-on-device/#2-register-your-device-i"
 )
@@ -197,12 +201,12 @@ def interpret_provisioning_profile_diagnostics(
             if len(identities) == 0
             else f"List of signing identities: `{identities}`."
         )
-        return "".join(
+        return "\n".join(
             [
                 header,
                 f"The provisioning profile `{mismatch.profile.file_path.name}` satisfies all constraints, but no matching certificates were found in your keychain. ",
                 identities_description,
-                f"Please download and install the latest certificate from {META_IOS_DEVELOPER_CERTIFICATE_LINK}.",
+                f"Execute `{META_IOS_CERTS_ALL_COMMAND}` or download and install the latest certificate from {META_IOS_DEVELOPER_CERTIFICATE_LINK}.",
                 footer,
             ]
         )
