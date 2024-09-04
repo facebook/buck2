@@ -89,6 +89,12 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
+    if "close_stdin" in ctx.attrs.labels:
+        # Avoids waiting for input on the "Terminate batch job (Y/N)?" prompt.
+        # The prompt itself is unavoidable, but we can avoid having to wait for input.
+        # This will call the same trampoline batch file with stdin disabled
+        trampoline_args.add("if not defined STDIN_CLOSED (set STDIN_CLOSED=1 & CALL <NUL %0 %* & GOTO :EOF)")
+
     # Set BUCK_COMMAND_ALIAS_ABSOLUTE to the drive and full path of the script being created here
     # We use this below to prefix any artifacts being referenced in the script
     trampoline_args.add("set BUCK_COMMAND_ALIAS_ABSOLUTE=%~dp0")
@@ -106,11 +112,6 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
 
     # Add on %* to handle any other args passed through the command
     cmd.add("%*")
-
-    if "close_stdin" in ctx.attrs.labels:
-        # Avoids waiting for input on the "Terminate batch job (Y/N)?" prompt.
-        # The prompt itself is unavoidable, but we can avoid having to wait for input.
-        cmd.add("<NUL")
 
     trampoline_args.add(cmd)
 
