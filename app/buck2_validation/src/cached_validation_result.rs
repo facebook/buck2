@@ -31,7 +31,7 @@ pub(crate) enum CachedValidationResultData {
 #[derive(buck2_error::Error, Debug, PartialEq, Allocative, Clone)]
 #[buck2(input)]
 #[error(
-    "Validation for `{target}` failed:\n\n{}.\n\nFull validation result is located at: `{result_path}`", self.rendered_message()
+    "Validation for `{target}` failed:\n\n{}\n\nFull validation result is located at: `{result_path}`", self.rendered_message()
 )]
 pub(crate) struct ValidationFailedUserFacingError {
     target: BaseDeferredKey,
@@ -43,7 +43,7 @@ impl ValidationFailedUserFacingError {
     pub(crate) fn rendered_message(&self) -> Cow<str> {
         self.short_message.as_deref().map_or_else(
             || Cow::Borrowed("Diagnostic message is missing from validation result"),
-            |x| Cow::Owned(format!("\"{}\"", x)),
+            |x| Cow::Owned(format!("{}", x)),
         )
     }
 }
