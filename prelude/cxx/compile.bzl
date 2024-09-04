@@ -159,6 +159,7 @@ CxxCompileOutput = record(
     clang_trace = field(Artifact | None, None),
     gcno_file = field(Artifact | None, None),
     index_store = field(Artifact | None, None),
+    assembly = field(Artifact | None, None),
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -500,6 +501,25 @@ def _compile_single_cxx(
     compile_index_store_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic)
     index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
 
+    if compiler_type == "clang":
+        identifier += " (assembly)"
+        assembly_extension = "ll" if object_format == CxxObjectFormat("bitcode") else "s"
+        assembly = ctx.actions.declare_output(
+            "__assembly__",
+            "{}.{}".format(filename_base, assembly_extension),
+        )
+        assembly_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-S", get_output_flags(compiler_type, assembly)))
+        ctx.actions.run(
+            assembly_cmd,
+            category = src_compile_cmd.cxx_compile_cmd.category,
+            identifier = identifier,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            allow_dep_file_cache_upload = False,
+            **error_handler_args
+        )
+    else:
+        assembly = None
+
     return CxxCompileOutput(
         object = object,
         object_format = object_format,
@@ -508,6 +528,7 @@ def _compile_single_cxx(
         clang_trace = clang_trace,
         gcno_file = gcno_file,
         index_store = index_store,
+        assembly = assembly,
     )
 
 def _get_base_compile_cmd(
@@ -587,6 +608,8 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["clang-trace"] = [DefaultInfo(obj.clang_trace)]
         if obj.clang_remarks:
             sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
+        if obj.assembly:
+            sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
