@@ -59,13 +59,12 @@ const NO_INDEX_THRESHOLD: usize = 32;
 #[cfg(not(rust_nightly))]
 const NO_INDEX_THRESHOLD: usize = 16;
 
-/// An memory-efficient key-value map with deterministic order.
+/// A map with deterministic iteration order.
 ///
-/// Provides the standard container operations, modelled most closely on `indexmap::IndexMap`, plus:
-///
-/// * Variants which take an already hashed value, e.g. [`get_hashed`](SmallMap::get_hashed).
-///
-/// * Functions which work with the position, e.g. [`get_index_of`](SmallMap::get_index_of).
+/// This map is similar to [`indexmap::IndexMap`](https://docs.rs/indexmap)
+/// with the following differences:
+/// - [Small hashes](StarlarkHashValue) are stored next to keys
+/// - Index is not created for small maps
 #[repr(C)]
 #[derive(Clone, Allocative)]
 pub struct SmallMap<K, V> {
