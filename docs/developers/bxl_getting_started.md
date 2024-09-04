@@ -35,7 +35,8 @@ your_function_name = bxl_main(
     cli_args = {
         # cli args that you want to receive from the command line
         "bool_arg": cli_args.bool(),
-        "list_type": cli_args.list(cli_args.int()),
+        # cli_args will be converted to snakecase. e.g. for this case, passed as --list-type, accessed via ctx.cli_args.list_type
+        "list-type": cli_args.list(cli_args.int()),
         "optional": cli_args.option(cli_args.string()),
         "target": cli_args.target_label(),
     },
@@ -46,7 +47,7 @@ This exposes `your_function_name` as a function, with whatever arguments you
 defined it, so that on the command line you can invoke:
 
 ```text
-buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list_type 1 --list_type 2 --target //foo:bar`
+buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list-type 1 --list-type 2 --target //foo:bar`
 ```
 
 You can also add helpdocs to the cli args and get them to show up in cli via
