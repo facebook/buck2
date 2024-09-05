@@ -545,7 +545,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             inputs,
             supports_re: _,
             declared_outputs,
-            worker: _,
+            worker,
         } = test_executable_expanded;
 
         let execution_request = self
@@ -560,7 +560,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 None,
                 None,
                 vec![],
-                None,
+                worker,
             )
             .await?;
 
