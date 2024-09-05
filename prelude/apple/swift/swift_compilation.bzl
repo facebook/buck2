@@ -352,7 +352,9 @@ def _compile_swiftmodule(
         swift_framework_output: SwiftLibraryForDistributionOutput | None) -> CompileArgsfiles:
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
+        "-disable-cmo",
         "-emit-module",
+        "-experimental-emit-module-separately",
     ])
 
     if ctx.attrs.swift_module_skip_function_bodies:
