@@ -10,6 +10,10 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
     # anywhere, regardless of whether an `env` is used.
     inject_test_env = ctx.attrs._inject_test_env[RunInfo]
 
+    # If forcing RE on tpx, check if the test suite should be run as a bundle
+    if read_config("tpx", "force_run_as_bundle") == "True":
+        test_info.labels.extend(["run_as_bundle"])
+
     if (not test_info.env) or _exclude_test_env_from_run_info(ctx):
         return [test_info, RunInfo(args = test_info.command)]
 
