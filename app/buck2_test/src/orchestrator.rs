@@ -255,6 +255,8 @@ impl<'a> BuckTestOrchestrator<'a> {
             worker,
         } = test_executable_expanded;
 
+        // Test worker requests do not support RE or hybrid execution, make request local only if worker is set.
+        let supports_re = supports_re && worker.is_none();
         let executor_preference = self.executor_preference(supports_re)?;
 
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
