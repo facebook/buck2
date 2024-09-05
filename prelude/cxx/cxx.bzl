@@ -72,6 +72,10 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_info",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load(
@@ -188,7 +192,9 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_target_params, provider_params = _get_params_for_android_binary_cxx_library()
     else:
         sub_target_params = CxxRuleSubTargetParams()
-        provider_params = CxxRuleProviderParams()
+        provider_params = CxxRuleProviderParams(
+            third_party_build = True,
+        )
 
     params = CxxRuleConstructorParams(
         rule_type = "cxx_library",
@@ -444,11 +450,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     exported_items = [generic_exported_pre]
     if args:
         exported_items.append(CPreprocessor(args = CPreprocessorArgs(args = args)))
-    providers.append(cxx_merge_cpreprocessors(
+    propagated_preprocessor = cxx_merge_cpreprocessors(
         ctx,
         exported_items,
         inherited_pp_infos,
-    ))
+    )
+    providers.append(propagated_preprocessor)
 
     inherited_link = cxx_inherited_link_info(first_order_deps)
     inherited_exported_link = cxx_inherited_link_info(exported_first_order_deps)
@@ -586,16 +593,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_output = outputs[output_style],
         )]
 
-    # Create the default output for the library rule given it's link style and preferred linkage
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     pic_behavior = cxx_toolchain.pic_behavior
-    link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style)
-    actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
-    output = outputs[actual_output_style]
-    providers.append(DefaultInfo(
-        default_output = output,
-        sub_targets = sub_targets,
-    ))
 
     # Propagate link info provider.
     providers.append(create_merged_link_info(
@@ -628,6 +627,34 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         ),
     )
+
+    # Third-party provider.
+    third_party_build_info = create_third_party_build_info(
+        ctx = ctx,
+        paths = [] if header_dirs == None else [(d.short_path, d) for d in header_dirs],
+        cxx_headers = [propagated_preprocessor],
+        shared_libs = shared_libs.libraries,
+        cxx_header_dirs = ["include"] + ([] if header_dirs == None else [d.short_path for d in header_dirs]),
+        deps = ctx.attrs.deps + cxx_attr_exported_deps(ctx),
+    )
+    providers.append(third_party_build_info)
+    sub_targets["third-party-build"] = [
+        DefaultInfo(
+            default_output = third_party_build_info.build.root.artifact,
+            sub_targets = dict(
+                manifest = [DefaultInfo(default_output = third_party_build_info.build.manifest)],
+            ),
+        ),
+    ]
+
+    # Create the default output for the library rule given it's link style and preferred linkage
+    link_strategy = to_link_strategy(cxx_toolchain.linker_info.link_style)
+    actual_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
+    output = outputs[actual_output_style]
+    providers.append(DefaultInfo(
+        default_output = output,
+        sub_targets = sub_targets,
+    ))
 
     # Omnibus root provider.
     if LibOutputStyle("pic_archive") in libraries and (static_pic_lib or static_lib) and not ctx.attrs.header_only and soname.is_str:

@@ -93,6 +93,10 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
+load(
+    "@prelude//third-party:build.bzl",
+    "create_third_party_build_info",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
@@ -672,6 +676,23 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Propagated_exported_preprocessor_info is used for pcm compilation, which isn't possible for non-modular targets.
     propagated_exported_preprocessor_info = propagated_preprocessor if impl_params.rule_type == "apple_library" and ctx.attrs.modular else None
     additional_providers = impl_params.additional.additional_providers_factory(propagated_exported_preprocessor_info) if impl_params.additional.additional_providers_factory else []
+
+    if impl_params.generate_providers.third_party_build:
+        third_party_build_info = create_third_party_build_info(
+            ctx = ctx,
+            cxx_headers = [propagated_preprocessor],
+            shared_libs = shared_libs.libraries,
+            deps = exported_deps + non_exported_deps,
+        )
+        providers.append(third_party_build_info)
+        sub_targets["third-party-build"] = [
+            DefaultInfo(
+                default_output = third_party_build_info.build.root.artifact,
+                sub_targets = dict(
+                    manifest = [DefaultInfo(default_output = third_party_build_info.build.manifest)],
+                ),
+            ),
+        ]
 
     # For v1's `#headers` functionality.
     if impl_params.generate_sub_targets.headers:

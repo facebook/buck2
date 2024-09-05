@@ -83,6 +83,7 @@ CxxRuleProviderParams = record(
     shared_libraries = field(bool, True),
     template_placeholders = field(bool, True),
     preprocessor_for_tests = field(bool, True),
+    third_party_build = field(bool, False),
 )
 
 # Parameters to handle non-Clang sources, e.g Swift on Apple's platforms.
