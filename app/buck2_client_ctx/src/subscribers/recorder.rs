@@ -55,6 +55,7 @@ use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 
+use super::system_warning::check_download_speed;
 use super::system_warning::check_memory_pressure;
 use super::system_warning::check_remaining_disk_space;
 use crate::build_count::BuildCount;
@@ -412,6 +413,14 @@ impl<'a> InvocationRecorder<'a> {
             }
             if check_remaining_disk_space(Some(snapshot), &self.system_info).is_some() {
                 self.tags.push("low_disk_space".to_owned());
+            }
+            if check_download_speed(
+                &self.first_snapshot,
+                self.last_snapshot.as_ref(),
+                &self.system_info,
+                self.re_avg_download_speed.avg_per_second(),
+            ) {
+                self.tags.push("slow_network_speed".to_owned());
             }
         }
 
