@@ -56,7 +56,9 @@ impl<'a> Component for SystemWarningComponent<'a> {
             self.system_info,
             self.avg_re_download_speed,
         ) {
-            lines.push(warning_styled(&slow_download_speed_msg())?);
+            lines.push(warning_styled(&slow_download_speed_msg(
+                self.avg_re_download_speed,
+            ))?);
         }
         Ok(Lines(lines))
     }

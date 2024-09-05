@@ -589,7 +589,7 @@ where
                         sysinfo,
                         avg_re_download_speed,
                     ) {
-                        echo!("{}", slow_download_speed_msg())?;
+                        echo!("{}", slow_download_speed_msg(avg_re_download_speed))?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }

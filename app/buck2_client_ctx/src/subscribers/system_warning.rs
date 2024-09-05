@@ -9,6 +9,7 @@
 
 use buck2_core::is_open_source;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 
 use crate::subscribers::recorder::process_memory;
 
@@ -55,12 +56,20 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
     )
 }
 
-pub(crate) fn slow_download_speed_msg() -> String {
-    let msg = "Slow download speed is detected. This may significantly impact build speed.";
+pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> String {
+    let avg_speed = if let Some(avg_re_download_speed) = avg_re_download_speed {
+        format!(": {}", HumanizedBytesPerSecond::new(avg_re_download_speed))
+    } else {
+        String::new()
+    };
+    let msg = format!(
+        "Slow download speed is detected{}. This may significantly impact build speed.",
+        avg_speed
+    );
     if !is_open_source() {
         format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")
     } else {
-        msg.to_owned()
+        msg
     }
 }
 
