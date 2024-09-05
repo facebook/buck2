@@ -1979,12 +1979,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     // to finish before we can start materialization.
                     if let Some(cleaning_fut) = cleaning_fut {
                         cleaning_fut
-                        .await
-                        .with_context(|| format!(
-                            "Error waiting for a previous future to finish cleaning output path {}",
-                            &path_buf
-                        ))
-                        .map_err(|e| SharedMaterializingError::Error(e.into()))?;
+                            .await
+                            .with_context(|| "Error cleaning output path")
+                            .map_err(|e| SharedMaterializingError::Error(e.into()))?;
                     };
 
                     // In case this is a local copy, we first need to materialize the

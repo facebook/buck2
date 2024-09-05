@@ -636,11 +636,30 @@ struct CleanIoRequest {
     command_sender: Arc<MaterializerSender<DefaultIoHandler>>,
 }
 
+#[cfg(unix)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    error
+}
+
+#[cfg(windows)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    use buck2_error::ErrorTag;
+    if error.has_tag(ErrorTag::IoExecutableFileBusy) | error.has_tag(ErrorTag::IoPermissionDenied) {
+        error
+            .tag([ErrorTag::IoMaterializerFileBusy])
+            .context("Binary being executed, please close the process first")
+    } else {
+        error
+    }
+}
+
 impl IoRequest for CleanIoRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         // NOTE: No spans here! We should perhaps add one, but this needs to be considered
         // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = cleanup_path(project_fs, &self.path).map_err(buck2_error::Error::from);
+        let res = cleanup_path(project_fs, &self.path)
+            .map_err(buck2_error::Error::from)
+            .map_err(tag_environment_error);
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self.command_sender.send_low_priority(

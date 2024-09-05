@@ -148,6 +148,7 @@ enum ErrorTag {
   IO_EDEN_CHECKOUT_IN_PROGRESS = 1156;
   IO_EDEN_OUT_OF_DATE_PARENT = 1157;
   IO_EDEN_UNKNOWN_FIELD = 1160;
+  IO_MATERIALIZER_FILE_BUSY = 1161;
 
   // Client IO
   // Broken pipe specifically from client stdio streams
