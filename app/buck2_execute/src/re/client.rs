@@ -480,6 +480,7 @@ impl RemoteExecutionClientImpl {
                 // want to tell the RE client to rely on an external
                 // CAS daemon to manage the cache.
                 if let Some(shared_cache) = &static_metadata.cas_shared_cache {
+                    use remote_execution::RemoteCASdAddress;
                     use remote_execution::RemoteCacheConfig;
                     use remote_execution::RemoteCacheManagerMode;
                     use remote_execution::RemoteFetchPolicy;
@@ -520,6 +521,9 @@ impl RemoteExecutionClientImpl {
                             port: static_metadata.cas_shared_cache_port,
                             small_files: small_files_policy,
                             large_files: large_files_policy,
+                            address: RemoteCASdAddress::tcp_port(
+                                static_metadata.cas_shared_cache_port.unwrap_or(23333),
+                            ),
                             ..Default::default()
                         };
                         if let Some(tls) = static_metadata.cas_shared_cache_tls {
