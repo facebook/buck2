@@ -101,5 +101,5 @@ async def test_build_configured_no_universe(buck: Buck) -> None:
         buck.build(
             "fbcode//buck2/tests/e2e/build/test_build_configured_data:simple (<vagabond>)",
         ),
-        stderr_regex="Cannot build with explicit configurations when universe is not specified",
+        stderr_regex="Targets with explicit configuration can only be built when the",
     )

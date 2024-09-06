@@ -402,7 +402,7 @@ async fn build_targets(
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
             let spec = spec.convert_pattern().context(
-                "Cannot build with explicit configurations when universe is not specified",
+                "Targets with explicit configuration can only be built when the `--target-universe=` flag is provided",
             )?;
             build_targets_with_global_target_platform(
                 ctx,
