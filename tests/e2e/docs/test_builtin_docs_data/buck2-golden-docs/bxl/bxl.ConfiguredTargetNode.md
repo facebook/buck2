@@ -4,7 +4,10 @@
 ## bxl.ConfiguredTargetNode.attrs\_eager
 ## bxl.ConfiguredTargetNode.attrs\_lazy
 ## bxl.ConfiguredTargetNode.buildfile\_path
+## bxl.ConfiguredTargetNode.get\_attr
+## bxl.ConfiguredTargetNode.get\_attrs
 ## bxl.ConfiguredTargetNode.get\_source
+## bxl.ConfiguredTargetNode.has\_attr
 ## bxl.ConfiguredTargetNode.label
 ## bxl.ConfiguredTargetNode.resolved\_attrs\_eager
 ## bxl.ConfiguredTargetNode.resolved\_attrs\_lazy
