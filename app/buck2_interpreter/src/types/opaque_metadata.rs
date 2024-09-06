@@ -34,7 +34,7 @@ use starlark::values::Value;
 #[display("{:?}", self)]
 pub struct OpaqueMetadata;
 
-#[starlark_value(type = "opaque_metadata")]
+#[starlark_value(type = "OpaqueMetadata")]
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
 
 impl<'v> AllocValue<'v> for OpaqueMetadata {
