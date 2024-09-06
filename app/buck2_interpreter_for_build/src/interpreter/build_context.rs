@@ -31,6 +31,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum BuildContextError {
     #[error(
         "This function is unavailable during analysis (usual solution is to place the information on a toolchain)"

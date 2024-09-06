@@ -25,6 +25,7 @@ use crate::interpreter::selector::StarlarkSelector;
 use crate::interpreter::selector::StarlarkSelectorGen;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum SelectError {
     #[error("select() condition was not a string, got `{0}`.")]
     KeyNotString(String),

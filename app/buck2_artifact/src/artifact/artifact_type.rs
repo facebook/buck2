@@ -420,6 +420,7 @@ impl DeclaredArtifactKind {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 pub enum ArtifactErrors {
     #[error(
         "Attempted to bind an artifact which was already bound\n  Artifact: {0}\n  Attempted to bind to an action: {1}"

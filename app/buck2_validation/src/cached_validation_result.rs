@@ -29,6 +29,7 @@ pub(crate) enum CachedValidationResultData {
 }
 
 #[derive(buck2_error::Error, Debug, PartialEq, Allocative, Clone)]
+#[buck2(input)]
 #[error(
     "Validation for `{target}` failed:\n\n{}.\n\nFull validation result is located at: `{result_path}`", self.rendered_message()
 )]

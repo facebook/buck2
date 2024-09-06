@@ -113,6 +113,7 @@ impl PackageImplicits {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum OncallErrors {
     #[error("Called `oncall` after one or more targets were declared, `oncall` must be first.")]
     OncallAfterTargets,

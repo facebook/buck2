@@ -36,6 +36,7 @@ pub const EQ_SIGN_SUBST: &str = "_eqsb_";
 pub struct TargetName(ThinArcStr);
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum TargetNameError {
     #[error(
         "Invalid target name `{}`. Target names are non-empty strings and can only contain alpha numeric characters, and symbols \

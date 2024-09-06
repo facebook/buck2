@@ -21,6 +21,7 @@ use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum SourceLabelCoercionError {
     #[error(
         "Couldn't coerce `{0}` as a source.\n  Error when treated as a target: {1:#}\n  Error when treated as a path: {2:#}"

@@ -136,6 +136,7 @@ async fn legacy_execution_platform(
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ToolchainDepError {
     #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
     ToolchainDepMissingPlatform(ConfigurationData),

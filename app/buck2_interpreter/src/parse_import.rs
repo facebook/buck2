@@ -19,6 +19,7 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ImportParseError {
     #[error(
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`. Got `{0}`"

@@ -80,6 +80,7 @@ pub struct ConfigSectionAndKey {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 pub(crate) enum ConfigArgumentParseError {
     #[error("Could not find section separator (`.`) in pair `{0}`")]
     NoSectionDotSeparator(String),

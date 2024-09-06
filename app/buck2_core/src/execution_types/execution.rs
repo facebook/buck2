@@ -143,6 +143,7 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 pub enum ExecutionPlatformError {
     // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
     #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{:#}", reason).indented("    "))).join("\n"))]
