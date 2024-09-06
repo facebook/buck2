@@ -295,7 +295,7 @@ fn configured_attr_to_value<'v>(
                 return Err(ConfiguredAttrError::SourceFileToStarlarkValue(f.path().dupe()).into());
             }
         },
-        ConfiguredAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
+        ConfiguredAttr::Metadata(data) => heap.alloc(data.to_value()),
     })
 }
 

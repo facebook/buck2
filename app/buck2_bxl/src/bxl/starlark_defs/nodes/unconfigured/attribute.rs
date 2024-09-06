@@ -225,7 +225,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
                 SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
             ))),
-            CoercedAttr::Metadata(..) => heap.alloc(OpaqueMetadata),
+            CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
             CoercedAttr::Selector(selector) => {
                 let map: SmallMap<String, Value> = selector
                     .all_entries()
