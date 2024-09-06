@@ -3,6 +3,9 @@
 # `bxl.UnconfiguredTargetNode` type
 ## bxl.UnconfiguredTargetNode.attrs
 ## bxl.UnconfiguredTargetNode.buildfile\_path
+## bxl.UnconfiguredTargetNode.get\_attr
+## bxl.UnconfiguredTargetNode.get\_attrs
+## bxl.UnconfiguredTargetNode.has\_attr
 ## bxl.UnconfiguredTargetNode.label
 ## bxl.UnconfiguredTargetNode.rule\_kind
 ## bxl.UnconfiguredTargetNode.rule\_type

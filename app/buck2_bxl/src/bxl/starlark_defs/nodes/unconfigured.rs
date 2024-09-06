@@ -16,6 +16,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -32,6 +33,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkDocs;
 
+use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
 
@@ -90,6 +92,61 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
             }));
 
         Ok(heap.alloc(AllocStruct(attrs)))
+    }
+
+    /// Gets the attribute from the unconfigured target node.
+    /// If the attribute is unset, returns the default value.
+    /// If the attribute is not defined by the rule, returns `None`.
+    /// It will not return special attribute (attribute that start with 'buck.' in `buck2 uquery -A`` command).
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attributes(ctx):
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
+    ///     ctx.output.print(target_node.get_attr('my_attr'))
+    /// ```
+    fn get_attr<'v>(
+        this: &StarlarkTargetNode,
+        #[starlark(require=pos)] key: &str,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Option<Value<'v>>> {
+        NodeAttributeGetter::get_attr(this, key, heap)
+    }
+
+    /// Gets the all attributes (not include speical attributes) from the unconfigured target node.
+    /// For attributes that are not explicitly set, the default value is returned.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attributes(ctx):
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
+    ///     ctx.output.print(target_node.get_attrs())
+    /// ```
+    fn get_attrs<'v>(
+        this: &StarlarkTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+        NodeAttributeGetter::get_attrs(this, heap)
+    }
+
+    /// Check if rule has the attribute.
+    ///
+    /// Known attribute is always set explicitly or to default value
+    /// (otherwise target would not be created)
+    /// For special attributes, it will return `False`
+    ///
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_attributes(ctx):
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
+    ///     ctx.output.print(target_node.has_attr('my_attr'))
+    /// ```
+    fn has_attr<'v>(
+        this: &StarlarkTargetNode,
+        #[starlark(require=pos)] key: &str,
+    ) -> anyhow::Result<bool> {
+        Ok(NodeAttributeGetter::has_attr(this, key))
     }
 
     /// Gets the label from the unconfigured target node.
