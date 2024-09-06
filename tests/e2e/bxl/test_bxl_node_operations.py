@@ -173,3 +173,10 @@ async def test_unconfigured_target_node_attrs(buck: Buck) -> None:
     await buck.bxl(
         "//bxl/unconfigure_target_node_attrs.bxl:concat_attrs_test",
     )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_configured_target_node_attrs(buck: Buck) -> None:
+    await buck.bxl(
+        "//bxl:configured_target_node_attrs.bxl:attrs_test",
+    )
