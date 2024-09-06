@@ -10,6 +10,7 @@
 use std::cmp::max;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -21,6 +22,7 @@ use buck2_event_observer::fmt_duration;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
+use buck2_util::sliding_window::SlidingWindow;
 use tokio_stream::StreamExt;
 
 use crate::commands::log::options::EventLogOptions;
@@ -43,6 +45,8 @@ struct Stats {
     peak_used_disk_space_bytes: Option<u64>,
     total_disk_space_bytes: Option<u64>,
     system_total_memory_bytes: Option<u64>,
+    re_max_download_speeds: Vec<SlidingWindow>,
+    re_max_upload_speeds: Vec<SlidingWindow>,
 }
 
 impl Stats {
@@ -87,6 +91,14 @@ impl Stats {
                                 .update(ts, snapshot.re_download_bytes);
                             self.re_avg_upload_speed
                                 .update(ts, snapshot.re_upload_bytes);
+
+                            for s in self.re_max_download_speeds.iter_mut() {
+                                s.update(ts, snapshot.re_download_bytes);
+                            }
+
+                            for s in self.re_max_upload_speeds.iter_mut() {
+                                s.update(ts, snapshot.re_upload_bytes);
+                            }
                         }
                     }
                     Some(buck2_data::instant_event::Data::SystemInfo(system_info)) => {
@@ -158,6 +170,33 @@ impl Display for Stats {
                 HumanizedBytesPerSecond::fixed_width(re_avg_upload_speed)
             )?;
         }
+
+        if let Some(re_max_download_speed) = self
+            .re_max_download_speeds
+            .iter()
+            .map(|w| w.max_per_second().unwrap_or_default())
+            .max()
+        {
+            writeln!(
+                f,
+                "max download speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_max_download_speed)
+            )?;
+        }
+
+        if let Some(re_max_upload_speed) = self
+            .re_max_upload_speeds
+            .iter()
+            .map(|w| w.max_per_second().unwrap_or_default())
+            .max()
+        {
+            writeln!(
+                f,
+                "max upload speed: {}",
+                HumanizedBytesPerSecond::fixed_width(re_max_upload_speed)
+            )?;
+        }
+
         if let Some(duration) = &self.duration {
             let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
             writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))
@@ -188,7 +227,19 @@ impl SummaryCommand {
             )?;
             buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
 
-            let mut stats = Stats::default();
+            let mut stats = Stats {
+                re_max_download_speeds: vec![
+                    SlidingWindow::new(Duration::from_secs(1)),
+                    SlidingWindow::new(Duration::from_secs(5)),
+                    SlidingWindow::new(Duration::from_secs(10)),
+                ],
+                re_max_upload_speeds: vec![
+                    SlidingWindow::new(Duration::from_secs(1)),
+                    SlidingWindow::new(Duration::from_secs(5)),
+                    SlidingWindow::new(Duration::from_secs(10)),
+                ],
+                ..Default::default()
+            };
 
             while let Some(event) = events.try_next().await? {
                 match event {
