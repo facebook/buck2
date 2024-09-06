@@ -356,9 +356,9 @@ fn eval_bxl<'v>(
 #[allow(dead_code)]
 struct NotABxlFunction(String, &'static str);
 
-pub(crate) fn get_bxl_callable<'a>(
+pub(crate) fn get_bxl_callable(
     spec: &BxlFunctionLabel,
-    bxl_module: &'a LoadedModule,
+    bxl_module: &LoadedModule,
 ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
     let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
