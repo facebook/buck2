@@ -11,10 +11,13 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
+use starlark::values::AllocStaticSimple;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::Value;
 
 /// We do not make metadata available to rules, so instead we expose this opaque value when trying
 /// to resolve it to a Starlark object.
@@ -31,7 +34,13 @@ use starlark::values::StarlarkValue;
 #[display("{:?}", self)]
 pub struct OpaqueMetadata;
 
-starlark_simple_value!(OpaqueMetadata);
-
 #[starlark_value(type = "opaque_metadata")]
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
+
+impl<'v> AllocValue<'v> for OpaqueMetadata {
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        static INSTANCE: AllocStaticSimple<OpaqueMetadata> =
+            AllocStaticSimple::alloc(OpaqueMetadata);
+        INSTANCE.to_frozen_value().to_value()
+    }
+}
