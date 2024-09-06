@@ -41,7 +41,7 @@ async def test_bxl_analysis(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_analysis_incompatible_targets_list(buck: Buck) -> None:
     # multiple incompatible targets should be skipped and the analysis should return empty dict
     result = await buck.bxl("//bxl/analysis.bxl:incompatible_targets")
@@ -50,7 +50,7 @@ async def test_bxl_analysis_incompatible_targets_list(buck: Buck) -> None:
     assert "{}" == result.stdout.strip()
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False, data_dir="bxl/simple", allow_soft_errors=True)
 async def test_bxl_analysis_incompatible_targets_single(buck: Buck) -> None:
     # single incompatible target should be skipped and the analysis should return None
     result = await buck.bxl("//bxl/analysis.bxl:incompatible_targets_single")

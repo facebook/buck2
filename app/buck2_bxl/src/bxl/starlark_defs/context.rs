@@ -58,6 +58,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
@@ -156,6 +157,12 @@ enum BxlContextDynamicError {
 #[derive(buck2_error::Error, Debug)]
 #[error("Expected a single target as a string literal, not a target pattern")]
 struct NotATargetLabelString;
+
+#[derive(buck2_error::Error, Debug)]
+#[error(
+    "Unconfigured target label(s)/node(s) was passed into analysis. Targets passed into analysis should be configured."
+)]
+struct UnconfiguredTargetInAnalysis;
 
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
@@ -1222,6 +1229,14 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
             >,
         >,
     > {
+        if labels.contains_unconfigured() {
+            soft_error!(
+                "bxl_unconfigured_target_in_analysis",
+                UnconfiguredTargetInAnalysis.into(),
+                quiet: true
+            )?;
+        }
+
         let target_platform = target_platform.parse_target_platforms(
             this.data.target_alias_resolver(),
             this.data.cell_resolver(),

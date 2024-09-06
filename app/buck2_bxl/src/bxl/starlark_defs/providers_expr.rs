@@ -85,6 +85,36 @@ pub(crate) enum ConfiguredProvidersExprArg<'v> {
     List(ConfiguredProvidersLabelListArg<'v>),
 }
 
+impl<'v> ConfiguredProvidersExprArg<'v> {
+    pub(crate) fn contains_unconfigured(&self) -> bool {
+        match self {
+            ConfiguredProvidersExprArg::One(arg) => arg.is_unconfigured(),
+            ConfiguredProvidersExprArg::List(arg) => arg.contains_unconfigured(),
+        }
+    }
+}
+
+impl<'v> ConfiguredProvidersLabelArg<'v> {
+    fn is_unconfigured(&self) -> bool {
+        match self {
+            ConfiguredProvidersLabelArg::Unconfigured(_) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'v> ConfiguredProvidersLabelListArg<'v> {
+    fn contains_unconfigured(&self) -> bool {
+        match self {
+            ConfiguredProvidersLabelListArg::List(args) => {
+                args.items.iter().any(|arg| arg.is_unconfigured())
+            }
+            ConfiguredProvidersLabelListArg::StarlarkTargetSet(_) => true,
+            _ => false,
+        }
+    }
+}
+
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         arg: ConfiguredProvidersExprArg<'v>,
