@@ -482,6 +482,7 @@ impl RemoteExecutionClientImpl {
                 if let Some(shared_cache) = &static_metadata.cas_shared_cache {
                     use remote_execution::RemoteCacheConfig;
                     use remote_execution::RemoteCacheManagerMode;
+                    use remote_execution::RemoteFetchPolicy;
 
                     let mode = match static_metadata
                         .cas_shared_cache_mode
@@ -500,10 +501,25 @@ impl RemoteExecutionClientImpl {
                             ));
                         }
                     };
+
+                    let (small_files_policy, large_files_policy) = match mode {
+                        RemoteCacheManagerMode::BIG_FILES => (
+                            RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
+                            RemoteFetchPolicy::REMOTE_FETCH,
+                        ),
+                        RemoteCacheManagerMode::ALL_FILES => (
+                            RemoteFetchPolicy::REMOTE_FETCH,
+                            RemoteFetchPolicy::REMOTE_FETCH,
+                        ),
+                        _ => unreachable!(),
+                    };
+
                     let remote_cache_config = {
                         let mut remote_cache_config = RemoteCacheConfig {
                             mode,
                             port: static_metadata.cas_shared_cache_port,
+                            small_files: small_files_policy,
+                            large_files: large_files_policy,
                             ..Default::default()
                         };
                         if let Some(tls) = static_metadata.cas_shared_cache_tls {
