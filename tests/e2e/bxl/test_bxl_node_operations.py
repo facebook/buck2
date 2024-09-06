@@ -145,3 +145,31 @@ async def test_lazy_resolved_node_with_special_attrs(buck: Buck) -> None:
     await buck.bxl(
         "//bxl:resolved_node_attributes.bxl:lazy_resolved_attrs_with_special_attrs_test",
     )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_unconfigured_target_node_attrs(buck: Buck) -> None:
+    await buck.bxl(
+        "//bxl:unconfigure_target_node_attrs.bxl:node_attrs",
+    )
+
+    result = await buck.bxl(
+        "//bxl/unconfigure_target_node_attrs.bxl:node_attrs_display",
+    )
+
+    output = result.stdout
+
+    assert "root//platforms:platform1" in output
+    assert "genrule_with_selects" in output
+    assert (
+        'select({"ovr_config//os:macos": "bar", "ovr_config//os:windows": "foobar", "DEFAULT": "foo"})'
+        in output
+    )
+    assert "PUBLIC" in output
+
+    await buck.bxl(
+        "//bxl/unconfigure_target_node_attrs.bxl:selector_attrs_test",
+    )
+    await buck.bxl(
+        "//bxl/unconfigure_target_node_attrs.bxl:concat_attrs_test",
+    )
