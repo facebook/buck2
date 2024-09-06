@@ -424,6 +424,8 @@ fn merge_unit_test_targets(
                         info.deps.push(test_dep.clone())
                     }
                 }
+
+                info.in_workspace |= test_info.in_workspace;
             }
         }
 
