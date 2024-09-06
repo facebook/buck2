@@ -578,4 +578,8 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             None => Value::new_none(),
         })
     }
+    #[starlark(attribute)]
+    fn children<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Vec<Value<'v>>> {
+        Ok(this.typed.children.to_vec())
+    }
 }
