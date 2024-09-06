@@ -47,6 +47,8 @@ struct Stats {
     system_total_memory_bytes: Option<u64>,
     re_max_download_speeds: Vec<SlidingWindow>,
     re_max_upload_speeds: Vec<SlidingWindow>,
+    hg_revision: Option<String>,
+    has_local_changes: Option<bool>,
 }
 
 impl Stats {
@@ -104,6 +106,20 @@ impl Stats {
                     Some(buck2_data::instant_event::Data::SystemInfo(system_info)) => {
                         self.total_disk_space_bytes = system_info.total_disk_space_bytes;
                         self.system_total_memory_bytes = system_info.system_total_memory_bytes;
+                    }
+                    Some(buck2_data::instant_event::Data::VersionControlRevision(vcs)) => {
+                        match vcs.hg_revision {
+                            Some(ref revision) => {
+                                self.hg_revision = Some(revision.clone());
+                            }
+                            None => {}
+                        }
+                        match vcs.has_local_changes {
+                            Some(ref has_local_changes) => {
+                                self.has_local_changes = Some(*has_local_changes);
+                            }
+                            None => {}
+                        }
                     }
                     _ => {}
                 }
@@ -199,11 +215,20 @@ impl Display for Stats {
 
         if let Some(duration) = &self.duration {
             let duration = std::time::Duration::new(duration.seconds as u64, duration.nanos as u32);
-            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))
+            writeln!(f, "duration: {}", fmt_duration::fmt_duration(duration, 1.0))?;
         } else {
             // TODO(ezgi): when there is no CommandEnd, take the timestamp from the last event and calculate the duration
-            Ok(())
         }
+        if let Some(hg_revision) = &self.hg_revision {
+            writeln!(f, "hg revision: {}", hg_revision)?;
+        }
+
+        if let Some(has_local_changes) = self.has_local_changes {
+            writeln!(f, "has local changes: {}", has_local_changes)?;
+        } else {
+            writeln!(f, "has local changes: unknown")?;
+        }
+        Ok(())
     }
 }
 
