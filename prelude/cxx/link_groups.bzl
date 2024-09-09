@@ -711,7 +711,7 @@ def _get_roots_from_mappings(
 
 _CreatedLinkGroup = record(
     linked_object = field(LinkedObject),
-    labels_to_links = field(FinalLabelsToLinks | None),
+    labels_to_links = field(FinalLabelsToLinks),
 )
 
 def _create_link_group(
