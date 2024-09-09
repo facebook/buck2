@@ -319,8 +319,16 @@ def _transitively_update_shared_linkage(
     )
 
 def create_debug_linkable_entries(
-        labels_to_links_map: dict[Label, LinkGroupLinkInfo]) -> list[LinkGroupsDebugLinkableEntry]:
+        labels_to_links_map: dict[Label, LinkGroupLinkInfo],
+        root: Label | None) -> list[LinkGroupsDebugLinkableEntry]:
     entries = []
+    if root:
+        root_entry = LinkGroupsDebugLinkableEntry(
+            name = root,
+            output_style = LibOutputStyle("pic_archive"),
+        )
+        entries.append(root_entry)
+
     for link_info in labels_to_links_map.values():
         link_groups_linkable_info = LinkGroupsDebugLinkableEntry(
             name = link_info.link_name,
@@ -993,10 +1001,10 @@ def create_link_groups(
 
         link_group_lib = created_link_group.linked_object
 
-        if created_link_group.labels_to_links.map:
-            link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
-                ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links.map),
-            )
+        root_label = link_group_spec.root.label if link_group_spec.root else None
+        link_groups_debug_info[link_group_spec.name] = LinkGroupsDebugLinkableItem(
+            ordered_linkables = create_debug_linkable_entries(created_link_group.labels_to_links.map, root_label),
+        )
 
         for (linked_target, link_info) in created_link_group.labels_to_links.map.items():
             if link_info.output_style != LibOutputStyle("shared_lib"):

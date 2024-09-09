@@ -406,7 +406,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
         link_groups_debug_info = LinkGroupsDebugLinkInfo(
             binary = LinkGroupsDebugLinkableItem(
-                ordered_linkables = create_debug_linkable_entries(labels_to_links.map),
+                ordered_linkables = create_debug_linkable_entries(labels_to_links.map, root = None),
             ),
             libs = link_group_libs_debug_info,
         )
