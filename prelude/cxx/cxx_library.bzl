@@ -154,7 +154,12 @@ load(
     "cxx_use_shlib_intfs",
     "cxx_use_shlib_intfs_mode",
 )
-load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode", "is_bitcode_format")
+load(
+    ":cxx_toolchain_types.bzl",
+    "LinkerType",
+    "ShlibInterfacesMode",
+    "is_bitcode_format",
+)
 load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
@@ -1214,7 +1219,7 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
 
     # Stripping is not supported on Windows
     linker_type = cxx_toolchain_info.linker_info.type
-    if linker_type == "windows":
+    if linker_type == LinkerType("windows"):
         return objects
 
     # Disable stripping if no `strip` binary was provided by the toolchain.
@@ -1414,7 +1419,7 @@ def _static_library(
     # On darwin, the linked output references the archive that contains the
     # object files instead of the originating objects.
     object_external_debug_info = []
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         object_external_debug_info.append(archive.artifact)
         object_external_debug_info.extend(archive.external_objects)
     elif objects_have_external_debug_info:

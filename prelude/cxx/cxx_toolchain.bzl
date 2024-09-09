@@ -6,7 +6,27 @@
 # of this source tree.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CudaCompilerInfo", "CvtresCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "DepTrackingMode", "DistLtoToolsInfo", "HipCompilerInfo", "LinkerInfo", "PicBehavior", "RcCompilerInfo", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "AsCompilerInfo",
+    "AsmCompilerInfo",
+    "BinaryUtilitiesInfo",
+    "CCompilerInfo",
+    "CudaCompilerInfo",
+    "CvtresCompilerInfo",
+    "CxxCompilerInfo",
+    "CxxObjectFormat",
+    "DepTrackingMode",
+    "DistLtoToolsInfo",
+    "HipCompilerInfo",
+    "LinkerInfo",
+    "LinkerType",
+    "PicBehavior",
+    "RcCompilerInfo",
+    "ShlibInterfacesMode",
+    "StripFlagsInfo",
+    "cxx_toolchain_infos",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
@@ -87,6 +107,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor_flags = cmd_args(ctx.attrs.rc_preprocessor_flags),
     ) if ctx.attrs.rc_compiler else None
 
+    linker_type = LinkerType(ctx.attrs.linker_type)
     linker_info = LinkerInfo(
         archiver = ctx.attrs.archiver[RunInfo],
         archiver_flags = cmd_args(ctx.attrs.archiver_flags),
@@ -98,7 +119,7 @@ def cxx_toolchain_impl(ctx):
         archive_symbol_table = ctx.attrs.archive_symbol_table,
         binary_extension = value_or(ctx.attrs.binary_extension, ""),
         generate_linker_maps = ctx.attrs.generate_linker_maps,
-        is_pdb_generated = is_pdb_generated(ctx.attrs.linker_type, ctx.attrs.linker_flags),
+        is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.linker_flags),
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
         link_libraries_locally = False,
         link_style = LinkStyle(ctx.attrs.link_style),
@@ -125,7 +146,7 @@ def cxx_toolchain_impl(ctx):
         static_dep_runtime_ld_flags = ctx.attrs.static_dep_runtime_ld_flags,
         static_library_extension = ctx.attrs.static_library_extension or "a",
         static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
-        type = ctx.attrs.linker_type,
+        type = linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
     )
 
@@ -307,14 +328,14 @@ def _get_shared_library_name_default_prefix(ctx: AnalysisContext) -> str:
     return "" if extension == "dll" else "lib"
 
 def _get_shared_library_name_format(ctx: AnalysisContext) -> str:
-    linker_type = ctx.attrs.linker_type
+    linker_type = LinkerType(ctx.attrs.linker_type)
     extension = ctx.attrs.shared_library_extension
     if extension == "":
         extension = LINKERS[linker_type].default_shared_library_extension
     return "{}." + extension
 
 def _get_shared_library_versioned_name_format(ctx: AnalysisContext) -> str:
-    linker_type = ctx.attrs.linker_type
+    linker_type = LinkerType(ctx.attrs.linker_type)
     extension_format = ctx.attrs.shared_library_versioned_extension_format.replace("%s", "{}")
     if extension_format == "":
         extension_format = LINKERS[linker_type].default_shared_library_versioned_extension_format

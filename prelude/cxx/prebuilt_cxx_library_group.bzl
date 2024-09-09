@@ -5,7 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -113,7 +117,7 @@ def _parse_macro(arg: str) -> [(str, str), None]:
 
 def _get_static_link_infos(
         ctx: AnalysisContext,
-        linker_type: str,
+        linker_type: LinkerType,
         libs: list[Artifact],
         args: list[str]) -> LinkInfos:
     """

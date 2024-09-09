@@ -7,7 +7,11 @@
 
 load("@prelude//:artifact_tset.bzl", "project_artifacts")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
@@ -42,14 +46,14 @@ def generates_split_debug(toolchain: CxxToolchainInfo):
 
 def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
     linker_type = toolchain.linker_info.type
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         flags = [
             "-Xlinker",
             "-map",
             "-Xlinker",
             linker_map,
         ]
-    elif linker_type == "gnu":
+    elif linker_type == LinkerType("gnu"):
         flags = [
             "-Xlinker",
             "-Map",
@@ -98,7 +102,7 @@ def make_link_args(
     linker_info = cxx_toolchain_info.linker_info
     linker_type = linker_info.type
 
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         # Darwin requires a target triple specified to
         # control the deployment target being linked for.
         args.add(get_target_sdk_version_flags(ctx))
@@ -132,7 +136,7 @@ def make_link_args(
         hidden.append(pdb_artifact.as_output())
 
     filelists = None
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
         hidden.extend(filelists)
 
@@ -196,7 +200,7 @@ def cxx_sanitizer_runtime_arguments(
     if not linker_info.sanitizer_runtime_files:
         fail("C++ sanitizer runtime enabled but there are no runtime files")
 
-    if linker_info.type == "darwin":
+    if linker_info.type == LinkerType("darwin"):
         # ignore_artifacts as the runtime directory is not required at _link_ time
         runtime_rpath = cmd_args(ignore_artifacts = True)
         runtime_files = linker_info.sanitizer_runtime_files
@@ -247,7 +251,7 @@ def executable_shared_lib_arguments(
     linker_type = cxx_toolchain.linker_info.type
 
     if len(shared_libs) > 0:
-        if linker_type == "windows":
+        if linker_type == LinkerType("windows"):
             shared_libs_symlink_tree = [ctx.actions.symlink_file(
                 shlib.lib.output.basename,
                 shlib.lib.output,

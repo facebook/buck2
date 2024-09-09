@@ -20,6 +20,7 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",
+    "LinkerType",
     "PicBehavior",
 )
 load("@prelude//cxx:groups.bzl", "get_dedupped_roots_from_groups")
@@ -252,7 +253,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         def archive_linkable(lib):
             return ArchiveLinkable(
                 archive = Archive(artifact = lib),
-                linker_type = "gnu",
+                linker_type = LinkerType("gnu"),
             )
 
         def shared_linkable(lib):
@@ -497,10 +498,12 @@ HaskellLibBuildOutput = record(
     libs = list[Artifact],
 )
 
-def _get_haskell_shared_library_name_linker_flags(linker_type: str, soname: str) -> list[str]:
-    if linker_type == "gnu":
+def _get_haskell_shared_library_name_linker_flags(
+        linker_type: LinkerType,
+        soname: str) -> list[str]:
+    if linker_type == LinkerType("gnu"):
         return ["-Wl,-soname,{}".format(soname)]
-    elif linker_type == "darwin":
+    elif linker_type == LinkerType("darwin"):
         # Passing `-install_name @rpath/...` or
         # `-Xlinker -install_name -Xlinker @rpath/...` instead causes
         # ghc-9.6.3: panic! (the 'impossible' happened)

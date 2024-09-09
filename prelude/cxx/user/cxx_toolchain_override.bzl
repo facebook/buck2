@@ -5,7 +5,23 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "AsCompilerInfo", "AsmCompilerInfo", "BinaryUtilitiesInfo", "CCompilerInfo", "CxxCompilerInfo", "CxxObjectFormat", "CxxPlatformInfo", "CxxToolchainInfo", "LinkerInfo", "LinkerType", "PicBehavior", "ShlibInterfacesMode", "StripFlagsInfo", "cxx_toolchain_infos")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "AsCompilerInfo",
+    "AsmCompilerInfo",
+    "BinaryUtilitiesInfo",
+    "CCompilerInfo",
+    "CxxCompilerInfo",
+    "CxxObjectFormat",
+    "CxxPlatformInfo",
+    "CxxToolchainInfo",
+    "LinkerInfo",
+    "LinkerType",
+    "PicBehavior",
+    "ShlibInterfacesMode",
+    "StripFlagsInfo",
+    "cxx_toolchain_infos",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode")
@@ -68,7 +84,7 @@ def _cxx_toolchain_override(ctx):
         allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
     )
     base_linker_info = base_toolchain.linker_info
-    linker_type = ctx.attrs.linker_type if ctx.attrs.linker_type != None else base_linker_info.type
+    linker_type = LinkerType(ctx.attrs.linker_type) if ctx.attrs.linker_type != None else base_linker_info.type
     pdb_expected = is_pdb_generated(linker_type, ctx.attrs.linker_flags) if ctx.attrs.linker_flags != None else base_linker_info.is_pdb_generated
 
     # This handles case when linker type is overridden to non-windows from
@@ -77,7 +93,7 @@ def _cxx_toolchain_override(ctx):
     # we can't inspect base linker flags and disable PDB subtargets.
     # This shouldn't be a problem because to use windows linker after non-windows
     # linker flags should be changed as well.
-    pdb_expected = linker_type == "windows" and pdb_expected
+    pdb_expected = linker_type == LinkerType("windows") and pdb_expected
     shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
     sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
     linker_info = LinkerInfo(
@@ -206,7 +222,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "link_weight": attrs.option(attrs.int(), default = None),
         "linker": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "linker_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-        "linker_type": attrs.option(attrs.enum(LinkerType), default = None),
+        "linker_type": attrs.option(attrs.enum(LinkerType.values()), default = None),
         "llvm_link": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "lto_mode": attrs.option(attrs.enum(LtoMode.values()), default = None),
         "min_sdk_version": attrs.option(attrs.string(), default = None),

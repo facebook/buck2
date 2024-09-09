@@ -6,7 +6,11 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 
@@ -48,7 +52,7 @@ def _extract_symbol_names(
         nm_flags += "u"
 
     # darwin objects don't have dynamic symbol tables.
-    if dynamic and cxx_toolchain.linker_info.type != "darwin":
+    if dynamic and cxx_toolchain.linker_info.type != LinkerType("darwin"):
         nm_flags += "D"
 
     # llvm-nm supports -U for this but gnu nm doesn't.
@@ -314,7 +318,7 @@ def get_undefined_symbols_args(
         category: [str, None] = None,
         identifier: [str, None] = None,
         prefer_local: bool = False) -> cmd_args:
-    if cxx_toolchain.linker_info.type == "gnu":
+    if cxx_toolchain.linker_info.type == LinkerType("gnu"):
         # linker script is only supported in gnu linkers
         linker_script = create_undefined_symbols_linker_script(
             ctx.actions,

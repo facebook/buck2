@@ -10,7 +10,11 @@ load(
     "ArtifactInfo",
     "make_artifact_tset",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -34,7 +38,7 @@ def _serialize_linkable(linkable):
         return ("archive", (
             (linkable.archive.artifact, linkable.archive.external_objects),
             linkable.link_whole,
-            linkable.linker_type,
+            linkable.linker_type.value,
             linkable.supports_lto,
         ))
 
@@ -42,7 +46,7 @@ def _serialize_linkable(linkable):
         return ("objects", (
             linkable.objects,
             linkable.link_whole,
-            linkable.linker_type,
+            linkable.linker_type.value,
         ))
 
     if isinstance(linkable, SharedLibLinkable):
@@ -107,7 +111,7 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
                 external_objects = external_objects,
             ),
             link_whole = link_whole,
-            linker_type = linker_type,
+            linker_type = LinkerType(linker_type),
             supports_lto = supports_lto,
         )
 
@@ -116,7 +120,7 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
         return ObjectsLinkable(
             objects = objects,
             link_whole = link_whole,
-            linker_type = linker_type,
+            linker_type = LinkerType(linker_type),
         )
 
     if typ == "shared":
@@ -207,7 +211,7 @@ ANON_ATTRS = {
                                         # ObjectsLinkable
                                         attrs.list(attrs.source()),  # objects
                                         attrs.bool(),  # link_whole
-                                        attrs.string(),  # linker_type
+                                        attrs.enum(LinkerType.values()),  # linker_type
                                     ),
                                     attrs.tuple(
                                         # ArchiveLinkable
@@ -217,7 +221,7 @@ ANON_ATTRS = {
                                             attrs.list(attrs.source()),  # external_objects
                                         ),
                                         attrs.bool(),  # link_whole
-                                        attrs.string(),  # linker_type
+                                        attrs.enum(LinkerType.values()),  # linker_type
                                         attrs.bool(),  # supports_lto
                                     ),
                                     attrs.tuple(

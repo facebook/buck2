@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
@@ -334,7 +335,7 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming) -> str:
 
 def _get_debug_prefix_args(ctx: AnalysisContext, header_dir: Artifact) -> [cmd_args, None]:
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
-    if get_cxx_toolchain_info(ctx).linker_info.type != "gnu":
+    if get_cxx_toolchain_info(ctx).linker_info.type != LinkerType("gnu"):
         return None
 
     fmt = "-fdebug-prefix-map={}=" + value_or(header_dir.owner.cell, ".")

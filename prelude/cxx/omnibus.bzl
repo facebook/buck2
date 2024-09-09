@@ -6,7 +6,11 @@
 # of this source tree.
 
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:link.bzl",
     "CxxLinkResult",  # @unused Used as a type
@@ -513,7 +517,7 @@ def _create_omnibus(
 
     # Add global symbols version script.
     # FIXME(agallagher): Support global symbols for darwin.
-    if linker_info.type != "darwin":
+    if linker_info.type != LinkerType("darwin"):
         global_sym_vers = _create_global_symbols_version_script(
             ctx,
             # Extract symbols from roots...

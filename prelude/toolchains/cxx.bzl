@@ -14,6 +14,7 @@ load(
     "CxxPlatformInfo",
     "CxxToolchainInfo",
     "LinkerInfo",
+    "LinkerType",
     "PicBehavior",
     "RcCompilerInfo",
     "ShlibInterfacesMode",
@@ -36,7 +37,7 @@ CxxToolsInfo = provider(
         "cvtres_compiler": provider_field(typing.Any, default = None),
         "cxx_compiler": provider_field(typing.Any, default = None),
         "linker": provider_field(typing.Any, default = None),
-        "linker_type": provider_field(typing.Any, default = None),
+        "linker_type": LinkerType,
         "rc_compiler": provider_field(typing.Any, default = None),
     },
 )
@@ -94,7 +95,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
     if os == "windows":
-        linker_type = "windows"
+        linker_type = LinkerType("windows")
         binary_extension = "exe"
         object_file_extension = "obj"
         static_library_extension = "lib"
@@ -111,10 +112,10 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         shared_library_versioned_name_format = "{}.so.{}"
 
         if os == "macos":
-            linker_type = "darwin"
+            linker_type = LinkerType("darwin")
             pic_behavior = PicBehavior("always_enabled")
         else:
-            linker_type = "gnu"
+            linker_type = LinkerType("gnu")
             pic_behavior = PicBehavior("supported")
 
     if cxx_tools_info.compiler_type == "clang":

@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//toolchains:cxx.bzl", "CxxToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 
@@ -133,7 +134,7 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             archiver = lib_exe_script,
             archiver_type = "windows",
             linker = _windows_linker_wrapper(ctx, link_exe_script),
-            linker_type = "windows",
+            linker_type = LinkerType("windows"),
         ),
     ]
 

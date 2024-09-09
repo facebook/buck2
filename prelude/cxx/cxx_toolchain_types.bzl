@@ -7,7 +7,7 @@
 
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
-LinkerType = ["gnu", "darwin", "windows", "wasm"]
+LinkerType = enum("gnu", "darwin", "windows", "wasm")
 
 ShlibInterfacesMode = enum("disabled", "enabled", "defined_only", "stub_from_library", "stub_from_headers")
 
@@ -64,7 +64,7 @@ LinkerInfo = provider(
         "requires_objects": provider_field(typing.Any, default = None),
         "supports_distributed_thinlto": provider_field(typing.Any, default = None),
         "independent_shlib_interface_linker_flags": provider_field(typing.Any, default = None),
-        "type": provider_field(typing.Any, default = None),  # of "LinkerType" type
+        "type": LinkerType,
         "use_archiver_flags": provider_field(typing.Any, default = None),
         "force_full_hybrid_if_capable": provider_field(typing.Any, default = None),
         "is_pdb_generated": provider_field(typing.Any, default = None),  # bool

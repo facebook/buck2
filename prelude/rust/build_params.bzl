@@ -7,6 +7,7 @@
 
 # Rules for mapping requirements to options
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
@@ -186,20 +187,20 @@ _RUST_STATIC_NON_PIC_LIBRARY = 7
 _NATIVE_LINKABLE_STATIC_PIC = 8
 _NATIVE_LINKABLE_STATIC_NON_PIC = 9
 
-def _executable_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, str):
+def _executable_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
-        "darwin": ("", ""),
-        "gnu": ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
-        "wasm": ("", ".wasm"),
-        "windows": ("", ".exe"),
+        LinkerType("darwin"): ("", ""),
+        LinkerType("gnu"): ("", ".exe") if target_os_type.platform == "windows" else ("", ""),
+        LinkerType("wasm"): ("", ".wasm"),
+        LinkerType("windows"): ("", ".exe"),
     }[linker_type]
 
-def _library_prefix_suffix(linker_type: str, target_os_type: OsLookup) -> (str, str):
+def _library_prefix_suffix(linker_type: LinkerType, target_os_type: OsLookup) -> (str, str):
     return {
-        "darwin": ("lib", ".dylib"),
-        "gnu": ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
-        "wasm": ("", ".wasm"),
-        "windows": ("", ".dll"),
+        LinkerType("darwin"): ("lib", ".dylib"),
+        LinkerType("gnu"): ("", ".dll") if target_os_type.platform == "windows" else ("lib", ".so"),
+        LinkerType("wasm"): ("", ".wasm"),
+        LinkerType("windows"): ("", ".dll"),
     }[linker_type]
 
 _BUILD_PARAMS = {
@@ -338,7 +339,7 @@ def build_params(
         link_strategy: LinkStrategy | None,
         lib_output_style: LibOutputStyle | None,
         lang: LinkageLang,
-        linker_type: str,
+        linker_type: LinkerType,
         target_os_type: OsLookup) -> BuildParams:
     if rule == RuleType("binary"):
         expect(link_strategy != None)

@@ -25,7 +25,11 @@ load(
     "from_named_set",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
-load(":cxx_toolchain_types.bzl", "ShlibInterfacesMode")
+load(
+    ":cxx_toolchain_types.bzl",
+    "LinkerType",
+    "ShlibInterfacesMode",
+)
 load(
     ":headers.bzl",
     "cxx_attr_header_namespace",
@@ -143,7 +147,7 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
     return resources
 
 def cxx_is_gnu(ctx: AnalysisContext) -> bool:
-    return get_cxx_toolchain_info(ctx).linker_info.type == "gnu"
+    return get_cxx_toolchain_info(ctx).linker_info.type == LinkerType("gnu")
 
 def cxx_use_shlib_intfs(ctx: AnalysisContext) -> bool:
     """

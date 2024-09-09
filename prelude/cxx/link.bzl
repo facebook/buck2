@@ -16,7 +16,11 @@ load(
     "bolt",
     "cxx_use_bolt",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",
+    "LinkerType",
+)
 load(
     "@prelude//cxx/dist_lto:darwin_dist_lto.bzl",
     "cxx_darwin_dist_link",
@@ -146,14 +150,14 @@ def cxx_link_into(
             fail("Cannot use distributed thinlto with sanitizer runtime")
 
         linker_type = linker_info.type
-        if linker_type == "darwin":
+        if linker_type == LinkerType("darwin"):
             exe = cxx_darwin_dist_link(
                 ctx,
                 output,
                 opts,
                 linker_map,
             )
-        elif linker_type == "gnu":
+        elif linker_type == LinkerType("gnu"):
             exe = cxx_gnu_dist_link(
                 ctx,
                 output,
@@ -244,7 +248,7 @@ def cxx_link_into(
 
     all_link_args.add(link_cmd_parts.post_linker_flags)
 
-    if linker_info.type == "windows":
+    if linker_info.type == LinkerType("windows"):
         shell_quoted_args = cmd_args(all_link_args)
     else:
         shell_quoted_args = cmd_args(all_link_args, quote = "shell")

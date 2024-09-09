@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo", "LinkerType")
 load("@prelude//linking:link_info.bzl", "Archive")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
@@ -13,7 +13,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def _archive_flags(
         archiver_type: str,
-        linker_type: str,
+        linker_type: LinkerType,
         use_archiver_flags: bool,
         symbol_table: bool,
         thin: bool) -> list[str]:
@@ -43,7 +43,7 @@ def _archive_flags(
         flags += "T"
 
     # GNU archivers support generating deterministic archives.
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         flags += "D"
 
     return [flags]

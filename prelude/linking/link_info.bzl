@@ -10,7 +10,11 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerType",
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:linker.bzl",
     "get_link_whole_args",
@@ -77,7 +81,7 @@ ArchiveLinkable = record(
     archive = field(Archive),
     # If a bitcode bundle was created for this artifact it will be present here
     bitcode_bundle = field(Artifact | None, None),
-    linker_type = field(str),
+    linker_type = field(LinkerType),
     link_whole = field(bool, False),
     # Indicates if this archive may contain LTO bit code.  Can be set to `False`
     # to e.g. tell dist LTO handling that a potentially expensive archive doesn't
@@ -96,7 +100,7 @@ ObjectsLinkable = record(
     objects = field([list[Artifact], None], None),
     # Any of the objects that are in bitcode format
     bitcode_bundle = field(Artifact | None, None),
-    linker_type = field(str),
+    linker_type = field(LinkerType),
     link_whole = field(bool, False),
 )
 
@@ -900,13 +904,13 @@ def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[Swiftmodu
         ],
     ))
 
-def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkInfo) -> LinkInfo:
+def wrap_with_no_as_needed_shared_libs_flags(linker_type: LinkerType, link_info: LinkInfo) -> LinkInfo:
     """
     Wrap link info in args used to prevent linkers from dropping unused shared
     library dependencies from the e.g. DT_NEEDED tags of the link.
     """
 
-    if linker_type == "gnu":
+    if linker_type == LinkerType("gnu"):
         return wrap_link_info(
             inner = link_info,
             pre_flags = (
@@ -916,7 +920,7 @@ def wrap_with_no_as_needed_shared_libs_flags(linker_type: str, link_info: LinkIn
             post_flags = ["-Wl,--pop-state"],
         )
 
-    if linker_type == "darwin":
+    if linker_type == LinkerType("darwin"):
         return link_info
 
     fail("Linker type {} not supported".format(linker_type))
