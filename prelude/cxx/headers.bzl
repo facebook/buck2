@@ -356,7 +356,7 @@ def _mk_hmap(ctx: AnalysisContext, name: str, headers: dict[str, (Artifact, str)
     hmap_args_file = ctx.actions.write(output.basename + ".cxx_hmap_argsfile", cmd_args(header_args, quote = "shell"))
 
     cmd = cmd_args(
-        [get_cxx_toolchain_info(ctx).mk_hmap] +
+        [get_cxx_toolchain_info(ctx).internal_tools.hmap_wrapper] +
         ["--output", output.as_output()] +
         ["--mappings-file", hmap_args_file],
         hidden = header_args,

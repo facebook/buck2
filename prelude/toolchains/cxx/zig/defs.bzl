@@ -100,6 +100,7 @@ load(
     "BinaryUtilitiesInfo",
     "CCompilerInfo",
     "CxxCompilerInfo",
+    "CxxInternalTools",
     "LinkerInfo",
     "ShlibInterfacesMode",
     "StripFlagsInfo",
@@ -126,8 +127,6 @@ load(
     ":releases.bzl",
     "releases",
 )
-
-DEFAULT_MAKE_COMP_DB = "prelude//cxx/tools:make_comp_db"
 
 ZigReleaseInfo = provider(
     # @unsorted-dict-items
@@ -348,6 +347,7 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         os = ScriptOs("windows" if dist.os == "windows" else "unix"),
     )
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
+        internal_tools = ctx.attrs._cxx_internal_tools[CxxInternalTools],
         platform_name = dist.arch,
         c_compiler_info = CCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cc)),
@@ -416,7 +416,6 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         #as_compiler_info = None,
         #hip_compiler_info = None,
         #cuda_compiler_info = None,
-        mk_comp_db = ctx.attrs.make_comp_db,
         #mk_hmap = None,
         #use_distributed_thinlto = False,
         #use_dep_files = False,  # requires dep_files_processor
@@ -446,7 +445,6 @@ cxx_zig_toolchain = rule(
             """,
         ),
         "linker_flags": attrs.list(attrs.arg(), default = []),
-        "make_comp_db": attrs.dep(providers = [RunInfo], default = DEFAULT_MAKE_COMP_DB),
         "shared_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
         "shared_library_interface_flags": attrs.list(attrs.string(), default = []),
         "static_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
@@ -455,6 +453,7 @@ cxx_zig_toolchain = rule(
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "target": attrs.option(attrs.string(), default = None),
+        "_cxx_internal_tools": attrs.default_only(attrs.dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
     },
     is_toolchain_rule = True,
 )

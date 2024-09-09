@@ -145,10 +145,10 @@ def cxx_darwin_dist_link(
     link_infos = map_to_link_infos(links)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
-    lto_planner = cxx_toolchain.dist_lto_tools_info.planner[LinkerType("darwin")]
-    lto_opt = cxx_toolchain.dist_lto_tools_info.opt[LinkerType("darwin")]
-    lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
-    lto_copy = cxx_toolchain.dist_lto_tools_info.copy
+    lto_planner = cxx_toolchain.internal_tools.dist_lto.planner[LinkerType("darwin")]
+    lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("darwin")]
+    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare
+    lto_copy = cxx_toolchain.internal_tools.dist_lto.copy
 
     # Information used to construct thinlto index link command:
     # Note: The index into index_link_data is important as it's how things will appear in

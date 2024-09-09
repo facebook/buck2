@@ -15,9 +15,9 @@ load(
     "CudaCompilerInfo",
     "CvtresCompilerInfo",
     "CxxCompilerInfo",
+    "CxxInternalTools",
     "CxxObjectFormat",
     "DepTrackingMode",
-    "DistLtoToolsInfo",
     "HipCompilerInfo",
     "LinkerInfo",
     "LinkerType",
@@ -54,7 +54,6 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.c_compiler_flags, c_lto_flags),
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
-        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
     )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
@@ -64,7 +63,6 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags, c_lto_flags),
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
-        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
     )
     asm_info = AsmCompilerInfo(
@@ -72,21 +70,18 @@ def cxx_toolchain_impl(ctx):
         compiler_type = ctx.attrs.asm_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
-        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     ) if ctx.attrs.asm_compiler else None
     as_info = AsCompilerInfo(
         compiler = ctx.attrs.assembler[RunInfo],
         compiler_type = ctx.attrs.assembler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.assembler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
-        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     ) if ctx.attrs.assembler else None
     cuda_info = CudaCompilerInfo(
         compiler = ctx.attrs.cuda_compiler[RunInfo],
         compiler_type = ctx.attrs.cuda_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
-        dep_files_processor = ctx.attrs._dep_files_processor[RunInfo],
     ) if ctx.attrs.cuda_compiler else None
     hip_info = HipCompilerInfo(
         compiler = ctx.attrs.hip_compiler[RunInfo],
@@ -170,6 +165,7 @@ def cxx_toolchain_impl(ctx):
     return [
         DefaultInfo(),
     ] + cxx_toolchain_infos(
+        internal_tools = ctx.attrs._internal_tools[CxxInternalTools],
         platform_name = platform_name,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
@@ -187,8 +183,6 @@ def cxx_toolchain_impl(ctx):
         object_format = CxxObjectFormat(object_format),
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
-        mk_hmap = ctx.attrs._mk_hmap[RunInfo],
-        mk_comp_db = ctx.attrs._mk_comp_db,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior),
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
@@ -201,8 +195,7 @@ def cxx_toolchain_impl(ctx):
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
         target_sdk_version = get_toolchain_target_sdk_version(ctx),
-        dist_lto_tools_info = ctx.attrs._dist_lto_tools[DistLtoToolsInfo],
-        remap_cwd = ctx.attrs._remap_cwd_tool[RunInfo] if ctx.attrs.remap_cwd else None,
+        remap_cwd = ctx.attrs.remap_cwd,
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -263,8 +256,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "target_sdk_version": attrs.option(attrs.string(), default = None),
         "use_archiver_flags": attrs.bool(default = True),
         "use_dep_files": attrs.option(attrs.bool(), default = None),
-        "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
-        "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
         # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.
         # If we were using msvc, we should be able to use dumpbin directly.
         "_dumpbin_toolchain_path": attrs.default_only(attrs.option(dep_type(providers = [DefaultInfo]), default = select({
@@ -274,15 +265,13 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
                 # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
                 # windows exec platform.
                 "DEFAULT": None,
+                # FIXME: prelude// should be standalone (not refer to fbsource//)
                 "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x86_and_tools",
                 "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x64_and_tools",
             }),
         }) if is_full_meta_repo() else None)),
-        "_mk_comp_db": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
-        # FIXME: prelude// should be standalone (not refer to fbsource//)
-        "_mk_hmap": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:hmap_wrapper")),
+        "_internal_tools": attrs.default_only(dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
-        "_remap_cwd_tool": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//cxx/tools:remap_cwd")),
     } | cxx_toolchain_allow_cache_upload_args()
 
 def _cxx_toolchain_inheriting_target_platform_attrs():

@@ -1,11 +1,16 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load(":defs.bzl", "cxx_hacks")
+load(":defs.bzl", "cxx_hacks", "cxx_internal_tools")
 
 oncall("build_infra")
 
 source_listing()
 
 prelude = native
+
+cxx_internal_tools(
+    name = "internal_tools",
+    visibility = ["PUBLIC"],
+)
 
 prelude.python_bootstrap_binary(
     name = "hmap_wrapper.py",
@@ -19,13 +24,11 @@ prelude.command_alias(
     ],
     exe = ":hmap_wrapper.py",
     labels = ["buck2-only"],
-    visibility = ["PUBLIC"],
 )
 
 prelude.python_bootstrap_binary(
     name = "make_comp_db",
     main = "make_comp_db.py",
-    visibility = ["PUBLIC"],
 )
 
 prelude.python_bootstrap_binary(
@@ -45,7 +48,6 @@ prelude.python_bootstrap_library(
         "show_headers_to_dep_file.py",
         "show_includes_to_dep_file.py",
     ],
-    visibility = ["PUBLIC"],
 )
 
 prelude.python_bootstrap_binary(
@@ -57,7 +59,6 @@ prelude.python_bootstrap_binary(
 prelude.python_bootstrap_binary(
     name = "remap_cwd",
     main = "remap_cwd.py",
-    visibility = ["PUBLIC"],
 )
 
 prelude.python_bootstrap_binary(

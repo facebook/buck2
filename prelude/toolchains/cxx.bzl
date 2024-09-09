@@ -11,6 +11,7 @@ load(
     "CCompilerInfo",
     "CvtresCompilerInfo",
     "CxxCompilerInfo",
+    "CxxInternalTools",
     "CxxPlatformInfo",
     "CxxToolchainInfo",
     "LinkerInfo",
@@ -126,7 +127,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     return [
         DefaultInfo(),
         CxxToolchainInfo(
-            mk_comp_db = ctx.attrs.make_comp_db,
+            internal_tools = ctx.attrs._internal_tools[CxxInternalTools],
             linker_info = LinkerInfo(
                 linker = _run_info(cxx_tools_info.linker),
                 linker_flags = additional_linker_flags + ctx.attrs.link_flags,
@@ -226,11 +227,11 @@ system_cxx_toolchain = rule(
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_style": attrs.string(default = "shared"),
         "linker": attrs.option(attrs.string(), default = None),
-        "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_compiler": attrs.option(attrs.string(), default = None),
         "rc_flags": attrs.list(attrs.string(), default = []),
         "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
+        "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,
@@ -256,9 +257,9 @@ cxx_tools_info_toolchain = rule(
             The default value of the `link_style` attribute for rules that use this toolchain.
             """,
         ),
-        "make_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
         "post_link_flags": attrs.list(attrs.string(), default = []),
         "rc_flags": attrs.list(attrs.string(), default = []),
+        "_internal_tools": attrs.default_only(attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,

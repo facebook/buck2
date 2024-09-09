@@ -678,7 +678,7 @@ def _get_compile_base(toolchain: CxxToolchainInfo, compiler_info: typing.Any) ->
     """
 
     if toolchain.remap_cwd and compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl"]:
-        return cmd_args(toolchain.remap_cwd, compiler_info.compiler)
+        return cmd_args(toolchain.internal_tools.remap_cwd, compiler_info.compiler)
     else:
         return cmd_args(compiler_info.compiler)
 
@@ -836,7 +836,7 @@ def _generate_base_compile_command(
         mk_dep_files_flags = get_headers_dep_files_flags_factory(tracking_mode)
         if mk_dep_files_flags:
             headers_dep_files = _HeadersDepFiles(
-                processor = cmd_args(compiler_info.dep_files_processor),
+                processor = cmd_args(toolchain.internal_tools.dep_file_processor),
                 mk_flags = mk_dep_files_flags,
                 tag = headers_tag,
                 dep_tracking_mode = tracking_mode,

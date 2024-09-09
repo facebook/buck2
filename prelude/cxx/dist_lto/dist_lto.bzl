@@ -157,10 +157,10 @@ def cxx_gnu_dist_link(
     link_infos = map_to_link_infos(links)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
-    lto_planner = cxx_toolchain.dist_lto_tools_info.planner[LinkerType("gnu")]
-    lto_opt = cxx_toolchain.dist_lto_tools_info.opt[LinkerType("gnu")]
-    lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
-    lto_copy = cxx_toolchain.dist_lto_tools_info.copy
+    lto_planner = cxx_toolchain.internal_tools.dist_lto.planner[LinkerType("gnu")]
+    lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("gnu")]
+    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare
+    lto_copy = cxx_toolchain.internal_tools.dist_lto.copy
 
     PREPEND_ARCHIVE_NAMES = [
         # T130644072: If linked with `--whole-archive`, Clang builtins must be at the

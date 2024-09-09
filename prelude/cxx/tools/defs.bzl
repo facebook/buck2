@@ -5,6 +5,31 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxInternalTools", "DistLtoToolsInfo")
+
+def _cxx_internal_tools_impl(ctx: AnalysisContext) -> list[Provider]:
+    return [
+        DefaultInfo(),
+        CxxInternalTools(
+            dep_file_processor = ctx.attrs.dep_file_processor[RunInfo],
+            dist_lto = ctx.attrs.dist_lto[DistLtoToolsInfo],
+            hmap_wrapper = ctx.attrs.hmap_wrapper[RunInfo],
+            make_comp_db = ctx.attrs.make_comp_db[RunInfo],
+            remap_cwd = ctx.attrs.remap_cwd[RunInfo],
+        ),
+    ]
+
+cxx_internal_tools = rule(
+    impl = _cxx_internal_tools_impl,
+    attrs = {
+        "dep_file_processor": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor")),
+        "dist_lto": attrs.default_only(attrs.dep(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
+        "hmap_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:hmap_wrapper")),
+        "make_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:make_comp_db")),
+        "remap_cwd": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:remap_cwd")),
+    },
+)
+
 def _cxx_hacks_impl(_ctx):
     return [DefaultInfo(), TemplatePlaceholderInfo(
         unkeyed_variables = {
