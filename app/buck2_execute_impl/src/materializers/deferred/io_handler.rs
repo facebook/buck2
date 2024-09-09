@@ -416,7 +416,12 @@ impl IoHandler for DefaultIoHandler {
                 (
                     res,
                     buck2_data::MaterializationEnd {
-                        action_digest: None,
+                        action_digest: match method.as_ref() {
+                            ArtifactMaterializationMethod::CasDownload { info } => {
+                                info.action_digest().map(|digest| digest.to_string())
+                            }
+                            _ => None,
+                        },
                         file_count: stat.file_count,
                         total_bytes: stat.total_bytes,
                         path: path_string,
