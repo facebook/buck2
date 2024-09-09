@@ -7,7 +7,6 @@
 
 load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@prelude//csharp:toolchain.bzl", "CSharpToolchainInfo")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapToolchainInfo")
 load("@prelude//haskell:toolchain.bzl", "HaskellPlatformInfo", "HaskellToolchainInfo")
@@ -39,7 +38,8 @@ def _csharp_toolchain():
     return _toolchain("csharp", [CSharpToolchainInfo])
 
 def _cxx_toolchain():
-    return _toolchain("cxx", [CxxToolchainInfo, CxxPlatformInfo])
+    # `CxxToolchainInfo, CxxPlatformInfo`, but python doesn't require it
+    return _toolchain("cxx", [])
 
 def _dex_toolchain():
     return _toolchain("dex", [DexToolchainInfo])

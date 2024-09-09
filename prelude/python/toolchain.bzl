@@ -95,14 +95,19 @@ def get_package_style(ctx: AnalysisContext) -> PackageStyle:
 
 def get_platform_attr(
         python_platform_info: PythonPlatformInfo,
-        cxx_platform_info: CxxPlatformInfo,
+        cxx_toolchain: Dependency,
         xs: list[(str, typing.Any)]) -> list[typing.Any]:
     """
     Take a platform_* value, and the non-platform version, and concat into a list
     of values based on the cxx/python platform
     """
+    if len(xs) == 0:
+        return []
+    cxx_info = cxx_toolchain.get(CxxPlatformInfo)
+    if cxx_info == None:
+        fail("Cannot use platform attrs in a fat platform configuration")
     python_platform = python_platform_info.name
-    cxx_platform = cxx_platform_info.name
+    cxx_platform = cxx_info.name
     return by_platform([python_platform, cxx_platform], xs)
 
 python = struct(

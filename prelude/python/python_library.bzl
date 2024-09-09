@@ -17,7 +17,6 @@ load(
     "gather_resources",
 )
 load("@prelude//cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:omnibus.bzl",
     "get_excluded",
@@ -203,22 +202,22 @@ def _exclude_deps_from_omnibus(
 
 def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
     all_srcs = {}
     all_srcs.update(from_named_set(ctx.attrs.srcs))
-    for srcs in get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_srcs):
+    for srcs in get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_srcs):
         all_srcs.update(from_named_set(srcs))
     return all_srcs
 
 def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
     all_resources = {}
     all_resources.update(from_named_set(ctx.attrs.resources))
 
     # `python_binary` doesn't have `platform_resources`
     platform_resources = getattr(ctx.attrs, "platform_resources", [])
-    for resources in get_platform_attr(python_platform, cxx_platform, platform_resources):
+    for resources in get_platform_attr(python_platform, cxx_toolchain, platform_resources):
         all_resources.update(from_named_set(resources))
     return all_resources
 
@@ -273,7 +272,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     expect(not ctx.attrs.versioned_resources)
 
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
 
     providers = []
     sub_targets = {}
@@ -301,7 +300,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     raw_deps = ctx.attrs.deps
     raw_deps.extend(flatten(
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     ))
     resource_manifest = py_resources(ctx, resources) if resources else None
     deps, shared_libraries = gather_dep_libraries(raw_deps)

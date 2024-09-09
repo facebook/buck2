@@ -18,7 +18,7 @@ load(
     "cxx_is_gnu",
 )
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
@@ -327,12 +327,12 @@ def python_executable(
     # TODO(nmj): See if people are actually setting cxx_platform here. Really
     #                 feels like it should be a property of the python platform
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
 
     raw_deps = ctx.attrs.deps
 
     raw_deps.extend(flatten(
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     ))
 
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
@@ -461,9 +461,16 @@ def _convert_python_library_to_executable(
         if manifest.extensions:
             _merge_extensions(extensions, manifest.label, manifest.extensions)
 
-    # If we're using omnibus linking, re-link libraries and extensions and
-    # update the libraries we'll pull into the final binary.
-    if _link_strategy(ctx) == NativeLinkStrategy("merged"):
+    if ctx.attrs._cxx_toolchain.get(CxxToolchainInfo) == None:
+        # In fat target platforms, there may not be a CXX toolchain available.
+        shared_libs = [
+            ("", shared_lib)
+            for shared_lib in library.shared_libraries()
+        ]
+    elif _link_strategy(ctx) == NativeLinkStrategy("merged"):
+        # If we're using omnibus linking, re-link libraries and extensions and
+        # update the libraries we'll pull into the final binary.
+
         # Collect omnibus info from deps.
         linkable_graph = create_linkable_graph(
             ctx,

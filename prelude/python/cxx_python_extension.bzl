@@ -18,7 +18,6 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "get_srcs_with_flags",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",
@@ -262,10 +261,10 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Export library info.
     python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo]
+    cxx_toolchain = ctx.attrs._cxx_toolchain
     raw_deps = ctx.attrs.deps
     raw_deps.extend(
-        get_platform_attr(python_platform, cxx_platform, ctx.attrs.platform_deps),
+        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     )
     deps, shared_deps = gather_dep_libraries(raw_deps)
     library_info = create_python_library_info(
