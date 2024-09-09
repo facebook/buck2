@@ -419,7 +419,7 @@ reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
 %% Make sure it exists and returns it.
 set_up_log_dir(OutputDir) ->
     LogDir = filename:join(OutputDir, "log_dir"),
-    filelib:ensure_path(LogDir),
+    ok = filelib:ensure_path(LogDir),
     LogDir.
 
 %% @doc Informs the test runner of a successful test run.
