@@ -19,6 +19,7 @@ load(
 )
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
+load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//decls/android_rules.bzl", "RType")
 
 _FilteredResourcesOutput = record(
@@ -612,7 +613,7 @@ def _merge_assets(
 
             assets_dirs_file = ctx.actions.write_json("assets_dirs.json", module_to_assets_dirs)
             merge_assets_cmd.add(["--assets-dirs", assets_dirs_file])
-            merge_assets_cmd.add(cmd_args(hidden = [resource_info.assets for resource_info in asset_resource_infos]))
+            merge_assets_cmd.add(cmd_args(hidden = flatten(module_to_assets_dirs.values())))
 
             ctx.actions.run(merge_assets_cmd, category = "merge_assets")
 
