@@ -404,13 +404,6 @@ impl ProviderCodegen {
                     #callable_name::provider_id()
                 }
 
-                fn get_field(&self, name: &str) -> Option<starlark::values::Value<'v>> {
-                    match name {
-                        #(stringify!(#field_names) => Some(self.#field_names.get().to_value()),)*
-                        _ => None,
-                    }
-                }
-
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
                     vec![
                         #((stringify!(#field_names), self.#field_names.get().to_value())),*

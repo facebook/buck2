@@ -162,11 +162,6 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
         &self.callable.provider_id
     }
 
-    fn get_field(&self, name: &str) -> Option<Value<'v>> {
-        let index = self.callable.fields.get_index_of(name)?;
-        Some(self.attributes[index].to_value())
-    }
-
     fn items(&self) -> Vec<(&str, Value<'v>)> {
         self.iter_items().map(|(k, v)| (k, v.to_value())).collect()
     }

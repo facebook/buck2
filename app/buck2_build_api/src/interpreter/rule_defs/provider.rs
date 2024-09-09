@@ -88,8 +88,6 @@ pub(crate) mod user;
 pub trait ProviderLike<'v>: Debug {
     /// The ID. Guaranteed to be set on the `ProviderCallable` before constructing this object
     fn id(&self) -> &Arc<ProviderId>;
-    /// Gets the value for a given field.
-    fn get_field(&self, name: &str) -> Option<Value<'v>>;
     /// Returns a list of all the keys and values.
     // TODO(cjhopman): I'd rather return an iterator. I couldn't get that to work, though.
     fn items(&self) -> Vec<(&str, Value<'v>)>;
