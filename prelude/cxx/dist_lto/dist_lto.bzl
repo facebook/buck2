@@ -22,6 +22,7 @@ load(
     "cxx_link_cmd_parts",
     "linker_map_args",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load(
     "@prelude//cxx:dwp.bzl",
@@ -156,8 +157,8 @@ def cxx_gnu_dist_link(
     link_infos = map_to_link_infos(links)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
-    lto_planner = cxx_toolchain.dist_lto_tools_info.planner
-    lto_opt = cxx_toolchain.dist_lto_tools_info.opt
+    lto_planner = cxx_toolchain.dist_lto_tools_info.planner[LinkerType("gnu")]
+    lto_opt = cxx_toolchain.dist_lto_tools_info.opt[LinkerType("gnu")]
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
     lto_copy = cxx_toolchain.dist_lto_tools_info.copy
 

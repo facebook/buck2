@@ -8,8 +8,8 @@ source_listing()
 prelude = native
 
 prelude.python_bootstrap_binary(
-    name = "dist_lto_planner",
-    main = "dist_lto_planner.py",
+    name = "dist_lto_planner_gnu",
+    main = "dist_lto_planner_gnu.py",
     visibility = ["PUBLIC"],
 )
 
@@ -20,8 +20,8 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "dist_lto_opt",
-    main = "dist_lto_opt.py",
+    name = "dist_lto_opt_gnu",
+    main = "dist_lto_opt_gnu.py",
     visibility = ["PUBLIC"],
 )
 
@@ -44,19 +44,16 @@ prelude.python_bootstrap_binary(
 )
 
 dist_lto_tools(
-    name = "dist_lto_tools_darwin",
-    copy = ":dist_lto_copy",
-    opt = ":dist_lto_opt_darwin",
-    planner = ":dist_lto_planner_darwin",
-    prepare = ":dist_lto_prepare",
-    visibility = ["PUBLIC"],
-)
-
-dist_lto_tools(
     name = "dist_lto_tools",
     copy = ":dist_lto_copy",
-    opt = ":dist_lto_opt",
-    planner = ":dist_lto_planner",
+    opt = {
+        "darwin": ":dist_lto_opt_darwin",
+        "gnu": ":dist_lto_opt_gnu",
+    },
+    planner = {
+        "darwin": ":dist_lto_planner_darwin",
+        "gnu": ":dist_lto_planner_gnu",
+    },
     prepare = ":dist_lto_prepare",
     visibility = ["PUBLIC"],
 )
@@ -64,7 +61,7 @@ dist_lto_tools(
 prelude.python_test(
     name = "test_dist_lto_opt",
     srcs = [
-        "dist_lto_opt.py",
+        "dist_lto_opt_gnu.py",
         "tests/test_dist_lto_opt.py",
     ],
 )

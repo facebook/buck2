@@ -135,10 +135,12 @@ CxxCompilerInfo = provider(fields = _compiler_fields)
 AsmCompilerInfo = provider(fields = _compiler_fields)
 AsCompilerInfo = provider(fields = _compiler_fields)
 
-DistLtoToolsInfo = provider(
-    # @unsorted-dict-items
-    fields = {"planner": provider_field(typing.Any, default = None), "opt": provider_field(typing.Any, default = None), "prepare": provider_field(typing.Any, default = None), "copy": provider_field(typing.Any, default = None)},
-)
+DistLtoToolsInfo = provider(fields = dict(
+    planner = dict[LinkerType, RunInfo],
+    opt = dict[LinkerType, RunInfo],
+    prepare = RunInfo,
+    copy = RunInfo,
+))
 
 CxxObjectFormat = enum(
     "native",

@@ -17,6 +17,7 @@ load(
     "get_extra_darwin_linker_flags",
     "linker_map_args",
 )
+load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load("@prelude//cxx:link_types.bzl", "LinkOptions")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
@@ -144,8 +145,8 @@ def cxx_darwin_dist_link(
     link_infos = map_to_link_infos(links)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
-    lto_planner = cxx_toolchain.dist_lto_tools_info.planner
-    lto_opt = cxx_toolchain.dist_lto_tools_info.opt
+    lto_planner = cxx_toolchain.dist_lto_tools_info.planner[LinkerType("darwin")]
+    lto_opt = cxx_toolchain.dist_lto_tools_info.opt[LinkerType("darwin")]
     lto_prepare = cxx_toolchain.dist_lto_tools_info.prepare
     lto_copy = cxx_toolchain.dist_lto_tools_info.copy
 

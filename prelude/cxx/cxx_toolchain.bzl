@@ -201,7 +201,7 @@ def cxx_toolchain_impl(ctx):
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
         target_sdk_version = get_toolchain_target_sdk_version(ctx),
-        dist_lto_tools_info = ctx.attrs.dist_lto_tools[DistLtoToolsInfo],
+        dist_lto_tools_info = ctx.attrs._dist_lto_tools[DistLtoToolsInfo],
         remap_cwd = ctx.attrs._remap_cwd_tool[RunInfo] if ctx.attrs.remap_cwd else None,
     )
 
@@ -225,7 +225,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "cuda_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
-        "dist_lto_tools": dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools"),
         "gcno_files": attrs.bool(default = False),
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
@@ -265,6 +264,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "use_archiver_flags": attrs.bool(default = True),
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         "_dep_files_processor": dep_type(providers = [RunInfo], default = "prelude//cxx/tools:dep_file_processor"),
+        "_dist_lto_tools": attrs.default_only(dep_type(providers = [DistLtoToolsInfo], default = "prelude//cxx/dist_lto/tools:dist_lto_tools")),
         # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.
         # If we were using msvc, we should be able to use dumpbin directly.
         "_dumpbin_toolchain_path": attrs.default_only(attrs.option(dep_type(providers = [DefaultInfo]), default = select({
