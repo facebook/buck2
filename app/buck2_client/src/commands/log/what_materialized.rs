@@ -24,6 +24,7 @@ use crate::commands::log::options::EventLogOptions;
 use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
+
 /// Outputs materializations from selected invocation.
 ///
 /// The output is a tab-separated list containing the path,
@@ -61,14 +62,19 @@ struct Record {
     method: &'static str,
     file_count: u64,
     total_bytes: u64,
+    action_digest: Option<String>,
 }
 
 impl Display for Record {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}\t{}\t{}\t{}",
-            self.path, self.method, self.file_count, self.total_bytes
+            "{}\t{}\t{}\t{}\t{}",
+            self.path,
+            self.method,
+            self.action_digest.as_deref().unwrap_or("none"),
+            self.file_count,
+            self.total_bytes
         )
     }
 }
@@ -156,6 +162,7 @@ fn get_record(materialization: &buck2_data::MaterializationEnd) -> Record {
         method,
         file_count: materialization.file_count,
         total_bytes: materialization.total_bytes,
+        action_digest: materialization.action_digest.clone(),
     }
 }
 
@@ -184,18 +191,18 @@ impl WhatMaterializedCommand {
                     match event {
                         StreamValue::Event(event) => match &event.data {
                             Some(buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
-                                data: Some(buck2_data::span_end_event::Data::Materialization(m)),
-                                ..
-                            })) if m.success =>
+                                                                           data: Some(buck2_data::span_end_event::Data::Materialization(m)),
+                                                                           ..
+                                                                       })) if m.success =>
                             // Only log what has been materialized.
-                            {
-                                let record = get_record(m);
-                                if sort_by_total_bytes || aggregate_by_ext {
-                                    records.push(record);
-                                } else {
-                                    write_output(&mut output, &record)?;
+                                {
+                                    let record = get_record(m);
+                                    if sort_by_total_bytes || aggregate_by_ext {
+                                        records.push(record);
+                                    } else {
+                                        write_output(&mut output, &record)?;
+                                    }
                                 }
-                            }
                             _ => {}
                         },
                         StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
