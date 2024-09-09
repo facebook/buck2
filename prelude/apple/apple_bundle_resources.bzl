@@ -158,7 +158,7 @@ def _copy_privacy_manifest_if_needed(ctx: AnalysisContext) -> list[AppleBundlePa
     else:
         output = ctx.actions.declare_output("PrivacyInfo.xcprivacy")
         artifact = ctx.actions.copy_file(output.as_output(), privacy_manifest)
-    return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("metadata"))]
+    return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("resources"))]
 
 def _select_resources(ctx: AnalysisContext) -> ((list[AppleResourceSpec], list[AppleAssetCatalogSpec], list[AppleCoreDataSpec], list[SceneKitAssetsSpec], list[CxxResourceSpec])):
     resource_group_info = get_resource_group_info(ctx)
