@@ -483,8 +483,8 @@ impl ProviderCodegen {
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
             impl buck2_interpreter::types::provider::callable::ProviderCallableLike for #callable_name {
-                fn id(&self) -> Option<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
-                    Some(self.id)
+                fn id(&self) -> anyhow::Result<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
+                    Ok(self.id)
                 }
             }
         })

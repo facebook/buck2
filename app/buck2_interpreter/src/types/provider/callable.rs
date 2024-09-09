@@ -10,26 +10,11 @@
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
-use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::values::ValueLike;
 
-#[derive(Debug, buck2_error::Error)]
-enum ProviderCallableError {
-    #[error("provider callable did not have a bound id; this is an internal error")]
-    ProviderCallableMissingID,
-}
-
 pub trait ProviderCallableLike {
-    fn id(&self) -> Option<&Arc<ProviderId>>;
-
-    /// Frozen callables should always have this set. It's an error if somehow it doesn't.
-    fn require_id(&self) -> anyhow::Result<Arc<ProviderId>> {
-        match self.id() {
-            Some(id) => Ok(id.dupe()),
-            None => Err(ProviderCallableError::ProviderCallableMissingID.into()),
-        }
-    }
+    fn id(&self) -> anyhow::Result<&Arc<ProviderId>>;
 }
 
 unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn ProviderCallableLike {

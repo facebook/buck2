@@ -259,7 +259,7 @@ fn user_provider_callable_display(
 
 impl Display for UserProviderCallable {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        user_provider_callable_display(self.id(), &self.fields, f)
+        user_provider_callable_display(self.callable.get().map(|x| &x.id), &self.fields, f)
     }
 }
 
@@ -279,8 +279,11 @@ impl UserProviderCallable {
 }
 
 impl ProviderCallableLike for UserProviderCallable {
-    fn id(&self) -> Option<&Arc<ProviderId>> {
-        self.callable.get().map(|x| &x.id)
+    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+        self.callable
+            .get()
+            .map(|x| &x.id)
+            .ok_or(ProviderCallableError::NotBound.into())
     }
 }
 
@@ -451,8 +454,8 @@ impl FrozenUserProviderCallable {
 }
 
 impl ProviderCallableLike for FrozenUserProviderCallable {
-    fn id(&self) -> Option<&Arc<ProviderId>> {
-        Some(&self.callable.id)
+    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+        Ok(&self.callable.id)
     }
 }
 

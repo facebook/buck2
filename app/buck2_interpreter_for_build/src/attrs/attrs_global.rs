@@ -153,7 +153,7 @@ enum DepError {
 fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<ProviderIdSet> {
     Ok(ProviderIdSet::from(providers.try_map(
         |v| match v.as_provider_callable() {
-            Some(callable) => callable.require_id(),
+            Some(callable) => anyhow::Ok(callable.id()?.dupe()),
             None => Err(ValueError::IncorrectParameterTypeNamed("providers".to_owned()).into()),
         },
     )?))

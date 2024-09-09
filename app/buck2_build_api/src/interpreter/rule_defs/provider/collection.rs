@@ -325,7 +325,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     ) -> anyhow::Result<Either<Value<'v>, Arc<ProviderId>>> {
         match index.as_provider_callable() {
             Some(callable) => {
-                let provider_id = callable.require_id()?;
+                let provider_id = callable.id()?.dupe();
                 match self.providers.get(&provider_id) {
                     Some(v) => Ok(Either::Left(v.to_value())),
                     None => Ok(Either::Right(provider_id)),
