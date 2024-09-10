@@ -128,6 +128,26 @@ impl SnapshotCollector {
             snapshot.re_get_digest_expirations_finished_with_error =
                 stats.get_digest_expirations.finished_with_error;
 
+            snapshot.zdb_download_queries = stats.download_stats.zdb.queries;
+            snapshot.zdb_download_bytes = stats.download_stats.zdb.bytes;
+            snapshot.zdb_upload_queries = stats.upload_stats.zdb.queries;
+            snapshot.zdb_upload_bytes = stats.upload_stats.zdb.bytes;
+
+            snapshot.zgateway_download_queries = stats.download_stats.zgateway.queries;
+            snapshot.zgateway_download_bytes = stats.download_stats.zgateway.bytes;
+            snapshot.zgateway_upload_queries = stats.upload_stats.zgateway.queries;
+            snapshot.zgateway_upload_bytes = stats.upload_stats.zgateway.bytes;
+
+            snapshot.manifold_download_queries = stats.download_stats.manifold.queries;
+            snapshot.manifold_download_bytes = stats.download_stats.manifold.bytes;
+            snapshot.manifold_upload_queries = stats.upload_stats.manifold.queries;
+            snapshot.manifold_upload_bytes = stats.upload_stats.manifold.bytes;
+
+            snapshot.hedwig_download_queries = stats.download_stats.hedwig.queries;
+            snapshot.hedwig_download_bytes = stats.download_stats.hedwig.bytes;
+            snapshot.hedwig_upload_queries = stats.upload_stats.hedwig.queries;
+            snapshot.hedwig_upload_bytes = stats.upload_stats.hedwig.bytes;
+
             Ok(())
         }
 

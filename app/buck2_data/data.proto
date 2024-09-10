@@ -656,6 +656,26 @@ message Snapshot {
 
   optional UnixSystemStats unix_system_stats = 300;
 
+  uint64 zdb_download_queries = 400;
+  uint64 zdb_download_bytes = 401;
+  uint64 zdb_upload_queries = 402;
+  uint64 zdb_upload_bytes = 403;
+
+  uint64 zgateway_download_queries = 410;
+  uint64 zgateway_download_bytes = 411;
+  uint64 zgateway_upload_queries = 412;
+  uint64 zgateway_upload_bytes = 413;
+
+  uint64 manifold_download_queries = 420;
+  uint64 manifold_download_bytes = 421;
+  uint64 manifold_upload_queries = 422;
+  uint64 manifold_upload_bytes = 423;
+
+  uint64 hedwig_download_queries = 430;
+  uint64 hedwig_download_bytes = 431;
+  uint64 hedwig_upload_queries = 432;
+  uint64 hedwig_upload_bytes = 433;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received
@@ -1971,6 +1991,27 @@ message InvocationRecord {
   repeated DeviceMetadata install_device_metadata = 99;
   // The category key for the error with best error tag.
   optional string best_error_category_key = 100;
+
+  // Detailed per-backend RE stats.
+  optional uint64 zdb_download_queries = 200;
+  optional uint64 zdb_download_bytes = 201;
+  optional uint64 zdb_upload_queries = 202;
+  optional uint64 zdb_upload_bytes = 203;
+
+  optional uint64 zgateway_download_queries = 210;
+  optional uint64 zgateway_download_bytes = 211;
+  optional uint64 zgateway_upload_queries = 212;
+  optional uint64 zgateway_upload_bytes = 213;
+
+  optional uint64 manifold_download_queries = 220;
+  optional uint64 manifold_download_bytes = 221;
+  optional uint64 manifold_upload_queries = 222;
+  optional uint64 manifold_upload_bytes = 223;
+
+  optional uint64 hedwig_download_queries = 230;
+  optional uint64 hedwig_download_bytes = 231;
+  optional uint64 hedwig_upload_queries = 232;
+  optional uint64 hedwig_upload_bytes = 233;
 }
 
 // Record event sent directly to scribe.

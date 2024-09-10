@@ -156,6 +156,22 @@ pub(crate) struct InvocationRecorder<'a> {
     install_device_metadata: Vec<buck2_data::DeviceMetadata>,
     initial_re_upload_bytes: Option<u64>,
     initial_re_download_bytes: Option<u64>,
+    initial_zdb_download_queries: Option<u64>,
+    initial_zdb_download_bytes: Option<u64>,
+    initial_zdb_upload_queries: Option<u64>,
+    initial_zdb_upload_bytes: Option<u64>,
+    initial_zgateway_download_queries: Option<u64>,
+    initial_zgateway_download_bytes: Option<u64>,
+    initial_zgateway_upload_queries: Option<u64>,
+    initial_zgateway_upload_bytes: Option<u64>,
+    initial_manifold_download_queries: Option<u64>,
+    initial_manifold_download_bytes: Option<u64>,
+    initial_manifold_upload_queries: Option<u64>,
+    initial_manifold_upload_bytes: Option<u64>,
+    initial_hedwig_download_queries: Option<u64>,
+    initial_hedwig_download_bytes: Option<u64>,
+    initial_hedwig_upload_queries: Option<u64>,
+    initial_hedwig_upload_bytes: Option<u64>,
     concurrent_command_ids: HashSet<String>,
     daemon_connection_failure: bool,
     /// Daemon started by this command.
@@ -269,6 +285,22 @@ impl<'a> InvocationRecorder<'a> {
             install_device_metadata: Vec::new(),
             initial_re_upload_bytes: None,
             initial_re_download_bytes: None,
+            initial_zdb_download_queries: None,
+            initial_zdb_download_bytes: None,
+            initial_zdb_upload_queries: None,
+            initial_zdb_upload_bytes: None,
+            initial_zgateway_download_queries: None,
+            initial_zgateway_download_bytes: None,
+            initial_zgateway_upload_queries: None,
+            initial_zgateway_upload_bytes: None,
+            initial_manifold_download_queries: None,
+            initial_manifold_download_bytes: None,
+            initial_manifold_upload_queries: None,
+            initial_manifold_upload_bytes: None,
+            initial_hedwig_download_queries: None,
+            initial_hedwig_download_bytes: None,
+            initial_hedwig_upload_queries: None,
+            initial_hedwig_upload_bytes: None,
             concurrent_command_ids: HashSet::new(),
             daemon_connection_failure: false,
             daemon_was_started: None,
@@ -390,6 +422,27 @@ impl<'a> InvocationRecorder<'a> {
         let mut sink_dropped_count = None;
         let mut re_upload_bytes = None;
         let mut re_download_bytes = None;
+
+        let mut zdb_download_queries = None;
+        let mut zdb_download_bytes = None;
+        let mut zdb_upload_queries = None;
+        let mut zdb_upload_bytes = None;
+
+        let mut zgateway_download_queries = None;
+        let mut zgateway_download_bytes = None;
+        let mut zgateway_upload_queries = None;
+        let mut zgateway_upload_bytes = None;
+
+        let mut manifold_download_queries = None;
+        let mut manifold_download_bytes = None;
+        let mut manifold_upload_queries = None;
+        let mut manifold_upload_bytes = None;
+
+        let mut hedwig_download_queries = None;
+        let mut hedwig_download_bytes = None;
+        let mut hedwig_upload_queries = None;
+        let mut hedwig_upload_bytes = None;
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -405,6 +458,71 @@ impl<'a> InvocationRecorder<'a> {
                 &Some(snapshot.re_download_bytes),
                 &self.initial_re_download_bytes,
             );
+            zdb_download_queries = calculate_diff_if_some(
+                &Some(snapshot.zdb_download_queries),
+                &self.initial_zdb_download_queries,
+            );
+            zdb_download_bytes = calculate_diff_if_some(
+                &Some(snapshot.zdb_download_bytes),
+                &self.initial_zdb_download_bytes,
+            );
+            zdb_upload_queries = calculate_diff_if_some(
+                &Some(snapshot.zdb_upload_queries),
+                &self.initial_zdb_upload_queries,
+            );
+            zdb_upload_bytes = calculate_diff_if_some(
+                &Some(snapshot.zdb_upload_bytes),
+                &self.initial_zdb_upload_bytes,
+            );
+            zgateway_download_queries = calculate_diff_if_some(
+                &Some(snapshot.zgateway_download_queries),
+                &self.initial_zgateway_download_queries,
+            );
+            zgateway_download_bytes = calculate_diff_if_some(
+                &Some(snapshot.zgateway_download_bytes),
+                &self.initial_zgateway_download_bytes,
+            );
+            zgateway_upload_queries = calculate_diff_if_some(
+                &Some(snapshot.zgateway_upload_queries),
+                &self.initial_zgateway_upload_queries,
+            );
+            zgateway_upload_bytes = calculate_diff_if_some(
+                &Some(snapshot.zgateway_upload_bytes),
+                &self.initial_zgateway_upload_bytes,
+            );
+            manifold_download_queries = calculate_diff_if_some(
+                &Some(snapshot.manifold_download_queries),
+                &self.initial_manifold_download_queries,
+            );
+            manifold_download_bytes = calculate_diff_if_some(
+                &Some(snapshot.manifold_download_bytes),
+                &self.initial_manifold_download_bytes,
+            );
+            manifold_upload_queries = calculate_diff_if_some(
+                &Some(snapshot.manifold_upload_queries),
+                &self.initial_manifold_upload_queries,
+            );
+            manifold_upload_bytes = calculate_diff_if_some(
+                &Some(snapshot.manifold_upload_bytes),
+                &self.initial_manifold_upload_bytes,
+            );
+            hedwig_download_queries = calculate_diff_if_some(
+                &Some(snapshot.hedwig_download_queries),
+                &self.initial_hedwig_download_queries,
+            );
+            hedwig_download_bytes = calculate_diff_if_some(
+                &Some(snapshot.hedwig_download_bytes),
+                &self.initial_hedwig_download_bytes,
+            );
+            hedwig_upload_queries = calculate_diff_if_some(
+                &Some(snapshot.hedwig_upload_queries),
+                &self.initial_hedwig_upload_queries,
+            );
+            hedwig_upload_bytes = calculate_diff_if_some(
+                &Some(snapshot.hedwig_upload_bytes),
+                &self.initial_hedwig_upload_bytes,
+            );
+
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
             // Each snapshot already keeps track of the peak memory/disk usage, so we can use that to check if we ever reported a warning.
@@ -565,6 +683,22 @@ impl<'a> InvocationRecorder<'a> {
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
+            zdb_download_queries,
+            zdb_download_bytes,
+            zdb_upload_queries,
+            zdb_upload_bytes,
+            zgateway_download_queries,
+            zgateway_download_bytes,
+            zgateway_upload_queries,
+            zgateway_upload_bytes,
+            manifold_download_queries,
+            manifold_download_bytes,
+            manifold_upload_queries,
+            manifold_upload_bytes,
+            hedwig_download_queries,
+            hedwig_download_bytes,
+            hedwig_upload_queries,
+            hedwig_upload_bytes,
         };
 
         let event = BuckEvent::new(
@@ -1002,6 +1136,58 @@ impl<'a> InvocationRecorder<'a> {
         }
         if self.initial_re_download_bytes.is_none() {
             self.initial_re_download_bytes = Some(update.re_download_bytes);
+        }
+
+        if self.initial_zdb_download_queries.is_none() {
+            self.initial_zdb_download_queries = Some(update.zdb_download_queries);
+        }
+        if self.initial_zdb_download_bytes.is_none() {
+            self.initial_zdb_download_bytes = Some(update.zdb_download_bytes);
+        }
+        if self.initial_zdb_upload_queries.is_none() {
+            self.initial_zdb_upload_queries = Some(update.zdb_upload_queries);
+        }
+        if self.initial_zdb_upload_bytes.is_none() {
+            self.initial_zdb_upload_bytes = Some(update.zdb_upload_bytes);
+        }
+
+        if self.initial_zgateway_download_queries.is_none() {
+            self.initial_zgateway_download_queries = Some(update.zgateway_download_queries);
+        }
+        if self.initial_zgateway_download_bytes.is_none() {
+            self.initial_zgateway_download_bytes = Some(update.zgateway_download_bytes);
+        }
+        if self.initial_zgateway_upload_queries.is_none() {
+            self.initial_zgateway_upload_queries = Some(update.zgateway_upload_queries);
+        }
+        if self.initial_zgateway_upload_bytes.is_none() {
+            self.initial_zgateway_upload_bytes = Some(update.zgateway_upload_bytes);
+        }
+
+        if self.initial_manifold_download_queries.is_none() {
+            self.initial_manifold_download_queries = Some(update.manifold_download_queries);
+        }
+        if self.initial_manifold_download_bytes.is_none() {
+            self.initial_manifold_download_bytes = Some(update.manifold_download_bytes);
+        }
+        if self.initial_manifold_upload_queries.is_none() {
+            self.initial_manifold_upload_queries = Some(update.manifold_upload_queries);
+        }
+        if self.initial_manifold_upload_bytes.is_none() {
+            self.initial_manifold_upload_bytes = Some(update.manifold_upload_bytes);
+        }
+
+        if self.initial_hedwig_download_queries.is_none() {
+            self.initial_hedwig_download_queries = Some(update.hedwig_download_queries);
+        }
+        if self.initial_hedwig_download_bytes.is_none() {
+            self.initial_hedwig_download_bytes = Some(update.hedwig_download_bytes);
+        }
+        if self.initial_hedwig_upload_queries.is_none() {
+            self.initial_hedwig_upload_queries = Some(update.hedwig_upload_queries);
+        }
+        if self.initial_hedwig_upload_bytes.is_none() {
+            self.initial_hedwig_upload_bytes = Some(update.hedwig_upload_bytes);
         }
 
         for s in self.re_max_download_speeds.iter_mut() {
