@@ -1,0 +1,20 @@
+load(":defs.bzl", "dummy")
+
+constraint_setting(
+    name = "os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "macos",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+dummy(name = "dummy")

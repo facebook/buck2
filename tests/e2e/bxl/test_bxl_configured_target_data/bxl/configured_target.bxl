@@ -23,3 +23,14 @@ unwrap_forward = bxl_main(
     impl = _unwrap_forward_impl,
     cli_args = {},
 )
+
+def _configured_targets_with_modifiers_impl(ctx):
+    node = ctx.configured_targets("root//:dummy", modifiers = ["root//:linux"])
+    ctx.output.print(node.label.config())
+    node = ctx.configured_targets("root//:dummy", modifiers = ["root//:macos"])
+    ctx.output.print(node.label.config())
+
+configured_targets_with_modifiers = bxl_main(
+    impl = _configured_targets_with_modifiers_impl,
+    cli_args = {},
+)

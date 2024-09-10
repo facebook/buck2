@@ -92,6 +92,7 @@ use starlark::environment::MethodsStatic;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
@@ -821,6 +822,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
+        #[starlark(require = named, default = NoneOr::None)] modifiers: NoneOr<UnpackList<String>>,
     ) -> anyhow::Result<
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
     > {
@@ -831,6 +833,10 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
             this.cell_name(),
             &this.global_cfg_options().target_platform,
         )?;
+        let cli_modifiers = match modifiers.into_option() {
+            Some(cli_modifiers) => cli_modifiers.items,
+            None => Vec::new(),
+        };
 
         this.via_dice(|dice, this| {
             dice.via(|ctx| {
@@ -840,7 +846,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
                             labels,
                             &GlobalCfgOptions {
                                 target_platform,
-                                cli_modifiers: vec![].into(),
+                                cli_modifiers: Arc::new(cli_modifiers),
                             },
                             this,
                             ctx,

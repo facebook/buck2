@@ -15,3 +15,15 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 @buck_test(inplace=False, data_dir="")
 async def test_unwrap_forward(buck: Buck) -> None:
     await buck.bxl("//bxl/configured_target.bxl:unwrap_forward")
+
+
+@buck_test(inplace=False, data_dir="")
+async def test_configured_targets_with_modifiers(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//bxl/configured_target.bxl:configured_targets_with_modifiers"
+    )
+    configurations = [line.strip() for line in result.stdout.splitlines()]
+    linux_cfg = await buck.audit_configurations(configurations[0])
+    assert "root//:linux" in linux_cfg.stdout
+    macos_cfg = await buck.audit_configurations(configurations[1])
+    assert "root//:macos" in macos_cfg.stdout
