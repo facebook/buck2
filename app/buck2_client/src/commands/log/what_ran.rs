@@ -16,6 +16,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::fmt_duration;
 use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::CommandReproducer;
 use buck2_event_observer::what_ran::WhatRanOptions;
@@ -425,6 +426,9 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                     reason: command.reason,
                     identity: command.identity,
                     reproducer,
+                    duration: command
+                        .duration
+                        .map(|duration| fmt_duration::fmt_duration(duration, 1.0)),
                     extra: command.extra.map(Into::into),
                     std_err,
                 };
@@ -469,6 +473,8 @@ struct JsonCommand<'a> {
     reason: &'a str,
     identity: &'a str,
     reproducer: JsonReproducer<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     extra: Option<JsonExtra<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -546,6 +552,7 @@ mod tests {
             reason: "test.run",
             identity: "some/target",
             reproducer: JsonReproducer::Local { command, env },
+            duration: Some("1".to_owned()),
             extra: None,
             std_err: None,
         }
@@ -562,6 +569,7 @@ mod tests {
                 },
                 action_key: None,
             },
+            duration: Some("1".to_owned()),
             extra: None,
             std_err: None,
         }
@@ -585,7 +593,8 @@ mod tests {
         "KEY": "val"
       }
     }
-  }
+  },
+  "duration": "1"
 }"#;
         assert_eq!(expected, serde_json::to_string_pretty(&command)?);
         Ok(())
@@ -612,6 +621,7 @@ mod tests {
       }
     }
   },
+  "duration": "1",
   "extra": {
     "testcases": [
       "case"
@@ -637,7 +647,8 @@ mod tests {
         "platform": "linux-remote-execution"
       }
     }
-  }
+  },
+  "duration": "1"
 }"#;
         assert_eq!(expected, serde_json::to_string_pretty(&command)?);
         Ok(())

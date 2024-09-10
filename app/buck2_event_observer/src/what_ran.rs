@@ -99,6 +99,7 @@ pub struct WhatRanOutputCommand<'a> {
     pub repro: CommandReproducer<'a>,
     pub extra: Option<WhatRanOutputCommandExtra<'a>>,
     pub std_err: Option<&'a str>,
+    pub duration: Option<std::time::Duration>,
 }
 
 impl<'a> WhatRanOutputCommand<'a> {
@@ -248,12 +249,23 @@ pub fn emit_what_ran_entry(
             .and_then(|cmd| cmd.details.as_ref().map(|d| d.stderr.as_ref())),
         _ => None,
     };
+    let duration = match data {
+        Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => action_exec
+            .wall_time
+            .as_ref()
+            .map(|prost_types::Duration { seconds, nanos }| {
+                std::time::Duration::new(*seconds as u64, *nanos as u32)
+            }),
+
+        _ => None,
+    };
     output.emit_command(WhatRanOutputCommand {
         reason,
         identity: &identity,
         repro,
         extra,
         std_err,
+        duration,
     })?;
 
     Ok(())
