@@ -35,6 +35,7 @@ async def test_apple_coverage(buck: Buck) -> None:
     ), str(paths)
 
 
+@buck_test(inplace=True)
 async def test_apple_coverage_xplat(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
