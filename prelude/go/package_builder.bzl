@@ -75,7 +75,7 @@ def build_package(
         def build_variant(shared: bool) -> Artifact:
             suffix = "__shared" if shared else ""  # suffix to make artifacts unique
             go_files_to_compile = covered_go_files + ((go_list.test_go_files + go_list.x_test_go_files) if tests else [])
-            importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared, with_importmap = True)
+            importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
             go_a_file, asmhdr = _compile(ctx, pkg_name, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, suffix, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
 
             asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, asmhdr, assembler_flags, shared, suffix)
