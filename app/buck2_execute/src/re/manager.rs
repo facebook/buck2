@@ -253,6 +253,11 @@ impl ReConnectionManager {
             ..Default::default()
         };
 
+        res.upload_stats
+            .fill_from_re_client_metrics(&client_stats.upload_storage_stats);
+        res.download_stats
+            .fill_from_re_client_metrics(&client_stats.download_storage_stats);
+
         // The rest of the fields are known to be their default value if we don't have a client, so
         // we ask the client to fill them iff we have one.
         let conn = self.data.read().unwrap().upgrade();

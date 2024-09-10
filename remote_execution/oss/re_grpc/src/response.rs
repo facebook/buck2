@@ -250,6 +250,14 @@ pub struct TSymlink {
 pub struct NetworkStatisticsResponse {
     pub uploaded: i64,
     pub downloaded: i64,
+    pub download_storage_stats: TStorageStats,
+    pub upload_storage_stats: TStorageStats,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TStorageStats {
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
