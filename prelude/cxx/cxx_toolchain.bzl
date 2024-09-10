@@ -224,6 +224,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "link_weight": attrs.int(default = 1),
         "linker": dep_type(providers = [RunInfo]),
+        "lipo": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
         # Darwin only: the minimum deployment target supported

@@ -218,6 +218,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "linker": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "linker_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "linker_type": attrs.option(attrs.enum(LinkerType.values()), default = None),
+        "lipo": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "lto_mode": attrs.option(attrs.enum(LtoMode.values()), default = None),
         "min_sdk_version": attrs.option(attrs.string(), default = None),
