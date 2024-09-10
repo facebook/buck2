@@ -8,11 +8,13 @@
 # pyre-strict
 
 
+import asyncio
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
+
 from buck2.tests.e2e_util.helper.utils import (
     filter_events,
     is_running_on_linux,
@@ -22,6 +24,7 @@ from buck2.tests.e2e_util.helper.utils import (
 
 # From `buck2_data`
 USER_ERROR = 2
+ENVIRONMENT_ERROR = 3
 ACTION_COMMAND_FAILURE = 2
 
 STARLARK_FAIL_TAG = 1
@@ -266,3 +269,37 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     # TODO dump stack trace on mac and windows
     if is_running_on_linux():
         assert category_key[4].startswith("crash("), category_key[4]
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "linux"])
+async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
+    mode = get_mode_from_platform()
+    target = "fbcode//buck2/tests/targets/file_race:file_race_test"
+
+    # first build
+    exe_path = (
+        (await buck.build(target, mode)).get_build_report().output_for_target(target)
+    )
+
+    # start run command, don't wait for finish
+    proc = await asyncio.create_subprocess_exec(exe_path)
+    # build again, source code has changed, binary must be rebuilt
+    record = tmp_path / "record.json"
+    await expect_failure(
+        buck.build(
+            target,
+            mode,
+            "--show-output",
+            "-c",
+            "test.cache_buster=2",
+            "--unstable-write-invocation-record",
+            str(record),
+        )
+    )
+    # kill the executing binary
+    proc.kill()
+    await proc.wait()
+
+    invocation_record = read_invocation_record(record)
+    assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
+    assert invocation_record["errors"][0]["tier"] == ENVIRONMENT_ERROR
