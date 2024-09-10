@@ -2,5 +2,16 @@
 name=TARGETS.fixture
 
 [repositories]
-prelude = .
-config = config
+root = .
+prelude = prelude
+
+[cell_aliases]
+fbsource = root
+fbcode = root
+buck = root
+config = prelude
+ovr_config = prelude
+toolchains = prelude
+
+[external_cells]
+prelude = bundled
