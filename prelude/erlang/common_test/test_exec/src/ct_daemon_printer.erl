@@ -80,7 +80,7 @@ print_skip_error(Name, Where, Type, Reason, Stacktrace) ->
     skip.
 
 print_skip_location({_, GroupOrSuite}) ->
-    case re:match(atom_to_list(GroupOrSuite), "SUITE$") of
+    case re:run(atom_to_list(GroupOrSuite), "SUITE$") of
         nomatch -> io_lib:format("init_per_group of ~s", [GroupOrSuite]);
         _ -> "init_per_suite"
     end;
