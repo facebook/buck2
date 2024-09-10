@@ -254,10 +254,9 @@ start_test_node(
     ReplayIo
 ) ->
     % split of args from Erl which can contain emulator flags
-    [_Executable | Flags] = ErlCmd,
-    % we ignore the executable we got, and use the erl command from the
-    % toolchain that executes this code
-    ErlExecutable = os:find_executable("erl"),
+    [RelErlExecutable | Flags] = ErlCmd,
+    % We will run from a HOME directory, so we needs an absolute path
+    ErlExecutable = filename:absname(RelErlExecutable),
 
     % HomeDir is the execution directory.
     HomeDir = set_home_dir(OutputDir),
@@ -326,6 +325,20 @@ set_home_dir(OutputDir) ->
     ok = filelib:ensure_dir(ErlangCookieFile),
     ok = file:write_file(ErlangCookieFile, atom_to_list(cookie())),
     ok = file:change_mode(ErlangCookieFile, 8#00400),
+
+    CacheDir = filename:join(HomeDir, ".cache"),
+    ok = file:make_dir(CacheDir),
+
+    % In case the system is using dotslash, we leave a symlink to
+    % the real dotslash cache, otherwise erl could be re-downloaded, etc
+    case os:getenv("HOME") of
+        false ->
+            ok;
+        RealHome ->
+            RealDotslashCache = filename:join([RealHome, ".cache", "dotslash"]),
+            ok = file:make_symlink(RealDotslashCache, filename:join(CacheDir, "dotslash"))
+    end,
+
     HomeDir.
 
 -spec cookie() -> string().
