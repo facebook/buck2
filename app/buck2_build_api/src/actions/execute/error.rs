@@ -30,7 +30,9 @@ pub enum ExecuteError {
     Error {
         error: anyhow::Error,
     },
-    CommandExecutionError,
+    CommandExecutionError {
+        error: Option<buck2_error::Error>,
+    },
 }
 
 impl From<anyhow::Error> for ExecuteError {

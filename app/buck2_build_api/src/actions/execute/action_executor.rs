@@ -457,7 +457,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 );
                 Ok(result)
             }
-            _ => Err(ExecuteError::CommandExecutionError),
+            CommandExecutionStatus::Error { error, .. } => {
+                Err(ExecuteError::CommandExecutionError {
+                    error: Some(error.clone()),
+                })
+            }
+            _ => Err(ExecuteError::CommandExecutionError { error: None }),
         };
         self.command_reports.extend(rejected_execution);
         self.command_reports.push(report);

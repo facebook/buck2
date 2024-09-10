@@ -37,7 +37,7 @@ impl std::error::Error for ActionError {
         });
 
         let typ = match &self.execute_error {
-            ExecuteError::CommandExecutionError => {
+            ExecuteError::CommandExecutionError { .. } => {
                 if is_command_failure {
                     Some(buck2_error::ErrorType::ActionCommandFailure)
                 } else {
@@ -47,8 +47,14 @@ impl std::error::Error for ActionError {
             _ => None,
         };
 
+        let mut tags = vec![buck2_error::ErrorTag::AnyActionExecution];
+
         let category = match &self.execute_error {
-            ExecuteError::CommandExecutionError => {
+            ExecuteError::CommandExecutionError { error } => {
+                if let Some(err) = error {
+                    tags.extend(err.tags());
+                }
+
                 if is_command_failure {
                     Some(buck2_error::Tier::Input)
                 } else {
@@ -68,7 +74,7 @@ impl std::error::Error for ActionError {
             request,
             category,
             typ,
-            [buck2_error::ErrorTag::AnyActionExecution],
+            tags,
             std::file!(),
             Some("ActionError"),
             Some(self.as_proto_event()),
@@ -130,7 +136,7 @@ impl ActionError {
             }
             .into(),
             ExecuteError::Error { error } => format!("{:#}", error).into(),
-            ExecuteError::CommandExecutionError => buck2_data::CommandExecutionError {}.into(),
+            ExecuteError::CommandExecutionError { .. } => buck2_data::CommandExecutionError {}.into(),
         }
     }
 
