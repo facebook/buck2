@@ -73,7 +73,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_attributes(ctx):
-    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.attrs.my_attr)
     /// ```
     #[starlark(attribute)]
@@ -154,7 +154,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_label(ctx):
-    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.label)
     /// ```
     #[starlark(attribute)]
@@ -167,7 +167,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_label(ctx):
-    ///     target_node = ctx.uquery().eval("owner('path/to/file')")[0]
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.buildfile_path)
     /// ```
     #[starlark(attribute)]
@@ -181,7 +181,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_rule_type(ctx):
-    ///     target_node = ctx.uquery().owner('path/to/file')[0]
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.rule_type)
     /// ```
     #[starlark(attribute)]
@@ -200,7 +200,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Sample usage:
     /// ```text
     /// def _impl_rule_kind(ctx):
-    ///     target_node = ctx.uquery().owner('path/to/file')[0]
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.rule_kind)
     /// ```
     #[starlark(attribute)]
