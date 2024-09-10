@@ -47,7 +47,7 @@ pub enum CommandExecutionStatus {
     },
     Error {
         stage: &'static str,
-        error: anyhow::Error,
+        error: buck2_error::Error,
         execution_kind: Option<CommandExecutionKind>,
         typ: CommandExecutionErrorType,
     },

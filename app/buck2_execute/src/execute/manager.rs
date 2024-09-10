@@ -249,14 +249,18 @@ pub trait CommandExecutionManagerExt: Sized {
         timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult;
 
-    fn error(self, stage: &'static str, error: impl Into<anyhow::Error>) -> CommandExecutionResult {
+    fn error(
+        self,
+        stage: &'static str,
+        error: impl Into<buck2_error::Error>,
+    ) -> CommandExecutionResult {
         self.error_classified(stage, error, CommandExecutionErrorType::Other)
     }
 
     fn error_classified(
         self,
         stage: &'static str,
-        error: impl Into<anyhow::Error>,
+        error: impl Into<buck2_error::Error>,
         error_type: CommandExecutionErrorType,
     ) -> CommandExecutionResult;
 }
@@ -304,7 +308,7 @@ where
     fn error_classified(
         self,
         stage: &'static str,
-        error: impl Into<anyhow::Error>,
+        error: impl Into<buck2_error::Error>,
         error_type: CommandExecutionErrorType,
     ) -> CommandExecutionResult {
         let execution_kind = self.execution_kind();
