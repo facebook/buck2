@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-import React, {useState} from 'react'
+import React, { useState } from 'react'
 
-export function RuleTypeDropdown(props: {options: {category: string; count: number}[]}) {
+export function RuleTypeDropdown(props: { options: { category: string; count: number }[], activeCount: number }) {
   const [dropdownActive, setDropdownActive] = useState(false)
 
   return (
@@ -20,7 +20,7 @@ export function RuleTypeDropdown(props: {options: {category: string; count: numb
           aria-haspopup="true"
           aria-controls="dropdown-menu"
           onClick={() => setDropdownActive(!dropdownActive)}>
-          <span>Select</span>
+          <span>Select ({props.activeCount})</span>
           <span className="icon is-small">
             <i className="fas fa-angle-down" aria-hidden="true"></i>
           </span>
@@ -37,7 +37,7 @@ export function RuleTypeDropdown(props: {options: {category: string; count: numb
   )
 }
 
-function CheckboxItem(props: {label: string; count: number}) {
+function CheckboxItem(props: { label: string; count: number }) {
   return (
     <div className="dropdown-item">
       <label className="checkbox">

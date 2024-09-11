@@ -234,7 +234,7 @@ export function GraphImpl(props: {
         <div className="cell" id="checkboxes">
           <div className="field">
             <label className="label">Include targets with rule types:</label>
-            <RuleTypeDropdown options={categories} />
+            <RuleTypeDropdown options={categories} activeCount={activeCategories.length} />
           </div>
         </div>
         <div className="cell">
