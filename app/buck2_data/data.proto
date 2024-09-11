@@ -2014,7 +2014,7 @@ message InvocationRecord {
   optional uint64 hedwig_upload_queries = 232;
   optional uint64 hedwig_upload_bytes = 233;
   // The list of active network devices
-  repeated NetworkKind active_networks_kinds = 101;
+  repeated NetworkKind active_networks_kinds = 102;
 }
 
 // Record event sent directly to scribe.
