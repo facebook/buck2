@@ -215,8 +215,8 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         if ErlangTestInfo in dep
     ] + [primary_toolchain.utility_modules, output_dir]
 
-    preamble = '-eval "%s" \\' % (ctx.attrs.preamble)
-    additional_args = [cmd_args(preamble, "-noshell \\")]
+    preamble = '-eval "%s"' % (ctx.attrs.preamble)
+    additional_args = [cmd_args(preamble, "-noshell")]
 
     all_direct_shell_dependencies = check_dependencies([ctx.attrs._cli_lib], [ErlangAppInfo])
     cli_lib_deps = flatten_dependencies(ctx, all_direct_shell_dependencies)
