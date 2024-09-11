@@ -22,6 +22,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
@@ -225,5 +226,25 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> anyhow::Result<Option<StringValue<'v>>> {
         Ok(this.0.oncall().map(|oncall| heap.alloc_str_intern(oncall)))
+    }
+
+    /// Gets all deps for this target.
+    /// The result is a list of `UnconfiguredTargetLabel`.
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_get_deps(ctx):
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
+    ///     ctx.output.print(target_node.deps())
+    /// ```
+    fn deps<'v>(
+        this: &'v StarlarkTargetNode,
+    ) -> anyhow::Result<AllocList<impl IntoIterator<Item = StarlarkTargetLabel> + 'v>> {
+        Ok(AllocList(
+            this.0
+                .deps()
+                .map(|label| StarlarkTargetLabel::new(label.dupe()))
+                .into_iter(),
+        ))
     }
 }
