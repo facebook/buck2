@@ -276,3 +276,15 @@ async def test_rule_type_names_on_failure(buck: Buck, tmp_path: Path) -> None:
         "one",
         "pass_",
     ]
+
+
+@buck_test(inplace=False)
+async def test_active_networks_kinds(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    # Start the daemon
+    await buck.build("--unstable-write-invocation-record", str(record))
+
+    record = read_invocation_record(record)
+
+    assert "active_networks_kinds" in record

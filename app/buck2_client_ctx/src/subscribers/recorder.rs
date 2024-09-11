@@ -192,6 +192,7 @@ pub(crate) struct InvocationRecorder<'a> {
     buckconfig_diff_count: Option<u64>,
     buckconfig_diff_size: Option<u64>,
     peak_used_disk_space_bytes: Option<u64>,
+    active_networks_kinds: HashSet<i32>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -328,6 +329,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_count: None,
             buckconfig_diff_size: None,
             peak_used_disk_space_bytes: None,
+            active_networks_kinds: HashSet::new(),
         }
     }
 
@@ -707,6 +709,9 @@ impl<'a> InvocationRecorder<'a> {
             hedwig_download_bytes,
             hedwig_upload_queries,
             hedwig_upload_bytes,
+            active_networks_kinds: std::mem::take(&mut self.active_networks_kinds)
+                .into_iter()
+                .collect(),
         };
 
         let event = BuckEvent::new(
@@ -1219,6 +1224,12 @@ impl<'a> InvocationRecorder<'a> {
             max(self.peak_process_memory_bytes, process_memory(update));
         self.peak_used_disk_space_bytes =
             max(self.peak_process_memory_bytes, update.used_disk_space_bytes);
+
+        for stat in update.network_interface_stats.values() {
+            if stat.rx_bytes > 0 || stat.tx_bytes > 0 {
+                self.active_networks_kinds.insert(stat.network_kind.into());
+            }
+        }
 
         Ok(())
     }

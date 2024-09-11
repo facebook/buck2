@@ -1993,7 +1993,6 @@ message InvocationRecord {
   repeated DeviceMetadata install_device_metadata = 99;
   // The category key for the error with best error tag.
   optional string best_error_category_key = 100;
-
   // Detailed per-backend RE stats.
   optional uint64 zdb_download_queries = 200;
   optional uint64 zdb_download_bytes = 201;
@@ -2014,6 +2013,8 @@ message InvocationRecord {
   optional uint64 hedwig_download_bytes = 231;
   optional uint64 hedwig_upload_queries = 232;
   optional uint64 hedwig_upload_bytes = 233;
+  // The list of active network devices
+  repeated NetworkKind active_networks_kinds = 101;
 }
 
 // Record event sent directly to scribe.
