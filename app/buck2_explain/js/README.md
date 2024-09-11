@@ -2,7 +2,7 @@ For fast js dev iteration do this (tested on Mac):
 
 ```
 # run a build command
-./load.sh
+./load.sh buck2
 yarn --watch
 ```
 
