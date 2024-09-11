@@ -25,7 +25,7 @@ pub(crate) fn mach_error_string(err: libc::kern_return_t) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::macos::mach_error_string::mach_error_string;
+    use crate::os::macos::mach_error_string::mach_error_string;
 
     #[test]
     fn test_mach_error_string() {

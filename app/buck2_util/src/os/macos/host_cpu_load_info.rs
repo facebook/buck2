@@ -9,7 +9,7 @@
 
 #![cfg(target_os = "macos")]
 
-use crate::macos::mach_error_string::mach_error_string;
+use crate::os::macos::mach_error_string::mach_error_string;
 
 /// CPU usage sum for all cores from the system start.
 /// Field values are in ticks. Each tick is 1/100 second (but please check `sc_clk_tck`).
@@ -67,7 +67,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use crate::macos::host_cpu_load_info::host_cpu_load_info;
+    use crate::os::macos::host_cpu_load_info::host_cpu_load_info;
 
     #[test]
     fn test_host_cpu_load_info() {

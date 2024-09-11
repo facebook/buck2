@@ -35,7 +35,7 @@ pub fn sc_clk_tck() -> anyhow::Result<u32> {
 
 #[cfg(test)]
 mod tests {
-    use crate::macos::sc_clk_tck::sc_clk_tck;
+    use crate::os::macos::sc_clk_tck::sc_clk_tck;
 
     #[test]
     fn test_ticks_per_second() {
