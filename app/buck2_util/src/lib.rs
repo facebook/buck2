@@ -8,6 +8,7 @@
  */
 
 #![feature(error_generic_member_access)]
+#![feature(once_cell_try)]
 #![feature(round_char_boundary)]
 
 pub mod arc_str;
@@ -19,6 +20,7 @@ pub mod future;
 pub mod hash;
 pub mod indent;
 pub mod late_binding;
+pub mod macos;
 pub mod network_speed_average;
 pub mod per_thread_instruction_counter;
 pub mod process;
