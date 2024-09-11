@@ -346,9 +346,15 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
     ]
 
 def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
-    swift_support = [
-        _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"),
-    ] if swift_support_needed else []
+    swift_support = []
+    if swift_support_needed:
+        swift_support.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"))
+
+        # T201426509: Xcode 16 introduces the Swift Testing framework
+        # that is a load dependency of libXCTestSwiftSupport.dylib
+        if int(ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version[:2]) >= 16:
+            swift_support.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/Testing.framework"))
+
     return [
         _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
         _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework"),
