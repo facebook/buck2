@@ -429,10 +429,12 @@ def _compile_object(
         srcs: list[CxxSrcWithFlags]) -> SwiftObjectOutput:
     if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
+        num_threads = incremental_compilation_output.num_threads
         output_map_artifact = incremental_compilation_output.output_map_artifact
         objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
     else:
+        num_threads = 1
         output_map_artifact = None
         output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
         objects = [output_object]
@@ -455,7 +457,7 @@ def _compile_object(
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain)
+    argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
 
     return SwiftObjectOutput(
         object_files = objects,
@@ -522,7 +524,8 @@ def _compile_with_argsfile(
         srcs: list[CxxSrcWithFlags],
         additional_flags: cmd_args,
         toolchain: SwiftToolchainInfo,
-        identifier: str | None = None) -> CompileArgsfiles:
+        identifier: str | None = None,
+        num_threads: int = 1) -> CompileArgsfiles:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
@@ -572,6 +575,7 @@ def _compile_with_argsfile(
         # When building incrementally, we need to preserve local state between invocations.
         no_outputs_cleanup = build_swift_incrementally,
         error_handler = apple_build_error_handler,
+        weight = num_threads,
         **run_extra_args
     )
 

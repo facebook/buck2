@@ -25,11 +25,20 @@ IncrementalCompilationOutput = record(
     incremental_flags_cmd = field(cmd_args),
     artifacts = field(list[Artifact]),
     output_map_artifact = field(Artifact),
+    num_threads = field(int),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
 
-SwiftIncrementalBuildFilesTreshold = 20
+_INCREMENTAL_SRC_THRESHOLD = 20
+
+# The maxmium number of threads, we don't use
+# host_info to prevent cache misses across
+# different hardware models.
+_MAX_NUM_THREADS = 4
+
+# The maximum number of srcs per parallel action
+_SRCS_PER_THREAD = 50
 
 def should_build_swift_incrementally(ctx: AnalysisContext, srcs_count: int) -> bool:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
@@ -43,19 +52,28 @@ def should_build_swift_incrementally(ctx: AnalysisContext, srcs_count: int) -> b
         return False
     elif mode == SwiftCompilationMode("incremental"):
         return True
-    return srcs_count >= SwiftIncrementalBuildFilesTreshold
+    return srcs_count >= _INCREMENTAL_SRC_THRESHOLD
 
 def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
     output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "object", ".o")
-    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args(["-emit-object"]))
+    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs), cmd_args(["-emit-object"]))
 
 def get_incremental_swiftmodule_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
     output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "swiftmodule", ".swiftmodule")
-    return _get_incremental_compilation_flags_and_objects(output_file_map, cmd_args())
+    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs), cmd_args())
+
+def _get_incremental_num_threads(num_srcs: int) -> int:
+    if num_srcs == 0:
+        return 1
+
+    src_threads = (num_srcs + _SRCS_PER_THREAD - 1) // _SRCS_PER_THREAD
+    return min(_MAX_NUM_THREADS, src_threads)
 
 def _get_incremental_compilation_flags_and_objects(
         output_file_map: _WriteOutputFileMapOutput,
+        num_srcs: int,
         additional_flags: cmd_args) -> IncrementalCompilationOutput:
+    num_threads = _get_incremental_num_threads(num_srcs)
     cmd = cmd_args(
         [
             "-incremental",
@@ -64,6 +82,8 @@ def _get_incremental_compilation_flags_and_objects(
             "-enable-batch-mode",
             "-output-file-map",
             output_file_map.output_map_artifact,
+            "-j",
+            str(num_threads),
             additional_flags,
         ],
         hidden = [swiftdep.as_output() for swiftdep in output_file_map.swiftdeps] +
@@ -75,6 +95,7 @@ def _get_incremental_compilation_flags_and_objects(
         incremental_flags_cmd = cmd,
         artifacts = output_file_map.artifacts,
         output_map_artifact = output_file_map.output_map_artifact,
+        num_threads = num_threads,
     )
 
 def _write_output_file_map(
