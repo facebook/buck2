@@ -59,10 +59,10 @@ export function GraphImpl(props: {
           node.allow = false
         }
       }
-
-      // Always set root node
-      nodeMap.get(0)!.allow = true
     }
+
+    // Always set root node
+    nodeMap.get(0)!.allow = true
   }
 
   let filteredNodes = new Map()
