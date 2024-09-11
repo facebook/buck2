@@ -137,6 +137,7 @@ pub(crate) struct InvocationRecorder<'a> {
     initial_sink_success_count: Option<u64>,
     initial_sink_failure_count: Option<u64>,
     initial_sink_dropped_count: Option<u64>,
+    initial_sink_bytes_written: Option<u64>,
     sink_max_buffer_depth: u64,
     soft_error_categories: HashSet<String>,
     concurrent_command_blocking_duration: Option<Duration>,
@@ -266,6 +267,7 @@ impl<'a> InvocationRecorder<'a> {
             initial_sink_success_count: None,
             initial_sink_failure_count: None,
             initial_sink_dropped_count: None,
+            initial_sink_bytes_written: None,
             sink_max_buffer_depth: 0,
             soft_error_categories: HashSet::new(),
             concurrent_command_blocking_duration: None,
@@ -420,6 +422,7 @@ impl<'a> InvocationRecorder<'a> {
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
+        let mut sink_bytes_written = None;
         let mut re_upload_bytes = None;
         let mut re_download_bytes = None;
 
@@ -450,6 +453,10 @@ impl<'a> InvocationRecorder<'a> {
                 calculate_diff_if_some(&snapshot.sink_failures, &self.initial_sink_failure_count);
             sink_dropped_count =
                 calculate_diff_if_some(&snapshot.sink_dropped, &self.initial_sink_dropped_count);
+            sink_bytes_written = calculate_diff_if_some(
+                &snapshot.sink_bytes_written,
+                &self.initial_sink_bytes_written,
+            );
             re_upload_bytes = calculate_diff_if_some(
                 &Some(snapshot.re_upload_bytes),
                 &self.initial_re_upload_bytes,
@@ -627,6 +634,7 @@ impl<'a> InvocationRecorder<'a> {
             sink_success_count,
             sink_failure_count,
             sink_dropped_count,
+            sink_bytes_written,
             sink_max_buffer_depth: Some(self.sink_max_buffer_depth),
             soft_error_categories: std::mem::take(&mut self.soft_error_categories)
                 .into_iter()
@@ -1128,6 +1136,9 @@ impl<'a> InvocationRecorder<'a> {
         }
         if self.initial_sink_dropped_count.is_none() {
             self.initial_sink_dropped_count = update.sink_dropped;
+        }
+        if self.initial_sink_bytes_written.is_none() {
+            self.initial_sink_bytes_written = update.sink_bytes_written;
         }
         self.sink_max_buffer_depth = max(self.sink_max_buffer_depth, update.sink_buffer_depth());
 

@@ -95,6 +95,8 @@ pub struct ProducerCounters {
     pub queue_depth: u64,
     // How many messages were dropped before we even enqueued them (e.g. because the internal buffer is full).
     pub dropped: u64,
+    /// How many bytes were written into this sink.
+    pub bytes_written: u64,
 }
 
 impl ProducerCounters {
@@ -111,6 +113,7 @@ impl ProducerCounters {
             failures_unknown,
             queue_depth: _,
             dropped: _,
+            bytes_written: _,
         } = self;
         *failures_invalid_request
             + *failures_unauthorized
@@ -135,6 +138,7 @@ struct ProducerCountersData {
     failures_timed_out: AtomicU64,
     failures_unknown: AtomicU64,
     dropped: AtomicU64,
+    bytes_written: AtomicU64,
 }
 
 // This congestion control has 2 states (phases) each of which changes its behavior depending on whether
@@ -316,6 +320,7 @@ impl ScribeProducer {
                 .failures_unknown
                 .load(atomic::Ordering::Relaxed),
             dropped: self.counters.dropped.load(atomic::Ordering::Relaxed),
+            bytes_written: self.counters.bytes_written.load(atomic::Ordering::Relaxed),
             // So we get an accurate snapshot of the queue depth when scraping
             // metrics, do this here and now rather than in the background.
             queue_depth: self.queue.len() as u64,
@@ -443,6 +448,13 @@ impl ScribeProducer {
                             self.counters
                                 .successes
                                 .fetch_add(1, atomic::Ordering::Relaxed);
+
+                            // Unwrap safety: an individual message cant't be so large its length
+                            // can't be repsentable as 64 bits.
+                            self.counters.bytes_written.fetch_add(
+                                message.message.message.len().try_into().unwrap(),
+                                atomic::Ordering::Relaxed,
+                            );
                             success_count += 1;
                             false
                         }

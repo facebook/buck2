@@ -222,6 +222,8 @@ pub struct EventSinkStats {
     pub buffered: u64,
     /// How many messages were not even enqueued by this sink.
     pub dropped: u64,
+    /// How many bytes were written into this sink.
+    pub bytes_written: u64,
 }
 
 impl EventSinkStats {
@@ -238,6 +240,7 @@ impl EventSinkStats {
             failures_unknown,
             buffered: _,
             dropped: _,
+            bytes_written: _,
         } = self;
         *failures_invalid_request
             + *failures_unauthorized

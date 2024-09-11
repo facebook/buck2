@@ -186,6 +186,7 @@ impl SnapshotCollector {
                 failures_unknown,
                 buffered,
                 dropped,
+                bytes_written,
             } = metrics;
             snapshot.sink_successes = Some(successes);
             snapshot.sink_failures = Some(metrics.failures());
@@ -199,6 +200,7 @@ impl SnapshotCollector {
             snapshot.sink_failures_unknown = Some(failures_unknown);
             snapshot.sink_buffer_depth = Some(buffered);
             snapshot.sink_dropped = Some(dropped);
+            snapshot.sink_bytes_written = Some(bytes_written);
         }
     }
 

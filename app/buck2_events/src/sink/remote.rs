@@ -202,6 +202,7 @@ mod fbcode {
                 failures_unknown: counters.failures_unknown,
                 buffered: counters.queue_depth,
                 dropped: counters.dropped,
+                bytes_written: counters.bytes_written,
             }
         }
     }

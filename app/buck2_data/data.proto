@@ -645,6 +645,7 @@ message Snapshot {
   optional uint64 sink_buffer_depth = 107;
   // Cumulative count of messages that were dropped (i.e. not even processed).
   optional uint64 sink_dropped = 108;
+  optional uint64 sink_bytes_written = 111;
 
   // Network statistics for "interesting" network interfaces.
   map<string, NetworkInterfaceStats> network_interface_stats = 109;
@@ -1915,6 +1916,7 @@ message InvocationRecord {
   optional uint64 sink_success_count = 51;
   optional uint64 sink_failure_count = 52;
   optional uint64 sink_dropped_count = 53;
+  optional uint64 sink_bytes_written = 101;
   optional uint64 sink_max_buffer_depth = 54;
   // Version number of watchman
   optional string watchman_version = 55;
