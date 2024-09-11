@@ -115,7 +115,9 @@ mod fbcode {
         // Encodes message into something scribe understands.
         fn encode_message(mut event: BuckEvent, is_truncated: bool) -> Option<Vec<u8>> {
             smart_truncate_event(event.data_mut());
-            let proto: Box<buck2_data::BuckEvent> = event.into();
+            let mut proto: Box<buck2_data::BuckEvent> = event.into();
+
+            Self::prepare_event(&mut proto);
 
             // Add a header byte to indicate this is _not_ base64 encoding.
             let mut buf = Vec::with_capacity(proto.encoded_len() + 1);
@@ -165,6 +167,52 @@ mod fbcode {
                 )
             } else {
                 Some(buf)
+            }
+        }
+
+        fn prepare_event(event: &mut buck2_data::BuckEvent) {
+            use buck2_data::buck_event::Data;
+
+            match &mut event.data {
+                Some(Data::SpanEnd(s)) => match &mut s.data {
+                    Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
+                        let mut is_cache_hit = false;
+
+                        for command in action.commands.iter_mut() {
+                            let Some(details) = command.details.as_mut() else {
+                                continue;
+                            };
+
+                            {
+                                let Some(ref command_kind) = details.command_kind else {
+                                    continue;
+                                };
+                                let Some(ref command) = command_kind.command else {
+                                    continue;
+                                };
+                                let buck2_data::command_execution_kind::Command::RemoteCommand(
+                                    ref remote,
+                                ) = command
+                                else {
+                                    continue;
+                                };
+                                if !remote.cache_hit {
+                                    continue;
+                                }
+                            }
+
+                            is_cache_hit = true;
+                            details.metadata = None;
+                        }
+
+                        if is_cache_hit {
+                            action.dep_file_key = None;
+                            action.outputs.clear();
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
             }
         }
     }
