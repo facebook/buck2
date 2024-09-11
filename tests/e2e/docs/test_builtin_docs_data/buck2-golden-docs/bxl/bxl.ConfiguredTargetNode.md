@@ -9,6 +9,7 @@
 ## bxl.ConfiguredTargetNode.get\_source
 ## bxl.ConfiguredTargetNode.has\_attr
 ## bxl.ConfiguredTargetNode.label
+## bxl.ConfiguredTargetNode.oncall
 ## bxl.ConfiguredTargetNode.resolved\_attrs\_eager
 ## bxl.ConfiguredTargetNode.resolved\_attrs\_lazy
 ## bxl.ConfiguredTargetNode.rule\_kind
