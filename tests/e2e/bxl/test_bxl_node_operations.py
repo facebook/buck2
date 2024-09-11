@@ -166,6 +166,7 @@ async def test_unconfigured_target_node_attrs(buck: Buck) -> None:
         in output
     )
     assert "PUBLIC" in output
+    assert "magic" in output
 
     await buck.bxl(
         "//bxl/unconfigure_target_node_attrs.bxl:selector_attrs_test",

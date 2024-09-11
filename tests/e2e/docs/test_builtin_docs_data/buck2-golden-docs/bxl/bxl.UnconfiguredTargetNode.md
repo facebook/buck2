@@ -7,5 +7,6 @@
 ## bxl.UnconfiguredTargetNode.get\_attrs
 ## bxl.UnconfiguredTargetNode.has\_attr
 ## bxl.UnconfiguredTargetNode.label
+## bxl.UnconfiguredTargetNode.oncall
 ## bxl.UnconfiguredTargetNode.rule\_kind
 ## bxl.UnconfiguredTargetNode.rule\_type

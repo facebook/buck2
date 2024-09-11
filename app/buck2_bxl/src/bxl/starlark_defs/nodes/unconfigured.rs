@@ -210,4 +210,20 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
+
+    /// Gets the target's special attr `oncall`
+    ///
+    /// Sample usage:
+    /// ```text
+    /// def _impl_get_oncall(ctx):
+    ///     target_node = ctx.uquery().eval("//foo:bar")[0]
+    ///     ctx.output.print(target_node.oncall)
+    /// ```
+    #[starlark(attribute)]
+    fn oncall<'v>(
+        this: &'v StarlarkTargetNode,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Option<StringValue<'v>>> {
+        Ok(this.0.oncall().map(|oncall| heap.alloc_str_intern(oncall)))
+    }
 }
