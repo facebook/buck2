@@ -39,26 +39,39 @@ export function GraphImpl(props: {
       nodeMap.get(k)!.allow = true
     }
   } else {
-    // union of 'includes', minus 'excludes'
+    // Intersection of 'includes', minus 'excludes'
     for (const [k, node] of nodeMap) {
       const target = build.targets(k)!
       const label = target.configuredTargetLabel()!
 
-      node.allow = activeCategories.includes(target.type()!)
+      // When null, means it wasn't affected by any of the filters and to use default
+      let passesFilters = null
+
+      // Filter by category
+      if (activeCategories.length > 0) {
+        passesFilters = activeCategories.includes(target.type()!)
+      }
 
       // Filter by label
-      for (const v of includeContaining) {
-        if (label.includes(v)) {
-          node.allow = true
+      if (includeContaining.length > 0) {
+        let contains = false
+        for (const v of includeContaining) {
+          if (label.includes(v)) {
+            contains = true
+            break
+          }
         }
+        passesFilters = passesFilters !== false && contains
       }
 
       // Exclude by label
       for (const v of excludeContaining) {
         if (label.includes(v)) {
-          node.allow = false
+          passesFilters = false
         }
       }
+
+      node.allow = passesFilters === true
     }
 
     // Always set root node
