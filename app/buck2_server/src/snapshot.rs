@@ -23,6 +23,7 @@ use dupe::Dupe;
 
 use crate::daemon::state::DaemonStateData;
 use crate::jemalloc_stats::get_allocator_stats;
+use crate::net_io::NetworkKind;
 use crate::net_io::SystemNetworkIoCollector;
 
 /// Stores state handles necessary to produce snapshots.
@@ -214,6 +215,13 @@ impl SnapshotCollector {
                         buck2_data::NetworkInterfaceStats {
                             tx_bytes: counters.bytes_sent,
                             rx_bytes: counters.bytes_recv,
+                            network_kind: match counters.network_kind {
+                                NetworkKind::WiFi => buck2_data::NetworkKind::WiFi.into(),
+                                NetworkKind::Ethernet => buck2_data::NetworkKind::Ethernet.into(),
+                                NetworkKind::Unknown => {
+                                    buck2_data::NetworkKind::UnknownNetKind.into()
+                                }
+                            },
                         },
                     )
                 })

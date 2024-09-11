@@ -2359,9 +2359,16 @@ message CommandExecutionStats {
   optional CpuCounter kernel_events = 4;
 }
 
+enum NetworkKind {
+  WI_FI = 0;
+  ETHERNET = 1;
+  UNKNOWN_NET_KIND = 2;
+}
+
 message NetworkInterfaceStats {
   uint64 tx_bytes = 1;
   uint64 rx_bytes = 2;
+  NetworkKind network_kind = 3;
 }
 
 message TraceIoCommandStart {}

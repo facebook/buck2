@@ -15,7 +15,6 @@ pub enum NetworkKind {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct NetworkStat {
     pub bytes_sent: u64,
     pub bytes_recv: u64,
