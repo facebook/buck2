@@ -35,6 +35,7 @@ AppleResourceSpec = record(
 # Used when invoking `ibtool`, `actool`, `mapc` and `momc`
 AppleResourceProcessingOptions = record(
     prefer_local = field(bool, False),
+    prefer_remote = field(bool, False),
     allow_cache_upload = field(bool, False),
 )
 
