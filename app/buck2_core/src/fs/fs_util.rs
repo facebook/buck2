@@ -605,7 +605,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceS
         use std::mem::MaybeUninit;
         use std::ptr;
 
-        use buck2_util::os::win::os_str_to_wide_null_term;
+        use buck2_util::os::win::os_str::os_str_to_wide_null_term;
 
         let path_c = os_str_to_wide_null_term(path.as_os_str());
 

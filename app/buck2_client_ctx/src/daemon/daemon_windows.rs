@@ -40,7 +40,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     use std::ptr;
 
     use anyhow::Context;
-    use buck2_util::os::win::os_str_to_wide_null_term;
+    use buck2_util::os::win::os_str::os_str_to_wide_null_term;
     use winapi::shared::minwindef::DWORD;
     use winapi::shared::minwindef::FALSE;
     use winapi::um::handleapi::CloseHandle;
