@@ -4,6 +4,7 @@
 ## bxl.ConfiguredTargetNode.attrs\_eager
 ## bxl.ConfiguredTargetNode.attrs\_lazy
 ## bxl.ConfiguredTargetNode.buildfile\_path
+## bxl.ConfiguredTargetNode.deps
 ## bxl.ConfiguredTargetNode.get\_attr
 ## bxl.ConfiguredTargetNode.get\_attrs
 ## bxl.ConfiguredTargetNode.get\_source
