@@ -9,6 +9,7 @@ load("@prelude//:asserts.bzl", "asserts")
 load(":asserts.bzl", "verify_normalized_modifier")
 load(
     ":types.bzl",
+    "ConditionalModifierInfo",
     "Modifier",
     "ModifierCliLocation",
     "ModifierInfo",
@@ -109,11 +110,9 @@ def get_modifier_info(
         )
     if isinstance(modifier, str):
         modifier_info = refs[modifier]
-        if ConstraintValueInfo in modifier_info:
-            # In practice, every target with a ConstraintValueInfo also has a ConfigurationInfo,
-            # so this is just a small optimization for targets with ConstraintValueInfo.
-            constraint_value_info = modifier_info[ConstraintValueInfo]
-            return constraint_value_info.setting.label, constraint_value_info
+        if ConditionalModifierInfo in modifier_info:
+            conditional_modifier_info = modifier_info[ConditionalModifierInfo]
+            return conditional_modifier_info.key, conditional_modifier_info.inner
         cfg_info = modifier_info[ConfigurationInfo]
         asserts.true(len(cfg_info.constraints) == 1, "Modifier should only be a single constraint value. Found multiple in `{}`".format(modifier))
         constraint_value_info = list(cfg_info.constraints.values())[0]

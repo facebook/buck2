@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
 load(":util.bzl", "util")
 
 # config_setting() accepts a list of constraint_values and a list of values
@@ -38,9 +39,16 @@ def constraint_value_impl(ctx):
         DefaultInfo(),
         constraint_value,
         # Provide `ConfigurationInfo` from `constraint_value` so it could be used as select key.
-        ConfigurationInfo(constraints = {
-            constraint_value.setting.label: constraint_value,
-        }, values = {}),
+        ConfigurationInfo(
+            constraints = {
+                constraint_value.setting.label: constraint_value,
+            },
+            values = {},
+        ),
+        ConditionalModifierInfo(
+            inner = constraint_value,
+            key = constraint_value.setting.label,
+        ),
     ]
 
 # platform() declares a platform, it is a list of constraint values.

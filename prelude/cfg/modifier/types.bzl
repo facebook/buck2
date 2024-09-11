@@ -47,6 +47,13 @@ ModifiersMatchInfo = record(
 
 ModifierInfo = ConstraintValueInfo | ModifiersMatchInfo | None
 
+# A provider for conditional modifier used by cfg constructor function when constructing the
+# configuration
+ConditionalModifierInfo = provider(fields = {
+    "inner": ModifierInfo,
+    "key": TargetLabel,
+})
+
 def is_modifiers_match(modifier: Modifier) -> bool:
     if modifier == None or isinstance(modifier, str):
         return False
