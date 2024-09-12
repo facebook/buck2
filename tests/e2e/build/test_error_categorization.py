@@ -11,6 +11,8 @@
 import asyncio
 from pathlib import Path
 
+import pytest
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
@@ -272,13 +274,24 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "linux"])
-async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "remote_or_local",
+    [
+        "--remote-only",
+        "--local-only",
+    ],
+)
+async def test_build_file_race(
+    buck: Buck, tmp_path: Path, remote_or_local: str
+) -> None:
     mode = get_mode_from_platform()
     target = "fbcode//buck2/tests/targets/file_race:file_race_test"
 
     # first build
     exe_path = (
-        (await buck.build(target, mode)).get_build_report().output_for_target(target)
+        (await buck.build(target, mode, remote_or_local))
+        .get_build_report()
+        .output_for_target(target)
     )
 
     # start run command, don't wait for finish
@@ -292,6 +305,7 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
             "--show-output",
             "-c",
             "test.cache_buster=2",
+            remote_or_local,
             "--unstable-write-invocation-record",
             str(record),
         )

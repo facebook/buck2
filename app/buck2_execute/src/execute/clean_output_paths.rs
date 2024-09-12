@@ -34,12 +34,37 @@ impl CleanOutputPaths {
     }
 }
 
+#[cfg(unix)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    error
+}
+
+#[cfg(windows)]
+fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+    use buck2_error::ErrorTag;
+    if error.has_tag(ErrorTag::IoExecutableFileBusy) | error.has_tag(ErrorTag::IoPermissionDenied) {
+        error
+            .tag([ErrorTag::IoMaterializerFileBusy])
+            .context("Binary being executed, please close the process first")
+    } else {
+        error
+    }
+}
+
+use buck2_core::fs::fs_util::IoError;
+fn tag_cleanup_path_env_error(res: Result<(), IoError>) -> anyhow::Result<()> {
+    let error = res
+        .map_err(buck2_error::Error::from)
+        .map_err(tag_environment_error);
+    Ok(error?)
+}
+
 #[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
 pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Result<()> {
     let path = fs.resolve(path);
 
     // This will remove the path if it exists.
-    fs_util::remove_all(&path)?;
+    tag_cleanup_path_env_error(fs_util::remove_all(&path))?;
 
     let mut path: &AbsNormPath = &path;
 
@@ -67,7 +92,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
                     // There was a file or a symlink, so it's safe to delete and then we can exit
                     // because we'll be able to create a dir here.
                     tracing::trace!(path = %path, "remove_file");
-                    fs_util::remove_file(path)?;
+                    tag_cleanup_path_env_error(fs_util::remove_file(path))?;
                 }
                 return Ok(());
             }
