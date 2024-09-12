@@ -67,7 +67,13 @@ def get_bundle_min_target_version(ctx: AnalysisContext, binary_or_binaries: [dic
 
 def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourceProcessingOptions:
     compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
-    return AppleResourceProcessingOptions(prefer_local = compile_resources_locally, allow_cache_upload = compile_resources_locally)
+    is_watch_bundle = get_is_watch_bundle(ctx)
+    return AppleResourceProcessingOptions(
+        prefer_local = compile_resources_locally and (not is_watch_bundle),
+        # TODO: Remote execution preference should be part of `apple_toolchain()`, same as `compile_resources_locally`
+        prefer_remote = is_watch_bundle,
+        allow_cache_upload = compile_resources_locally,
+    )
 
 def get_bundle_infos_from_graph(graph: ResourceGraphInfo) -> list[AppleBundleLinkerMapInfo]:
     bundle_infos = []
