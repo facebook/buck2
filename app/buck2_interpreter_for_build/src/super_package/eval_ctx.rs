@@ -83,19 +83,31 @@ impl PackageFileEvalCtx {
         let merged_package_values =
             SuperPackageValuesImpl::merge(self.parent.package_values(), package_values)?;
 
-        let PackageFileVisibilityFields {
-            visibility,
-            within_view,
-            inherit,
-        } = self.visibility.into_inner().unwrap_or_default();
-
-        let (visibility, within_view) = if inherit {
-            (
-                self.parent.visibility().extend_with(&visibility),
-                self.parent.within_view().extend_with(&within_view),
-            )
-        } else {
-            (visibility, within_view)
+        let (visibility, within_view) = match self.visibility.into_inner() {
+            Some(package_visibility) => {
+                if package_visibility.inherit {
+                    (
+                        self.parent
+                            .visibility()
+                            .extend_with(&package_visibility.visibility),
+                        self.parent
+                            .within_view()
+                            .extend_with(&package_visibility.within_view),
+                    )
+                } else {
+                    (
+                        package_visibility.visibility,
+                        package_visibility.within_view,
+                    )
+                }
+            }
+            None => {
+                // If the package file does not specify any visibility, default to the parent visibility.
+                (
+                    self.parent.visibility().to_owned(),
+                    self.parent.within_view().to_owned(),
+                )
+            }
         };
 
         Ok(SuperPackage::new(
