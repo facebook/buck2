@@ -14,7 +14,8 @@ TargetInfo = dict[str, typing.Any]
 
 MacroOutput = record(
     actual = TargetLabel,
-    dylib = bxl.EnsuredArtifact,
+    # TODO(pickett): Remove bxl.EnsuredArtifact once new rust-project is published and cutover to new API.
+    dylib = Artifact | bxl.EnsuredArtifact,
 )
 
 ExpandedAndResolved = record(
@@ -31,12 +32,14 @@ MappedSrc = record(
 
 def materialize(
         ctx: bxl.Context,
-        target: bxl.ConfiguredTargetNode) -> bxl.EnsuredArtifact:
+        target: bxl.ConfiguredTargetNode) -> Artifact:
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
+    return sources
 
-    # Ensures the srcs folder will be present
-    return ctx.output.ensure(sources).abs_path()
+def _get_nullable_attr(attrs, key: str) -> typing.Any:
+    nullable = getattr(attrs, key, None)
+    return nullable.value() if nullable != None else None
 
 def _process_target_config(
         ctx: bxl.Context,
@@ -52,7 +55,7 @@ def _process_target_config(
     # For example, this is used in cxx powered crates internally
     srcs = []
     for src in resolved_attrs.srcs:
-        srcs.append(ctx.output.ensure(src).abs_path())
+        srcs.append(src)
 
     # remove the configured platform from the deps. for example,
     # `fbsource//third-party/rust:tracing (ovr_config//platform/linux:x86_64-fbcode-platform010-clang-9f23200ddcddc3cb)`
@@ -64,12 +67,12 @@ def _process_target_config(
     # Grab only the values that the the gen-rules are being mapped to.
     mapped_srcs = {}
     for key, v in resolved_attrs.mapped_srcs.items():
-        mapped_srcs[v] = ctx.output.ensure(key).abs_path()
+        mapped_srcs[v] = key
 
     # remove the configured platform from named deps.
     if is_list(resolved_attrs.named_deps):
         named_deps_names = providers[DefaultInfo].sub_targets["named_deps"][DefaultInfo].default_outputs[0]
-        named_deps = [ctx.output.ensure(named_deps_names).abs_path()]
+        named_deps = [named_deps_names]
         for _alias, dep in resolved_attrs.named_deps:
             named_deps.append(dep.label.raw_target())
     else:
@@ -85,19 +88,18 @@ def _process_target_config(
     # materialize a file containing the dynamic crate name
     crate_dynamic = getattr(resolved_attrs, "crate_dynamic", None)
     if crate_dynamic:
-        cratename_artifact = crate_dynamic.get(DefaultInfo).default_outputs[0]
-        crate_dynamic = ctx.output.ensure(cratename_artifact).abs_path()
+        crate_dynamic = crate_dynamic.get(DefaultInfo).default_outputs[0]
 
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
-        "buck.deps": getattr(attrs, "buck.deps", None),
-        "crate": getattr(attrs, "crate", None),
+        "buck.deps": _get_nullable_attr(attrs, "buck.deps"),
+        "crate": _get_nullable_attr(attrs, "crate"),
         "crate_dynamic": crate_dynamic,
-        "crate_root": getattr(attrs, "crate_root", None),
+        "crate_root": _get_nullable_attr(attrs, "crate_root"),
         "deps": deps,
-        "edition": getattr(attrs, "edition", None),
-        "env": getattr(attrs, "env", None),
+        "edition": _get_nullable_attr(attrs, "edition"),
+        "env": _get_nullable_attr(attrs, "env"),
         "features": resolved_attrs.features,
         "in_workspace": in_workspace,
         "kind": target.rule_type,
@@ -105,9 +107,9 @@ def _process_target_config(
         "mapped_srcs": mapped_srcs,
         "name": resolved_attrs.name,
         "named_deps": named_deps,
-        "proc_macro": getattr(attrs, "proc_macro", None),
+        "proc_macro": _get_nullable_attr(attrs, "proc_macro"),
         "project_relative_buildfile": ctx.fs.project_rel_path(target.buildfile_path),
-        "rustc_flags": getattr(attrs, "rustc_flags", None),
+        "rustc_flags": _get_nullable_attr(attrs, "rustc_flags"),
         "source_folder": materialize(ctx, target),  # Always generate the source folder. Let rust-project resolve whether or not to use it
         "srcs": srcs,
         "tests": tests,
@@ -165,7 +167,7 @@ def materialize_generated_protobufs(
         ctx: bxl.Context,
         target: bxl.ConfiguredTargetNode,
         actions: AnalysisActions,
-        seen: dict[str, bxl.EnsuredArtifact]) -> bxl.EnsuredArtifact:
+        seen: dict[str, Artifact]) -> Artifact:
     """If `target` has a dependency that generates code from protobufs,
     materialize the generated code and return the path to the output directory.
     """
@@ -178,10 +180,10 @@ def materialize_generated_protobufs(
 
     artifact = seen.get(outfile)
     if not artifact:
-        artifact = ctx.output.ensure(actions.copy_file(outfile, output))
+        artifact = actions.copy_file(outfile, output)
         seen[outfile] = artifact
 
-    return artifact.abs_path()
+    return artifact
 
 def materialize_generated_thrift(
         ctx: bxl.Context,
@@ -201,11 +203,11 @@ def materialize_generated_thrift(
         artifact = seen.get(outfile)
         if not artifact:
             copied = actions.copy_file(outfile, build_result.artifacts()[0])
-            artifact = ctx.output.ensure(copied)
+            artifact = copied
             seen[outfile] = artifact
 
         if m.dest == "lib.rs":
-            out[m.target.label.raw_target()]["crate_root"] = artifact.abs_path()
+            out[m.target.label.raw_target()]["crate_root"] = artifact
 
 def expand_proc_macros(
         ctx: bxl.Context,
@@ -224,7 +226,7 @@ def expand_proc_macros(
             label = target.label.raw_target()
             out[label] = MacroOutput(
                 actual = label,
-                dylib = ctx.output.ensure(rlib).abs_path(),
+                dylib = rlib,
             )
     return out
 
@@ -276,6 +278,39 @@ def expand_targets(
 
     return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
 
+# TODO(pickett): Remove once new rust-project is published and cutover to new API.
+def _ensure_macro_output(ctx: bxl.Context, arg: MacroOutput) -> MacroOutput:
+    return MacroOutput(actual = arg.actual, dylib = ctx.output.ensure(arg.dylib).abs_path())
+
+# TODO(pickett): Remove once new rust-project is published and cutover to new API.
+def _ensure_list(ctx: bxl.Context, arg: list[typing.Any]) -> list[typing.Any]:
+    result = []
+    for v in arg:
+        if type(v) == "dict":
+            result.append(_ensure_dict(ctx, v))
+        elif type(v) == "list":
+            result.append(_ensure_list(ctx, v))
+        elif type(v) == "artifact":
+            result.append(ctx.output.ensure(v).abs_path())
+        else:
+            result.append(v)
+    return result
+
+# TODO(pickett): Remove once new rust-project is published and cutover to new API.
+def _ensure_dict(ctx: bxl.Context, arg: dict[str, typing.Any]) -> TargetInfo:
+    result = {}
+    for k, v in arg.items():
+        if type(v) == "dict":
+            result[k] = _ensure_dict(ctx, v)
+        elif type(v) == "list":
+            result[k] = _ensure_list(ctx, v)
+        elif type(v) == "artifact":
+            result[k] = ctx.output.ensure(v).abs_path()
+        else:
+            result[k] = v
+    return result
+
+# TODO(pickett): Remove once new rust-project is published and cutover to new API.
 def expand_and_resolve_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
@@ -287,9 +322,39 @@ def expand_and_resolve_impl(ctx: bxl.Context) -> None:
 
     ctx.output.print_json(ExpandedAndResolved(
         expanded_targets = dedupe(expanded_targets + workspaces),
-        queried_proc_macros = queried_proc_macros,
-        resolved_deps = resolved_deps,
+        queried_proc_macros = {
+            k: _ensure_macro_output(ctx, v)
+            for k, v in queried_proc_macros.items()
+        },
+        resolved_deps = {
+            k: _ensure_dict(ctx, v)
+            for k, v in resolved_deps.items()
+        },
     ))
+
+def resolve_targets_impl(ctx: bxl.Context) -> None:
+    # equivalent of `flat_map`ing
+    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
+    actions = ctx.bxl_actions().actions
+
+    expanded_targets, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
+    queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
+    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces, actions)
+
+    artifact = actions.declare_output("resolve_targets.json")
+    artifacts = actions.write_json(
+        artifact,
+        ExpandedAndResolved(
+            expanded_targets = dedupe(expanded_targets + workspaces),
+            queried_proc_macros = queried_proc_macros,
+            resolved_deps = resolved_deps,
+        ),
+        with_inputs = True,
+        absolute = True,
+        pretty = ctx.cli_args.pretty,
+    )
+    ctx.output.ensure_multiple(artifacts)
+    ctx.output.print(ctx.output.ensure(artifact).abs_path())
 
 def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     # depending on the input, determine the initial set of targets
@@ -359,6 +424,17 @@ expand_and_resolve = bxl_main(
     impl = expand_and_resolve_impl,
     cli_args = {
         "exclude_workspaces": cli_args.bool(default = False),
+        "targets": cli_args.list(cli_args.target_expr()),
+    },
+)
+
+# A replacement for expand_and_resolve that shares more logic with the prelude. Writes a json file
+# as an artifact and returns the absolute path to that artifact to stdout.
+resolve_targets = bxl_main(
+    impl = resolve_targets_impl,
+    cli_args = {
+        "exclude_workspaces": cli_args.bool(default = False),
+        "pretty": cli_args.bool(default = False),
         "targets": cli_args.list(cli_args.target_expr()),
     },
 )
