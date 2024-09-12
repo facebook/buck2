@@ -89,32 +89,29 @@ def _process_target_config(
         crate_dynamic = ctx.output.ensure(cratename_artifact).abs_path()
 
     # copy over the absolute paths and raw targets into the output
-    copy = {}
     attrs = target.attrs_eager()
-    for k in dir(attrs):
-        if k == "srcs":
-            copy["srcs"] = srcs
-        elif k == "deps":
-            copy["deps"] = deps
-        elif k == "mapped_srcs":
-            copy["mapped_srcs"] = mapped_srcs
-        elif k == "named_deps":
-            copy["named_deps"] = named_deps
-        elif k == "tests":
-            copy["tests"] = tests
-        elif k == "crate_dynamic":
-            copy["crate_dynamic"] = crate_dynamic
-        else:
-            copy[k] = getattr(attrs, k)
-
-    # Always generate the source folder. Let rust-project resolve whether or not to use it
-    copy["source_folder"] = materialize(ctx, target)
-    copy["label"] = target.label.raw_target()
-    copy["project_relative_buildfile"] = ctx.fs.project_rel_path(target.buildfile_path)
-    copy["kind"] = target.rule_type
-    copy["in_workspace"] = in_workspace
-
-    return copy
+    return {
+        "buck.deps": getattr(attrs, "buck.deps", None),
+        "crate": getattr(attrs, "crate", None),
+        "crate_dynamic": crate_dynamic,
+        "crate_root": getattr(attrs, "crate_root", None),
+        "deps": deps,
+        "edition": getattr(attrs, "edition", None),
+        "env": getattr(attrs, "env", None),
+        "features": resolved_attrs.features,
+        "in_workspace": in_workspace,
+        "kind": target.rule_type,
+        "label": target.label.raw_target(),
+        "mapped_srcs": mapped_srcs,
+        "name": resolved_attrs.name,
+        "named_deps": named_deps,
+        "proc_macro": getattr(attrs, "proc_macro", None),
+        "project_relative_buildfile": ctx.fs.project_rel_path(target.buildfile_path),
+        "rustc_flags": getattr(attrs, "rustc_flags", None),
+        "source_folder": materialize(ctx, target),  # Always generate the source folder. Let rust-project resolve whether or not to use it
+        "srcs": srcs,
+        "tests": tests,
+    }
 
 def cquery_deps(
         ctx: bxl.Context,
