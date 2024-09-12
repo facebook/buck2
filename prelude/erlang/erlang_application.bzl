@@ -104,7 +104,11 @@ def build_application(ctx, toolchains, dependencies, build_fun) -> list[Provider
 
     # generate DefaultInfo and RunInfo providers
     default_info = _build_default_info(dependencies, primary_app_folder)
-    run_info = erlang_shell.build_run_info(ctx, dependencies.values(), additional_app_paths = [primary_app_folder])
+    run_info = erlang_shell.build_run_info(
+        ctx,
+        dependencies = dependencies.values(),
+        additional_app_paths = [primary_app_folder],
+    )
     return [
         default_info,
         run_info,

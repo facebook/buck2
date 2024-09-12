@@ -209,14 +209,21 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd.add(cmd_args(hidden = hidden_args))
 
     # prepare shell dependencies
-    additional_paths = [
+    additional_shell_paths = [
         dep[ErlangTestInfo].output_dir
         for dep in dependencies.values()
         if ErlangTestInfo in dep
     ] + [primary_toolchain.utility_modules, output_dir]
 
-    preamble = '-eval "%s"' % (ctx.attrs.preamble)
-    additional_args = [cmd_args(preamble, "-noshell")]
+    # NB. We can't use `quote="shell"` since we need $REPO_ROOT to be expanded by the shell.
+    # So we wrap everything in extra double-quotes to protect from spaces in the path
+    test_info_file_arg = cmd_args(test_info_file, format = '"<<\\"${REPO_ROOT}/{}\\">>"')
+
+    additional_shell_args = cmd_args([
+        cmd_args(["-test_cli_lib", "test_info_file", test_info_file_arg], delimiter = " "),
+        cmd_args("-eval", ctx.attrs.preamble, quote = "shell", delimiter = " "),
+        "-noshell",
+    ])
 
     all_direct_shell_dependencies = check_dependencies([ctx.attrs._cli_lib], [ErlangAppInfo])
     cli_lib_deps = flatten_dependencies(ctx, all_direct_shell_dependencies)
@@ -226,9 +233,9 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     run_info = erlang_shell.build_run_info(
         ctx,
-        shell_deps.values(),
-        additional_paths = additional_paths,
-        additional_args = additional_args,
+        dependencies = shell_deps.values(),
+        additional_paths = additional_shell_paths,
+        additional_args = [additional_shell_args],
     )
 
     re_executor = get_re_executor_from_props(ctx)

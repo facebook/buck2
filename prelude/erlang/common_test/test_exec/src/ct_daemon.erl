@@ -14,7 +14,7 @@
 -module(ct_daemon).
 
 -export([
-    start/0, start/1,
+    start/1, start/2,
     stop/0,
     alive/0,
     run/1,
@@ -31,14 +31,17 @@
 ]).
 
 %% @doc start a test-node with random name and shortname
--spec start() -> ok.
-start() ->
-    ct_daemon_node:start().
+-spec start(ErlCommand) -> ok when
+    ErlCommand :: [binary()].
+start(ErlCommand) ->
+    ct_daemon_node:start(ErlCommand).
 
 %% @doc starts the test node with the given distribution mode and node name
--spec start(ct_daemon_node:config()) -> ok.
-start(NodeInfo) ->
-    ct_daemon_node:start(NodeInfo).
+-spec start(ErlCommand, Config) -> ok when
+    ErlCommand :: [binary()],
+    Config :: ct_daemon_node:config().
+start(ErlCommand, NodeInfo) ->
+    ct_daemon_node:start(ErlCommand, NodeInfo).
 
 %% @doc stops the test node
 -spec stop() -> ok.

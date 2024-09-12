@@ -19,7 +19,7 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Public API
--export([start/0, start/1, stop/0, alive/0, get_node/0]).
+-export([start/1, start/2, stop/0, alive/0, get_node/0]).
 
 -export([node_main/1, get_domain_type/0]).
 
@@ -39,8 +39,9 @@
 -export_type([config/0]).
 
 %% @doc start node for running tests in isolated way and keep state
--spec start() -> ok.
-start() ->
+-spec start(ErlCommand) -> ok when
+    ErlCommand :: nonempty_list(binary()).
+start(ErlCommand) ->
     NodeName = list_to_atom(
         lists:flatten(io_lib:format("test~s-atn@localhost", [random_name()]))
     ),
@@ -50,11 +51,14 @@ start() ->
         cookie => ct_runner:cookie(),
         options => []
     },
-    start(StartConfig).
+    start(ErlCommand, StartConfig).
 
 %% @doc start node for running tests in isolated way and keep state
--spec start(config()) -> ok | {error, {crash_on_startup, integer()}}.
+-spec start(ErlCommand, Config) -> ok | {error, {crash_on_startup, integer()}} when
+    ErlCommand :: nonempty_list(binary()),
+    Config :: config().
 start(
+    ErlCommand,
     _Config = #{
         type := Type,
         name := Node,
@@ -71,10 +75,8 @@ start(
     FullOptions = [{output_dir, OutputDir} | Options],
     Args = build_daemon_args(Type, Node, Cookie, FullOptions, OutputDir),
     % Replay = maps:get(replay, Config, false),
-    % We should forward emu flags here,
-    % see T129435667
     Port = ct_runner:start_test_node(
-        [os:find_executable("erl")],
+        ErlCommand,
         [],
         CodePaths,
         ConfigFiles,

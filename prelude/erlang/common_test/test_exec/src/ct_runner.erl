@@ -254,9 +254,7 @@ start_test_node(
     ReplayIo
 ) ->
     % split of args from Erl which can contain emulator flags
-    [RelErlExecutable | Flags] = ErlCmd,
-    % We will run from a HOME directory, so we needs an absolute path
-    ErlExecutable = filename:absname(RelErlExecutable),
+    [ErlExecutable | Flags] = ErlCmd,
 
     % HomeDir is the execution directory.
     HomeDir = set_home_dir(OutputDir),

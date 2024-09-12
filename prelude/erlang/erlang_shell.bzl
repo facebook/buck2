@@ -12,6 +12,7 @@ load(":erlang_toolchain.bzl", "get_primary_tools")
 
 def _build_run_info(
         ctx: AnalysisContext,
+        *,
         dependencies: list[Dependency],
         additional_app_paths: list[Artifact] = [],
         additional_paths: list[Artifact] = [],
@@ -51,17 +52,18 @@ def _build_run_info(
 
     tools = get_primary_tools(ctx)
     erl_command = cmd_args([
+        "exec",
         cmd_args(["\"${REPO_ROOT}\"/", cmd_args(tools.erl, delimiter = " ")], delimiter = ""),
         erl_args,
     ])
 
     start_shell_content = cmd_args([
-        "REPO_ROOT=$(buck2 root --kind=project)",
+        "export REPO_ROOT=$(buck2 root --kind=project)",
         cmd_args(erl_command, delimiter = " \\\n"),
         "",
     ])
 
-    shell_script = ctx.actions.write("start_shell.sh", start_shell_content)
+    shell_script = ctx.actions.write("start_shell.sh", start_shell_content, with_inputs = True)
     shell_cmd = cmd_args(
         ["/usr/bin/env", "bash", shell_script],
         # depend on input paths
