@@ -58,10 +58,6 @@ def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[Cx
     output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "object", ".o")
     return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs), cmd_args(["-emit-object"]))
 
-def get_incremental_swiftmodule_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
-    output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "swiftmodule", ".swiftmodule")
-    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs), cmd_args())
-
 def _get_incremental_num_threads(num_srcs: int) -> int:
     if num_srcs == 0:
         return 1

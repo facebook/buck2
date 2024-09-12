@@ -55,7 +55,6 @@ load(
 load(
     ":swift_incremental_support.bzl",
     "get_incremental_object_compilation_flags",
-    "get_incremental_swiftmodule_compilation_flags",
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
@@ -354,6 +353,7 @@ def _compile_swiftmodule(
         "-disable-cmo",
         "-emit-module",
         "-experimental-emit-module-separately",
+        "-wmo",
     ])
 
     if ctx.attrs.swift_module_skip_function_bodies:
@@ -384,17 +384,6 @@ def _compile_swiftmodule(
             swift_framework_output.private_swiftinterface.as_output(),
         ])
 
-    if should_build_swift_incrementally(ctx, len(srcs)):
-        incremental_compilation_output = get_incremental_swiftmodule_compilation_flags(ctx, srcs)
-        cmd.add(incremental_compilation_output.incremental_flags_cmd)
-        argfile_cmd.add([
-            "-experimental-emit-module-separately",
-        ])
-    else:
-        argfile_cmd.add([
-            "-wmo",
-        ])
-
     output_tbd = None
     if output_symbols != None:
         # Two step process, first we need to emit the TBD
@@ -405,7 +394,7 @@ def _compile_swiftmodule(
             output_tbd.as_output(),
         ])
 
-    ret = _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain)
+    ret = _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
 
     if output_tbd != None:
         # Now we have run the TBD action we need to extract the symbols
