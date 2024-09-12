@@ -89,5 +89,6 @@ PrebuiltJarToolchainInfo = provider(
         "class_abi_generator": provider_field(typing.Any, default = None),
         "global_code_config": provider_field(typing.Any, default = None),
         "is_bootstrap_toolchain": provider_field(typing.Any, default = None),
+        "java": provider_field(typing.Any, default = None),
     },
 )

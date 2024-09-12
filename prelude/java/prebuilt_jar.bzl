@@ -87,4 +87,8 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         template_placeholder_info,
         linkable_graph,
         DefaultInfo(default_output = output, sub_targets = sub_targets),
-    ]
+    ] + (
+        [
+            RunInfo(args = cmd_args([ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].java[RunInfo], "-jar", output])),
+        ] if ctx.attrs.is_executable else []
+    )

@@ -97,6 +97,7 @@ extra_attributes = {
     },
     "prebuilt_jar": {
         "generate_abi": attrs.bool(default = True),
+        "is_executable": attrs.bool(default = False),
         # Prebuilt jars are quick to build, and often contain third-party code, which in turn is
         # often a source of annotations and constants. To ease migration to ABI generation from
         # source without deps, we have them present during ABI gen by default.
