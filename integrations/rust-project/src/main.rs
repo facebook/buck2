@@ -107,6 +107,10 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
+        /// Command used to run Buck2. Defaults to `buck2`.
+        #[clap(long)]
+        buck2_command: Option<String>,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
@@ -123,6 +127,10 @@ enum Command {
         sysroot_mode: SysrootMode,
 
         args: JsonArguments,
+
+        /// Command used to run Buck2. Defaults to `buck2`.
+        #[clap(long)]
+        buck2_command: Option<String>,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
     Check {
@@ -133,6 +141,9 @@ enum Command {
         use_clippy: bool,
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
+        /// Command used to run Buck2. Defaults to `buck2`.
+        #[clap(long)]
+        buck2_command: Option<String>,
     },
 }
 
@@ -266,11 +277,12 @@ fn main() -> Result<(), anyhow::Error> {
             mode,
             use_clippy,
             saved_file,
+            buck2_command,
         } => {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            cli::Check::new(mode, use_clippy, saved_file).run()
+            cli::Check::new(buck2_command, mode, use_clippy, saved_file).run()
         }
     }
 }
