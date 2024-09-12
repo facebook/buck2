@@ -14,6 +14,9 @@ load(":resource_groups.bzl", "ResourceGraphInfo")
 
 # `ctx` in all functions below is expected to be of `apple_bundle` or `apple_test` rule
 
+def get_is_watch_bundle(ctx: AnalysisContext) -> bool:
+    return ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name.startswith("watch")
+
 def _get_bundle_target_name(ctx: AnalysisContext):
     if hasattr(ctx.attrs, "_bundle_target_name"):
         # `apple_resource_bundle` rules are proxies for the real rules,

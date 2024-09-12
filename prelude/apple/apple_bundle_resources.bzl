@@ -24,7 +24,7 @@ load(
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundlePart")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeExtensionKitExtension", "AppleBundleTypeWatchApp")
-load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_product_name")
+load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_is_watch_bundle", "get_product_name")
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(
     ":apple_core_data_types.bzl",
@@ -507,6 +507,3 @@ def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
 def _get_variant_dirname(variant_file: Artifact) -> str | None:
     dir_name = paths.basename(paths.dirname(variant_file.short_path))
     return dir_name if dir_name.endswith("lproj") else None
-
-def get_is_watch_bundle(ctx: AnalysisContext) -> bool:
-    return ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name.startswith("watch")
