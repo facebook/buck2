@@ -193,6 +193,8 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
             next = True
         elif str(f) == "\"-warnings-as-errors\"":
             gather.append("-warnings-as-errors")
+        elif str(f) == "\"-no-warnings-as-errors\"":
+            gather.append("-no-warnings-as-errors")
 
     if ctx.attrs.enable_cxx_interop:
         gather += ["-cxx-interoperability-mode=default"]
