@@ -176,9 +176,6 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     )
     return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).promise.map(get_apple_library_providers)
 
-def _get_explicit_modules_forwards_warnings_as_errors() -> bool:
-    return read_root_config("swift", "explicit_modules_forwards_warnings_as_errors", "false").lower() == "true"
-
 def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
     """Iterates through `swift_compiler_flags` and returns a list of flags that might affect Clang compilation"""
     gather, next = ([], False)
@@ -194,7 +191,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
             next = False
         elif str(f) == "\"-Xcc\"":
             next = True
-        elif _get_explicit_modules_forwards_warnings_as_errors() and str(f) == "\"-warnings-as-errors\"":
+        elif str(f) == "\"-warnings-as-errors\"":
             gather.append("-warnings-as-errors")
 
     if ctx.attrs.enable_cxx_interop:
