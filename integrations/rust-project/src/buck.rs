@@ -8,6 +8,7 @@
  */
 
 use std::ffi::OsStr;
+use std::fs;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -606,14 +607,14 @@ impl Buck {
             command.arg(mode);
         }
         command.args([
-            "prelude//rust/rust-analyzer/resolve_deps.bxl:expand_and_resolve",
+            "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
             "--",
             "--exclude_workspaces",
             exclude_workspaces.to_string().as_str(),
             "--targets",
         ]);
         command.args(targets);
-        deserialize_output(command.output(), &command)
+        deserialize_file_output(command.output(), &command)
     }
 
     #[instrument(skip_all)]
@@ -730,6 +731,34 @@ where
         }) => {
             tracing::debug!(?command, "parsing command output");
             serde_json::from_slice(&stdout)
+                .with_context(|| cmd_err(command, status, &stderr))
+                .context("failed to deserialize command output")
+        }
+        Err(err) => Err(err)
+            .with_context(|| format!("command `{:?}`", command))
+            .context("failed to execute command"),
+    }
+}
+
+fn deserialize_file_output<T>(
+    output: io::Result<Output>,
+    command: &Command,
+) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    match output {
+        Ok(Output {
+            stdout,
+            stderr,
+            status,
+        }) => {
+            tracing::debug!(?command, "parsing file output");
+            let file_path = std::str::from_utf8(&stdout)?;
+            let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
+            let contents = fs::read_to_string(file_path)
+                .with_context(|| format!("failed to read {:?}", file_path))?;
+            serde_json::from_str(&contents)
                 .with_context(|| cmd_err(command, status, &stderr))
                 .context("failed to deserialize command output")
         }
