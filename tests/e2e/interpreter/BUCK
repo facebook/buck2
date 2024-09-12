@@ -116,3 +116,9 @@ buck2_e2e_test(
     srcs = ["test_missing_source_file.py"],
     data_dir = "test_missing_source_file_data",
 )
+
+buck2_e2e_test(
+    name = "test_no_package_call_does_not_reset_visibility",
+    srcs = ["test_package_file_visibility.py"],
+    data_dir = "test_package_file_visibility_data",
+)
