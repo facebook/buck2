@@ -412,16 +412,17 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Prepare the stripped static lib.
     static_lib_stripped = None
-    if static_lib != None:
+    if not ctx.attrs.prestripped and static_lib != None:
         static_lib_stripped = strip_debug_info(ctx, static_lib.short_path, static_lib)
 
     # Prepare the stripped static PIC lib.  If the static PIC lib is the same
     # artifact as the static lib, then just re-use the stripped static lib.
     static_pic_lib_stripped = None
-    if static_lib == static_pic_lib:
-        static_pic_lib_stripped = static_lib_stripped
-    elif static_pic_lib != None:
-        static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
+    if not ctx.attrs.prestripped:
+        if static_lib == static_pic_lib:
+            static_pic_lib_stripped = static_lib_stripped
+        elif static_pic_lib != None:
+            static_pic_lib_stripped = strip_debug_info(ctx, static_pic_lib.short_path, static_pic_lib)
 
     if ctx.attrs.soname != None:
         soname = get_shared_library_name_for_param(linker_info, ctx.attrs.soname)
@@ -486,13 +487,13 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 if static_lib:
                     out = static_lib
                     linkable = archive_linkable(static_lib)
-                    linkable_stripped = archive_linkable(static_lib_stripped)
+                    linkable_stripped = archive_linkable(static_lib_stripped) if static_lib_stripped else None
             elif output_style == LibOutputStyle("pic_archive"):
                 lib = static_pic_lib or static_lib
                 if lib:
                     out = lib
                     linkable = archive_linkable(lib)
-                    linkable_stripped = archive_linkable(static_pic_lib_stripped or static_lib_stripped)
+                    linkable_stripped = archive_linkable(static_pic_lib_stripped or static_lib_stripped) if (static_pic_lib_stripped or static_lib_stripped) else None
             else:  # shared
                 # If no shared library was provided, link one from the static libraries.
                 if shared_lib != None:

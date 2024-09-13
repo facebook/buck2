@@ -1155,6 +1155,7 @@ prebuilt_cxx_library = prelude_rule(
             "link_whole": attrs.bool(default = False),
             "link_without_soname": attrs.bool(default = False),
             "platform_import_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None),
+            "prestripped": attrs.bool(default = False, doc = "When set, skips running `strip` commands when building this library."),
             "provided": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),
             "supports_shared_library_interface": attrs.bool(default = True),
