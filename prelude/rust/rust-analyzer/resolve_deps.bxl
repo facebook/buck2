@@ -54,9 +54,7 @@ def _process_target_config(
     # remove the configured platform from the deps. for example,
     # `fbsource//third-party/rust:tracing (ovr_config//platform/linux:x86_64-fbcode-platform010-clang-9f23200ddcddc3cb)`
     # becomes `fbsource//third-party/rust:tracing`.
-    deps = []
-    for dep in resolved_attrs.deps:
-        deps.append(dep.label.raw_target())
+    deps = [dep.label.raw_target() for dep in providers[RustAnalyzerInfo].rust_deps]
 
     # Grab only the values that the the gen-rules are being mapped to.
     mapped_srcs = {}
@@ -87,7 +85,8 @@ def _process_target_config(
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
-        "buck.deps": _get_nullable_attr(attrs, "buck.deps"),
+        # TODO(pickett): Remove this once rust-project moves over to "dep" key instead
+        "buck.deps": deps,
         "crate": _get_nullable_attr(attrs, "crate"),
         "crate_dynamic": crate_dynamic,
         "crate_root": providers[RustAnalyzerInfo].crate_root,

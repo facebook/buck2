@@ -363,6 +363,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers.append(rust_analyzer_provider(
         ctx = ctx,
+        dep_ctx = compile_ctx.dep_ctx,
         default_roots = _DEFAULT_ROOTS,
     ))
 

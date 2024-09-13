@@ -324,7 +324,7 @@ def resolve_deps(
 
     if dep_ctx.include_doc_deps:
         dependencies.extend(_do_resolve_deps(
-            deps = ctx.attrs.doc_deps,
+            deps = getattr(ctx.attrs, "doc_deps", []),
             named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
         ))
 
