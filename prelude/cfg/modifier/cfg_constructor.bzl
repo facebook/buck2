@@ -124,6 +124,7 @@ def cfg_constructor_post_constraint_analysis(
         )
 
     constraint_setting_to_modifier_infos = {}
+    cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():
@@ -141,9 +142,9 @@ def cfg_constructor_post_constraint_analysis(
                 modifier_infos.append(modifier_info)
                 constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
 
-                cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
-                if cli_modifier_validation:
-                    params.extra_data.cli_modifier_validation(constraint_setting_label, modifier)
+                if isinstance(tagged_modifiers.location, ModifierCliLocation):
+                    if cli_modifier_validation:
+                        cli_modifier_validation(constraint_setting_label, modifier)
 
     # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
     # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
