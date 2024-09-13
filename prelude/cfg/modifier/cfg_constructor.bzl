@@ -28,6 +28,7 @@ PostConstraintAnalysisParams = record(
     legacy_platform = PlatformInfo | None,
     # Merged modifier from PACKAGE, target, and cli modifiers.
     merged_modifiers = list[TaggedModifiers],
+    extra_data = struct,
 )
 
 def cfg_constructor_pre_constraint_analysis(
@@ -40,6 +41,7 @@ def cfg_constructor_pre_constraint_analysis(
         cli_modifiers: list[str],
         rule_name: str,
         aliases: struct,
+        extra_data: struct,
         **_kwargs) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -55,6 +57,8 @@ def cfg_constructor_pre_constraint_analysis(
             modifiers specified from `--modifier` flag, `?modifier`, or BXL
         aliases:
             A struct that contains mapping of modifier aliases to modifier.
+        extra_data:
+            Some extra data that is for extra logging/validation for our internal modifier implementation.
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
@@ -89,6 +93,7 @@ def cfg_constructor_pre_constraint_analysis(
     return refs, PostConstraintAnalysisParams(
         legacy_platform = legacy_platform,
         merged_modifiers = merged_modifiers,
+        extra_data = extra_data,
     )
 
 def cfg_constructor_post_constraint_analysis(
@@ -135,6 +140,10 @@ def cfg_constructor_post_constraint_analysis(
                 modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
                 modifier_infos.append(modifier_info)
                 constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+
+                cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
+                if cli_modifier_validation:
+                    params.extra_data.cli_modifier_validation(constraint_setting_label, modifier)
 
     # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
     # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
