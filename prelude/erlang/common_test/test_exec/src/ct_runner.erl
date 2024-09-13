@@ -324,9 +324,6 @@ set_home_dir(OutputDir) ->
     ok = file:write_file(ErlangCookieFile, atom_to_list(cookie())),
     ok = file:change_mode(ErlangCookieFile, 8#00400),
 
-    CacheDir = filename:join(HomeDir, ".cache"),
-    ok = file:make_dir(CacheDir),
-
     % In case the system is using dotslash, we leave a symlink to
     % the real dotslash cache, otherwise erl could be re-downloaded, etc
     try_setup_dotslash_cache(HomeDir),
@@ -349,7 +346,7 @@ try_setup_dotslash_cache(FakeHomeDir) ->
                     case lists:split(length(RealHomeDirParts), RealDotslashCacheDirParts) of
                         {RealHomeDirParts, GenDotslashCacheDirParts} ->
                             FakeHomeDotslashCacheDir = filename:join([FakeHomeDir | GenDotslashCacheDirParts]),
-                            ok = filelib:ensure_dir(filename:dirname(FakeHomeDotslashCacheDir)),
+                            ok = filelib:ensure_path(filename:dirname(FakeHomeDotslashCacheDir)),
                             ok = file:make_symlink(RealDotslashCacheDir, FakeHomeDotslashCacheDir),
                             ok;
                         _ ->
