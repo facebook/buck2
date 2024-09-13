@@ -116,7 +116,6 @@ pub(crate) struct TargetInfo {
     pub(crate) crate_name: Option<String>,
     pub(crate) crate_dynamic: Option<PathBuf>,
     pub(crate) crate_root: PathBuf,
-    #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
     pub(crate) deps: Vec<Target>,
     #[serde(rename = "tests")]
     pub(crate) test_deps: Vec<Target>,
