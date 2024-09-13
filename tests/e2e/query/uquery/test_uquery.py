@@ -245,7 +245,7 @@ async def test_query_filter(buck: Buck) -> None:
     assert out.stdout == "bin/TARGETS.fixture\n"
 
 
-@buck_test(inplace=False, data_dir="bxl_simple")
+@buck_test(inplace=False, setup_eden=True, data_dir="bxl_simple")
 async def test_attributes(buck: Buck) -> None:
     out = await buck.uquery("set(root//bin:the_binary //lib:file1)")
     assert out.stdout == "root//bin:the_binary\nroot//lib:file1\n"

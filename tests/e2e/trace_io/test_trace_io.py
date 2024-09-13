@@ -144,7 +144,7 @@ async def test_multiple_builds(buck: Buck) -> None:
 
 
 # Symlinks should show up in the *_symlinks attributes of the manifest.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(inplace=False, setup_eden=True, skip_for_os=["windows"])
 async def test_symlinks(buck: Buck) -> None:
     def symlink(link: str, target: str) -> None:
         """
@@ -170,8 +170,6 @@ async def test_symlinks(buck: Buck) -> None:
 
         symlink("symlinks/PassRegistry.h", str(absolute_target))
         symlink("symlinks/include", str(t / "include"))
-
-        hg_init(cwd=buck.cwd)
 
         await buck.debug("trace-io", "enable")
         await buck.build("root//symlinks:relative_link")

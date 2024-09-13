@@ -82,7 +82,7 @@ async def test_analysis_query_deps_with_depth(buck: Buck) -> None:
     assert ":qux" not in deps.stdout
 
 
-@buck_test(inplace=False, data_dir="analysis_query_deps")
+@buck_test(inplace=False, setup_eden=True, data_dir="analysis_query_deps")
 async def test_analysis_query_target_deps(buck: Buck) -> None:
     deps = await buck.build_without_report(":target_deps", "--out=-")
     golden(

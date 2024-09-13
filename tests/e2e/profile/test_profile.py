@@ -283,7 +283,7 @@ async def test_profile_bxl_without_actions(
     await assert_flame_outputs(command, file_path, profiler)
 
 
-@buck_test(inplace=False)
+@buck_test(inplace=False, setup_eden=True)
 async def test_profile_no_buckd(
     buck: Buck,
     tmp_path: Path,

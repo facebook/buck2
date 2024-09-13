@@ -251,7 +251,7 @@ build_report_test(
 )
 
 
-@buck_test(inplace=False)
+@buck_test(inplace=False, setup_eden=True)
 async def test_two_action_dep_failures(buck: Buck, tmp_path: Path) -> None:
     # When we pass `--keep-going`, we should get error reports for both dependencies of the action.
     # However, we don't. Instead, we just get one error non-deterministically. This is also why we

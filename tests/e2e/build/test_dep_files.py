@@ -9,7 +9,6 @@
 
 
 import hashlib
-import json
 import typing
 from pathlib import Path
 from typing import Any, Dict, List
@@ -142,7 +141,9 @@ async def check_no_action_cache_query(buck: Buck) -> None:
 
 
 # Skipping on windows due to gcc dependency
-@buck_test(inplace=False, data_dir="dep_files", skip_for_os=["windows"])
+@buck_test(
+    inplace=False, setup_eden=True, data_dir="dep_files", skip_for_os=["windows"]
+)
 async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     # For actions that have dep files, buck will query the local dep file cache to see
     # if an identical action is stored there. Otherwise, it will fall back to an action cache

@@ -65,7 +65,7 @@ async def test_audit_config_cell_json(buck: Buck) -> None:
     assert out_json.get("test.is_root") is None
 
 
-@buck_test(inplace=False, data_dir="cells")
+@buck_test(inplace=False, setup_eden=True, data_dir="cells")
 async def test_audit_config_all_cells(buck: Buck) -> None:
     out = await buck.audit_config(
         "--all-cells",
