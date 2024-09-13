@@ -56,6 +56,7 @@ def main():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         encoding=sys.stdout.encoding,
+        env=env,
     )
 
     print(result.stdout, file=sys.stdout, end="")
