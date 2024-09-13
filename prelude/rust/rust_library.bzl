@@ -60,6 +60,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
     ":build.bzl",
@@ -114,6 +115,8 @@ load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
 
+_DEFAULT_ROOTS = ["lib.rs"]
+
 def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx)
     toolchain_info = compile_ctx.toolchain_info
@@ -133,7 +136,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("metadata-fast"),
         params = meta_params,
-        default_roots = ["lib.rs"],
+        default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
@@ -148,7 +151,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compile_ctx = compile_ctx,
             emit = Emit("link"),
             params = params,
-            default_roots = ["lib.rs"],
+            default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
         )
 
@@ -160,7 +163,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     compile_ctx = compile_ctx,
                     emit = Emit("metadata-full"),
                     params = params,
-                    default_roots = ["lib.rs"],
+                    default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
                 MetadataKind("fast"): meta_fast,
@@ -216,12 +219,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Among {rustdoc, doctests, macro expand}, doctests are the only one which
     # cares about linkage. So whatever build params we picked for the doctests,
     # reuse them for the other two as well
-    default_roots = ["lib.rs"]
     rustdoc = generate_rustdoc(
         ctx = ctx,
         compile_ctx = compile_ctx,
         params = static_library_params,
-        default_roots = default_roots,
+        default_roots = _DEFAULT_ROOTS,
         document_private_items = False,
     )
 
@@ -229,7 +231,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         compile_ctx = compile_ctx,
         params = static_library_params,
-        default_roots = default_roots,
+        default_roots = _DEFAULT_ROOTS,
     )
 
     expand = rust_compile(
@@ -237,7 +239,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("expand"),
         params = static_library_params,
-        default_roots = default_roots,
+        default_roots = _DEFAULT_ROOTS,
         # This is needed as rustc can generate expanded sources that do not
         # fully compile, but will report an error even if it succeeds.
         # TODO(pickett): Handle this at the rustc action level, we shouldn't
@@ -251,7 +253,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         compile_ctx = compile_ctx,
         emit = Emit("llvm-ir"),
         params = static_library_params,
-        default_roots = default_roots,
+        default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
@@ -276,7 +278,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rlib = rust_param_artifact[static_library_params][MetadataKind("link")].output,
         link_infos = link_infos,
         params = rustdoc_test_params,
-        default_roots = default_roots,
+        default_roots = _DEFAULT_ROOTS,
     )
 
     # infallible_diagnostics allows us to circumvent compilation failures and
@@ -291,7 +293,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compile_ctx = compile_ctx,
             emit = Emit("metadata-fast"),
             params = meta_params,
-            default_roots = ["lib.rs"],
+            default_roots = _DEFAULT_ROOTS,
             infallible_diagnostics = True,
             incremental_enabled = incr,
         )
@@ -300,7 +302,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compile_ctx = compile_ctx,
             emit = Emit("clippy"),
             params = meta_params,
-            default_roots = ["lib.rs"],
+            default_roots = _DEFAULT_ROOTS,
             infallible_diagnostics = True,
             incremental_enabled = incr,
         )
@@ -358,6 +360,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )))
 
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps))
+
+    providers.append(rust_analyzer_provider(
+        ctx = ctx,
+        default_roots = _DEFAULT_ROOTS,
+    ))
 
     return providers
 

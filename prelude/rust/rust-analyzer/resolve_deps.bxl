@@ -8,6 +8,7 @@
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
+load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo")
 load("@prelude//utils:type_defs.bzl", "is_list")
 
 TargetInfo = dict[str, typing.Any]
@@ -21,12 +22,6 @@ ExpandedAndResolved = record(
     expanded_targets = list[TargetLabel],
     queried_proc_macros = dict[TargetLabel, MacroOutput],
     resolved_deps = dict[TargetLabel, TargetInfo],
-)
-
-MappedSrc = record(
-    target = bxl.ConfiguredTargetNode,
-    src = Label,
-    dest = str,
 )
 
 def materialize(
@@ -95,7 +90,7 @@ def _process_target_config(
         "buck.deps": _get_nullable_attr(attrs, "buck.deps"),
         "crate": _get_nullable_attr(attrs, "crate"),
         "crate_dynamic": crate_dynamic,
-        "crate_root": _get_nullable_attr(attrs, "crate_root"),
+        "crate_root": providers[RustAnalyzerInfo].crate_root,
         "deps": deps,
         "edition": _get_nullable_attr(attrs, "edition"),
         "env": _get_nullable_attr(attrs, "env"),
@@ -127,7 +122,6 @@ def cquery_deps(
     # Eagerly analyze targets
     analysis = ctx.analysis(outputs)
 
-    mapped_srcs = []
     seen = {}
     for target in outputs:
         attrs = target.attrs_lazy()
@@ -145,20 +139,11 @@ def cquery_deps(
         )
 
         labels = attrs.get("labels")
-        if "thrift_library-rust" in labels.value():
-            for src, dest in attrs.get("mapped_srcs").value().items():
-                mapped_srcs.append(MappedSrc(
-                    target = target,
-                    src = src,
-                    dest = dest,
-                ))
-        elif "generated_protobuf_library_rust" in labels.value():
+        if "generated_protobuf_library_rust" in labels.value():
             protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
             target_info["out_dir"] = protobuf_out_dir
 
         out[target.label.raw_target()] = target_info
-
-    materialize_generated_thrift(ctx, actions, mapped_srcs, out)
 
     return out
 
@@ -183,30 +168,6 @@ def materialize_generated_protobufs(
         seen[outfile] = artifact
 
     return artifact
-
-def materialize_generated_thrift(
-        ctx: bxl.Context,
-        actions: AnalysisActions,
-        mapped_srcs: list[MappedSrc],
-        out: dict[TargetLabel, TargetInfo]) -> None:
-    built = ctx.build([m.src for m in mapped_srcs])
-
-    seen = {}
-    for m in mapped_srcs:
-        build_result = built[m.src]
-        if len(build_result.artifacts()) == 0:
-            continue
-
-        outfile = "{}/{}/{}/{}".format(m.target.label.cell, m.target.label.package, m.target.label.name, m.dest)
-
-        artifact = seen.get(outfile)
-        if not artifact:
-            copied = actions.copy_file(outfile, build_result.artifacts()[0])
-            artifact = copied
-            seen[outfile] = artifact
-
-        if m.dest == "lib.rs":
-            out[m.target.label.raw_target()]["crate_root"] = artifact
 
 def expand_proc_macros(
         ctx: bxl.Context,

@@ -115,7 +115,7 @@ pub(crate) struct TargetInfo {
     #[serde(rename = "crate")]
     pub(crate) crate_name: Option<String>,
     pub(crate) crate_dynamic: Option<PathBuf>,
-    pub(crate) crate_root: Option<PathBuf>,
+    pub(crate) crate_root: PathBuf,
     #[serde(rename = "buck.deps", alias = "buck.direct_dependencies", default)]
     pub(crate) deps: Vec<Target>,
     #[serde(rename = "tests")]
@@ -160,59 +160,15 @@ impl TargetInfo {
     }
 
     pub(crate) fn root_module(&self) -> PathBuf {
-        if let Some(crate_root) = &self.crate_root {
-            // If provided with a crate_root directly, and it's valid, use it.
-            if let Ok(path) = canonicalize(self.source_folder.join(crate_root)) {
-                return path;
-            }
+        // If provided with a crate_root directly, and it's valid, use it.
+        if let Ok(path) = canonicalize(self.source_folder.join(&self.crate_root)) {
+            return path;
         }
 
-        // Matches buck crate_root fetching logic
-        let root_candidates =
-            // Use buck rust build.bxl fallback logic
-            vec![
-                PathBuf::from("lib.rs"),
-                PathBuf::from("main.rs"),
-                PathBuf::from(&self.name.replace('-', "_")),
-            ];
-
-        tracing::trace!(
-            ?self,
-            ?root_candidates,
-            "trying to discover a good root module"
-        );
-        // for all normal sources, we need to reference the file on the fbcode tree so navigation works
-        match self.srcs.iter().find(|src| {
-            root_candidates
-                .iter()
-                .any(|candidate| src.ends_with(candidate))
-        }) {
-            // If a real source is provided, returns it's absolute path.
-            // This will not work with crate using more than one target as a direct src.
-            // Fortunately this is not used at the moment. Likely to be fixed in BXL instead
-            Some(path) => return path.to_path_buf(),
-            None => tracing::debug!(?self, "unable to find root for crate"),
-        };
-
-        for (dest, _) in self.mapped_srcs.iter() {
-            if root_candidates.iter().any(|c| dest.ends_with(c)) {
-                // Returns the files as seen in the materialized source
-                return self.source_folder.join(dest);
-            }
-        }
-
-        if let Some(fallback_path) = self.srcs.first().cloned().or_else(|| {
-            self.mapped_srcs
-                .keys()
-                .next()
-                .map(|mapped_path| self.source_folder.join(mapped_path))
-        }) {
-            return fallback_path;
-        }
-
-        tracing::error!(?self, "no crate root can be found");
-
-        panic!("Invariant broken: rust-project is unable to determine a root module")
+        panic!(
+            "Invariant broken: rust-project is unable to determine a root module from provided crate_root: {:?}",
+            self.crate_root
+        )
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
@@ -315,7 +271,7 @@ fn test_cfg() {
         mapped_srcs: FxHashMap::default(),
         crate_name: None,
         crate_dynamic: None,
-        crate_root: None,
+        crate_root: PathBuf::default(),
         deps: vec![],
         test_deps: vec![],
         named_deps: FxHashMap::default(),

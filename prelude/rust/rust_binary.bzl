@@ -44,6 +44,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
@@ -383,6 +384,10 @@ def _rust_binary_common(
             nondebug_runtime_files = runtime_files,
         ),
     ]
+    providers.append(rust_analyzer_provider(
+        ctx = ctx,
+        default_roots = default_roots,
+    ))
     return (providers, args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:

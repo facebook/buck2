@@ -902,12 +902,9 @@ def _compute_common_args(
     # Included in tempfiles
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
 
-    srcs = ctx.attrs.srcs
-    mapped_srcs = ctx.attrs.mapped_srcs
-    all_srcs = map(lambda s: s.short_path, srcs) + mapped_srcs.values()
-    crate_root = ctx.attrs.crate_root or _crate_root(ctx, all_srcs, default_roots)
+    root = crate_root(ctx, default_roots)
     if exec_is_windows:
-        crate_root = crate_root.replace("/", "\\")
+        root = root.replace("/", "\\")
 
     # With `advanced_unstable_linking`, we unconditionally pass the metadata
     # artifacts. There are two things that work together to make this possible
@@ -1045,7 +1042,7 @@ def _compute_common_args(
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
     args = cmd_args(
-        cmd_args(compile_ctx.symlinked_srcs, path_sep, crate_root, delimiter = ""),
+        cmd_args(compile_ctx.symlinked_srcs, path_sep, root, delimiter = ""),
         crate_name_arg,
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
@@ -1162,10 +1159,14 @@ def _metadata(label: Label, is_rustdoc_test: bool) -> (str, str):
     h = "%x" % h
     return (label, "0" * (8 - len(h)) + h)
 
-def _crate_root(
+def crate_root(
         ctx: AnalysisContext,
-        srcs: list[str],
         default_roots: list[str]) -> str:
+    if ctx.attrs.crate_root:
+        return ctx.attrs.crate_root
+
+    srcs = [s.short_path for s in ctx.attrs.srcs] + ctx.attrs.mapped_srcs.values()
+
     candidates = set()
     if getattr(ctx.attrs, "crate_dynamic", None):
         crate_with_suffix = None
