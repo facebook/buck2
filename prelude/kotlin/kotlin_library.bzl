@@ -421,6 +421,11 @@ def build_kotlin_library(
                 **common_kotlincd_kwargs
             )
 
+            if outputs and outputs.incremental_state_dir:
+                extra_sub_targets = extra_sub_targets | {"incremental_state_dir": [
+                    DefaultInfo(default_output = outputs.incremental_state_dir),
+                ]}
+
             if outputs and outputs.annotation_processor_output:
                 generated_sources = [outputs.annotation_processor_output]
                 extra_sub_targets = extra_sub_targets | {"generated_sources": [

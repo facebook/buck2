@@ -228,6 +228,7 @@ JavaCompileOutputs = record(
     classpath_entry = JavaClasspathEntry,
     annotation_processor_output = Artifact | None,
     preprocessed_library = Artifact,
+    incremental_state_dir = Artifact | None,
 )
 
 JavaProviders = record(
@@ -270,7 +271,8 @@ def make_compile_outputs(
         classpath_abi: Artifact | None = None,
         classpath_abi_dir: Artifact | None = None,
         required_for_source_only_abi: bool = False,
-        annotation_processor_output: Artifact | None = None) -> JavaCompileOutputs:
+        annotation_processor_output: Artifact | None = None,
+        incremental_state_dir: Artifact | None = None) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -285,6 +287,7 @@ def make_compile_outputs(
         ),
         annotation_processor_output = annotation_processor_output,
         preprocessed_library = preprocessed_library,
+        incremental_state_dir = incremental_state_dir,
     )
 
 def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact) -> Artifact:

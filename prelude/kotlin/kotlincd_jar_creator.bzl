@@ -421,6 +421,7 @@ def create_jar_artifact_kotlincd(
             classpath_abi_dir = classpath_abi_dir,
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
+            incremental_state_dir = incremental_state_dir,
         )
     else:
         return make_compile_outputs(
