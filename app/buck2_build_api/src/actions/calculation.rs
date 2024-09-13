@@ -21,7 +21,7 @@ use buck2_build_signals::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_data::ActionErrorDiagnostics;
+use buck2_data::{action_error_diagnostics, ActionErrorDiagnostics};
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::async_record_root_spans;
@@ -57,6 +57,7 @@ use crate::actions::error_handler::ActionSubErrorResult;
 use crate::actions::error_handler::StarlarkActionErrorContext;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
+use crate::actions::execute::error::ExecuteError;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
 use crate::deferred::calculation::lookup_deferred_holder;
@@ -255,7 +256,10 @@ async fn build_action_no_redirect(
 
                 let last_command = commands.last().cloned();
 
-                let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
+                let error_diagnostics = build_error_diagnostics(
+                    &e,
+                    try_run_error_handler(action.dupe(), last_command.as_ref())
+                );
 
                 let e = ActionError::new(
                     e,
@@ -357,8 +361,48 @@ async fn build_action_no_redirect(
         },
         spans,
     })?;
-
     action_execution_data.action_result
+}
+
+fn build_error_diagnostics(execute_error: &ExecuteError, error_diagnostics: Option<ActionErrorDiagnostics>) -> Option<ActionErrorDiagnostics> {
+    let ExecuteError::CommandExecutionError { error: Some(command_execute_error) } = execute_error else {
+        return error_diagnostics;
+    };
+    let action_sub_error = || buck2_data::ActionSubError {
+        category: "ServerMessage".to_string(),
+        message: Some(format!("{}", command_execute_error)),
+        locations: None,
+    };
+    if let Some(inner_error_diagnostics) = &error_diagnostics {
+        if let Some(error_diagnostics_data) = &inner_error_diagnostics.data {
+            match error_diagnostics_data {
+                action_error_diagnostics::Data::SubErrors(action_sub_errors) => {
+                    let sub_errors = action_sub_errors
+                        .sub_errors
+                        .iter()
+                        .chain([&action_sub_error()])
+                        .cloned()
+                        .collect();
+                    Some(ActionErrorDiagnostics {
+                        data: Some(action_error_diagnostics::Data::SubErrors(ActionSubErrors { sub_errors })),
+                    })
+                },
+                action_error_diagnostics::Data::HandlerInvocationError(handler_error) => {
+                    Some(ActionErrorDiagnostics {
+                        data: Some(action_error_diagnostics::Data::HandlerInvocationError(format!("{}\n{}", handler_error, command_execute_error))),
+                    })
+                },
+            }
+        } else {
+            Some(ActionErrorDiagnostics {
+                data: Some(action_error_diagnostics::Data::SubErrors(ActionSubErrors { sub_errors: vec![action_sub_error()] })),
+            })
+        }
+    } else {
+        Some(ActionErrorDiagnostics {
+            data: Some(action_error_diagnostics::Data::SubErrors(ActionSubErrors { sub_errors: vec![action_sub_error()] })),
+        })
+    }
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or

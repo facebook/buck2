@@ -143,6 +143,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             eligible_for_full_hybrid: false,
             dep_file_metadata: None,
             action_result: None,
+            server_message: None,
         }
     }
 
@@ -223,6 +224,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             eligible_for_full_hybrid: false,
             dep_file_metadata: None,
             action_result: None,
+            server_message: None,
         }
     }
 

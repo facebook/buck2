@@ -462,7 +462,15 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     error: Some(error.clone()),
                 })
             }
-            _ => Err(ExecuteError::CommandExecutionError { error: None }),
+            _ => {
+                #[derive(Display, Debug, thiserror::Error)]
+                struct ServerError {
+                    message: String,
+                }
+                Err(ExecuteError::CommandExecutionError { error: result.server_message.map(|server_message| buck2_error::Error::new(ServerError{
+                    message: server_message,
+                })) })
+            },
         };
         self.command_reports.extend(rejected_execution);
         self.command_reports.push(report);

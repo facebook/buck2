@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 

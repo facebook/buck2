@@ -189,9 +189,9 @@ impl ReExecutor {
             platform: platform.clone(),
             remote_dep_file_key: None,
         };
-
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
+
         if response.status.code != TCode::OK {
             let res = if let Some(out) = as_missing_outputs_error(&response.status) {
                 // TODO: Add a dedicated report variant for this.
@@ -236,7 +236,6 @@ impl ReExecutor {
                     error_type,
                 )
             };
-
             return ControlFlow::Break(res);
         }
 
@@ -357,9 +356,9 @@ impl PreparedCommandExecutor for ReExecutor {
         )
         .boxed()
         .await;
-
         let DownloadResult::Result(mut res) = res;
         res.action_result = Some(response.action_result);
+        res.server_message = if response.message.is_empty() { None } else { Some(response.message) };
         res
     }
 

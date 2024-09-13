@@ -196,6 +196,7 @@ pub struct CommandExecutionResult {
     /// to be re-used when uploading the remote dep file.
     #[derivative(Debug = "ignore")]
     pub action_result: Option<TActionResult2>,
+    pub server_message: Option<String>,
 }
 
 impl CommandExecutionResult {
