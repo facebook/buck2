@@ -14,9 +14,9 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
-from asyncio import subprocess
 from collections import namedtuple
 from pathlib import Path
 from typing import (
@@ -46,6 +46,8 @@ BuckTestMarker = namedtuple(
         "allow_soft_errors",
         "extra_buck_config",
         "skip_final_kill",
+        # Whether or not to set up an EdenFS repo for this test. Only matters for inplace=False.
+        "setup_eden",
     ],
 )
 
@@ -116,7 +118,29 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Create a temporary file to store all lines of extra buck config values.
     extra_config_lines = []
 
+    # Temp dirs needed for EdenFS, will only be created if necessary
+    eden_dir = temp_dir / "eden"
+    etc_eden_dir = temp_dir / "etc_eden"
+    home_dir = temp_dir / "home"
+    backing_dir = temp_dir / "backing_dir"
+    repo_dir = temp_dir / "repo"
+
     try:
+        if marker.setup_eden:
+            assert (
+                not marker.inplace
+            ), "EdenFS for e2e tests is not supported for inplace tests"
+
+            _setup_eden(
+                eden_dir,
+                etc_eden_dir,
+                home_dir,
+                backing_dir,
+                repo_dir,
+                env,
+                is_windows,
+            )
+
         if marker.inplace:
             # We need a unique isolated prefix per test case.
             current_test = (
@@ -139,17 +163,16 @@ async def buck_fixture(  # noqa C901 : "too complex"
             extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
 
         else:
-            repo_dir = temp_dir / "repo"
-            _setup_not_inplace(repo_dir)
+            _setup_not_inplace(backing_dir)
             if marker.data_dir is not None:
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
-                _copytree(src, repo_dir)
-                _setup_ovr_config(repo_dir)
-                with open(Path(repo_dir, ".watchmanconfig"), "w") as f:
+                _copytree(src, backing_dir)
+                _setup_ovr_config(backing_dir)
+                with open(Path(backing_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
                         {
-                            "ignore_dirs": ["buck-out"],
+                            "ignore_dirs": ["buck-out", ".hg"],
                             "fsevents_watch_files": True,
                             "prefer_split_fsevents_watcher": False,
                         },
@@ -160,7 +183,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             if sys.platform == "darwin":
                 extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
-            buck_cwd = repo_dir
+            buck_cwd = backing_dir
 
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")
@@ -195,6 +218,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
         if keep_temp:
             print(f"Not deleting temporary directory at {temp_dir}", file=sys.stderr)
         else:
+            if marker.setup_eden:
+                _cleanup_eden(eden_dir, repo_dir, env)
             shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -211,15 +236,18 @@ async def buck(request) -> AsyncIterator[Buck]:
 
 
 async def _get_common_dir() -> Path:
+    from asyncio import subprocess
+
     """
     Returns a temporary directory using mkscratch.
     The advantage of using mkscratch is that it can return the same directory on multiple calls.
     """
+    # Need to use `--hash` over `--subdir` here because the tmp path would be too long and
+    # Eden would fail with `Socket path too large to fit into sockaddr_un` otherwise
     mkscratch_proc = await subprocess.create_subprocess_exec(
         "mkscratch",
         "path",
-        "--subdir",
-        "buck_e2e",
+        "--hash",
         stdout=subprocess.PIPE,
     )
     stdout, _ = await mkscratch_proc.communicate()
@@ -236,6 +264,105 @@ def nobuckd(fn: Callable) -> Callable:
         return fn(buck, *args, **kwargs)
 
     return decorator(wrapped, fn)
+
+
+# Adapted from Eden integration test, didn't use their code because Eden uses the compiled binary in their buck-out
+# which we don't have, extracting that part out would be more work than what was done below.
+# https://www.internalfb.com/code/fbsource/[45334ead4a72]/fbcode/eden/integration/lib/testcase.py?lines=123
+def _setup_eden(
+    eden_dir: Path,
+    etc_eden_dir: Path,
+    home_dir: Path,
+    backing_dir: Path,
+    repo_dir: Path,
+    env: Dict[str, str],
+    is_windows: bool,
+):
+    # Eden setup is best effort, it won't fail the tests if the setup fails
+    eden_dir.mkdir(exist_ok=True)
+    etc_eden_dir.mkdir(exist_ok=True)
+    home_dir.mkdir(exist_ok=True)
+    backing_dir.mkdir(exist_ok=True)
+
+    # Start up an EdenFS Client and point it to the temp dirs
+    subprocess.run(
+        [
+            "eden",
+            "--etc-eden-dir",
+            str(etc_eden_dir),
+            "--config-dir",
+            str(eden_dir),
+            "--home-dir",
+            str(home_dir),
+            "start",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
+
+    # Initialize a hg repo, so Eden can mount it
+    subprocess.run(
+        ["hg", "init", str(backing_dir)],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
+
+    # Mount the hg repo we created
+    cmd = [
+        "eden",
+        "--config-dir",
+        str(eden_dir),
+        "clone",
+        backing_dir,
+        repo_dir,
+        "--allow-empty-repo",
+        "--case-insensitive",
+    ]
+
+    if is_windows:
+        cmd.append("--enable-windows-symlinks")
+
+    subprocess.run(
+        cmd,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
+
+
+def _cleanup_eden(
+    eden_dir: Path,
+    repo_dir: Path,
+    env: Dict[str, str],
+):
+    # Remove the Eden mount created for the test
+    subprocess.run(
+        [
+            "eden",
+            "--config-dir",
+            str(eden_dir),
+            "remove",
+            str(repo_dir),
+            "-y",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
+
+    subprocess.run(
+        [
+            "eden",
+            "--config-dir",
+            str(eden_dir),
+            "shutdown",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
 
 
 def _copytree(
@@ -313,6 +440,7 @@ def buck_test(
     extra_buck_config: Optional[Dict[str, Dict[str, str]]] = None,
     # Don't run a `buck2 kill` or `buck2 clean` at the end of the test
     skip_final_kill=False,
+    setup_eden=False,
 ) -> Callable:
     """
     Defines a buck test. This is a must have decorator on all test case functions.
@@ -359,6 +487,7 @@ def buck_test(
             allow_soft_errors=allow_soft_errors,
             extra_buck_config=extra_buck_config or {},
             skip_final_kill=skip_final_kill,
+            setup_eden=setup_eden,
         )
     )
 
