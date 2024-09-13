@@ -46,7 +46,6 @@ BuckTestMarker = namedtuple(
         "allow_soft_errors",
         "extra_buck_config",
         "skip_final_kill",
-        # Whether or not to set up an EdenFS repo for this test. Only matters for inplace=False.
         "setup_eden",
     ],
 )
@@ -438,7 +437,6 @@ def buck_test(
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
     allow_soft_errors=False,
     extra_buck_config: Optional[Dict[str, Dict[str, str]]] = None,
-    # Don't run a `buck2 kill` or `buck2 clean` at the end of the test
     skip_final_kill=False,
     setup_eden=False,
 ) -> Callable:
@@ -461,6 +459,14 @@ def buck_test(
             List of OS to skip the test on.
         allow_soft_errors:
             Like it says in the arg name. The default is to hard error.
+        extra_buck_config:
+            A optional dict of extra buck config to add to the test.
+            The key is the section name, the value is a dict of key value pairs.
+        skip_final_kill:
+            Don't run a `buck2 kill` or `buck2 clean` at the end of the test
+        setup_eden:
+            Whether or not to set up an EdenFS repo for this test. Only matters for inplace=False.
+            Note that this will slow the test down, so it should not be widely enabled.
     """
 
     if inplace and data_dir == "":
