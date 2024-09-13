@@ -14,8 +14,7 @@ TargetInfo = dict[str, typing.Any]
 
 MacroOutput = record(
     actual = TargetLabel,
-    # TODO(pickett): Remove bxl.EnsuredArtifact once new rust-project is published and cutover to new API.
-    dylib = Artifact | bxl.EnsuredArtifact,
+    dylib = Artifact,
 )
 
 ExpandedAndResolved = record(
@@ -278,60 +277,6 @@ def expand_targets(
 
     return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
 
-# TODO(pickett): Remove once new rust-project is published and cutover to new API.
-def _ensure_macro_output(ctx: bxl.Context, arg: MacroOutput) -> MacroOutput:
-    return MacroOutput(actual = arg.actual, dylib = ctx.output.ensure(arg.dylib).abs_path())
-
-# TODO(pickett): Remove once new rust-project is published and cutover to new API.
-def _ensure_list(ctx: bxl.Context, arg: list[typing.Any]) -> list[typing.Any]:
-    result = []
-    for v in arg:
-        if type(v) == "dict":
-            result.append(_ensure_dict(ctx, v))
-        elif type(v) == "list":
-            result.append(_ensure_list(ctx, v))
-        elif type(v) == "artifact":
-            result.append(ctx.output.ensure(v).abs_path())
-        else:
-            result.append(v)
-    return result
-
-# TODO(pickett): Remove once new rust-project is published and cutover to new API.
-def _ensure_dict(ctx: bxl.Context, arg: dict[str, typing.Any]) -> TargetInfo:
-    result = {}
-    for k, v in arg.items():
-        if type(v) == "dict":
-            result[k] = _ensure_dict(ctx, v)
-        elif type(v) == "list":
-            result[k] = _ensure_list(ctx, v)
-        elif type(v) == "artifact":
-            result[k] = ctx.output.ensure(v).abs_path()
-        else:
-            result[k] = v
-    return result
-
-# TODO(pickett): Remove once new rust-project is published and cutover to new API.
-def expand_and_resolve_impl(ctx: bxl.Context) -> None:
-    # equivalent of `flat_map`ing
-    targets = [target for sublist in ctx.cli_args.targets for target in sublist]
-    actions = ctx.bxl_actions().actions
-
-    expanded_targets, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
-    queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
-    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces, actions)
-
-    ctx.output.print_json(ExpandedAndResolved(
-        expanded_targets = dedupe(expanded_targets + workspaces),
-        queried_proc_macros = {
-            k: _ensure_macro_output(ctx, v)
-            for k, v in queried_proc_macros.items()
-        },
-        resolved_deps = {
-            k: _ensure_dict(ctx, v)
-            for k, v in resolved_deps.items()
-        },
-    ))
-
 def resolve_targets_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
     targets = [target for sublist in ctx.cli_args.targets for target in sublist]
@@ -420,16 +365,7 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
         out[buildfile_path] = [target.label for target in targets]
     ctx.output.print_json(out)
 
-expand_and_resolve = bxl_main(
-    impl = expand_and_resolve_impl,
-    cli_args = {
-        "exclude_workspaces": cli_args.bool(default = False),
-        "targets": cli_args.list(cli_args.target_expr()),
-    },
-)
-
-# A replacement for expand_and_resolve that shares more logic with the prelude. Writes a json file
-# as an artifact and returns the absolute path to that artifact to stdout.
+# Writes a json file as an artifact and returns the absolute path to that artifact to stdout.
 resolve_targets = bxl_main(
     impl = resolve_targets_impl,
     cli_args = {
