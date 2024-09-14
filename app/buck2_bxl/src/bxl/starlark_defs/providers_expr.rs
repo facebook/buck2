@@ -44,20 +44,14 @@ pub(crate) enum ProvidersExpr<P: ProvidersLabelMaybeConfigured> {
     Iterable(Vec<P>),
 }
 
+/// ProvidersLabelArg is a type that can be used as an argument in starlark api for
+/// an unconfigured provider label
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum ProvidersLabelArg<'v> {
     Str(&'v str),
     StarlarkTargetLabel(&'v StarlarkTargetLabel),
     StarlarkProvidersLabel(&'v StarlarkProvidersLabel),
     StarlarkTargetNode(&'v StarlarkTargetNode),
-}
-
-#[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ConfiguredProvidersLabelArg<'v> {
-    ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
-    ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
-    ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
-    Unconfigured(ProvidersLabelArg<'v>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
@@ -72,44 +66,54 @@ pub(crate) enum ProviderExprArg<'v> {
     List(ProviderLabelListArg<'v>),
 }
 
+/// AnyProvidersLabelArg is a type that can be used as an argument in stalark api for
+/// a configured provider label or an unconfigured provider label
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ConfiguredProvidersLabelListArg<'v> {
+pub(crate) enum AnyProvidersLabelArg<'v> {
+    ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
+    ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
+    ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    Unconfigured(ProvidersLabelArg<'v>),
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum AnyProvidersLabelListArg<'v> {
     StarlarkTargetSet(&'v StarlarkTargetSet<TargetNode>),
     StarlarkConfiguredTargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
-    List(UnpackList<ConfiguredProvidersLabelArg<'v>>),
+    List(UnpackList<AnyProvidersLabelArg<'v>>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ConfiguredProvidersExprArg<'v> {
-    One(ConfiguredProvidersLabelArg<'v>),
-    List(ConfiguredProvidersLabelListArg<'v>),
+pub(crate) enum AnyProvidersExprArg<'v> {
+    One(AnyProvidersLabelArg<'v>),
+    List(AnyProvidersLabelListArg<'v>),
 }
 
-impl<'v> ConfiguredProvidersExprArg<'v> {
+impl<'v> AnyProvidersExprArg<'v> {
     pub(crate) fn contains_unconfigured(&self) -> bool {
         match self {
-            ConfiguredProvidersExprArg::One(arg) => arg.is_unconfigured(),
-            ConfiguredProvidersExprArg::List(arg) => arg.contains_unconfigured(),
+            AnyProvidersExprArg::One(arg) => arg.is_unconfigured(),
+            AnyProvidersExprArg::List(arg) => arg.contains_unconfigured(),
         }
     }
 }
 
-impl<'v> ConfiguredProvidersLabelArg<'v> {
+impl<'v> AnyProvidersLabelArg<'v> {
     fn is_unconfigured(&self) -> bool {
         match self {
-            ConfiguredProvidersLabelArg::Unconfigured(_) => true,
+            AnyProvidersLabelArg::Unconfigured(_) => true,
             _ => false,
         }
     }
 }
 
-impl<'v> ConfiguredProvidersLabelListArg<'v> {
+impl<'v> AnyProvidersLabelListArg<'v> {
     fn contains_unconfigured(&self) -> bool {
         match self {
-            ConfiguredProvidersLabelListArg::List(args) => {
+            AnyProvidersLabelListArg::List(args) => {
                 args.items.iter().any(|arg| arg.is_unconfigured())
             }
-            ConfiguredProvidersLabelListArg::StarlarkTargetSet(_) => true,
+            AnyProvidersLabelListArg::StarlarkTargetSet(_) => true,
             _ => false,
         }
     }
@@ -117,44 +121,44 @@ impl<'v> ConfiguredProvidersLabelListArg<'v> {
 
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
-        arg: ConfiguredProvidersExprArg<'v>,
+        arg: AnyProvidersExprArg<'v>,
         global_cfg_options_override: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<Self> {
         match arg {
-            ConfiguredProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
+            AnyProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
                 Self::unpack_literal(arg, global_cfg_options_override, ctx, dice).await?,
             )),
-            ConfiguredProvidersExprArg::List(arg) => {
+            AnyProvidersExprArg::List(arg) => {
                 Ok(Self::unpack_iterable(arg, global_cfg_options_override, ctx, dice).await?)
             }
         }
     }
 
     async fn unpack_literal<'v, 'c>(
-        arg: ConfiguredProvidersLabelArg<'v>,
+        arg: AnyProvidersLabelArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         match arg {
-            ConfiguredProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
+            AnyProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
                 Ok(ConfiguredProvidersLabel::new(
                     configured_target.0.label().dupe(),
                     ProvidersName::Default,
                 ))
             }
-            ConfiguredProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
+            AnyProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
                 Ok(ConfiguredProvidersLabel::new(
                     configured_target.label().dupe(),
                     ProvidersName::Default,
                 ))
             }
-            ConfiguredProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
+            AnyProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
                 Ok(configured_target.label().dupe())
             }
-            ConfiguredProvidersLabelArg::Unconfigured(arg) => {
+            AnyProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
                 dice.get_configured_provider_label(&label, global_cfg_options_override)
                     .await
@@ -163,13 +167,13 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     }
 
     async fn unpack_iterable<'c, 'v: 'c>(
-        arg: ConfiguredProvidersLabelListArg<'v>,
+        arg: AnyProvidersLabelListArg<'v>,
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
-            ConfiguredProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
+            AnyProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
                 dice.try_compute_join(s.0.iter(), |dice, node| {
                     async move {
                         let providers_label = ProvidersLabel::default_for(node.label().dupe());
@@ -183,14 +187,14 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
                 })
                 .await?,
             )),
-            ConfiguredProvidersLabelListArg::StarlarkConfiguredTargetSet(s) => {
+            AnyProvidersLabelListArg::StarlarkConfiguredTargetSet(s) => {
                 Ok(ProvidersExpr::Iterable(
                     s.0.iter()
                         .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
                         .collect(),
                 ))
             }
-            ConfiguredProvidersLabelListArg::List(iterable) => {
+            AnyProvidersLabelListArg::List(iterable) => {
                 let mut res = Vec::new();
                 for arg in iterable.items {
                     res.push(

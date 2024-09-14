@@ -127,7 +127,7 @@ use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
-use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
+use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
@@ -1221,7 +1221,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         this: &BxlContext<'v>,
         // TODO(nga): these parameters should be either position or named, not both.
-        labels: ConfiguredProvidersExprArg<'v>,
+        labels: AnyProvidersExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
@@ -1311,7 +1311,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     fn build<'v>(
         this: &'v BxlContext<'v>,
         // TODO(nga): parameter should be either positional or named, not both.
-        labels: ConfiguredProvidersExprArg<'v>,
+        labels: AnyProvidersExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = "default")] materializations: &str,

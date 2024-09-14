@@ -47,7 +47,7 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
-use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
+use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
@@ -133,7 +133,7 @@ pub(crate) async fn get_aquery_env(
 enum UnpackActionNodes<'v> {
     ActionQueryNodes(UnpackList<StarlarkActionQueryNode>),
     ActionQueryNodesSet(&'v StarlarkTargetSet<ActionQueryNode>),
-    ConfiguredProviders(ConfiguredProvidersExprArg<'v>),
+    ConfiguredProviders(AnyProvidersExprArg<'v>),
     ConfiguredTargets(ConfiguredTargetListExprArg<'v>),
 }
 

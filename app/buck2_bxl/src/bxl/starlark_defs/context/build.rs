@@ -49,7 +49,7 @@ use starlark_map::small_map::SmallMap;
 
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
+use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
@@ -175,7 +175,7 @@ where
 
 pub(crate) fn build<'v>(
     ctx: &BxlContext<'v>,
-    spec: ConfiguredProvidersExprArg<'v>,
+    spec: AnyProvidersExprArg<'v>,
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
     eval: &Evaluator<'v, '_, '_>,
