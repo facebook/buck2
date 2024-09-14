@@ -56,6 +56,7 @@ PythonToolchainInfo = provider(
         "native_link_strategy": provider_field(typing.Any, default = None),
         "linker_flags": provider_field(typing.Any, default = None),
         "binary_linker_flags": provider_field(typing.Any, default = None),
+        "extension_linker_flags": provider_field(typing.Any, default = None),
         "generate_static_extension_info": provider_field(typing.Any, default = None),
         "parse_imports": provider_field(typing.Any, default = None),
         "traverse_dep_manifest": provider_field(typing.Any, default = None),

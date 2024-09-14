@@ -35,6 +35,7 @@ load(
 )
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
@@ -112,6 +113,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             expect(not manifests.resources[1])
             srcs.append(manifests.resources[0])
         if manifests.extensions != None:
+            python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
             toolchain_info = get_cxx_toolchain_info(ctx)
             items = manifests.extensions.items()
             expect(len(items) == 1)
@@ -148,7 +150,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 output = extension,
                 opts = link_options(
-                    links = [LinkArgs(infos = inputs)],
+                    links = [
+                        LinkArgs(flags = python_toolchain.extension_linker_flags),
+                        LinkArgs(infos = inputs),
+                    ],
                     category_suffix = "native_extension",
                     identifier = extension,
                     link_execution_preference = LinkExecutionPreference("any"),
@@ -222,5 +227,6 @@ python_wheel = rule(
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _cxx_toolchain = toolchains_common.cxx(),
+        _python_toolchain = toolchains_common.python(),
     ),
 )

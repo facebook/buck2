@@ -60,7 +60,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
+load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
@@ -110,6 +110,8 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         preprocessor_for_tests = False,
     )
 
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+
     impl_params = CxxRuleConstructorParams(
         build_empty_so = True,
         rule_type = "cxx_python_extension",
@@ -122,6 +124,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
+        extra_link_flags = python_toolchain.extension_linker_flags,
         lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
