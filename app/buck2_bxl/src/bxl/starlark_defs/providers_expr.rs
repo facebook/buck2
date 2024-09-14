@@ -55,15 +55,15 @@ pub(crate) enum ProvidersLabelArg<'v> {
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ProviderLabelListArg<'v> {
+pub(crate) enum ProvidersLabelListArg<'v> {
     List(UnpackList<ProvidersLabelArg<'v>>),
     TargetSet(&'v StarlarkTargetSet<TargetNode>),
 }
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum ProviderExprArg<'v> {
+pub(crate) enum ProvidersExprArg<'v> {
     One(ProvidersLabelArg<'v>),
-    List(ProviderLabelListArg<'v>),
+    List(ProvidersLabelListArg<'v>),
 }
 
 /// AnyProvidersLabelArg is a type that can be used as an argument in stalark api for
@@ -210,12 +210,12 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
 
 impl ProvidersExpr<ProvidersLabel> {
     pub(crate) fn unpack<'v>(
-        arg: ProviderExprArg<'v>,
+        arg: ProvidersExprArg<'v>,
         ctx: &BxlContextNoDice<'_>,
     ) -> anyhow::Result<Self> {
         match arg {
-            ProviderExprArg::One(arg) => Self::unpack_literal(arg, ctx),
-            ProviderExprArg::List(arg) => Self::unpack_iterable(arg, ctx),
+            ProvidersExprArg::One(arg) => Self::unpack_literal(arg, ctx),
+            ProvidersExprArg::List(arg) => Self::unpack_iterable(arg, ctx),
         }
     }
 
@@ -227,16 +227,16 @@ impl ProvidersExpr<ProvidersLabel> {
     }
 
     fn unpack_iterable<'c, 'v: 'c>(
-        arg: ProviderLabelListArg<'v>,
+        arg: ProvidersLabelListArg<'v>,
         ctx: &'c BxlContextNoDice<'_>,
     ) -> anyhow::Result<ProvidersExpr<ProvidersLabel>> {
         match arg {
-            ProviderLabelListArg::TargetSet(s) => Ok(ProvidersExpr::Iterable(
+            ProvidersLabelListArg::TargetSet(s) => Ok(ProvidersExpr::Iterable(
                 s.0.iter()
                     .map(|node| ProvidersLabel::default_for(node.label().dupe()))
                     .collect(),
             )),
-            ProviderLabelListArg::List(iterable) => {
+            ProvidersLabelListArg::List(iterable) => {
                 let mut res = Vec::new();
                 for val in iterable.items {
                     res.push(Self::unpack_providers_label(val, ctx)?)

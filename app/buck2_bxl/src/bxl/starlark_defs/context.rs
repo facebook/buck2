@@ -128,8 +128,8 @@ use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
-use crate::bxl::starlark_defs::providers_expr::ProviderExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
+use crate::bxl::starlark_defs::providers_expr::ProvidersExprArg;
 use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
@@ -921,7 +921,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     fn unconfigured_sub_targets<'v>(
         this: &BxlContext<'v>,
         // TODO(nga): parameter should be either positional or named, not both.
-        labels: ProviderExprArg<'v>,
+        labels: ProvidersExprArg<'v>,
     ) -> anyhow::Result<Either<StarlarkProvidersLabel, SmallMap<String, StarlarkProvidersLabel>>>
     {
         let providers =
@@ -1096,9 +1096,11 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// platform resolution from the parent BXL.
     fn bxl_actions<'v>(
         this: &'v BxlContext<'v>,
-        #[starlark(require = named, default = NoneOr::None)] exec_deps: NoneOr<ProviderExprArg<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] exec_deps: NoneOr<
+            ProvidersExprArg<'v>,
+        >,
         #[starlark(require = named, default = NoneOr::None)] toolchains: NoneOr<
-            ProviderExprArg<'v>,
+            ProvidersExprArg<'v>,
         >,
         #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
