@@ -56,7 +56,9 @@ async def test_cfg_constructor_with_target_modifiers(buck: Buck) -> None:
     },
 )
 async def test_invoke_cfg_constructors_with_cli_modifier_validation(buck: Buck) -> None:
-    env = {"BUCK2_HARD_ERROR": "only=starlark_cli_modifier_fails_ci_allowlist"}
+    env = {
+        "BUCK2_HARD_ERROR": "only=starlark_cli_modifier_fails_ci_allowlist_version_two"
+    }
     await buck.cquery(
         "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
         "--modifier=ovr_config//os:linux",
