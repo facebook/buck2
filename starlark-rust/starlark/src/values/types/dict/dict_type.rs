@@ -26,10 +26,10 @@ use crate::values::UnpackAndDiscard;
 use crate::values::UnpackValue;
 use crate::values::Value;
 
-/// A dict used just for display purposes.
+/// A dict type marker.
 ///
-/// `DictOf` requires `Unpack` to be implemented, and `Dict` does not take type parameters so
-/// we need something for documentation generation.
+/// [`StarlarkTypeRepr`] provides `dict[K, V]`.
+/// [`UnpackValue`] implementation verifies the types of entries and discards them.
 pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
     k: PhantomData<K>,
     v: PhantomData<V>,
