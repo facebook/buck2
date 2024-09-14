@@ -18,8 +18,8 @@
 use either::Either;
 
 use crate::values::dict::DictRef;
-use crate::values::type_repr::DictType;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::dict::dict_type::DictType;
 use crate::values::UnpackValue;
 use crate::values::Value;
 

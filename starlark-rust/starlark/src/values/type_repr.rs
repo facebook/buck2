@@ -18,19 +18,14 @@
 //! Trait and default implementations of a trait that will show starlark type annotations for a
 //! given type.
 
-use std::marker::PhantomData;
-
 use either::Either;
 pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
-use crate::values::dict::UnpackDictEntries;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
-use crate::values::UnpackAndDiscard;
-use crate::values::UnpackValue;
 use crate::values::Value;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
@@ -51,7 +46,7 @@ use crate::values::Value;
 ///
 /// It emits type `int | str`.
 ///
-/// This derive is useful in combination with derive of [`UnpackValue`].
+/// This derive is useful in combination with derive of [`UnpackValue`](crate::values::UnpackValue).
 pub trait StarlarkTypeRepr {
     /// Different Rust type representing the same Starlark Type.
     ///
@@ -66,40 +61,6 @@ pub trait StarlarkTypeRepr {
 
     /// The representation of a type that a user would use verbatim in starlark type annotations
     fn starlark_type_repr() -> Ty;
-}
-
-/// A dict used just for display purposes.
-///
-/// `DictOf` requires `Unpack` to be implemented, and `Dict` does not take type parameters so
-/// we need something for documentation generation.
-pub struct DictType<K: StarlarkTypeRepr, V: StarlarkTypeRepr> {
-    k: PhantomData<K>,
-    v: PhantomData<V>,
-}
-
-impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for DictType<K, V> {
-    type Canonical = DictType<K::Canonical, V::Canonical>;
-
-    fn starlark_type_repr() -> Ty {
-        Ty::dict(K::starlark_type_repr(), V::starlark_type_repr())
-    }
-}
-
-impl<'v, K: UnpackValue<'v>, V: UnpackValue<'v>> UnpackValue<'v> for DictType<K, V> {
-    type Error = Either<K::Error, V::Error>;
-
-    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        match UnpackDictEntries::<UnpackAndDiscard<K>, UnpackAndDiscard<V>>::unpack_value_impl(
-            value,
-        ) {
-            Ok(Some(_)) => Ok(Some(DictType {
-                k: PhantomData,
-                v: PhantomData,
-            })),
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
 }
 
 impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {

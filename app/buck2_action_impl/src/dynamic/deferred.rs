@@ -56,7 +56,7 @@ use indexmap::IndexSet;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
-use starlark::values::type_repr::DictType;
+use starlark::values::dict::DictType;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Value;

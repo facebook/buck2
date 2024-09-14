@@ -17,7 +17,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
-use starlark::values::type_repr::DictType;
+use starlark::values::dict::DictType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Trace;
