@@ -123,10 +123,7 @@ impl<'v> AnyProvidersExprArg<'v> {
 
 impl<'v> AnyProvidersLabelArg<'v> {
     fn is_unconfigured(&self) -> bool {
-        match self {
-            AnyProvidersLabelArg::Unconfigured(_) => true,
-            _ => false,
-        }
+        matches!(self, AnyProvidersLabelArg::Unconfigured(_))
     }
 }
 
