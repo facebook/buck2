@@ -66,13 +66,20 @@ pub(crate) enum ProvidersExprArg<'v> {
     List(ProvidersLabelListArg<'v>),
 }
 
+/// ConfiguredProvidersLabelArg is a type that can be used as an argument in starlark api for
+/// a configured provider label
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ConfiguredProvidersLabelArg<'v> {
+    Node(&'v StarlarkConfiguredTargetNode),
+    Label(&'v StarlarkConfiguredTargetLabel),
+    ProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+}
+
 /// AnyProvidersLabelArg is a type that can be used as an argument in stalark api for
 /// a configured provider label or an unconfigured provider label
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum AnyProvidersLabelArg<'v> {
-    ConfiguredTargetNode(&'v StarlarkConfiguredTargetNode),
-    ConfiguredTargetLabel(&'v StarlarkConfiguredTargetLabel),
-    ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    Configured(ConfiguredProvidersLabelArg<'v>),
     Unconfigured(ProvidersLabelArg<'v>),
 }
 
@@ -87,6 +94,22 @@ pub(crate) enum AnyProvidersLabelListArg<'v> {
 pub(crate) enum AnyProvidersExprArg<'v> {
     One(AnyProvidersLabelArg<'v>),
     List(AnyProvidersLabelListArg<'v>),
+}
+
+impl<'v> ConfiguredProvidersLabelArg<'v> {
+    pub(crate) fn configured_providers_label(&self) -> ConfiguredProvidersLabel {
+        match self {
+            ConfiguredProvidersLabelArg::Node(node) => {
+                ConfiguredProvidersLabel::default_for(node.0.label().dupe())
+            }
+            ConfiguredProvidersLabelArg::Label(label) => {
+                ConfiguredProvidersLabel::default_for(label.label().dupe())
+            }
+            ConfiguredProvidersLabelArg::ProvidersLabel(providers_label) => {
+                providers_label.label().dupe()
+            }
+        }
+    }
 }
 
 impl<'v> AnyProvidersExprArg<'v> {
@@ -143,21 +166,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         dice: &'c mut DiceComputations<'_>,
     ) -> anyhow::Result<ConfiguredProvidersLabel> {
         match arg {
-            AnyProvidersLabelArg::ConfiguredTargetNode(configured_target) => {
-                Ok(ConfiguredProvidersLabel::new(
-                    configured_target.0.label().dupe(),
-                    ProvidersName::Default,
-                ))
-            }
-            AnyProvidersLabelArg::ConfiguredTargetLabel(configured_target) => {
-                Ok(ConfiguredProvidersLabel::new(
-                    configured_target.label().dupe(),
-                    ProvidersName::Default,
-                ))
-            }
-            AnyProvidersLabelArg::ConfiguredProvidersLabel(configured_target) => {
-                Ok(configured_target.label().dupe())
-            }
+            AnyProvidersLabelArg::Configured(arg) => Ok(arg.configured_providers_label()),
             AnyProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
                 dice.get_configured_provider_label(&label, global_cfg_options_override)
