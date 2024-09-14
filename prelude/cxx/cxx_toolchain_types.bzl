@@ -142,11 +142,13 @@ DistLtoToolsInfo = provider(fields = dict(
 ))
 
 CxxInternalTools = provider(fields = dict(
+    concatenate_diagnostics = RunInfo,
     dep_file_processor = RunInfo,
     dist_lto = DistLtoToolsInfo,
     hmap_wrapper = RunInfo,
     make_comp_db = RunInfo,
     remap_cwd = RunInfo,
+    stderr_to_file = RunInfo,
 ))
 
 CxxObjectFormat = enum(

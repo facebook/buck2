@@ -128,6 +128,7 @@ load(
     ":compile.bzl",
     "CxxCompileCommandOutput",
     "CxxCompileOutput",  # @unused Used as a type
+    "CxxSrcCompileCommand",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
@@ -164,6 +165,7 @@ load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
+load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
 load(":index_store.bzl", "create_index_store_subtargets_and_provider")
 load(
@@ -306,6 +308,8 @@ _CxxLibraryCompileOutput = record(
     objects_sub_targets = field(dict[str, list[DefaultInfo]]),
     # the generated index stores
     index_stores = field(list[Artifact]),
+    # diagnostics produced by a typecheck-only build (-fsyntax-only)
+    diagnostics = field(dict[str, Artifact]),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -443,6 +447,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         if compiled_srcs.non_pic:
             objects_sub_targets = objects_sub_targets | compiled_srcs.non_pic.objects_sub_targets
         sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = objects_sub_targets)]
+        if len(compiled_srcs.pic.diagnostics) > 0:
+            sub_targets["check"] = check_sub_target(ctx, compiled_srcs.pic.diagnostics)
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -952,7 +958,11 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     else:
         return _base_static_library_name(ctx, False)
 
-def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_input) -> _CxxLibraryCompileOutput:
+def _get_library_compile_output(
+        ctx: AnalysisContext,
+        src_compile_cmds: list[CxxSrcCompileCommand],
+        outs: list[CxxCompileOutput],
+        extra_link_input: list[Artifact]) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(ctx, objects)
 
@@ -976,6 +986,12 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
         if out.index_store
     ]
 
+    diagnostics = {
+        compile_cmd.src.short_path: out.diagnostics
+        for compile_cmd, out in zip(src_compile_cmds, outs)
+        if out.diagnostics != None
+    }
+
     return _CxxLibraryCompileOutput(
         objects = objects,
         stripped_objects = stripped_objects,
@@ -987,6 +1003,7 @@ def _get_library_compile_output(ctx, outs: list[CxxCompileOutput], extra_link_in
         objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
         objects_sub_targets = objects_sub_targets,
         index_stores = index_stores,
+        diagnostics = diagnostics,
     )
 
 def cxx_compile_srcs(
@@ -1011,13 +1028,35 @@ def cxx_compile_srcs(
     )
 
     # Define object files.
-    pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = True)
-    pic = _get_library_compile_output(ctx, pic_cxx_outs, impl_params.extra_link_input)
+    pic_cxx_outs = compile_cxx(
+        ctx = ctx,
+        src_compile_cmds = compile_cmd_output.src_compile_cmds,
+        pic = True,
+        provide_syntax_only = True,
+    )
+    pic = _get_library_compile_output(
+        ctx = ctx,
+        src_compile_cmds = compile_cmd_output.src_compile_cmds,
+        outs = pic_cxx_outs,
+        extra_link_input = impl_params.extra_link_input,
+    )
 
     non_pic = None
     if preferred_linkage != Linkage("shared"):
-        non_pic_cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = False)
-        non_pic = _get_library_compile_output(ctx, non_pic_cxx_outs, impl_params.extra_link_input)
+        non_pic_cxx_outs = compile_cxx(
+            ctx = ctx,
+            src_compile_cmds = compile_cmd_output.src_compile_cmds,
+            pic = False,
+            # Diagnostics from the pic and non-pic compilation would be
+            # identical. We can avoid instantiating a second set of actions.
+            provide_syntax_only = False,
+        )
+        non_pic = _get_library_compile_output(
+            ctx = ctx,
+            src_compile_cmds = compile_cmd_output.src_compile_cmds,
+            outs = non_pic_cxx_outs,
+            extra_link_input = impl_params.extra_link_input,
+        )
 
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,

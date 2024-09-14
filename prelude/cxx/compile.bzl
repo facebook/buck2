@@ -160,6 +160,7 @@ CxxCompileOutput = record(
     gcno_file = field(Artifact | None, None),
     index_store = field(Artifact | None, None),
     assembly = field(Artifact | None, None),
+    diagnostics = field(Artifact | None, None),
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -393,20 +394,20 @@ def _compile_single_cxx(
         default_object_format: CxxObjectFormat,
         bitcode_args: cmd_args,
         src_compile_cmd: CxxSrcCompileCommand,
-        pic: bool) -> CxxCompileOutput:
+        pic: bool,
+        provide_syntax_only: bool) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
     """
 
-    identifier = src_compile_cmd.src.short_path
+    short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
-        identifier = identifier + "_" + str(src_compile_cmd.index)
+        short_path = short_path + "_" + str(src_compile_cmd.index)
 
-    filename_base = identifier + (".pic" if pic else "")
-    if pic:
-        identifier += " (pic)"
+    filename_base = short_path + (".pic" if pic else "")
+    identifier = short_path + (" (pic)" if pic else "")
 
     object = ctx.actions.declare_output(
         "__objects__",
@@ -414,7 +415,12 @@ def _compile_single_cxx(
     )
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-    cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args(get_output_flags(compiler_type, object)))
+    cmd = _get_base_compile_cmd(
+        bitcode_args = bitcode_args,
+        src_compile_cmd = src_compile_cmd,
+        pic = pic,
+        output_args = cmd_args(get_output_flags(compiler_type, object)),
+    )
 
     action_dep_files = {}
 
@@ -498,27 +504,62 @@ def _compile_single_cxx(
     else:
         object_format = default_object_format
 
-    compile_index_store_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic)
+    compile_index_store_cmd = _get_base_compile_cmd(
+        bitcode_args = bitcode_args,
+        src_compile_cmd = src_compile_cmd,
+        pic = pic,
+    )
     index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
 
     if compiler_type == "clang":
-        identifier += " (assembly)"
         assembly_extension = "ll" if object_format == CxxObjectFormat("bitcode") else "s"
         assembly = ctx.actions.declare_output(
             "__assembly__",
             "{}.{}".format(filename_base, assembly_extension),
         )
-        assembly_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-S", get_output_flags(compiler_type, assembly)))
+        assembly_cmd = _get_base_compile_cmd(
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            pic = pic,
+            output_args = cmd_args("-S", get_output_flags(compiler_type, assembly)),
+        )
         ctx.actions.run(
             assembly_cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
-            identifier = identifier,
+            identifier = identifier + " (assembly)",
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
             **error_handler_args
         )
+
+        if provide_syntax_only:
+            diagnostics = ctx.actions.declare_output(
+                "__diagnostics__",
+                "{}.diag.txt".format(short_path),
+            )
+            syntax_only_cmd = _get_base_compile_cmd(
+                bitcode_args = bitcode_args,
+                src_compile_cmd = src_compile_cmd,
+                pic = pic,
+                output_args = cmd_args("-fsyntax-only"),
+            )
+            ctx.actions.run(
+                [
+                    toolchain.internal_tools.stderr_to_file,
+                    cmd_args(diagnostics.as_output(), format = "--out={}"),
+                    syntax_only_cmd,
+                ],
+                category = "check",
+                identifier = short_path,
+                allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+                allow_dep_file_cache_upload = False,
+                **error_handler_args
+            )
+        else:
+            diagnostics = None
     else:
         assembly = None
+        diagnostics = None
 
     return CxxCompileOutput(
         object = object,
@@ -529,6 +570,7 @@ def _compile_single_cxx(
         gcno_file = gcno_file,
         index_store = index_store,
         assembly = assembly,
+        diagnostics = diagnostics,
     )
 
 def _get_base_compile_cmd(
@@ -562,7 +604,8 @@ def _get_base_compile_cmd(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        pic: bool = False) -> list[CxxCompileOutput]:
+        pic: bool,
+        provide_syntax_only: bool) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
@@ -589,12 +632,13 @@ def compile_cxx(
     objects = []
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
-            ctx,
-            toolchain,
-            default_object_format,
-            bitcode_args,
-            src_compile_cmd,
-            pic,
+            ctx = ctx,
+            toolchain = toolchain,
+            default_object_format = default_object_format,
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            pic = pic,
+            provide_syntax_only = provide_syntax_only,
         )
         objects.append(cxx_compile_output)
 

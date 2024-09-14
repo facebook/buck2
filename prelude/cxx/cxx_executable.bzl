@@ -121,6 +121,7 @@ load(
     ":cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
+load(":diagnostics.bzl", "check_sub_target")
 load(":groups.bzl", "get_dedupped_roots_from_groups")
 load(
     ":link.bzl",
@@ -225,11 +226,24 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
-    cxx_outs = compile_cxx(ctx, compile_cmd_output.src_compile_cmds, pic = link_strategy != LinkStrategy("static"))
+    cxx_outs = compile_cxx(
+        ctx = ctx,
+        src_compile_cmds = compile_cmd_output.src_compile_cmds,
+        pic = link_strategy != LinkStrategy("static"),
+        provide_syntax_only = True,
+    )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
     sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
+
+    diagnostics = {
+        compile_cmd.src.short_path: out.diagnostics
+        for compile_cmd, out in zip(compile_cmd_output.src_compile_cmds, cxx_outs)
+        if out.diagnostics != None
+    }
+    if len(diagnostics) > 0:
+        sub_targets["check"] = check_sub_target(ctx, diagnostics)
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
