@@ -16,13 +16,12 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::list::ListRef;
-use starlark::values::list::UnpackList;
+use starlark::values::list::ListType;
 use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
-use starlark::values::UnpackAndDiscard;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
@@ -112,7 +111,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformRegistrationInfo<'v>(
         #[starlark(require = named)] platforms: ValueOf<
             'v,
-            UnpackList<UnpackAndDiscard<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>>,
+            ListType<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>,
         >,
         #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
     ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {

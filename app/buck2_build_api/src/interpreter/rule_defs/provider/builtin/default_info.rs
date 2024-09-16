@@ -28,6 +28,7 @@ use starlark::values::dict::FrozenDictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
@@ -137,13 +138,13 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
     /// (i.e., `attrs.source()`).
-    default_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsArtifactLike<'static>>>,
+    default_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsArtifactLike<'static>>>,
     /// A list of `ArtifactTraversable`. The underlying `Artifact`s they define will
     /// be built by default if this rule is requested (via CLI or `$(location)` etc),
     /// but _not_ when it's depended on as as a "source" (i.e., `attrs.source()`).
     /// `ArtifactTraversable` can be an `Artifact` (which yields itself), or
     /// `cmd_args`, which expand to all their inputs.
-    other_outputs: ValueOfUncheckedGeneric<V, Vec<ValueAsCommandLineLike<'static>>>,
+    other_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsCommandLineLike<'static>>>,
 }
 
 fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
@@ -173,8 +174,8 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
 impl<'v> DefaultInfo<'v> {
     pub fn empty(heap: &'v Heap) -> Self {
         let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(heap.alloc(AllocDict::EMPTY));
-        let default_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
-        let other_outputs = ValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let default_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         DefaultInfo {
             sub_targets,
             default_outputs,
@@ -190,8 +191,10 @@ impl FrozenDefaultInfo {
                 iter::empty::<(String, FrozenProviderCollection)>(),
             ))
             .cast();
-        let default_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
-        let other_outputs = FrozenValueOfUnchecked::<Vec<_>>::new(heap.alloc(AllocList::EMPTY));
+        let default_outputs =
+            FrozenValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs =
+            FrozenValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         FrozenValueTyped::new_err(heap.alloc(FrozenDefaultInfo {
             sub_targets,
             default_outputs,
@@ -399,7 +402,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
-        let valid_default_outputs: ValueOfUnchecked<Vec<ValueAsArtifactLike>> =
+        let valid_default_outputs: ValueOfUnchecked<ListType<ValueAsArtifactLike>> =
             match (default_outputs.into_option(), default_output.into_option()) {
                 (Some(list), None) => list.as_unchecked().cast(),
                 (None, Some(default_output)) => {
@@ -410,7 +413,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                         .cast()
                 }
                 (None, None) => {
-                    ValueOfUnchecked::<Vec<_>>::new(eval.heap().alloc(AllocList::EMPTY))
+                    ValueOfUnchecked::<ListType<_>>::new(eval.heap().alloc(AllocList::EMPTY))
                 }
                 (Some(_), Some(_)) => {
                     return Err(DefaultOutputError::ConflictingArguments.into());

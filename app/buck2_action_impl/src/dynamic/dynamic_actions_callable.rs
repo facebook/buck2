@@ -28,7 +28,7 @@ use starlark::typing::Param;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::values::dict::DictType;
-use starlark::values::list::AllocList;
+use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -74,7 +74,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
 }
 
 // TODO(nga): should be list of provider.
-pub(crate) type DynamicActionsCallbackReturnType = AllocList<Vec<FrozenValue>>;
+pub(crate) type DynamicActionsCallbackReturnType = ListType<Vec<FrozenValue>>;
 
 #[derive(Debug, thiserror::Error)]
 enum DynamicActionCallableError {

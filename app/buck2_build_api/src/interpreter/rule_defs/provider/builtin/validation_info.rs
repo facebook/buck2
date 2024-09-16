@@ -16,10 +16,9 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::list::ListRef;
-use starlark::values::list::UnpackList;
+use starlark::values::list::ListType;
 use starlark::values::Freeze;
 use starlark::values::Trace;
-use starlark::values::UnpackAndDiscard;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
@@ -90,7 +89,7 @@ fn validation_info_creator(globals: &mut GlobalsBuilder) {
     fn ValidationInfo<'v>(
         #[starlark(require = named)] validations: ValueOf<
             'v,
-            UnpackList<UnpackAndDiscard<&'v StarlarkValidationSpec<'v>>>,
+            ListType<&'v StarlarkValidationSpec<'v>>,
         >,
     ) -> anyhow::Result<ValidationInfo<'v>> {
         let result = ValidationInfo {
