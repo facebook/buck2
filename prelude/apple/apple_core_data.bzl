@@ -10,6 +10,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_bundle_resource_processing_options")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(":apple_target_sdk_version.bzl", "get_platform_name_for_sdk", "get_platform_version_for_sdk_version")
 load(":resource_groups.bzl", "create_resource_graph")
 
 def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -75,12 +76,18 @@ def _get_model_args(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec):
         return toolchain.momc, cmd_args("$TMPDIR")
 
 def _get_tool_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, product_name: str, tool: RunInfo, output: cmd_args) -> cmd_args:
+    sdk_name = get_apple_sdk_name(ctx)
+    deployment_target = get_platform_version_for_sdk_version(
+        sdk_name = sdk_name,
+        sdk_version = get_bundle_min_target_version(ctx, ctx.attrs.binary),
+    )
+
     return cmd_args([
         tool,
         "--sdkroot",
         ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path,
-        "--" + get_apple_sdk_name(ctx) + "-deployment-target",
-        get_bundle_min_target_version(ctx, ctx.attrs.binary),
+        "--" + get_platform_name_for_sdk(sdk_name) + "-deployment-target",
+        deployment_target,
         "--module",
         core_data_spec.module if core_data_spec.module else product_name,
         cmd_args(core_data_spec.path, format = "./{}"),
