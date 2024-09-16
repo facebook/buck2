@@ -1,0 +1,8 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+load(":defs.bzl", "generate_tag_constraints")
+
+oncall("build_infra")
+
+source_listing()
+
+generate_tag_constraints()

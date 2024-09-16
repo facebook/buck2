@@ -1,5 +1,4 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load(":defs.bzl", "generate_tag_constraints")
 
 oncall("build_infra")
 
@@ -95,5 +94,3 @@ constraint_value(
     constraint_setting = ":coverage_mode",
     visibility = ["PUBLIC"],
 )
-
-generate_tag_constraints()
