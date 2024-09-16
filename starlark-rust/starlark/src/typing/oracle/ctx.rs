@@ -26,7 +26,6 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
 use crate::typing::callable::TyCallable;
-use crate::typing::callable_param::Param;
 use crate::typing::callable_param::ParamMode;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -463,18 +462,15 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Tuple(_) => Err(()),
             TyBasic::List(elem) => match attr {
                 "pop" => Ok(Ty::function(
-                    ParamSpec::new(vec![Param::pos_only(Ty::int()).optional()]),
+                    ParamSpec::pos_only([], [Ty::int()]),
                     (**elem).dupe(),
                 )),
                 "index" => Ok(Ty::function(
-                    ParamSpec::new(vec![
-                        Param::pos_only((**elem).dupe()),
-                        Param::pos_only(Ty::int()).optional(),
-                    ]),
+                    ParamSpec::pos_only([(**elem).dupe()], [Ty::int()]),
                     Ty::int(),
                 )),
                 "remove" => Ok(Ty::function(
-                    ParamSpec::new(vec![Param::pos_only((**elem).dupe())]),
+                    ParamSpec::pos_only([(**elem).dupe()], []),
                     Ty::none(),
                 )),
                 attr => TyStarlarkValue::new::<List>().attr(attr),
@@ -483,32 +479,26 @@ impl<'a> TypingOracleCtx<'a> {
                 match attr {
                     "get" => Ok(Ty::union2(
                         Ty::function(
-                            ParamSpec::new(vec![Param::pos_only(tk.to_ty())]),
+                            ParamSpec::pos_only([tk.to_ty()], []),
                             Ty::union2(tv.to_ty(), Ty::none()),
                         ),
                         // This second signature is a bit too lax, but get with a default is much rarer
-                        Ty::function(
-                            ParamSpec::new(vec![
-                                Param::pos_only(tk.to_ty()),
-                                Param::pos_only(Ty::any()),
-                            ]),
-                            Ty::any(),
-                        ),
+                        Ty::function(ParamSpec::pos_only([tk.to_ty(), Ty::any()], []), Ty::any()),
                     )),
                     "keys" => Ok(Ty::function(
-                        ParamSpec::new(vec![]),
+                        ParamSpec::empty(),
                         Ty::basic(TyBasic::List(tk.dupe())),
                     )),
                     "values" => Ok(Ty::function(
-                        ParamSpec::new(vec![]),
+                        ParamSpec::empty(),
                         Ty::basic(TyBasic::List(tv.dupe())),
                     )),
                     "items" => Ok(Ty::function(
-                        ParamSpec::new(vec![]),
+                        ParamSpec::empty(),
                         Ty::list(Ty::tuple(vec![tk.to_ty(), tv.to_ty()])),
                     )),
                     "popitem" => Ok(Ty::function(
-                        ParamSpec::new(vec![]),
+                        ParamSpec::empty(),
                         Ty::tuple(vec![tk.to_ty(), tv.to_ty()]),
                     )),
                     attr => TyStarlarkValue::new::<MutableDict>().attr(attr),

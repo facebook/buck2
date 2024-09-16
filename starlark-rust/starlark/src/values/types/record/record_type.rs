@@ -48,7 +48,6 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserParams;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::function::FUNCTION_TYPE;
@@ -321,7 +320,7 @@ where
                     callable: Some(TyCallable::new(
                         // TODO(nga): more precise parameter types
                         //   https://www.internalfb.com/tasks/?t=184025179
-                        ParamSpec::new(vec![Param::kwargs(Ty::any())]),
+                        ParamSpec::kwargs(Ty::any()),
                         ty_record.dupe(),
                     )),
                     ..TyUserParams::default()

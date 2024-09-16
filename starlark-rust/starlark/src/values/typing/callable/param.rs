@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -40,24 +39,21 @@ impl StarlarkCallableParamSpec for StarlarkCallableParamAny {
 /// No parameters.
 impl StarlarkCallableParamSpec for () {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![])
+        ParamSpec::pos_only([], [])
     }
 }
 
 /// Single positional-only parameter.
 impl<A: StarlarkTypeRepr> StarlarkCallableParamSpec for (A,) {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![Param::pos_only(A::starlark_type_repr())])
+        ParamSpec::pos_only([A::starlark_type_repr()], [])
     }
 }
 
 /// Two positional-only parameters.
 impl<A: StarlarkTypeRepr, B: StarlarkTypeRepr> StarlarkCallableParamSpec for (A, B) {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![
-            Param::pos_only(A::starlark_type_repr()),
-            Param::pos_only(B::starlark_type_repr()),
-        ])
+        ParamSpec::pos_only([A::starlark_type_repr(), B::starlark_type_repr()], [])
     }
 }
 
@@ -66,11 +62,14 @@ impl<A: StarlarkTypeRepr, B: StarlarkTypeRepr, C: StarlarkTypeRepr> StarlarkCall
     for (A, B, C)
 {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![
-            Param::pos_only(A::starlark_type_repr()),
-            Param::pos_only(B::starlark_type_repr()),
-            Param::pos_only(C::starlark_type_repr()),
-        ])
+        ParamSpec::pos_only(
+            [
+                A::starlark_type_repr(),
+                B::starlark_type_repr(),
+                C::starlark_type_repr(),
+            ],
+            [],
+        )
     }
 }
 
@@ -79,11 +78,14 @@ impl<A: StarlarkTypeRepr, B: StarlarkTypeRepr, C: StarlarkTypeRepr, D: StarlarkT
     StarlarkCallableParamSpec for (A, B, C, D)
 {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![
-            Param::pos_only(A::starlark_type_repr()),
-            Param::pos_only(B::starlark_type_repr()),
-            Param::pos_only(C::starlark_type_repr()),
-            Param::pos_only(D::starlark_type_repr()),
-        ])
+        ParamSpec::pos_only(
+            [
+                A::starlark_type_repr(),
+                B::starlark_type_repr(),
+                C::starlark_type_repr(),
+                D::starlark_type_repr(),
+            ],
+            [],
+        )
     }
 }

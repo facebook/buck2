@@ -26,7 +26,6 @@ use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -43,10 +42,7 @@ struct ZipType;
 impl TyCustomFunctionImpl for ZipType {
     fn as_callable(&self) -> TyCallable {
         // TODO(nga): this should be obtained from function signature from function definition.
-        TyCallable::new(
-            ParamSpec::new(vec![Param::args(Ty::iter(Ty::any()))]),
-            Ty::list(Ty::any()),
-        )
+        TyCallable::new(ParamSpec::args(Ty::iter(Ty::any())), Ty::list(Ty::any()))
     }
 
     fn validate_call(

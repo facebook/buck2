@@ -415,10 +415,7 @@ mod tests {
                 TyStarlarkValue::new::<FruitCallable>(),
                 TypeInstanceId::gen(),
                 TyUserParams {
-                    callable: Some(TyCallable::new(
-                        ParamSpec::new(Vec::new()),
-                        ty_fruit.clone(),
-                    )),
+                    callable: Some(TyCallable::new(ParamSpec::empty(), ty_fruit.clone())),
 
                     ..TyUserParams::default()
                 },

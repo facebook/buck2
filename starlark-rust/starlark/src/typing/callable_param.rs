@@ -211,6 +211,39 @@ impl ParamSpec {
         &ANY_PARAMS
     }
 
+    /// `*args`.
+    pub(crate) fn args(ty: Ty) -> ParamSpec {
+        ParamSpec::new(vec![Param::args(ty)])
+    }
+
+    /// `**kwargs`.
+    pub fn kwargs(ty: Ty) -> ParamSpec {
+        ParamSpec::new(vec![Param::kwargs(ty)])
+    }
+
+    /// `/, arg=, arg=, ..., arg, arg, ...`.
+    pub(crate) fn pos_only(
+        required: impl IntoIterator<Item = Ty>,
+        optional: impl IntoIterator<Item = Ty>,
+    ) -> ParamSpec {
+        ParamSpec::new(
+            required
+                .into_iter()
+                .map(Param::pos_only)
+                .chain(
+                    optional
+                        .into_iter()
+                        .map(|ty| Param::pos_only(ty).optional()),
+                )
+                .collect(),
+        )
+    }
+
+    /// No parameters.
+    pub fn empty() -> ParamSpec {
+        ParamSpec::pos_only([], [])
+    }
+
     pub(crate) fn any() -> ParamSpec {
         ParamSpec {
             params: SmallArcVec1OrStatic::new_static(Self::any_params()),

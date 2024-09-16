@@ -46,7 +46,6 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserIndex;
 use crate::typing::user::TyUserParams;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
@@ -323,10 +322,13 @@ where
                     }),
                     iter_item: Some(ty_enum_value.dupe()),
                     callable: Some(TyCallable::new(
-                        ParamSpec::new(vec![Param::pos_only(
-                            // TODO(nga): we can do better parameter type.
-                            Ty::any(),
-                        )]),
+                        ParamSpec::pos_only(
+                            [
+                                // TODO(nga): we can do better parameter type.
+                                Ty::any(),
+                            ],
+                            [],
+                        ),
                         ty_enum_value.dupe(),
                     )),
                     ..TyUserParams::default()

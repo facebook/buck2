@@ -33,7 +33,6 @@ use crate::typing::function::Arg;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
@@ -49,10 +48,7 @@ struct StructType;
 impl TyCustomFunctionImpl for StructType {
     fn as_callable(&self) -> TyCallable {
         // TODO(nga): this should be obtained from function signature from function definition.
-        TyCallable::new(
-            ParamSpec::new(vec![Param::kwargs(Ty::any())]),
-            Ty::any_struct(),
-        )
+        TyCallable::new(ParamSpec::kwargs(Ty::any()), Ty::any_struct())
     }
 
     fn validate_call(

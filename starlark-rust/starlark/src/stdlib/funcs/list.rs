@@ -28,7 +28,6 @@ use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::Arg;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
@@ -47,7 +46,7 @@ struct ListType;
 
 static LIST: Lazy<TyFunction> = Lazy::new(|| {
     TyFunction::new_with_type_attr(
-        ParamSpec::new(vec![Param::pos_only(Ty::iter(Ty::any())).optional()]),
+        ParamSpec::pos_only([], [Ty::iter(Ty::any())]),
         Ty::any_list(),
         Ty::any_list(),
     )

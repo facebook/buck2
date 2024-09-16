@@ -33,7 +33,6 @@ use starlark_derive::ProvidesStaticType;
 use crate as starlark;
 use crate::private::Private;
 use crate::typing::callable::TyCallable;
-use crate::typing::Param;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -84,14 +83,14 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
     ) -> crate::Result<Value<'v>> {
         let param_types = UnpackList::<Value>::unpack_value_err(param_types)?;
         let ret = TypeCompiled::new(ret, heap)?.as_ty().dupe();
-        let param_types: Vec<Param> = param_types
+        let param_types: Vec<Ty> = param_types
             .items
             .into_iter()
-            .map(|p| Ok(Param::pos_only(TypeCompiled::new(p, heap)?.as_ty().dupe())))
+            .map(|p| Ok(TypeCompiled::new(p, heap)?.as_ty().dupe()))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         Ok(heap.alloc_simple(TypingCallableAt2 {
-            callable: TyCallable::new(ParamSpec::new(param_types), ret),
+            callable: TyCallable::new(ParamSpec::pos_only(param_types, []), ret),
         }))
     }
 }
