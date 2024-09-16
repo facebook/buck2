@@ -18,10 +18,12 @@
 //! The list type, a mutable sequence of values.
 
 pub(crate) mod alloc;
+mod list_type;
 mod refs;
 pub(crate) mod unpack;
 pub(crate) mod value;
 
 pub use crate::values::types::list::alloc::AllocList;
+pub use crate::values::types::list::list_type::ListType;
 pub use crate::values::types::list::refs::ListRef;
 pub use crate::values::types::list::unpack::UnpackList;

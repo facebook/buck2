@@ -22,6 +22,7 @@ use either::Either;
 pub use starlark_derive::StarlarkTypeRepr;
 
 use crate::typing::Ty;
+use crate::values::list::ListType;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::Heap;
@@ -96,10 +97,10 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Option<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for Vec<T> {
-    type Canonical = Vec<T::Canonical>;
+    type Canonical = <ListType<T> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        Ty::list(T::starlark_type_repr())
+        ListType::<T::Canonical>::starlark_type_repr()
     }
 }
 
