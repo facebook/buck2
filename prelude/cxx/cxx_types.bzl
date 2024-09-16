@@ -63,6 +63,7 @@ CxxRuleSubTargetParams = record(
     xcode_data = field(bool, True),
     objects = field(bool, True),
     bitcode_bundle = field(bool, True),
+    header_unit = field(bool, True),
 )
 
 # Parameters to control which providers to define when processing Cxx rules.
@@ -217,4 +218,10 @@ CxxRuleConstructorParams = record(
     index_store_factory = field(typing.Callable | None, None),
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
+    # Whether to add header units from dependencies to the command line.
+    use_header_units = field(bool, False),
+    # Whether to export a header unit to all dependents.
+    export_header_unit = field([str, None], None),
+    # Filter what headers to include in the header unit.
+    export_header_unit_filter = field([str, None], None),
 )

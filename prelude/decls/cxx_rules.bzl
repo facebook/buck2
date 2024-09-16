@@ -130,6 +130,7 @@ cxx_binary = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
+            "use_header_units": attrs.bool(default = False),
         } |
         buck.allow_cache_upload_arg()
     ),
@@ -589,6 +590,9 @@ cxx_library = prelude_rule(
             "uses_explicit_modules": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
+            "use_header_units": attrs.bool(default = False),
+            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None),
+            "export_header_unit_filter": attrs.option(attrs.string(), default = None),
         } |
         buck.allow_cache_upload_arg()
     ),

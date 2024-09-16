@@ -43,6 +43,13 @@ CPreprocessorArgs = record(
     file_prefix_args = field(list[typing.Any], []),
 )
 
+HeaderUnit = record(
+    name = field(str),
+    module = field(Artifact),
+    include_dir = field(Artifact),
+    import_include = field(str | None),
+)
+
 # Note: Any generic attributes are assumed to be relative.
 CPreprocessor = record(
     # Relative path args to be used for build operations.
@@ -61,6 +68,8 @@ CPreprocessor = record(
     modular_args = field(list[typing.Any], []),
     # Path to the modulemap which defines the API exposed to Swift
     modulemap_path = field([cmd_args, None], None),
+    # Header units to load transitively and supporting args.
+    header_units = field(list[HeaderUnit], []),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
@@ -75,6 +84,17 @@ def _cpreprocessor_modular_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
         args.add(pre.modular_args)
+    return args
+
+def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
+    args = cmd_args()
+    for pre in pres:
+        for h in pre.header_units:
+            args.add(cmd_args(h.module, format = "-fmodule-file={}={{}}".format(h.name)))
+            args.add(cmd_args(h.include_dir, format = "-I{}"))
+            args.add(cmd_args(h.include_dir, format = "-fmodule-map-file={}/module.modulemap"))
+            if h.import_include:
+                args.add(["-include", h.import_include])
     return args
 
 def _cpreprocessor_file_prefix_args(pres: list[CPreprocessor]):
@@ -108,6 +128,7 @@ CPreprocessorTSet = transitive_set(
     args_projections = {
         "args": _cpreprocessor_args,
         "file_prefix_args": _cpreprocessor_file_prefix_args,
+        "header_units_args": _cpreprocessor_header_units_args,
         "include_dirs": _cpreprocessor_include_dirs,
         "modular_args": _cpreprocessor_modular_args,
     },
@@ -220,6 +241,10 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     for pre in extra_preprocessors:
         modular_args.extend(pre.modular_args)
 
+    header_units = []
+    for pre in extra_preprocessors:
+        header_units.extend(pre.header_units)
+
     return CPreprocessor(
         args = CPreprocessorArgs(args = args.args, file_prefix_args = args.file_prefix_args),
         headers = exported_headers,
@@ -227,6 +252,7 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
         include_dirs = include_dirs,
         system_include_dirs = SystemIncludeDirs(compiler_type = compiler_type, include_dirs = system_include_dirs),
         modular_args = modular_args,
+        header_units = header_units,
     )
 
 def _get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:

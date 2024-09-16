@@ -211,6 +211,9 @@ def cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        use_header_units = ctx.attrs.use_header_units,
+        export_header_unit = ctx.attrs.export_header_unit,
+        export_header_unit_filter = ctx.attrs.export_header_unit_filter,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -270,6 +273,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        use_header_units = ctx.attrs.use_header_units,
     )
     output = cxx_executable(ctx, params)
 

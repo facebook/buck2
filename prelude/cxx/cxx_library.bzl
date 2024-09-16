@@ -131,7 +131,9 @@ load(
     "CxxSrcCompileCommand",
     "compile_cxx",
     "create_compile_cmds",
+    "create_precompile_cmd",
     "cxx_objects_sub_targets",
+    "precompile_cxx",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -205,6 +207,7 @@ load(
     "CPreprocessor",  # @unused Used as a type
     "CPreprocessorForTestsInfo",
     "CPreprocessorInfo",  # @unused Used as a type
+    "HeaderUnit",  # @unused Used as a type
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
@@ -321,6 +324,9 @@ _CxxCompiledSourcesOutput = record(
     pic = field(_CxxLibraryCompileOutput),
     # Non PIC compile outputs
     non_pic = field([_CxxLibraryCompileOutput, None]),
+    # Header unit outputs
+    header_unit = field([HeaderUnit, None]),
+    header_unit_preprocessor = field([CPreprocessor, None]),
 )
 
 # The outputs of a cxx_library_parameterized rule.
@@ -384,6 +390,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     )
     own_exported_preprocessor_info = cxx_exported_preprocessor_info(ctx, impl_params.headers_layout, impl_params.extra_exported_preprocessors)
     own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
+    own_exported_preprocessors = [own_exported_preprocessor_info]
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
         non_exported_deps + filter(None, [ctx.attrs.precompiled_header]),
@@ -397,6 +404,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         ctx = ctx,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
+        own_exported_preprocessors = own_exported_preprocessors,
         inherited_non_exported_preprocessor_infos = inherited_non_exported_preprocessor_infos,
         inherited_exported_preprocessor_infos = inherited_exported_preprocessor_infos,
         preferred_linkage = preferred_linkage,
@@ -680,7 +688,35 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     propagated_preprocessor_merge_list = inherited_exported_preprocessor_infos
     if _attr_reexport_all_header_dependencies(ctx):
         propagated_preprocessor_merge_list = inherited_non_exported_preprocessor_infos + propagated_preprocessor_merge_list
-    propagated_preprocessor = cxx_merge_cpreprocessors(ctx, [own_exported_preprocessor_info], propagated_preprocessor_merge_list)
+
+    # Header unit PCM.
+    if impl_params.generate_sub_targets.header_unit:
+        if compiled_srcs.header_unit and compiled_srcs.header_unit_preprocessor:
+            sub_targets["header-unit"] = [
+                DefaultInfo(default_output = compiled_srcs.header_unit.module),
+                cxx_merge_cpreprocessors(
+                    ctx,
+                    own_exported_preprocessors + [compiled_srcs.header_unit_preprocessor],
+                    propagated_preprocessor_merge_list,
+                ),
+            ]
+            if impl_params.export_header_unit:
+                own_exported_preprocessors.append(compiled_srcs.header_unit_preprocessor)
+        else:
+            sub_targets["header-unit"] = [
+                DefaultInfo(),
+                cxx_merge_cpreprocessors(
+                    ctx,
+                    own_exported_preprocessors,
+                    propagated_preprocessor_merge_list,
+                ),
+            ]
+
+    propagated_preprocessor = cxx_merge_cpreprocessors(
+        ctx,
+        own_exported_preprocessors,
+        propagated_preprocessor_merge_list,
+    )
     if impl_params.generate_providers.preprocessors:
         providers.append(propagated_preprocessor)
 
@@ -1013,19 +1049,43 @@ def cxx_compile_srcs(
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo],
         inherited_exported_preprocessor_infos: list[CPreprocessorInfo],
         preferred_linkage: Linkage,
-        add_coverage_instrumentation_compiler_flags: bool) -> _CxxCompiledSourcesOutput:
+        add_coverage_instrumentation_compiler_flags: bool,
+        own_exported_preprocessors: list[CPreprocessor] = []) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
     """
 
     # Create the commands and argsfiles to use for compiling each source file
+    if own_exported_preprocessors:
+        header_preprocessor_info = cxx_merge_cpreprocessors(
+            ctx,
+            own_exported_preprocessors,
+            inherited_exported_preprocessor_infos,
+        )
+    else:
+        header_preprocessor_info = CPreprocessorInfo()
     compile_cmd_output = create_compile_cmds(
         ctx = ctx,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
+        header_preprocessor_info = header_preprocessor_info,
         add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
     )
+
+    # Define header unit.
+    precompile_cmd = create_precompile_cmd(
+        ctx = ctx,
+        preprocessors = own_exported_preprocessors,
+        include_headers = impl_params.export_header_unit_filter,
+        compile_cmd_output = compile_cmd_output,
+    )
+    if precompile_cmd:
+        header_unit = precompile_cxx(ctx, impl_params, precompile_cmd)
+        header_unit_preprocessor = CPreprocessor(header_units = [header_unit])
+    else:
+        header_unit = None
+        header_unit_preprocessor = None
 
     # Define object files.
     pic_cxx_outs = compile_cxx(
@@ -1033,6 +1093,7 @@ def cxx_compile_srcs(
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         pic = True,
         provide_syntax_only = True,
+        use_header_units = impl_params.use_header_units,
     )
     pic = _get_library_compile_output(
         ctx = ctx,
@@ -1050,6 +1111,7 @@ def cxx_compile_srcs(
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,
+            use_header_units = impl_params.use_header_units,
         )
         non_pic = _get_library_compile_output(
             ctx = ctx,
@@ -1062,6 +1124,8 @@ def cxx_compile_srcs(
         compile_cmds = compile_cmd_output,
         pic = pic,
         non_pic = non_pic,
+        header_unit = header_unit,
+        header_unit_preprocessor = header_unit_preprocessor,
     )
 
 def _form_library_outputs(
