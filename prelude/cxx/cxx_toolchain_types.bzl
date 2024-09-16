@@ -123,6 +123,7 @@ _compiler_fields = [
     "preprocessor_flags",
     # Controls cache upload for object files
     "allow_cache_upload",
+    "supports_two_phase_compilation",
 ]
 
 HipCompilerInfo = provider(fields = _compiler_fields)
