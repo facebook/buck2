@@ -342,7 +342,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = dsym_artifacts)]
 
     dsym_info_json = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts)
-    dsym_info = ctx.actions.write_json("dsym-info.json", dsym_info_json)
+    dsym_info = ctx.actions.write_json("dsym-info.json", dsym_info_json, pretty = True)
     sub_targets[DSYM_INFO_SUBTARGET] = [
         DefaultInfo(default_output = dsym_info, other_outputs = dsym_artifacts),
     ]
