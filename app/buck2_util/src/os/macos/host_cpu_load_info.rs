@@ -78,10 +78,10 @@ mod tests {
         assert!(x.system <= y.system);
         assert!(x.idle <= y.idle);
         assert!(x.nice <= y.nice);
-        let sum_x = x.user + x.system + x.idle + x.nice;
-        let sum_y = y.user + y.system + y.idle + y.nice;
+        let sum_x = x.user as u64 + x.system as u64 + x.idle as u64 + x.nice as u64;
+        let sum_y = y.user as u64 + y.system as u64 + y.idle as u64 + y.nice as u64;
 
-        let delta = sum_y.wrapping_sub(sum_x) as i32;
+        let delta = sum_y.wrapping_sub(sum_x) as i64;
 
         // 10 CPUs for 100 seconds at 100 ticks per second.
         assert!(delta < 100_000, "{:?} <=> {:?}", x, y);
