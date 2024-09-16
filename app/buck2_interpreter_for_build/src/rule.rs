@@ -41,7 +41,6 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::typing::Param;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::values::dict::UnpackDictEntries;
@@ -275,7 +274,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
     }
 
     fn get_type_starlark_repr() -> Ty {
-        Ty::function(ParamSpec::new(vec![Param::kwargs(Ty::any())]), Ty::none())
+        Ty::function(ParamSpec::kwargs(Ty::any()), Ty::none())
     }
 }
 
