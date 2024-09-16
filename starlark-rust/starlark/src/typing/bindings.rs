@@ -50,6 +50,7 @@ use crate::typing::mode::TypecheckMode;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
+use crate::typing::ParamSpec;
 use crate::typing::TyBasic;
 
 #[derive(Clone)]
@@ -252,6 +253,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     .insert(name.resolved_binding_id(codemap)?, ty);
             }
         }
+        let params2 = ParamSpec::new(params2);
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
         self.bindings.types.insert(
             name.resolved_binding_id(codemap)?,

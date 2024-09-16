@@ -27,7 +27,6 @@ use dupe::Dupe;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::callable::TyCallable;
-use crate::typing::callable_param::Param;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::ParamSpec;
@@ -148,19 +147,19 @@ pub struct TyFunction {
 
 impl TyFunction {
     /// Constructor.
-    pub fn new_with_type_attr(params: Vec<Param>, result: Ty, type_attr: Ty) -> Self {
+    pub fn new_with_type_attr(params: ParamSpec, result: Ty, type_attr: Ty) -> Self {
         // TODO(nga): validate params are in correct order.
         TyFunction {
             type_attr: Some(type_attr),
-            callable: TyCallable::new(ParamSpec::new(params), result),
+            callable: TyCallable::new(params, result),
         }
     }
 
     /// Constructor.
-    pub fn new(params: Vec<Param>, result: Ty) -> Self {
+    pub fn new(params: ParamSpec, result: Ty) -> Self {
         TyFunction {
             type_attr: None,
-            callable: TyCallable::new(ParamSpec::new(params), result),
+            callable: TyCallable::new(params, result),
         }
     }
 

@@ -81,6 +81,7 @@ use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::eval::Arguments;
 use crate::starlark_complex_values;
 use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
@@ -258,32 +259,34 @@ impl<T> ParametersCompiled<T> {
             .collect()
     }
 
-    pub(crate) fn to_ty_params(&self) -> Vec<Param> {
-        self.params
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let ty = p.ty();
-                match &p.node {
-                    ParameterCompiled::Normal(name, ..) => {
-                        if i < self.num_positional as usize {
-                            Param::pos_or_name(&name.name, ty)
-                        } else {
-                            Param::name_only(&name.name, ty)
+    pub(crate) fn to_ty_params(&self) -> ParamSpec {
+        ParamSpec::new(
+            self.params
+                .iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    let ty = p.ty();
+                    match &p.node {
+                        ParameterCompiled::Normal(name, ..) => {
+                            if i < self.num_positional as usize {
+                                Param::pos_or_name(&name.name, ty)
+                            } else {
+                                Param::name_only(&name.name, ty)
+                            }
                         }
-                    }
-                    ParameterCompiled::WithDefaultValue(name, ..) => {
-                        if i < self.num_positional as usize {
-                            Param::pos_or_name(&name.name, ty).optional()
-                        } else {
-                            Param::name_only(&name.name, ty).optional()
+                        ParameterCompiled::WithDefaultValue(name, ..) => {
+                            if i < self.num_positional as usize {
+                                Param::pos_or_name(&name.name, ty).optional()
+                            } else {
+                                Param::name_only(&name.name, ty).optional()
+                            }
                         }
+                        ParameterCompiled::Args(..) => Param::args(ty),
+                        ParameterCompiled::KwArgs(..) => Param::kwargs(ty),
                     }
-                    ParameterCompiled::Args(..) => Param::args(ty),
-                    ParameterCompiled::KwArgs(..) => Param::kwargs(ty),
-                }
-            })
-            .collect()
+                })
+                .collect(),
+        )
     }
 }
 

@@ -285,7 +285,7 @@ impl Ty {
     }
 
     /// Create a function type.
-    pub fn function(params: Vec<Param>, result: Ty) -> Self {
+    pub fn function(params: ParamSpec, result: Ty) -> Self {
         Self::ty_function(TyFunction::new(params, result))
     }
 
@@ -300,7 +300,7 @@ impl Ty {
     }
 
     /// Create a function, where the first argument is the result of `.type`.
-    pub fn ctor_function(type_attr: Ty, params: Vec<Param>, result: Ty) -> Self {
+    pub fn ctor_function(type_attr: Ty, params: ParamSpec, result: Ty) -> Self {
         Self::custom(TyCustomFunction(TyFunction::new_with_type_attr(
             params, result, type_attr,
         )))
@@ -490,6 +490,8 @@ impl Ty {
             .collect();
 
         let result = comp.return_type.clone();
+
+        let params = ParamSpec::new(params);
 
         match as_type {
             None => Ty::function(params, result),

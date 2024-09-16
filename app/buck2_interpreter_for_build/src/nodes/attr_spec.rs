@@ -30,6 +30,7 @@ use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
 use starlark::typing::Param;
+use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
 use starlark::values::Value;
@@ -197,6 +198,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
             params.push(param);
         }
+        let params = ParamSpec::new(params);
         TyFunction::new(params, Ty::none())
     }
 

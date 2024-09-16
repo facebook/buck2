@@ -56,6 +56,7 @@ use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::Approximation;
 use crate::typing::Param;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::tuple::AllocTuple;
@@ -466,6 +467,8 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         }
 
         let result = self.get_ty_expr_opt(def.return_type.as_deref())?;
+
+        let params = ParamSpec::new(params);
 
         self.assign_ident_value(&def.name, GlobalValue::ty(Ty::function(params, result)))
     }
