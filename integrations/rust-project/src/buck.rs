@@ -754,11 +754,7 @@ where
             status,
         }) => {
             tracing::debug!(?command, "parsing file output");
-            let file_path = std::str::from_utf8(&stdout)?;
-            let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
-            let contents = fs::read_to_string(file_path)
-                .with_context(|| format!("failed to read {:?}", file_path))?;
-            serde_json::from_str(&contents)
+            serde_json_from_stdout_path(&stdout)
                 .with_context(|| cmd_err(command, status, &stderr))
                 .context("failed to deserialize command output")
         }
@@ -766,6 +762,17 @@ where
             .with_context(|| format!("command `{:?}`", command))
             .context("failed to execute command"),
     }
+}
+
+fn serde_json_from_stdout_path<T>(stdout: &[u8]) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    let file_path = std::str::from_utf8(stdout)?;
+    let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
+    let contents =
+        fs::read_to_string(file_path).with_context(|| format!("failed to read {:?}", file_path))?;
+    serde_json::from_str(&contents).context("failed to deserialize file")
 }
 
 fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Error {
