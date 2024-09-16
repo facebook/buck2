@@ -590,7 +590,7 @@ def _get_shared_flags(
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
 
-    if not (uses_explicit_modules(ctx) and toolchain.supports_relative_resource_dir):
+    if not toolchain.supports_relative_resource_dir:
         # Setting this to empty will get the driver to make all paths absolute when
         # passed to the frontend. We later debug prefix these to ensure relative paths
         # in the debug info.
