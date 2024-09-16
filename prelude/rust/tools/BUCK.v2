@@ -59,3 +59,8 @@ prelude.python_bootstrap_binary(
     main = "rustdoc_coverage.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.export_file(
+    name = "linkable_symbol.rs",
+    visibility = ["PUBLIC"],
+)
