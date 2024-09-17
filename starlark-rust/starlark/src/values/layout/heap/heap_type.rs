@@ -38,7 +38,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use bumpalo::Bump;
 use dupe::Dupe;
-use either::Either;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;
@@ -74,6 +73,7 @@ use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_from_exact_size_iter;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
+use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::static_string::constant_string;
 use crate::values::layout::typed::string::StringValueLike;
@@ -570,9 +570,11 @@ impl Freezer {
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
         let value = value.0.unpack_ptr().unwrap();
-        match value.unpack_overwrite() {
-            Either::Left(x) => Ok(unsafe { x.unpack_frozen_value() }),
-            Either::Right(v) => unsafe { v.heap_freeze(self) },
+        match value.unpack() {
+            AValueOrForwardUnpack::Forward(x) => {
+                Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
+            }
+            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_freeze(self) },
         }
     }
 
@@ -1002,9 +1004,9 @@ impl<'v> Tracer<'v> {
         let old_val = value.0.unpack_ptr().unwrap();
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
-        let res = match old_val.unpack_overwrite() {
-            Either::Left(x) => unsafe { x.unpack_unfrozen_value() },
-            Either::Right(v) => unsafe { v.heap_copy(self) },
+        let res = match old_val.unpack() {
+            AValueOrForwardUnpack::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
+            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_copy(self) },
         };
 
         res

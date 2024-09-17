@@ -21,7 +21,6 @@ use std::mem::ManuallyDrop;
 use std::ptr;
 
 use dupe::Dupe;
-use either::Either;
 
 use crate::any::AnyLifetime;
 use crate::cast;
@@ -147,14 +146,6 @@ impl AValueOrForward {
             AValueOrForwardUnpack::Forward(unsafe { &self.forward })
         } else {
             AValueOrForwardUnpack::Header(unsafe { &self.header })
-        }
-    }
-
-    /// Unpack something that might have been overwritten.
-    pub(crate) fn unpack_overwrite<'v>(&'v self) -> Either<ForwardPtr, AValueDyn<'v>> {
-        match self.unpack() {
-            AValueOrForwardUnpack::Header(header) => Either::Right(header.unpack()),
-            AValueOrForwardUnpack::Forward(forward) => Either::Left(forward.forward_ptr()),
         }
     }
 
