@@ -42,10 +42,12 @@ use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
+use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -440,6 +442,25 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
+    }
+
+    fn try_freeze_static(&self) -> Option<FrozenValue> {
+        let StarlarkCommandLineData {
+            items,
+            hidden,
+            options,
+        } = &*self.0.borrow();
+        if items.is_empty() && hidden.is_empty() && options.is_none() {
+            static EMPTY: AllocStaticSimple<FrozenStarlarkCmdArgs> =
+                AllocStaticSimple::alloc(FrozenStarlarkCmdArgs {
+                    items: ThinBoxSlice::empty(),
+                    hidden: ThinBoxSlice::empty(),
+                    options: FrozenCommandLineOptions::empty(),
+                });
+            Some(EMPTY.unpack().to_frozen_value())
+        } else {
+            None
+        }
     }
 }
 

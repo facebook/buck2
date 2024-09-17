@@ -276,6 +276,12 @@ pub(crate) struct FrozenCommandLineOptions {
 }
 
 impl FrozenCommandLineOptions {
+    pub const fn empty() -> Self {
+        FrozenCommandLineOptions {
+            options: ThinBoxSlice::empty(),
+        }
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.options.is_empty()
     }
