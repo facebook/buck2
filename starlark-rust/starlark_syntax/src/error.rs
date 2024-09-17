@@ -177,8 +177,8 @@ pub enum ErrorKind {
     Function(anyhow::Error),
     /// Out of scope variables and similar
     Scope(anyhow::Error),
-    /// Error when lexing a file
-    Lexer(anyhow::Error),
+    /// Syntax error.
+    Parser(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
     /// Fallback option
@@ -199,7 +199,7 @@ impl ErrorKind {
             Self::Value(_) => None,
             Self::Function(_) => None,
             Self::Scope(_) => None,
-            Self::Lexer(_) => None,
+            Self::Parser(_) => None,
             Self::Internal(_) => None,
             Self::Other(e) => e.source(),
         }
@@ -214,7 +214,7 @@ impl fmt::Debug for ErrorKind {
             Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
-            Self::Lexer(e) => fmt::Debug::fmt(e, f),
+            Self::Parser(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
@@ -229,7 +229,7 @@ impl fmt::Display for ErrorKind {
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
-            Self::Lexer(e) => fmt::Display::fmt(e, f),
+            Self::Parser(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }

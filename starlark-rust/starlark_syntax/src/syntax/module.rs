@@ -99,7 +99,7 @@ fn parse_error_add_span(
     };
 
     crate::Error::new_spanned(
-        crate::ErrorKind::Lexer(anyhow::anyhow!(message)),
+        crate::ErrorKind::Parser(anyhow::anyhow!(message)),
         span,
         codemap,
     )

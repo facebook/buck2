@@ -70,7 +70,7 @@ impl std::error::Error for BuckStarlarkError {
             | starlark::ErrorKind::Value(_) => Some(buck2_error::Tier::Input),
             starlark::ErrorKind::Function(_) => Some(buck2_error::Tier::Input),
             starlark::ErrorKind::Scope(_) => Some(buck2_error::Tier::Input),
-            starlark::ErrorKind::Lexer(_) => Some(buck2_error::Tier::Input),
+            starlark::ErrorKind::Parser(_) => Some(buck2_error::Tier::Input),
             starlark::ErrorKind::Other(_)
                 if self.error_handling == OtherErrorHandling::InputError =>
             {
@@ -92,7 +92,7 @@ impl std::error::Error for BuckStarlarkError {
             starlark::ErrorKind::Value(_) => "BuckStarlarkError::Value",
             starlark::ErrorKind::Function(_) => "BuckStarlarkError::Function",
             starlark::ErrorKind::Scope(_) => "BuckStarlarkError::Scope",
-            starlark::ErrorKind::Lexer(_) => "BuckStarlarkError::Lexer",
+            starlark::ErrorKind::Parser(_) => "BuckStarlarkError::Lexer",
             _ => "BuckStarlarkError",
         };
         buck2_error::provide_metadata(
