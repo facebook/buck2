@@ -782,6 +782,7 @@ def _create_link_group(
         roots = roots,
         is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
+        prefer_optimized = spec.group.attrs.prefer_optimized_experimental,
     )
     inputs.extend(get_filtered_links(filtered_labels_to_links.map, public_nodes))
 

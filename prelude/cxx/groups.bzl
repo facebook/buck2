@@ -44,6 +44,7 @@ _VALID_ATTRS = [
     "linker_flags",
     "requires_root_node_exists",
     "prohibit_file_duplicates",
+    "prefer_optimized_experimental",
 ]
 
 # Traversal types in this list will only assign the node
@@ -106,6 +107,7 @@ def parse_groups_definitions(
             linker_flags = attrs.get("linker_flags", []),
             requires_root_node_exists = attrs.get("requires_root_node_exists", True),
             prohibit_file_duplicates = attrs.get("prohibit_file_duplicates", False),
+            prefer_optimized_experimental = attrs.get("prefer_optimized_experimental", False),
         )
 
         parsed_mappings = []
