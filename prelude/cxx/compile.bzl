@@ -177,6 +177,9 @@ CxxCompileFlavor = enum(
     "default",
     # Produces position independent compile outputs
     "pic",
+    # Produces position independent compile outputs
+    # using optimization flags from toolchain
+    "pic_optimized",
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -411,6 +414,7 @@ def _compile_single_cxx(
         toolchain: CxxToolchainInfo,
         default_object_format: CxxObjectFormat,
         bitcode_args: cmd_args,
+        optimization_flags: list,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
         provide_syntax_only: bool,
@@ -428,6 +432,10 @@ def _compile_single_cxx(
     filename_base = short_path + (".pic" if pic else "")
     identifier = short_path + (" (pic)" if pic else "")
 
+    if optimization_flags:
+        identifier += " (optimized) "
+
+    filename_base = filename_base + (".optimized" if optimization_flags else "")
     object = ctx.actions.declare_output(
         "__objects__",
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
@@ -441,6 +449,7 @@ def _compile_single_cxx(
         use_header_units = use_header_units,
         output_args = cmd_args(get_output_flags(compiler_type, object)),
     )
+    cmd.add(cmd_args(optimization_flags))
 
     action_dep_files = {}
 
@@ -680,8 +689,9 @@ def compile_cxx(
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
+            optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if flavor == CxxCompileFlavor("pic_optimized") else [],
             src_compile_cmd = src_compile_cmd,
-            pic = flavor == CxxCompileFlavor("pic"),
+            pic = flavor != CxxCompileFlavor("default"),
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
         )
