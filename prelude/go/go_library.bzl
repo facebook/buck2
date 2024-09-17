@@ -50,6 +50,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         compiler_flags = ctx.attrs.compiler_flags,
         assembler_flags = ctx.attrs.assembler_flags,
+        tags = ctx.attrs._tags,
         race = race,
         asan = asan,
         coverage_mode = coverage_mode,

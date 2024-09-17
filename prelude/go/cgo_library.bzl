@@ -52,6 +52,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        tags = ctx.attrs._tags,
         race = race,
         asan = asan,
         coverage_mode = coverage_mode,

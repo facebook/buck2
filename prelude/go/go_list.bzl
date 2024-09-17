@@ -28,7 +28,7 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
 )
 
-def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, force_disable_cgo: bool, with_tests: bool, asan: bool) -> Artifact:
+def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, tags: list[str], force_disable_cgo: bool, with_tests: bool, asan: bool) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
     env["GO111MODULE"] = "off"
@@ -41,7 +41,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
     )
-    tags = go_toolchain.tags + ctx.attrs._tags
+    all_tags = go_toolchain.tags + tags
     if asan:
         tags.append("asan")
 
@@ -57,7 +57,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         "list",
         "-e",
         "-json=" + required_felds,
-        ["-tags", ",".join(tags) if tags else []],
+        ["-tags", ",".join(all_tags) if all_tags else []],
         ".",
     ]
 

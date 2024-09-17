@@ -26,6 +26,7 @@ def build_package(
         deps: list[Dependency] = [],
         compiler_flags: list[str] = [],
         assembler_flags: list[str] = [],
+        tags: list[str] = [],
         race: bool = False,
         asan: bool = False,
         coverage_mode: GoCoverageMode | None = None,
@@ -45,7 +46,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(ctx, pkg_name, srcs, package_root, force_disable_cgo, with_tests = tests, asan = asan)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, tags, force_disable_cgo, with_tests = tests, asan = asan)
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.go_package_argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")

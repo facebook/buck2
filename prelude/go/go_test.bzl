@@ -83,6 +83,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = deps,
         pkgs = pkgs,
         compiler_flags = ctx.attrs.compiler_flags,
+        tags = ctx.attrs._tags,
         coverage_mode = coverage_mode,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
