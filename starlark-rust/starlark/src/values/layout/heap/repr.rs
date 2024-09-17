@@ -76,9 +76,20 @@ pub(crate) struct AValueRepr<T> {
 pub(crate) struct ForwardPtr(usize);
 
 impl ForwardPtr {
-    pub(crate) fn new(ptr: usize) -> ForwardPtr {
+    fn new(ptr: usize) -> ForwardPtr {
         debug_assert!(ptr & 1 == 0);
         ForwardPtr(ptr)
+    }
+
+    /// Create a forward pointer to a frozen value. This is used during heap freeze.
+    pub(crate) fn new_frozen(value: FrozenValue) -> ForwardPtr {
+        ForwardPtr::new(value.0.raw().ptr_value())
+    }
+
+    /// Create a forward pointer to an unfrozen value. This is used during heap GC.
+    pub(crate) fn new_unfrozen(value: Value) -> ForwardPtr {
+        debug_assert!(value.unpack_frozen().is_none());
+        ForwardPtr::new(value.0.raw().ptr_value() & !1)
     }
 
     /// It's caller responsibility to ensure that forward pointer points to a frozen value.

@@ -201,14 +201,6 @@ impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
     }
 }
 
-/// The overwrite operation in the heap requires that the LSB not be set.
-/// For FrozenValue this is the case, but for Value the LSB is always set.
-/// Fortunately, the consumer of the overwritten value reapplies the
-/// FrozenValue/Value tags, so we can freely discard it here.
-fn clear_lsb(x: usize) -> usize {
-    x & !1
-}
-
 /// For types which are only allocated statically (never in heap).
 /// Technically we can use `AValueSimple` for these, but this is more explicit and safe.
 pub(crate) struct AValueBasic<T>(PhantomData<T>);
@@ -269,10 +261,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
         let s = (*me).payload.as_str();
         let fv = freezer.alloc(s);
         debug_assert!(fv.is_str());
-        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-            me,
-            ForwardPtr::new(fv.0.raw().ptr_value()),
-        );
+        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, ForwardPtr::new_frozen(fv));
         Ok(fv)
     }
 
@@ -290,7 +279,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
         debug_assert!(v.is_str());
         AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
             me,
-            ForwardPtr::new(v.0.raw().ptr_value() & !1),
+            ForwardPtr::new_unfrozen(v),
         );
         v
     }
@@ -324,10 +313,7 @@ impl<'v> AValue<'v> for AValueTuple {
         let content = (*me).payload.content();
 
         let (fv, r, extra) = freezer.reserve_with_extra::<AValueFrozenTuple>(content.len());
-        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-            me,
-            ForwardPtr::new(fv.0.raw().ptr_value()),
-        );
+        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, ForwardPtr::new_frozen(fv));
 
         // TODO: this allocation is unnecessary
         let frozen_values = content.try_map(|v| freezer.freeze(*v))?;
@@ -354,7 +340,7 @@ impl<'v> AValue<'v> for AValueTuple {
         let (v, r, extra) = tracer.reserve_with_extra::<Self>(content.len());
         let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
             me,
-            ForwardPtr::new(clear_lsb(v.0.raw().ptr_value())),
+            ForwardPtr::new_unfrozen(v),
         );
 
         debug_assert_eq!(content.len(), x.len());
@@ -424,16 +410,13 @@ impl<'v> AValue<'v> for AValueList {
             let fv = FrozenValue::new_empty_list();
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
-                ForwardPtr::new(fv.0.raw().ptr_value()),
+                ForwardPtr::new_frozen(fv),
             );
             return Ok(fv);
         }
 
         let (fv, r, extra) = freezer.reserve_with_extra::<AValueFrozenList>(content.len());
-        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-            me,
-            ForwardPtr::new(fv.0.raw().ptr_value()),
-        );
+        AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, ForwardPtr::new_frozen(fv));
         r.fill(ListGen(FrozenListData::new(content.len())));
         let extra = unsafe { &mut *extra };
         assert_eq!(extra.len(), content.len());
@@ -523,7 +506,7 @@ impl<'v> AValue<'v> for AValueArray {
         let (v, r, extra) = tracer.reserve_with_extra::<Self>(content.len());
         let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
             me,
-            ForwardPtr::new(clear_lsb(v.0.raw().ptr_value())),
+            ForwardPtr::new_unfrozen(v),
         );
 
         debug_assert_eq!(content.len(), x.len());
@@ -577,10 +560,8 @@ where
     A: AValue<'v, ExtraElem = ()>,
 {
     let (fv, r) = freezer.reserve::<A>();
-    let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
-        me,
-        ForwardPtr::new(fv.0.raw().ptr_value()),
-    );
+    let x =
+        AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, ForwardPtr::new_frozen(fv));
     r.fill(x);
     Ok(fv)
 }
@@ -625,10 +606,8 @@ where
     A: AValue<'v, ExtraElem = ()>,
 {
     let (v, r) = tracer.reserve::<A>();
-    let mut x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
-        me,
-        ForwardPtr::new(clear_lsb(v.0.raw().ptr_value())),
-    );
+    let mut x =
+        AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, ForwardPtr::new_unfrozen(v));
     // We have to put the forwarding node in _before_ we trace in case there are cycles
     trace(&mut x, tracer);
     r.fill(x);
@@ -661,7 +640,7 @@ where
         let (fv, r) = freezer.reserve::<AValueSimple<T::Frozen>>();
         let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
             me,
-            ForwardPtr::new(fv.0.raw().ptr_value()),
+            ForwardPtr::new_frozen(fv),
         );
         let res = x.freeze(freezer)?;
         r.fill(res);
