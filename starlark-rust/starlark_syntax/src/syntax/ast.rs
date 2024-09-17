@@ -167,10 +167,15 @@ impl<P: AstPayload> LambdaP<P> {
 }
 
 #[derive(Debug, Clone)]
+pub struct CallArgsP<P: AstPayload> {
+    pub args: Vec<AstArgumentP<P>>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ExprP<P: AstPayload> {
     Tuple(Vec<AstExprP<P>>),
     Dot(Box<AstExprP<P>>, AstString),
-    Call(Box<AstExprP<P>>, Vec<AstArgumentP<P>>),
+    Call(Box<AstExprP<P>>, CallArgsP<P>),
     Index(Box<(AstExprP<P>, AstExprP<P>)>),
     Index2(Box<(AstExprP<P>, AstExprP<P>, AstExprP<P>)>),
     Slice(
@@ -522,7 +527,7 @@ impl Display for Expr {
             }
             Expr::Call(e, args) => {
                 write!(f, "{}(", e.node)?;
-                for (i, x) in args.iter().enumerate() {
+                for (i, x) in args.args.iter().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
                     }

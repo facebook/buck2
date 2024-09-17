@@ -183,10 +183,10 @@ fn dot_access<'a>(lhs: &'a AstExpr, attribute: &'a AstString, res: &mut Vec<Bind
                 attributes.push(attribute);
                 f(lhs, attributes, res);
             }
-            Expr::Call(name, parameters) => {
+            Expr::Call(name, args) => {
                 f(name, attributes, res);
                 // make sure that if someone does a(b).c, 'b' is bound and considered used.
-                for parameter in parameters {
+                for parameter in &args.args {
                     expr(parameter.expr(), res);
                 }
             }

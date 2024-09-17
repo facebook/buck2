@@ -28,6 +28,7 @@ use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::CallArgsP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForP;
@@ -101,6 +102,7 @@ impl Expr {
 
         let mut stage = ArgsStage::Positional;
         let mut named_args = HashSet::new();
+        // TODO(nga): we should record error but continue parsing.
         for arg in &args {
             match &arg.node {
                 Argument::Positional(_) => {
@@ -143,7 +145,7 @@ impl Expr {
                 }
             }
         }
-        Ok(Expr::Call(Box::new(f), args))
+        Ok(Expr::Call(Box::new(f), CallArgsP { args }))
     }
 }
 

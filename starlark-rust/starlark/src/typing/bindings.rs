@@ -313,9 +313,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                         if let ExprP::Dot(id, attr) = &***fun {
                             if let ExprP::Identifier(id) = &id.node {
                                 let res = match attr.as_str() {
-                                    "append" if args.len() == 1 => Some((false, 0)),
-                                    "insert" if args.len() == 2 => Some((false, 1)),
-                                    "extend" if args.len() == 1 => Some((true, 0)),
+                                    "append" if args.args.len() == 1 => Some((false, 0)),
+                                    "insert" if args.args.len() == 2 => Some((false, 1)),
+                                    "extend" if args.args.len() == 1 => Some((true, 0)),
                                     _ => None,
                                 };
                                 if let Some((extend, arg)) = res {
@@ -323,9 +323,9 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                                         id.node.payload.as_ref().unwrap()
                                     {
                                         let bind = if extend {
-                                            BindExpr::ListExtend(*id, args[arg].expr())
+                                            BindExpr::ListExtend(*id, args.args[arg].expr())
                                         } else {
-                                            BindExpr::ListAppend(*id, args[arg].expr())
+                                            BindExpr::ListAppend(*id, args.args[arg].expr())
                                         };
                                         self.bindings.expressions.entry(*id).or_default().push(bind)
                                     }

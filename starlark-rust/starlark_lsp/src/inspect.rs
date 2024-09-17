@@ -228,7 +228,8 @@ impl AstModuleInspect for AstModule {
                         return Some(AutocompleteType::Default);
                     }
                     let get_previously_used_argument_names = || {
-                        args.iter()
+                        args.args
+                            .iter()
                             .filter_map(|arg| match arg {
                                 AstArgumentP {
                                     node: ArgumentP::Named(name, _),
@@ -238,7 +239,7 @@ impl AstModuleInspect for AstModule {
                             })
                             .collect()
                     };
-                    for arg in args {
+                    for arg in &args.args {
                         if !arg.span.contains(position) {
                             continue;
                         }

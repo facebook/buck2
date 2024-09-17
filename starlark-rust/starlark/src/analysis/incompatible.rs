@@ -87,7 +87,7 @@ fn match_bad_type_equality(
     // Return true if this expression matches `type($x)`
     fn is_type_call(x: &AstExpr) -> bool {
         match &**x {
-            Expr::Call(fun, args) if args.len() == 1 => match &***fun {
+            Expr::Call(fun, args) if args.args.len() == 1 => match &***fun {
                 Expr::Identifier(x) => x.node.ident == "type",
                 _ => false,
             },

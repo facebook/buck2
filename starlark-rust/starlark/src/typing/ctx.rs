@@ -25,13 +25,13 @@ use starlark_syntax::syntax::ast::AssignOp;
 use starlark_syntax::syntax::ast::AssignTargetP;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::BinOp;
+use starlark_syntax::syntax::ast::CallArgsP;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForClauseP;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
-use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
@@ -295,9 +295,9 @@ impl TypingContext<'_> {
         &self,
         span: Span,
         f: &CstExpr,
-        args: &[CstArgument],
+        args: &CallArgsP<CstPayload>,
     ) -> Result<Ty, InternalError> {
-        let args_ty: Vec<Spanned<Arg>> = args.try_map(|x| {
+        let args_ty: Vec<Spanned<Arg>> = args.args.try_map(|x| {
             Ok(Spanned {
                 span: x.span,
                 node: match &**x {

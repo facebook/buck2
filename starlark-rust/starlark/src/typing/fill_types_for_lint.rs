@@ -26,6 +26,7 @@ use starlark_syntax::syntax::ast::AssignTargetP;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::AstString;
 use starlark_syntax::syntax::ast::BinOp;
+use starlark_syntax::syntax::ast::CallArgsP;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForP;
@@ -41,7 +42,6 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::constants::Constants;
-use crate::eval::compiler::scope::payload::CstArgument;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -135,7 +135,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     fn call(
         &mut self,
         _f: &CstExpr,
-        _args: &[CstArgument],
+        _args: &CallArgsP<CstPayload>,
     ) -> Result<GlobalValue<'v>, InternalError> {
         // TODO(nga): could be a call like `record(...)`, and we need to evaluate it.
         Ok(GlobalValue::any())

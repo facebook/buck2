@@ -388,7 +388,7 @@ impl<P: AstPayload> ExprP<P> {
             ExprP::Dot(x, _) => f(x),
             ExprP::Call(a, b) => {
                 f(a);
-                b.iter().for_each(|x| f(x.expr()));
+                b.args.iter().for_each(|x| f(x.expr()));
             }
             ExprP::Index(a_b) => {
                 let (a, b) = &**a_b;
@@ -488,7 +488,7 @@ impl<P: AstPayload> ExprP<P> {
             ExprP::Dot(x, _) => f(x),
             ExprP::Call(a, b) => {
                 f(a);
-                b.iter_mut().for_each(|x| f(x.expr_mut()));
+                b.args.iter_mut().for_each(|x| f(x.expr_mut()));
             }
             ExprP::Index(a_b) => {
                 let (a, b) = &mut **a_b;

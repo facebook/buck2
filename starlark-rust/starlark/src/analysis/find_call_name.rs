@@ -53,16 +53,22 @@ impl AstModuleFindCallName for AstModule {
                     ..
                 } => {
                     if let Expr::Identifier(_) = &identifier.node {
-                        let found = arguments.iter().find_map(|argument| match &argument.node {
-                            Argument::Named(
-                                arg_name,
-                                Spanned {
-                                    node: Expr::Literal(AstLiteral::String(s)),
-                                    ..
-                                },
-                            ) if arg_name.node == "name" && s.node == name => Some(identifier.span),
-                            _ => None,
-                        });
+                        let found =
+                            arguments
+                                .args
+                                .iter()
+                                .find_map(|argument| match &argument.node {
+                                    Argument::Named(
+                                        arg_name,
+                                        Spanned {
+                                            node: Expr::Literal(AstLiteral::String(s)),
+                                            ..
+                                        },
+                                    ) if arg_name.node == "name" && s.node == name => {
+                                        Some(identifier.span)
+                                    }
+                                    _ => None,
+                                });
                         if found.is_some() {
                             *ret = found;
                         }

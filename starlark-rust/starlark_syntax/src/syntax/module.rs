@@ -36,6 +36,7 @@ use crate::lexer::Token;
 use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstStmt;
+use crate::syntax::ast::CallArgsP;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::IdentP;
 use crate::syntax::ast::LoadArgP;
@@ -322,16 +323,18 @@ impl AstModule {
                                 },
                             }),
                         }),
-                        vec![
-                            Spanned {
-                                span: lhs.span,
-                                node: ArgumentP::Positional(*lhs),
-                            },
-                            Spanned {
-                                span: rhs.span,
-                                node: ArgumentP::Positional(*rhs),
-                            },
-                        ],
+                        CallArgsP {
+                            args: vec![
+                                Spanned {
+                                    span: lhs.span,
+                                    node: ArgumentP::Positional(*lhs),
+                                },
+                                Spanned {
+                                    span: rhs.span,
+                                    node: ArgumentP::Positional(*rhs),
+                                },
+                            ],
+                        },
                     ),
                     None => ExprP::Op(lhs, op, rhs),
                 },

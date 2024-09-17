@@ -508,7 +508,7 @@ impl LspModule {
                         }
                     }
 
-                    for arg in args {
+                    for arg in &args.args {
                         if let ArgumentP::Named(arg_name, arg_expr) = &arg.node {
                             if arg_name.node != member {
                                 continue;

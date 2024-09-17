@@ -22,7 +22,6 @@
 use std::collections::HashMap;
 
 use dupe::OptionDupedExt;
-use starlark_syntax::syntax::ast::AstArgumentP;
 use starlark_syntax::syntax::ast::AstAssignIdentP;
 use starlark_syntax::syntax::ast::AstAssignTargetP;
 use starlark_syntax::syntax::ast::AstExprP;
@@ -148,6 +147,5 @@ pub(crate) type CstTypeExpr = AstTypeExprP<CstPayload>;
 pub(crate) type CstAssignTarget = AstAssignTargetP<CstPayload>;
 pub(crate) type CstAssignIdent = AstAssignIdentP<CstPayload>;
 pub(crate) type CstIdent = AstIdentP<CstPayload>;
-pub(crate) type CstArgument = AstArgumentP<CstPayload>;
 pub(crate) type CstParameter = AstParameterP<CstPayload>;
 pub(crate) type CstStmt = AstStmtP<CstPayload>;

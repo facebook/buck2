@@ -24,6 +24,7 @@ use crate::syntax::ast::AssignIdentP;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTargetP;
 use crate::syntax::ast::AstPayload;
+use crate::syntax::ast::CallArgsP;
 use crate::syntax::ast::ClauseP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::ExprP;
@@ -172,7 +173,9 @@ impl<A: AstPayload> ExprP<A> {
             ExprP::Dot(object, field) => ExprP::Dot(Box::new(object.into_map_payload(f)), field),
             ExprP::Call(ca, args) => ExprP::Call(
                 Box::new(ca.into_map_payload(f)),
-                args.into_map(|a| a.into_map_payload(f)),
+                CallArgsP {
+                    args: args.args.into_map(|a| a.into_map_payload(f)),
+                },
             ),
             ExprP::Index(array_index) => {
                 let (array, index) = *array_index;
