@@ -42,9 +42,9 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
     )
-    all_tags = go_toolchain.tags + tags
+    all_tags = [] + go_toolchain.tags + tags
     if asan:
-        tags.append("asan")
+        all_tags.append("asan")
 
     required_felds = "Name,Imports,GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles,CgoCFLAGS,CgoCPPFLAGS,IgnoredGoFiles,IgnoredOtherFiles"
     if with_tests:
