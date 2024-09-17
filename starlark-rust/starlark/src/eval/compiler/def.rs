@@ -399,7 +399,6 @@ impl Compiler<'_, '_, '_, '_> {
         }
     }
 
-    /// Compile a parameter. Return `None` for `*` pseudo parameter.
     fn parameter(
         &mut self,
         x: &Spanned<DefParam<'_, CstPayload>>,
