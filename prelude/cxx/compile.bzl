@@ -169,6 +169,7 @@ CxxCompileOutput = record(
     index_store = field(Artifact | None, None),
     assembly = field(Artifact | None, None),
     diagnostics = field(Artifact | None, None),
+    preproc = field(Artifact | None, None),
 )
 
 _XCODE_ARG_SUBSTITUTION = [
@@ -576,6 +577,21 @@ def _compile_single_cxx(
     else:
         diagnostics = None
 
+    # Generate pre-processed sources
+    preproc = ctx.actions.declare_output(
+        "__preprocessed__",
+        "{}.{}".format(filename_base, "i"),
+    )
+    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-E", get_output_flags(compiler_type, preproc)))
+    ctx.actions.run(
+        preproc_cmd,
+        category = src_compile_cmd.cxx_compile_cmd.category,
+        identifier = identifier + " (preprocessor)",
+        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+        allow_dep_file_cache_upload = False,
+        **error_handler_args
+    )
+
     return CxxCompileOutput(
         object = object,
         object_format = object_format,
@@ -586,6 +602,7 @@ def _compile_single_cxx(
         index_store = index_store,
         assembly = assembly,
         diagnostics = diagnostics,
+        preproc = preproc,
     )
 
 def _get_base_compile_cmd(
@@ -850,6 +867,8 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["clang-remarks"] = [DefaultInfo(obj.clang_remarks)]
         if obj.assembly:
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
+        if obj.preproc:
+            sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
