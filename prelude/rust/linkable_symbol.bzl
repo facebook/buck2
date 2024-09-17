@@ -48,8 +48,9 @@ applies to all of the following situations:
   - all building performed by IDE
 """
 
-load("@prelude//rust:link_info.bzl", "RustLinkInfo")
-load("@prelude//prelude.bzl", prelude = "native")
+load("@prelude//rust:link_info.bzl", "RustLinkInfo") # @oss-enable
+load("@prelude//prelude.bzl", prelude = "native") # @oss-enable
+# @oss-disable: load("@fbcode//buck2/facebook:autodeps_hacks.bzl", "RustLinkInfo", "prelude") 
 
 def _remove_rust_link_info_impl(ctx: AnalysisContext) -> list[Provider]:
     out = []
