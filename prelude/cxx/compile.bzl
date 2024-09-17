@@ -523,8 +523,12 @@ def _compile_single_cxx(
     )
     index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
 
-    if compiler_type == "clang":
-        assembly_extension = "ll" if object_format == CxxObjectFormat("bitcode") else "s"
+    # Generate asm for compiler which accept `-S` (TODO: support others)
+    if compiler_type in ["clang", "gcc"]:
+        # Generate assembler or llvm bitcode output file
+        assembly_extension = "s"
+        if compiler_type == "clang" and object_format == CxxObjectFormat("bitcode"):
+            assembly_extension = "ll"
         assembly = ctx.actions.declare_output(
             "__assembly__",
             "{}.{}".format(filename_base, assembly_extension),
@@ -543,34 +547,33 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             **error_handler_args
         )
-
-        if provide_syntax_only:
-            diagnostics = ctx.actions.declare_output(
-                "__diagnostics__",
-                "{}.diag.txt".format(short_path),
-            )
-            syntax_only_cmd = _get_base_compile_cmd(
-                bitcode_args = bitcode_args,
-                src_compile_cmd = src_compile_cmd,
-                pic = pic,
-                output_args = cmd_args("-fsyntax-only"),
-            )
-            ctx.actions.run(
-                [
-                    toolchain.internal_tools.stderr_to_file,
-                    cmd_args(diagnostics.as_output(), format = "--out={}"),
-                    syntax_only_cmd,
-                ],
-                category = "check",
-                identifier = short_path,
-                allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-                allow_dep_file_cache_upload = False,
-                **error_handler_args
-            )
-        else:
-            diagnostics = None
     else:
         assembly = None
+
+    if compiler_type == "clang" and provide_syntax_only:
+        diagnostics = ctx.actions.declare_output(
+            "__diagnostics__",
+            "{}.diag.txt".format(short_path),
+        )
+        syntax_only_cmd = _get_base_compile_cmd(
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            pic = pic,
+            output_args = cmd_args("-fsyntax-only"),
+        )
+        ctx.actions.run(
+            [
+                toolchain.internal_tools.stderr_to_file,
+                cmd_args(diagnostics.as_output(), format = "--out={}"),
+                syntax_only_cmd,
+            ],
+            category = "check",
+            identifier = short_path,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            allow_dep_file_cache_upload = False,
+            **error_handler_args
+        )
+    else:
         diagnostics = None
 
     return CxxCompileOutput(
