@@ -13,7 +13,8 @@ def _rule_impl(ctx: AnalysisContext) -> list[Provider]:
         LocalResourceInfo(
             setup = cmd_args([ctx.attrs.broker[RunInfo], "--simulator-manager", ctx.attrs.idb_targets[RunInfo]] + ctx.attrs.args),
             resource_env_vars = {
-                "IDB_COMPANION": "socket_address",
+                "DEVICE_SET_PATH": "device_set_path",
+                "DEVICE_UDID": "udid",
             },
             setup_timeout_seconds = ctx.attrs.setup_timeout_seconds,
         ),
