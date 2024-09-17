@@ -150,7 +150,7 @@ impl Span {
 }
 
 /// Associate a Span with a value of arbitrary type (e.g. an AST node).
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Copy)]
+#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Debug)]
 pub struct Spanned<T> {
     /// Data in the node.
     pub node: T,
