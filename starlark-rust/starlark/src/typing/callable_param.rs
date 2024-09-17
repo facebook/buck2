@@ -54,7 +54,9 @@ pub(crate) enum ParamMode {
 pub struct Param {
     /// The type of parameter
     pub(crate) mode: ParamMode,
-    /// The type of the parameter
+    /// The type of the parameter.
+    /// For `*args` it is the type of the tuple elements.
+    /// For `**kwargs` it is the type of the dict values.
     pub(crate) ty: Ty,
 }
 
