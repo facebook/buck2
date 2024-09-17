@@ -375,7 +375,7 @@ impl PreparedCommandExecutor for ReExecutor {
     .inner.code,
     .inner.message
 )]
-pub struct ReErrorWrapper {
+struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,
 }
