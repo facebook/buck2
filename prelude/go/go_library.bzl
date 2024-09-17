@@ -58,8 +58,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
-        # HACK: Ignore ctx.attrs.override_cgo_enabled and pass False until D62442305 landed
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled, False),
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
     default_output = pkg.pkg

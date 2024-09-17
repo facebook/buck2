@@ -496,6 +496,7 @@ inlined_extra_attributes = {
         "_cgo_enabled": cgo_enabled_attr,
         "_coverage_mode": coverage_mode_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
+        "_exec_os_type": buck.exec_os_type_arg(),
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
         "_go_toolchain": toolchains_common.go(),
         "_race": race_attr,
