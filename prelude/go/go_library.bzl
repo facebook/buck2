@@ -33,8 +33,11 @@ load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
     pkgs = {}
     pkg_name = go_attr_pkg_name(ctx)
 
@@ -55,8 +58,8 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DISABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        cgo_enabled = False,
+        # HACK: Ignore ctx.attrs.override_cgo_enabled and pass False until D62442305 landed
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled, False),
     )
 
     default_output = pkg.pkg

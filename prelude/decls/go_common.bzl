@@ -130,8 +130,15 @@ def _embedcfg_arg():
 def _cgo_enabled_arg():
     return {
         "cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
-    Experimental: Analog of CGO_ENABLED environment-variable.
-    None will be converted to True if cxx_toolchain available for current configuration, otherwise False.
+    Analog of CGO_ENABLED env-var, applies to this target and its dependencies.
+    If None `go_toolchain.default_cgo_enabled` value will be applied.
+"""),
+    }
+
+def _override_cgo_enabled_arg():
+    return {
+        "override_cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
+    Per-target analog of CGO_ENABLED env-var, overrides its value for the target, but not for its dependencies.
 """),
     }
 
@@ -191,6 +198,7 @@ go_common = struct(
     external_linker_flags_arg = _external_linker_flags_arg,
     embedcfg_arg = _embedcfg_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
+    override_cgo_enabled_arg = _override_cgo_enabled_arg,
     race_arg = _race_arg,
     asan_arg = _asan_arg,
     tags_arg = _tags_arg,

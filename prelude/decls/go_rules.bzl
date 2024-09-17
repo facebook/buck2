@@ -283,6 +283,7 @@ go_library = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
+        go_common.override_cgo_enabled_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

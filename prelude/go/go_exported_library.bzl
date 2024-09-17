@@ -66,7 +66,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, None),
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, None, None),
     )
 
     def link_variant(build_mode: GoBuildMode):

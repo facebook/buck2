@@ -11,7 +11,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
+    cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled, None)
     tags = [] + go_toolchain.tags
     linker_flags = [] + go_toolchain.linker_flags
     assembler_flags = [] + go_toolchain.assembler_flags
