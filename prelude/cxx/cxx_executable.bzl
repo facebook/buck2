@@ -233,6 +233,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavor = compile_flavor,
         provide_syntax_only = True,
+        use_header_units = impl_params.use_header_units,
     )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
