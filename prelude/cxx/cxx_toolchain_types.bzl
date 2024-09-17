@@ -217,6 +217,7 @@ CxxToolchainInfo = provider(
         "dumpbin_toolchain_path": provider_field(typing.Any, default = None),
         "target_sdk_version": provider_field([str, None], default = None),
         "remap_cwd": provider_field(bool, default = False),
+        "optimization_compiler_flags_EXPERIMENTAL": provider_field(typing.Any, default = []),
     },
 )
 
@@ -269,7 +270,8 @@ def cxx_toolchain_infos(
         pic_behavior = PicBehavior("supported"),
         dumpbin_toolchain_path = None,
         target_sdk_version = None,
-        remap_cwd = False):
+        remap_cwd = False,
+        optimization_compiler_flags_EXPERIMENTAL = []):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -312,6 +314,7 @@ def cxx_toolchain_infos(
         dumpbin_toolchain_path = dumpbin_toolchain_path,
         target_sdk_version = target_sdk_version,
         remap_cwd = remap_cwd,
+        optimization_compiler_flags_EXPERIMENTAL = optimization_compiler_flags_EXPERIMENTAL,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.
