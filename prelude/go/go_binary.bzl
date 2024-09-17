@@ -31,8 +31,8 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        force_disable_cgo = True,
+        # We need to set CGO_DISABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
+        cgo_enabled = False,
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,

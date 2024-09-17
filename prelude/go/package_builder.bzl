@@ -29,10 +29,10 @@ def build_package(
         tags: list[str] = [],
         race: bool = False,
         asan: bool = False,
+        cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
         tests: bool = False,
-        force_disable_cgo: bool = False,
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
@@ -46,7 +46,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(ctx, pkg_name, srcs, package_root, tags, force_disable_cgo, with_tests = tests, asan = asan)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, tags, cgo_enabled, with_tests = tests, asan = asan)
 
     srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.go_package_argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")

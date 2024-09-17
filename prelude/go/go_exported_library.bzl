@@ -51,8 +51,10 @@ load(
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "cgo_exported_preprocessor")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     lib, pkg_info = build_package(
         ctx,
         "main",
@@ -64,6 +66,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, None),
     )
 
     def link_variant(build_mode: GoBuildMode):

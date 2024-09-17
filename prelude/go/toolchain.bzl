@@ -34,7 +34,7 @@ GoToolchainInfo = provider(
     },
 )
 
-def get_toolchain_env_vars(toolchain: GoToolchainInfo, force_disable_cgo = False) -> dict[str, str | cmd_args]:
+def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args]:
     env = {
         "GOARCH": toolchain.env_go_arch,
         # opt-out from Go1.20 coverage redesign
@@ -49,11 +49,6 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo, force_disable_cgo = False
     if toolchain.env_go_debug:
         godebug = ",".join(["{}={}".format(k, v) for k, v in toolchain.env_go_debug.items()])
         env["GODEBUG"] = godebug
-
-    if force_disable_cgo:
-        env["CGO_ENABLED"] = "0"
-    elif toolchain.default_cgo_enabled:
-        env["CGO_ENABLED"] = "1"
 
     return env
 

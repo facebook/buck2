@@ -28,10 +28,11 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
 )
 
-def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, tags: list[str], force_disable_cgo: bool, with_tests: bool, asan: bool) -> Artifact:
+def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    env = get_toolchain_env_vars(go_toolchain, force_disable_cgo = force_disable_cgo)
+    env = get_toolchain_env_vars(go_toolchain)
     env["GO111MODULE"] = "off"
+    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
     go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json")
 

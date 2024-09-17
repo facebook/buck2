@@ -57,6 +57,7 @@ def cgo_library_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
+        cgo_enabled = True,
     )
 
     pkgs = {

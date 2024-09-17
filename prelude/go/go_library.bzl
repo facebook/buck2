@@ -55,8 +55,8 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DESABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        force_disable_cgo = True,
+        # We need to set CGO_DISABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
+        cgo_enabled = False,
     )
 
     default_output = pkg.pkg
