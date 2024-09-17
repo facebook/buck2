@@ -82,6 +82,10 @@ def _process_target_config(
     if crate_dynamic:
         crate_dynamic = crate_dynamic.get(DefaultInfo).default_outputs[0]
 
+    # resolved_attrs.env maps str to various output types (str | string_with_macros | artifact).
+    # Wrapping with cmd_args here to ensure the value is always a flat string and not a list
+    env = {k: cmd_args(v, delimiter = "") for k, v in resolved_attrs.env.items()}
+
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
@@ -92,7 +96,7 @@ def _process_target_config(
         "crate_root": providers[RustAnalyzerInfo].crate_root,
         "deps": deps,
         "edition": _get_nullable_attr(attrs, "edition"),
-        "env": _get_nullable_attr(attrs, "env"),
+        "env": env,
         "features": resolved_attrs.features,
         "in_workspace": in_workspace,
         "kind": target.rule_type,
@@ -140,6 +144,8 @@ def cquery_deps(
         labels = attrs.get("labels")
         if "generated_protobuf_library_rust" in labels.value():
             protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
+
+            # TODO(pickett): Remove this out_dir and rely on the one already in env
             target_info["out_dir"] = protobuf_out_dir
 
         out[target.label.raw_target()] = target_info

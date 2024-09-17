@@ -135,7 +135,7 @@ pub(crate) fn to_json_project(
 
         // Populate the environment variables the target configuration's environment variables,
         // but ignore OUT_DIR as we handle that later.
-        env.extend(info.env.clone().into_iter().filter(|(k, _)| k != "OUT_DIR"));
+        env.extend(info.env.clone().into_iter());
 
         // If $CARGO_MANIFEST_DIR is set, resolve it to an absolute path.
         if let Some(rel_cargo_manifest_dir) = info.env.get("CARGO_MANIFEST_DIR") {
@@ -147,11 +147,10 @@ pub(crate) fn to_json_project(
         }
 
         let mut include_dirs = FxHashSet::default();
-        if let Some(out_dir) = &info.out_dir {
-            env.insert("OUT_DIR".to_owned(), out_dir.to_string_lossy().into_owned());
+        if let Some(out_dir) = info.env.get("OUT_DIR") {
             // to ensure that the `OUT_DIR` is included as part of the `PackageRoot` in rust-analyzer,
             // manually insert the parent of the `out_dir` into `include_dirs`.
-            if let Some(parent) = out_dir.parent() {
+            if let Some(parent) = Path::new(out_dir).parent() {
                 include_dirs.insert(parent.to_owned());
             }
         }
@@ -833,7 +832,6 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -859,7 +857,6 @@ fn merge_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo-unittest/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -897,7 +894,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -926,7 +922,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -955,7 +950,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo_test/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -981,7 +975,6 @@ fn merge_target_multiple_tests_no_cycles() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("foo/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -1026,7 +1019,6 @@ fn named_deps_underscores() {
             source_folder: PathBuf::from("/tmp"),
             project_relative_buildfile: PathBuf::from("bar/BUCK"),
             in_workspace: false,
-            out_dir: None,
             rustc_flags: vec![],
         },
     );
@@ -1053,7 +1045,6 @@ fn named_deps_underscores() {
         source_folder: PathBuf::from("/tmp"),
         project_relative_buildfile: PathBuf::from("foo/BUCK"),
         in_workspace: false,
-        out_dir: None,
         rustc_flags: vec![],
     };
 

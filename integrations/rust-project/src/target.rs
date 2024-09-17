@@ -131,7 +131,6 @@ pub(crate) struct TargetInfo {
     pub(crate) source_folder: PathBuf,
     pub(crate) project_relative_buildfile: PathBuf,
     pub(crate) in_workspace: bool,
-    pub(crate) out_dir: Option<PathBuf>,
     pub(crate) rustc_flags: Vec<String>,
 }
 
@@ -280,7 +279,6 @@ fn test_cfg() {
         source_folder: PathBuf::from("/tmp"),
         project_relative_buildfile: PathBuf::from("bar/BUCK"),
         in_workspace: false,
-        out_dir: None,
         rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
     };
 
