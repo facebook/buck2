@@ -137,6 +137,6 @@ impl FrozenPackageFileExtra {
     ) -> anyhow::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
         Ok(FrozenInterpreterExtraValue::get(module)?
             .into_owned_frozen_ref()
-            .try_map_option(|x| x.package_extra.as_ref()))
+            .try_map_option(|x| x.value.package_extra.as_ref()))
     }
 }

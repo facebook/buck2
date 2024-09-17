@@ -57,6 +57,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::OwnedFrozenRef;
 
 use crate::interpreter::buckconfig::BuckConfigsViewForStarlark;
@@ -331,9 +332,9 @@ impl InterpreterForCell {
             }
         }
 
-        env.set_extra_value_no_overwrite(
-            env.heap().alloc_complex(InterpreterExtraValue::default()),
-        )?;
+        env.set_extra_value_no_overwrite(env.heap().alloc_complex(StarlarkAnyComplex {
+            value: InterpreterExtraValue::default(),
+        }))?;
 
         Ok(env)
     }
