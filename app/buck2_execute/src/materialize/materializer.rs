@@ -64,6 +64,7 @@ fn format_directory_entry_leaves(
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = MaterializationError)]
 pub enum MaterializationError {
     #[error("Error materializing artifact at path `{}`", .path)]
     Error {
