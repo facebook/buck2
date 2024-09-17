@@ -323,6 +323,8 @@ _CxxCompiledSourcesOutput = record(
     compile_cmds = field(CxxCompileCommandOutput),
     # PIC compile outputs
     pic = field(_CxxLibraryCompileOutput),
+    # PIC optimized compile outputs
+    pic_optimized = field([_CxxLibraryCompileOutput, None]),
     # Non PIC compile outputs
     non_pic = field([_CxxLibraryCompileOutput, None]),
     # Header unit outputs
@@ -1104,6 +1106,7 @@ def cxx_compile_srcs(
     )
 
     non_pic = None
+    pic_optimized = None
     if preferred_linkage != Linkage("shared"):
         non_pic_cxx_outs = compile_cxx(
             ctx = ctx,
@@ -1121,9 +1124,26 @@ def cxx_compile_srcs(
             extra_link_input = impl_params.extra_link_input,
         )
 
+        if get_cxx_toolchain_info(ctx).optimization_compiler_flags_EXPERIMENTAL:
+            optimized_cxx_outs = compile_cxx(
+                ctx = ctx,
+                src_compile_cmds = compile_cmd_output.src_compile_cmds,
+                flavor = CxxCompileFlavor("pic_optimized"),
+                # Diagnostics from the pic and non-pic compilation would be
+                # identical. We can avoid instantiating a second set of actions.
+                provide_syntax_only = False,
+            )
+            pic_optimized = _get_library_compile_output(
+                ctx = ctx,
+                src_compile_cmds = compile_cmd_output.src_compile_cmds,
+                outs = optimized_cxx_outs,
+                extra_link_input = impl_params.extra_link_input,
+            )
+
     return _CxxCompiledSourcesOutput(
         compile_cmds = compile_cmd_output,
         pic = pic,
+        pic_optimized = pic_optimized,
         non_pic = non_pic,
         header_unit = header_unit,
         header_unit_preprocessor = header_unit_preprocessor,
