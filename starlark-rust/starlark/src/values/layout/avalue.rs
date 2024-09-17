@@ -550,6 +550,23 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueAnyArray<T> {
     }
 }
 
+/// If `A` provides a statically allocated frozen value,
+/// replace object with the forward to that frozen value instead of using default freeze.
+unsafe fn try_freeze_static<'v, A>(me: *mut AValueRepr<A::StarlarkValue>) -> Option<FrozenValue>
+where
+    A: AValue<'v>,
+{
+    let Some(f) = (*me).payload.try_freeze_static() else {
+        return None;
+    };
+
+    drop(AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
+        me,
+        ForwardPtr::new_frozen(f),
+    ));
+    Some(f)
+}
+
 /// `heap_freeze` implementation for simple `StarlarkValue` and `StarlarkFloat`
 /// (`StarlarkFloat` is logically a simple type, but it is not considered simple type).
 unsafe fn heap_freeze_simple_impl<'v, A>(
@@ -585,6 +602,10 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueSimple<T> {
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
     ) -> anyhow::Result<FrozenValue> {
+        if let Some(f) = try_freeze_static::<Self>(me) {
+            return Ok(f);
+        }
+
         heap_freeze_simple_impl::<Self>(me, freezer)
     }
 
@@ -637,6 +658,10 @@ where
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
     ) -> anyhow::Result<FrozenValue> {
+        if let Some(f) = try_freeze_static::<Self>(me) {
+            return Ok(f);
+        }
+
         let (fv, r) = freezer.reserve::<AValueSimple<T::Frozen>>();
         let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
             me,
@@ -699,7 +724,10 @@ pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 #[cfg(test)]
 mod tests {
     use crate::environment::Module;
+    use crate::values::dict::AllocDict;
     use crate::values::types::list::value::ListData;
+    use crate::values::UnpackValue;
+    use crate::values::Value;
 
     #[test]
     fn tuple_cycle_freeze() {
@@ -711,5 +739,25 @@ mod tests {
             .push(tuple, module.heap());
         module.set("t", tuple);
         module.freeze().unwrap();
+    }
+
+    #[test]
+    fn test_try_freeze_static() {
+        // `try_freeze_static` is only implemented for `dict` at the moment of writing,
+        // so use it for the test.
+
+        let module = Module::new();
+        let d0 = module.heap().alloc(AllocDict::EMPTY);
+        let d1 = module.heap().alloc(AllocDict::EMPTY);
+        // Pointers are not equal.
+        assert_ne!(d0.0.raw(), d1.0.raw());
+
+        module.set_extra_value(module.heap().alloc((d0, d1)));
+
+        let module = module.freeze().unwrap();
+        let (d0, d1) =
+            <(Value, Value)>::unpack_value_err(module.extra_value().unwrap().to_value()).unwrap();
+        // Pointers are equal.
+        assert_eq!(d0.0.raw(), d1.0.raw());
     }
 }

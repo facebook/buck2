@@ -509,6 +509,14 @@ where
     fn get_type_starlark_repr() -> Ty {
         Ty::any_dict()
     }
+
+    fn try_freeze_static(&self) -> Option<FrozenValue> {
+        if self.0.content().is_empty() {
+            Some(FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {

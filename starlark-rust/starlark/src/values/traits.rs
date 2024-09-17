@@ -55,6 +55,7 @@ use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::Freeze;
 use crate::values::FrozenStringValue;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Value;
@@ -875,5 +876,13 @@ pub trait StarlarkValue<'v>:
     /// [std::any::Provider](https://doc.rust-lang.org/std/any/trait.Provider.html).
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         let _ = demand;
+    }
+
+    /// When freezing, this function is called on mutable value to return
+    /// statically allocated singleton value if possible.
+    ///
+    /// This function is used for optimization and rarely needed to be implemented.
+    fn try_freeze_static(&self) -> Option<FrozenValue> {
+        None
     }
 }
