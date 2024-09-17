@@ -68,6 +68,17 @@ def print_error(msg: str) -> None:
     )
 
 
+def print_warn(msg: str) -> None:
+    print(
+        Colors.WARNING.value
+        + Colors.BOLD.value
+        + "WARNING: "
+        + msg
+        + Colors.ENDC.value,
+        file=sys.stderr,
+    )
+
+
 @contextmanager
 def timing() -> Generator:
     start = time.time()
@@ -294,6 +305,10 @@ def clippy(package_args: List[str], fix: bool) -> None:
 
 
 def starlark_linter(buck2: str, git: bool) -> None:
+    if git:
+        print_warn("Skipping starlark linter on git")
+        return
+
     print_running("starlark linter")
     starlark_files = list_starlark_files(git)
     with tempfile.NamedTemporaryFile(mode="w+t") as fp:
