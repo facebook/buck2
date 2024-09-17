@@ -57,7 +57,7 @@ pub(crate) struct InterpreterExtraValue<'v> {
     Allocative
 )]
 #[display("{:?}", self)]
-pub(crate) struct FrozenExtraValue {
+pub(crate) struct FrozenInterpreterExtraValue {
     pub(crate) package_extra: Option<FrozenPackageFileExtra>,
 }
 
@@ -67,15 +67,15 @@ pub(crate) struct FrozenExtraValue {
 impl<'v> StarlarkValue<'v> for InterpreterExtraValue<'v> {}
 
 #[starlark_value(type = "ExtraValue")]
-impl<'v> StarlarkValue<'v> for FrozenExtraValue {
-    type Canonical = FrozenExtraValue;
+impl<'v> StarlarkValue<'v> for FrozenInterpreterExtraValue {
+    type Canonical = FrozenInterpreterExtraValue;
 }
 
 impl<'v> Freeze for InterpreterExtraValue<'v> {
-    type Frozen = FrozenExtraValue;
+    type Frozen = FrozenInterpreterExtraValue;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Ok(FrozenExtraValue {
+        Ok(FrozenInterpreterExtraValue {
             package_extra: self
                 .package_extra
                 .into_inner()
@@ -95,10 +95,10 @@ impl<'v> InterpreterExtraValue<'v> {
     }
 }
 
-impl FrozenExtraValue {
+impl FrozenInterpreterExtraValue {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenExtraValue>> {
+    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenInterpreterExtraValue>> {
         Ok(module
             .owned_extra_value()
             .ok_or(ExtraValueError::Missing)?

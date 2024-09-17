@@ -32,7 +32,7 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::interpreter::extra_value::FrozenExtraValue;
+use crate::interpreter::extra_value::FrozenInterpreterExtraValue;
 use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::super_package::package_value::FrozenStarlarkPackageValue;
 use crate::super_package::package_value::StarlarkPackageValue;
@@ -135,7 +135,7 @@ impl FrozenPackageFileExtra {
     pub(crate) fn get(
         module: &FrozenModule,
     ) -> anyhow::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
-        Ok(FrozenExtraValue::get(module)?
+        Ok(FrozenInterpreterExtraValue::get(module)?
             .into_owned_frozen_ref()
             .try_map_option(|x| x.package_extra.as_ref()))
     }
