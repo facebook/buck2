@@ -11,7 +11,7 @@ use buck2_error::ErrorTag;
 use remote_execution::REClientError;
 use remote_execution::TCode;
 
-fn get_re_error_tag(tcode: TCode) -> ErrorTag {
+pub fn get_re_error_tag(tcode: TCode) -> ErrorTag {
     match tcode {
         TCode::CANCELLED => ErrorTag::ReCancelled,
         TCode::UNKNOWN => ErrorTag::ReUnknown,

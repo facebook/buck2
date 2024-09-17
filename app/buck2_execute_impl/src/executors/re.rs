@@ -39,6 +39,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::client::ExecuteResponseOrCancelled;
+use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
@@ -375,6 +376,7 @@ impl PreparedCommandExecutor for ReExecutor {
     .inner.code,
     .inner.message
 )]
+#[buck2(tier0, tag = Some(get_re_error_tag(self.inner.code)))]
 struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,
