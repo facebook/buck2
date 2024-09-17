@@ -76,7 +76,7 @@ pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
 
 DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(grammar_util::dialect_check_def(state.dialect, state.codemap, <>)?);
 DefStmt_: Stmt =
-  "def" <identifier> "(" <COMMA<ParameterTyped>> ")" <ReturnType> ":" <Suite>
+  "def" <identifier> "(" <COMMA<DefParameter>> ")" <ReturnType> ":" <Suite>
       => grammar_util::check_def(<>, state);
 
 ReturnType: Option<Box<AstTypeExpr>> = {
@@ -84,8 +84,9 @@ ReturnType: Option<Box<AstTypeExpr>> = {
     => None,
 }
 
-Parameter: AstParameter = ASTP<Parameter_>;
-Parameter_: Parameter = {
+// Lambda parameter cannot have type annotations.
+LambdaParameter: AstParameter = ASTP<LambdaParameter_>;
+LambdaParameter_: Parameter = {
     <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
     <AssignIdent>                => Parameter::Normal(<>, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
@@ -93,8 +94,8 @@ Parameter_: Parameter = {
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
 };
 
-ParameterTyped: AstParameter = ASTP<ParameterTyped_>;
-ParameterTyped_: Parameter = {
+DefParameter: AstParameter = ASTP<DefParameter_>;
+DefParameter_: Parameter = {
     <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
     <AssignIdent> <Type>                  => Parameter::Normal(<>),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
@@ -313,7 +314,7 @@ Test: AstExpr = {
 };
 
 LambDef: AstExpr = {
-    <l:@L> "lambda" <p:COMMA<Parameter>> ":" <e:Test> <r:@R>
+    <l:@L> "lambda" <p:COMMA<LambdaParameter>> ":" <e:Test> <r:@R>
         =>? Ok(grammar_util::dialect_check_lambda(state.dialect, state.codemap, grammar_util::check_lambda(p, e, state).ast(l, r))?),
 }
 
