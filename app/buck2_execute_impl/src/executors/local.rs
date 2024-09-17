@@ -87,6 +87,7 @@ use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum LocalExecutionError {
     #[error("Args list was empty")]
     NoArgs,

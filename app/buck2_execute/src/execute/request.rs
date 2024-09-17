@@ -89,6 +89,7 @@ pub enum OutputCreationBehavior {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Incompatible executor preferences: `{}` & `{}`", a, b)]
+#[buck2(input)]
 struct IncompatibleExecutorPreferences {
     a: ExecutorPreference,
     b: ExecutorPreference,

@@ -60,6 +60,7 @@ use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 #[derive(Debug, buck2_error::Error)]
 pub enum RemoteExecutorError {
     #[error("Trying to execute a `local_only = True` action on remote executor")]
+    #[buck2(input)]
     LocalOnlyAction,
 }
 
