@@ -315,6 +315,8 @@ def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFil
 LinkInfos = record(
     # Link info to use by default.
     default = field(LinkInfo),
+    # Link info for objects compiler with extra optimizations (EXPERIMENTAL)
+    optimized = field([LinkInfo, None], None),
     # Link info stripped of debug symbols.
     stripped = field([LinkInfo, None], None),
 )

@@ -1180,6 +1180,7 @@ def _form_library_outputs(
     # We don't know which outputs consumers may want, so we define all the possibilities given our preferred linkage.
     for output_style in get_output_styles_for_linkage(preferred_linkage):
         output = None
+        optimized_info = None
         stripped = None
         info = None
 
@@ -1194,6 +1195,25 @@ def _form_library_outputs(
                     fail("output_style {} requires non_pic compiled srcs, but didn't have any in {}".format(output_style, compiled_srcs))
 
             gcno_files += lib_compile_output.gcno_files
+
+            if pic and compiled_srcs.pic_optimized and compiled_srcs.pic_optimized.objects:
+                _, optimized_info = _static_library(
+                    ctx,
+                    impl_params,
+                    compiled_srcs.pic_optimized.objects,
+                    objects_have_external_debug_info = compiled_srcs.pic_optimized.objects_have_external_debug_info,
+                    external_debug_info = make_artifact_tset(
+                        ctx.actions,
+                        label = ctx.label,
+                        artifacts = compiled_srcs.pic_optimized.external_debug_info,
+                        children = impl_params.additional.static_external_debug_info,
+                    ),
+                    pic = pic,
+                    optimized = True,
+                    stripped = False,
+                    extra_linkables = extra_static_linkables,
+                    bitcode_objects = compiled_srcs.pic_optimized.bitcode_objects,
+                )
 
             # Only generate an archive if we have objects to include
             if lib_compile_output.objects:
@@ -1316,6 +1336,7 @@ def _form_library_outputs(
         link_infos[output_style] = LinkInfos(
             default = ldflags(info),
             stripped = ldflags(stripped) if stripped != None else None,
+            optimized = ldflags(optimized_info) if optimized_info != None else None,
         )
 
     if get_cxx_toolchain_info(ctx).gcno_files:
