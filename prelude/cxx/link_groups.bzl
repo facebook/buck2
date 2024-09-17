@@ -358,7 +358,8 @@ def get_filtered_labels_to_links_map(
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped: bool = False,
         is_executable_link: bool = False,
-        force_static_follows_dependents: bool = True) -> FinalLabelsToLinks:
+        force_static_follows_dependents: bool = True,
+        prefer_optimized = False) -> FinalLabelsToLinks:
     """
     Given a linkable graph, link style and link group mappings, finds all links
     to consider for linking traversing the graph as necessary and then
@@ -414,7 +415,7 @@ def get_filtered_labels_to_links_map(
 
     def add_link(target: Label, output_style: LibOutputStyle):
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info(linkable_graph_node_map[target], output_style, prefer_stripped),
+            link_info = get_link_info(linkable_graph_node_map[target], output_style, prefer_stripped, prefer_optimized),
             output_style = output_style,
             link_name = target,
         )

@@ -315,10 +315,12 @@ def linkable_graph(dep: Dependency) -> [LinkableGraph, None]:
 def get_link_info(
         node: LinkableNode,
         output_style: LibOutputStyle,
-        prefer_stripped: bool = False) -> LinkInfo:
+        prefer_stripped: bool = False,
+        prefer_optimized: bool = False) -> LinkInfo:
     info = _get_link_info(
         node.link_infos[output_style],
         prefer_stripped = prefer_stripped,
+        prefer_optimized = prefer_optimized,
     )
     return info
 

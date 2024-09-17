@@ -631,7 +631,8 @@ def create_merged_link_info_for_propagation(
 
 def get_link_info(
         infos: LinkInfos,
-        prefer_stripped: bool = False) -> LinkInfo:
+        prefer_stripped: bool = False,
+        prefer_optimized: bool = False) -> LinkInfo:
     """
     Helper for getting a `LinkInfo` out of a `LinkInfos`.
     """
@@ -639,6 +640,8 @@ def get_link_info(
     # When requested, prefer using pre-stripped link info.
     if prefer_stripped and infos.stripped != None:
         return infos.stripped
+    if prefer_optimized and infos.optimized:
+        return infos.optimized
 
     return infos.default
 
