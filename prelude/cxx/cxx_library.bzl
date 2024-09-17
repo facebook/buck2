@@ -995,7 +995,7 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     if output_style == LibOutputStyle("shared_lib"):
         return _soname(ctx, impl_params)
     else:
-        return _base_static_library_name(ctx, False)
+        return _base_static_library_name(ctx, optimized = False, stripped = False)
 
 def _get_library_compile_output(
         ctx: AnalysisContext,
@@ -1210,6 +1210,7 @@ def _form_library_outputs(
                     ),
                     pic = pic,
                     stripped = False,
+                    optimized = False,
                     extra_linkables = extra_static_linkables,
                     bitcode_objects = lib_compile_output.bitcode_objects,
                 )
@@ -1219,6 +1220,7 @@ def _form_library_outputs(
                     lib_compile_output.stripped_objects,
                     pic = pic,
                     stripped = True,
+                    optimized = False,
                     extra_linkables = extra_static_linkables,
                     bitcode_objects = lib_compile_output.bitcode_objects,
                 )
@@ -1482,6 +1484,7 @@ def _static_library(
         impl_params: CxxRuleConstructorParams,
         objects: list[Artifact],
         pic: bool,
+        optimized: bool,
         stripped: bool,
         extra_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         objects_have_external_debug_info: bool = False,
@@ -1499,14 +1502,14 @@ def _static_library(
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     linker_type = linker_info.type
 
-    base_name = _base_static_library_name(ctx, stripped)
+    base_name = _base_static_library_name(ctx, optimized, stripped)
     name = _archive_name(base_name, pic = pic, extension = linker_info.static_library_extension)
 
     # If we have extra hidden deps of this target add them to the archive action
     # so they are forced to build for static library output.
     archive = make_archive(ctx, name, objects, impl_params.extra_hidden)
 
-    bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, pic, stripped)
+    bitcode_bundle = _bitcode_bundle(ctx, bitcode_objects, optimized, pic, stripped)
     if False:
         # TODO(nga): bitcode_bundle.artifact
         def unknown():
@@ -1586,13 +1589,14 @@ def _static_library(
 def _bitcode_bundle(
         ctx: AnalysisContext,
         objects: [list[Artifact], None],
-        pic: bool = False,
-        stripped: bool = False,
+        optimized: bool,
+        pic: bool,
+        stripped: bool,
         name_extra = "") -> [BitcodeBundle, None]:
     if objects == None or len(objects) == 0:
         return None
 
-    base_name = _base_static_library_name(ctx, False)
+    base_name = _base_static_library_name(ctx, optimized, stripped = False)
     name = name_extra + _bitcode_bundle_name(base_name, pic, stripped)
     return make_bitcode_bundle(ctx, name, objects)
 
@@ -1626,7 +1630,7 @@ def _shared_library(
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
 
-    local_bitcode_bundle = _bitcode_bundle(ctx, objects, name_extra = "objects-")
+    local_bitcode_bundle = _bitcode_bundle(ctx, objects, optimized = False, pic = False, stripped = False, name_extra = "objects-")
 
     # NOTE(agallagher): We add exported link flags here because it's what v1
     # does, but the intent of exported link flags are to wrap the link output
@@ -1772,8 +1776,8 @@ def _soname(ctx: AnalysisContext, impl_params) -> str:
         return get_shared_library_name_for_param(linker_info, explicit_soname)
     return get_default_shared_library_name(linker_info, ctx.label)
 
-def _base_static_library_name(ctx: AnalysisContext, stripped: bool) -> str:
-    return ctx.label.name + ".stripped" if stripped else ctx.label.name
+def _base_static_library_name(ctx: AnalysisContext, optimized: bool, stripped: bool) -> str:
+    return "{}{}{}".format(ctx.label.name, ".optimized" if optimized else "", ".stripped" if stripped else "")
 
 def _archive_name(name: str, pic: bool, extension: str) -> str:
     return "lib{}{}.{}".format(name, ".pic" if pic else "", extension)
