@@ -172,6 +172,13 @@ CxxCompileOutput = record(
     preproc = field(Artifact | None, None),
 )
 
+CxxCompileFlavor = enum(
+    # Default compilation witout alterations
+    "default",
+    # Produces position independent compile outputs
+    "pic",
+)
+
 _XCODE_ARG_SUBSTITUTION = [
     (regex("-filter-error=.+"), "-fcolor-diagnostics"),
     (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
@@ -640,7 +647,7 @@ def _get_base_compile_cmd(
 def compile_cxx(
         ctx: AnalysisContext,
         src_compile_cmds: list[CxxSrcCompileCommand],
-        pic: bool,
+        flavor: CxxCompileFlavor,
         provide_syntax_only: bool,
         use_header_units: bool = False) -> list[CxxCompileOutput]:
     """
@@ -674,7 +681,7 @@ def compile_cxx(
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
-            pic = pic,
+            pic = flavor == CxxCompileFlavor("pic"),
             provide_syntax_only = provide_syntax_only,
             use_header_units = use_header_units,
         )

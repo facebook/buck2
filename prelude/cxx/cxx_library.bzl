@@ -127,6 +127,7 @@ load(
 load(
     ":compile.bzl",
     "CxxCompileCommandOutput",
+    "CxxCompileFlavor",
     "CxxCompileOutput",  # @unused Used as a type
     "CxxSrcCompileCommand",
     "compile_cxx",
@@ -1091,7 +1092,7 @@ def cxx_compile_srcs(
     pic_cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
-        pic = True,
+        flavor = CxxCompileFlavor("pic"),
         provide_syntax_only = True,
         use_header_units = impl_params.use_header_units,
     )
@@ -1107,7 +1108,7 @@ def cxx_compile_srcs(
         non_pic_cxx_outs = compile_cxx(
             ctx = ctx,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
-            pic = False,
+            flavor = CxxCompileFlavor("default"),
             # Diagnostics from the pic and non-pic compilation would be
             # identical. We can avoid instantiating a second set of actions.
             provide_syntax_only = False,

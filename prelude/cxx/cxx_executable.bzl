@@ -95,6 +95,7 @@ load(
 )
 load(
     ":compile.bzl",
+    "CxxCompileFlavor",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
@@ -226,10 +227,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )
+    compile_flavor = CxxCompileFlavor("pic") if link_strategy != LinkStrategy("static") else CxxCompileFlavor("default")
     cxx_outs = compile_cxx(
         ctx = ctx,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
-        pic = link_strategy != LinkStrategy("static"),
+        flavor = compile_flavor,
         provide_syntax_only = True,
     )
 
