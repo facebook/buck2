@@ -78,6 +78,7 @@ use crate::values::iter::StarlarkIterator;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
@@ -176,6 +177,14 @@ impl Display for FrozenValue {
 }
 
 fn debug_value(typ: &str, v: Value, f: &mut fmt::Formatter) -> fmt::Result {
+    // When value is being moved during GC or freeze,
+    // `Value` pointee is not a proper value, but a GC-related information.
+    // Regular operations like `.to_repr()` crash, but `Debug` should work.
+    if let Some(x) = v.0.unpack_ptr() {
+        if let AValueOrForwardUnpack::Forward(fwd) = x.unpack() {
+            return f.debug_tuple(typ).field(&fwd).finish();
+        }
+    }
     f.debug_tuple(typ).field(v.get_ref().as_debug()).finish()
 }
 

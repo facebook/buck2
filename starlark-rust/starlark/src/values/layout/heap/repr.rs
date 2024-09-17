@@ -102,6 +102,7 @@ impl ForwardPtr {
 
 /// This is object written over [`AValueRepr`] during GC.
 #[repr(C)]
+#[derive(Debug)]
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
     forward_ptr: usize,
