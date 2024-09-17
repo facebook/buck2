@@ -89,8 +89,6 @@ def _process_target_config(
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
-        # TODO(pickett): Remove this once rust-project moves over to "dep" key instead
-        "buck.deps": deps,
         "crate": _get_nullable_attr(attrs, "crate"),
         "crate_dynamic": crate_dynamic,
         "crate_root": providers[RustAnalyzerInfo].crate_root,
