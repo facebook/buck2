@@ -115,8 +115,7 @@ def _process_target_config(
 def cquery_deps(
         ctx: bxl.Context,
         top_targets: list[TargetLabel],
-        workspaces: list[TargetLabel],
-        actions: AnalysisActions) -> dict[TargetLabel, TargetInfo]:
+        workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
     target_universe = ctx.target_universe(top_targets).target_set()
     targets = ctx.cquery().deps(target_universe)
     outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
@@ -125,7 +124,6 @@ def cquery_deps(
     # Eagerly analyze targets
     analysis = ctx.analysis(outputs)
 
-    seen = {}
     for target in outputs:
         attrs = target.attrs_lazy()
 
@@ -141,38 +139,9 @@ def cquery_deps(
             in_workspace = in_workspace,
         )
 
-        labels = attrs.get("labels")
-        if "generated_protobuf_library_rust" in labels.value():
-            protobuf_out_dir = materialize_generated_protobufs(ctx, target, actions, seen)
-
-            # TODO(pickett): Remove this out_dir and rely on the one already in env
-            target_info["out_dir"] = protobuf_out_dir
-
         out[target.label.raw_target()] = target_info
 
     return out
-
-def materialize_generated_protobufs(
-        ctx: bxl.Context,
-        target: bxl.ConfiguredTargetNode,
-        actions: AnalysisActions,
-        seen: dict[str, Artifact]) -> Artifact:
-    """If `target` has a dependency that generates code from protobufs,
-    materialize the generated code and return the path to the output directory.
-    """
-    named_deps = target.attrs_lazy().get("named_deps").value()
-    prost_target = dict(named_deps).get("generated_prost_target")
-    t = prost_target.raw_target()
-    analysis = ctx.analysis(t)
-    output = analysis.providers()[DefaultInfo].default_outputs[0]
-    outfile = "{}/{}/{}".format(t.cell, t.package, t.name)
-
-    artifact = seen.get(outfile)
-    if not artifact:
-        artifact = actions.copy_file(outfile, output)
-        seen[outfile] = artifact
-
-    return artifact
 
 def expand_proc_macros(
         ctx: bxl.Context,
@@ -250,7 +219,7 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
 
     expanded_targets, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
     queried_proc_macros = expand_proc_macros(ctx, expanded_targets)
-    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces, actions)
+    resolved_deps = cquery_deps(ctx, expanded_targets, workspaces)
 
     artifact = actions.declare_output("resolve_targets.json")
     artifacts = actions.write_json(
