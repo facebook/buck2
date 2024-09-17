@@ -474,15 +474,4 @@ pub mod __macro_refs {
     pub use crate::coerce::coerce;
 }
 
-/// __derive_refs allows us to reference other crates in starlark_derive without users needing to be
-///  aware of those dependencies. We make them public here and then can reference them like
-///  `starlark::__derive_refs::foo`.
-#[doc(hidden)]
-pub mod __derive_refs {
-    pub mod serde {
-        pub use serde::ser::Error;
-        pub use serde::Serialize;
-        pub use serde::Serializer;
-    }
-    pub use inventory;
-}
+pub mod __derive_refs;
