@@ -17,13 +17,10 @@
 
 //! AST for parsed starlark files.
 
-use std::collections::HashSet;
-
 use thiserror::Error;
 
 use crate::codemap::CodeMap;
 use crate::eval_exception::EvalException;
-use crate::syntax::ast::Argument;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
@@ -33,6 +30,7 @@ use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
+use crate::syntax::call::CallArgsUnpack;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
 
@@ -56,28 +54,6 @@ enum ValidateError {
     Ellipsis,
 }
 
-#[derive(Eq, PartialEq, PartialOrd, Ord)]
-enum ArgsStage {
-    Positional,
-    Named,
-    Args,
-    Kwargs,
-}
-
-#[derive(Error, Debug)]
-enum ArgumentDefinitionOrderError {
-    #[error("positional argument after non positional")]
-    PositionalThenNonPositional,
-    #[error("named argument after *args or **kwargs")]
-    NamedArgumentAfterStars,
-    #[error("repeated named argument")]
-    RepeatedNamed,
-    #[error("Args array after another args or kwargs")]
-    ArgsArrayAfterArgsOrKwargs,
-    #[error("Multiple kwargs dictionary in arguments")]
-    MultipleKwargs,
-}
-
 impl Expr {
     /// We want to check a function call is well-formed.
     /// Our eventual plan is to follow the Python invariants, but for now, we are closer
@@ -96,56 +72,11 @@ impl Expr {
         args: Vec<AstArgument>,
         codemap: &CodeMap,
     ) -> Result<Expr, EvalException> {
-        let err = |span, msg: ArgumentDefinitionOrderError| {
-            Err(EvalException::new_anyhow(msg.into(), span, codemap))
-        };
+        let args = CallArgsP { args };
 
-        let mut stage = ArgsStage::Positional;
-        let mut named_args = HashSet::new();
-        // TODO(nga): we should record error but continue parsing.
-        for arg in &args {
-            match &arg.node {
-                Argument::Positional(_) => {
-                    if stage != ArgsStage::Positional {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::PositionalThenNonPositional,
-                        );
-                    }
-                }
-                Argument::Named(n, _) => {
-                    if stage > ArgsStage::Named {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::NamedArgumentAfterStars,
-                        );
-                    } else if !named_args.insert(&n.node) {
-                        // Check the names are distinct
-                        return err(n.span, ArgumentDefinitionOrderError::RepeatedNamed);
-                    } else {
-                        stage = ArgsStage::Named;
-                    }
-                }
-                Argument::Args(_) => {
-                    if stage > ArgsStage::Named {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::ArgsArrayAfterArgsOrKwargs,
-                        );
-                    } else {
-                        stage = ArgsStage::Args;
-                    }
-                }
-                Argument::KwArgs(_) => {
-                    if stage == ArgsStage::Kwargs {
-                        return err(arg.span, ArgumentDefinitionOrderError::MultipleKwargs);
-                    } else {
-                        stage = ArgsStage::Kwargs;
-                    }
-                }
-            }
-        }
-        Ok(Expr::Call(Box::new(f), CallArgsP { args }))
+        CallArgsUnpack::unpack(&args, codemap)?;
+
+        Ok(Expr::Call(Box::new(f), args))
     }
 }
 

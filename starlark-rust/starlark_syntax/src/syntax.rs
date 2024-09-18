@@ -24,6 +24,7 @@ pub use crate::dialect::Dialect;
 pub use crate::dialect::DialectTypes;
 
 pub mod ast;
+pub mod call;
 pub mod def;
 #[cfg(test)]
 mod grammar_tests;

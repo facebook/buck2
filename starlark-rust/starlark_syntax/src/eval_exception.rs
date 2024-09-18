@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use crate::call_stack::CallStack;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::diagnostic::WithDiagnostic;
+use crate::internal_error;
 
 /// Error with location.
 #[derive(Debug, derive_more::Display)]
@@ -66,6 +69,11 @@ impl EvalException {
             span,
             codemap,
         ))
+    }
+
+    #[cold]
+    pub fn internal_error(error: impl Display, span: Span, codemap: &CodeMap) -> EvalException {
+        Self::new(internal_error!("{}", error), span, codemap)
     }
 
     pub fn _testing_loc(err: &crate::Error) -> crate::codemap::ResolvedFileSpan {
