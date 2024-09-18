@@ -20,16 +20,16 @@ use crate::codemap::Span;
 use crate::eval_exception::EvalException;
 use crate::syntax::Dialect;
 
-pub struct ParserState<'a> {
-    pub dialect: &'a Dialect,
-    pub codemap: &'a CodeMap,
+pub(crate) struct ParserState<'a> {
+    pub(crate) dialect: &'a Dialect,
+    pub(crate) codemap: &'a CodeMap,
     /// Recoverable errors.
-    pub errors: &'a mut Vec<EvalException>,
+    pub(crate) errors: &'a mut Vec<EvalException>,
 }
 
 impl<'a> ParserState<'a> {
     /// Add recoverable error.
-    pub fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
+    pub(crate) fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
         self.errors
             .push(EvalException::new_anyhow(error.into(), span, self.codemap));
     }

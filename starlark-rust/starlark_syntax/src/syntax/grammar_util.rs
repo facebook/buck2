@@ -156,7 +156,7 @@ fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserSt
     }
 }
 
-pub fn check_lambda(
+pub(crate) fn check_lambda(
     params: Vec<AstParameter>,
     body: AstExpr,
     parser_state: &mut ParserState,
@@ -169,7 +169,7 @@ pub fn check_lambda(
     })
 }
 
-pub fn check_def(
+pub(crate) fn check_def(
     name: AstString,
     params: Vec<AstParameter>,
     return_type: Option<Box<AstTypeExpr>>,
@@ -247,7 +247,7 @@ enum FStringError {
     NotEnabled,
 }
 
-pub fn fstring(
+pub(crate) fn fstring(
     fstring: TokenFString,
     begin: usize,
     end: usize,
@@ -336,7 +336,7 @@ fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalExc
     Err(EvalException::new_anyhow(err.into(), span, codemap))
 }
 
-pub fn dialect_check_type(
+pub(crate) fn dialect_check_type(
     state: &ParserState,
     x: Spanned<Expr>,
 ) -> Result<Spanned<TypeExpr>, EvalException> {

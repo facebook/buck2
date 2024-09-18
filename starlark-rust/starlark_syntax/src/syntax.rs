@@ -33,7 +33,7 @@ mod lint_suppressions;
 pub mod module;
 pub mod parser;
 pub mod payload_map;
-pub mod state;
+pub(crate) mod state;
 #[cfg(test)]
 mod testcases;
 pub mod top_level_stmts;
