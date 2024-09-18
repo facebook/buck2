@@ -19,33 +19,13 @@ use std::collections::HashSet;
 
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
-use crate::diagnostic::WithDiagnostic;
+use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstAssignIdentP;
 use crate::syntax::ast::AstExprP;
 use crate::syntax::ast::AstParameterP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ParameterP;
-
-#[derive(Debug, thiserror::Error, PartialEq)]
-pub enum DefError {
-    #[error("duplicated parameter name")]
-    DuplicateParameterName,
-    #[error("positional parameter after non positional")]
-    PositionalThenNonPositional,
-    #[error("Default parameter after args array or kwargs dictionary")]
-    DefaultParameterAfterStars,
-    #[error("Args parameter after another args or kwargs parameter")]
-    ArgsParameterAfterStars,
-    #[error("Multiple kwargs dictionary in parameters")]
-    MultipleKwargs,
-}
-
-impl From<DefError> for crate::Error {
-    fn from(e: DefError) -> Self {
-        crate::Error::new_other(e)
-    }
-}
 
 pub enum DefParamKind<'a, P: AstPayload> {
     Regular(
@@ -78,10 +58,10 @@ fn check_param_name<'a, P: AstPayload, T>(
     n: &'a AstAssignIdentP<P>,
     arg: &Spanned<T>,
     codemap: &CodeMap,
-) -> Result<(), WithDiagnostic<DefError>> {
+) -> Result<(), EvalException> {
     if !argset.insert(n.node.ident.as_str()) {
-        return Err(WithDiagnostic::new_spanned(
-            DefError::DuplicateParameterName,
+        return Err(EvalException::parser_error(
+            "duplicated parameter name",
             arg.span,
             codemap,
         ));
@@ -93,7 +73,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
     pub fn unpack(
         ast_params: &'a [AstParameterP<P>],
         codemap: &CodeMap,
-    ) -> Result<DefParams<'a, P>, WithDiagnostic<DefError>> {
+    ) -> Result<DefParams<'a, P>, EvalException> {
         // you can't repeat argument names
         let mut argset = HashSet::new();
         // You can't have more than one *args/*, **kwargs
@@ -111,8 +91,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             match &param.node {
                 ParameterP::Normal(n, ty) => {
                     if seen_kwargs || (seen_optional && !seen_args) {
-                        return Err(WithDiagnostic::new_spanned(
-                            DefError::PositionalThenNonPositional,
+                        return Err(EvalException::parser_error(
+                            "positional parameter after non positional",
                             param.span,
                             codemap,
                         ));
@@ -129,8 +109,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::WithDefaultValue(n, ty, default_value) => {
                     if seen_kwargs {
-                        return Err(WithDiagnostic::new_spanned(
-                            DefError::DefaultParameterAfterStars,
+                        return Err(EvalException::parser_error(
+                            "Default parameter after args array or kwargs dictionary",
                             param.span,
                             codemap,
                         ));
@@ -148,8 +128,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::NoArgs => {
                     if seen_args || seen_kwargs {
-                        return Err(WithDiagnostic::new_spanned(
-                            DefError::ArgsParameterAfterStars,
+                        return Err(EvalException::parser_error(
+                            "Args parameter after another args or kwargs parameter",
                             param.span,
                             codemap,
                         ));
@@ -158,8 +138,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::Args(n, ty) => {
                     if seen_args || seen_kwargs {
-                        return Err(WithDiagnostic::new_spanned(
-                            DefError::ArgsParameterAfterStars,
+                        return Err(EvalException::parser_error(
+                            "Args parameter after another args or kwargs parameter",
                             param.span,
                             codemap,
                         ));
@@ -177,8 +157,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 }
                 ParameterP::KwArgs(n, ty) => {
                     if seen_kwargs {
-                        return Err(WithDiagnostic::new_spanned(
-                            DefError::MultipleKwargs,
+                        return Err(EvalException::parser_error(
+                            "Multiple kwargs dictionary in parameters",
                             param.span,
                             codemap,
                         ));
@@ -213,18 +193,20 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::syntax::ast::AssignIdentP;
     use crate::syntax::ast::AstNoPayload;
     use crate::syntax::ast::ExprP;
 
-    fn fails(params: &[AstParameterP<AstNoPayload>], expected_error: DefError) {
+    fn fails(params: &[AstParameterP<AstNoPayload>], expected_error: &str) {
         let codemap = CodeMap::default();
         let x = DefParams::unpack(params, &codemap);
         match x {
             Ok(_) => panic!("Expected error from {params:?}"),
-            Err(e) => assert_eq!(e.inner(), &expected_error),
+            Err(e) => assert!(
+                e.to_string().contains(expected_error),
+                "Unexpected error:\n{e}\n\nExpected: {expected_error}"
+            ),
         }
     }
 
@@ -274,31 +256,40 @@ mod tests {
 
     #[test]
     fn test_params_unpack() {
-        fails(
-            &[param(0), param(1), param(0)],
-            DefError::DuplicateParameterName,
-        );
+        fails(&[param(0), param(1), param(0)], "duplicated parameter name");
         fails(
             &[default(0), param(1)],
-            DefError::PositionalThenNonPositional,
+            "positional parameter after non positional",
         );
         fails(
             &[kwargs(0), default(1)],
-            DefError::DefaultParameterAfterStars,
+            "Default parameter after args array or kwargs dictionary",
         );
-        fails(&[args(0), args(1)], DefError::ArgsParameterAfterStars);
-        fails(&[kwargs(0), args(1)], DefError::ArgsParameterAfterStars);
-        fails(&[kwargs(0), kwargs(1)], DefError::MultipleKwargs);
+        fails(
+            &[args(0), args(1)],
+            "Args parameter after another args or kwargs parameter",
+        );
+        fails(
+            &[kwargs(0), args(1)],
+            "Args parameter after another args or kwargs parameter",
+        );
+        fails(
+            &[kwargs(0), kwargs(1)],
+            "Multiple kwargs dictionary in parameters",
+        );
 
         passes(&[param(0), param(1), default(2), args(3), kwargs(4)]);
     }
 
     #[test]
     fn test_params_noargs() {
-        fails(&[noargs(), noargs()], DefError::ArgsParameterAfterStars);
+        fails(
+            &[noargs(), noargs()],
+            "Args parameter after another args or kwargs parameter",
+        );
         fails(
             &[param(0), default(1), param(2)],
-            DefError::PositionalThenNonPositional,
+            "positional parameter after non positional",
         );
         passes(&[args(0), param(1)]);
         passes(&[args(0), default(1)]);

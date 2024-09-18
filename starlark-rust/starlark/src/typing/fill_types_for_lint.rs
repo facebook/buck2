@@ -440,7 +440,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
 
     fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
         let def_params = DefParams::unpack(&def.params, self.ctx.codemap)
-            .map_err(InternalError::from_diagnostic)?;
+            .map_err(InternalError::from_eval_exception)?;
 
         let mut params = Vec::with_capacity(def_params.params.len());
         for (i, param) in def_params.params.iter().enumerate() {

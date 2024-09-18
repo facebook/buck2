@@ -217,7 +217,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         } = def;
         let mut params2 = Vec::with_capacity(params.len());
         let def_params =
-            DefParams::unpack(params, codemap).map_err(InternalError::from_diagnostic)?;
+            DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
         for (i, p) in def_params.params.iter().enumerate() {
             let name = &p.node.ident;
             let ty = p.node.ty;
