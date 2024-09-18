@@ -81,6 +81,19 @@ impl EvalException {
         Self::new(internal_error!("{}", error), span, codemap)
     }
 
+    #[cold]
+    pub(crate) fn parser_error(
+        error: impl Display,
+        span: Span,
+        codemap: &CodeMap,
+    ) -> EvalException {
+        EvalException(crate::Error::new_spanned(
+            crate::ErrorKind::Parser(anyhow::anyhow!("{error}")),
+            span,
+            codemap,
+        ))
+    }
+
     pub fn _testing_loc(err: &crate::Error) -> crate::codemap::ResolvedFileSpan {
         match err.span() {
             Some(d) => d.resolve(),

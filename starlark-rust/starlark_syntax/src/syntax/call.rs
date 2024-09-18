@@ -17,8 +17,6 @@
 
 use std::collections::HashSet;
 
-use thiserror::Error;
-
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::eval_exception::EvalException;
@@ -26,20 +24,6 @@ use crate::syntax::ast::ArgumentP;
 use crate::syntax::ast::AstArgumentP;
 use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::CallArgsP;
-
-#[derive(Error, Debug)]
-enum ArgumentDefinitionOrderError {
-    #[error("positional argument after non positional")]
-    PositionalThenNonPositional,
-    #[error("named argument after *args or **kwargs")]
-    NamedArgumentAfterStars,
-    #[error("repeated named argument")]
-    RepeatedNamed,
-    #[error("Args array after another args or kwargs")]
-    ArgsArrayAfterArgsOrKwargs,
-    #[error("Multiple kwargs dictionary in arguments")]
-    MultipleKwargs,
-}
 
 /// Validated call arguments.
 pub struct CallArgsUnpack<'a, P: AstPayload> {
@@ -59,9 +43,7 @@ enum ArgsStage {
 
 impl<'a, P: AstPayload> CallArgsUnpack<'a, P> {
     pub fn unpack(args: &'a CallArgsP<P>, codemap: &CodeMap) -> Result<Self, EvalException> {
-        let err = |span, msg: ArgumentDefinitionOrderError| {
-            Err(EvalException::new_anyhow(msg.into(), span, codemap))
-        };
+        let err = |span, msg: &str| Err(EvalException::parser_error(msg, span, codemap));
 
         let args = &args.args;
 
@@ -75,23 +57,17 @@ impl<'a, P: AstPayload> CallArgsUnpack<'a, P> {
             match &arg.node {
                 ArgumentP::Positional(_) => {
                     if stage != ArgsStage::Positional {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::PositionalThenNonPositional,
-                        );
+                        return err(arg.span, "positional argument after non positional");
                     } else {
                         num_pos += 1;
                     }
                 }
                 ArgumentP::Named(n, _) => {
                     if stage > ArgsStage::Named {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::NamedArgumentAfterStars,
-                        );
+                        return err(arg.span, "named argument after *args or **kwargs");
                     } else if !named_args.insert(&n.node) {
                         // Check the names are distinct
-                        return err(n.span, ArgumentDefinitionOrderError::RepeatedNamed);
+                        return err(n.span, "repeated named argument");
                     } else {
                         stage = ArgsStage::Named;
                         num_named += 1;
@@ -99,10 +75,7 @@ impl<'a, P: AstPayload> CallArgsUnpack<'a, P> {
                 }
                 ArgumentP::Args(_) => {
                     if stage > ArgsStage::Named {
-                        return err(
-                            arg.span,
-                            ArgumentDefinitionOrderError::ArgsArrayAfterArgsOrKwargs,
-                        );
+                        return err(arg.span, "Args array after another args or kwargs");
                     } else {
                         stage = ArgsStage::Args;
                         if star.is_some() {
@@ -117,7 +90,7 @@ impl<'a, P: AstPayload> CallArgsUnpack<'a, P> {
                 }
                 ArgumentP::KwArgs(_) => {
                     if stage == ArgsStage::Kwargs {
-                        return err(arg.span, ArgumentDefinitionOrderError::MultipleKwargs);
+                        return err(arg.span, "Multiple kwargs dictionary in arguments");
                     } else {
                         stage = ArgsStage::Kwargs;
                         if star_star.is_some() {
