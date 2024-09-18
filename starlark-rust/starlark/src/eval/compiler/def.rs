@@ -290,6 +290,8 @@ impl<T> ParametersCompiled<T> {
                 })
                 .collect(),
         )
+        // TODO(nga): do not unwrap.
+        .unwrap()
     }
 }
 

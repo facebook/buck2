@@ -253,7 +253,8 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                     .insert(name.resolved_binding_id(codemap)?, ty);
             }
         }
-        let params2 = ParamSpec::new(params2);
+        let params2 = ParamSpec::new(params2)
+            .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
         self.bindings.types.insert(
             name.resolved_binding_id(codemap)?,

@@ -138,6 +138,15 @@ impl Error {
             eprintln!("{:#}", self)
         }
     }
+
+    /// Change error kind to internal error.
+    pub fn into_internal_error(self) -> Error {
+        if let ErrorKind::Internal(_) = self.kind() {
+            self
+        } else {
+            Error(self.0.map(ErrorKind::into_internal_error))
+        }
+    }
 }
 
 fn fmt_impl(this: &Error, is_debug: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -202,6 +211,20 @@ impl ErrorKind {
             Self::Parser(_) => None,
             Self::Internal(_) => None,
             Self::Other(e) => e.source(),
+        }
+    }
+
+    /// Change type to `Internal`.
+    pub(crate) fn into_internal_error(self) -> ErrorKind {
+        match self {
+            ErrorKind::Internal(e) => ErrorKind::Internal(e),
+            ErrorKind::Fail(e)
+            | ErrorKind::Value(e)
+            | ErrorKind::Function(e)
+            | ErrorKind::Scope(e)
+            | ErrorKind::Parser(e)
+            | ErrorKind::StackOverflow(e)
+            | ErrorKind::Other(e) => ErrorKind::Internal(e),
         }
     }
 }

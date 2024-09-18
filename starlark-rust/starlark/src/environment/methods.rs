@@ -205,7 +205,8 @@ impl MethodsBuilder {
     {
         assert_eq!(components.signature.len(), components.parameter_types.len());
 
-        let ty = Ty::from_native_callable_components(&components, None);
+        // TODO(nga): do not unwrap.
+        let ty = Ty::from_native_callable_components(&components, None).unwrap();
 
         let function = FrozenRef::<dyn NativeMeth + 'static>::new(
             self.heap.alloc_any_debug_type_name(f).as_ref(),

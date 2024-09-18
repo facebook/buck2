@@ -277,6 +277,7 @@ impl GlobalsBuilder {
                         &components,
                         as_type.as_ref().map(|x| x.0.dupe()),
                     )
+                    .unwrap() // TODO(nga): do not unwrap.
                 }),
                 docs: components.into_docs(as_type),
                 special_builtin_function,

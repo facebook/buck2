@@ -19,6 +19,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -61,6 +62,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
+use starlark::StarlarkResultExt;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::StarlarkHasher;
@@ -121,7 +123,7 @@ fn create_callable_function_signature(
     function_name: &str,
     fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
-) -> (ParametersSpec<FrozenValue>, TyCallable) {
+) -> anyhow::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     let mut ty_params = Vec::with_capacity(fields.len());
     // TODO(nmj): Should double check we don't actually need positional args in-repo
@@ -136,10 +138,15 @@ fn create_callable_function_signature(
         }
     }
 
-    (
+    Ok((
         signature.finish(),
-        TyCallable::new(ParamSpec::new(ty_params), ret_ty),
-    )
+        TyCallable::new(
+            ParamSpec::new(ty_params)
+                .into_anyhow_result()
+                .internal_error("Must have created correct signature")?,
+            ret_ty,
+        ),
+    ))
 }
 
 #[derive(Debug, Allocative)]
@@ -367,7 +374,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 &provider_id.name,
                 &self.fields,
                 ty_provider.clone(),
-            );
+            )?;
             let ty_callable = ty_provider_callable::<UserProviderCallable>(creator_func)?;
             anyhow::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),

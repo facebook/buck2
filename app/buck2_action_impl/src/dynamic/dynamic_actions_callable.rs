@@ -70,6 +70,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
             ),
             Param::name_only("arg", Ty::any()),
         ])
+        .unwrap()
     }
 }
 

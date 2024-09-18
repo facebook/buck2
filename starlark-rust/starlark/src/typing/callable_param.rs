@@ -197,13 +197,16 @@ impl ParamSpec {
     }
 
     /// Constructor.
-    pub fn new(params: Vec<Param>) -> ParamSpec {
+    /// Return an error if the sequence of parameters is incorrect,
+    /// for example, if positional-only parameters follow named-only.
+    pub fn new(params: Vec<Param>) -> crate::Result<ParamSpec> {
         if params.as_slice() == Self::any().params() {
-            ParamSpec::any()
+            Ok(ParamSpec::any())
         } else {
-            ParamSpec {
+            // TODO(nga): validate.
+            Ok(ParamSpec {
                 params: SmallArcVec1OrStatic::clone_from_slice(&params),
-            }
+            })
         }
     }
 
@@ -215,12 +218,12 @@ impl ParamSpec {
 
     /// `*args`.
     pub(crate) fn args(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::args(ty)])
+        ParamSpec::new(vec![Param::args(ty)]).unwrap()
     }
 
     /// `**kwargs`.
     pub fn kwargs(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::kwargs(ty)])
+        ParamSpec::new(vec![Param::kwargs(ty)]).unwrap()
     }
 
     /// `/, arg=, arg=, ..., arg, arg, ...`.
@@ -239,6 +242,7 @@ impl ParamSpec {
                 )
                 .collect(),
         )
+        .unwrap()
     }
 
     /// No parameters.

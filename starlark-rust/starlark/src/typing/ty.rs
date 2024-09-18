@@ -478,7 +478,7 @@ impl Ty {
     pub(crate) fn from_native_callable_components(
         comp: &NativeCallableComponents,
         as_type: Option<Ty>,
-    ) -> Self {
+    ) -> starlark::Result<Self> {
         let params: Vec<_> = comp
             .signature
             .iter_param_modes()
@@ -491,11 +491,11 @@ impl Ty {
 
         let result = comp.return_type.clone();
 
-        let params = ParamSpec::new(params);
+        let params = ParamSpec::new(params)?;
 
         match as_type {
-            None => Ty::function(params, result),
-            Some(type_attr) => Ty::ctor_function(type_attr, params, result),
+            None => Ok(Ty::function(params, result)),
+            Some(type_attr) => Ok(Ty::ctor_function(type_attr, params, result)),
         }
     }
 }

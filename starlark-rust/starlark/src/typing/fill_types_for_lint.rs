@@ -468,7 +468,8 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
 
         let result = self.get_ty_expr_opt(def.return_type.as_deref())?;
 
-        let params = ParamSpec::new(params);
+        let params = ParamSpec::new(params)
+            .map_err(|e| InternalError::from_error(e, def.signature_span(), self.ctx.codemap))?;
 
         self.assign_ident_value(&def.name, GlobalValue::ty(Ty::function(params, result)))
     }

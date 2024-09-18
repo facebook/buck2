@@ -198,7 +198,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
             params.push(param);
         }
-        let params = ParamSpec::new(params);
+        let params = ParamSpec::new(params).unwrap();
         TyFunction::new(params, Ty::none())
     }
 
