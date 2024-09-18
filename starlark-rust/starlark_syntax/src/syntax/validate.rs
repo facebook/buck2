@@ -63,7 +63,7 @@ impl Expr {
 
 impl Stmt {
     /// Validate all statements only occur where they are allowed to.
-    pub fn validate(
+    pub(crate) fn validate(
         codemap: &CodeMap,
         stmt: &AstStmt,
         dialect: &Dialect,
