@@ -329,8 +329,6 @@ pub fn fstring(
 
 #[derive(thiserror::Error, Debug)]
 enum DialectError {
-    #[error("`def` is not allowed in this dialect")]
-    Def,
     #[error("`lambda` is not allowed in this dialect")]
     Lambda,
     #[error("type annotations are not allowed in this dialect")]
@@ -350,18 +348,6 @@ pub fn dialect_check_lambda<T>(
         Ok(x)
     } else {
         err(codemap, x.span, DialectError::Lambda)
-    }
-}
-
-pub fn dialect_check_def<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    x: Spanned<T>,
-) -> Result<Spanned<T>, EvalException> {
-    if dialect.enable_def {
-        Ok(x)
-    } else {
-        err(codemap, x.span, DialectError::Def)
     }
 }
 

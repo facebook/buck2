@@ -74,7 +74,7 @@ COMMA<E>: Vec<E> =
 pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
     => grammar_util::statements(s, l, r);
 
-DefStmt: AstStmt = ASTS<DefStmt_> =>? Ok(grammar_util::dialect_check_def(state.dialect, state.codemap, <>)?);
+DefStmt: AstStmt = ASTS<DefStmt_>;
 DefStmt_: Stmt =
   "def" <identifier> "(" <COMMA<DefParameter>> ")" <ReturnType> ":" <Suite>
       => grammar_util::check_def(<>, state);

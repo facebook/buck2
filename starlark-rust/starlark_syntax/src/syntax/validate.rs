@@ -106,6 +106,9 @@ impl Stmt {
 
             match &stmt.node {
                 Stmt::Def(DefP { params, body, .. }) => {
+                    if !dialect.enable_def {
+                        return err("`def` is not allowed in this dialect");
+                    }
                     validate_params(codemap, params, dialect)?;
                     f(codemap, dialect, body, false, false, true)
                 }
