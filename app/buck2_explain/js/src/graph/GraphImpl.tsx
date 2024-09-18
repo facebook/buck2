@@ -8,10 +8,11 @@
  */
 
 import React, {useRef, useState} from 'react'
-import ForceGraph2D, {LinkObject, NodeObject} from 'react-force-graph-2d'
 import {Build} from '../fbs/explain'
 import {RuleTypeDropdown} from './RuleTypeDropdown'
 import {Node} from './GraphView'
+import {GraphViz} from './GraphViz'
+import {LinkObject, NodeObject} from 'react-force-graph-2d'
 
 // Here it goes everything that should reload on user interaction
 export function GraphImpl(props: {
@@ -142,8 +143,6 @@ export function GraphImpl(props: {
     }
   }
 
-  const dagMode = edges.length / data.length > 3 ? 'td' : undefined
-
   function applyFilters() {
     // TODO iguridi: this is nasty, but should do for now
     setSomepath(new Set())
@@ -205,8 +204,6 @@ export function GraphImpl(props: {
     }
   }
 
-  const graphRef = useRef<any>(null)
-
   return (
     <>
       <div className="grid mt-4">
@@ -265,40 +262,28 @@ export function GraphImpl(props: {
           Number of edges: {edges.length}
         </div>
       </article>
-      <ForceGraph2D
-        ref={graphRef}
-        graphData={{nodes: data, links: edges}}
-        onNodeClick={(node, _event) => {
+
+      <GraphViz
+        nodes={data}
+        links={edges}
+        setPath={(name: string) => {
           const fromInput = document.getElementById('pathFrom') as HTMLInputElement
           const toInput = document.getElementById('pathTo') as HTMLInputElement
           if (!fromInput.value) {
-            fromInput.value = node.name
+            fromInput.value = name
           } else if (!toInput.value) {
-            toInput.value = node.name
+            toInput.value = name
           } else {
-            fromInput.value = node.name
+            fromInput.value = name
             toInput.value = ''
           }
         }}
-        onNodeRightClick={(node, _event) => {
+        openTarget={(name: string) => {
           const url = new URL(window.location.href)
-          url.searchParams.set('target', node.name)
+          url.searchParams.set('target', name)
           url.searchParams.delete('graph')
           window.open(url.toString(), '_blank')
         }}
-        onEngineTick={graphRef?.current?.zoomToFit}
-        // cooldown + warmup ticks make the graph render already in its final form
-        cooldownTicks={1}
-        enableNodeDrag={false}
-        warmupTicks={100}
-        // looks
-        linkDirectionalArrowLength={5 / Math.pow(filteredNodes.size, 0.2)}
-        linkDirectionalArrowRelPos={1}
-        linkCurvature={0.2}
-        linkWidth={3 / Math.pow(filteredNodes.size, 0.5)}
-        linkHoverPrecision={6}
-        dagMode={dagMode}
-        nodeAutoColorBy="group"
       />
     </>
   )
