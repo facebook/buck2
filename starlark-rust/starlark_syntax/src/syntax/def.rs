@@ -85,6 +85,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
         let mut params = Vec::with_capacity(ast_params.len());
         let mut num_positional = None;
+        // Index of `*` parameter, if any.
+        let mut index_of_star = None;
 
         for (i, param) in ast_params.iter().enumerate() {
             let span = param.span;
@@ -135,6 +137,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         ));
                     }
                     seen_args = true;
+                    if index_of_star.is_some() {
+                        return Err(EvalException::internal_error(
+                            "Multiple `*` in parameters, must have been caught earlier",
+                            param.span,
+                            codemap,
+                        ));
+                    }
+                    index_of_star = Some(i);
                 }
                 ParameterP::Slash => {
                     return Err(EvalException::parser_error(
@@ -191,6 +201,31 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 num_positional = Some(i);
             }
         }
+
+        if let Some(index_of_star) = index_of_star {
+            let Some(next) = ast_params.get(index_of_star + 1) else {
+                return Err(EvalException::parser_error(
+                    "`*` parameter must not be last",
+                    ast_params[index_of_star].span,
+                    codemap,
+                ));
+            };
+            match &next.node {
+                ParameterP::Normal(_, _) | ParameterP::WithDefaultValue(_, _, _) => {}
+                ParameterP::KwArgs(_, _)
+                | ParameterP::Args(_, _)
+                | ParameterP::NoArgs
+                | ParameterP::Slash => {
+                    // We get here only for `**kwargs`, the rest is handled above.
+                    return Err(EvalException::parser_error(
+                        "`*` must be followed by named parameter",
+                        next.span,
+                        codemap,
+                    ));
+                }
+            }
+        }
+
         Ok(DefParams {
             num_positional: u32::try_from(num_positional.unwrap_or(params.len())).unwrap(),
             params,
@@ -250,8 +285,7 @@ mod tests {
 
     #[test]
     fn test_star_cannot_be_last() {
-        // TODO(nga): should fail.
-        passes("def test(x, *): pass");
+        fails("star_cannot_be_last", "def test(x, *): pass");
     }
 
     #[test]
@@ -261,8 +295,7 @@ mod tests {
 
     #[test]
     fn test_star_then_kwargs() {
-        // TODO(nga): should fail.
-        passes("def test(x, *, **kwargs): pass");
+        fails("star_then_kwargs", "def test(x, *, **kwargs): pass");
     }
 
     #[test]
