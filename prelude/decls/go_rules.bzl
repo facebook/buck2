@@ -290,6 +290,7 @@ go_library = prelude_rule(
         go_common.cxx_compiler_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.link_style_arg() |
+        go_common.generate_exported_header() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

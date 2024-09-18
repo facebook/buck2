@@ -48,7 +48,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg, pkg_info = build_package(
         ctx,
         pkg_name,
-        srcs = ctx.attrs.srcs,
+        srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps + ctx.attrs.exported_deps,
         compiler_flags = ctx.attrs.compiler_flags,
