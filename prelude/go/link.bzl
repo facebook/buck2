@@ -29,7 +29,7 @@ load(
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//utils:utils.bzl",
-    "map_idx",
+    "filter_and_map_idx",
 )
 load(
     ":packages.bzl",
@@ -81,7 +81,7 @@ def _process_shared_dependencies(
 
     shlib_info = merge_shared_libraries(
         ctx.actions,
-        deps = filter(None, map_idx(SharedLibraryInfo, deps)),
+        deps = filter_and_map_idx(SharedLibraryInfo, deps),
     )
     shared_libs = traverse_shared_library_info(shlib_info)
 
