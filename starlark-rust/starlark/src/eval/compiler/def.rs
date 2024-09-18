@@ -146,18 +146,23 @@ pub(crate) struct ParameterName {
 
 #[derive(Clone, Debug, VisitSpanMut)]
 pub(crate) enum ParameterCompiled<T> {
-    Normal(ParameterName, Option<TypeCompiled<FrozenValue>>),
-    WithDefaultValue(ParameterName, Option<TypeCompiled<FrozenValue>>, T),
+    Normal(
+        /// Name.
+        ParameterName,
+        /// Type.
+        Option<TypeCompiled<FrozenValue>>,
+        /// Default value.
+        Option<T>,
+    ),
     Args(ParameterName, Option<TypeCompiled<FrozenValue>>),
     KwArgs(ParameterName, Option<TypeCompiled<FrozenValue>>),
 }
 
 impl<T> ParameterCompiled<T> {
-    pub(crate) fn map_expr<U>(&self, mut f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
+    pub(crate) fn map_expr<U>(&self, f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
         match self {
-            ParameterCompiled::Normal(n, o) => ParameterCompiled::Normal(n.clone(), *o),
-            ParameterCompiled::WithDefaultValue(n, o, t) => {
-                ParameterCompiled::WithDefaultValue(n.clone(), *o, f(t))
+            ParameterCompiled::Normal(n, o, t) => {
+                ParameterCompiled::Normal(n.clone(), *o, t.as_ref().map(f))
             }
             ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), *o),
             ParameterCompiled::KwArgs(n, o) => ParameterCompiled::KwArgs(n.clone(), *o),
@@ -166,8 +171,7 @@ impl<T> ParameterCompiled<T> {
 
     pub(crate) fn accepts_positional(&self) -> bool {
         match self {
-            ParameterCompiled::Normal(_, _) => true,
-            ParameterCompiled::WithDefaultValue(_, _, _) => true,
+            ParameterCompiled::Normal(..) => true,
             _ => false,
         }
     }
@@ -178,8 +182,7 @@ impl<T> ParameterCompiled<T> {
 
     pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<FrozenValue>>) {
         match self {
-            Self::Normal(n, t) => (n, *t),
-            Self::WithDefaultValue(n, t, _) => (n, *t),
+            Self::Normal(n, t, _) => (n, *t),
             Self::Args(n, t) => (n, *t),
             Self::KwArgs(n, t) => (n, *t),
         }
@@ -267,14 +270,14 @@ impl<T> ParametersCompiled<T> {
                 .map(|(i, p)| {
                     let ty = p.ty();
                     match &p.node {
-                        ParameterCompiled::Normal(name, ..) => {
+                        ParameterCompiled::Normal(name, _ty, None) => {
                             if i < self.num_positional as usize {
                                 Param::pos_or_name(&name.name, ty)
                             } else {
                                 Param::name_only(&name.name, ty)
                             }
                         }
-                        ParameterCompiled::WithDefaultValue(name, ..) => {
+                        ParameterCompiled::Normal(name, _ty, Some(_)) => {
                             if i < self.num_positional as usize {
                                 Param::pos_or_name(&name.name, ty).optional()
                             } else {
@@ -408,14 +411,10 @@ impl Compiler<'_, '_, '_, '_> {
         IrSpanned {
             span,
             node: match &x.node.kind {
-                DefParamKind::Regular(None) => ParameterCompiled::Normal(
+                DefParamKind::Regular(default_value) => ParameterCompiled::Normal(
                     parameter_name,
                     self.expr_for_type(x.ty).map(|t| t.node),
-                ),
-                DefParamKind::Regular(Some(default_value)) => ParameterCompiled::WithDefaultValue(
-                    parameter_name,
-                    self.expr_for_type(x.ty).map(|t| t.node),
-                    self.expr(default_value),
+                    default_value.as_ref().map(|d| self.expr(d)),
                 ),
                 DefParamKind::Args => ParameterCompiled::Args(
                     parameter_name,
