@@ -197,10 +197,14 @@ mod tests {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
-    fn fails(test_name: &str, program: &str) {
-        let e = AstModule::parse("test.star", program.to_owned(), &Dialect::Extended).unwrap_err();
+    fn fails_dialect(test_name: &str, program: &str, dialect: &Dialect) {
+        let e = AstModule::parse("test.star", program.to_owned(), dialect).unwrap_err();
         let text = format!("Program:\n{program}\n\nError: {e}\n");
         golden_test_template(&format!("src/syntax/def_tests/{test_name}.golden"), &text);
+    }
+
+    fn fails(test_name: &str, program: &str) {
+        fails_dialect(test_name, program, &Dialect::Extended);
     }
 
     fn passes(program: &str) {
@@ -230,5 +234,23 @@ mod tests {
         passes("def test(x=1, *args, y): pass");
         passes("def test(*args, x, y=1, z): pass");
         passes("def test(*, x, y=1, z): pass");
+    }
+
+    #[test]
+    fn test_named_only_in_standard_dialect_def() {
+        fails_dialect(
+            "named_only_in_standard_dialect_def",
+            "def test(*, x): pass",
+            &Dialect::Standard,
+        );
+    }
+
+    #[test]
+    fn test_named_only_in_standard_dialect_lambda() {
+        fails_dialect(
+            "named_only_in_standard_dialect_lambda",
+            "lambda *, x: 17",
+            &Dialect::Standard,
+        );
     }
 }
