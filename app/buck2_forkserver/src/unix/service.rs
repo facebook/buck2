@@ -229,7 +229,7 @@ impl MiniperfContainer {
 
         #[cfg(all(fbcode_build, target_os = "linux"))]
         {
-            miniperf_bin = Some(include_bytes!("miniperf.bin").as_slice());
+            miniperf_bin = Some(buck2_miniperf_data::get());
         }
 
         #[cfg(not(all(fbcode_build, target_os = "linux")))]
