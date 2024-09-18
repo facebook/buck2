@@ -149,7 +149,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
             <Link
               className="no-underline icon-text"
-              to={{[TARGET_VIEW]: target.configuredTargetLabel(), TARGET_TAB: TARGET_ATTRS}}>
+              to={{[TARGET_VIEW]: target.configuredTargetLabel(), [TARGET_TAB]: TARGET_ATTRS}}>
               Attributes
               <span className="icon">
                 <i className="fa fa-list"></i>
@@ -159,7 +159,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
             <Link
               className="no-underline"
-              to={{[TARGET_VIEW]: target.configuredTargetLabel(), TARGET_TAB: TARGET_DEPS}}>
+              to={{[TARGET_VIEW]: target.configuredTargetLabel(), [TARGET_TAB]: TARGET_DEPS}}>
               Dependencies
               <span className="icon">
                 <i className="fa fa-arrow-down"></i>
@@ -169,7 +169,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
             <Link
               className="no-underline"
-              to={{[TARGET_VIEW]: target.configuredTargetLabel(), TARGET_TAB: TARGET_RDEPS}}>
+              to={{[TARGET_VIEW]: target.configuredTargetLabel(), [TARGET_TAB]: TARGET_RDEPS}}>
               Reverse dependencies
               <span className="icon">
                 <i className="fa fa-arrow-up"></i>
