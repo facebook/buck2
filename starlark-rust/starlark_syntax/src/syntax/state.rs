@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::eval_exception::EvalException;
@@ -29,8 +31,8 @@ pub(crate) struct ParserState<'a> {
 
 impl<'a> ParserState<'a> {
     /// Add recoverable error.
-    pub(crate) fn error(&mut self, span: Span, error: impl Into<anyhow::Error>) {
+    pub(crate) fn error(&mut self, span: Span, error: impl Display) {
         self.errors
-            .push(EvalException::new_anyhow(error.into(), span, self.codemap));
+            .push(EvalException::parser_error(error, span, self.codemap));
     }
 }

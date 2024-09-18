@@ -234,19 +234,6 @@ pub(crate) fn check_load(
     })
 }
 
-#[derive(thiserror::Error, Debug)]
-enum FStringError {
-    #[error("Not a valid identifier: `{}`", .capture)]
-    InvalidIdentifier { capture: String },
-
-    // Always render the causes for this, but don't expose the error when traversing sources.
-    #[error("Invalid format: {:#}", .inner)]
-    InvalidFormat { inner: anyhow::Error },
-
-    #[error("Your Starlark dialect must enable f-strings to use them")]
-    NotEnabled,
-}
-
 pub(crate) fn fstring(
     fstring: TokenFString,
     begin: usize,
@@ -256,7 +243,7 @@ pub(crate) fn fstring(
     if !parser_state.dialect.enable_f_strings {
         parser_state.error(
             Span::new(Pos::new(begin as _), Pos::new(end as _)),
-            FStringError::NotEnabled,
+            "Your Starlark dialect must enable f-strings to use them",
         );
     }
 
@@ -285,9 +272,7 @@ pub(crate) fn fstring(
                     None => {
                         parser_state.error(
                             Span::new(Pos::new(capture_begin as _), Pos::new(capture_end as _)),
-                            FStringError::InvalidIdentifier {
-                                capture: capture.to_owned(),
-                            },
+                            format_args!("Not a valid identifier: `{capture}`"),
                         );
                         // Might as well keep going here. This doesn't compromise the parsing of
                         // the rest of the format string.
@@ -310,7 +295,7 @@ pub(crate) fn fstring(
                 // TODO: Reporting the exact position of the error would be better.
                 parser_state.error(
                     Span::new(Pos::new(begin as _), Pos::new(end as _)),
-                    FStringError::InvalidFormat { inner },
+                    format_args!("Invalid format: {inner:#}"),
                 );
                 break;
             }
