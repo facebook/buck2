@@ -134,7 +134,11 @@ impl LspContext for TestServerContext {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match uri {
             LspUrl::File(path) | LspUrl::Starlark(path) => {
-                match AstModule::parse(&path.to_string_lossy(), content, &Dialect::Extended) {
+                match AstModule::parse(
+                    &path.to_string_lossy(),
+                    content,
+                    &Dialect::AllOptionsInternal,
+                ) {
                     Ok(ast) => {
                         let diagnostics = ast
                             .lint(None)

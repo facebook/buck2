@@ -221,7 +221,7 @@ y = 8 * 9 + 2
 f
 "#
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )?;
         let globals = Globals::standard();
         let module = Module::new();

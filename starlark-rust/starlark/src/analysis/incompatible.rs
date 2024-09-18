@@ -216,7 +216,7 @@ mod tests {
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("bad.py", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("bad.py", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     #[test]

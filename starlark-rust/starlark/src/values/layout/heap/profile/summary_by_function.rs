@@ -231,7 +231,7 @@ _ignore = {1: 2}       # allocate a dict in drop
 _ignore = str([1])     # allocate a string in non_drop
         "
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )
         .unwrap();
 

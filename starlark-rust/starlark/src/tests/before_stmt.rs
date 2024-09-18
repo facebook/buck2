@@ -43,7 +43,7 @@ def f():       # 1 + 1
   return x + 1 # 3
 f()            # 2 + 1
 ";
-    let ast = AstModule::parse("a.star", program.to_owned(), &Dialect::Extended).unwrap();
+    let ast = AstModule::parse("a.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
     evaluator.eval_module(ast, &globals).unwrap();
     assert_eq!(7, counter.get());
 }

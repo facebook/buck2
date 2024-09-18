@@ -293,7 +293,7 @@
 //! quadratic
 //! "#;
 //!
-//! let ast = AstModule::parse("quadratic.star", content.to_owned(), &Dialect::Extended)?;
+//! let ast = AstModule::parse("quadratic.star", content.to_owned(), &Dialect::Standard)?;
 //! let globals = Globals::standard();
 //! let module = Module::new();
 //! let mut eval = Evaluator::new(&module);

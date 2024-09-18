@@ -58,7 +58,7 @@ test()
 R = test()
 "#
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )
         .unwrap(),
         &GlobalsBuilder::extended().with(test_functions).build(),

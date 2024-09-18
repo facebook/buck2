@@ -364,7 +364,11 @@ mod tests {
         ]
         .into_map(|names| names.into_map(String::from));
 
-        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended)?;
+        let module = AstModule::parse(
+            "foo.star",
+            contents.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )?;
         let scope = scope(&module);
 
         let found_bindings = scope
@@ -387,7 +391,11 @@ mod tests {
     #[test]
     fn dotted_contains_is_correct() -> starlark::Result<()> {
         let contents = "x1.y1.z1\nx2.y2.z2";
-        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended)?;
+        let module = AstModule::parse(
+            "foo.star",
+            contents.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )?;
         let scope = scope(&module);
 
         let get = scope

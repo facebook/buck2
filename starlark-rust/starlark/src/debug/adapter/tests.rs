@@ -230,7 +230,11 @@ x = [1, 2, 3]
 print(x)
         ";
         dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -259,7 +263,11 @@ x = [1, 2, 3]
 print(x)
         ";
         dap_test_template(|s, _, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("5 in x"))]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -281,7 +289,11 @@ x = [1, 2, 3]
 print(x)
         ";
         dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(3, Some("2 in x"))]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -315,7 +327,11 @@ adjust(x)
 print(x)
         ";
         dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -366,7 +382,11 @@ adjust(x)
 print(x)
         ";
         dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(7, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -439,7 +459,11 @@ adjust(x)
 print(x)
         ";
         dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(4, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -501,7 +525,11 @@ def do():
 print(do())
         ";
         let result = dap_test_template(|s, controller, adapter, eval_hook| {
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -558,7 +586,11 @@ print(do())
         ";
         let result = dap_test_template(|s, controller, adapter, eval_hook| {
             let mut result = Vec::new();
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(13, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;
@@ -614,7 +646,11 @@ print(do())
         ";
         let result = dap_test_template(|s, controller, adapter, eval_hook| {
             let mut result = Vec::new();
-            let ast = AstModule::parse("test.bzl", file_contents.to_owned(), &Dialect::Extended)?;
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
             let breakpoints =
                 resolve_breakpoints(&breakpoints_args("test.bzl", &[(12, None)]), &ast)?;
             adapter.set_breakpoints("test.bzl", &breakpoints)?;

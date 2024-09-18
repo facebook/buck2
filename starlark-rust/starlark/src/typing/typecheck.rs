@@ -203,7 +203,7 @@ impl AstModuleTypecheck for AstModule {
                 globals: Some(frozen_heap.alloc_any(globals.dupe())),
             },
             frozen_heap.alloc_any(codemap.dupe()),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         );
         let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
         // We don't really need to properly unpack top-level statements,

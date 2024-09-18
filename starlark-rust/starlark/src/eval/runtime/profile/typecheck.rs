@@ -153,7 +153,11 @@ def g():
 
 g()
 "#;
-        let program = AstModule::parse("test.star", program.to_owned(), &Dialect::Extended)?;
+        let program = AstModule::parse(
+            "test.star",
+            program.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )?;
         eval.enable_profile(&ProfileMode::Typecheck)?;
         eval.eval_module(program, &Globals::extended_internal())?;
 

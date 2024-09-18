@@ -96,8 +96,10 @@ impl TypeCheck {
             .with(register_typecheck_globals)
             .build();
         // `AstModule` is not `Clone`. Parse twice.
-        let ast0 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
-        let ast1 = AstModule::parse("filename", code.to_owned(), &Dialect::Extended).unwrap();
+        let ast0 =
+            AstModule::parse("filename", code.to_owned(), &Dialect::AllOptionsInternal).unwrap();
+        let ast1 =
+            AstModule::parse("filename", code.to_owned(), &Dialect::AllOptionsInternal).unwrap();
         let (errors, typemap, interface, approximations) = ast0.typecheck(
             &globals,
             &self

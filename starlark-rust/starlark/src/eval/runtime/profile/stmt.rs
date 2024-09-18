@@ -365,7 +365,7 @@ xx(*[1])
 xx(*[2])
 "#
             .to_owned(),
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
         )
         .unwrap();
         eval.enable_profile(&ProfileMode::Coverage).unwrap();

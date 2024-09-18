@@ -147,7 +147,7 @@ impl Display for TestExpr {
 /// * Count side effects.
 fn eval_program(program: &str) -> (bool, CountCalls) {
     let module = Module::new();
-    let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::Extended).unwrap();
+    let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
 
     let mut globals = GlobalsBuilder::standard();
     bool_fns(&mut globals);

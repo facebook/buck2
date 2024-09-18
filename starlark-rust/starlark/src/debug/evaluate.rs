@@ -122,8 +122,8 @@ mod tests {
             code: String,
             eval: &mut Evaluator<'v, '_, '_>,
         ) -> anyhow::Result<Value<'v>> {
-            let ast =
-                AstModule::parse("interactive", code, &Dialect::Extended).into_anyhow_result()?;
+            let ast = AstModule::parse("interactive", code, &Dialect::AllOptionsInternal)
+                .into_anyhow_result()?;
             eval.eval_statements(ast).into_anyhow_result()
         }
     }

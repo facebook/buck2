@@ -596,7 +596,7 @@ def f(x):
 x = f(1)
 "
                     .to_owned(),
-                    &Dialect::Extended,
+                    &Dialect::AllOptionsInternal,
                 )
                 .unwrap(),
                 &Globals::standard(),

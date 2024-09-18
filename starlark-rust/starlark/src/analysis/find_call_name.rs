@@ -105,7 +105,12 @@ def x(name = "foo_name"):
     pass
 "#;
 
-        let module = AstModule::parse("foo.star", contents.to_owned(), &Dialect::Extended).unwrap();
+        let module = AstModule::parse(
+            "foo.star",
+            contents.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )
+        .unwrap();
 
         assert_eq!(
             Some(ResolvedSpan {

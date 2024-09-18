@@ -204,11 +204,16 @@ mod tests {
     }
 
     fn fails(test_name: &str, program: &str) {
-        fails_dialect(test_name, program, &Dialect::Extended);
+        fails_dialect(test_name, program, &Dialect::AllOptionsInternal);
     }
 
     fn passes(program: &str) {
-        AstModule::parse("test.star", program.to_owned(), &Dialect::Extended).unwrap();
+        AstModule::parse(
+            "test.star",
+            program.to_owned(),
+            &Dialect::AllOptionsInternal,
+        )
+        .unwrap();
     }
 
     #[test]

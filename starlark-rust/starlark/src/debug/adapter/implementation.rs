@@ -95,7 +95,7 @@ fn evaluate_expr<'v>(
     // not least because we currently don't allow reenterant evaluate
     state.disable_breakpoints.fetch_add(1, Ordering::SeqCst);
     // Don't use `?`, we need to reset disable_breakpoints.
-    let ast = AstModule::parse("interactive", expr, &Dialect::Extended);
+    let ast = AstModule::parse("interactive", expr, &Dialect::AllOptionsInternal);
     // This technically loses structured access to the diagnostic information. However, it's
     // completely unused, so there's not much point in converting all of this code to using
     // `starlark::Error`, only for buck2 to then go and blindly turn it into a `anyhow::Error`

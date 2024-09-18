@@ -204,7 +204,11 @@ fn test_load_symbols_extra() -> crate::Result<()> {
         let mut eval = Evaluator::new(&modu);
         modu.set_extra_value(eval.heap().alloc_complex_no_freeze(Extra::default()));
         eval.eval_module(
-            AstModule::parse("a", "load_symbol('x', 6*7)".to_owned(), &Dialect::Extended)?,
+            AstModule::parse(
+                "a",
+                "load_symbol('x', 6*7)".to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?,
             &globals,
         )?;
     }

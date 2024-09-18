@@ -231,13 +231,13 @@ pub struct Assert<'a> {
 /// Construction and state management.
 impl<'a> Assert<'a> {
     /// Create a new assert object, which will by default use
-    /// [`Dialect::Extended`] and all library extensions,
+    /// extended dialect and all library extensions,
     /// plus some additional global functions like `assert_eq`.
     /// The usual pattern is to create a `mut` `Assert`, modify some properties
     /// and then execute some tests.
     pub fn new() -> Self {
         Self {
-            dialect: Dialect::Extended,
+            dialect: Dialect::AllOptionsInternal,
             modules: hashmap!["asserts.star".to_owned() => Lazy::force(&ASSERTS_STAR).dupe()],
             globals: Lazy::force(&GLOBALS).dupe(),
             gc_strategy: None,

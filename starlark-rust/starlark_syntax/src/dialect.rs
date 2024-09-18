@@ -35,29 +35,29 @@ pub enum DialectTypes {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Dialect {
     /// Are `def` statements permitted.
-    /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended).
+    /// Enabled by default.
     pub enable_def: bool,
     /// Are `lambda` expressions permitted.
-    /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended).
+    /// Enabled by default.
     pub enable_lambda: bool,
     /// Are `load` statements permitted.
-    /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended).
+    /// Enabled by default.
     pub enable_load: bool,
     /// Are `*` keyword-only arguments allowed as per [PEP 3102](https://www.python.org/dev/peps/pep-3102/).
-    /// Only enabled in [`Extended`](Dialect::Extended).
+    /// Disabled by default.
     pub enable_keyword_only_arguments: bool,
     /// Are expressions allowed in type positions as per [PEP 484](https://www.python.org/dev/peps/pep-0484/).
-    /// Only enabled in [`Extended`](Dialect::Extended).
+    /// Disabled by default.
     pub enable_types: DialectTypes,
     /// Do `load()` statements reexport their definition.
-    /// Enabled in both [`Standard`](Dialect::Standard) and [`Extended`](Dialect::Extended),
+    /// Enabled by default,
     /// but may change in future definitions of the standard.
     pub enable_load_reexport: bool,
     /// Are `for`, `if` and other statements allowed at the top level.
-    /// Only enabled in [`Extended`](Dialect::Extended).
+    /// Disabled by default.
     pub enable_top_level_stmt: bool,
     /// Are `f"{expression}"` strings supported?
-    /// Disabled in all dialects by default.
+    /// Disabled by default.
     pub enable_f_strings: bool,
     /// Like `#[non_exhaustive]`, but allows struct expression.
     ///
@@ -90,7 +90,8 @@ impl Dialect {
         _non_exhaustive: (),
     };
 
-    /// A superset of [`Standard`](Dialect::Standard), including extra features (types, top-level statements etc).
+    /// This option is deprecated. Extend `Standard` instead.
+    #[doc(hidden)]
     pub const Extended: Self = Self {
         enable_def: true,
         enable_lambda: true,
@@ -100,6 +101,20 @@ impl Dialect {
         enable_load_reexport: true,
         enable_top_level_stmt: true,
         enable_f_strings: false,
+        _non_exhaustive: (),
+    };
+
+    /// Only for starlark-rust self tests.
+    #[doc(hidden)]
+    pub const AllOptionsInternal: Self = Self {
+        enable_def: true,
+        enable_lambda: true,
+        enable_load: true,
+        enable_keyword_only_arguments: true,
+        enable_types: DialectTypes::Enable,
+        enable_load_reexport: true,
+        enable_top_level_stmt: true,
+        enable_f_strings: true,
         _non_exhaustive: (),
     };
 }

@@ -731,7 +731,8 @@ pub(crate) mod helpers {
             Ok(LspModule::new(AstModule::parse(
                 &self.filename,
                 self.program.clone(),
-                &Dialect::Extended,
+                // TODO(nga): use dialect of current module.
+                &Dialect::AllOptionsInternal,
             )?))
         }
 

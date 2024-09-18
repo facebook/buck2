@@ -334,7 +334,7 @@ mod tests {
     use crate::syntax::Dialect;
 
     fn module(x: &str) -> AstModule {
-        AstModule::parse("X", x.to_owned(), &Dialect::Extended).unwrap()
+        AstModule::parse("X", x.to_owned(), &Dialect::AllOptionsInternal).unwrap()
     }
 
     impl FlowIssue {

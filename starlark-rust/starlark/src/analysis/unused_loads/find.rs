@@ -73,7 +73,7 @@ pub(crate) fn find_unused_loads(
     name: &str,
     program: &str,
 ) -> crate::Result<(CodeMap, Vec<UnusedLoad>)> {
-    let module = AstModule::parse(name, program.to_owned(), &Dialect::Extended)?;
+    let module = AstModule::parse(name, program.to_owned(), &Dialect::AllOptionsInternal)?;
     let names = MutableNames::new();
     let heap = FrozenHeap::new();
     let (codemap, statement, dialect, ..) = module.into_parts();

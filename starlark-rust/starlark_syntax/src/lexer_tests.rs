@@ -53,13 +53,13 @@ fn lex_tokens(program: &str) -> Vec<(usize, Token, usize)> {
         }
     }
 
-    let orig = tokens(&Dialect::Extended, program);
+    let orig = tokens(&Dialect::AllOptionsInternal, program);
     check_spans(&orig);
 
     // In Starlark Windows newline characters shouldn't change the lex tokens (only the positions), so run that test too.
     // First convert \r\n to \n, in case we started with Windows newlines, so we don't get \r\r\n.
     let with_r = tokens(
-        &Dialect::Extended,
+        &Dialect::AllOptionsInternal,
         &program.replace("\r\n", "\n").replace('\n', "\r\n"),
     );
     check_spans(&with_r);
@@ -113,7 +113,7 @@ fn lexer_fail_golden_test(name: &str, programs: &[&str]) {
 
         let e = Lexer::new(
             program,
-            &Dialect::Extended,
+            &Dialect::AllOptionsInternal,
             CodeMap::new("x".to_owned(), program.to_owned()),
         )
         .collect::<Result<Vec<_>, _>>()
