@@ -46,6 +46,8 @@ pub struct Dialect {
     /// Are `*` keyword-only arguments allowed as per [PEP 3102](https://www.python.org/dev/peps/pep-3102/).
     /// Disabled by default.
     pub enable_keyword_only_arguments: bool,
+    /// Are `/` for positional-only arguments allowed.
+    pub enable_positional_only_arguments: bool,
     /// Are expressions allowed in type positions as per [PEP 484](https://www.python.org/dev/peps/pep-0484/).
     /// Disabled by default.
     pub enable_types: DialectTypes,
@@ -83,6 +85,7 @@ impl Dialect {
         enable_lambda: true,
         enable_load: true,
         enable_keyword_only_arguments: false,
+        enable_positional_only_arguments: false,
         enable_types: DialectTypes::Disable,
         enable_load_reexport: true, // But they plan to change it
         enable_top_level_stmt: false,
@@ -97,6 +100,7 @@ impl Dialect {
         enable_lambda: true,
         enable_load: true,
         enable_keyword_only_arguments: true,
+        enable_positional_only_arguments: false,
         enable_types: DialectTypes::Enable,
         enable_load_reexport: true,
         enable_top_level_stmt: true,
@@ -111,6 +115,7 @@ impl Dialect {
         enable_lambda: true,
         enable_load: true,
         enable_keyword_only_arguments: true,
+        enable_positional_only_arguments: true,
         enable_types: DialectTypes::Enable,
         enable_load_reexport: true,
         enable_top_level_stmt: true,

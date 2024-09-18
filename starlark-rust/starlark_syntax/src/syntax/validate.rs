@@ -75,6 +75,16 @@ pub(crate) fn validate_module(stmt: &AstStmt, parser_state: &mut ParserState) {
                 }
             }
         }
+        if !parser_state.dialect.enable_positional_only_arguments {
+            for param in params {
+                if let ParameterP::Slash = &param.node {
+                    parser_state.error(
+                        param.span,
+                        "/ positional-only-arguments is not allowed in this dialect",
+                    );
+                }
+            }
+        }
         if let Err(e) = DefParams::unpack(params, parser_state.codemap) {
             parser_state.errors.push(e.into());
         }

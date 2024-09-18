@@ -136,6 +136,13 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     }
                     seen_args = true;
                 }
+                ParameterP::Slash => {
+                    return Err(EvalException::parser_error(
+                        "`/` for positional-only arguments is not implemented",
+                        param.span,
+                        codemap,
+                    ));
+                }
                 ParameterP::Args(n, ty) => {
                     if seen_args || seen_kwargs {
                         return Err(EvalException::parser_error(
@@ -255,6 +262,24 @@ mod tests {
         fails_dialect(
             "named_only_in_standard_dialect_lambda",
             "lambda *, x: 17",
+            &Dialect::Standard,
+        );
+    }
+
+    #[test]
+    fn test_positional_only_in_standard_dialect_def() {
+        fails_dialect(
+            "positional_only_in_standard_dialect_def",
+            "def test(/, x): pass",
+            &Dialect::Standard,
+        );
+    }
+
+    #[test]
+    fn test_positional_only_in_standard_dialect_lambda() {
+        fails_dialect(
+            "positional_only_in_standard_dialect_lambda",
+            "lambda /, x: 17",
             &Dialect::Standard,
         );
     }

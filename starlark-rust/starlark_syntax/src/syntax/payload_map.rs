@@ -335,6 +335,7 @@ impl<A: AstPayload> ParameterP<A> {
                 Box::new(defa.into_map_payload(f)),
             ),
             ParameterP::NoArgs => ParameterP::NoArgs,
+            ParameterP::Slash => ParameterP::Slash,
             ParameterP::Args(name, ty) => ParameterP::Args(
                 name.into_map_payload(f),
                 ty.map(|defa| Box::new(defa.into_map_payload(f))),

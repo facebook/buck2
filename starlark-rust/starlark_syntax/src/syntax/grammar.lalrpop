@@ -93,6 +93,7 @@ ReturnType: Option<Box<AstTypeExpr>> = {
 // Lambda parameter cannot have type annotations.
 LambdaParameter: AstParameter = ASTP<LambdaParameter_>;
 LambdaParameter_: Parameter = {
+    "/"                          => Parameter::Slash,
     <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
     <AssignIdent>                => Parameter::Normal(<>, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
@@ -102,6 +103,7 @@ LambdaParameter_: Parameter = {
 
 DefParameter: AstParameter = ASTP<DefParameter_>;
 DefParameter_: Parameter = {
+    "/"                                   => Parameter::Slash,
     <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
     <AssignIdent> <Type>                  => Parameter::Normal(<>),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),

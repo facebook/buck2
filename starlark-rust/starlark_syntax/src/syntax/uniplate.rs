@@ -341,7 +341,7 @@ impl<P: AstPayload> ParameterP<P> {
             ParameterP::WithDefaultValue(a, b, c) => {
                 (Some(a), b.as_ref().map(|x| &**x), Some(&**c))
             }
-            ParameterP::NoArgs => (None, None, None),
+            ParameterP::NoArgs | ParameterP::Slash => (None, None, None),
         }
     }
 
@@ -360,7 +360,7 @@ impl<P: AstPayload> ParameterP<P> {
             ParameterP::WithDefaultValue(a, b, c) => {
                 (Some(a), b.as_mut().map(|x| &mut **x), Some(&mut **c))
             }
-            ParameterP::NoArgs => (None, None, None),
+            ParameterP::NoArgs | ParameterP::Slash => (None, None, None),
         }
     }
 
