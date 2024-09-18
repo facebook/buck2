@@ -249,6 +249,23 @@ mod tests {
     }
 
     #[test]
+    fn test_star_cannot_be_last() {
+        // TODO(nga): should fail.
+        passes("def test(x, *): pass");
+    }
+
+    #[test]
+    fn test_star_then_args() {
+        fails("star_then_args", "def test(x, *, *args): pass");
+    }
+
+    #[test]
+    fn test_star_then_kwargs() {
+        // TODO(nga): should fail.
+        passes("def test(x, *, **kwargs): pass");
+    }
+
+    #[test]
     fn test_named_only_in_standard_dialect_def() {
         fails_dialect(
             "named_only_in_standard_dialect_def",
