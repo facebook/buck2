@@ -315,7 +315,7 @@ Test: AstExpr = {
 
 LambDef: AstExpr = {
     <l:@L> "lambda" <p:COMMA<LambdaParameter>> ":" <e:Test> <r:@R>
-        =>? Ok(grammar_util::dialect_check_lambda(state.dialect, state.codemap, grammar_util::check_lambda(p, e, state).ast(l, r))?),
+        => grammar_util::check_lambda(p, e, state).ast(l, r)
 }
 
 // Binary operators

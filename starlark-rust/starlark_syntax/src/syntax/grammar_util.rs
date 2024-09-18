@@ -58,7 +58,6 @@ use crate::syntax::ast::TypeExprP;
 use crate::syntax::def::DefParams;
 use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
-use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
 
 #[derive(Debug, thiserror::Error)]
@@ -329,26 +328,12 @@ pub fn fstring(
 
 #[derive(thiserror::Error, Debug)]
 enum DialectError {
-    #[error("`lambda` is not allowed in this dialect")]
-    Lambda,
     #[error("type annotations are not allowed in this dialect")]
     Types,
 }
 
 fn err<T>(codemap: &CodeMap, span: Span, err: DialectError) -> Result<T, EvalException> {
     Err(EvalException::new_anyhow(err.into(), span, codemap))
-}
-
-pub fn dialect_check_lambda<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    x: Spanned<T>,
-) -> Result<Spanned<T>, EvalException> {
-    if dialect.enable_lambda {
-        Ok(x)
-    } else {
-        err(codemap, x.span, DialectError::Lambda)
-    }
 }
 
 pub fn dialect_check_type(

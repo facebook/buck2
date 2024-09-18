@@ -161,7 +161,16 @@ impl Stmt {
                         ));
                     }
                 }
-                Expr::Lambda(LambdaP { params, .. }) => validate_params(codemap, params, dialect)?,
+                Expr::Lambda(LambdaP { params, .. }) => {
+                    if !dialect.enable_lambda {
+                        return Err(EvalException::parser_error(
+                            "`lambda` is not allowed in this dialect",
+                            expr.span,
+                            codemap,
+                        ));
+                    }
+                    validate_params(codemap, params, dialect)?;
+                }
                 _ => {}
             }
             Ok(())
