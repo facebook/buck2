@@ -439,15 +439,18 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     }
 
     fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
-        let def_params = DefParams::unpack(&def.params, self.ctx.codemap)
+        let DefParams {
+            params: def_params,
+            num_positional,
+        } = DefParams::unpack(&def.params, self.ctx.codemap)
             .map_err(InternalError::from_eval_exception)?;
 
-        let mut params = Vec::with_capacity(def_params.params.len());
-        for (i, param) in def_params.params.iter().enumerate() {
+        let mut params = Vec::with_capacity(def_params.len());
+        for (i, param) in def_params.iter().enumerate() {
             let ty = self.get_ty_expr_opt(param.ty)?;
             match param.kind {
                 DefParamKind::Regular(default_value) => {
-                    let pos_only = i < def_params.num_positional as usize;
+                    let pos_only = i < num_positional as usize;
                     let name = param.ident.ident.as_str();
                     let param = if pos_only {
                         Param::pos_or_name(name, ty)

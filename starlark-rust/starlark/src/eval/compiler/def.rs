@@ -444,21 +444,23 @@ impl Compiler<'_, '_, '_, '_> {
         let function_name = format!("{}.{}", file.file.filename(), name);
         let name = self.eval.frozen_heap().alloc_str_intern(name);
 
-        let def_params = match DefParams::unpack(params, &self.codemap) {
+        let DefParams {
+            params,
+            num_positional,
+        } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
             Err(e) => return Err(CompilerInternalError::from_eval_exception(e)),
         };
 
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
-        let params: Vec<_> = def_params
-            .params
+        let params: Vec<_> = params
             .iter()
             .map(|x| self.parameter(x))
             .collect::<Result<_, CompilerInternalError>>()?;
         let params = ParametersCompiled {
             params,
-            num_positional: def_params.num_positional,
+            num_positional,
         };
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
