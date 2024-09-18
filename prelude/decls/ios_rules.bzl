@@ -14,10 +14,12 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
+load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
@@ -1078,6 +1080,53 @@ apple_universal_executable = prelude_rule(
     attrs = _apple_universal_executable_attrs(),
 )
 
+def _cxx_universal_executable_attrs():
+    return {
+        "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
+                A build target identifying the binary which will be built for multiple architectures.
+                The target will be transitioned into different configurations, with distinct architectures.
+
+                The target can be one of:
+                - `cxx_binary()`
+                - `[shared]` subtarget `cxx_library()`
+                - `cxx_library()` which have `preferred_linkage = shared` attribute
+            """),
+        "executable_name": attrs.option(attrs.string(), default = None, doc = """
+                By default, the name of the universal executable is same as the name of the binary
+                from the `binary` target attribute. Set `executable_name` to override the default.
+            """),
+        "labels": attrs.list(attrs.string(), default = []),
+        "universal": attrs.option(attrs.bool(), default = None, doc = """
+                Controls whether the output is universal binary. Any value overrides the presence
+                of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
+                for more information on resolution.
+            """),
+        "_cxx_toolchain": toolchains_common.cxx(),
+    }
+
+cxx_universal_executable = prelude_rule(
+    name = "cxx_universal_executable",
+    impl = cxx_universal_executable_impl,
+    docs = """
+        A `cxx_universal_executable()` rule takes a target via its
+        `binary` attribute, builds it for multiple architectures and
+        combines the result into a single binary using `lipo`.
+
+        The output of the rule is a universal binary:
+        - If `config//cpu/constraints:universal-enabled` is present in the target platform.
+        - If the `universal` attribute is set to `True`.
+
+        If none of the conditions are met, then the rule acts as a nop `alias()`.
+
+        The `universal` attribute, if present, takes precedence over constraint.
+        For example, if `universal = False`, then the presence of the constraint
+        would not affect the output.
+    """,
+    examples = None,
+    further = None,
+    attrs = _cxx_universal_executable_attrs(),
+)
+
 ios_rules = struct(
     apple_asset_catalog = apple_asset_catalog,
     apple_binary = apple_binary,
@@ -1090,6 +1139,7 @@ ios_rules = struct(
     apple_toolchain_set = apple_toolchain_set,
     apple_universal_executable = apple_universal_executable,
     core_data_model = core_data_model,
+    cxx_universal_executable = cxx_universal_executable,
     prebuilt_apple_framework = prebuilt_apple_framework,
     scene_kit_assets = scene_kit_assets,
     swift_library = swift_library,
