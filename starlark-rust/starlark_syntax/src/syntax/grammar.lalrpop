@@ -76,7 +76,7 @@ pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
 
 DefStmt: AstStmt = ASTS<DefStmt_>;
 DefStmt_: Stmt =
-  "def" <identifier> "(" <COMMA<DefParameter>> ")" <ReturnType> ":" <Suite>
+  "def" <AssignIdent> "(" <COMMA<DefParameter>> ")" <ReturnType> ":" <Suite>
       => grammar_util::check_def(<>);
 
 ReturnType: Option<Box<AstTypeExpr>> = {

@@ -149,15 +149,11 @@ pub fn check_assignment(
 }
 
 pub(crate) fn check_def(
-    name: AstString,
+    name: AstAssignIdent,
     params: Vec<AstParameter>,
     return_type: Option<Box<AstTypeExpr>>,
     stmts: AstStmt,
 ) -> Stmt {
-    let name = name.map(|s| AssignIdentP {
-        ident: s,
-        payload: (),
-    });
     Stmt::Def(DefP {
         name,
         params,
