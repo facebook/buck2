@@ -30,10 +30,9 @@ export function GraphViz(props: {
       onNodeRightClick={(node, _event) => {
         openTarget(node.name)
       }}
-      onEngineTick={graphRef?.current?.zoomToFit}
       // cooldown + warmup ticks make the graph render already in its final form
       cooldownTicks={1}
-      enableNodeDrag={false}
+      enableNodeDrag={true}
       warmupTicks={100}
       // looks
       linkDirectionalArrowLength={5 / Math.pow(nodes.length, 0.2)}
