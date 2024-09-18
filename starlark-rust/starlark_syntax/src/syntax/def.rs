@@ -90,6 +90,11 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
         for (i, param) in ast_params.iter().enumerate() {
             let span = param.span;
+
+            if let Some(name) = param.ident() {
+                check_param_name(&mut argset, name, param, codemap)?;
+            }
+
             match &param.node {
                 ParameterP::Normal(n, ty, None) => {
                     if seen_kwargs || (seen_optional && !seen_args) {
@@ -99,7 +104,6 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                             codemap,
                         ));
                     }
-                    check_param_name(&mut argset, n, param, codemap)?;
                     params.push(Spanned {
                         span,
                         node: DefParam {
@@ -118,7 +122,6 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         ));
                     }
                     seen_optional = true;
-                    check_param_name(&mut argset, n, param, codemap)?;
                     params.push(Spanned {
                         span,
                         node: DefParam {
@@ -162,7 +165,6 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         ));
                     }
                     seen_args = true;
-                    check_param_name(&mut argset, n, param, codemap)?;
                     params.push(Spanned {
                         span,
                         node: DefParam {
@@ -181,7 +183,6 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         ));
                     }
                     seen_kwargs = true;
-                    check_param_name(&mut argset, n, param, codemap)?;
                     params.push(Spanned {
                         span,
                         node: DefParam {
