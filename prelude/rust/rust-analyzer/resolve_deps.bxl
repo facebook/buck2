@@ -220,7 +220,7 @@ def expand_targets(
                 # in the prelude are a bit hard in general
                 expanded_targets.pop(d, None)
 
-    return set(expanded_targets.keys() + active_workspaces.keys()).list(), set(possible_workspaces.keys()).list()
+    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
 
 def resolve_targets_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
@@ -235,7 +235,7 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
     artifacts = actions.write_json(
         artifact,
         ExpandedAndResolved(
-            expanded_targets = dedupe(expanded_targets + workspaces),
+            expanded_targets = expanded_targets,
             queried_proc_macros = queried_proc_macros,
             resolved_deps = resolved_deps,
         ),
