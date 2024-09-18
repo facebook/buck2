@@ -15,7 +15,6 @@ load("@prelude//utils:set.bzl", "set")
 
 RustAnalyzerInfo = provider(
     fields = {
-        "available_proc_macros": list[Dependency],
         # The root source for the rust target (typically lib.rs, main.rs), relative to the buck target file.
         "crate_root": str,
         # The list of rust deps needed for RustAnalyzer to function. Namely, this excludes things like
@@ -62,7 +61,6 @@ def rust_analyzer_provider(
         default_roots: list[str]) -> RustAnalyzerInfo:
     rust_deps = _compute_rust_deps(ctx, dep_ctx)
     return RustAnalyzerInfo(
-        available_proc_macros = get_available_proc_macros(ctx).values(),
         crate_root = crate_root(ctx, default_roots),
         rust_deps = rust_deps,
         transitive_target_set = _compute_transitive_target_set(ctx, rust_deps),
