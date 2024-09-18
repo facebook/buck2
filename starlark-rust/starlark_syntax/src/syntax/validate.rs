@@ -30,6 +30,7 @@ use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::call::CallArgsUnpack;
+use crate::syntax::def::DefParams;
 use crate::syntax::state::ParserState;
 use crate::syntax::DialectTypes;
 
@@ -73,6 +74,9 @@ pub(crate) fn validate_module(stmt: &AstStmt, parser_state: &mut ParserState) {
                     );
                 }
             }
+        }
+        if let Err(e) = DefParams::unpack(params, parser_state.codemap) {
+            parser_state.errors.push(e.into());
         }
     }
 

@@ -55,7 +55,6 @@ use crate::syntax::ast::StmtP;
 use crate::syntax::ast::ToAst;
 use crate::syntax::ast::TypeExpr;
 use crate::syntax::ast::TypeExprP;
-use crate::syntax::def::DefParams;
 use crate::syntax::state::ParserState;
 use crate::syntax::type_expr::TypeExprUnpackP;
 use crate::syntax::DialectTypes;
@@ -150,18 +149,7 @@ pub fn check_assignment(
     })
 }
 
-fn check_parameters<'a>(parameters: &[AstParameter], parser_state: &mut ParserState<'a>) {
-    if let Err(e) = DefParams::unpack(parameters, parser_state.codemap) {
-        parser_state.errors.push(e.into());
-    }
-}
-
-pub(crate) fn check_lambda(
-    params: Vec<AstParameter>,
-    body: AstExpr,
-    parser_state: &mut ParserState,
-) -> Expr {
-    check_parameters(&params, parser_state);
+pub(crate) fn check_lambda(params: Vec<AstParameter>, body: AstExpr) -> Expr {
     Expr::Lambda(LambdaP {
         params,
         body: Box::new(body),
@@ -174,9 +162,7 @@ pub(crate) fn check_def(
     params: Vec<AstParameter>,
     return_type: Option<Box<AstTypeExpr>>,
     stmts: AstStmt,
-    parser_state: &mut ParserState,
 ) -> Stmt {
-    check_parameters(&params, parser_state);
     let name = name.map(|s| AssignIdentP {
         ident: s,
         payload: (),
