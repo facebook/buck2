@@ -119,9 +119,11 @@ export function GraphImpl(props: {
 
   for (const [k, _] of filteredNodes) {
     const target = build.targets(k)!
+    const tdeps = nodeMap.get(k)!.transitiveDeps
 
     // Add nodes to graph
     data.push({
+      val: translateValues(tdeps, nodeMap.size - 1), // controls size
       id: k,
       name: target.configuredTargetLabel()!,
       group: target.configuredTargetLabel()!.split('#')[1],
@@ -287,4 +289,12 @@ export function GraphImpl(props: {
       />
     </>
   )
+}
+
+function translateValues(inputValue: number, maxValue: number) {
+  const outputMin = 0.1
+  const outputMax = 4
+  const normalized = inputValue / maxValue
+  const scaled = normalized * outputMax + outputMin
+  return scaled
 }

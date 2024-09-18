@@ -16,6 +16,7 @@ export type Node = {
   value: number
   deps: number[]
   rdeps: number[]
+  transitiveDeps: number
 }
 
 function defaultNode(): Node {
@@ -23,6 +24,7 @@ function defaultNode(): Node {
     value: 0,
     deps: [],
     rdeps: [],
+    transitiveDeps: 0,
   }
 }
 
@@ -61,6 +63,26 @@ export function GraphView(props: {view: QueryKey}) {
         throw Error('wth')
       }
       nodeMap.get(d)!.rdeps.push(k)
+    }
+  }
+
+  // Sum transitive deps. For each node, we traverse all the transitive rdeps
+  for (const [k, _] of nodeMap) {
+    let visited = new Set()
+    let rdeps = new Set(nodeMap.get(k)!.rdeps)
+    while (rdeps.size > 0) {
+      let next: Set<number> = new Set()
+      for (const r of rdeps) {
+        if (!visited.has(r)) {
+          const rnode = nodeMap.get(r)!
+          rnode.transitiveDeps += 1
+          visited.add(r)
+          for (const r2 of rnode.rdeps) {
+            next.add(r2)
+          }
+        }
+      }
+      rdeps = next
     }
   }
 
