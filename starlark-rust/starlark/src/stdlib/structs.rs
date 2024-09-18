@@ -24,12 +24,11 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::codemap::Span;
-use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::Arg;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
@@ -54,28 +53,18 @@ impl TyCustomFunctionImpl for StructType {
     fn validate_call(
         &self,
         _span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
-        let mut fields = Vec::new();
-        let mut extra = false;
-        for x in args {
-            match &x.node {
-                Arg::Pos(_) => {
-                    return Err(oracle.msg_error(x.span, "Positional arguments not allowed"));
-                }
-                Arg::Args(_) => {
-                    // Args can be empty, and this is valid call:
-                    // ```
-                    // struct(*[], **{})
-                    // ```
-                }
-                Arg::Name(name, val) => {
-                    fields.push((ArcStr::from(*name), val.clone()));
-                }
-                Arg::Kwargs(_) => extra = true,
-            }
+        if let [pos, ..] = args.pos.as_slice() {
+            return Err(oracle.msg_error(pos.span, "Positional arguments not allowed"));
         }
+        let mut fields = Vec::new();
+        for named in &args.named {
+            let (name, ty) = &named.node;
+            fields.push((ArcStr::from(*name), ty.clone()));
+        }
+        let extra = args.kwargs.is_some();
         Ok(Ty::custom(TyStruct {
             fields: SortedMap::from_iter(fields),
             extra,

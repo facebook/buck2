@@ -20,7 +20,6 @@ use std::fmt::Debug;
 
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::syntax::ast::ArgumentP;
 use starlark_syntax::syntax::ast::AssignOp;
 use starlark_syntax::syntax::ast::AssignTargetP;
 use starlark_syntax::syntax::ast::AstLiteral;
@@ -29,6 +28,7 @@ use starlark_syntax::syntax::ast::CallArgsP;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ExprP;
 use starlark_syntax::syntax::ast::ForClauseP;
+use starlark_syntax::syntax::call::CallArgsUnpack;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
@@ -41,11 +41,11 @@ use crate::eval::compiler::scope::ResolvedIdent;
 use crate::eval::compiler::scope::Slot;
 use crate::typing::basic::TyBasic;
 use crate::typing::bindings::BindExpr;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
-use crate::typing::function::Arg;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
@@ -94,12 +94,7 @@ impl TypingContext<'_> {
         }
     }
 
-    fn validate_call(
-        &self,
-        fun: &Ty,
-        args: &[Spanned<Arg>],
-        span: Span,
-    ) -> Result<Ty, InternalError> {
+    fn validate_call(&self, fun: &Ty, args: &TyCallArgs, span: Span) -> Result<Ty, InternalError> {
         self.result_to_ty_with_internal_error(self.oracle.validate_call(span, fun, args))
     }
 
@@ -297,25 +292,62 @@ impl TypingContext<'_> {
         f: &CstExpr,
         args: &CallArgsP<CstPayload>,
     ) -> Result<Ty, InternalError> {
-        let args_ty: Vec<Spanned<Arg>> = args.args.try_map(|x| {
-            Ok(Spanned {
-                span: x.span,
-                node: match &**x {
-                    ArgumentP::Positional(x) => Arg::Pos(self.expression_type(x)?),
-                    ArgumentP::Named(name, x) => Arg::Name(name.as_str(), self.expression_type(x)?),
-                    ArgumentP::Args(x) => {
-                        let ty = self.expression_type(x)?;
-                        self.from_iterated(&ty, x.span);
-                        Arg::Args(ty)
-                    }
-                    ArgumentP::KwArgs(x) => {
-                        let ty = self.expression_type_spanned(x)?;
-                        self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()));
-                        Arg::Kwargs(ty.node)
-                    }
-                },
-            })
-        })?;
+        let args = CallArgsUnpack::unpack(args, self.oracle.codemap)
+            .map_err(InternalError::from_eval_exception)?;
+
+        let CallArgsUnpack {
+            pos,
+            named,
+            star,
+            star_star,
+        } = args;
+
+        let mut pos_ty: Vec<Spanned<Ty>> = Vec::new();
+        for pos in pos {
+            pos_ty.push(Spanned {
+                span: pos.span,
+                node: self.expression_type(&pos.node.expr())?,
+            });
+        }
+
+        let mut named_ty: Vec<Spanned<(&str, Ty)>> = Vec::new();
+        for named in named {
+            let Some(name) = named.name() else {
+                return Err(InternalError::msg(
+                    "Named argument without name",
+                    named.span,
+                    self.oracle.codemap,
+                ));
+            };
+            named_ty.push(Spanned {
+                span: named.span,
+                node: (name, self.expression_type(&named.node.expr())?),
+            });
+        }
+
+        let args_ty = if let Some(star) = star {
+            let ty = self.expression_type_spanned(&star.node.expr())?;
+            self.from_iterated(&ty, star.span);
+            Some(ty)
+        } else {
+            None
+        };
+
+        let kwargs_ty = if let Some(star_star) = star_star {
+            let ty = self.expression_type_spanned(&star_star.node.expr())?;
+            self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()));
+            Some(ty)
+        } else {
+            None
+        };
+
+        let args_ty = TyCallArgs {
+            pos: pos_ty,
+            named: named_ty,
+            args: args_ty,
+            kwargs: kwargs_ty,
+        };
+
         let f_ty = self.expression_type(f)?;
         // If we can't resolve the types of the arguments, we can't validate the call,
         // but we still know the type of the result since the args don't impact that

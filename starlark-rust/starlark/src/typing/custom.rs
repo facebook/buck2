@@ -32,10 +32,9 @@ use dupe::Dupe;
 use starlark_map::StarlarkHasher;
 
 use crate::codemap::Span;
-use crate::codemap::Spanned;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TyFunction;
@@ -54,7 +53,7 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn validate_call(
         &self,
         span: Span,
-        _args: &[Spanned<Arg>],
+        _args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         Err(oracle.msg_error(span, format!("Value of type `{}` is not callable", self)))
@@ -105,7 +104,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn validate_call_dyn(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
     fn is_intersects_with_dyn(&self, other: &TyBasic) -> bool;
@@ -164,7 +163,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn validate_call_dyn(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_call(span, args, oracle)

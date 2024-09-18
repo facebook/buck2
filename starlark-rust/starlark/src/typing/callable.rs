@@ -21,10 +21,9 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_syntax::codemap::Span;
-use starlark_syntax::codemap::Spanned;
 
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::Arg;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -53,7 +52,7 @@ impl TyCallable {
     pub(crate) fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, self, args)

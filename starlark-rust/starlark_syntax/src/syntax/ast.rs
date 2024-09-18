@@ -411,6 +411,14 @@ impl<P: AstPayload> ArgumentP<P> {
             ArgumentP::KwArgs(x) => x,
         }
     }
+
+    /// Argument name if it is named.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            ArgumentP::Named(name, _) => Some(&name.node),
+            _ => None,
+        }
+    }
 }
 
 impl Display for BinOp {

@@ -25,7 +25,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::codemap::Span;
-use crate::codemap::Spanned;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
@@ -35,19 +35,6 @@ use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
-
-/// An argument being passed to a function
-#[derive(Debug)]
-pub enum Arg<'a> {
-    /// A positional argument.
-    Pos(Ty),
-    /// A named argument.
-    Name(&'a str, Ty),
-    /// A `*args`.
-    Args(Ty),
-    /// A `**kwargs`.
-    Kwargs(Ty),
-}
 
 /// Custom function typechecker.
 pub trait TyCustomFunctionImpl:
@@ -60,7 +47,7 @@ pub trait TyCustomFunctionImpl:
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
 
@@ -92,7 +79,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         self.0.validate_call(span, args, oracle)
@@ -186,7 +173,7 @@ impl TyCustomFunctionImpl for TyFunction {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, &self.callable, args)

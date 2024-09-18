@@ -50,6 +50,11 @@ impl InternalError {
     }
 
     #[cold]
+    pub(crate) fn from_eval_exception(e: EvalException) -> InternalError {
+        InternalError(e.into_internal_error())
+    }
+
+    #[cold]
     pub(crate) fn from_error(e: crate::Error, span: Span, codemap: &CodeMap) -> InternalError {
         let e = e.into_internal_error();
         InternalError(EvalException::new(e, span, codemap))

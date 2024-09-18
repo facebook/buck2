@@ -25,12 +25,12 @@ use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::callable_param::ParamMode;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::Arg;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ParamSpec;
@@ -134,10 +134,11 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
+    #[allow(clippy::redundant_pattern_matching)]
     fn validate_args(
         &self,
         params: &ParamSpec,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         span: Span,
     ) -> Result<(), TypingOrInternalError> {
         // Want to figure out which arguments go in which positions
@@ -146,60 +147,61 @@ impl<'a> TypingOracleCtx<'a> {
         let mut param_pos = 0;
         let mut seen_vargs = false;
 
-        for arg in args {
-            match &arg.node {
-                Arg::Pos(ty) => loop {
-                    match params.params().get(param_pos) {
-                        None => {
-                            return Err(self.mk_error_as_maybe_internal(
-                                arg.span,
-                                TypingOracleCtxError::TooManyPositionalArguments,
-                            ));
-                        }
-                        Some(param) => {
-                            let found_index = param_pos;
-                            if param.mode != ParamMode::Args {
-                                param_pos += 1;
-                            }
-                            if param.allows_pos() {
-                                param_args[found_index].push(Spanned {
-                                    span: arg.span,
-                                    node: ty,
-                                });
-                                break;
-                            }
-                        }
+        let TyCallArgs {
+            pos: args_pos,
+            named: args_named,
+            args: args_args,
+            kwargs: args_kwargs,
+        } = args;
+        for ty in args_pos {
+            loop {
+                match params.params().get(param_pos) {
+                    None => {
+                        return Err(self.mk_error_as_maybe_internal(
+                            ty.span,
+                            TypingOracleCtxError::TooManyPositionalArguments,
+                        ));
                     }
-                },
-                Arg::Name(name, ty) => {
-                    let mut success = false;
-                    for (i, param) in params.params().iter().enumerate() {
-                        if param.name() == *name || param.mode == ParamMode::Kwargs {
-                            param_args[i].push(Spanned {
-                                span: arg.span,
-                                node: ty,
-                            });
-                            success = true;
+                    Some(param) => {
+                        let found_index = param_pos;
+                        if param.mode != ParamMode::Args {
+                            param_pos += 1;
+                        }
+                        if param.allows_pos() {
+                            param_args[found_index].push(ty.as_ref());
                             break;
                         }
                     }
-                    if !success {
-                        return Err(self.mk_error_as_maybe_internal(
-                            arg.span,
-                            TypingOracleCtxError::UnexpectedNamedArgument {
-                                name: (*name).to_owned(),
-                            },
-                        ));
-                    }
-                }
-                Arg::Args(_) => {
-                    param_pos = params.params().len();
-                    seen_vargs = true;
-                }
-                Arg::Kwargs(_) => {
-                    seen_vargs = true;
                 }
             }
+        }
+        for arg in args_named {
+            let (name, ty) = &arg.node;
+            let mut success = false;
+            for (i, param) in params.params().iter().enumerate() {
+                if param.name() == *name || param.mode == ParamMode::Kwargs {
+                    param_args[i].push(Spanned {
+                        span: arg.span,
+                        node: ty,
+                    });
+                    success = true;
+                    break;
+                }
+            }
+            if !success {
+                return Err(self.mk_error_as_maybe_internal(
+                    arg.span,
+                    TypingOracleCtxError::UnexpectedNamedArgument {
+                        name: (*name).to_owned(),
+                    },
+                ));
+            }
+        }
+        if let Some(_) = args_args {
+            seen_vargs = true;
+        }
+        if let Some(_) = args_kwargs {
+            seen_vargs = true;
         }
 
         for (param, args) in iter::zip(params.params(), param_args) {
@@ -247,7 +249,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         fun: &TyCallable,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
     ) -> Result<Ty, TypingOrInternalError> {
         self.validate_args(fun.params(), args, span)?;
         Ok(fun.result().dupe())
@@ -257,7 +259,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         ty: &TyName,
-        _args: &[Spanned<Arg>],
+        _args: &TyCallArgs,
     ) -> Result<Ty, TypingOrInternalError> {
         Err(self.mk_error_as_maybe_internal(
             span,
@@ -270,7 +272,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         fun: &TyBasic,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
     ) -> Result<Ty, TypingOrInternalError> {
         match fun {
             TyBasic::Any => Ok(Ty::any()),
@@ -297,7 +299,7 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         span: Span,
         fun: &Ty,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
     ) -> Result<Ty, TypingOrInternalError> {
         if fun.is_any() || fun.is_never() {
             return Ok(fun.dupe());
@@ -836,12 +838,19 @@ impl<'a> TypingOracleCtx<'a> {
     fn params_all_pos_only_intersect(&self, x: &[Ty], y: &ParamSpec) -> bool {
         match self.validate_args(
             y,
-            &x.iter()
-                .map(|ty| Spanned {
-                    node: Arg::Pos(ty.dupe()),
-                    span: Span::default(),
-                })
-                .collect::<Vec<_>>(),
+            &TyCallArgs {
+                pos: x
+                    .iter()
+                    .map(|ty| Spanned {
+                        node: ty.dupe(),
+                        // TODO(nga): proper span.
+                        span: Span::default(),
+                    })
+                    .collect(),
+                named: Vec::new(),
+                args: None,
+                kwargs: None,
+            },
             Span::default(),
         ) {
             Ok(()) => true,

@@ -37,6 +37,11 @@ impl EvalException {
     }
 
     #[cold]
+    pub fn into_internal_error(self) -> Self {
+        EvalException(self.0.into_internal_error())
+    }
+
+    #[cold]
     pub fn new(mut error: crate::Error, span: Span, codemap: &CodeMap) -> EvalException {
         error.set_span(span, codemap);
         EvalException(error)

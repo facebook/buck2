@@ -20,12 +20,11 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::codemap::Span;
-use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
-use crate::typing::Arg;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -48,35 +47,15 @@ impl TyCustomFunctionImpl for ZipType {
     fn validate_call(
         &self,
         _span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         let mut iter_item_types: Vec<Ty> = Vec::new();
-        let mut seen_star_args = false;
-        for arg in args {
-            match &arg.node {
-                Arg::Pos(pos) => {
-                    let item_ty = oracle.iter_item(Spanned {
-                        span: arg.span,
-                        node: pos,
-                    })?;
-                    iter_item_types.push(item_ty);
-                }
-                Arg::Name(_, _) => {
-                    return Err(
-                        oracle.msg_error(arg.span, "zip() does not accept keyword arguments")
-                    );
-                }
-                Arg::Args(_) => {
-                    seen_star_args = true;
-                }
-                Arg::Kwargs(_) => {
-                    // `zip()` does not accept keyword args,
-                    // but if `**kwargs` is empty, the call is valid.
-                }
-            }
+        for pos in &args.pos {
+            let item_ty = oracle.iter_item(pos.as_ref())?;
+            iter_item_types.push(item_ty);
         }
-        if seen_star_args {
+        if args.args.is_some() {
             Ok(Ty::list(Ty::any()))
         } else {
             Ok(Ty::list(Ty::tuple(iter_item_types)))

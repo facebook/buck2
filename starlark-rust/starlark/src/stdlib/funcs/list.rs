@@ -24,10 +24,10 @@ use crate as starlark;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::GlobalsBuilder;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
-use crate::typing::Arg;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
@@ -64,18 +64,18 @@ impl TyCustomFunctionImpl for ListType {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         oracle.validate_fn_call(span, &LIST.callable, args)?;
 
-        if let Some(arg) = args.first() {
+        if let Some(arg) = args.pos.first() {
             // This is infallible after the check above.
-            if let Arg::Pos(arg_ty) = &arg.node {
-                // This is also infallible.
-                let item = oracle.iter_item(Spanned { span, node: arg_ty })?;
-                return Ok(Ty::list(item));
-            }
+            let item = oracle.iter_item(Spanned {
+                span,
+                node: &arg.node,
+            })?;
+            return Ok(Ty::list(item));
         }
 
         Ok(Ty::any_list())

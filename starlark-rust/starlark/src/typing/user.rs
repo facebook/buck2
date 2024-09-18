@@ -23,13 +23,12 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
-use starlark_syntax::codemap::Spanned;
 
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
-use crate::typing::Arg;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingOracleCtx;
@@ -253,7 +252,7 @@ impl TyCustomImpl for TyUser {
     fn validate_call(
         &self,
         span: Span,
-        args: &[Spanned<Arg>],
+        args: &TyCallArgs,
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError> {
         if let Some(callable) = &self.callable {
