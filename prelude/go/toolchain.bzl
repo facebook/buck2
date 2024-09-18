@@ -53,7 +53,7 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_ar
     return env
 
 # Sets default value of cgo_enabled attribute based on default_cgo_enabled attribute of GoToolchainInfo
-def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None], override_cgo_enabled: [bool, None]) -> bool:
+def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None], override_cgo_enabled: [bool, None] = None) -> bool:
     if override_cgo_enabled != None:
         return override_cgo_enabled
 

@@ -18,8 +18,11 @@ load(
 )
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
     lib, pkg_info = build_package(
         ctx,
         "main",
@@ -31,8 +34,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        # We need to set CGO_DISABLED for "pure" Go libraries, otherwise CGo files may be selected for compilation.
-        cgo_enabled = False,
+        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled),
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,
