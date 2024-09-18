@@ -252,9 +252,13 @@ impl BuckConfigBasedCells {
 
         let mut cell_definitions = Vec::new();
 
+        // `cells` is preferred over `repositories` since it's more clear, however it's unlikely
+        // that we'll ever remove `repositories` since that's probably unnecessary breakage in OSS.
+        //
+        // Note that `cells` is buck2-only
         let repositories = root_config
-            .get_section("repositories")
-            .or_else(|| root_config.get_section("cells"));
+            .get_section("cells")
+            .or_else(|| root_config.get_section("repositories"));
         if let Some(repositories) = repositories {
             for (alias, alias_path) in repositories.iter() {
                 let alias_path = CellRootPathBuf::new(
@@ -313,8 +317,8 @@ impl BuckConfigBasedCells {
     ) -> anyhow::Result<impl Iterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>> {
         let mut aliases = Vec::new();
         if let Some(section) = config
-            .get_section("repository_aliases")
-            .or_else(|| config.get_section("cell_aliases"))
+            .get_section("cell_aliases")
+            .or_else(|| config.get_section("repository_aliases"))
         {
             for (alias, destination) in section.iter() {
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
