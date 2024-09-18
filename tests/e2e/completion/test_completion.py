@@ -8,24 +8,31 @@
 # pyre-strict
 
 import os
+import platform
 import subprocess
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-# FIXME(JakobDegen): Zsh legitimately broken
-SHELLS = ["bash"]
+# FIXME(JakobDegen): `zsh` not avaialable on Linux CI
+# FIXME(JakobDegen): `fish` not avaialable on any CI
+SHELLS = ["bash", "zsh"] if platform.system() == "Darwin" else ["bash"]
 
 
-def completion_test(name: str, input: str, expected: list[str]) -> None:
+def completion_test(
+    name: str,
+    input: str,
+    expected: list[str],
+    shells: list[str] = SHELLS,
+) -> None:
     async def impl(buck: Buck) -> None:
         tmp_path = Path(buck.cwd).parent / "tmp"
         tmp_path.mkdir(exist_ok=True)
 
         verify_bin = Path(os.environ["BUCK2_COMPLETION_VERIFY"])
 
-        for shell in SHELLS:
+        for shell in shells:
             get_completions = await buck.completion(shell)
             completions_path = tmp_path / f"completion.{shell}"
             completions_path.write_text(get_completions.stdout)
@@ -80,4 +87,6 @@ completion_test(
     # behavior.
     # expected=["dir1:target1a", "dir1:target1b"],
     expected=["target1a", "target1b"],
+    # FIXME(JakobDegen): Returns [``] on zsh. Might well be a bug in the test harness
+    shells=["bash"],
 )

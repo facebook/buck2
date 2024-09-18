@@ -31,7 +31,7 @@ __buck2_takes_target()
 __buck2_subcommand()
 {
     local subcommand=
-    for w in "${COMP_WORDS[@]:1:$COMP_CWORD - 1}"; do
+    for w in "${words[@]:1:$CURRENT - 1}"; do
         case "$w" in
         --)
             # This marker should only occur after certain subcommands
