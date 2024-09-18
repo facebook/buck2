@@ -325,14 +325,10 @@ impl<A: AstPayload> ParameterP<A> {
         f: &mut impl AstPayloadFunction<A, B>,
     ) -> ParameterP<B> {
         match self {
-            ParameterP::Normal(name, ty) => ParameterP::Normal(
+            ParameterP::Normal(name, ty, defa) => ParameterP::Normal(
                 name.into_map_payload(f),
                 ty.map(|defa| Box::new(defa.into_map_payload(f))),
-            ),
-            ParameterP::WithDefaultValue(name, ty, defa) => ParameterP::WithDefaultValue(
-                name.into_map_payload(f),
-                ty.map(|defa| Box::new(defa.into_map_payload(f))),
-                Box::new(defa.into_map_payload(f)),
+                defa.map(|defa| Box::new(defa.into_map_payload(f))),
             ),
             ParameterP::NoArgs => ParameterP::NoArgs,
             ParameterP::Slash => ParameterP::Slash,

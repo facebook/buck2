@@ -119,7 +119,7 @@ pub(crate) fn find_symbols_at_location<P: AstPayload>(
                     .contains(cursor_position)
                 {
                     symbols.extend(def.params.iter().filter_map(|param| match &param.node {
-                        ParameterP::Normal(p, _) | ParameterP::WithDefaultValue(p, _, _) => {
+                        ParameterP::Normal(p, ..) => {
                             Some((
                                 p.ident.clone(),
                                 Symbol {

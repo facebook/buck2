@@ -91,7 +91,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         for (i, param) in ast_params.iter().enumerate() {
             let span = param.span;
             match &param.node {
-                ParameterP::Normal(n, ty) => {
+                ParameterP::Normal(n, ty, None) => {
                     if seen_kwargs || (seen_optional && !seen_args) {
                         return Err(EvalException::parser_error(
                             "positional parameter after non positional",
@@ -109,7 +109,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         },
                     });
                 }
-                ParameterP::WithDefaultValue(n, ty, default_value) => {
+                ParameterP::Normal(n, ty, Some(default_value)) => {
                     if seen_kwargs {
                         return Err(EvalException::parser_error(
                             "Default parameter after args array or kwargs dictionary",
@@ -211,7 +211,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                 ));
             };
             match &next.node {
-                ParameterP::Normal(_, _) | ParameterP::WithDefaultValue(_, _, _) => {}
+                ParameterP::Normal(..) => {}
                 ParameterP::KwArgs(_, _)
                 | ParameterP::Args(_, _)
                 | ParameterP::NoArgs

@@ -94,8 +94,8 @@ ReturnType: Option<Box<AstTypeExpr>> = {
 LambdaParameter: AstParameter = ASTP<LambdaParameter_>;
 LambdaParameter_: Parameter = {
     "/"                          => Parameter::Slash,
-    <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
-    <AssignIdent>                => Parameter::Normal(<>, None),
+    <n:AssignIdent> "=" <e:Test> => Parameter::Normal(n, None, Some(Box::new(e))),
+    <AssignIdent>                => Parameter::Normal(<>, None, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
     "*"                          => Parameter::NoArgs,
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
@@ -104,8 +104,8 @@ LambdaParameter_: Parameter = {
 DefParameter: AstParameter = ASTP<DefParameter_>;
 DefParameter_: Parameter = {
     "/"                                   => Parameter::Slash,
-    <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
-    <AssignIdent> <Type>                  => Parameter::Normal(<>),
+    <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::Normal(n, t, Some(Box::new(e))),
+    <AssignIdent> <Type>                  => Parameter::Normal(<>, None),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
     "*"                                   => Parameter::NoArgs,
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),

@@ -335,12 +335,10 @@ impl<P: AstPayload> ParameterP<P> {
         Option<&AstExprP<P>>,
     ) {
         match self {
-            ParameterP::Normal(a, b) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
+            ParameterP::Normal(a, b, None) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
                 (Some(a), b.as_ref().map(|x| &**x), None)
             }
-            ParameterP::WithDefaultValue(a, b, c) => {
-                (Some(a), b.as_ref().map(|x| &**x), Some(&**c))
-            }
+            ParameterP::Normal(a, b, Some(c)) => (Some(a), b.as_ref().map(|x| &**x), Some(&**c)),
             ParameterP::NoArgs | ParameterP::Slash => (None, None, None),
         }
     }
@@ -354,10 +352,10 @@ impl<P: AstPayload> ParameterP<P> {
         Option<&mut AstExprP<P>>,
     ) {
         match self {
-            ParameterP::Normal(a, b) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
+            ParameterP::Normal(a, b, None) | ParameterP::Args(a, b) | ParameterP::KwArgs(a, b) => {
                 (Some(a), b.as_mut().map(|x| &mut **x), None)
             }
-            ParameterP::WithDefaultValue(a, b, c) => {
+            ParameterP::Normal(a, b, Some(c)) => {
                 (Some(a), b.as_mut().map(|x| &mut **x), Some(&mut **c))
             }
             ParameterP::NoArgs | ParameterP::Slash => (None, None, None),

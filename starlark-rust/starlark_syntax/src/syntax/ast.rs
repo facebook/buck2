@@ -117,11 +117,13 @@ pub enum ArgumentP<P: AstPayload> {
 pub enum ParameterP<P: AstPayload> {
     /// `/` marker.
     Slash,
-    Normal(AstAssignIdentP<P>, Option<Box<AstTypeExprP<P>>>),
-    WithDefaultValue(
+    Normal(
+        /// Name.
         AstAssignIdentP<P>,
+        /// Type.
         Option<Box<AstTypeExprP<P>>>,
-        Box<AstExprP<P>>,
+        /// Default value.
+        Option<Box<AstExprP<P>>>,
     ),
     /// `*` marker.
     NoArgs,
@@ -132,10 +134,9 @@ pub enum ParameterP<P: AstPayload> {
 impl<P: AstPayload> ParameterP<P> {
     pub fn ident(&self) -> Option<&AstAssignIdentP<P>> {
         match self {
-            ParameterP::Normal(x, _)
-            | ParameterP::WithDefaultValue(x, _, _)
-            | ParameterP::Args(x, _)
-            | ParameterP::KwArgs(x, _) => Some(x),
+            ParameterP::Normal(x, _, _) | ParameterP::Args(x, _) | ParameterP::KwArgs(x, _) => {
+                Some(x)
+            }
             ParameterP::NoArgs | ParameterP::Slash => None,
         }
     }
@@ -668,8 +669,7 @@ impl Display for Parameter {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let (prefix, name, typ, default) = match self {
             Parameter::Slash => return write!(f, "/"),
-            Parameter::Normal(s, t) => ("", s, t, None),
-            Parameter::WithDefaultValue(s, t, e) => ("", s, t, Some(e)),
+            Parameter::Normal(s, t, e) => ("", s, t, e.as_ref()),
             Parameter::NoArgs => return write!(f, "*"),
             Parameter::Args(s, t) => ("*", s, t, None),
             Parameter::KwArgs(s, t) => ("**", s, t, None),

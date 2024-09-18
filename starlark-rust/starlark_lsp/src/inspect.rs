@@ -184,12 +184,12 @@ impl AstModuleInspect for AstModule {
                             continue;
                         }
                         match &arg.node {
-                            ParameterP::Normal(_, Some(type_)) => {
+                            ParameterP::Normal(_, Some(type_), None) => {
                                 if type_.span.contains(position) {
                                     return Some(AutocompleteType::Type);
                                 }
                             }
-                            ParameterP::WithDefaultValue(_, type_, expr) => {
+                            ParameterP::Normal(_, type_, Some(expr)) => {
                                 if let Some(type_) = type_ {
                                     if type_.span.contains(position) {
                                         return Some(AutocompleteType::Type);
