@@ -9,6 +9,7 @@
 
 
 import json
+import os
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -57,7 +58,7 @@ async def test_cfg_constructor_with_target_modifiers(buck: Buck) -> None:
 )
 async def test_invoke_cfg_constructors_with_cli_modifier_validation(buck: Buck) -> None:
     env = {
-        "BUCK2_HARD_ERROR": "only=starlark_cli_modifier_fails_ci_allowlist_version_three"
+        "BUCK2_HARD_ERROR": f"only={os.environ['CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY']}",
     }
     await buck.cquery(
         "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
