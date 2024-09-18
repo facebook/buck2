@@ -31,6 +31,7 @@ use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::call::CallArgsUnpack;
+use crate::syntax::state::ParserState;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
 
@@ -67,16 +68,18 @@ impl Expr {
     /// multiple **kwargs.
     ///
     /// We allow at most one **kwargs.
-    pub fn check_call(
+    pub(crate) fn check_call(
         f: AstExpr,
         args: Vec<AstArgument>,
-        codemap: &CodeMap,
-    ) -> Result<Expr, EvalException> {
+        parser_state: &mut ParserState<'_>,
+    ) -> Expr {
         let args = CallArgsP { args };
 
-        CallArgsUnpack::unpack(&args, codemap)?;
+        if let Err(e) = CallArgsUnpack::unpack(&args, parser_state.codemap) {
+            parser_state.errors.push(e);
+        }
 
-        Ok(Expr::Call(Box::new(f), args))
+        Expr::Call(Box::new(f), args)
     }
 }
 

@@ -232,7 +232,7 @@ PrimaryExpr: AstExpr = {
     <l:@L> <e:PrimaryExpr> "." <i:identifier> <r:@R>
         => Expr::Dot(Box::new(e), i).ast(l, r),
     <l:@L> <e:PrimaryExpr> "(" <a:COMMA<Argument>> ")" <r:@R>
-        =>? Ok(Expr::check_call(e, a, state.codemap)?.ast(l, r)),
+        =>? Ok(Expr::check_call(e, a, state).ast(l, r)),
     <l:@L> <e:PrimaryExpr> "[" <i1:Test?> ":" <i2:Test?> <i3:(":" <Test?>)?> "]"
         <r:@R> => {
           Expr::Slice(Box::new(e), i1.map(|x| Box::new(x)), i2.map(|x| Box::new(x)), i3.unwrap_or(None).map(|x| Box::new(x)))

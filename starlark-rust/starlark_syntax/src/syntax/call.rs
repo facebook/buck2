@@ -67,7 +67,6 @@ impl<'a, P: AstPayload> CallArgsUnpack<'a, P> {
 
         let mut stage = ArgsStage::Positional;
         let mut named_args = HashSet::new();
-        // TODO(nga): we should record error but continue parsing.
         let mut num_pos = 0;
         let mut num_named = 0;
         let mut star = None;
