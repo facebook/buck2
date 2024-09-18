@@ -24,6 +24,7 @@ load(":erlang_shell.bzl", "erlang_shell")
 load(
     ":erlang_toolchain.bzl",
     "get_primary",
+    "get_primary_tools",
     "select_toolchains",
 )
 load(
@@ -112,6 +113,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
     primary_toolchain_name = get_primary(ctx)
     primary_toolchain = toolchains[primary_toolchain_name]
+    tools = get_primary_tools(ctx)
 
     deps = ctx.attrs.deps + [ctx.attrs._test_binary_lib]
 
@@ -153,8 +155,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Config files for ct
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]
 
-    test_binary_cmd_args = ctx.attrs._test_binary[RunInfo]
-
     trampolines = ctx.attrs._trampolines
     if ctx.attrs._trampoline != None:
         if trampolines != None:
@@ -165,7 +165,29 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if trampolines:
         cmd.add(*[trampoline[RunInfo] for trampoline in trampolines])
 
-    cmd.add(test_binary_cmd_args)
+    binary_lib_deps = flatten_dependencies(ctx, check_dependencies([ctx.attrs._test_binary_lib], [ErlangAppInfo]))
+    cmd.add([
+        tools.erl,
+        "-mode",
+        "minimal",
+        "-noinput",
+        "-noshell",
+        "+A0",
+        "+S1:1",
+        "+sbtu",
+        "-run",
+        "test_binary",  # provided by ctx.attr._test_binary_lib
+        "main",
+    ])
+
+    for dep in binary_lib_deps.values():
+        if dep[ErlangAppInfo].virtual:
+            continue
+        app_folder = dep[ErlangAppInfo].app_folders[primary_toolchain_name]
+        cmd.add(["-pa", cmd_args(app_folder, format = "{}/ebin", delimiter = "")])
+    cmd.add(["-pa", primary_toolchain.utility_modules])
+
+    cmd.add(["--"])
 
     suite = ctx.attrs.suite
     suite_name = module_name(suite)
@@ -198,7 +220,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     hidden_args = []
 
-    default_info = _build_default_info(dependencies, output_dir)
+    default_info = _build_default_info(ctx, dependencies, output_dir)
     for output_artifact in default_info.other_outputs:
         hidden_args.append(output_artifact)
     for config_file in config_files:
@@ -261,13 +283,14 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 # Copied from erlang_application.
-def _build_default_info(dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
+def _build_default_info(ctx: AnalysisContext, dependencies: ErlAppDependencies, output_dir: Artifact) -> Provider:
     """ generate default_outputs and DefaultInfo provider
     """
+    primary_toolchain_name = get_primary(ctx)
     outputs = []
     for dep in dependencies.values():
         if ErlangAppInfo in dep and not dep[ErlangAppInfo].virtual:
-            outputs.append(dep[ErlangAppInfo].app_folder)
+            outputs.append(dep[ErlangAppInfo].app_folders[primary_toolchain_name])
         if ErlangTestInfo in dep:
             outputs += dep[DefaultInfo].default_outputs
             outputs += dep[DefaultInfo].other_outputs
@@ -281,7 +304,7 @@ def _write_test_info_file(
         test_dir: Artifact,
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact]) -> Artifact:
-    dependency_paths = _list_code_paths(dependencies)
+    dependency_paths = _list_code_paths(ctx, dependencies)
     dependency_paths.extend(extra_code_paths)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
@@ -300,20 +323,25 @@ def _write_test_info_file(
     ctx.actions.write_json(test_info_file, tests_info)
     return test_info_file
 
-def _list_code_paths(dependencies: ErlAppDependencies) -> list[[Artifact, cmd_args]]:
+def _list_code_paths(ctx: AnalysisContext, dependencies: ErlAppDependencies) -> list[[Artifact, cmd_args]]:
     """lists all ebin/ dirs from the test targets dependencies"""
+    primary_toolchain_name = get_primary(ctx)
     folders = []
     for dependency in dependencies.values():
         if ErlangAppInfo in dependency:
             dep_info = dependency[ErlangAppInfo]
             if not dep_info.virtual:
-                folders.append(cmd_args(dep_info.app_folder, format = "{}/ebin", delimiter = ""))
+                folders.append(cmd_args(
+                    dep_info.app_folders[primary_toolchain_name],
+                    format = "{}/ebin",
+                    delimiter = "",
+                ))
         elif ErlangTestInfo in dependency:
             dep_info = dependency[ErlangTestInfo]
             folders.append(dep_info.output_dir)
     return folders
 
-def _build_resource_dir(ctx, resources: list, target_dir: str) -> Artifact:
+def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> Artifact:
     """ build mapping for suite data directory
 
     generating the necessary mapping information for the suite data directory

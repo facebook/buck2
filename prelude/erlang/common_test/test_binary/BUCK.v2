@@ -4,23 +4,6 @@ oncall("build_infra")
 
 source_listing()
 
-erlang_escript(
-    name = "escript",
-    emu_args = [
-        "+A0",
-        "+S1:1",
-        "+sbtu",
-        "-mode minimal",
-    ],
-    # magic label special-cased by tooling to make vendored json available
-    labels = ["erlang_test_runner"],
-    main_module = "test_binary",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":test_binary",
-    ],
-)
-
 erlang_application(
     name = "test_binary",
     srcs = glob([

@@ -9,10 +9,13 @@
 
 -module(test_binary).
 
--export([main/1]).
+-export([main/1, main/0]).
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("kernel/include/logger.hrl").
+
+main() ->
+    main(init:get_plain_arguments()).
 
 main([TestInfoFile, "list", OutputDir]) ->
     test_logger:set_up_logger(OutputDir, test_listing),

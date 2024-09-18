@@ -288,7 +288,6 @@ rules_attributes = {
         "_cli_lib": attrs.dep(default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
         "_providers": attrs.string(default = ""),
-        "_test_binary": attrs.dep(default = "prelude//erlang/common_test/test_binary:escript"),
         "_test_binary_lib": attrs.dep(default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
         "_trampoline": attrs.option(attrs.dep(), default = None, doc = "DEPRECATED. Use _trampolines instead."),
