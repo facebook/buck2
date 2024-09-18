@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-#![no_std]
+#![cfg_attr(set_nostd, no_std)]
 
 #[cfg(any(rust_linkable_symbol_content_bytes, rust_linkable_symbol_getter_bytes))]
 #[repr(C)]
