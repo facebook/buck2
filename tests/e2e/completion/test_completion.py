@@ -33,6 +33,8 @@ def completion_test(
         verify_bin = Path(os.environ["BUCK2_COMPLETION_VERIFY"])
 
         for shell in shells:
+            if shell not in SHELLS:
+                continue
             get_completions = await buck.completion(shell)
             completions_path = tmp_path / f"completion.{shell}"
             completions_path.write_text(get_completions.stdout)
@@ -44,7 +46,8 @@ def completion_test(
             script = "\n".join(
                 [
                     "#!/bin/sh",
-                    f"export PATH={buck.path_to_executable.parent.absolute()}:$PATH",
+                    f'export PATH="{buck.path_to_executable.parent.absolute()}:$PATH"',
+                    "export BUCK2_COMPLETION_TIMEOUT=30000",
                     f"rm -r -- {shell_home}/*",
                     f"{verify_bin.absolute()} {shell} {completions_path.absolute()} {shell_home}",
                 ]
@@ -83,14 +86,17 @@ completion_test(
     expected=["cell2a//", "cell2a//:", "cell3//", "cell3//:"],
 )
 
+# FIXME(JakobDegen): Why doesn't this output the same thing as zsh?
 completion_test(
-    name="test_completes_rule",
+    name="test_completes_rule_bash",
     input="build dir1:target1",
-    # FIXME(JakobDegen): This output was previously asserted as below. Shells handle the current
-    # output ok too, so this doesn't absolutely have to be fixed, but we should clarify the desired
-    # behavior.
-    # expected=["dir1:target1a", "dir1:target1b"],
     expected=["target1a", "target1b"],
-    # FIXME(JakobDegen): Returns [``] on zsh. Might well be a bug in the test harness
     shells=["bash"],
+)
+
+completion_test(
+    name="test_completes_rule_zsh",
+    input="build dir1:target1",
+    expected=["dir1:target1a", "dir1:target1b"],
+    shells=["zsh"],
 )
