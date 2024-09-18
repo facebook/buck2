@@ -333,8 +333,6 @@ enum DialectError {
     Def,
     #[error("`lambda` is not allowed in this dialect")]
     Lambda,
-    #[error("* keyword-only-arguments is not allowed in this dialect")]
-    KeywordOnlyArguments,
     #[error("type annotations are not allowed in this dialect")]
     Types,
 }
@@ -364,21 +362,6 @@ pub fn dialect_check_def<T>(
         Ok(x)
     } else {
         err(codemap, x.span, DialectError::Def)
-    }
-}
-
-pub fn dialect_check_keyword_only_arguments<T>(
-    dialect: &Dialect,
-    codemap: &CodeMap,
-    begin: usize,
-    end: usize,
-    x: T,
-) -> Result<T, EvalException> {
-    let span = Span::new(Pos::new(begin as u32), Pos::new(end as u32));
-    if dialect.enable_keyword_only_arguments {
-        Ok(x)
-    } else {
-        err(codemap, span, DialectError::KeywordOnlyArguments)
     }
 }
 

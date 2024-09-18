@@ -90,7 +90,7 @@ LambdaParameter_: Parameter = {
     <n:AssignIdent> "=" <e:Test> => Parameter::WithDefaultValue(n, None, Box::new(e)),
     <AssignIdent>                => Parameter::Normal(<>, None),
     "*" <AssignIdent>            => Parameter::Args(<>, None),
-    <l:@L> "*" <r:@R>                 =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
+    "*"                          => Parameter::NoArgs,
     "**" <AssignIdent>           => Parameter::KwArgs(<>, None),
 };
 
@@ -99,7 +99,7 @@ DefParameter_: Parameter = {
     <n:AssignIdent> <t:Type> "=" <e:Test> => Parameter::WithDefaultValue(n, t, Box::new(e)),
     <AssignIdent> <Type>                  => Parameter::Normal(<>),
     "*" <AssignIdent> <Type>              => Parameter::Args(<>),
-    <l:@L> "*" <r:@R>                          =>? Ok(grammar_util::dialect_check_keyword_only_arguments(state.dialect, state.codemap, l, r, Parameter::NoArgs)?),
+    "*"                                   => Parameter::NoArgs,
     "**" <AssignIdent> <Type>             => Parameter::KwArgs(<>),
 };
 

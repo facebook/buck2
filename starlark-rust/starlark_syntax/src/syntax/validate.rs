@@ -22,11 +22,14 @@ use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
+use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::CallArgsP;
 use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ForP;
+use crate::syntax::ast::LambdaP;
+use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::call::CallArgsUnpack;
 use crate::syntax::state::ParserState;
@@ -68,6 +71,25 @@ impl Stmt {
         stmt: &AstStmt,
         dialect: &Dialect,
     ) -> Result<(), EvalException> {
+        fn validate_params(
+            codemap: &CodeMap,
+            params: &[AstParameter],
+            dialect: &Dialect,
+        ) -> Result<(), EvalException> {
+            if !dialect.enable_keyword_only_arguments {
+                for param in params {
+                    if let ParameterP::NoArgs = &param.node {
+                        return Err(EvalException::parser_error(
+                            "* keyword-only-arguments is not allowed in this dialect",
+                            param.span,
+                            codemap,
+                        ));
+                    }
+                }
+            }
+            Ok(())
+        }
+
         // Inside a for, we allow continue/break, unless we go beneath a def.
         // Inside a def, we allow return.
         // All load's must occur at the top-level.
@@ -83,7 +105,10 @@ impl Stmt {
             let err = |x: &str| Err(EvalException::parser_error(x, stmt.span, codemap));
 
             match &stmt.node {
-                Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),
+                Stmt::Def(DefP { params, body, .. }) => {
+                    validate_params(codemap, params, dialect)?;
+                    f(codemap, dialect, body, false, false, true)
+                }
                 Stmt::For(ForP { body, .. }) => {
                     if top_level && !dialect.enable_top_level_stmt {
                         err("`for` cannot be used outside `def` in this dialect")
@@ -123,14 +148,18 @@ impl Stmt {
         }
 
         fn expr(expr: &AstExpr, dialect: &Dialect, codemap: &CodeMap) -> Result<(), EvalException> {
-            if let Expr::Literal(AstLiteral::Ellipsis) = &expr.node {
-                if dialect.enable_types == DialectTypes::Disable {
-                    return Err(EvalException::parser_error(
-                        "`...` is not allowed in this dialect",
-                        expr.span,
-                        codemap,
-                    ));
+            match &expr.node {
+                Expr::Literal(AstLiteral::Ellipsis) => {
+                    if dialect.enable_types == DialectTypes::Disable {
+                        return Err(EvalException::parser_error(
+                            "`...` is not allowed in this dialect",
+                            expr.span,
+                            codemap,
+                        ));
+                    }
                 }
+                Expr::Lambda(LambdaP { params, .. }) => validate_params(codemap, params, dialect)?,
+                _ => {}
             }
             Ok(())
         }
