@@ -1,0 +1,15 @@
+load("@fbcode_macros//build_defs:rust_binary.bzl", "rust_binary")
+
+oncall("build_infra")
+
+# Small binary to verify shell completion works correctly. Used in e2e tests of buck2.
+rust_binary(
+    name = "completion_verify",
+    srcs = glob(["src/**/*.rs"]),
+    deps = [
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:ptyprocess",
+        "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:vt100",
+    ],
+)
