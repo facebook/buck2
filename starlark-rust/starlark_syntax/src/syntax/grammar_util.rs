@@ -37,12 +37,10 @@ use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstFString;
-use crate::syntax::ast::AstParameter;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::AstTypeExpr;
 use crate::syntax::ast::Comma;
-use crate::syntax::ast::DefP;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
@@ -145,21 +143,6 @@ pub fn check_assignment(
             rhs,
         }),
         Some(op) => Stmt::AssignModify(lhs, op, Box::new(rhs)),
-    })
-}
-
-pub(crate) fn check_def(
-    name: AstAssignIdent,
-    params: Vec<AstParameter>,
-    return_type: Option<Box<AstTypeExpr>>,
-    stmts: AstStmt,
-) -> Stmt {
-    Stmt::Def(DefP {
-        name,
-        params,
-        return_type,
-        body: Box::new(stmts),
-        payload: (),
     })
 }
 

@@ -76,8 +76,14 @@ pub(crate) Starlark: AstStmt = "\n"* <l:@L> <s:(<Stmt> "\n"*)*> <r:@R>
 
 DefStmt: AstStmt = ASTS<DefStmt_>;
 DefStmt_: Stmt =
-  "def" <AssignIdent> "(" <COMMA<DefParameter>> ")" <ReturnType> ":" <Suite>
-      => grammar_util::check_def(<>);
+  "def" <name:AssignIdent> "(" <params:COMMA<DefParameter>> ")" <return_type:ReturnType> ":" <stmts:Suite>
+      => StmtP::Def(DefP {
+             name,
+             params,
+             return_type,
+             body: Box::new(stmts),
+             payload: (),
+         });
 
 ReturnType: Option<Box<AstTypeExpr>> = {
     "->" <TypeExpr> => Some(Box::new(<>)),
