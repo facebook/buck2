@@ -22,6 +22,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ForClauseP;
 
+use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
@@ -38,10 +39,13 @@ impl Compiler<'_, '_, '_, '_> {
         x: &CstExpr,
         for_: &ForClauseP<CstPayload>,
         clauses: &[ClauseP<CstPayload>],
-    ) -> ExprCompiled {
-        let clauses = self.compile_clauses(for_, clauses);
-        let x = self.expr(x);
-        ExprCompiled::compr(ComprCompiled::List(Box::new(x), clauses))
+    ) -> Result<ExprCompiled, CompilerInternalError> {
+        let clauses = self.compile_clauses(for_, clauses)?;
+        let x = self.expr(x)?;
+        Ok(ExprCompiled::compr(ComprCompiled::List(
+            Box::new(x),
+            clauses,
+        )))
     }
 
     pub fn dict_comprehension(
@@ -50,27 +54,31 @@ impl Compiler<'_, '_, '_, '_> {
         v: &CstExpr,
         for_: &ForClauseP<CstPayload>,
         clauses: &[ClauseP<CstPayload>],
-    ) -> ExprCompiled {
-        let clauses = self.compile_clauses(for_, clauses);
-        let k = self.expr(k);
-        let v = self.expr(v);
-        ExprCompiled::compr(ComprCompiled::Dict(Box::new((k, v)), clauses))
+    ) -> Result<ExprCompiled, CompilerInternalError> {
+        let clauses = self.compile_clauses(for_, clauses)?;
+        let k = self.expr(k)?;
+        let v = self.expr(v)?;
+        Ok(ExprCompiled::compr(ComprCompiled::Dict(
+            Box::new((k, v)),
+            clauses,
+        )))
     }
 
     /// Peel the final if's from clauses, and return them (in the order they started), plus the next for you get to
     fn compile_ifs(
         &mut self,
         clauses: &mut Vec<ClauseP<CstPayload>>,
-    ) -> (Option<ForClauseP<CstPayload>>, Vec<IrSpanned<ExprCompiled>>) {
+    ) -> Result<(Option<ForClauseP<CstPayload>>, Vec<IrSpanned<ExprCompiled>>), CompilerInternalError>
+    {
         let mut ifs = Vec::new();
         while let Some(x) = clauses.pop() {
             match x {
                 ClauseP::For(f) => {
                     ifs.reverse();
-                    return (Some(f), ifs);
+                    return Ok((Some(f), ifs));
                 }
                 ClauseP::If(x) => {
-                    let x = self.expr_truth(&x);
+                    let x = self.expr_truth(&x)?;
                     if let ExprCompiledBool::Const(true) = &x.node {
                         // If the condition is always true, skip the clause.
                         continue;
@@ -81,16 +89,16 @@ impl Compiler<'_, '_, '_, '_> {
             }
         }
         ifs.reverse();
-        (None, ifs)
+        Ok((None, ifs))
     }
 
     fn compile_clauses(
         &mut self,
         for_: &ForClauseP<CstPayload>,
         clauses: &[ClauseP<CstPayload>],
-    ) -> ClausesCompiled {
+    ) -> Result<ClausesCompiled, CompilerInternalError> {
         // The first for.over is scoped before we enter the list comp
-        let over = self.expr(&list_to_tuple(&for_.over));
+        let over = self.expr(&list_to_tuple(&for_.over))?;
 
         // TODO(nga): unnecessary clone.
         let mut clauses = clauses.to_vec();
@@ -99,20 +107,20 @@ impl Compiler<'_, '_, '_, '_> {
         // The evaluator wants to use pop to consume them, so reverse the order.
         let mut res = Vec::new();
         loop {
-            let (next_for, ifs) = self.compile_ifs(&mut clauses);
+            let (next_for, ifs) = self.compile_ifs(&mut clauses)?;
             match next_for {
                 None => {
                     let last = ClauseCompiled {
-                        var: self.assign_target(&for_.var),
+                        var: self.assign_target(&for_.var)?,
                         over,
                         ifs,
                     };
-                    return ClausesCompiled::new(res, last);
+                    return Ok(ClausesCompiled::new(res, last));
                 }
                 Some(f) => {
                     res.push(ClauseCompiled {
-                        over: self.expr(&f.over),
-                        var: self.assign_target(&f.var),
+                        over: self.expr(&f.over)?,
+                        var: self.assign_target(&f.var)?,
                         ifs,
                     });
                 }

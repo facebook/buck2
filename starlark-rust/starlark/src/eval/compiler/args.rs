@@ -22,6 +22,7 @@ use starlark_syntax::syntax::ast::CallArgsP;
 
 use crate::coerce::coerce;
 use crate::collections::symbol::symbol::Symbol;
+use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstPayload;
@@ -165,11 +166,14 @@ impl ArgsCompiledValue {
 }
 
 impl Compiler<'_, '_, '_, '_> {
-    pub(crate) fn args(&mut self, args: &CallArgsP<CstPayload>) -> ArgsCompiledValue {
+    pub(crate) fn args(
+        &mut self,
+        args: &CallArgsP<CstPayload>,
+    ) -> Result<ArgsCompiledValue, CompilerInternalError> {
         let mut res = ArgsCompiledValue::default();
         for x in &args.args {
             match &x.node {
-                ArgumentP::Positional(x) => res.pos_named.push(self.expr(x)),
+                ArgumentP::Positional(x) => res.pos_named.push(self.expr(x)?),
                 ArgumentP::Named(name, value) => {
                     let fv = self
                         .eval
@@ -177,12 +181,12 @@ impl Compiler<'_, '_, '_, '_> {
                         .frozen_heap()
                         .alloc_str_intern(name.node.as_str());
                     res.names.push((Symbol::new(&name.node), fv));
-                    res.pos_named.push(self.expr(value));
+                    res.pos_named.push(self.expr(value)?);
                 }
-                ArgumentP::Args(x) => res.args = Some(self.expr(x)),
-                ArgumentP::KwArgs(x) => res.kwargs = Some(self.expr(x)),
+                ArgumentP::Args(x) => res.args = Some(self.expr(x)?),
+                ArgumentP::KwArgs(x) => res.kwargs = Some(self.expr(x)?),
             }
         }
-        res
+        Ok(res)
     }
 }

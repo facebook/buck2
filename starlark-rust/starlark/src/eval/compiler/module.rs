@@ -108,7 +108,9 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             ));
         }
 
-        let stmt = self.module_top_level_stmt(stmt);
+        let stmt = self
+            .module_top_level_stmt(stmt)
+            .map_err(|e| e.into_eval_exception())?;
         let bc = stmt.as_bc(
             &self.compile_context(false),
             local_names,

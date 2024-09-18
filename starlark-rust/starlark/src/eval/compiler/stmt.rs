@@ -39,6 +39,7 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::slots::ModuleSlotId;
 use crate::environment::FrozenModuleData;
+use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::expr::ExprLogicalBinOp;
@@ -393,22 +394,28 @@ impl IrSpanned<AssignCompiledValue> {
 }
 
 impl Compiler<'_, '_, '_, '_> {
-    pub fn assign_target(&mut self, expr: &CstAssignTarget) -> IrSpanned<AssignCompiledValue> {
+    pub fn assign_target(
+        &mut self,
+        expr: &CstAssignTarget,
+    ) -> Result<IrSpanned<AssignCompiledValue>, CompilerInternalError> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let assign = match &expr.node {
             AssignTargetP::Dot(e, s) => {
-                let e = self.expr(e);
+                let e = self.expr(e)?;
                 let s = &s.node;
                 AssignCompiledValue::Dot(e, s.to_owned())
             }
             AssignTargetP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
-                let e = self.expr(e);
-                let idx = self.expr(idx);
+                let e = self.expr(e)?;
+                let idx = self.expr(idx)?;
                 AssignCompiledValue::Index(e, idx)
             }
             AssignTargetP::Tuple(v) => {
-                let v = v.map(|x| self.assign_target(x));
+                let v = v
+                    .iter()
+                    .map(|x| self.assign_target(x))
+                    .collect::<Result<_, CompilerInternalError>>()?;
                 AssignCompiledValue::Tuple(v)
             }
             AssignTargetP::Identifier(ident) => {
@@ -430,7 +437,7 @@ impl Compiler<'_, '_, '_, '_> {
                 }
             }
         };
-        IrSpanned { node: assign, span }
+        Ok(IrSpanned { node: assign, span })
     }
 
     fn assign_modify(
@@ -439,29 +446,29 @@ impl Compiler<'_, '_, '_, '_> {
         lhs: &CstAssignTarget,
         rhs: IrSpanned<ExprCompiled>,
         op: AssignOp,
-    ) -> StmtsCompiled {
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
         let span_stmt = FrameSpan::new(FrozenFileSpan::new(self.codemap, span_stmt));
         let span_lhs = FrameSpan::new(FrozenFileSpan::new(self.codemap, lhs.span));
         match &lhs.node {
             AssignTargetP::Dot(e, s) => {
-                let e = self.expr(e);
-                StmtsCompiled::one(IrSpanned {
+                let e = self.expr(e)?;
+                Ok(StmtsCompiled::one(IrSpanned {
                     span: span_stmt,
                     node: StmtCompiled::AssignModify(
                         AssignModifyLhs::Dot(e, s.node.clone()),
                         op,
                         rhs,
                     ),
-                })
+                }))
             }
             AssignTargetP::Index(e_idx) => {
                 let (e, idx) = &**e_idx;
-                let e = self.expr(e);
-                let idx = self.expr(idx);
-                StmtsCompiled::one(IrSpanned {
+                let e = self.expr(e)?;
+                let idx = self.expr(idx)?;
+                Ok(StmtsCompiled::one(IrSpanned {
                     span: span_stmt,
                     node: StmtCompiled::AssignModify(AssignModifyLhs::Array(e, idx), op, rhs),
-                })
+                }))
             }
             AssignTargetP::Identifier(ident) => {
                 let (slot, captured) = self.scope_data.get_assign_ident_slot(ident, &self.codemap);
@@ -471,34 +478,34 @@ impl Compiler<'_, '_, '_, '_> {
                             node: LocalSlotId(slot.0),
                             span: span_lhs,
                         };
-                        StmtsCompiled::one(IrSpanned {
+                        Ok(StmtsCompiled::one(IrSpanned {
                             span: span_stmt,
                             node: StmtCompiled::AssignModify(AssignModifyLhs::Local(lhs), op, rhs),
-                        })
+                        }))
                     }
                     (Slot::Local(slot), Captured::Yes) => {
                         let lhs = IrSpanned {
                             node: LocalCapturedSlotId(slot.0),
                             span: span_lhs,
                         };
-                        StmtsCompiled::one(IrSpanned {
+                        Ok(StmtsCompiled::one(IrSpanned {
                             span: span_stmt,
                             node: StmtCompiled::AssignModify(
                                 AssignModifyLhs::LocalCaptured(lhs),
                                 op,
                                 rhs,
                             ),
-                        })
+                        }))
                     }
                     (Slot::Module(slot), _) => {
                         let lhs = IrSpanned {
                             node: slot,
                             span: span_lhs,
                         };
-                        StmtsCompiled::one(IrSpanned {
+                        Ok(StmtsCompiled::one(IrSpanned {
                             span: span_stmt,
                             node: StmtCompiled::AssignModify(AssignModifyLhs::Module(lhs), op, rhs),
-                        })
+                        }))
                     }
                 }
             }
@@ -634,10 +641,14 @@ impl Compiler<'_, '_, '_, '_> {
         StmtCompileContext { has_return_type }
     }
 
-    pub(crate) fn stmt(&mut self, stmt: &CstStmt, allow_gc: bool) -> StmtsCompiled {
+    pub(crate) fn stmt(
+        &mut self,
+        stmt: &CstStmt,
+        allow_gc: bool,
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         let is_statements = matches!(&stmt.node, StmtP::Statements(_));
-        let res = self.stmt_direct(stmt, allow_gc);
+        let res = self.stmt_direct(stmt, allow_gc)?;
         // No point inserting a GC point around statements, since they will contain inner statements we can do
         if allow_gc && !is_statements {
             // We could do this more efficiently by fusing the possible_gc
@@ -647,13 +658,16 @@ impl Compiler<'_, '_, '_, '_> {
                 node: StmtCompiled::PossibleGc,
             });
             with_gc.extend(res);
-            with_gc
+            Ok(with_gc)
         } else {
-            res
+            Ok(res)
         }
     }
 
-    pub(crate) fn module_top_level_stmt(&mut self, stmt: &CstStmt) -> StmtsCompiled {
+    pub(crate) fn module_top_level_stmt(
+        &mut self,
+        stmt: &CstStmt,
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
         match &stmt.node {
             StmtP::Statements(..) => {
                 unreachable!("top level statement lists are handled by outer loop")
@@ -679,10 +693,15 @@ impl Compiler<'_, '_, '_, '_> {
         cond: &CstExpr,
         then_block: &CstStmt,
         allow_gc: bool,
-    ) -> StmtsCompiled {
-        let cond = self.expr(cond);
-        let then_block = self.stmt(then_block, allow_gc);
-        StmtsCompiled::if_stmt(span, cond, then_block, StmtsCompiled::empty())
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
+        let cond = self.expr(cond)?;
+        let then_block = self.stmt(then_block, allow_gc)?;
+        Ok(StmtsCompiled::if_stmt(
+            span,
+            cond,
+            then_block,
+            StmtsCompiled::empty(),
+        ))
     }
 
     fn stmt_if_else(
@@ -692,19 +711,23 @@ impl Compiler<'_, '_, '_, '_> {
         then_block: &CstStmt,
         else_block: &CstStmt,
         allow_gc: bool,
-    ) -> StmtsCompiled {
-        let cond = self.expr(cond);
-        let then_block = self.stmt(then_block, allow_gc);
-        let else_block = self.stmt(else_block, allow_gc);
-        StmtsCompiled::if_stmt(span, cond, then_block, else_block)
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
+        let cond = self.expr(cond)?;
+        let then_block = self.stmt(then_block, allow_gc)?;
+        let else_block = self.stmt(else_block, allow_gc)?;
+        Ok(StmtsCompiled::if_stmt(span, cond, then_block, else_block))
     }
 
-    fn stmt_expr(&mut self, expr: &CstExpr) -> StmtsCompiled {
-        let expr = self.expr(expr);
-        StmtsCompiled::expr(expr)
+    fn stmt_expr(&mut self, expr: &CstExpr) -> Result<StmtsCompiled, CompilerInternalError> {
+        let expr = self.expr(expr)?;
+        Ok(StmtsCompiled::expr(expr))
     }
 
-    fn stmt_direct(&mut self, stmt: &CstStmt, allow_gc: bool) -> StmtsCompiled {
+    fn stmt_direct(
+        &mut self,
+        stmt: &CstStmt,
+        allow_gc: bool,
+    ) -> Result<StmtsCompiled, CompilerInternalError> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
         match &stmt.node {
             StmtP::Def(def) => {
@@ -725,36 +748,36 @@ impl Compiler<'_, '_, '_, '_> {
                         params,
                         return_type.as_deref(),
                         body,
-                    ),
+                    )?,
                     span,
                 };
                 let lhs = self.assign_target(&Spanned {
                     span: name.span,
                     node: AssignTargetP::Identifier(name.clone()),
-                });
-                StmtsCompiled::one(IrSpanned {
+                })?;
+                Ok(StmtsCompiled::one(IrSpanned {
                     span,
                     node: StmtCompiled::Assign(lhs, None, rhs),
-                })
+                }))
             }
             StmtP::For(ForP { var, over, body }) => {
                 let over = list_to_tuple(over);
-                let var = self.assign_target(var);
-                let over = self.expr(&over);
-                let st = self.stmt(body, false);
-                StmtsCompiled::for_stmt(span, var, over, st)
+                let var = self.assign_target(var)?;
+                let over = self.expr(&over)?;
+                let st = self.stmt(body, false)?;
+                Ok(StmtsCompiled::for_stmt(span, var, over, st))
             }
-            StmtP::Return(None) => StmtsCompiled::one(IrSpanned {
+            StmtP::Return(None) => Ok(StmtsCompiled::one(IrSpanned {
                 node: StmtCompiled::Return(IrSpanned {
                     span,
                     node: ExprCompiled::Value(FrozenValue::new_none()),
                 }),
                 span,
-            }),
-            StmtP::Return(Some(e)) => StmtsCompiled::one(IrSpanned {
-                node: StmtCompiled::Return(self.expr(e)),
+            })),
+            StmtP::Return(Some(e)) => Ok(StmtsCompiled::one(IrSpanned {
+                node: StmtCompiled::Return(self.expr(e)?),
                 span,
-            }),
+            })),
             StmtP::If(cond, then_block) => self.stmt_if(span, cond, then_block, allow_gc),
             StmtP::IfElse(cond, then_block_else_block) => {
                 let (then_block, else_block) = &**then_block_else_block;
@@ -766,34 +789,34 @@ impl Compiler<'_, '_, '_, '_> {
                     if r.is_terminal() {
                         break;
                     }
-                    r.extend(self.stmt(stmt, allow_gc));
+                    r.extend(self.stmt(stmt, allow_gc)?);
                 }
-                r
+                Ok(r)
             }
             StmtP::Expression(e) => self.stmt_expr(e),
             StmtP::Assign(AssignP { lhs, ty, rhs }) => {
-                let rhs = self.expr(rhs);
+                let rhs = self.expr(rhs)?;
                 let ty = self.expr_for_type(ty.as_ref());
-                let lhs = self.assign_target(lhs);
-                StmtsCompiled::one(IrSpanned {
+                let lhs = self.assign_target(lhs)?;
+                Ok(StmtsCompiled::one(IrSpanned {
                     span,
                     node: StmtCompiled::Assign(lhs, ty, rhs),
-                })
+                }))
             }
             StmtP::AssignModify(lhs, op, rhs) => {
-                let rhs = self.expr(rhs);
+                let rhs = self.expr(rhs)?;
                 self.assign_modify(span.span.span(), lhs, rhs, *op)
             }
             StmtP::Load(..) => unreachable!(),
-            StmtP::Pass => StmtsCompiled::empty(),
-            StmtP::Break => StmtsCompiled::one(IrSpanned {
+            StmtP::Pass => Ok(StmtsCompiled::empty()),
+            StmtP::Break => Ok(StmtsCompiled::one(IrSpanned {
                 span,
                 node: StmtCompiled::Break,
-            }),
-            StmtP::Continue => StmtsCompiled::one(IrSpanned {
+            })),
+            StmtP::Continue => Ok(StmtsCompiled::one(IrSpanned {
                 span,
                 node: StmtCompiled::Continue,
-            }),
+            })),
         }
     }
 }

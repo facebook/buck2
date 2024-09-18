@@ -55,6 +55,7 @@ use crate::eval::bc::bytecode::Bc;
 use crate::eval::bc::frame::alloca_frame;
 use crate::eval::compiler::def_inline::inline_def_body;
 use crate::eval::compiler::def_inline::InlineDefBody;
+use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::scope::payload::CstAssignIdent;
@@ -407,16 +408,16 @@ impl Compiler<'_, '_, '_, '_> {
     fn parameter(
         &mut self,
         x: &Spanned<DefParam<'_, CstPayload>>,
-    ) -> IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>> {
+    ) -> Result<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>, CompilerInternalError> {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
         let parameter_name = self.parameter_name(x.ident);
-        IrSpanned {
+        Ok(IrSpanned {
             span,
             node: match &x.node.kind {
                 DefParamKind::Regular(default_value) => ParameterCompiled::Normal(
                     parameter_name,
                     self.expr_for_type(x.ty).map(|t| t.node),
-                    default_value.as_ref().map(|d| self.expr(d)),
+                    default_value.as_ref().map(|d| self.expr(d)).transpose()?,
                 ),
                 DefParamKind::Args => ParameterCompiled::Args(
                     parameter_name,
@@ -427,7 +428,7 @@ impl Compiler<'_, '_, '_, '_> {
                     self.expr_for_type(x.ty).map(|t| t.node),
                 ),
             },
-        }
+        })
     }
 
     pub fn function(
@@ -438,16 +439,23 @@ impl Compiler<'_, '_, '_, '_> {
         params: &[CstParameter],
         return_type: Option<&CstTypeExpr>,
         suite: &CstStmt,
-    ) -> ExprCompiled {
+    ) -> Result<ExprCompiled, CompilerInternalError> {
         let file = self.codemap.file_span(suite.span);
         let function_name = format!("{}.{}", file.file.filename(), name);
         let name = self.eval.frozen_heap().alloc_str_intern(name);
 
-        let def_params = DefParams::unpack(params, &self.codemap).expect("verified at parse time");
+        let def_params = match DefParams::unpack(params, &self.codemap) {
+            Ok(def_params) => def_params,
+            Err(e) => return Err(CompilerInternalError::from_eval_exception(e)),
+        };
 
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
-        let params = def_params.params.map(|x| self.parameter(x));
+        let params: Vec<_> = def_params
+            .params
+            .iter()
+            .map(|x| self.parameter(x))
+            .collect::<Result<_, CompilerInternalError>>()?;
         let params = ParametersCompiled {
             params,
             num_positional: def_params.num_positional,
@@ -462,7 +470,7 @@ impl Compiler<'_, '_, '_, '_> {
         self.enter_scope(scope_id);
 
         let docstring = DocString::extract_raw_starlark_docstring(suite);
-        let body = self.stmt(suite, false);
+        let body = self.stmt(suite, false)?;
         let scope_id = self.exit_scope();
         let scope_names = self.scope_data.get_scope(scope_id);
 
@@ -502,12 +510,12 @@ impl Compiler<'_, '_, '_, '_> {
             globals: self.globals,
         });
 
-        ExprCompiled::Def(DefCompiled {
+        Ok(ExprCompiled::Def(DefCompiled {
             function_name,
             params,
             return_type,
             info,
-        })
+        }))
     }
 }
 

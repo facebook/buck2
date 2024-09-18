@@ -43,6 +43,7 @@ use crate::eval::compiler::compr::ComprCompiled;
 use crate::eval::compiler::constants::Constants;
 use crate::eval::compiler::def::DefCompiled;
 use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
 use crate::eval::compiler::opt_ctx::OptCtx;
@@ -1223,7 +1224,10 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
         OptCtx::new(self.eval, param_count)
     }
 
-    pub(crate) fn expr(&mut self, expr: &CstExpr) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn expr(
+        &mut self,
+        expr: &CstExpr,
+    ) -> Result<IrSpanned<ExprCompiled>, CompilerInternalError> {
         // println!("compile {}", expr.node);
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match &expr.node {
@@ -1241,72 +1245,75 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                     // TODO(nga): unnecessary clone.
                     node: StmtP::Return(Some(*body.clone())),
                 };
-                self.function("lambda", signature_span, *scope_id, params, None, &suite)
+                self.function("lambda", signature_span, *scope_id, params, None, &suite)?
             }
             ExprP::Tuple(exprs) => {
-                let xs = exprs.map(|x| self.expr(x));
+                let xs = self.exprs(exprs)?;
                 ExprCompiled::tuple(xs, self.eval.module_env.frozen_heap())
             }
             ExprP::List(exprs) => {
-                let xs = exprs.map(|x| self.expr(x));
+                let xs = self.exprs(exprs)?;
                 ExprCompiled::List(xs)
             }
             ExprP::Dict(exprs) => {
-                let xs = exprs.map(|(k, v)| (self.expr(k), self.expr(v)));
+                let xs = exprs
+                    .iter()
+                    .map(|(k, v)| Ok((self.expr(k)?, self.expr(v)?)))
+                    .collect::<Result<_, CompilerInternalError>>()?;
                 ExprCompiled::Dict(xs)
             }
             ExprP::If(cond_then_expr_else_expr) => {
                 let (cond, then_expr, else_expr) = &**cond_then_expr_else_expr;
-                let cond = self.expr(cond);
-                let then_expr = self.expr(then_expr);
-                let else_expr = self.expr(else_expr);
-                return ExprCompiled::if_expr(cond, then_expr, else_expr);
+                let cond = self.expr(cond)?;
+                let then_expr = self.expr(then_expr)?;
+                let else_expr = self.expr(else_expr)?;
+                return Ok(ExprCompiled::if_expr(cond, then_expr, else_expr));
             }
             ExprP::Dot(left, right) => {
-                let left = self.expr(left);
+                let left = self.expr(left)?;
                 let s = Symbol::new(&right.node);
 
                 ExprCompiled::dot(left, &s, &mut self.opt_ctx())
             }
             ExprP::Call(left, args) => {
-                let left = self.expr(left);
-                let args = self.args(args);
+                let left = self.expr(left)?;
+                let args = self.args(args)?;
                 CallCompiled::call(span, left, args, &mut self.opt_ctx())
             }
             ExprP::Index(array_index) => {
                 let (array, index) = &**array_index;
-                let array = self.expr(array);
-                let index = self.expr(index);
+                let array = self.expr(array)?;
+                let index = self.expr(index)?;
                 ExprCompiled::index(array, index, &mut self.opt_ctx())
             }
             ExprP::Index2(array_index0_index1) => {
                 let (array, index0, index1) = &**array_index0_index1;
-                let array = self.expr(array);
-                let index0 = self.expr(index0);
-                let index1 = self.expr(index1);
+                let array = self.expr(array)?;
+                let index0 = self.expr(index0)?;
+                let index1 = self.expr(index1)?;
                 ExprCompiled::index2(array, index0, index1)
             }
             ExprP::Slice(collection, start, stop, stride) => {
-                let collection = self.expr(collection);
-                let start = start.as_ref().map(|x| self.expr(x));
-                let stop = stop.as_ref().map(|x| self.expr(x));
-                let stride = stride.as_ref().map(|x| self.expr(x));
+                let collection = self.expr(collection)?;
+                let start = start.as_ref().map(|x| self.expr(x)).transpose()?;
+                let stop = stop.as_ref().map(|x| self.expr(x)).transpose()?;
+                let stride = stride.as_ref().map(|x| self.expr(x)).transpose()?;
                 ExprCompiled::slice(span, collection, start, stop, stride, &mut self.opt_ctx())
             }
             ExprP::Not(expr) => {
-                let expr = self.expr(expr);
-                return ExprCompiled::not(span, expr);
+                let expr = self.expr(expr)?;
+                return Ok(ExprCompiled::not(span, expr));
             }
             ExprP::Minus(expr) => {
-                let expr = self.expr(expr);
+                let expr = self.expr(expr)?;
                 ExprCompiled::un_op(span, &Builtin1::Minus, expr, &mut self.opt_ctx())
             }
             ExprP::Plus(expr) => {
-                let expr = self.expr(expr);
+                let expr = self.expr(expr)?;
                 ExprCompiled::un_op(span, &Builtin1::Plus, expr, &mut self.opt_ctx())
             }
             ExprP::BitNot(expr) => {
-                let expr = self.expr(expr);
+                let expr = self.expr(expr)?;
                 ExprCompiled::un_op(span, &Builtin1::BitNot, expr, &mut self.opt_ctx())
             }
             ExprP::Op(left, op, right) => {
@@ -1323,14 +1330,14 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                         Cow::Borrowed(&**right)
                     };
 
-                    let l = self.expr(left);
-                    let r = self.expr(&right);
+                    let l = self.expr(left)?;
+                    let r = self.expr(&right)?;
                     match op {
-                        BinOp::Or => return ExprCompiled::or(l, r),
-                        BinOp::And => return ExprCompiled::and(l, r),
-                        BinOp::Equal => return ExprCompiled::equals(l, r),
+                        BinOp::Or => return Ok(ExprCompiled::or(l, r)),
+                        BinOp::And => return Ok(ExprCompiled::and(l, r)),
+                        BinOp::Equal => return Ok(ExprCompiled::equals(l, r)),
                         BinOp::NotEqual => {
-                            return ExprCompiled::not(span, ExprCompiled::equals(l, r));
+                            return Ok(ExprCompiled::not(span, ExprCompiled::equals(l, r)));
                         }
                         BinOp::Less => ExprCompiled::bin_op(
                             Builtin2::Compare(CompareOp::Less),
@@ -1408,10 +1415,12 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                     }
                 }
             }
-            ExprP::ListComprehension(x, for_, clauses) => self.list_comprehension(x, for_, clauses),
+            ExprP::ListComprehension(x, for_, clauses) => {
+                self.list_comprehension(x, for_, clauses)?
+            }
             ExprP::DictComprehension(k_v, for_, clauses) => {
                 let (k, v) = &**k_v;
-                self.dict_comprehension(k, v, for_, clauses)
+                self.dict_comprehension(k, v, for_, clauses)?
             }
             ExprP::Literal(x) => {
                 let val = x.compile(self.eval.module_env.frozen_heap());
@@ -1443,19 +1452,32 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
 
                 let mut args = ArgsCompiledValue::default();
                 for expr in expressions {
-                    args.push_pos(self.expr(expr));
+                    args.push_pos(self.expr(expr)?);
                 }
 
                 CallCompiled::call(span, method, args, &mut self.opt_ctx())
             }
         };
-        IrSpanned { node: expr, span }
+        Ok(IrSpanned { node: expr, span })
     }
 
     /// Like `expr` but returns an expression optimized assuming
     /// only the truth of the result is needed.
-    pub(crate) fn expr_truth(&mut self, expr: &CstExpr) -> IrSpanned<ExprCompiledBool> {
-        let expr = self.expr(expr);
-        ExprCompiledBool::new(expr)
+    pub(crate) fn expr_truth(
+        &mut self,
+        expr: &CstExpr,
+    ) -> Result<IrSpanned<ExprCompiledBool>, CompilerInternalError> {
+        let expr = self.expr(expr)?;
+        Ok(ExprCompiledBool::new(expr))
+    }
+
+    pub(crate) fn exprs(
+        &mut self,
+        exprs: &[CstExpr],
+    ) -> Result<Vec<IrSpanned<ExprCompiled>>, CompilerInternalError> {
+        exprs
+            .iter()
+            .map(|e| self.expr(e))
+            .collect::<Result<_, CompilerInternalError>>()
     }
 }
