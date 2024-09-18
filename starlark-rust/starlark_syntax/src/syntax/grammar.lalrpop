@@ -313,10 +313,14 @@ Test: AstExpr = {
     LambDef
 };
 
-LambDef: AstExpr = {
-    <l:@L> "lambda" <p:COMMA<LambdaParameter>> ":" <e:Test> <r:@R>
-        => grammar_util::check_lambda(p, e).ast(l, r)
-}
+LambDef: AstExpr = ASTE<LambDef_>;
+LambDef_: Expr = "lambda" <p:COMMA<LambdaParameter>> ":" <e:Test> => {
+    Expr::Lambda(LambdaP {
+        params: p,
+        body: Box::new(e),
+        payload: (),
+    })
+};
 
 // Binary operators
 OrTest: AstExpr = {

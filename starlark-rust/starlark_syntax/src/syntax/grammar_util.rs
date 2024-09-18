@@ -47,7 +47,6 @@ use crate::syntax::ast::Expr;
 use crate::syntax::ast::ExprP;
 use crate::syntax::ast::FStringP;
 use crate::syntax::ast::IdentP;
-use crate::syntax::ast::LambdaP;
 use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::Stmt;
@@ -146,14 +145,6 @@ pub fn check_assignment(
             rhs,
         }),
         Some(op) => Stmt::AssignModify(lhs, op, Box::new(rhs)),
-    })
-}
-
-pub(crate) fn check_lambda(params: Vec<AstParameter>, body: AstExpr) -> Expr {
-    Expr::Lambda(LambdaP {
-        params,
-        body: Box::new(body),
-        payload: (),
     })
 }
 
