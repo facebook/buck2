@@ -1,1 +1,4 @@
 The code in `app/buck2_error_derive` is adapted from thiserror (https://github.com/dtolnay/thiserror).
+
+The code in `shed/completion_verify/src/runtime` is adapted from `complete_pty`
+(https://crates.io/crates/completest_pty).
