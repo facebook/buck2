@@ -96,37 +96,33 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
             }
 
             match &param.node {
-                ParameterP::Normal(n, ty, None) => {
-                    if seen_kwargs || (seen_optional && !seen_args) {
-                        return Err(EvalException::parser_error(
-                            "positional parameter after non positional",
-                            param.span,
-                            codemap,
-                        ));
-                    }
-                    params.push(Spanned {
-                        span,
-                        node: DefParam {
-                            ident: n,
-                            kind: DefParamKind::Regular(None),
-                            ty: ty.as_deref(),
-                        },
-                    });
-                }
-                ParameterP::Normal(n, ty, Some(default_value)) => {
+                ParameterP::Normal(n, ty, default_value) => {
                     if seen_kwargs {
                         return Err(EvalException::parser_error(
-                            "Default parameter after args array or kwargs dictionary",
+                            "Parameter after kwargs",
                             param.span,
                             codemap,
                         ));
                     }
-                    seen_optional = true;
+                    match default_value {
+                        None => {
+                            if seen_optional && !seen_args {
+                                return Err(EvalException::parser_error(
+                                    "positional parameter after non positional",
+                                    param.span,
+                                    codemap,
+                                ));
+                            }
+                        }
+                        Some(_default_value) => {
+                            seen_optional = true;
+                        }
+                    }
                     params.push(Spanned {
                         span,
                         node: DefParam {
                             ident: n,
-                            kind: DefParamKind::Regular(Some(default_value)),
+                            kind: DefParamKind::Regular(default_value.as_deref()),
                             ty: ty.as_deref(),
                         },
                     });

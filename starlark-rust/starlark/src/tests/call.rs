@@ -72,10 +72,10 @@ def rec6(): rec2()
     assert::is_true("NAME=True\ndef f(*args, pkg=NAME, **kwargs): return pkg\nf()");
     assert::is_true("def f(*args, pkg=False, **kwargs): return pkg\nf(pkg=True)");
     assert::is_true("def f(a, b=1, *args, c=False): return c\nf(a=1,c=True)");
-    assert::fail("def f(a, **kwargs, b=1): pass", "Default parameter after");
+    assert::fail("def f(a, **kwargs, b=1): pass", "Parameter after kwargs");
     assert::fail(
         "def f(a, b=1, **kwargs, c=1): pass",
-        "Default parameter after",
+        "Parameter after kwargs",
     );
     assert::fail("def f(a, **kwargs, *args): pass", "parameter after another");
 }
