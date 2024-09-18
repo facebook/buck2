@@ -27,6 +27,7 @@ use crate::codemap::Spanned;
 use crate::typing::basic::TyBasic;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
+use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::callable_param::ParamMode;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
@@ -205,29 +206,29 @@ impl<'a> TypingOracleCtx<'a> {
         }
 
         for (param, args) in iter::zip(params.params(), param_args) {
-            if !param.allows_many() && args.len() > 1 {
-                return Err(TypingOrInternalError::Internal(InternalError::msg(
-                    "bad",
-                    span,
-                    self.codemap,
-                )));
-            }
-            if args.is_empty() {
-                // We assume that *args/**kwargs might have splatted things everywhere.
-                if !param.is_optional_or_stars() && !seen_vargs {
-                    return Err(self.mk_error_as_maybe_internal(
-                        span,
-                        TypingOracleCtxError::MissingRequiredParameter {
-                            name: param.name().to_owned(),
-                        },
-                    ));
-                }
-                continue;
-            }
             match param.mode {
-                ParamMode::PosOnly(_) | ParamMode::PosOrName(_, _) | ParamMode::NameOnly(_, _) => {
-                    self.validate_type(args[0], &param.ty)?;
-                }
+                ParamMode::PosOnly(req)
+                | ParamMode::PosOrName(_, req)
+                | ParamMode::NameOnly(_, req) => match args.as_slice() {
+                    [] => {
+                        if req == ParamIsRequired::Yes && !seen_vargs {
+                            return Err(self.mk_error_as_maybe_internal(
+                                span,
+                                TypingOracleCtxError::MissingRequiredParameter {
+                                    name: param.name().to_owned(),
+                                },
+                            ));
+                        }
+                    }
+                    [arg] => self.validate_type(*arg, &param.ty)?,
+                    [_, _, ..] => {
+                        return Err(TypingOrInternalError::Internal(InternalError::msg(
+                            "Multiple arguments bound to parameter",
+                            span,
+                            self.codemap,
+                        )));
+                    }
+                },
                 ParamMode::Args => {
                     for ty in args {
                         // For an arg, we require the type annotation to be inner value,

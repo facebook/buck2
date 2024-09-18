@@ -99,18 +99,6 @@ impl Param {
         }
     }
 
-    pub(crate) fn is_optional_or_stars(&self) -> bool {
-        match &self.mode {
-            ParamMode::PosOnly(req)
-            | ParamMode::PosOrName(_, req)
-            | ParamMode::NameOnly(_, req) => match req {
-                ParamIsRequired::Yes => false,
-                ParamIsRequired::No => true,
-            },
-            ParamMode::Args | ParamMode::Kwargs => true,
-        }
-    }
-
     /// Create a `*args` parameter.
     ///
     /// `ty` is a tuple item type.
@@ -135,13 +123,6 @@ impl Param {
         match self.mode {
             ParamMode::PosOnly(_) | ParamMode::PosOrName(_, _) | ParamMode::Args => true,
             ParamMode::NameOnly(_, _) | ParamMode::Kwargs => false,
-        }
-    }
-
-    pub(crate) fn allows_many(&self) -> bool {
-        match self.mode {
-            ParamMode::Args | ParamMode::Kwargs => true,
-            _ => false,
         }
     }
 
