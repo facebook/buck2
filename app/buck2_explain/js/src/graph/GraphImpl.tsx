@@ -18,10 +18,11 @@ import {LinkObject, NodeObject} from 'react-force-graph-2d'
 export function GraphImpl(props: {
   nodes: Map<number, Node>
   build: Build
+  maxSrcs: number
   allTargets: {[key: string]: number}
   categoryOptions: {category: string; count: number; checked: boolean}[]
 }) {
-  const {nodes, build, categoryOptions, allTargets} = props
+  const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
 
   const nodeMap = new Map()
   for (const [k, node] of nodes) {
@@ -119,11 +120,13 @@ export function GraphImpl(props: {
 
   for (const [k, _] of filteredNodes) {
     const target = build.targets(k)!
-    const tdeps = nodeMap.get(k)!.transitiveDeps
+    // TODO iguridi: let the user choose what to use for the node size
+    // const tdeps = nodeMap.get(k)!.transitiveDeps
+    const srcs = nodeMap.get(k)!.transitiveSrcs
 
     // Add nodes to graph
     data.push({
-      val: translateValues(tdeps, nodeMap.size - 1), // controls size
+      val: translateValues(srcs, maxSrcs - 1), // controls size
       id: k,
       name: target.configuredTargetLabel()!,
       group: target.configuredTargetLabel()!.split('#')[1],

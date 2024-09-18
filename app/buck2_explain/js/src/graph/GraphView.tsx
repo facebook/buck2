@@ -17,6 +17,8 @@ export type Node = {
   deps: number[]
   rdeps: number[]
   transitiveDeps: number
+  transitiveSrcs: number
+  srcs: number
 }
 
 function defaultNode(): Node {
@@ -25,6 +27,8 @@ function defaultNode(): Node {
     deps: [],
     rdeps: [],
     transitiveDeps: 0,
+    transitiveSrcs: 0,
+    srcs: 0,
   }
 }
 
@@ -47,9 +51,16 @@ export function GraphView(props: {view: QueryKey}) {
     }
   }
 
+  let maxSrcs = 0
+
   // Set options
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
+
+    // Record srcs
+    const srcs = Number(target.srcs()) // TODO iguridi: long type for srcs is not needed
+    maxSrcs += srcs
+    node.srcs = srcs
 
     for (let i = 0; i < target.depsLength(); i++) {
       const dep = target.deps(i)!
@@ -67,15 +78,20 @@ export function GraphView(props: {view: QueryKey}) {
   }
 
   // Sum transitive deps. For each node, we traverse all the transitive rdeps
-  for (const [k, _] of nodeMap) {
+  for (const [k, node] of nodeMap) {
     let visited = new Set()
     let rdeps = new Set(nodeMap.get(k)!.rdeps)
+
     while (rdeps.size > 0) {
       let next: Set<number> = new Set()
       for (const r of rdeps) {
         if (!visited.has(r)) {
+          // Add transitive deps
           const rnode = nodeMap.get(r)!
           rnode.transitiveDeps += 1
+          // Add transitive srcs
+          rnode.transitiveSrcs += node.srcs
+
           visited.add(r)
           for (const r2 of rnode.rdeps) {
             next.add(r2)
@@ -104,6 +120,7 @@ export function GraphView(props: {view: QueryKey}) {
       build={build}
       categoryOptions={categoryOptions}
       allTargets={allTargets}
+      maxSrcs={maxSrcs}
     />
   )
 }
