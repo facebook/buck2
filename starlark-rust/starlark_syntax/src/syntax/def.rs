@@ -197,6 +197,8 @@ mod tests {
     use crate::syntax::ast::AssignIdentP;
     use crate::syntax::ast::AstNoPayload;
     use crate::syntax::ast::ExprP;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
 
     fn fails(params: &[AstParameterP<AstNoPayload>], expected_error: &str) {
         let codemap = CodeMap::default();
@@ -210,9 +212,8 @@ mod tests {
         }
     }
 
-    fn passes(params: &[AstParameterP<AstNoPayload>]) {
-        let codemap = CodeMap::default();
-        assert!(DefParams::unpack(params, &codemap).is_ok());
+    fn passes(program: &str) {
+        AstModule::parse("test.star", program.to_owned(), &Dialect::Extended).unwrap();
     }
 
     fn spanned<T>(node: T) -> Spanned<T> {
@@ -278,7 +279,7 @@ mod tests {
             "Multiple kwargs dictionary in parameters",
         );
 
-        passes(&[param(0), param(1), default(2), args(3), kwargs(4)]);
+        passes("def test(x, y, z=1, *args, **kwargs): pass");
     }
 
     #[test]
@@ -291,11 +292,12 @@ mod tests {
             &[param(0), default(1), param(2)],
             "positional parameter after non positional",
         );
-        passes(&[args(0), param(1)]);
-        passes(&[args(0), default(1)]);
-        passes(&[args(0), param(1), default(2)]);
-        passes(&[default(0), args(1), param(2)]);
-        passes(&[args(0), param(1), default(2), param(3)]);
-        passes(&[noargs(), param(0), default(1), param(2)]);
+
+        passes("def test(*args, x): pass");
+        passes("def test(*args, x=1): pass");
+        passes("def test(*args, x, y=1): pass");
+        passes("def test(x=1, *args, y): pass");
+        passes("def test(*args, x, y=1, z): pass");
+        passes("def test(*, x, y=1, z): pass");
     }
 }
