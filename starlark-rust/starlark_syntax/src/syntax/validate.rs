@@ -17,8 +17,6 @@
 
 //! AST for parsed starlark files.
 
-use thiserror::Error;
-
 use crate::codemap::CodeMap;
 use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstArgument;
@@ -34,26 +32,6 @@ use crate::syntax::call::CallArgsUnpack;
 use crate::syntax::state::ParserState;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
-
-#[derive(Error, Debug)]
-enum ValidateError {
-    #[error("`break` cannot be used outside of a `for` loop")]
-    BreakOutsideLoop,
-    #[error("`continue` cannot be used outside of a `for` loop")]
-    ContinueOutsideLoop,
-    #[error("`return` cannot be used outside of a `def` function")]
-    ReturnOutsideDef,
-    #[error("`load` must only occur at the top of a module")]
-    LoadNotTop,
-    #[error("`if` cannot be used outside `def` in this dialect")]
-    NoTopLevelIf,
-    #[error("`for` cannot be used outside `def` in this dialect")]
-    NoTopLevelFor,
-    #[error("`load` is not allowed in this dialect")]
-    Load,
-    #[error("`...` is not allowed in this dialect")]
-    Ellipsis,
-}
 
 impl Expr {
     /// We want to check a function call is well-formed.
@@ -102,35 +80,39 @@ impl Stmt {
             inside_for: bool,
             inside_def: bool,
         ) -> Result<(), EvalException> {
-            let err = |x: anyhow::Error| Err(EvalException::new_anyhow(x, stmt.span, codemap));
+            let err = |x: &str| Err(EvalException::parser_error(x, stmt.span, codemap));
 
             match &stmt.node {
                 Stmt::Def(DefP { body, .. }) => f(codemap, dialect, body, false, false, true),
                 Stmt::For(ForP { body, .. }) => {
                     if top_level && !dialect.enable_top_level_stmt {
-                        err(ValidateError::NoTopLevelFor.into())
+                        err("`for` cannot be used outside `def` in this dialect")
                     } else {
                         f(codemap, dialect, body, false, true, inside_def)
                     }
                 }
                 Stmt::If(..) | Stmt::IfElse(..) => {
                     if top_level && !dialect.enable_top_level_stmt {
-                        err(ValidateError::NoTopLevelIf.into())
+                        err("`if` cannot be used outside `def` in this dialect")
                     } else {
                         stmt.node.visit_stmt_result(|x| {
                             f(codemap, dialect, x, false, inside_for, inside_def)
                         })
                     }
                 }
-                Stmt::Break if !inside_for => err(ValidateError::BreakOutsideLoop.into()),
-                Stmt::Continue if !inside_for => err(ValidateError::ContinueOutsideLoop.into()),
-                Stmt::Return(_) if !inside_def => err(ValidateError::ReturnOutsideDef.into()),
+                Stmt::Break if !inside_for => err("`break` cannot be used outside of a `for` loop"),
+                Stmt::Continue if !inside_for => {
+                    err("`continue` cannot be used outside of a `for` loop")
+                }
+                Stmt::Return(_) if !inside_def => {
+                    err("`return` cannot be used outside of a `def` function")
+                }
                 Stmt::Load(..) => {
                     if !top_level {
-                        return err(ValidateError::LoadNotTop.into());
+                        return err("`load` must only occur at the top of a module");
                     }
                     if !dialect.enable_load {
-                        return err(ValidateError::Load.into());
+                        return err("`load` is not allowed in this dialect");
                     }
                     Ok(())
                 }
@@ -143,8 +125,8 @@ impl Stmt {
         fn expr(expr: &AstExpr, dialect: &Dialect, codemap: &CodeMap) -> Result<(), EvalException> {
             if let Expr::Literal(AstLiteral::Ellipsis) = &expr.node {
                 if dialect.enable_types == DialectTypes::Disable {
-                    return Err(EvalException::new_anyhow(
-                        ValidateError::Ellipsis.into(),
+                    return Err(EvalException::parser_error(
+                        "`...` is not allowed in this dialect",
                         expr.span,
                         codemap,
                     ));
