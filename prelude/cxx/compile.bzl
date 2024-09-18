@@ -598,7 +598,7 @@ def _compile_single_cxx(
         "__preprocessed__",
         "{}.{}".format(filename_base, "i"),
     )
-    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-E", get_output_flags(compiler_type, preproc)))
+    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-E", "-dD", get_output_flags(compiler_type, preproc)))
     ctx.actions.run(
         preproc_cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
