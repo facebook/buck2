@@ -193,105 +193,36 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::syntax::ast::AssignIdentP;
-    use crate::syntax::ast::AstNoPayload;
-    use crate::syntax::ast::ExprP;
+    use crate::golden_test_template::golden_test_template;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
 
-    fn fails(params: &[AstParameterP<AstNoPayload>], expected_error: &str) {
-        let codemap = CodeMap::default();
-        let x = DefParams::unpack(params, &codemap);
-        match x {
-            Ok(_) => panic!("Expected error from {params:?}"),
-            Err(e) => assert!(
-                e.to_string().contains(expected_error),
-                "Unexpected error:\n{e}\n\nExpected: {expected_error}"
-            ),
-        }
+    fn fails(test_name: &str, program: &str) {
+        let e = AstModule::parse("test.star", program.to_owned(), &Dialect::Extended).unwrap_err();
+        let text = format!("Program:\n{program}\n\nError: {e}\n");
+        golden_test_template(&format!("src/syntax/def_tests/{test_name}.golden"), &text);
     }
 
     fn passes(program: &str) {
         AstModule::parse("test.star", program.to_owned(), &Dialect::Extended).unwrap();
     }
 
-    fn spanned<T>(node: T) -> Spanned<T> {
-        Spanned {
-            span: Default::default(),
-            node,
-        }
-    }
-
-    fn ident(i: usize) -> AstAssignIdentP<AstNoPayload> {
-        spanned(AssignIdentP {
-            ident: format!("x{i}"),
-            payload: Default::default(),
-        })
-    }
-
-    fn param(i: usize) -> AstParameterP<AstNoPayload> {
-        spanned(ParameterP::Normal(ident(i), None))
-    }
-
-    fn args(i: usize) -> AstParameterP<AstNoPayload> {
-        spanned(ParameterP::Args(ident(i), None))
-    }
-
-    fn kwargs(i: usize) -> AstParameterP<AstNoPayload> {
-        spanned(ParameterP::KwArgs(ident(i), None))
-    }
-
-    fn noargs() -> AstParameterP<AstNoPayload> {
-        spanned(ParameterP::NoArgs)
-    }
-
-    fn default(i: usize) -> AstParameterP<AstNoPayload> {
-        let default = spanned(ExprP::Tuple(Vec::new()));
-        spanned(ParameterP::WithDefaultValue(
-            ident(i),
-            None,
-            Box::new(default),
-        ))
-    }
-
     #[test]
     fn test_params_unpack() {
-        fails(&[param(0), param(1), param(0)], "duplicated parameter name");
-        fails(
-            &[default(0), param(1)],
-            "positional parameter after non positional",
-        );
-        fails(
-            &[kwargs(0), default(1)],
-            "Default parameter after args array or kwargs dictionary",
-        );
-        fails(
-            &[args(0), args(1)],
-            "Args parameter after another args or kwargs parameter",
-        );
-        fails(
-            &[kwargs(0), args(1)],
-            "Args parameter after another args or kwargs parameter",
-        );
-        fails(
-            &[kwargs(0), kwargs(1)],
-            "Multiple kwargs dictionary in parameters",
-        );
+        fails("dup_name", "def test(x, y, x): pass");
+        fails("pos_after_default", "def test(x=1, y): pass");
+        fails("default_after_kwargs", "def test(**kwargs, y=1): pass");
+        fails("args_args", "def test(*x, *y): pass");
+        fails("kwargs_args", "def test(**x, *y): pass");
+        fails("kwargs_kwargs", "def test(**x, **y): pass");
 
         passes("def test(x, y, z=1, *args, **kwargs): pass");
     }
 
     #[test]
     fn test_params_noargs() {
-        fails(
-            &[noargs(), noargs()],
-            "Args parameter after another args or kwargs parameter",
-        );
-        fails(
-            &[param(0), default(1), param(2)],
-            "positional parameter after non positional",
-        );
+        fails("star_star", "def test(*, *): pass");
+        fails("normal_after_default", "def test(x, y=1, z): pass");
 
         passes("def test(*args, x): pass");
         passes("def test(*args, x=1): pass");
