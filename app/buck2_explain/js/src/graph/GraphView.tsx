@@ -114,6 +114,14 @@ export function GraphView(props: {view: QueryKey}) {
     categoryOptions.push({category, count, checked: false})
   }
 
+  categoryOptions.sort((a, b) => {
+    if (a.category < b.category) {
+      return -1
+    } else {
+      return 1
+    }
+  })
+
   return (
     <GraphImpl
       nodes={nodeMap}
