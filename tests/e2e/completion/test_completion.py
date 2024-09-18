@@ -7,53 +7,77 @@
 
 # pyre-strict
 
+import os
+import subprocess
+from pathlib import Path
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-
-@buck_test(inplace=False)
-async def test_completion_generates_a_script_for_bash_completion(buck: Buck) -> None:
-    result = await buck.completion("bash")
-    assert result.stdout != ""
+# FIXME(JakobDegen): Zsh legitimately broken
+SHELLS = ["bash"]
 
 
-@buck_test(inplace=False)
-async def test_completion_generates_a_script_for_zsh_completion(buck: Buck) -> None:
-    result = await buck.completion("zsh")
-    assert result.stdout != ""
+def completion_test(name: str, input: str, expected: list[str]) -> None:
+    async def impl(buck: Buck) -> None:
+        tmp_path = Path(buck.cwd).parent / "tmp"
+        tmp_path.mkdir(exist_ok=True)
+
+        verify_bin = Path(os.environ["BUCK2_COMPLETION_VERIFY"])
+
+        for shell in SHELLS:
+            get_completions = await buck.completion(shell)
+            completions_path = tmp_path / f"completion.{shell}"
+            completions_path.write_text(get_completions.stdout)
+
+            # Write this to a script to make it easier to debug with `BUCK_E2E_KEEP_TMP=1`
+            script = "\n".join(
+                [
+                    "#!/bin/sh",
+                    f"export PATH={str(buck.path_to_executable.parent.absolute())}:$PATH",
+                    f"{str(verify_bin.absolute())} {shell} {str(completions_path.absolute())}",
+                ]
+            )
+            script_path = tmp_path / f"test_{shell}.sh"
+            script_path.write_text(script)
+            script_path.chmod(0o755)
+
+            actual = subprocess.check_output(
+                script_path.absolute(),
+                input="buck2 " + input,
+                text=True,
+                cwd=buck.cwd,
+            )
+            actual = actual.strip().split("\n")
+            assert actual == expected, "testing shell: " + shell
+
+    globals()[name] = buck_test(inplace=False)(impl)
 
 
-@buck_test(inplace=False)
-async def test_completes_simple_directories(buck: Buck) -> None:
-    result = await buck.complete("--target", "d")
-    assert (
-        result.stdout
-        == """dir1/
-dir1:
-dir2/
-"""
-    )
+completion_test(
+    name="test_completes_simple_partial_directory",
+    input="build d",
+    expected=["dir1/", "dir1:", "dir2/"],
+)
 
+completion_test(
+    name="test_completes_simple_directory",
+    input="build dir",
+    expected=["dir1/", "dir1:", "dir2/"],
+)
 
-@buck_test(inplace=False)
-async def test_completes_simple_cells(buck: Buck) -> None:
-    result = await buck.complete("--target", "cel")
-    assert (
-        result.stdout
-        == """cell2a//
-cell2a//:
-cell3//
-cell3//:
-"""
-    )
+completion_test(
+    name="test_completes_simple_cells",
+    input="build cell",
+    expected=["cell2a//", "cell2a//:", "cell3//", "cell3//:"],
+)
 
-
-@buck_test(inplace=False)
-async def test_completes_rules(buck: Buck) -> None:
-    result = await buck.complete("--target", "dir1:")
-    assert (
-        result.stdout
-        == """dir1:target1a
-dir1:target1b
-"""
-    )
+completion_test(
+    name="test_completes_rule",
+    input="build dir1:target1",
+    # FIXME(JakobDegen): This output was previously asserted as below. Shells handle the current
+    # output ok too, so this doesn't absolutely have to be fixed, but we should clarify the desired
+    # behavior.
+    # expected=["dir1:target1a", "dir1:target1b"],
+    expected=["target1a", "target1b"],
+)

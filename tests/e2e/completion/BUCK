@@ -6,4 +6,9 @@ buck2_e2e_test(
     name = "test_completion",
     srcs = ["test_completion.py"],
     data_dir = "test_completion_data",
+    env = {
+        "BUCK2_COMPLETION_VERIFY": "$(location //buck2/shed/completion_verify:completion_verify)",
+    },
+    serialize_test_cases = False,
+    skip_for_os = ["windows"],
 )
