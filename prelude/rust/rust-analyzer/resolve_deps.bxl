@@ -9,6 +9,7 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo")
+load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:type_defs.bzl", "is_list")
 
 TargetInfo = dict[str, typing.Any]
@@ -114,9 +115,13 @@ def cquery_deps(
         ctx: bxl.Context,
         top_targets: list[TargetLabel],
         workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
-    target_universe = ctx.target_universe(top_targets).target_set()
-    targets = ctx.cquery().deps(target_universe)
-    outputs = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", targets)
+    targets = set([])
+    analysis_set = ctx.analysis(top_targets)
+    for _target, analysis in analysis_set.items():
+        info = analysis.providers().get(RustAnalyzerInfo)
+        if info:
+            targets.update(info.transitive_target_set)
+    outputs = ctx.target_universe(targets.list()).target_set()
     out = {}
 
     # Eagerly analyze targets
@@ -126,9 +131,12 @@ def cquery_deps(
         attrs = target.attrs_lazy()
 
         in_workspace = target.label.raw_target() in top_targets
-        for candidate_workspace in attrs.get("_workspaces").value():
-            if candidate_workspace.raw_target() in workspaces:
-                in_workspace = True
+        candidate_workspaces = attrs.get("_workspaces")
+        if candidate_workspaces:
+            for candidate_workspace in candidate_workspaces.value():
+                if candidate_workspace.raw_target() in workspaces:
+                    in_workspace = True
+                    break
 
         target_info = _process_target_config(
             ctx = ctx,
@@ -187,13 +195,17 @@ def expand_targets(
 
                     possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
+    workspace_analysis = ctx.analysis(possible_workspaces.keys())
+
     active_workspaces = {}
-    for workspace, candidate_deps in possible_workspaces.items():
-        # FIXME: Using `cquery deps` here is not right. It will transparently look through
-        # dependency edges of all types, meaning that eg build tools written in Rust and built
-        # from source will show up too
-        target_universe = ctx.target_universe(workspace).target_set()
-        workspace_deps = {d.label.raw_target(): () for d in ctx.cquery().deps(target_universe)}
+    for workspace_label, analysis in workspace_analysis.items():
+        workspace = workspace_label.raw_target()
+        candidate_deps = possible_workspaces[workspace]
+        workspace_info = analysis.providers().get(RustAnalyzerInfo)
+        if workspace_info:
+            workspace_deps = {t: () for t in workspace_info.transitive_target_set}
+        else:
+            workspace_deps = {}
 
         for d in candidate_deps:
             if d in workspace_deps:
@@ -208,7 +220,7 @@ def expand_targets(
                 # in the prelude are a bit hard in general
                 expanded_targets.pop(d, None)
 
-    return dedupe(sorted(expanded_targets.keys() + active_workspaces.keys())), sorted(possible_workspaces.keys())
+    return set(expanded_targets.keys() + active_workspaces.keys()).list(), set(possible_workspaces.keys()).list()
 
 def resolve_targets_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
