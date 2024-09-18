@@ -8,14 +8,14 @@
  */
 
 use std::io;
+use std::path::Path;
 
 use crate::extract_from_outputs;
 use crate::runtime::BashRuntime;
 use crate::runtime::Term;
 
-pub(crate) fn run_bash(script: &str, input: &str) -> io::Result<Vec<String>> {
-    let home = tempfile::tempdir()?;
-    let home = home.path();
+pub(crate) fn run_bash(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
+    let home = tempdir;
 
     std::fs::write(
         home.join(".bashrc"),

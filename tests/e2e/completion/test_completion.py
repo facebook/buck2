@@ -37,12 +37,16 @@ def completion_test(
             completions_path = tmp_path / f"completion.{shell}"
             completions_path.write_text(get_completions.stdout)
 
+            shell_home = (tmp_path / f"{shell}_tmp").absolute()
+            shell_home.mkdir(exist_ok=True)
+
             # Write this to a script to make it easier to debug with `BUCK_E2E_KEEP_TMP=1`
             script = "\n".join(
                 [
                     "#!/bin/sh",
-                    f"export PATH={str(buck.path_to_executable.parent.absolute())}:$PATH",
-                    f"{str(verify_bin.absolute())} {shell} {str(completions_path.absolute())}",
+                    f"export PATH={buck.path_to_executable.parent.absolute()}:$PATH",
+                    f"rm -r -- {shell_home}/*",
+                    f"{verify_bin.absolute()} {shell} {completions_path.absolute()} {shell_home}",
                 ]
             )
             script_path = tmp_path / f"test_{shell}.sh"

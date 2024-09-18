@@ -85,11 +85,25 @@ fn extract_from_single_output(input: &str, raw_out: &str) -> Option<Vec<String>>
     }
 }
 
-fn run(script: &str, input: &str, shell: Shell) -> io::Result<Vec<String>> {
+fn run(
+    script: &str,
+    input: &str,
+    tempdir: &Option<String>,
+    shell: Shell,
+) -> io::Result<Vec<String>> {
+    let real_tempdir;
+    let tempdir = match tempdir {
+        Some(tempdir) => tempdir.as_ref(),
+        None => {
+            real_tempdir = tempfile::tempdir()?;
+            real_tempdir.path()
+        }
+    };
+
     match shell {
-        Shell::Bash => run_bash(script, input),
-        Shell::Fish => run_fish(script, input),
-        Shell::Zsh => run_zsh(script, input),
+        Shell::Bash => run_bash(script, input, &tempdir),
+        Shell::Fish => run_fish(script, input, &tempdir),
+        Shell::Zsh => run_zsh(script, input, &tempdir),
     }
 }
 
@@ -104,6 +118,10 @@ struct CompletionVerify {
     shell: Shell,
     /// The path of the completion script to load
     script: String,
+    /// The path to a directory to use as a tempdir
+    ///
+    /// Must be empty prior to each invocation of this binary
+    tempdir: Option<String>,
 }
 
 fn main() -> io::Result<()> {
@@ -112,7 +130,7 @@ fn main() -> io::Result<()> {
     let script = std::fs::read_to_string(&args.script)?;
     let input = std::io::read_to_string(io::stdin())?;
 
-    for option in run(&script, &input, args.shell)? {
+    for option in run(&script, &input, &args.tempdir, args.shell)? {
         println!("{}", option);
     }
 
@@ -139,20 +157,20 @@ compdef _impl buck2
 
     fn test_complete(input: &str, expected: &[&'static str]) {
         check_tool_available("bash");
-        let actual = run(BASH_SCRIPT, &format!("buck2 {}", input), Shell::Bash).unwrap();
+        let actual = run(BASH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Bash).unwrap();
         assert_eq!(actual, expected, "testing bash");
 
         // FIXME(JakobDegen): Make fish available on CI so that we can run these
         if false {
             check_tool_available("fish");
-            let actual = run(FISH_SCRIPT, &format!("buck2 {}", input), Shell::Fish).unwrap();
+            let actual = run(FISH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Fish).unwrap();
             assert_eq!(actual, expected, "testing fish");
         }
 
         // FIXME(JakobDegen): Make zsh available on Linux CI so that we can run these
         if cfg!(target_os = "macos") {
             check_tool_available("zsh");
-            let actual = run(ZSH_SCRIPT, &format!("buck2 {}", input), Shell::Zsh).unwrap();
+            let actual = run(ZSH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Zsh).unwrap();
             assert_eq!(actual, expected, "testing zsh");
         }
     }

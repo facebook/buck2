@@ -8,14 +8,14 @@
  */
 
 use std::io;
+use std::path::Path;
 
 use crate::extract_from_outputs;
 use crate::runtime::Term;
 use crate::runtime::ZshRuntime;
 
-pub(crate) fn run_zsh(script: &str, input: &str) -> io::Result<Vec<String>> {
-    let home = tempfile::tempdir()?;
-    let home = home.path();
+pub(crate) fn run_zsh(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
+    let home = tempdir;
 
     // Copy and paste of `ZshRuntime::new` which works around a zsh bug in which completions are not
     // autoloaded completely

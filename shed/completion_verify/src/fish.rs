@@ -8,14 +8,14 @@
  */
 
 use std::io;
+use std::path::Path;
 
 use crate::extract_from_outputs;
 use crate::runtime::FishRuntime;
 use crate::runtime::Term;
 
-pub(crate) fn run_fish(script: &str, input: &str) -> io::Result<Vec<String>> {
-    let home = tempfile::tempdir()?;
-    let home = home.path();
+pub(crate) fn run_fish(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
+    let home = tempdir;
 
     let mut r = FishRuntime::new(home.to_owned())?;
     r.register("buck2", script)?;
