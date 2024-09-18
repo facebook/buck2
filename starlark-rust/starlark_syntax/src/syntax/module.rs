@@ -165,7 +165,19 @@ impl AstModule {
         typecheck: bool,
         lint_suppressions: LintSuppressions,
     ) -> crate::Result<AstModule> {
-        validate_module(&codemap, &statement, dialect).map_err(EvalException::into_error)?;
+        let mut errors = Vec::new();
+        validate_module(
+            &statement,
+            &mut ParserState {
+                codemap: &codemap,
+                dialect,
+                errors: &mut errors,
+            },
+        );
+        // We need the first error, so we don't use `.pop()`.
+        if let Some(err) = errors.into_iter().next() {
+            return Err(err.into_error());
+        }
         Ok(AstModule {
             codemap,
             statement,

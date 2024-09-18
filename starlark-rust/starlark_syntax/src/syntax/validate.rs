@@ -17,8 +17,6 @@
 
 //! AST for parsed starlark files.
 
-use crate::codemap::CodeMap;
-use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstArgument;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstLiteral;
@@ -33,7 +31,6 @@ use crate::syntax::ast::ParameterP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::call::CallArgsUnpack;
 use crate::syntax::state::ParserState;
-use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
 
 impl Expr {
@@ -65,28 +62,18 @@ impl Expr {
 }
 
 /// Validate all statements only occur where they are allowed to.
-pub(crate) fn validate_module(
-    codemap: &CodeMap,
-    stmt: &AstStmt,
-    dialect: &Dialect,
-) -> Result<(), EvalException> {
-    fn validate_params(
-        codemap: &CodeMap,
-        params: &[AstParameter],
-        dialect: &Dialect,
-    ) -> Result<(), EvalException> {
-        if !dialect.enable_keyword_only_arguments {
+pub(crate) fn validate_module(stmt: &AstStmt, parser_state: &mut ParserState) {
+    fn validate_params(params: &[AstParameter], parser_state: &mut ParserState) {
+        if !parser_state.dialect.enable_keyword_only_arguments {
             for param in params {
                 if let ParameterP::NoArgs = &param.node {
-                    return Err(EvalException::parser_error(
-                        "* keyword-only-arguments is not allowed in this dialect",
+                    parser_state.error(
                         param.span,
-                        codemap,
-                    ));
+                        "* keyword-only-arguments is not allowed in this dialect",
+                    );
                 }
             }
         }
-        Ok(())
     }
 
     // Inside a for, we allow continue/break, unless we go beneath a def.
@@ -94,90 +81,78 @@ pub(crate) fn validate_module(
     // All load's must occur at the top-level.
     // At the top-level we only allow for/if when the dialect permits it.
     fn f(
-        codemap: &CodeMap,
-        dialect: &Dialect,
         stmt: &AstStmt,
+        parser_state: &mut ParserState,
         top_level: bool,
         inside_for: bool,
         inside_def: bool,
-    ) -> Result<(), EvalException> {
-        let err = |x: &str| Err(EvalException::parser_error(x, stmt.span, codemap));
+    ) {
+        let span = stmt.span;
 
         match &stmt.node {
             Stmt::Def(DefP { params, body, .. }) => {
-                if !dialect.enable_def {
-                    return err("`def` is not allowed in this dialect");
+                if !parser_state.dialect.enable_def {
+                    parser_state.error(span, "`def` is not allowed in this dialect");
                 }
-                validate_params(codemap, params, dialect)?;
-                f(codemap, dialect, body, false, false, true)
+                validate_params(params, parser_state);
+                f(body, parser_state, false, false, true)
             }
             Stmt::For(ForP { body, .. }) => {
-                if top_level && !dialect.enable_top_level_stmt {
-                    err("`for` cannot be used outside `def` in this dialect")
+                if top_level && !parser_state.dialect.enable_top_level_stmt {
+                    parser_state.error(span, "`for` cannot be used outside `def` in this dialect")
                 } else {
-                    f(codemap, dialect, body, false, true, inside_def)
+                    f(body, parser_state, false, true, inside_def)
                 }
             }
             Stmt::If(..) | Stmt::IfElse(..) => {
-                if top_level && !dialect.enable_top_level_stmt {
-                    err("`if` cannot be used outside `def` in this dialect")
+                if top_level && !parser_state.dialect.enable_top_level_stmt {
+                    parser_state.error(span, "`if` cannot be used outside `def` in this dialect")
                 } else {
-                    stmt.node.visit_stmt_result(|x| {
-                        f(codemap, dialect, x, false, inside_for, inside_def)
-                    })
+                    stmt.node
+                        .visit_stmt(|x| f(x, parser_state, false, inside_for, inside_def))
                 }
             }
-            Stmt::Break if !inside_for => err("`break` cannot be used outside of a `for` loop"),
+            Stmt::Break if !inside_for => {
+                parser_state.error(span, "`break` cannot be used outside of a `for` loop")
+            }
             Stmt::Continue if !inside_for => {
-                err("`continue` cannot be used outside of a `for` loop")
+                parser_state.error(span, "`continue` cannot be used outside of a `for` loop")
             }
             Stmt::Return(_) if !inside_def => {
-                err("`return` cannot be used outside of a `def` function")
+                parser_state.error(span, "`return` cannot be used outside of a `def` function")
             }
             Stmt::Load(..) => {
                 if !top_level {
-                    return err("`load` must only occur at the top of a module");
+                    parser_state.error(span, "`load` must only occur at the top of a module");
                 }
-                if !dialect.enable_load {
-                    return err("`load` is not allowed in this dialect");
+                if !parser_state.dialect.enable_load {
+                    parser_state.error(span, "`load` is not allowed in this dialect");
                 }
-                Ok(())
             }
             _ => stmt
                 .node
-                .visit_stmt_result(|x| f(codemap, dialect, x, top_level, inside_for, inside_def)),
+                .visit_stmt(|x| f(x, parser_state, top_level, inside_for, inside_def)),
         }
     }
 
-    fn expr(expr: &AstExpr, dialect: &Dialect, codemap: &CodeMap) -> Result<(), EvalException> {
+    fn expr(expr: &AstExpr, parser_state: &mut ParserState) {
         match &expr.node {
             Expr::Literal(AstLiteral::Ellipsis) => {
-                if dialect.enable_types == DialectTypes::Disable {
-                    return Err(EvalException::parser_error(
-                        "`...` is not allowed in this dialect",
-                        expr.span,
-                        codemap,
-                    ));
+                if parser_state.dialect.enable_types == DialectTypes::Disable {
+                    parser_state.error(expr.span, "`...` is not allowed in this dialect");
                 }
             }
             Expr::Lambda(LambdaP { params, .. }) => {
-                if !dialect.enable_lambda {
-                    return Err(EvalException::parser_error(
-                        "`lambda` is not allowed in this dialect",
-                        expr.span,
-                        codemap,
-                    ));
+                if !parser_state.dialect.enable_lambda {
+                    parser_state.error(expr.span, "`lambda` is not allowed in this dialect");
                 }
-                validate_params(codemap, params, dialect)?;
+                validate_params(params, parser_state);
             }
             _ => {}
         }
-        Ok(())
     }
 
-    f(codemap, dialect, stmt, true, false, false)?;
+    f(stmt, parser_state, true, false, false);
 
-    stmt.visit_expr_result(|x| expr(x, dialect, codemap))?;
-
-    Ok(())
+    stmt.visit_expr(|x| expr(x, parser_state));
 }
