@@ -45,6 +45,7 @@ use crate::syntax::grammar::StarlarkParser;
 use crate::syntax::lint_suppressions::LintSuppressions;
 use crate::syntax::lint_suppressions::LintSuppressionsBuilder;
 use crate::syntax::state::ParserState;
+use crate::syntax::validate::validate_module;
 use crate::syntax::AstLoad;
 use crate::syntax::Dialect;
 
@@ -164,7 +165,7 @@ impl AstModule {
         typecheck: bool,
         lint_suppressions: LintSuppressions,
     ) -> crate::Result<AstModule> {
-        Stmt::validate(&codemap, &statement, dialect).map_err(EvalException::into_error)?;
+        validate_module(&codemap, &statement, dialect).map_err(EvalException::into_error)?;
         Ok(AstModule {
             codemap,
             statement,
