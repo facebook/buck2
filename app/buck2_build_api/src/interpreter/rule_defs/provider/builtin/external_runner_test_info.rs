@@ -45,6 +45,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
+use crate::interpreter::rule_defs::required_test_local_resource::StarlarkRequiredTestLocalResource;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
@@ -94,6 +95,10 @@ pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// should be ignored when executing tests even if those are passed as required from test runner.
     local_resources:
         ValueOfUncheckedGeneric<V, DictType<String, Option<StarlarkConfiguredProvidersLabel>>>,
+
+    /// List of local resource types which should be set up additionally to those which are
+    /// passed from test runner. Allows specifying local resources on a per-rule basis.
+    required_local_resources: ValueOfUncheckedGeneric<V, Vec<StarlarkRequiredTestLocalResource>>,
 
     /// Configuration needed to spawn a new worker. This worker will be used to run every single
     /// command related to test execution, including listing.
@@ -156,6 +161,23 @@ impl FrozenExternalRunnerTestInfo {
 
     pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.get().to_value())).collect()
+    }
+
+    pub fn required_local_resources(
+        &self,
+    ) -> impl Iterator<Item = &StarlarkRequiredTestLocalResource> {
+        let val = self.required_local_resources.get().to_value();
+        if val.is_none() {
+            return Either::Left(empty());
+        }
+        Either::Right(
+            iter_value(val)
+                .expect("checked during construction")
+                .map(|v| {
+                    StarlarkRequiredTestLocalResource::from_value(v)
+                        .expect("checked during construction")
+                }),
+        )
     }
 
     pub fn worker(&self) -> Option<&WorkerInfo> {
@@ -438,7 +460,25 @@ where
     check_all(iter_executor_overrides(
         info.executor_overrides.get().to_value(),
     ))?;
-    check_all(iter_local_resources(info.local_resources.get().to_value()))?;
+
+    let provided_local_resources =
+        iter_local_resources(info.local_resources.get().to_value())
+            .collect::<anyhow::Result<IndexMap<&str, Option<&ConfiguredProvidersLabel>>>>()?;
+
+    let required_local_resources = info.required_local_resources.get().to_value();
+    if !required_local_resources.is_none() {
+        for resource_type in iter_value(required_local_resources).context("`required_local_resources` should be a list or a tuple of `RequiredTestLocalResource` objects")? {
+            let resource_type = StarlarkRequiredTestLocalResource::from_value(resource_type)
+                .ok_or_else(|| anyhow::anyhow!("`required_local_resources` should only contain `RequiredTestLocalResource` values, got {}", resource_type))?;
+            if !provided_local_resources.contains_key(&resource_type.name as &str) {
+                return Err(anyhow::anyhow!(
+                    "`required_local_resources` contains `{}` which is not present in `local_resources`",
+                    resource_type.name
+                ));
+            }
+        }
+    }
+
     NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get().to_value())
         .into_anyhow_result()?
         .context("`use_project_relative_paths` must be a bool if provided")?;
@@ -472,6 +512,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] default_executor: Value<'v>,
         #[starlark(default = NoneType)] executor_overrides: Value<'v>,
         #[starlark(default = NoneType)] local_resources: Value<'v>,
+        #[starlark(default = NoneType)] required_local_resources: Value<'v>,
         #[starlark(default = NoneType)] worker: Value<'v>,
     ) -> anyhow::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
@@ -485,6 +526,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             default_executor: ValueOfUnchecked::new(default_executor),
             executor_overrides: ValueOfUnchecked::new(executor_overrides),
             local_resources: ValueOfUnchecked::new(local_resources),
+            required_local_resources: ValueOfUnchecked::new(required_local_resources),
             worker: ValueOfUnchecked::new(worker),
         };
         validate_external_runner_test_info(&res)?;

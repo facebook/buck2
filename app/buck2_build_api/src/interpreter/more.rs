@@ -25,6 +25,7 @@ use crate::interpreter::rule_defs::provider::collection::register_provider_colle
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
 use crate::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use crate::interpreter::rule_defs::register_rule_defs;
+use crate::interpreter::rule_defs::required_test_local_resource::register_required_test_local_resource;
 use crate::interpreter::rule_defs::resolved_macro::register_string_with_macros;
 use crate::interpreter::rule_defs::transitive_set::globals::register_transitive_set_types;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
@@ -48,6 +49,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_output_artifact(globals);
     register_action_error_types(globals);
     register_validation_spec(globals);
+    register_required_test_local_resource(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {

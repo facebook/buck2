@@ -97,3 +97,9 @@ buck2_e2e_test(
         "//remote_execution/client_lib/wrappers/python:py_re_client_lib",
     ],
 )
+
+buck2_e2e_test(
+    name = "test_local_resources",
+    srcs = ["test_local_resources.py"],
+    data_dir = "test_local_resources_data",
+)

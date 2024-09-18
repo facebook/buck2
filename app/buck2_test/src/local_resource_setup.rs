@@ -24,6 +24,12 @@ use buck2_test_api::data::RequiredLocalResources;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use indexmap::IndexMap;
+use itertools::Itertools;
+
+pub(crate) enum TestStageSimple {
+    Listing,
+    Testing,
+}
 
 /// Container for everything needed to set up a local resource.
 #[derive(Debug)]
@@ -46,8 +52,9 @@ pub(crate) async fn required_local_resources_setup_contexts(
     executor_fs: &ExecutorFs<'_>,
     test_info: &FrozenExternalRunnerTestInfo,
     required_local_resources: &RequiredLocalResources,
+    stage: &TestStageSimple,
 ) -> anyhow::Result<Vec<LocalResourceSetupContext>> {
-    let providers = required_providers(dice, test_info, required_local_resources).await?;
+    let providers = required_providers(dice, test_info, required_local_resources, stage).await?;
     let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
     let mut result = vec![];
     for (source_target_label, provider) in providers {
@@ -73,6 +80,7 @@ async fn required_providers<'v>(
     dice: &DiceTransaction,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
+    stage: &TestStageSimple,
 ) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)>> {
     let available_resources = test_info.local_resources();
 
@@ -80,6 +88,16 @@ async fn required_providers<'v>(
         .resources
         .iter()
         .map(|resource_type| &resource_type.name as &'v str)
+        .chain(
+            test_info
+                .required_local_resources()
+                .filter_map(|r| match stage {
+                    TestStageSimple::Listing if r.listing => Some(&r.name as &str),
+                    TestStageSimple::Testing if r.execution => Some(&r.name as &str),
+                    _ => None,
+                }),
+        )
+        .unique()
         .map(|type_name| {
             available_resources.get(type_name).copied().ok_or_else(|| {
                 anyhow::Error::msg(format!(

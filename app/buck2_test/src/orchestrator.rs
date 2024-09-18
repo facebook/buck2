@@ -134,6 +134,7 @@ use crate::local_resource_api::LocalResourcesSetupResult;
 use crate::local_resource_registry::LocalResourceRegistry;
 use crate::local_resource_setup::required_local_resources_setup_contexts;
 use crate::local_resource_setup::LocalResourceSetupContext;
+use crate::local_resource_setup::TestStageSimple;
 use crate::remote_storage;
 use crate::session::TestSession;
 use crate::translations;
@@ -269,6 +270,10 @@ impl<'a> BuckTestOrchestrator<'a> {
                     &executor_fs,
                     &test_info,
                     &required_local_resources,
+                    &match stage {
+                        TestStage::Listing(_) => TestStageSimple::Listing,
+                        TestStage::Testing { .. } => TestStageSimple::Testing,
+                    },
                 )
                 .await?
             };
@@ -512,6 +517,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
                 &executor_fs,
                 &test_info,
                 &required_local_resources,
+                &TestStageSimple::Testing,
             )
             .await?
         };

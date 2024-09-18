@@ -44,6 +44,7 @@
 ## Provider
 ## ProviderCollection
 ## ProvidersLabel
+## RequiredTestLocalResource
 ## ResolvedDynamicValue
 ## ResolvedStringWithMacros
 ## RunInfo
