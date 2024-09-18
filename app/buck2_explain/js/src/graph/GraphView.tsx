@@ -8,9 +8,9 @@
  */
 
 import React, {useContext} from 'react'
-import {Target} from '../Target'
 import {DataContext} from '../App'
 import {GraphImpl} from './GraphImpl'
+import {QueryKey} from '../Router'
 
 export type Node = {
   value: number
@@ -26,7 +26,7 @@ function defaultNode(): Node {
   }
 }
 
-export function GraphView(props: {view: string}) {
+export function GraphView(props: {view: QueryKey}) {
   const {build, allTargets} = useContext(DataContext)
   if (build == null) {
     // TODO: this should show a loading sign

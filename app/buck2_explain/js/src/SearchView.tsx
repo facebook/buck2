@@ -9,7 +9,7 @@
 
 import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
-import {Link, RouterContext, TARGET_VIEW} from './Router'
+import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
 import {SearchBox} from './SearchBox'
 
@@ -29,7 +29,7 @@ function Checkbox(props: {
   )
 }
 
-export function SearchView(props: {view: string}) {
+export function SearchView(props: {view: QueryKey}) {
   const {build, allTargets} = useContext(DataContext)
   const {params} = useContext(RouterContext)
 
@@ -85,7 +85,7 @@ export function SearchView(props: {view: string}) {
       <ul>
         {deduped.map(label => (
           <li key={label} className="mt-3">
-            <Link to={{[TARGET_VIEW]: label}}>{label}</Link>
+            <Link to={{target: label}}>{label}</Link>
           </li>
         ))}
       </ul>

@@ -14,9 +14,9 @@ import React, {useEffect, useState} from 'react'
 import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
+import {Build, ConfiguredTargetNode} from './fbs/explain'
+import {QueryKey, ROOT_VIEW, Router} from './Router'
 import {Index} from 'flexsearch-ts'
-import {Build, ConfiguredTargetNode, TargetField, TargetValue, TargetValueType} from './fbs/explain'
-import {GRAPH_VIEW, ROOT_VIEW, Router, SEARCH_VIEW, TARGET_VIEW} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
@@ -92,9 +92,9 @@ function App() {
         <Router>
           <Header />
           <RootView view={ROOT_VIEW} />
-          <TargetView view={TARGET_VIEW} />
-          <SearchView view={SEARCH_VIEW} />
-          <GraphView view={GRAPH_VIEW} />
+          <TargetView view={QueryKey.TargetView} />
+          <SearchView view={QueryKey.SearchView} />
+          <GraphView view={QueryKey.GraphView} />
         </Router>
       </DataContext.Provider>
     )

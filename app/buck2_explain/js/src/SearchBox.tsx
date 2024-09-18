@@ -8,13 +8,13 @@
  */
 
 import React, {useContext, useState} from 'react'
-import {RouterContext, SEARCH_VIEW} from './Router'
+import {RouterContext, QueryKey} from './Router'
 
 export function SearchBox() {
   const {params, setParams} = useContext(RouterContext)
   const urlParams = new URLSearchParams(params)
 
-  const [searchTerm, setSearchTerm] = useState(urlParams.get(SEARCH_VIEW) ?? '')
+  const [searchTerm, setSearchTerm] = useState(urlParams.get(QueryKey.SearchView) ?? '')
 
   const goSearch = () => {
     const url = new URL(window.location.toString())
@@ -24,7 +24,7 @@ export function SearchBox() {
       params.delete(k)
     }
 
-    params.set(SEARCH_VIEW, searchTerm)
+    params.set(QueryKey.SearchView, searchTerm)
 
     setParams(params.toString())
   }

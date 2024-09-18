@@ -9,11 +9,14 @@
 
 import React, {ReactNode, useContext, useEffect, useState} from 'react'
 
-export const SEARCH_VIEW = 'search'
-export const GRAPH_VIEW = 'graph'
-export const TARGET_VIEW = 'target'
 export const ROOT_VIEW = ''
-export const TARGET_TAB = 'target_tab'
+
+export enum QueryKey {
+  SearchView = 'search',
+  GraphView = 'graph',
+  TargetView = 'target',
+  TargetTab = 'target_tab',
+}
 
 export const RouterContext = React.createContext({params: '', setParams: (_s: string) => {}})
 
@@ -73,7 +76,7 @@ export function Router(props: {children: ReactNode}) {
  * Link with specified query params
  */
 export function Link(props: {
-  to: {[key: string]: string | null}
+  to: {[key in QueryKey]?: string | null}
   children: ReactNode
   className?: string
 }) {
@@ -89,7 +92,7 @@ export function Link(props: {
   }
 
   for (let k of Object.keys(to)) {
-    params.set(k, to[k] ?? '')
+    params.set(k, to[k as QueryKey] ?? '')
   }
 
   url.search = params.toString()

@@ -10,10 +10,10 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Target} from './Target'
-import {RouterContext, TARGET_TAB} from './Router'
+import {QueryKey, RouterContext} from './Router'
 import {SearchBox} from './SearchBox'
 
-export function TargetView(props: {view: string}) {
+export function TargetView(props: {view: QueryKey}) {
   const {allTargets, build} = useContext(DataContext)
   const {params} = useContext(RouterContext)
 
@@ -21,7 +21,7 @@ export function TargetView(props: {view: string}) {
   const targetLabel = urlParams.get(props.view) ?? null
   const target = targetLabel == null ? null : build?.targets(allTargets[targetLabel])
 
-  const tab = urlParams.get(TARGET_TAB)
+  const tab = urlParams.get(QueryKey.TargetTab)
 
   return (
     <>
