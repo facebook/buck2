@@ -21,7 +21,7 @@ export function RootView(props: {view: string}) {
   return (
     <>
       <SearchBox />
-      {rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} />}
+      {rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} tab={null} />}
     </>
   )
 }

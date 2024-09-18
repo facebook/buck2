@@ -36,8 +36,6 @@ export function GraphView(props: {view: QueryKey}) {
   // build better data structure
   let nodeMap = new Map<number, Node>()
   for (let i = 0; i < build.targetsLength(); i++) {
-    const target = build.targets(i)!
-
     // Create node object
     if (nodeMap.get(i) == null) {
       nodeMap.set(i, {
