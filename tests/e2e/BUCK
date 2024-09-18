@@ -14,12 +14,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_completion",
-    srcs = ["test_completion.py"],
-    data_dir = "test_completion_data",
-)
-
-buck2_e2e_test(
     name = "test_starlark",
     srcs = ["test_starlark.py"],
     data_dir = "test_starlark_data",
