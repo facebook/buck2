@@ -17,5 +17,6 @@
 
 //! Function parameters.
 
+pub(crate) mod display;
 pub(crate) mod parser;
 pub(crate) mod spec;

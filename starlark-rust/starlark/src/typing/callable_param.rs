@@ -24,6 +24,8 @@ use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
 use starlark_syntax::other_error;
 
+use crate::eval::runtime::params::display::fmt_param_spec;
+use crate::eval::runtime::params::display::ParamFmt;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
@@ -163,45 +165,69 @@ impl Display for ParamSpec {
             .iter()
             .take_while(|p| matches!(p.mode, ParamMode::PosOnly(_)))
             .count();
-        let num_pos = self
-            .params
+
+        let (pos_only, rem) = self.params.split_at(num_pos_only);
+
+        let num_pos_or_named = rem
             .iter()
-            .take_while(|p| matches!(p.mode, ParamMode::PosOnly(..) | ParamMode::PosOrName(..)))
+            .take_while(|p| matches!(p.mode, ParamMode::PosOrName(..)))
             .count();
-        for (i, param) in self.params.iter().enumerate() {
-            if i != 0 {
-                write!(f, ", ")?;
-            }
-            if i == num_pos {
-                if matches!(
-                    self.params.get(i).map(|p| &p.mode),
-                    Some(ParamMode::NameOnly(..))
-                ) {
-                    write!(f, "*, ")?;
+
+        let (pos_or_named, rem) = rem.split_at(num_pos_or_named);
+
+        let (args, rem) = match rem.split_first() {
+            Some((args, rem)) if matches!(args.mode, ParamMode::Args) => (Some(args), rem),
+            _ => (None, rem),
+        };
+
+        let num_named_only = rem
+            .iter()
+            .take_while(|p| matches!(p.mode, ParamMode::NameOnly(..)))
+            .count();
+
+        let (named_only, rem) = rem.split_at(num_named_only);
+
+        let kwargs = match rem {
+            [] => None,
+            [x] if matches!(x.mode, ParamMode::Kwargs) => Some(x),
+            _ => {
+                if cfg!(test) {
+                    panic!("inconsistent parameter spec: {:?}", self);
                 }
+                write!(f, "<inconsistent parameter spec: {:?}>", self)?;
+                return Ok(());
             }
-            fn optional(req: &ParamIsRequired) -> &'static str {
-                match req {
-                    ParamIsRequired::Yes => "",
-                    ParamIsRequired::No => "=...",
-                }
-            }
-            match &param.mode {
-                ParamMode::PosOnly(opt) => write!(f, "_: {}{}", param.ty, optional(opt))?,
-                ParamMode::PosOrName(name, opt) => {
-                    write!(f, "{}: {}{}", name, param.ty, optional(opt))?
-                }
-                ParamMode::NameOnly(name, opt) => {
-                    write!(f, "{}: {}{}", name, param.ty, optional(opt))?
-                }
-                ParamMode::Args => write!(f, "*args: {}", param.ty)?,
-                ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
-            }
-            if i + 1 == num_pos_only {
-                write!(f, ", /")?;
+        };
+
+        fn pf(p: &Param) -> ParamFmt<'_, &'_ Ty, &'static str> {
+            ParamFmt {
+                name: match &p.mode {
+                    ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name,
+                    ParamMode::PosOnly(_) => "_",
+                    ParamMode::Args => "args",
+                    ParamMode::Kwargs => "kwargs",
+                },
+                ty: Some(&p.ty),
+                default: match p.mode {
+                    ParamMode::PosOnly(ParamIsRequired::Yes)
+                    | ParamMode::PosOrName(_, ParamIsRequired::Yes)
+                    | ParamMode::NameOnly(_, ParamIsRequired::Yes) => None,
+                    ParamMode::PosOnly(ParamIsRequired::No)
+                    | ParamMode::PosOrName(_, ParamIsRequired::No)
+                    | ParamMode::NameOnly(_, ParamIsRequired::No) => Some("..."),
+                    ParamMode::Args | ParamMode::Kwargs => None,
+                },
             }
         }
-        Ok(())
+
+        fmt_param_spec(
+            f,
+            pos_only.iter().map(pf),
+            pos_or_named.iter().map(pf),
+            args.map(pf),
+            named_only.iter().map(pf),
+            kwargs.map(pf),
+        )
     }
 }
 

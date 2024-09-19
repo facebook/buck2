@@ -8,7 +8,7 @@ def simple(x, y, z): pass
 def(x: typing.Any, y: typing.Any, z: typing.Any) -> typing.Any
 
 def default_value(x, y=1, z=2): pass
-def(x: typing.Any, y: typing.Any=..., z: typing.Any=...) -> typing.Any
+def(x: typing.Any, y: typing.Any = ..., z: typing.Any = ...) -> typing.Any
 
 def param_type(x: int, y: str, z: int, w: list): pass
 def(x: int, y: str, z: int, w: list[typing.Any]) -> typing.Any

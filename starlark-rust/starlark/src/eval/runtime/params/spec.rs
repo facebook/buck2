@@ -18,6 +18,7 @@
 use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt;
 use std::iter;
 
 use allocative::Allocative;
@@ -38,6 +39,8 @@ use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::FunctionError;
 use crate::eval::runtime::arguments::ResolvedArgName;
+use crate::eval::runtime::params::display::fmt_param_spec;
+use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
@@ -335,39 +338,63 @@ impl<V> ParametersSpec<V> {
     /// Function parameter as they would appear in `def`
     /// (excluding types, default values and formatting).
     pub fn parameters_str(&self) -> String {
-        let mut emitted_star = false;
-        let mut collector = String::new();
-        for (i, typ) in self.iter_params().enumerate() {
-            if !collector.is_empty() {
-                collector.push_str(", ");
+        #[cold]
+        fn err(args: fmt::Arguments) -> String {
+            if cfg!(test) {
+                panic!("{}", args);
             }
+            format!("<{}>", args)
+        }
 
-            // TODO: also print `/` for positional-only parameters.
-
-            if i == (self.positional as usize)
-                && !emitted_star
-                && !matches!(typ.1, ParameterKind::Args | ParameterKind::KWargs)
-            {
-                collector.push_str("*, ");
-                emitted_star = true;
-            }
-
-            match typ.1 {
-                ParameterKind::Args | ParameterKind::KWargs => {
-                    // For `*args` or `**kwargs` param name includes the `*` or `**`.
-                    collector.push_str(typ.0);
-                    emitted_star = true;
-                }
-                ParameterKind::Required => {
-                    collector.push_str(typ.0);
-                }
-                ParameterKind::Optional | ParameterKind::Defaulted(_) => {
-                    collector.push_str(typ.0);
-                    collector.push_str(" = ...");
-                }
+        if let Some(args) = self.args {
+            if args != self.positional {
+                return err(format_args!(
+                    "Inconsistent *args: {:?}, args={}, positional={}",
+                    self.function_name, args, self.positional
+                ));
             }
         }
-        collector
+        if let Some(kwargs) = self.kwargs {
+            if kwargs as usize + 1 != self.param_kinds.len() {
+                return err(format_args!(
+                    "Inconsistent **kwargs: {:?}, kwargs={}, param_kinds.len()={}",
+                    self.function_name,
+                    kwargs,
+                    self.param_kinds.len()
+                ));
+            }
+        }
+
+        let pf = |i: u32| {
+            let name = self.param_names[i as usize].as_str();
+            let name = name.strip_prefix("**").unwrap_or(name);
+            let name = name.strip_prefix("*").unwrap_or(name);
+            ParamFmt {
+                name,
+                ty: None::<&str>,
+                default: match self.param_kinds[i as usize] {
+                    ParameterKind::Defaulted(_) => Some("..."),
+                    ParameterKind::Required
+                    | ParameterKind::Optional
+                    | ParameterKind::Args
+                    | ParameterKind::KWargs => None,
+                },
+            }
+        };
+
+        let mut s = String::new();
+        fmt_param_spec(
+            &mut s,
+            (0..self.positional_only).map(pf),
+            (self.positional_only..self.positional).map(pf),
+            self.args.map(pf),
+            (self.args.map(|a| a + 1).unwrap_or(self.positional)
+                ..self.kwargs.unwrap_or(self.param_kinds.len() as u32))
+                .map(pf),
+            self.kwargs.map(pf),
+        )
+        .unwrap();
+        s
     }
 
     /// Iterate over the parameters
