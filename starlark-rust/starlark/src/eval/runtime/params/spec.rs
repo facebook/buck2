@@ -126,11 +126,26 @@ pub struct ParametersSpec<V> {
 
 impl<V: Copy> ParametersSpecBuilder<V> {
     fn add(&mut self, name: &str, val: ParameterKind<V>) {
-        assert!(!matches!(val, ParameterKind::Args | ParameterKind::KWargs));
+        assert!(
+            !matches!(val, ParameterKind::Args | ParameterKind::KWargs),
+            "adding parameter `{}` to `{}",
+            name,
+            self.function_name
+        );
 
         // Regular arguments cannot follow `**kwargs`, but can follow `*args`.
-        assert!(self.current_style < CurrentParameterStyle::NoMore);
-        assert!(self.kwargs.is_none());
+        assert!(
+            self.current_style < CurrentParameterStyle::NoMore,
+            "adding parameter `{}` to `{}",
+            name,
+            self.function_name
+        );
+        assert!(
+            self.kwargs.is_none(),
+            "adding parameter `{}` to `{}",
+            name,
+            self.function_name
+        );
 
         let i = self.params.len();
         self.params.push((name.to_owned(), val));
@@ -177,9 +192,21 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
     pub fn args(&mut self) {
-        assert!(self.args.is_none());
-        assert!(self.current_style < CurrentParameterStyle::NamedOnly);
-        assert!(self.kwargs.is_none());
+        assert!(
+            self.args.is_none(),
+            "adding *args to `{}`",
+            self.function_name
+        );
+        assert!(
+            self.current_style < CurrentParameterStyle::NamedOnly,
+            "adding *args to `{}`",
+            self.function_name
+        );
+        assert!(
+            self.kwargs.is_none(),
+            "adding *args to `{}`",
+            self.function_name
+        );
         self.params.push(("*args".to_owned(), ParameterKind::Args));
         self.args = Some(self.params.len() - 1);
         self.current_style = CurrentParameterStyle::NamedOnly;
@@ -187,7 +214,12 @@ impl<V: Copy> ParametersSpecBuilder<V> {
 
     /// Following parameters can be filled positionally or by name.
     pub fn no_more_positional_only_args(&mut self) {
-        assert_eq!(self.current_style, CurrentParameterStyle::PosOnly);
+        assert_eq!(
+            self.current_style,
+            CurrentParameterStyle::PosOnly,
+            "adding / to `{}`",
+            self.function_name
+        );
         self.current_style = CurrentParameterStyle::PosOrNamed;
     }
 
@@ -198,9 +230,17 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
     pub fn no_more_positional_args(&mut self) {
-        assert!(self.args.is_none());
-        assert!(self.current_style < CurrentParameterStyle::NamedOnly);
-        assert!(self.kwargs.is_none());
+        assert!(self.args.is_none(), "adding * to `{}`", self.function_name);
+        assert!(
+            self.current_style < CurrentParameterStyle::NamedOnly,
+            "adding * to `{}`",
+            self.function_name
+        );
+        assert!(
+            self.kwargs.is_none(),
+            "adding * to `{}`",
+            self.function_name
+        );
         self.current_style = CurrentParameterStyle::NamedOnly;
     }
 
@@ -212,7 +252,11 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by position.
     pub fn kwargs(&mut self) {
-        assert!(self.kwargs.is_none());
+        assert!(
+            self.kwargs.is_none(),
+            "adding **kwargs to `{}`",
+            self.function_name
+        );
         self.params
             .push(("**kwargs".to_owned(), ParameterKind::KWargs));
         self.current_style = CurrentParameterStyle::NoMore;
@@ -234,7 +278,11 @@ impl<V: Copy> ParametersSpecBuilder<V> {
         let _ = current_style;
         let positional_only: u32 = positional_only.try_into().unwrap();
         let positional: u32 = positional.try_into().unwrap();
-        assert!(positional_only <= positional);
+        assert!(
+            positional_only <= positional,
+            "building `{}`",
+            function_name
+        );
         ParametersSpec {
             function_name,
             param_kinds: params.iter().map(|p| p.1).collect(),
