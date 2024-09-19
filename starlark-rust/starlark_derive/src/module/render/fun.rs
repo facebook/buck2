@@ -551,7 +551,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
                     starlark::typing::macro_support::unpack_kwargs_value_ty(#typ_str) }]
                 }
                 StarArgPassStyle::PosOnly
-                | StarArgPassStyle::PosOrNamed
+                | StarArgPassStyle::Default
                 | StarArgPassStyle::NamedOnly => {
                     let typ_str = render_starlark_type(arg.without_option());
                     vec![syn::parse_quote! { #typ_str }]
@@ -624,13 +624,27 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
                 }
                 last_param_style = CurrentParamStyle::PosOnly;
             }
-            StarArgPassStyle::PosOrNamed => {
-                if last_param_style == CurrentParamStyle::PosOnly {
-                    sig_args.push(syn::parse_quote! {
-                        starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalOnlyArgs
-                    });
+            StarArgPassStyle::Default => {
+                last_param_style = match last_param_style {
+                    CurrentParamStyle::PosOnly => {
+                        sig_args.push(syn::parse_quote! {
+                            starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalOnlyArgs
+                        });
+                        CurrentParamStyle::PosOrNamed
+                    }
+                    CurrentParamStyle::PosOrNamed => CurrentParamStyle::PosOrNamed,
+                    CurrentParamStyle::NamedOnly => {
+                        // After named parameters, following parameters cannot be positional,
+                        // so defaut means named-only.
+                        CurrentParamStyle::NamedOnly
+                    }
+                    CurrentParamStyle::NoMore => {
+                        return Err(syn::Error::new(
+                            arg.span,
+                            "Regular parameter after **kwargs",
+                        ));
+                    }
                 }
-                last_param_style = CurrentParamStyle::PosOrNamed;
             }
             StarArgPassStyle::NamedOnly => {
                 if last_param_style > CurrentParamStyle::NamedOnly {

@@ -123,8 +123,9 @@ pub(crate) enum StarArgPassStyle {
     This,
     /// Parameter can be filled only positionally.
     PosOnly,
-    /// Parameter can filled both positionally and by name.
-    PosOrNamed,
+    /// Parameter can filled both positionally and by name by default,
+    /// or named only if followed by `*args` or named only.
+    Default,
     /// Parameter can be filled by name.
     NamedOnly,
     /// `*args`.
