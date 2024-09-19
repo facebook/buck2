@@ -18,6 +18,7 @@
 //! The list type, an immutable sequence of values.
 
 pub(crate) mod alloc;
+pub(crate) mod globals;
 pub(crate) mod refs;
 pub(crate) mod rust_tuple;
 pub(crate) mod unpack;
