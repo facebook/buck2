@@ -17,6 +17,7 @@
 
 use std::hash::Hash;
 use std::ops::Deref;
+use std::slice;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -95,5 +96,14 @@ impl<T: 'static> SmallArcVec1OrStatic<T> {
             SmallArcVec1OrStaticImpl::Arc(x) => x,
             SmallArcVec1OrStaticImpl::Static(x) => x,
         }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SmallArcVec1OrStatic<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_slice().iter()
     }
 }
