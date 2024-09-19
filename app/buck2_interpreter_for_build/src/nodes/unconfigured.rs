@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
@@ -17,6 +20,7 @@ use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
+use buck2_node::call_stack::StarlarkCallStackImpl;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
@@ -113,7 +117,37 @@ impl TargetNodeExt for TargetNode {
             label,
             attr_values,
             CoercedDeps::from(deps_cache),
-            call_stack.map(StarlarkCallStack::new),
+            call_stack
+                .map(StarlarkCallStackWrapper)
+                .map(StarlarkCallStack::new),
         ))
+    }
+}
+
+// I can't implement a trait for a type that is not of this crate, so I wrap type here
+#[derive(Debug)]
+struct StarlarkCallStackWrapper(CallStack);
+
+use cmp_any::PartialEqAny;
+
+impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
+    fn eq_token(&self) -> PartialEqAny {
+        PartialEqAny::new(self)
+    }
+
+    fn hash(&self, mut state: &mut dyn Hasher) {
+        self.0.hash(&mut state);
+    }
+}
+
+impl Display for StarlarkCallStackWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl PartialEq for StarlarkCallStackWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }

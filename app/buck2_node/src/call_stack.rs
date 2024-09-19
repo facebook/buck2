@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use std::any::Any;
+
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -20,18 +20,6 @@ use cmp_any::PartialEqAny;
 pub trait StarlarkCallStackImpl: Display + Debug + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn hash(&self, hashed: &mut dyn Hasher);
-}
-
-impl<S: Display + Debug + Hash + Eq + Send + Any + Sync + Sized + 'static> StarlarkCallStackImpl
-    for S
-{
-    fn eq_token(&self) -> PartialEqAny {
-        PartialEqAny::new(self)
-    }
-
-    fn hash(&self, mut state: &mut dyn Hasher) {
-        self.hash(&mut state);
-    }
 }
 
 /// `buck2_node` crate does not depend on `starlark`, but need to store Starlark call stack.
