@@ -1022,7 +1022,7 @@ async fn build_target_result(
         .require_compatible()?;
     let collections = providers.provider_collection();
 
-    match <dyn TestProvider>::from_collection(collections) {
+    let build_target_result = match <dyn TestProvider>::from_collection(collections) {
         Some(test_info) => {
             if skip_build_based_on_labels(test_info, label_filtering) {
                 return Ok((BuildTargetResult::new(), providers));
@@ -1045,14 +1045,14 @@ async fn build_target_result(
             .await
             .map(BuildEvent::Configured);
 
-            let build_target_result = BuildTargetResult::collect_stream(stream, false).await?;
-            Ok((build_target_result, providers))
+            BuildTargetResult::collect_stream(stream, false).await?
         }
         None => {
             // not a test
-            Ok((BuildTargetResult::new(), providers))
+            BuildTargetResult::new()
         }
-    }
+    };
+    Ok((build_target_result, providers))
 }
 
 async fn test_target(
