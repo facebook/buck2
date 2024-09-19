@@ -16,6 +16,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_interpreter::file_type::StarlarkFileType;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -25,7 +26,6 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::eval::ReturnFileLoader;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -48,7 +48,12 @@ fn run_ctx_test(
 
     {
         let mut eval = Evaluator::new(&func_mod);
-        let ast = AstModule::parse("foo.bzl", full_content, &Dialect::Extended).unwrap();
+        let ast = AstModule::parse(
+            "foo.bzl",
+            full_content,
+            &StarlarkFileType::Bzl.dialect(false),
+        )
+        .unwrap();
         eval.eval_module(ast, &globals).unwrap();
     };
     let frozen_func_mod = func_mod.freeze()?;

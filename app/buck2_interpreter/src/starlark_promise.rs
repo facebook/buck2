@@ -347,12 +347,12 @@ mod tests {
     use starlark::any::ProvidesStaticType;
     use starlark::environment::Module;
     use starlark::syntax::AstModule;
-    use starlark::syntax::Dialect;
     use starlark::values::none::NoneType;
     use starlark::values::tuple::TupleRef;
     use starlark::StarlarkResultExt;
 
     use super::*;
+    use crate::file_type::StarlarkFileType;
 
     #[derive(
         ProvidesStaticType,
@@ -413,8 +413,12 @@ mod tests {
     fn assert_promise<'v>(modu: &'v Module, content: &str) -> anyhow::Result<Value<'v>> {
         alloc_promises(modu);
         let globals = GlobalsBuilder::standard().with(helpers).build();
-        let ast = AstModule::parse("test.bzl", content.to_owned(), &Dialect::Extended)
-            .into_anyhow_result()?;
+        let ast = AstModule::parse(
+            "test.bzl",
+            content.to_owned(),
+            &StarlarkFileType::Bzl.dialect(false),
+        )
+        .into_anyhow_result()?;
         let mut eval = Evaluator::new(modu);
         let res = eval.eval_module(ast, &globals).into_anyhow_result()?;
         let promises = get_promises(modu);

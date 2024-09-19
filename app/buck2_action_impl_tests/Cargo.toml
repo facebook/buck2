@@ -20,5 +20,6 @@ buck2_anon_target = { workspace = true }
 buck2_build_api = { workspace = true }
 buck2_core = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }

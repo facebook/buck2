@@ -14,6 +14,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::error::BuckStarlarkError;
 use buck2_interpreter::error::OtherErrorHandling;
+use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
 use dice::Key;
@@ -21,7 +22,6 @@ use indoc::indoc;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
-use starlark::syntax::Dialect;
 
 #[derive(Debug, buck2_error::Error)]
 enum CheckStarlarkStackSizeError {
@@ -62,9 +62,13 @@ pub(crate) async fn check_starlark_stack_size(
                                 f()
                         "#
                     );
-                    let ast = AstModule::parse("x.star", content.to_owned(), &Dialect::Extended)
-                        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))
-                        .internal_error("Failed to parse check module")?;
+                    let ast = AstModule::parse(
+                        "x.star",
+                        content.to_owned(),
+                        &StarlarkFileType::Bzl.dialect(false),
+                    )
+                    .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))
+                    .internal_error("Failed to parse check module")?;
                     match eval.eval_module(ast, &Globals::standard()) {
                         Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
                         Err(p) => {
