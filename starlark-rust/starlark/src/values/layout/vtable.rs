@@ -40,7 +40,7 @@ use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::demand::Demand;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::const_type_id::ConstTypeId;

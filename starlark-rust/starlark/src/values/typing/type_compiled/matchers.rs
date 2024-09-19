@@ -29,7 +29,7 @@ use crate::values::list::ListRef;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::starlark_type_id::StarlarkTypeIdAligned;
 use crate::values::tuple::value::Tuple;
-use crate::values::types::int_or_big::StarlarkIntRef;
+use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
 use crate::values::Value;

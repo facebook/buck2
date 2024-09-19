@@ -31,9 +31,9 @@ use serde::Serialize;
 
 use crate::hint;
 use crate::typing::Ty;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -370,7 +370,7 @@ impl AllocFrozenValue for InlineInt {
 
 #[cfg(test)]
 mod tests {
-    use crate::values::types::inline_int::InlineInt;
+    use crate::values::types::int::inline_int::InlineInt;
 
     #[test]
     fn test_min_max_for_bits() {

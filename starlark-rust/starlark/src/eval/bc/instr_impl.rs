@@ -71,7 +71,7 @@ use crate::eval::DefInfo;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::values::dict::Dict;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::value_not_special::FrozenValueNotSpecial;
 use crate::values::string::dot_format::format_one;
 use crate::values::string::interpolation::percent_s_one;

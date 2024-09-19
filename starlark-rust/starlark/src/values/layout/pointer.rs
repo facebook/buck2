@@ -36,10 +36,10 @@ use either::Either;
 use static_assertions::assert_eq_size;
 
 use crate::cast;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
-use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int::inline_int::InlineInt;
 
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
 #[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]

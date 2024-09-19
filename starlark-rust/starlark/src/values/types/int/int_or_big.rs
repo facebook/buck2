@@ -40,7 +40,7 @@ use crate as starlark;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
-use crate::values::types::inline_int::InlineInt;
+use crate::values::types::int::inline_int::InlineInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::UnpackValue;
@@ -663,7 +663,7 @@ impl<'v> PartialOrd<StarlarkIntRef<'v>> for i32 {
 mod tests {
     use std::str::FromStr;
 
-    use crate::values::types::int_or_big::StarlarkInt;
+    use crate::values::types::int::int_or_big::StarlarkInt;
 
     fn int(s: &str) -> StarlarkInt {
         StarlarkInt::from_str(s).unwrap()

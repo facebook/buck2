@@ -26,8 +26,8 @@ use crate as starlark;
 use crate::collections::StarlarkHashValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::float::StarlarkFloat;
-use crate::values::types::int_or_big::StarlarkInt;
-use crate::values::types::int_or_big::StarlarkIntRef;
+use crate::values::types::int::int_or_big::StarlarkInt;
+use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::UnpackValue;
@@ -230,7 +230,7 @@ mod tests {
     use num_bigint::BigInt;
 
     use super::*;
-    use crate::values::types::inline_int::InlineInt;
+    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Value;
 
     #[test]

@@ -148,7 +148,7 @@ pub(crate) fn apply_slice<T: Copy>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::values::types::inline_int::InlineInt;
+    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Heap;
 
     #[test]

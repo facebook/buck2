@@ -30,7 +30,7 @@ use crate::environment::GlobalsBuilder;
 use crate::typing::Ty;
 use crate::values::dict::AllocDict;
 use crate::values::type_repr::StarlarkTypeRepr;
-use crate::values::types::int_or_big::StarlarkInt;
+use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;

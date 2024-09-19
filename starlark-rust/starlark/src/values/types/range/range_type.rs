@@ -263,7 +263,7 @@ mod tests {
 
     use crate::assert;
     use crate::values::range::Range;
-    use crate::values::types::inline_int::InlineInt;
+    use crate::values::types::int::inline_int::InlineInt;
     use crate::values::Heap;
     use crate::values::StarlarkValue;
     use crate::values::Value;

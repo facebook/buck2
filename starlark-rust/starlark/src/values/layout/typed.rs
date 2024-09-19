@@ -42,7 +42,7 @@ use crate::coerce::CoerceKey;
 use crate::typing::Ty;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
-use crate::values::int::PointerI32;
+use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -452,7 +452,7 @@ mod tests {
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
     use crate::tests::util::TestComplexValue;
-    use crate::values::int::PointerI32;
+    use crate::values::int::pointer_i32::PointerI32;
     use crate::values::none::NoneType;
     use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
