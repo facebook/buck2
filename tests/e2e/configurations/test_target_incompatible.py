@@ -8,6 +8,8 @@
 # pyre-strict
 
 
+import re
+
 import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -67,3 +69,35 @@ async def test_incompatible_target_with_incompatible_dep(buck: Buck) -> None:
 @buck_test(inplace=False)
 async def test_exec_dep_transitive_incompatible(buck: Buck) -> None:
     await buck.cquery("//exec_dep:one_exec_platform_transitive_incompatible")
+
+
+@pytest.mark.parametrize(
+    "target_pattern, soft_error",
+    [
+        ("//dep_incompatible:", True),  # False after the implementation
+        ("//dep_incompatible/...", True),  # False after the implementation
+        ("//...", True),  # False after the implementation
+        # target pattern doesn't match //dep_incompatible:dep_incompatible
+        (
+            "//dep_incompatible:dep_incompatible2",
+            True,
+        ),
+    ],
+)
+@buck_test(inplace=False, allow_soft_errors=True)
+async def test_error_on_dep_only_incompatible(
+    buck: Buck, target_pattern: str, soft_error: bool
+) -> None:
+    args = [
+        "-c",
+        f"buck2.error_on_dep_only_incompatible=//some/...,{target_pattern}",
+        "//dep_incompatible:dep_incompatible",
+    ]
+    if soft_error:
+        result = await buck.cquery(*args)
+        assert re.search(INCOMPATIBLE_ERROR, result.stderr, re.DOTALL | re.IGNORECASE)
+    else:
+        await expect_failure(
+            buck.cquery(*args),
+            stderr_regex=INCOMPATIBLE_ERROR,
+        )
