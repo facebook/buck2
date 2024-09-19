@@ -53,18 +53,32 @@ pub struct DefParam<'a, P: AstPayload> {
     pub ty: Option<&'a AstTypeExprP<P>>,
 }
 
-/// Post-processed AST for function parameters.
-///
-/// * Validated
-/// * `*` parameter replaced with `num_positional` field
-pub struct DefParams<'a, P: AstPayload> {
-    pub params: Vec<Spanned<DefParam<'a, P>>>,
+/// Parameters internally in starlark-rust are commonly represented as a flat list of parameters,
+/// with markers `/` and `*` omitted.
+/// This struct contains sizes and indices to split the list into parts.
+#[derive(Copy, Clone, Dupe, Debug)]
+pub struct DefParamIndices {
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
     pub num_positional: u32,
     /// Number of parameters which can only be filled positionally.
     /// Always less or equal to `num_positional`.
     pub num_positional_only: u32,
+    /// Index of `*args` parameter, if any.
+    /// If present, equal to `num_positional`.
+    pub args: Option<u32>,
+    /// Index of `**kwargs` parameter, if any.
+    /// If present, equal to the number of parameters minus 1.
+    pub kwargs: Option<u32>,
+}
+
+/// Post-processed AST for function parameters.
+///
+/// * Validated
+/// * `*` parameter replaced with `num_positional` field
+pub struct DefParams<'a, P: AstPayload> {
+    pub params: Vec<Spanned<DefParam<'a, P>>>,
+    pub indices: DefParamIndices,
 }
 
 fn check_param_name<'a, P: AstPayload, T>(
@@ -108,6 +122,9 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
         let mut params = Vec::with_capacity(ast_params.len());
         let mut num_positional = 0;
+        let mut args = None;
+        let mut kwargs = None;
+
         // Index of `*` parameter, if any.
         let mut index_of_star = None;
 
@@ -227,6 +244,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         ));
                     }
                     state = State::SeenStar;
+                    if args.is_some() {
+                        return Err(EvalException::internal_error(
+                            "Multiple *args",
+                            param.span,
+                            codemap,
+                        ));
+                    }
+                    args = Some(params.len().try_into().unwrap());
                     params.push(Spanned {
                         span,
                         node: DefParam {
@@ -244,6 +269,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                             codemap,
                         ));
                     }
+                    if kwargs.is_some() {
+                        return Err(EvalException::internal_error(
+                            "Multiple **kwargs",
+                            param.span,
+                            codemap,
+                        ));
+                    }
+                    kwargs = Some(params.len().try_into().unwrap());
                     state = State::SeenStarStar;
                     params.push(Spanned {
                         span,
@@ -282,9 +315,13 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         }
 
         Ok(DefParams {
-            num_positional: u32::try_from(num_positional).unwrap(),
-            num_positional_only,
             params,
+            indices: DefParamIndices {
+                num_positional: u32::try_from(num_positional).unwrap(),
+                num_positional_only,
+                args,
+                kwargs,
+            },
         })
     }
 }

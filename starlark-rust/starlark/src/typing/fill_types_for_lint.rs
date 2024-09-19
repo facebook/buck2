@@ -442,8 +442,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
         let DefParams {
             params: def_params,
-            num_positional: _,
-            num_positional_only: _,
+            indices: _,
         } = DefParams::unpack(&def.params, self.ctx.codemap)
             .map_err(InternalError::from_eval_exception)?;
 

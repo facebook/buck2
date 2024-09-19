@@ -218,11 +218,8 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             ..
         } = def;
         let mut params2 = Vec::with_capacity(params.len());
-        let DefParams {
-            params,
-            num_positional: _,
-            num_positional_only: _,
-        } = DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
+        let DefParams { params, indices: _ } =
+            DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
         for p in params {
             let name = &p.node.ident;
             let ty = p.node.ty;

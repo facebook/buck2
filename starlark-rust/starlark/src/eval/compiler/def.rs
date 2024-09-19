@@ -35,6 +35,7 @@ use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::def::DefParam;
+use starlark_syntax::syntax::def::DefParamIndices;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
 use starlark_syntax::syntax::def::DefRegularParamMode;
@@ -452,8 +453,13 @@ impl Compiler<'_, '_, '_, '_> {
 
         let DefParams {
             params,
-            num_positional,
-            num_positional_only,
+            indices:
+                DefParamIndices {
+                    num_positional,
+                    num_positional_only,
+                    args: _,
+                    kwargs: _,
+                },
         } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
             Err(e) => return Err(CompilerInternalError::from_eval_exception(e)),
