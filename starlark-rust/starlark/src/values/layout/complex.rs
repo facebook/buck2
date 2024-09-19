@@ -20,7 +20,6 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use allocative::Allocative;
-use anyhow::Context;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
@@ -177,7 +176,7 @@ where
     type Frozen = FrozenValueTyped<'static, T::Frozen>;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
-        FrozenValueTyped::new(self.0.freeze(freezer)?).context("Incorrect type")
+        FrozenValueTyped::new_err(self.0.freeze(freezer)?)
     }
 }
 

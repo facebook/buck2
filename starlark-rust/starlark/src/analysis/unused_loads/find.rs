@@ -17,7 +17,6 @@
 
 use std::collections::HashMap;
 
-use anyhow::Context;
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpanRef;
@@ -112,7 +111,10 @@ pub(crate) fn find_unused_loads(
             let args = load.args.try_map(|arg| {
                 anyhow::Ok(LoadSymbol {
                     arg,
-                    binding_id: arg.local.payload.context("payload is not set")?,
+                    binding_id: arg
+                        .local
+                        .payload
+                        .ok_or_else(|| anyhow::anyhow!("payload is not set"))?,
                     used: false,
                 })
             })?;
@@ -131,7 +133,7 @@ pub(crate) fn find_unused_loads(
             println!("visit ident: {:?}", ident);
             let ResolvedIdent::Slot(Slot::Module(_), binding_id) = ident
                 .payload
-                .context("ident is not resolved (internal error)")?
+                .ok_or_else(|| anyhow::anyhow!("ident is not resolved (internal error)"))?
             else {
                 return Ok(());
             };

@@ -25,7 +25,6 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use clap::builder::StringValueParser;
 use clap::builder::TypedValueParser;
 use clap::Parser;
@@ -238,7 +237,8 @@ fn drain(
         if json {
             println!(
                 "{}",
-                serde_json::to_string(&LintMessage::new(x)).context("serializing lint to JSON")?
+                serde_json::to_string(&LintMessage::new(x))
+                    .map_err(|e| anyhow::anyhow!("Failed to serialize lint to JSON: {e}"))?
             );
         } else if let Some(error) = x.full_error_with_span {
             let mut error = error.to_owned();

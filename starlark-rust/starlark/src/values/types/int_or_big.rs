@@ -27,7 +27,6 @@ use std::ops::Not;
 use std::ops::Sub;
 use std::str::FromStr;
 
-use anyhow::Context;
 use dupe::Dupe;
 use num_bigint::BigInt;
 use num_bigint::Sign;
@@ -203,7 +202,8 @@ impl<'v> StarlarkIntRef<'v> {
         let offset = if sig < 0 && a % b != 0 { 1 } else { 0 };
         match a.checked_div(b) {
             Some(div) => Ok(StarlarkInt::Small(
-                div.checked_sub_i32(offset).context("unreachable")?,
+                div.checked_sub_i32(offset)
+                    .ok_or_else(|| anyhow::anyhow!("unreachable"))?,
             )),
             None => Self::floor_div_big_big(&a.to_bigint(), &b.to_bigint()),
         }
@@ -284,7 +284,8 @@ impl<'v> StarlarkIntRef<'v> {
             Ok(InlineInt::ZERO)
         } else {
             Ok(if b.signum() != r.signum() {
-                r.checked_add(b).context("unreachable")?
+                r.checked_add(b)
+                    .ok_or_else(|| anyhow::anyhow!("unreachable"))?
             } else {
                 r
             })

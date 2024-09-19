@@ -17,7 +17,6 @@
 
 use std::str::FromStr;
 
-use anyhow::Context as _;
 use starlark_syntax::dot_format_parser::FormatConv;
 use starlark_syntax::dot_format_parser::FormatParser;
 use starlark_syntax::dot_format_parser::FormatToken;
@@ -176,8 +175,9 @@ fn format_capture<'v, T: Iterator<Item = Value<'v>>>(
         conv(args.next_ordered()?, result);
         Ok(())
     } else if field.bytes().all(|c| c.is_ascii_digit()) {
-        let i = usize::from_str(field)
-            .with_context(|| format!("Error parsing `{field}` as a format string index"))?;
+        let i = usize::from_str(field).map_err(|e| {
+            anyhow::anyhow!("Error parsing `{field}` as a format string index: {e}")
+        })?;
         conv(args.by_index(i)?, result);
         Ok(())
     } else {

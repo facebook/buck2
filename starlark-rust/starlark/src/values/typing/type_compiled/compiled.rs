@@ -23,7 +23,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use anyhow::Context;
 use dupe::Dupe;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -280,7 +279,7 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         self.to_value()
             .0
             .request_value::<&dyn TypeCompiledDyn>()
-            .context("Not TypeCompiledImpl (internal error)")
+            .ok_or_else(|| anyhow::anyhow!("Not TypeCompiledImpl (internal error)"))
     }
 
     /// Check if given value matches this type.

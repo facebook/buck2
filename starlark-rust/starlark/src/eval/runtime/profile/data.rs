@@ -18,8 +18,6 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::Context;
-
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcPairsProfilerType;
 use crate::eval::runtime::profile::bc::BcProfileData;
@@ -114,11 +112,12 @@ impl ProfileData {
 
     /// Write to a file.
     pub fn write(&self, path: &Path) -> crate::Result<()> {
-        fs::write(path, self.gen()?).with_context(|| {
-            format!(
-                "write profile `{}` data to `{}`",
+        fs::write(path, self.gen()?).map_err(|e| {
+            anyhow::anyhow!(
+                "Could not write profile `{}` data to `{}`: {}",
                 self.profile.profile_mode(),
-                path.display()
+                path.display(),
+                e,
             )
         })?;
         Ok(())

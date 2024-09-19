@@ -21,10 +21,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
 
-use anyhow::Context;
 use dupe::Dupe;
 use starlark_map::StarlarkHasherBuilder;
 use starlark_syntax::codemap::CodeMaps;
+use starlark_syntax::internal_error;
 
 use crate::codemap::CodeMap;
 use crate::codemap::CodeMapId;
@@ -181,7 +181,7 @@ impl StmtProfileState {
                             file: data
                                 .files
                                 .get(*file)
-                                .context("no file corresponding to file id (internal error)")?
+                                .ok_or_else(|| internal_error!("no file corresponding to file id"))?
                                 .dupe(),
                             span: *span,
                         },
