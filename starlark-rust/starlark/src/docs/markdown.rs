@@ -94,28 +94,28 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
         return None;
     }
 
-    let param_list: String = has_docs
-        .iter()
-        .filter_map(|p| match p {
-            DocParam::Arg { name, docs, .. } => Some((name, docs)),
-            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => None,
-            DocParam::Args { name, docs, .. } => Some((name, docs)),
-            DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
-        })
-        .fold(String::new(), |mut output, (name, docs)| {
-            let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
+    let mut param_list = String::new();
+    for p in has_docs {
+        let (name, docs) = match p {
+            DocParam::Arg { name, docs, .. } => (name, docs),
+            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => continue,
+            DocParam::Args { name, docs, .. } => (name, docs),
+            DocParam::Kwargs { name, docs, .. } => (name, docs),
+        };
 
-            let mut lines_iter = docs.lines();
-            if let Some(first_line) = lines_iter.next() {
-                let _ = writeln!(output, "* `{name}`: {first_line}");
-                for line in lines_iter {
-                    let _ = writeln!(output, "  {line}");
-                }
-            } else {
-                let _ = writeln!(output, "* `{name}`");
+        let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
+
+        let mut lines_iter = docs.lines();
+        if let Some(first_line) = lines_iter.next() {
+            let _ = writeln!(param_list, "* `{name}`: {first_line}");
+            for line in lines_iter {
+                let _ = writeln!(param_list, "  {line}");
             }
-            output
-        });
+        } else {
+            let _ = writeln!(param_list, "* `{name}`");
+        }
+    }
+
     Some(param_list)
 }
 
