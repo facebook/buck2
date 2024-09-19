@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-use std::fmt;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::fmt::Formatter;
 use std::hash::Hash;
 
 use allocative::Allocative;
@@ -153,15 +150,6 @@ impl TyFunction {
     /// Callable signature of the function.
     pub fn callable(&self) -> &TyCallable {
         &self.callable
-    }
-}
-
-impl Display for TyFunction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let TyFunction { callable, .. } = self;
-        let params = callable.params();
-        let result = callable.result();
-        write!(f, "def({params}) -> {result}")
     }
 }
 
