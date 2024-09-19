@@ -604,6 +604,7 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
 
     let mut num_pos = 0;
     let mut num_pos_only = 0;
+    let mut seen_optional = false;
 
     let mut last_param_style = CurrentParamStyle::PosOnly;
     for arg in args {
@@ -677,6 +678,19 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
         if last_param_style <= CurrentParamStyle::PosOrNamed {
             num_pos += 1;
         }
+
+        let optional = arg.default.is_some() || arg.is_option();
+
+        if last_param_style <= CurrentParamStyle::PosOrNamed {
+            if seen_optional && !optional {
+                return Err(syn::Error::new(
+                    arg.span,
+                    "Positional parameter without default after optional parameter",
+                ));
+            }
+        }
+
+        seen_optional |= optional;
     }
     Ok((num_pos, num_pos_only))
 }
