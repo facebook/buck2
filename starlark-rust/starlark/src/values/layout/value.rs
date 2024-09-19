@@ -67,6 +67,7 @@ use crate::sealed::Sealed;
 use crate::typing::Ty;
 use crate::values::bool::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
+use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::dict::FrozenDictRef;
 use crate::values::enumeration::EnumType;
 use crate::values::enumeration::FrozenEnumValue;
@@ -1027,8 +1028,15 @@ impl FrozenValue {
     }
 
     /// Create a new empty list.
+    #[inline]
     pub fn new_empty_list() -> Self {
         FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST)
+    }
+
+    /// Create a new empty dict.
+    #[inline]
+    pub fn new_empty_dict() -> Self {
+        FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)
     }
 
     #[inline]
