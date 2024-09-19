@@ -31,6 +31,7 @@ use buck2_data::error::ErrorTag;
 use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
+use buck2_data::TargetCfg;
 use buck2_error::classify::best_error;
 use buck2_error::classify::best_tag;
 use buck2_error::classify::ErrorLike;
@@ -193,6 +194,7 @@ pub(crate) struct InvocationRecorder<'a> {
     buckconfig_diff_size: Option<u64>,
     peak_used_disk_space_bytes: Option<u64>,
     active_networks_kinds: HashSet<i32>,
+    target_cfg: Option<TargetCfg>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -330,6 +332,7 @@ impl<'a> InvocationRecorder<'a> {
             buckconfig_diff_size: None,
             peak_used_disk_space_bytes: None,
             active_networks_kinds: HashSet::new(),
+            target_cfg: None,
         }
     }
 
@@ -712,6 +715,7 @@ impl<'a> InvocationRecorder<'a> {
             active_networks_kinds: std::mem::take(&mut self.active_networks_kinds)
                 .into_iter()
                 .collect(),
+            target_cfg: self.target_cfg.take(),
         };
 
         let event = BuckEvent::new(
@@ -1458,6 +1462,10 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::SystemInfo(system_info) => {
                         self.handle_system_info(system_info)
+                    }
+                    buck2_data::instant_event::Data::TargetCfg(target_cfg) => {
+                        self.target_cfg = Some(target_cfg.clone());
+                        Ok(())
                     }
                     _ => Ok(()),
                 }
