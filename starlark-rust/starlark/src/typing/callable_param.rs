@@ -241,11 +241,7 @@ impl ParamSpec {
                                 "positional or named parameters may only follow positional only"
                             ));
                         }
-                        // TODO(nga): this assertion is correct,
-                        //   but we already have native code which violates it.
-                        //   Check `required_after_optional` proc-macro test for illustration.
-                        #[allow(clippy::overly_complex_bool_expr)]
-                        if false && req == ParamIsRequired::Yes && seen_optional {
+                        if req == ParamIsRequired::Yes && seen_optional {
                             return Err(other_error!(
                                 "required positional or named parameter after optional"
                             ));
