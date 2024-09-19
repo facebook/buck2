@@ -492,23 +492,30 @@ enum Purpose {
 // Or return None if you don't need a signature
 fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     let name_str = ident_string(&x.name);
-    let (num_pos, num_pos_only) = validate_signature_args(&x.args)?;
+    let ParametersSpecArgs {
+        pos_only,
+        pos_or_named,
+        args,
+        named_only,
+        kwargs,
+    } = parameter_spec_args(&x.args, purpose)?;
 
-    let sig_args: Vec<syn::Expr> = x
-        .args
+    let pos_only: Vec<syn::Expr> = pos_only.iter().map(SignatureRegularArg::render).collect();
+    let pos_or_named: Vec<syn::Expr> = pos_or_named
         .iter()
-        .filter_map(|a| render_signature_arg(a, purpose).transpose())
-        .collect::<Result<_, _>>()?;
+        .map(SignatureRegularArg::render)
+        .collect();
+    let named_only: Vec<syn::Expr> = named_only.iter().map(SignatureRegularArg::render).collect();
 
     Ok(quote! {
         {
             starlark::__derive_refs::sig::parameter_spec(
                 #name_str,
-                #num_pos,
-                #num_pos_only,
-                &[
-                    #( #sig_args ),*
-                ]
+                &[#(#pos_only),*],
+                &[#(#pos_or_named),*],
+                #args,
+                &[#(#named_only),*],
+                #kwargs,
             )
         }
     })
@@ -592,8 +599,82 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     ))
 }
 
+enum SignatureRegularArgMode {
+    Required,
+    Optional,
+    Defaulted(syn::Expr),
+}
+
+impl SignatureRegularArgMode {
+    fn from_star_arg(arg: &StarArg, purpose: Purpose) -> SignatureRegularArgMode {
+        if arg.is_option() {
+            SignatureRegularArgMode::Optional
+        } else if let Some(default) = &arg.default {
+            // For things that are type Value, we put them on the frozen heap.
+            // For things that aren't type value, use optional and then next_opt/unwrap
+            // to avoid the to/from value conversion.
+            if arg.is_value() {
+                SignatureRegularArgMode::Defaulted(syn::parse_quote! {
+                    globals_builder.alloc(#default)
+                })
+            } else if purpose == Purpose::Documentation
+                && render_default_as_frozen_value(default).is_some()
+            {
+                // We want the repr of the default argument to show up, so pass it along
+                let frozen = render_default_as_frozen_value(default).unwrap();
+                SignatureRegularArgMode::Defaulted(frozen)
+            } else {
+                SignatureRegularArgMode::Optional
+            }
+        } else {
+            SignatureRegularArgMode::Required
+        }
+    }
+}
+
+/// Derive version of `NativeSigArg`.
+struct SignatureRegularArg {
+    name: String,
+    mode: SignatureRegularArgMode,
+}
+
+impl SignatureRegularArg {
+    fn from_star_arg(arg: &StarArg, purpose: Purpose) -> SignatureRegularArg {
+        SignatureRegularArg {
+            name: ident_string(&arg.name),
+            mode: SignatureRegularArgMode::from_star_arg(arg, purpose),
+        }
+    }
+
+    fn render(&self) -> syn::Expr {
+        let name_str = &self.name;
+        match &self.mode {
+            SignatureRegularArgMode::Required => {
+                syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Required(#name_str) }
+            }
+            SignatureRegularArgMode::Optional => {
+                syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Optional(#name_str) }
+            }
+            SignatureRegularArgMode::Defaulted(value) => {
+                syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Defaulted(#name_str, #value) }
+            }
+        }
+    }
+}
+
+/// Arguments to pass to `parameter_spec` to render `ParametersSpec`.
+struct ParametersSpecArgs {
+    pos_only: Vec<SignatureRegularArg>,
+    pos_or_named: Vec<SignatureRegularArg>,
+    /// `*args`.
+    args: bool,
+    named_only: Vec<SignatureRegularArg>,
+    /// `**kwargs`.
+    kwargs: bool,
+}
+
 /// Return the number of positional and positional-only arguments.
-fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
+fn parameter_spec_args(star_args: &[StarArg], purpose: Purpose) -> syn::Result<ParametersSpecArgs> {
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
     enum CurrentParamStyle {
         PosOnly,
@@ -602,12 +683,16 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
         NoMore,
     }
 
-    let mut num_pos = 0;
-    let mut num_pos_only = 0;
     let mut seen_optional = false;
 
+    let mut pos_only = Vec::new();
+    let mut pos_or_named = Vec::new();
+    let mut args = false;
+    let mut named_only = Vec::new();
+    let mut kwargs = false;
+
     let mut last_param_style = CurrentParamStyle::PosOnly;
-    for arg in args {
+    for arg in star_args {
         match arg.pass_style {
             StarArgPassStyle::This => {
                 continue;
@@ -619,6 +704,13 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
                         "`args` cannot follow named-only parameters",
                     ));
                 }
+                if args {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Cannot have more than one `args` parameter (internal error)",
+                    ));
+                }
+                args = true;
                 last_param_style = CurrentParamStyle::NamedOnly;
             }
             StarArgPassStyle::Kwargs => {
@@ -628,6 +720,13 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
                         "Cannot have more than one `kwargs` parameter",
                     ));
                 }
+                if kwargs {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Cannot have more than one `kwargs` parameter (internal error)",
+                    ));
+                }
+                kwargs = true;
                 last_param_style = CurrentParamStyle::NoMore;
             }
             StarArgPassStyle::PosOnly => {
@@ -638,14 +737,18 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
                     ));
                 }
                 last_param_style = CurrentParamStyle::PosOnly;
+                pos_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
             }
             StarArgPassStyle::Default => {
                 last_param_style = match last_param_style {
-                    CurrentParamStyle::PosOnly => CurrentParamStyle::PosOrNamed,
-                    CurrentParamStyle::PosOrNamed => CurrentParamStyle::PosOrNamed,
+                    CurrentParamStyle::PosOnly | CurrentParamStyle::PosOrNamed => {
+                        pos_or_named.push(SignatureRegularArg::from_star_arg(arg, purpose));
+                        CurrentParamStyle::PosOrNamed
+                    }
                     CurrentParamStyle::NamedOnly => {
                         // After named parameters, following parameters cannot be positional,
                         // so defaut means named-only.
+                        named_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
                         CurrentParamStyle::NamedOnly
                     }
                     CurrentParamStyle::NoMore => {
@@ -663,6 +766,7 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
                         "Named-only parameter cannot follow kwargs",
                     ));
                 }
+                named_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
                 last_param_style = CurrentParamStyle::NamedOnly;
             }
             StarArgPassStyle::Arguments => {
@@ -671,12 +775,6 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
                     "unreachable: signature is not meant to be created for `&Arguments`",
                 ));
             }
-        }
-        if last_param_style <= CurrentParamStyle::PosOnly {
-            num_pos_only += 1;
-        }
-        if last_param_style <= CurrentParamStyle::PosOrNamed {
-            num_pos += 1;
         }
 
         let optional = arg.default.is_some() || arg.is_option();
@@ -692,55 +790,13 @@ fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
 
         seen_optional |= optional;
     }
-    Ok((num_pos, num_pos_only))
-}
-
-// Generate a statement that modifies signature to add a new argument in.
-fn render_signature_arg(arg: &StarArg, purpose: Purpose) -> syn::Result<Option<Expr>> {
-    let name_str = ident_string(&arg.name);
-
-    if arg.pass_style == StarArgPassStyle::Args {
-        assert!(arg.default.is_none(), "Can't have *args with a default");
-        Ok(Some(
-            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Args },
-        ))
-    } else if arg.pass_style == StarArgPassStyle::Kwargs {
-        assert!(arg.default.is_none(), "Can't have **kwargs with a default");
-        Ok(Some(
-            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Kwargs },
-        ))
-    } else if arg.pass_style == StarArgPassStyle::This {
-        Ok(None)
-    } else if arg.is_option() {
-        Ok(Some(
-            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Optional(#name_str) },
-        ))
-    } else if let Some(default) = &arg.default {
-        // For things that are type Value, we put them on the frozen heap.
-        // For things that aren't type value, use optional and then next_opt/unwrap
-        // to avoid the to/from value conversion.
-        if arg.is_value() {
-            Ok(Some(syn::parse_quote! {
-                starlark::__derive_refs::sig::NativeSigArg::Defaulted(#name_str, globals_builder.alloc(#default))
-            }))
-        } else if purpose == Purpose::Documentation
-            && render_default_as_frozen_value(default).is_some()
-        {
-            // We want the repr of the default arugment to show up, so pass it along
-            let frozen = render_default_as_frozen_value(default).unwrap();
-            Ok(Some(syn::parse_quote! {
-                starlark::__derive_refs::sig::NativeSigArg::Defaulted(#name_str, #frozen)
-            }))
-        } else {
-            Ok(Some(syn::parse_quote! {
-                starlark::__derive_refs::sig::NativeSigArg::Optional(#name_str)
-            }))
-        }
-    } else {
-        Ok(Some(syn::parse_quote! {
-            starlark::__derive_refs::sig::NativeSigArg::Required(#name_str)
-        }))
-    }
+    Ok(ParametersSpecArgs {
+        pos_only,
+        pos_or_named,
+        args,
+        named_only,
+        kwargs,
+    })
 }
 
 /// We have an argument that the user wants to use as a default.
