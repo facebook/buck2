@@ -84,7 +84,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         let mut seen_optional = false;
 
         let mut params = Vec::with_capacity(ast_params.len());
-        let mut num_positional = None;
+        let mut num_positional = 0;
         // Index of `*` parameter, if any.
         let mut index_of_star = None;
 
@@ -117,6 +117,9 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                         Some(_default_value) => {
                             seen_optional = true;
                         }
+                    }
+                    if !seen_args {
+                        num_positional += 1;
                     }
                     params.push(Spanned {
                         span,
@@ -189,14 +192,6 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     });
                 }
             }
-
-            if matches!(
-                param.node,
-                ParameterP::Args(..) | ParameterP::KwArgs(..) | ParameterP::NoArgs
-            ) && num_positional.is_none()
-            {
-                num_positional = Some(i);
-            }
         }
 
         if let Some(index_of_star) = index_of_star {
@@ -224,7 +219,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         }
 
         Ok(DefParams {
-            num_positional: u32::try_from(num_positional.unwrap_or(params.len())).unwrap(),
+            num_positional: u32::try_from(num_positional).unwrap(),
             params,
         })
     }
