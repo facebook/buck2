@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-//! The boolean type (`False` and `True`).
-//!
-//! Can be created with [`Value::new_bool`](crate::values::Value::new_bool)
-//! and unwrapped with [`Value::unpack_bool`](crate::values::Value::unpack_bool).
-//! Unlike most Starlark values, these aren't actually allocated on the [`Heap`](crate::values::Heap),
-//! but as special values.
+use std::convert::Infallible;
 
-mod alloc;
-mod type_repr;
-mod unpack;
-pub(crate) mod value;
+use crate::values::UnpackValue;
+use crate::values::Value;
 
-pub use value::StarlarkBool;
-pub use value::BOOL_TYPE;
+impl UnpackValue<'_> for bool {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value) -> Result<Option<Self>, Self::Error> {
+        Ok(value.unpack_bool())
+    }
+}

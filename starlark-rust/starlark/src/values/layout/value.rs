@@ -65,7 +65,7 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
 use crate::typing::Ty;
-use crate::values::bool::VALUE_FALSE_TRUE;
+use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::dict::FrozenDictRef;

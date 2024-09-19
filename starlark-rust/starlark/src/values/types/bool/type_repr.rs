@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-//! The boolean type (`False` and `True`).
-//!
-//! Can be created with [`Value::new_bool`](crate::values::Value::new_bool)
-//! and unwrapped with [`Value::unpack_bool`](crate::values::Value::unpack_bool).
-//! Unlike most Starlark values, these aren't actually allocated on the [`Heap`](crate::values::Heap),
-//! but as special values.
+use crate::typing::Ty;
+use crate::values::bool::StarlarkBool;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::StarlarkValue;
 
-mod alloc;
-mod type_repr;
-mod unpack;
-pub(crate) mod value;
+impl StarlarkTypeRepr for bool {
+    type Canonical = <StarlarkBool as StarlarkTypeRepr>::Canonical;
 
-pub use value::StarlarkBool;
-pub use value::BOOL_TYPE;
+    fn starlark_type_repr() -> Ty {
+        StarlarkBool::get_type_starlark_repr()
+    }
+}
