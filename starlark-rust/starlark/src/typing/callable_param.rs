@@ -21,6 +21,8 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_map::small_set::SmallSet;
+use starlark_syntax::other_error;
 
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
@@ -194,7 +196,90 @@ impl ParamSpec {
         if params.as_slice() == Self::any().params() {
             Ok(ParamSpec::any())
         } else {
-            // TODO(nga): validate.
+            #[derive(Ord, PartialOrd, Eq, PartialEq)]
+            enum State {
+                PosOnly,
+                PosOrName,
+                Args,
+                NameOnly,
+                Kwargs,
+            }
+
+            let mut names = SmallSet::new();
+
+            let mut state = State::PosOnly;
+
+            let mut seen_optional = false;
+
+            for param in &params {
+                if let Some(name) = param.name() {
+                    if !names.insert(name) {
+                        return Err(other_error!("duplicate parameter name: `{}`", name));
+                    }
+                }
+
+                match param.mode {
+                    ParamMode::PosOnly(req) => {
+                        if state > State::PosOnly {
+                            return Err(other_error!(
+                                "positional only parameters may only be in the beginning"
+                            ));
+                        }
+                        if req == ParamIsRequired::Yes && seen_optional {
+                            return Err(other_error!(
+                                "required positional only parameter after optional"
+                            ));
+                        }
+                        if req == ParamIsRequired::No {
+                            seen_optional = true;
+                        }
+                        state = State::PosOnly;
+                    }
+                    ParamMode::PosOrName(_, req) => {
+                        if state > State::PosOrName {
+                            return Err(other_error!(
+                                "positional or named parameters may only follow positional only"
+                            ));
+                        }
+                        // TODO(nga): this assertion is correct,
+                        //   but we already have native code which violates it.
+                        //   Check `required_after_optional` proc-macro test for illustration.
+                        #[allow(clippy::overly_complex_bool_expr)]
+                        if false && req == ParamIsRequired::Yes && seen_optional {
+                            return Err(other_error!(
+                                "required positional or named parameter after optional"
+                            ));
+                        }
+                        if req == ParamIsRequired::No {
+                            seen_optional = true;
+                        }
+                        state = State::PosOrName;
+                    }
+                    ParamMode::Args => {
+                        if state >= State::Args {
+                            return Err(other_error!("*args must not come after *-args"));
+                        }
+                        state = State::Args;
+                    }
+                    ParamMode::NameOnly(_, req) => {
+                        if state > State::NameOnly {
+                            return Err(other_error!("named only parameters may only follow star"));
+                        }
+                        if req == ParamIsRequired::No {
+                            // This is no-op, but update for consistency.
+                            seen_optional = true;
+                        }
+                        state = State::NameOnly;
+                    }
+                    ParamMode::Kwargs => {
+                        if state >= State::Kwargs {
+                            return Err(other_error!("**kwargs must be the last parameter"));
+                        }
+                        state = State::Kwargs;
+                    }
+                }
+            }
+
             Ok(ParamSpec {
                 params: SmallArcVec1OrStatic::clone_from_slice(&params),
             })
