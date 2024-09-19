@@ -18,7 +18,11 @@ use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -30,6 +34,8 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::plugins::PluginListElemKind;
@@ -37,6 +43,7 @@ use buck2_core::plugins::PluginLists;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
@@ -1445,17 +1452,79 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     &reason.cause,
                     &IncompatiblePlatformReasonCause::Dependency(_)
                 ) {
-                    soft_error!(
-                        "dep_only_incompatible", reason.to_err().into(),
-                        quiet: false,
-                        // Log at least one sample per unique package.
-                        low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg()))
-                    )?;
+                    if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
+                        return Err(reason.to_err());
+                    } else {
+                        soft_error!(
+                            "dep_only_incompatible", reason.to_err().into(),
+                            quiet: false,
+                            // Log at least one sample per unique package.
+                            low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg()))
+                        )?;
+                    }
                 }
             }
         }
         Ok(maybe_compatible_node)
     }
+}
+
+async fn check_error_on_incompatible_dep(
+    ctx: &mut DiceComputations<'_>,
+    target_label: &TargetLabel,
+) -> anyhow::Result<bool> {
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    struct ErrorOnIncompatibleDepKey;
+
+    #[async_trait]
+    impl Key for ErrorOnIncompatibleDepKey {
+        type Value = buck2_error::Result<Arc<Vec<ParsedPattern<TargetPatternExtra>>>>;
+
+        async fn compute(
+            &self,
+            mut ctx: &mut DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
+            let cell_resolver = ctx.get_cell_resolver().await?;
+            let root_cell = cell_resolver.root_cell();
+            let alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
+            let root_conf = ctx.get_legacy_root_config_on_dice().await?;
+            let patterns: Vec<String> = root_conf
+                .view(&mut ctx)
+                .parse_list(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "error_on_dep_only_incompatible",
+                })?
+                .unwrap_or_default();
+
+            let mut result = Vec::new();
+            for pattern in patterns {
+                result.push(ParsedPattern::parse_precise(
+                    pattern.trim(),
+                    root_cell,
+                    &cell_resolver,
+                    &alias_resolver,
+                )?);
+            }
+            Ok(result.into())
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            match (x, y) {
+                (Ok(x), Ok(y)) => x == y,
+                _ => false,
+            }
+        }
+    }
+
+    let patterns = ctx.compute(&ErrorOnIncompatibleDepKey).await??;
+    for pattern in patterns.iter() {
+        if pattern.matches(target_label) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 #[allow(unused)]
