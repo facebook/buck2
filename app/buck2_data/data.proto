@@ -303,6 +303,8 @@ message InstantEvent {
     SystemInfo system_info = 40;
 
     VersionControlRevision version_control_revision = 42;
+
+    TargetCfg target_cfg = 43;
   }
 }
 
@@ -547,6 +549,14 @@ message VersionControlRevision {
   // Unset: Unknown state.
   optional bool has_local_changes = 2;
   optional string command_error = 3;
+}
+
+// Event sent during build commands
+// providing information about global configuration options.
+message TargetCfg {
+  // resolved target platforms
+  repeated string target_platforms = 1;
+  repeated string cli_modifiers = 2;
 }
 
 // A snapshot of current system state, with useful info.
