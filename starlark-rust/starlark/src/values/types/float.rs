@@ -18,6 +18,7 @@
 //! The floating point number type (3.14, 4e2).
 
 pub(crate) mod float;
+pub(crate) mod globals;
 pub(crate) mod unpack;
 
 pub use crate::values::types::float::float::StarlarkFloat;
