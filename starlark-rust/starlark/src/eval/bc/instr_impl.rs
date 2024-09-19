@@ -1408,11 +1408,11 @@ impl InstrNoFlowImpl for InstrDefImpl {
         for (i, x) in def_data.params.params.iter().enumerate() {
             let i = i as u32;
 
-            if i == def_data.params.num_positional_only && !x.is_star_or_star_star() {
+            if i == def_data.params.indices.num_positional_only && !x.is_star_or_star_star() {
                 parameters.no_more_positional_only_args();
             }
 
-            if i == def_data.params.num_positional && !x.is_star_or_star_star() {
+            if i == def_data.params.indices.num_positional && !x.is_star_or_star_star() {
                 parameters.no_more_positional_args();
             }
 

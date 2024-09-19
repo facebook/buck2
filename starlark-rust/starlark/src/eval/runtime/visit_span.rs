@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use starlark_syntax::syntax::def::DefParamIndices;
 use starlark_syntax::syntax::def::DefRegularParamMode;
 
 use crate::collections::symbol::symbol::Symbol;
@@ -129,5 +130,9 @@ impl<V: VisitSpanMut> VisitSpanMut for Option<V> {
 }
 
 impl VisitSpanMut for DefRegularParamMode {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
+}
+
+impl VisitSpanMut for DefParamIndices {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }

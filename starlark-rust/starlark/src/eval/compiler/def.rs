@@ -218,12 +218,7 @@ impl<T> ParameterCompiled<T> {
 #[derive(Debug, Clone, VisitSpanMut)]
 pub(crate) struct ParametersCompiled<T> {
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
-    /// Number of parameters which can be filled positionally.
-    /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
-    pub(crate) num_positional: u32,
-    /// Number of parameters which can be filled positionally only.
-    /// This is less or equal to `num_positional`.
-    pub(crate) num_positional_only: u32,
+    pub(crate) indices: DefParamIndices,
 }
 
 impl<T> ParametersCompiled<T> {
@@ -451,16 +446,7 @@ impl Compiler<'_, '_, '_, '_> {
         let function_name = format!("{}.{}", file.file.filename(), name);
         let name = self.eval.frozen_heap().alloc_str_intern(name);
 
-        let DefParams {
-            params,
-            indices:
-                DefParamIndices {
-                    num_positional,
-                    num_positional_only,
-                    args: _,
-                    kwargs: _,
-                },
-        } = match DefParams::unpack(params, &self.codemap) {
+        let DefParams { params, indices } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
             Err(e) => return Err(CompilerInternalError::from_eval_exception(e)),
         };
@@ -471,11 +457,7 @@ impl Compiler<'_, '_, '_, '_> {
             .iter()
             .map(|x| self.parameter(x))
             .collect::<Result<_, CompilerInternalError>>()?;
-        let params = ParametersCompiled {
-            params,
-            num_positional,
-            num_positional_only,
-        };
+        let params = ParametersCompiled { params, indices };
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
         let ty = Ty::function(

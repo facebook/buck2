@@ -45,8 +45,7 @@ impl DefCompiled {
 
         let ParametersCompiled {
             params: param_list,
-            num_positional,
-            num_positional_only,
+            indices,
         } = params;
 
         let how_many_slots_we_need = params.count_exprs();
@@ -66,8 +65,7 @@ impl DefCompiled {
 
             let params = ParametersCompiled {
                 params,
-                num_positional: *num_positional,
-                num_positional_only: *num_positional_only,
+                indices: *indices,
             };
             let instr_def_data = InstrDefData {
                 function_name,
