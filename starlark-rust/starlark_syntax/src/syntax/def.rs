@@ -16,6 +16,7 @@
  */
 
 use std::collections::HashSet;
+use std::ops::Range;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -71,6 +72,20 @@ pub struct DefParamIndices {
     /// Index of `**kwargs` parameter, if any.
     /// If present, equal to the number of parameters minus 1.
     pub kwargs: Option<u32>,
+}
+
+impl DefParamIndices {
+    pub fn pos_only(&self) -> Range<u32> {
+        0..self.num_positional_only
+    }
+
+    pub fn pos_or_named(&self) -> Range<u32> {
+        self.num_positional_only..self.num_positional
+    }
+
+    pub fn named_only(&self, param_count: u32) -> Range<u32> {
+        self.args.map(|a| a + 1).unwrap_or(self.num_positional)..self.kwargs.unwrap_or(param_count)
+    }
 }
 
 /// Post-processed AST for function parameters.

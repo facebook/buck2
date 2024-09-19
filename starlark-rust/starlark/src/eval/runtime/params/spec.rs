@@ -380,15 +380,11 @@ impl<V> ParametersSpec<V> {
         let mut s = String::new();
         fmt_param_spec(
             &mut s,
-            (0..self.indices.num_positional_only).map(pf),
-            (self.indices.num_positional_only..self.indices.num_positional).map(pf),
+            self.indices.pos_only().map(pf),
+            self.indices.pos_or_named().map(pf),
             self.indices.args.map(pf),
-            (self
-                .indices
-                .args
-                .map(|a| a + 1)
-                .unwrap_or(self.indices.num_positional)
-                ..self.indices.kwargs.unwrap_or(self.param_kinds.len() as u32))
+            self.indices
+                .named_only(self.param_kinds.len() as u32)
                 .map(pf),
             self.indices.kwargs.map(pf),
         )
