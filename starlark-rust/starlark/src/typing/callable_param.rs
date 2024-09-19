@@ -126,8 +126,18 @@ impl Param {
         }
     }
 
+    pub(crate) fn name(&self) -> Option<&str> {
+        match &self.mode {
+            ParamMode::PosOnly(_) => None,
+            ParamMode::PosOrName(x, _) => Some(x.as_str()),
+            ParamMode::NameOnly(x, _) => Some(x.as_str()),
+            ParamMode::Args => None,
+            ParamMode::Kwargs => None,
+        }
+    }
+
     /// Get a display name for this parameter.
-    pub fn name(&self) -> &str {
+    pub(crate) fn name_display(&self) -> &str {
         match &self.mode {
             ParamMode::PosOnly(_) => "_",
             ParamMode::PosOrName(x, _) => x,

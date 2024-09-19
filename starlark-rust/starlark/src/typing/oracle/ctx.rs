@@ -180,7 +180,7 @@ impl<'a> TypingOracleCtx<'a> {
             let (name, ty) = &arg.node;
             let mut success = false;
             for (i, param) in params.params().iter().enumerate() {
-                if param.name() == *name || param.mode == ParamMode::Kwargs {
+                if param.name() == Some(*name) || param.mode == ParamMode::Kwargs {
                     param_args[i].push(Spanned {
                         span: arg.span,
                         node: ty,
@@ -215,7 +215,7 @@ impl<'a> TypingOracleCtx<'a> {
                             return Err(self.mk_error_as_maybe_internal(
                                 span,
                                 TypingOracleCtxError::MissingRequiredParameter {
-                                    name: param.name().to_owned(),
+                                    name: param.name_display().to_owned(),
                                 },
                             ));
                         }
