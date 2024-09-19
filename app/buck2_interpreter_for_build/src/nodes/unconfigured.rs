@@ -21,6 +21,7 @@ use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::call_stack::StarlarkCallStackImpl;
+use buck2_node::call_stack::StarlarkTargetCallStackRoot;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
@@ -137,6 +138,18 @@ impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
 
     fn hash(&self, mut state: &mut dyn Hasher) {
         self.0.hash(&mut state);
+    }
+
+    fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
+        self.0
+            .frames
+            .first()
+            .and_then(|l| l.location.as_ref())
+            .map(|l| l.resolve().begin_file_line())
+            .map(|l| StarlarkTargetCallStackRoot {
+                file: l.file.clone(),
+                line: l.line,
+            })
     }
 }
 

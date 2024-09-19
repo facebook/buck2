@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -16,10 +15,19 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use cmp_any::PartialEqAny;
 
+// Duplicate of starlark_syntax::codemap::ResolvedFileLine
+pub struct StarlarkTargetCallStackRoot {
+    /// File name.
+    pub file: String,
+    /// Line number is 0-based
+    pub line: usize,
+}
+
 /// Untyped version of `starlark::eval::CallStack`.
 pub trait StarlarkCallStackImpl: Display + Debug + Send + Sync + 'static {
     fn eq_token(&self) -> PartialEqAny;
     fn hash(&self, hashed: &mut dyn Hasher);
+    fn root_location(&self) -> Option<StarlarkTargetCallStackRoot>;
 }
 
 /// `buck2_node` crate does not depend on `starlark`, but need to store Starlark call stack.
@@ -56,5 +64,9 @@ impl StarlarkCallStack {
         StarlarkCallStack {
             call_stack: Box::new(call_stack),
         }
+    }
+
+    pub fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
+        self.call_stack.root_location()
     }
 }

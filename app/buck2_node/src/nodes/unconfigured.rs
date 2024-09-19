@@ -38,6 +38,7 @@ use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
 use crate::call_stack::StarlarkCallStack;
+use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
@@ -136,6 +137,10 @@ impl TargetNodeData {
 
     pub fn call_stack(&self) -> Option<String> {
         self.call_stack.as_ref().map(|s| s.to_string())
+    }
+
+    pub fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
+        self.call_stack.as_ref().and_then(|s| s.root_location())
     }
 }
 
