@@ -32,6 +32,10 @@ use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
+// https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
+// "The process cannot access the file because it is being used by another process."
+pub const ERROR_SHARING_VIOLATION: i32 = 32;
+
 fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
     'from_kind: {
         let from_kind = match e.kind() {
@@ -55,6 +59,10 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
                 _ => break 'from_os,
             };
             return Some(from_os);
+        }
+
+        if cfg!(windows) && os_error_code == ERROR_SHARING_VIOLATION {
+            return Some(ErrorTag::IoWindowsSharingViolation);
         }
     }
 

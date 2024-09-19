@@ -131,6 +131,8 @@ enum ErrorTag {
   IO_CONNECTION_ABORTED = 1025;
   IO_NOT_CONNECTED = 1026;
   IO_TIMEOUT = 1027;
+  IO_WINDOWS_SHARING_VIOLATION = 1028;
+
   //
   // Eden IO Section
   // Indicates that the IO operation went through Eden

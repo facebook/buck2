@@ -42,7 +42,9 @@ fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
 #[cfg(windows)]
 fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
     use buck2_error::ErrorTag;
-    if error.has_tag(ErrorTag::IoExecutableFileBusy) | error.has_tag(ErrorTag::IoPermissionDenied) {
+    if error.has_tag(ErrorTag::IoWindowsSharingViolation)
+        | error.has_tag(ErrorTag::IoPermissionDenied)
+    {
         error
             .tag([ErrorTag::IoMaterializerFileBusy])
             .context("Binary being executed, please close the process first")
