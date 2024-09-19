@@ -68,11 +68,6 @@ _IndexLinkData = record(
     link_data = field([_BitcodeLinkData, _ArchiveLinkData]),
 )
 
-_PrePostFlags = record(
-    pre_flags = list,
-    post_flags = list,
-)
-
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
@@ -156,7 +151,7 @@ def cxx_darwin_dist_link(
     # the actual artifacts.
     index_link_data = []
     linkables_index = {}
-    pre_post_flags = {}
+    linker_flags = []
     common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
 
@@ -166,13 +161,6 @@ def cxx_darwin_dist_link(
             linkables_index[idx] = [linkable]
         else:
             linkables_index[idx].append(linkable)
-
-    # buildifier: disable=uninitialized
-    def add_pre_post_flags(idx: int, flags: _PrePostFlags):
-        if idx not in pre_post_flags:
-            pre_post_flags[idx] = [flags]
-        else:
-            pre_post_flags[idx].append(flags)
 
     # Information used to construct the dynamic plan:
     plan_inputs = []
@@ -187,10 +175,8 @@ def cxx_darwin_dist_link(
         link_name = name_for_link(link)
         idx = len(index_link_data)
 
-        add_pre_post_flags(idx, _PrePostFlags(
-            pre_flags = link.pre_flags,
-            post_flags = link.post_flags,
-        ))
+        linker_flags.append(link.pre_flags)
+        linker_flags.append(link.post_flags)
 
         for linkable in link.linkables:
             if isinstance(linkable, ObjectsLinkable):
@@ -268,18 +254,6 @@ def cxx_darwin_dist_link(
 
     def prepare_index_flags(include_inputs: bool, index_args_out: cmd_args, index_meta_args_out: cmd_args, ctx: AnalysisContext, artifacts, outputs):
         # buildifier: disable=uninitialized
-        def add_pre_flags(idx: int):
-            if idx in pre_post_flags:
-                for flags in pre_post_flags[idx]:
-                    index_args_out.add(flags.pre_flags)
-
-        # buildifier: disable=uninitialized
-        def add_post_flags(idx: int):
-            if idx in pre_post_flags:
-                for flags in pre_post_flags[idx]:
-                    index_args_out.add(flags.post_flags)
-
-        # buildifier: disable=uninitialized
         def add_linkables_args(idx: int):
             if idx in linkables_index:
                 object_link_arg = cmd_args()
@@ -289,9 +263,11 @@ def cxx_darwin_dist_link(
                         append_linkable_args(object_link_arg, linkable)
                 index_args_out.add(object_link_arg)
 
+        for flag in linker_flags:
+            index_args_out.add(flag)
+
         # buildifier: disable=uninitialized
         for idx, artifact in enumerate(index_link_data):
-            add_pre_flags(idx)
             add_linkables_args(idx)
 
             if include_inputs:
@@ -322,17 +298,13 @@ def cxx_darwin_dist_link(
                     if not link_data.link_whole:
                         index_args_out.add("-Wl,--end-lib")
 
-            add_post_flags(idx)
-
         # pre and post flags are normally associated with an index into index_link_data where
         # we store data about a linkable. In this case by linkable, we mean an input to the linker (ie. object file)
         # In some cases, we create LinkInfo that contains only flags, no linkables. For example, we collect `-framework Foundation`
         # style flags to deduplicate them and create a LinkInfo with only flags, no associated linkable. If this LinkInfo is
         # last in the input, there won't be a corresponding entry in index_link_data, and these flags will be dropped
         # from the thin-link invocation. Here we explicitly handle this case.
-        add_pre_flags(len(index_link_data))
         add_linkables_args(len(index_link_data))
-        add_post_flags(len(index_link_data))
 
         output_as_string = cmd_args(output, ignore_artifacts = True)
         index_args_out.add("-o", output_as_string)
@@ -549,8 +521,10 @@ def cxx_darwin_dist_link(
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
         current_index = 0
         opt_objects = []
+        for flag in linker_flags:
+            link_args.add(flag)
+
         for link in link_infos:
-            link_args.add(link.pre_flags)
             for linkable in link.linkables:
                 if isinstance(linkable, ObjectsLinkable):
                     for obj in linkable.objects:
@@ -563,7 +537,6 @@ def cxx_darwin_dist_link(
                     current_index += 1
                 elif isinstance(linkable, SharedLibLinkable):
                     append_linkable_args(link_args, linkable)
-            link_args.add(link.post_flags)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
         link_cmd = link_cmd_parts.link_cmd
