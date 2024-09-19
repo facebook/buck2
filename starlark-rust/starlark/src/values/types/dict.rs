@@ -20,6 +20,7 @@
 mod alloc;
 
 mod dict_type;
+pub(crate) mod globals;
 pub(crate) mod methods;
 pub(crate) mod refcell;
 mod refs;

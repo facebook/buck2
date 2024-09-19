@@ -18,6 +18,7 @@
 //! The list type, a mutable sequence of values.
 
 pub(crate) mod alloc;
+pub(crate) mod globals;
 mod list_type;
 pub(crate) mod methods;
 mod refs;
