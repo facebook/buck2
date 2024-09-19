@@ -60,7 +60,6 @@ _ArchiveLinkData = record(
 _DataType = enum(
     "bitcode",
     "archive",
-    "cmd_args",
 )
 
 _IndexLinkData = record(
