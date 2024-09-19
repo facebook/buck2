@@ -30,7 +30,6 @@ use crate::values::float::StarlarkFloat;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::int::PointerI32;
 use crate::values::list::AllocList;
-use crate::values::none::NoneType;
 use crate::values::num::value::Num;
 use crate::values::num::value::NumRef;
 use crate::values::string::repr::string_repr;
@@ -53,10 +52,6 @@ use crate::values::ValueOf;
 
 #[starlark_module]
 pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
-    /// The `None` value, used to represent nothing.
-    /// Implicitly returned from functions that don't have an explicit return.
-    const None: NoneType = NoneType;
-
     /// fail: fail the execution
     ///
     /// ```

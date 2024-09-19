@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-//! The `None` type.
+use starlark_derive::starlark_module;
 
-pub(crate) mod globals;
-mod none_or;
-pub(crate) mod none_type;
+use crate as starlark;
+use crate::environment::GlobalsBuilder;
+use crate::values::none::NoneType;
 
-pub use none_or::NoneOr;
-pub use none_type::NoneType;
+#[starlark_module]
+pub(crate) fn register_none(globals: &mut GlobalsBuilder) {
+    /// The `None` value, used to represent nothing.
+    /// Implicitly returned from functions that don't have an explicit return.
+    const None: NoneType = NoneType;
+}
