@@ -74,13 +74,21 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         ast_params: &'a [AstParameterP<P>],
         codemap: &CodeMap,
     ) -> Result<DefParams<'a, P>, EvalException> {
+        #[derive(Ord, PartialOrd, Eq, PartialEq)]
+        enum State {
+            Normal,
+            /// After `*` or `*args`.
+            SeenStar,
+            /// After `**kwargs`.
+            SeenStarStar,
+        }
+
         // you can't repeat argument names
         let mut argset = HashSet::new();
         // You can't have more than one *args/*, **kwargs
         // **kwargs must be last
         // You can't have a required `x` after an optional `y=1`
-        let mut seen_args = false;
-        let mut seen_kwargs = false;
+        let mut state = State::Normal;
         let mut seen_optional = false;
 
         let mut params = Vec::with_capacity(ast_params.len());
@@ -97,7 +105,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
             match &param.node {
                 ParameterP::Normal(n, ty, default_value) => {
-                    if seen_kwargs {
+                    if state >= State::SeenStarStar {
                         return Err(EvalException::parser_error(
                             "Parameter after kwargs",
                             param.span,
@@ -106,7 +114,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     }
                     match default_value {
                         None => {
-                            if seen_optional && !seen_args {
+                            if seen_optional && state < State::SeenStar {
                                 return Err(EvalException::parser_error(
                                     "positional parameter after non positional",
                                     param.span,
@@ -118,7 +126,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                             seen_optional = true;
                         }
                     }
-                    if !seen_args {
+                    if state < State::SeenStar {
                         num_positional += 1;
                     }
                     params.push(Spanned {
@@ -131,14 +139,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     });
                 }
                 ParameterP::NoArgs => {
-                    if seen_args || seen_kwargs {
+                    if state >= State::SeenStar {
                         return Err(EvalException::parser_error(
                             "Args parameter after another args or kwargs parameter",
                             param.span,
                             codemap,
                         ));
                     }
-                    seen_args = true;
+                    state = State::SeenStar;
                     if index_of_star.is_some() {
                         return Err(EvalException::internal_error(
                             "Multiple `*` in parameters, must have been caught earlier",
@@ -156,14 +164,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     ));
                 }
                 ParameterP::Args(n, ty) => {
-                    if seen_args || seen_kwargs {
+                    if state >= State::SeenStar {
                         return Err(EvalException::parser_error(
                             "Args parameter after another args or kwargs parameter",
                             param.span,
                             codemap,
                         ));
                     }
-                    seen_args = true;
+                    state = State::SeenStar;
                     params.push(Spanned {
                         span,
                         node: DefParam {
@@ -174,14 +182,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     });
                 }
                 ParameterP::KwArgs(n, ty) => {
-                    if seen_kwargs {
+                    if state >= State::SeenStarStar {
                         return Err(EvalException::parser_error(
                             "Multiple kwargs dictionary in parameters",
                             param.span,
                             codemap,
                         ));
                     }
-                    seen_kwargs = true;
+                    state = State::SeenStarStar;
                     params.push(Spanned {
                         span,
                         node: DefParam {
