@@ -277,21 +277,32 @@ impl<T> StarlarkResultExt<T> for crate::Result<T> {
     }
 }
 
+#[doc(hidden)]
+#[cold]
+pub fn internal_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new(ErrorKind::Internal(anyhow::anyhow!("{}", args)))
+}
+
+#[doc(hidden)]
+#[cold]
+pub fn other_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new(ErrorKind::Other(anyhow::anyhow!("{}", args)))
+}
+
+#[doc(hidden)]
+#[cold]
+pub fn value_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new(ErrorKind::Value(anyhow::anyhow!("{}", args)))
+}
+
 /// Internal error of starlark.
 #[macro_export]
 macro_rules! internal_error {
     ($format:literal) => {
         internal_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Internal(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::internal_error_impl(format_args!($format, $($args)*))
     };
 }
 
@@ -300,15 +311,8 @@ macro_rules! other_error {
     ($format:literal) => {
         other_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Other(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::other_error_impl(format_args!($format, $($args)*))
     };
 }
 
@@ -317,14 +321,7 @@ macro_rules! value_error {
     ($format:literal) => {
         value_error!($format,)
     };
-    ($format:literal, $($args:expr),*) => {
-        $crate::Error::new(
-            $crate::ErrorKind::Value(
-                anyhow::anyhow!(
-                    $format,
-                    $($args),*
-                )
-            )
-        )
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::value_error_impl(format_args!($format, $($args)*))
     };
 }
