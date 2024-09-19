@@ -57,14 +57,19 @@ _ArchiveLinkData = record(
     link_whole = bool,
 )
 
+_DynamicLibraryLinkData = record(
+    linkable = SharedLibLinkable,
+)
+
 _DataType = enum(
     "bitcode",
     "archive",
+    "dynamic_library",
 )
 
 _IndexLinkData = record(
     data_type = _DataType,
-    link_data = field([_BitcodeLinkData, _ArchiveLinkData]),
+    link_data = field([_BitcodeLinkData, _ArchiveLinkData, _DynamicLibraryLinkData]),
 )
 
 def cxx_darwin_dist_link(
@@ -149,17 +154,9 @@ def cxx_darwin_dist_link(
     # the plans produced by indexing. That allows us to map those indexes back to
     # the actual artifacts.
     index_link_data = []
-    linkables_index = {}
     linker_flags = []
     common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
-
-    # buildifier: disable=uninitialized
-    def add_linkable(idx: int, linkable: [ArchiveLinkable, SharedLibLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable, ObjectsLinkable, FrameworksLinkable]):
-        if idx not in linkables_index:
-            linkables_index[idx] = [linkable]
-        else:
-            linkables_index[idx].append(linkable)
 
     # Information used to construct the dynamic plan:
     plan_inputs = []
@@ -172,14 +169,12 @@ def cxx_darwin_dist_link(
 
     for link in link_infos:
         link_name = name_for_link(link)
-        idx = len(index_link_data)
 
         linker_flags.append(link.pre_flags)
         linker_flags.append(link.post_flags)
 
         for linkable in link.linkables:
             if isinstance(linkable, ObjectsLinkable):
-                add_linkable(idx, linkable)
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
                     bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
@@ -245,34 +240,33 @@ def cxx_darwin_dist_link(
                 archive_opt_manifests.append(archive_opt_manifest)
                 plan_inputs.extend([archive_manifest, archive_objects])
                 plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
+            elif isinstance(linkable, SharedLibLinkable):
+                data = _IndexLinkData(
+                    data_type = _DataType("dynamic_library"),
+                    link_data = _DynamicLibraryLinkData(linkable = linkable),
+                )
+                index_link_data.append(data)
+            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+                # These linkables are handled separately for flag deduplication purposes, as in append_linkable_args:
+                # https://www.internalfb.com/code/fbsource/[c6d2c820b394]/fbcode/buck2/prelude/linking/link_info.bzl?lines=271-278
+                pass
             else:
-                add_linkable(idx, linkable)
+                fail("Unhandled linkable type: {}".format(str(linkable)))
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
 
     def prepare_index_flags(include_inputs: bool, index_args_out: cmd_args, index_meta_args_out: cmd_args, ctx: AnalysisContext, artifacts, outputs):
-        # buildifier: disable=uninitialized
-        def add_linkables_args(idx: int):
-            if idx in linkables_index:
-                object_link_arg = cmd_args()
-                for linkable in linkables_index[idx]:
-                    # When we are not including inputs, dylibs we link against are the only linkables we are interested in for flag testing purposes.
-                    if include_inputs or isinstance(linkable, SharedLibLinkable):
-                        append_linkable_args(object_link_arg, linkable)
-                index_args_out.add(object_link_arg)
-
         for flag in linker_flags:
             index_args_out.add(flag)
 
-        # buildifier: disable=uninitialized
-        for idx, artifact in enumerate(index_link_data):
-            add_linkables_args(idx)
-
-            if include_inputs:
+        if include_inputs:
+            # buildifier: disable=uninitialized
+            for idx, artifact in enumerate(index_link_data):
                 link_data = artifact.link_data
 
                 if artifact.data_type == _DataType("bitcode"):
+                    index_args_out.add(link_data.initial_object)
                     index_meta_args_out.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
 
                 elif artifact.data_type == _DataType("archive"):
@@ -297,13 +291,11 @@ def cxx_darwin_dist_link(
                     if not link_data.link_whole:
                         index_args_out.add("-Wl,--end-lib")
 
-        # pre and post flags are normally associated with an index into index_link_data where
-        # we store data about a linkable. In this case by linkable, we mean an input to the linker (ie. object file)
-        # In some cases, we create LinkInfo that contains only flags, no linkables. For example, we collect `-framework Foundation`
-        # style flags to deduplicate them and create a LinkInfo with only flags, no associated linkable. If this LinkInfo is
-        # last in the input, there won't be a corresponding entry in index_link_data, and these flags will be dropped
-        # from the thin-link invocation. Here we explicitly handle this case.
-        add_linkables_args(len(index_link_data))
+                elif artifact.data_type == _DataType("dynamic_library"):
+                    append_linkable_args(index_args_out, link_data.linkable)
+
+                else:
+                    fail("Unhandled data type: {}".format(str(artifact.data_type)))
 
         output_as_string = cmd_args(output, ignore_artifacts = True)
         index_args_out.add("-o", output_as_string)
