@@ -65,7 +65,11 @@ pub trait TyCustomFunctionImpl:
     Debug,
     derive_more::Display
 )]
-#[display("\"function\"")]
+#[display(
+    "def({}) -> {}",
+    self.0.as_callable().params(),
+    self.0.as_callable().result(),
+)]
 pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 
 impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {

@@ -344,3 +344,66 @@ impl ParamSpec {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::fmt::Write;
+
+    use starlark_syntax::dialect::Dialect;
+    use starlark_syntax::golden_test_template::golden_test_template;
+    use starlark_syntax::syntax::AstModule;
+
+    use crate::environment::Globals;
+    use crate::typing::AstModuleTypecheck;
+
+    #[test]
+    fn test_param_spec_display() {
+        let functions = r#"
+def simple(x, y, z): pass
+def default_value(x, y=1, z=2): pass
+def param_type(x: int, y: str, z: int, w: list): pass
+def named_only_a(x, *, y): pass
+def named_only_b(*, y): pass
+def pos_only_a(x, /, y): pass
+def pos_only_b(x, /, *, y): pass
+def pos_only_c(x, /, *args): pass
+def pos_only_d(x, /, *args, **kwargs): pass
+"#;
+        let mut out = String::new();
+        let mut first = true;
+
+        for test in functions.lines() {
+            let test = test.trim();
+            if test.is_empty() {
+                continue;
+            }
+
+            let ast = AstModule::parse(
+                "test_param_spec_display.star",
+                test.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )
+            .unwrap();
+            let (errors, typemap, _interface, approximations) =
+                ast.typecheck(&Globals::standard(), &HashMap::new());
+            if let Some(error) = errors.into_iter().next() {
+                panic!("Error: {:?}", error);
+            }
+            assert!(approximations.is_empty());
+            let def = typemap.find_first_binding().unwrap();
+
+            if first {
+                first = false;
+            } else {
+                writeln!(out).unwrap();
+            }
+            write!(out, "{test}\n{def}\n").unwrap();
+        }
+
+        golden_test_template(
+            "src/typing/callable_param_test_param_spec_display.golden",
+            &out,
+        );
+    }
+}

@@ -166,6 +166,14 @@ impl TypeMap {
             )
             .collect()
     }
+
+    #[cfg(test)]
+    pub(crate) fn find_first_binding<'a>(&'a self) -> Option<&'a Ty> {
+        self.bindings
+            .entries_unordered()
+            .min_by_key(|(id, _)| *id)
+            .map(|(_, (_, _, ty))| ty)
+    }
 }
 
 /// Typecheck a module.
