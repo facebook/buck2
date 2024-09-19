@@ -633,6 +633,12 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
                 last_param_style = CurrentParamStyle::PosOrNamed;
             }
             StarArgPassStyle::NamedOnly => {
+                if last_param_style > CurrentParamStyle::NamedOnly {
+                    return Err(syn::Error::new(
+                        arg.span,
+                        "Named-only parameter cannot follow kwargs",
+                    ));
+                }
                 if last_param_style < CurrentParamStyle::NamedOnly {
                     sig_args.push(syn::parse_quote! {
                         starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalArgs
