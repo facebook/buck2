@@ -73,10 +73,7 @@ def rust_linkable_symbol(
         content_bytes = None,
         align_bytes = None,
         visibility = None,
-        rust_library_macro = None,
-        # Requires use of `advanced_unstable_linking` on the toolchain, as
-        # otherwise the panic handler is missing
-        support_nostd = False):
+        rust_library_macro = None):
     if (content_str == None) == (content_bytes == None):
         fail("rust_linkable_symbol requires exactly one of `content_str =` or `content_bytes =` to be passed")
 
@@ -115,7 +112,8 @@ def rust_linkable_symbol(
         rustc_flags = [
             "--cfg=rust_linkable_symbol_content_{}".format(kind),
             "--cfg=rust_linkable_symbol_align_bytes=\"{}\"".format(align_bytes or 1),
-        ] + ["--cfg=set_nostd"] if support_nostd else [],
+            "@$(location prelude//rust/tools:linkable_symbol_supports_no_std)",
+        ],
         visibility = [],
     )
 

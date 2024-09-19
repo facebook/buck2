@@ -30,3 +30,20 @@ get_rustc_cfg = rule(
         "_rust_toolchain": toolchains_common.rust(),
     },
 )
+
+def _linkable_symbol_supports_no_std_impl(ctx: AnalysisContext) -> list[Provider]:
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+
+    # `#[no_std]` requires use of `advanced_unstable_linking` on the toolchain,
+    # as otherwise the panic handler is missing.
+    cfg = "--cfg=set_nostd\n" if toolchain_info.advanced_unstable_linking else ""
+
+    flagfile = ctx.actions.write("cfg", cfg)
+    return [DefaultInfo(default_output = flagfile)]
+
+linkable_symbol_supports_no_std = rule(
+    impl = _linkable_symbol_supports_no_std_impl,
+    attrs = {
+        "_rust_toolchain": toolchains_common.rust(),
+    },
+)

@@ -1,5 +1,9 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load(":tool_rules.bzl", "get_rustc_cfg")
+load(
+    ":tool_rules.bzl",
+    "get_rustc_cfg",
+    "linkable_symbol_supports_no_std",
+)
 
 oncall("build_infra")
 
@@ -62,5 +66,10 @@ prelude.python_bootstrap_binary(
 
 prelude.export_file(
     name = "linkable_symbol.rs",
+    visibility = ["PUBLIC"],
+)
+
+linkable_symbol_supports_no_std(
+    name = "linkable_symbol_supports_no_std",
     visibility = ["PUBLIC"],
 )
