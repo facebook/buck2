@@ -25,7 +25,6 @@ use crate::typing::Ty;
 use crate::values::FrozenValue;
 
 /// A wrapper for the parameters to `GlobalsBuilder::set_function` and `MethodBuilder::set_method`
-#[allow(missing_docs)]
 pub struct NativeCallableComponents {
     pub speculative_exec_safe: bool,
     pub rust_docstring: Option<&'static str>,

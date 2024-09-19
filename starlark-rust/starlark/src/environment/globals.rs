@@ -23,6 +23,7 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 
+use crate::__derive_refs::components::NativeCallableComponents;
 use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
 use crate::docs::DocItem;
@@ -31,7 +32,6 @@ use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::docs::DocType;
-use crate::environment::NativeCallableComponents;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;

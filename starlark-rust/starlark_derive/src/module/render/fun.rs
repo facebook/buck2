@@ -588,7 +588,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     Ok(quote!(
         {
             let parameter_types = std::vec![#(#parameter_types),*];
-            starlark::environment::NativeCallableComponents {
+            starlark::__derive_refs::components::NativeCallableComponents {
                 speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
                 signature: #documentation_signature,

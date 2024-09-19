@@ -19,11 +19,11 @@ use dupe::Dupe;
 use once_cell::sync::OnceCell;
 use starlark_map::Hashed;
 
+use crate::__derive_refs::components::NativeCallableComponents;
 use crate::collections::symbol::map::SymbolMap;
 use crate::collections::symbol::symbol::Symbol;
 use crate::docs::DocType;
 use crate::environment::common_documentation;
-use crate::environment::NativeCallableComponents;
 use crate::typing::Ty;
 use crate::values::function::NativeAttr;
 use crate::values::function::NativeAttribute;
