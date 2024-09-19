@@ -95,12 +95,9 @@ impl TypeCheck {
         let globals = GlobalsBuilder::extended()
             .with(register_typecheck_globals)
             .build();
-        // `AstModule` is not `Clone`. Parse twice.
-        let ast0 =
+        let ast =
             AstModule::parse("filename", code.to_owned(), &Dialect::AllOptionsInternal).unwrap();
-        let ast1 =
-            AstModule::parse("filename", code.to_owned(), &Dialect::AllOptionsInternal).unwrap();
-        let (errors, typemap, interface, approximations) = ast0.typecheck(
+        let (errors, typemap, interface, approximations) = ast.clone().typecheck(
             &globals,
             &self
                 .loads
@@ -157,7 +154,7 @@ impl TypeCheck {
             eval.set_loader(&loader);
 
             eval.enable_static_typechecking(true);
-            let eval_result = eval.eval_module(ast1, &globals);
+            let eval_result = eval.eval_module(ast, &globals);
             match &eval_result {
                 Ok(_) => writeln!(output, "No errors.").unwrap(),
                 Err(err) => writeln!(output, "{}", err).unwrap(),
