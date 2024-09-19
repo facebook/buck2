@@ -28,6 +28,7 @@ use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_syntax::syntax::def::DefParamIndices;
 
 use crate as starlark;
 use crate::__macro_refs::coerce;
@@ -115,17 +116,8 @@ pub struct ParametersSpec<V> {
     /// Mapping from name to index where the argument lives.
     #[freeze(identity)]
     pub(crate) names: SymbolMap<u32>,
-
-    /// Number of arguments that can be filled only positionally.
-    positional_only: u32,
-    /// Number of arguments that can be filled positionally.
-    /// Excludes *args/**kwargs, keyword arguments after *args
-    positional: u32,
-
-    /// The index at which *args should go
-    args: Option<u32>,
-    /// The index at which **kwargs should go
-    kwargs: Option<u32>,
+    #[freeze(identity)]
+    indices: DefParamIndices,
 }
 
 impl<V: Copy> ParametersSpecBuilder<V> {
@@ -292,10 +284,12 @@ impl<V: Copy> ParametersSpecBuilder<V> {
             param_kinds: params.iter().map(|p| p.1).collect(),
             param_names: params.into_iter().map(|p| p.0).collect(),
             names,
-            positional_only,
-            positional,
-            args: args.map(|args| args.try_into().unwrap()),
-            kwargs: kwargs.map(|kwargs| kwargs.try_into().unwrap()),
+            indices: DefParamIndices {
+                num_positional_only: positional_only,
+                num_positional: positional,
+                args: args.map(|args| args.try_into().unwrap()),
+                kwargs: kwargs.map(|kwargs| kwargs.try_into().unwrap()),
+            },
         }
     }
 }
@@ -347,15 +341,15 @@ impl<V> ParametersSpec<V> {
             format!("<{}>", args)
         }
 
-        if let Some(args) = self.args {
-            if args != self.positional {
+        if let Some(args) = self.indices.args {
+            if args != self.indices.num_positional {
                 return err(format_args!(
                     "Inconsistent *args: {:?}, args={}, positional={}",
-                    self.function_name, args, self.positional
+                    self.function_name, args, self.indices.num_positional
                 ));
             }
         }
-        if let Some(kwargs) = self.kwargs {
+        if let Some(kwargs) = self.indices.kwargs {
             if kwargs as usize + 1 != self.param_kinds.len() {
                 return err(format_args!(
                     "Inconsistent **kwargs: {:?}, kwargs={}, param_kinds.len()={}",
@@ -386,13 +380,17 @@ impl<V> ParametersSpec<V> {
         let mut s = String::new();
         fmt_param_spec(
             &mut s,
-            (0..self.positional_only).map(pf),
-            (self.positional_only..self.positional).map(pf),
-            self.args.map(pf),
-            (self.args.map(|a| a + 1).unwrap_or(self.positional)
-                ..self.kwargs.unwrap_or(self.param_kinds.len() as u32))
+            (0..self.indices.num_positional_only).map(pf),
+            (self.indices.num_positional_only..self.indices.num_positional).map(pf),
+            self.indices.args.map(pf),
+            (self
+                .indices
+                .args
+                .map(|a| a + 1)
+                .unwrap_or(self.indices.num_positional)
+                ..self.indices.kwargs.unwrap_or(self.param_kinds.len() as u32))
                 .map(pf),
-            self.kwargs.map(pf),
+            self.indices.kwargs.map(pf),
         )
         .unwrap();
         s
@@ -421,9 +419,9 @@ impl<V> ParametersSpec<V> {
                 ParameterKind::Args => ParamIsRequired::No,
                 ParameterKind::KWargs => ParamIsRequired::No,
             };
-            let mode = if i < (self.positional_only as usize) {
+            let mode = if i < (self.indices.num_positional_only as usize) {
                 ParamMode::PosOnly(is_required)
-            } else if i < (self.positional as usize) {
+            } else if i < (self.indices.num_positional as usize) {
                 ParamMode::PosOrName(name.into(), is_required)
             } else {
                 match kind {
@@ -443,7 +441,7 @@ impl<V> ParametersSpec<V> {
     }
 
     pub(crate) fn has_args_or_kwargs(&self) -> bool {
-        self.args.is_some() || self.kwargs.is_some()
+        self.indices.args.is_some() || self.indices.kwargs.is_some()
     }
 }
 
@@ -501,7 +499,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         // If the arguments equal the length and the kinds, and we don't have any other args,
         // then no_args, *args and **kwargs must all be unset,
         // and we don't have to crate args/kwargs objects, we can skip everything else
-        if args.pos().len() == (self.positional as usize)
+        if args.pos().len() == (self.indices.num_positional as usize)
             && args.pos().len() == self.param_kinds.len()
             && args.named().is_empty()
             && args.args().is_none()
@@ -565,7 +563,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         let mut next_position = 0;
 
         // First deal with positional parameters
-        if args.pos().len() <= (self.positional as usize) {
+        if args.pos().len() <= (self.indices.num_positional as usize) {
             // fast path for when we don't need to bounce down to filling in args
             for (v, s) in args.pos().iter().zip(slots.iter()) {
                 s.set(Some(*v));
@@ -573,7 +571,7 @@ impl<'v> ParametersSpec<Value<'v>> {
             next_position = args.pos().len();
         } else {
             for v in args.pos() {
-                if next_position < (self.positional as usize) {
+                if next_position < (self.indices.num_positional as usize) {
                     slots[next_position].set(Some(*v));
                     next_position += 1;
                 } else {
@@ -609,7 +607,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 .iterate(heap)
                 .map_err(|_| FunctionError::ArgsArrayIsNotIterable)?
             {
-                if next_position < (self.positional as usize) {
+                if next_position < (self.indices.num_positional as usize) {
                     slots[next_position].set(Some(v));
                     next_position += 1;
                 } else {
@@ -692,7 +690,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         // Now set the kwargs/args slots, if they are requested, and fail it they are absent but used
         // Note that we deliberately give warnings about missing parameters _before_ giving warnings
         // about unexpected extra parameters, so if a user misspells an argument they get a better error.
-        if let Some(args_pos) = self.args {
+        if let Some(args_pos) = self.indices.args {
             slots[args_pos as usize].set(Some(heap.alloc_tuple(&star_args)));
         } else if unlikely(!star_args.is_empty()) {
             return Err(FunctionError::ExtraPositionalArg {
@@ -702,7 +700,7 @@ impl<'v> ParametersSpec<Value<'v>> {
             .into());
         }
 
-        if let Some(kwargs_pos) = self.kwargs {
+        if let Some(kwargs_pos) = self.indices.kwargs {
             slots[kwargs_pos as usize].set(Some(kwargs.alloc(heap)));
         } else if let Some(kwargs) = kwargs.kwargs {
             return Err(FunctionError::ExtraNamedArg {
@@ -719,15 +717,15 @@ impl<'v> ParametersSpec<Value<'v>> {
     fn can_fill_with_args_impl(&self, pos: usize, names: &[&str]) -> bool {
         let mut filled = vec![false; self.param_kinds.len()];
         for p in 0..pos {
-            if p < (self.positional as usize) {
+            if p < (self.indices.num_positional as usize) {
                 filled[p] = true;
-            } else if self.args.is_some() {
+            } else if self.indices.args.is_some() {
                 // Filled into `*args`.
             } else {
                 return false;
             }
         }
-        if pos > (self.positional as usize) && self.args.is_none() {
+        if pos > (self.indices.num_positional as usize) && self.indices.args.is_none() {
             return false;
         }
         for name in names {
@@ -740,7 +738,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                     filled[*i as usize] = true;
                 }
                 None => {
-                    if self.kwargs.is_none() {
+                    if self.indices.kwargs.is_none() {
                         return false;
                     }
                 }
@@ -783,11 +781,12 @@ impl<'v> ParametersSpec<Value<'v>> {
                     let name = name.to_owned();
 
                     // Add `/` before the first named parameter.
-                    let only_pos_before = if i != 0 && i == self.positional_only as usize {
-                        Some(DocParam::OnlyPosBefore)
-                    } else {
-                        None
-                    };
+                    let only_pos_before =
+                        if i != 0 && i == self.indices.num_positional_only as usize {
+                            Some(DocParam::OnlyPosBefore)
+                        } else {
+                            None
+                        };
 
                     // Add `*` before first named-only parameter.
                     let only_named_after = match kind {
@@ -795,7 +794,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                         ParameterKind::Required
                         | ParameterKind::Optional
                         | ParameterKind::Defaulted(_) => {
-                            if i == self.positional as usize {
+                            if i == self.indices.num_positional as usize {
                                 Some(DocParam::OnlyNamedAfter)
                             } else {
                                 None
@@ -840,7 +839,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 })
                 .chain(
                     // Add last `/`.
-                    if self.positional_only == self.param_kinds.len() as u32
+                    if self.indices.num_positional_only == self.param_kinds.len() as u32
                         && self.param_kinds.len() != 0
                     {
                         Some(DocParam::OnlyPosBefore)

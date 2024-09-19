@@ -17,6 +17,7 @@
 
 use std::collections::HashSet;
 
+use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::codemap::CodeMap;
@@ -56,7 +57,7 @@ pub struct DefParam<'a, P: AstPayload> {
 /// Parameters internally in starlark-rust are commonly represented as a flat list of parameters,
 /// with markers `/` and `*` omitted.
 /// This struct contains sizes and indices to split the list into parts.
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, Allocative)]
 pub struct DefParamIndices {
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
