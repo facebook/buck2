@@ -22,7 +22,9 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
+use starlark_syntax::internal_error;
 use starlark_syntax::other_error;
+use starlark_syntax::syntax::def::DefParamIndices;
 
 use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::eval::runtime::params::display::ParamFmt;
@@ -156,50 +158,13 @@ impl Param {
 #[derive(Debug, Eq, PartialEq, Clone, Dupe, Hash, PartialOrd, Ord, Allocative)]
 pub struct ParamSpec {
     params: SmallArcVec1OrStatic<Param>,
+    indices: DefParamIndices,
 }
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let num_pos_only = self
-            .params
-            .iter()
-            .take_while(|p| matches!(p.mode, ParamMode::PosOnly(_)))
-            .count();
-
-        let (pos_only, rem) = self.params.split_at(num_pos_only);
-
-        let num_pos_or_named = rem
-            .iter()
-            .take_while(|p| matches!(p.mode, ParamMode::PosOrName(..)))
-            .count();
-
-        let (pos_or_named, rem) = rem.split_at(num_pos_or_named);
-
-        let (args, rem) = match rem.split_first() {
-            Some((args, rem)) if matches!(args.mode, ParamMode::Args) => (Some(args), rem),
-            _ => (None, rem),
-        };
-
-        let num_named_only = rem
-            .iter()
-            .take_while(|p| matches!(p.mode, ParamMode::NameOnly(..)))
-            .count();
-
-        let (named_only, rem) = rem.split_at(num_named_only);
-
-        let kwargs = match rem {
-            [] => None,
-            [x] if matches!(x.mode, ParamMode::Kwargs) => Some(x),
-            _ => {
-                if cfg!(test) {
-                    panic!("inconsistent parameter spec: {:?}", self);
-                }
-                write!(f, "<inconsistent parameter spec: {:?}>", self)?;
-                return Ok(());
-            }
-        };
-
-        fn pf(p: &Param) -> ParamFmt<'_, &'_ Ty, &'static str> {
+        let pf = |i: u32| -> ParamFmt<'_, &'_ Ty, &'static str> {
+            let p = &self.params()[i as usize];
             ParamFmt {
                 name: match &p.mode {
                     ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name,
@@ -218,15 +183,15 @@ impl Display for ParamSpec {
                     ParamMode::Args | ParamMode::Kwargs => None,
                 },
             }
-        }
+        };
 
         fmt_param_spec(
             f,
-            pos_only.iter().map(pf),
-            pos_or_named.iter().map(pf),
-            args.map(pf),
-            named_only.iter().map(pf),
-            kwargs.map(pf),
+            self.indices.pos_only().map(pf),
+            self.indices.pos_or_named().map(pf),
+            self.indices.args.map(pf),
+            self.indices.named_only(self.params().len() as u32).map(pf),
+            self.indices.kwargs.map(pf),
         )
     }
 }
@@ -258,7 +223,12 @@ impl ParamSpec {
 
             let mut seen_optional = false;
 
-            for param in &params {
+            let mut num_positional_only = 0;
+            let mut num_positional = 0;
+            let mut args = None;
+            let mut kwargs = None;
+
+            for (i, param) in params.iter().enumerate() {
                 if let Some(name) = param.name() {
                     if !names.insert(name) {
                         return Err(other_error!("duplicate parameter name: `{}`", name));
@@ -302,6 +272,10 @@ impl ParamSpec {
                         if state >= State::Args {
                             return Err(other_error!("*args must not come after *-args"));
                         }
+                        if args.is_some() {
+                            return Err(internal_error!("args must not be already set"));
+                        }
+                        args = Some(i.try_into().unwrap());
                         state = State::Args;
                     }
                     ParamMode::NameOnly(_, req) => {
@@ -318,21 +292,32 @@ impl ParamSpec {
                         if state >= State::Kwargs {
                             return Err(other_error!("**kwargs must be the last parameter"));
                         }
+                        if kwargs.is_some() {
+                            return Err(internal_error!("kwargs must not be already set"));
+                        }
+                        kwargs = Some(i.try_into().unwrap());
                         state = State::Kwargs;
                     }
+                }
+
+                if state <= State::PosOnly {
+                    num_positional_only += 1;
+                }
+                if state <= State::PosOrName {
+                    num_positional += 1;
                 }
             }
 
             Ok(ParamSpec {
                 params: SmallArcVec1OrStatic::clone_from_slice(&params),
+                indices: DefParamIndices {
+                    num_positional_only,
+                    num_positional,
+                    args,
+                    kwargs,
+                },
             })
         }
-    }
-
-    /// `*args`, `**kwargs` parameters.
-    fn any_params() -> &'static [Param] {
-        static ANY_PARAMS: [Param; 2] = [Param::args(Ty::any()), Param::kwargs(Ty::any())];
-        &ANY_PARAMS
     }
 
     /// `*args`.
@@ -370,8 +355,15 @@ impl ParamSpec {
     }
 
     pub(crate) fn any() -> ParamSpec {
+        static ANY_PARAMS: [Param; 2] = [Param::args(Ty::any()), Param::kwargs(Ty::any())];
         ParamSpec {
-            params: SmallArcVec1OrStatic::new_static(Self::any_params()),
+            params: SmallArcVec1OrStatic::new_static(&ANY_PARAMS),
+            indices: DefParamIndices {
+                num_positional: 0,
+                num_positional_only: 0,
+                args: Some(0),
+                kwargs: Some(1),
+            },
         }
     }
 

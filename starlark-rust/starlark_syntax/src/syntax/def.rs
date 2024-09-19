@@ -58,7 +58,9 @@ pub struct DefParam<'a, P: AstPayload> {
 /// Parameters internally in starlark-rust are commonly represented as a flat list of parameters,
 /// with markers `/` and `*` omitted.
 /// This struct contains sizes and indices to split the list into parts.
-#[derive(Copy, Clone, Dupe, Debug, Allocative)]
+#[derive(
+    Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+)]
 pub struct DefParamIndices {
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
