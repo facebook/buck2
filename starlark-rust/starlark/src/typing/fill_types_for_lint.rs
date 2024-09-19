@@ -443,6 +443,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
         let DefParams {
             params: def_params,
             num_positional: _,
+            num_positional_only: _,
         } = DefParams::unpack(&def.params, self.ctx.codemap)
             .map_err(InternalError::from_eval_exception)?;
 
@@ -453,6 +454,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 DefParamKind::Regular(mode, default_value) => {
                     let name = param.ident.ident.as_str();
                     let param = match mode {
+                        DefRegularParamMode::PosOnly => Param::pos_only(ty),
                         DefRegularParamMode::PosOrName => Param::pos_or_name(name, ty),
                         DefRegularParamMode::NameOnly => Param::name_only(name, ty),
                     };

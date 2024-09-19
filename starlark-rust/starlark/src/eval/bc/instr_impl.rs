@@ -1401,7 +1401,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
             def_data.function_name.clone(),
             def_data.params.params.len(),
         );
-        parameters.no_more_positional_only_args();
         let mut parameter_types = Vec::new();
 
         let mut pop_index = 0;
@@ -1409,8 +1408,9 @@ impl InstrNoFlowImpl for InstrDefImpl {
         for (i, x) in def_data.params.params.iter().enumerate() {
             let i = i as u32;
 
-            // TODO(nga): don't forget to call `no_more_positional_only_args`,
-            //   when it is provider by the parser.
+            if i == def_data.params.num_positional_only && !x.is_star_or_star_star() {
+                parameters.no_more_positional_only_args();
+            }
 
             if i == def_data.params.num_positional && !x.is_star_or_star_star() {
                 parameters.no_more_positional_args();

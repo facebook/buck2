@@ -220,6 +220,9 @@ pub(crate) struct ParametersCompiled<T> {
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
     pub(crate) num_positional: u32,
+    /// Number of parameters which can be filled positionally only.
+    /// This is less or equal to `num_positional`.
+    pub(crate) num_positional_only: u32,
 }
 
 impl<T> ParametersCompiled<T> {
@@ -274,10 +277,12 @@ impl<T> ParametersCompiled<T> {
                     let ty = p.ty();
                     match &p.node {
                         ParameterCompiled::Normal(name, m, _ty, None) => match m {
+                            DefRegularParamMode::PosOnly => Param::pos_only(ty),
                             DefRegularParamMode::PosOrName => Param::pos_or_name(&name.name, ty),
                             DefRegularParamMode::NameOnly => Param::name_only(&name.name, ty),
                         },
                         ParameterCompiled::Normal(name, m, _ty, Some(_)) => match m {
+                            DefRegularParamMode::PosOnly => Param::pos_only(ty).optional(),
                             DefRegularParamMode::PosOrName => {
                                 Param::pos_or_name(&name.name, ty).optional()
                             }
@@ -448,6 +453,7 @@ impl Compiler<'_, '_, '_, '_> {
         let DefParams {
             params,
             num_positional,
+            num_positional_only,
         } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
             Err(e) => return Err(CompilerInternalError::from_eval_exception(e)),
@@ -462,6 +468,7 @@ impl Compiler<'_, '_, '_, '_> {
         let params = ParametersCompiled {
             params,
             num_positional,
+            num_positional_only,
         };
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 

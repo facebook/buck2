@@ -221,6 +221,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let DefParams {
             params,
             num_positional: _,
+            num_positional_only: _,
         } = DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
         for p in params {
             let name = &p.node.ident;
@@ -229,6 +230,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
             let name_ty = match &p.node.kind {
                 DefParamKind::Regular(mode, default_value) => {
                     let mut param = match mode {
+                        DefRegularParamMode::PosOnly => Param::pos_only(ty.dupe()),
                         DefRegularParamMode::PosOrName => {
                             Param::pos_or_name(&name.ident, ty.dupe())
                         }

@@ -256,6 +256,31 @@ assert_eq(f(2, 4, y = 7, x = 1, z = 3), ((2, 4), 1, 7, 3))
     );
 }
 
+#[test]
+fn test_pos_only_pass() {
+    assert::pass(
+        r#"
+def f(x, /, y):
+    return x, y
+assert_eq((1, 2), f(1, y=2))
+"#,
+    );
+}
+
+#[test]
+fn test_pos_only_fail() {
+    assert::fail(
+        r#"
+def f(x, /, y):
+    return x, y
+g = noop(f) # Hide from static type checker.
+g(x=1, y=2)
+"#,
+        // TODO(nga): bad message.
+        "Missing parameter `x` for call",
+    );
+}
+
 // This test relies on stack behavior which does not hold when
 // ASAN is enabled. See D47571173 for more context.
 #[cfg_attr(rust_nightly, cfg(not(sanitize = "address")))]

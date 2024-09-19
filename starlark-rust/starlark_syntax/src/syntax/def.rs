@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use dupe::Dupe;
 
 use crate::codemap::CodeMap;
+use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval_exception::EvalException;
 use crate::syntax::ast::AstAssignIdentP;
@@ -31,6 +32,7 @@ use crate::syntax::ast::ParameterP;
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
 pub enum DefRegularParamMode {
+    PosOnly,
     PosOrName,
     NameOnly,
 }
@@ -60,6 +62,9 @@ pub struct DefParams<'a, P: AstPayload> {
     /// Number of parameters which can be filled positionally.
     /// That is, number of parameters before first `*`, `*args` or `**kwargs`.
     pub num_positional: u32,
+    /// Number of parameters which can only be filled positionally.
+    /// Always less or equal to `num_positional`.
+    pub num_positional_only: u32,
 }
 
 fn check_param_name<'a, P: AstPayload, T>(
@@ -86,6 +91,8 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         #[derive(Ord, PartialOrd, Eq, PartialEq)]
         enum State {
             Normal,
+            /// After `/`.
+            SeenSlash,
             /// After `*` or `*args`.
             SeenStar,
             /// After `**kwargs`.
@@ -97,13 +104,42 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
         // You can't have more than one *args/*, **kwargs
         // **kwargs must be last
         // You can't have a required `x` after an optional `y=1`
-        let mut state = State::Normal;
         let mut seen_optional = false;
 
         let mut params = Vec::with_capacity(ast_params.len());
         let mut num_positional = 0;
         // Index of `*` parameter, if any.
         let mut index_of_star = None;
+
+        let num_positional_only = match ast_params
+            .iter()
+            .position(|p| matches!(p.node, ParameterP::Slash))
+        {
+            None => 0,
+            Some(0) => {
+                return Err(EvalException::parser_error(
+                    "`/` cannot be first parameter",
+                    ast_params[0].span,
+                    codemap,
+                ));
+            }
+            Some(n) => match n.try_into() {
+                Ok(n) => n,
+                Err(_) => {
+                    return Err(EvalException::parser_error(
+                        format_args!("Too many parameters: {}", ast_params.len()),
+                        Span::merge_all(ast_params.iter().map(|p| p.span)),
+                        codemap,
+                    ));
+                }
+            },
+        };
+
+        let mut state = if num_positional_only == 0 {
+            State::SeenSlash
+        } else {
+            State::Normal
+        };
 
         for (i, param) in ast_params.iter().enumerate() {
             let span = param.span;
@@ -138,7 +174,9 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     if state < State::SeenStar {
                         num_positional += 1;
                     }
-                    let mode = if state < State::SeenStar {
+                    let mode = if state < State::SeenSlash {
+                        DefRegularParamMode::PosOnly
+                    } else if state < State::SeenStar {
                         DefRegularParamMode::PosOrName
                     } else {
                         DefRegularParamMode::NameOnly
@@ -171,11 +209,14 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     index_of_star = Some(i);
                 }
                 ParameterP::Slash => {
-                    return Err(EvalException::parser_error(
-                        "`/` for positional-only arguments is not implemented",
-                        param.span,
-                        codemap,
-                    ));
+                    if state >= State::SeenSlash {
+                        return Err(EvalException::parser_error(
+                            "Multiple `/` in parameters",
+                            param.span,
+                            codemap,
+                        ));
+                    }
+                    state = State::SeenSlash;
                 }
                 ParameterP::Args(n, ty) => {
                     if state >= State::SeenStar {
@@ -242,6 +283,7 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
 
         Ok(DefParams {
             num_positional: u32::try_from(num_positional).unwrap(),
+            num_positional_only,
             params,
         })
     }
@@ -310,6 +352,21 @@ mod tests {
     #[test]
     fn test_star_then_kwargs() {
         fails("star_then_kwargs", "def test(x, *, **kwargs): pass");
+    }
+
+    #[test]
+    fn test_positional_only() {
+        passes("def test(x, /): pass");
+    }
+
+    #[test]
+    fn test_positional_only_cannot_be_first() {
+        fails("positional_only_cannot_be_first", "def test(/, x): pass");
+    }
+
+    #[test]
+    fn test_slash_slash() {
+        fails("slash_slash", "def test(x, /, y, /): pass");
     }
 
     #[test]

@@ -148,3 +148,18 @@ def foo(x: typing.Never):
 "#,
     );
 }
+
+#[test]
+fn test_call_pos_only() {
+    TypeCheck::new().check(
+        "call_pos_only",
+        r#"
+def f(x, /):
+    pass
+
+def test():
+    f("good")
+    f(x="bad")
+"#,
+    );
+}

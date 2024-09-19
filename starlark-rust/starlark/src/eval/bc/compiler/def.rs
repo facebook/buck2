@@ -36,21 +36,25 @@ impl DefCompiled {
 
     pub(crate) fn write_bc(&self, span: FrameSpan, target: BcSlotOut, bc: &mut BcWriter) {
         let DefCompiled {
-            ref function_name,
-            ref params,
+            function_name,
+            params,
             return_type,
             info,
-        } = *self;
+        } = self;
         let function_name = function_name.clone();
 
-        let num_positional = params.num_positional;
+        let ParametersCompiled {
+            params: param_list,
+            num_positional,
+            num_positional_only,
+        } = params;
 
         let how_many_slots_we_need = params.count_exprs();
 
         bc.alloc_slots(how_many_slots_we_need, |slots, bc| {
             let mut slots_i = slots.iter();
             let mut value_count = 0;
-            let params = params.params.map(|p| {
+            let params = param_list.map(|p| {
                 p.map(|p| {
                     p.map_expr(|e| {
                         e.write_bc(slots_i.next().unwrap().to_out(), bc);
@@ -62,13 +66,14 @@ impl DefCompiled {
 
             let params = ParametersCompiled {
                 params,
-                num_positional,
+                num_positional: *num_positional,
+                num_positional_only: *num_positional_only,
             };
             let instr_def_data = InstrDefData {
                 function_name,
                 params,
-                return_type,
-                info,
+                return_type: *return_type,
+                info: *info,
             };
 
             assert!(slots_i.next().is_none());
