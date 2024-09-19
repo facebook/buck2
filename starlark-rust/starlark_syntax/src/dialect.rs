@@ -60,6 +60,8 @@ pub struct Dialect {
     pub enable_top_level_stmt: bool,
     /// Are `f"{expression}"` strings supported?
     /// Disabled by default.
+    ///
+    /// [Starlark spec proposal](https://github.com/bazelbuild/starlark/issues/91).
     pub enable_f_strings: bool,
     /// Like `#[non_exhaustive]`, but allows struct expression.
     ///
