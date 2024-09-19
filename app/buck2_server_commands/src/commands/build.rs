@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
 use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
@@ -50,6 +51,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::TargetCfg;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -270,7 +272,35 @@ async fn build(
         })
         .await?;
 
+    send_target_cfg_event(server_ctx, request, &build_result)?;
+
     process_build_result(server_ctx, ctx, request, build_result).await
+}
+
+fn send_target_cfg_event(
+    server_ctx: &dyn ServerCommandContextTrait,
+    request: &buck2_cli_proto::BuildRequest,
+    build_result: &BuildTargetResult,
+) -> anyhow::Result<()> {
+    let mut target_platforms = HashSet::new();
+    for conf in build_result.configured.keys() {
+        // cfg can be unbound
+        if let Ok(label) = conf.cfg().label() {
+            if !target_platforms.contains(label) {
+                target_platforms.insert(label.to_owned());
+            }
+        }
+    }
+
+    server_ctx.events().instant_event(TargetCfg {
+        target_platforms: target_platforms.into_iter().collect(),
+        cli_modifiers: request
+            .target_cfg
+            .as_ref()
+            .map(|cfg| cfg.cli_modifiers.clone())
+            .unwrap_or_default(),
+    });
+    Ok(())
 }
 
 async fn process_build_result(
