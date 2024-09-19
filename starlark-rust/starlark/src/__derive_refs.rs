@@ -27,3 +27,4 @@ pub mod serde {
     pub use serde::Serializer;
 }
 pub use inventory;
+pub mod sig;

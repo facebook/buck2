@@ -492,14 +492,15 @@ enum Purpose {
 // Or return None if you don't need a signature
 fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     let name_str = ident_string(&x.name);
-    let signature_var = format_ident!("__signature");
-    let sig_args = render_signature_args(&x.args, &signature_var, purpose)?;
+    let sig_args: Vec<Expr> = render_signature_args(&x.args, purpose)?;
     Ok(quote! {
         {
-            #[allow(unused_mut)]
-            let mut #signature_var = starlark::eval::ParametersSpec::new(#name_str.to_owned());
-            #sig_args
-            #signature_var.finish()
+            starlark::__derive_refs::sig::parameter_spec(
+                #name_str,
+                &[
+                    #( #sig_args ),*
+                ]
+            )
         }
     })
 }
@@ -582,11 +583,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     ))
 }
 
-fn render_signature_args(
-    args: &[StarArg],
-    signature_var: &Ident,
-    purpose: Purpose,
-) -> syn::Result<TokenStream> {
+fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<Expr>> {
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
     enum CurrentParamStyle {
         PosOnly,
@@ -595,7 +592,7 @@ fn render_signature_args(
         NoMore,
     }
 
-    let mut sig_args = TokenStream::new();
+    let mut sig_args: Vec<Expr> = Vec::new();
     let mut last_param_style = CurrentParamStyle::PosOnly;
     for arg in args {
         match arg.pass_style {
@@ -629,16 +626,16 @@ fn render_signature_args(
             }
             StarArgPassStyle::PosOrNamed => {
                 if last_param_style == CurrentParamStyle::PosOnly {
-                    sig_args.extend(quote! {
-                        #signature_var.no_more_positional_only_args();
+                    sig_args.push(syn::parse_quote! {
+                        starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalOnlyArgs
                     });
                 }
                 last_param_style = CurrentParamStyle::PosOrNamed;
             }
             StarArgPassStyle::NamedOnly => {
                 if last_param_style < CurrentParamStyle::NamedOnly {
-                    sig_args.extend(quote! {
-                        #signature_var.no_more_positional_args();
+                    sig_args.push(syn::parse_quote! {
+                        starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalArgs
                     });
                 }
                 last_param_style = CurrentParamStyle::NamedOnly;
@@ -650,54 +647,56 @@ fn render_signature_args(
                 ));
             }
         }
-        sig_args.extend(render_signature_arg(arg, signature_var, purpose)?);
+        sig_args.extend(render_signature_arg(arg, purpose)?);
     }
     Ok(sig_args)
 }
 
 // Generate a statement that modifies signature to add a new argument in.
-fn render_signature_arg(
-    arg: &StarArg,
-    signature_var: &Ident,
-    purpose: Purpose,
-) -> syn::Result<TokenStream> {
+fn render_signature_arg(arg: &StarArg, purpose: Purpose) -> syn::Result<Option<Expr>> {
     let name_str = ident_string(&arg.name);
 
     if arg.pass_style == StarArgPassStyle::Args {
         assert!(arg.default.is_none(), "Can't have *args with a default");
-        Ok(quote! { #signature_var.args();})
+        Ok(Some(
+            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Args },
+        ))
     } else if arg.pass_style == StarArgPassStyle::Kwargs {
         assert!(arg.default.is_none(), "Can't have **kwargs with a default");
-        Ok(quote! { #signature_var.kwargs();})
+        Ok(Some(
+            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Kwargs },
+        ))
     } else if arg.pass_style == StarArgPassStyle::This {
-        Ok(TokenStream::new())
+        Ok(None)
     } else if arg.is_option() {
-        Ok(quote! { #signature_var.optional(#name_str);})
+        Ok(Some(
+            syn::parse_quote! { starlark::__derive_refs::sig::NativeSigArg::Optional(#name_str) },
+        ))
     } else if let Some(default) = &arg.default {
         // For things that are type Value, we put them on the frozen heap.
         // For things that aren't type value, use optional and then next_opt/unwrap
         // to avoid the to/from value conversion.
         if arg.is_value() {
-            Ok(quote! {
-                #signature_var.defaulted(#name_str, globals_builder.alloc(#default));
-            })
+            Ok(Some(syn::parse_quote! {
+                starlark::__derive_refs::sig::NativeSigArg::Defaulted(#name_str, globals_builder.alloc(#default))
+            }))
         } else if purpose == Purpose::Documentation
             && render_default_as_frozen_value(default).is_some()
         {
             // We want the repr of the default arugment to show up, so pass it along
             let frozen = render_default_as_frozen_value(default).unwrap();
-            Ok(quote! {
-                #signature_var.defaulted(#name_str, #frozen);
-            })
+            Ok(Some(syn::parse_quote! {
+                starlark::__derive_refs::sig::NativeSigArg::Defaulted(#name_str, #frozen)
+            }))
         } else {
-            Ok(quote! {
-                #signature_var.optional(#name_str);
-            })
+            Ok(Some(syn::parse_quote! {
+                starlark::__derive_refs::sig::NativeSigArg::Optional(#name_str)
+            }))
         }
     } else {
-        Ok(quote! {
-            #signature_var.required(#name_str);
-        })
+        Ok(Some(syn::parse_quote! {
+            starlark::__derive_refs::sig::NativeSigArg::Required(#name_str)
+        }))
     }
 }
 
