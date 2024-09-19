@@ -163,7 +163,7 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
     c_compile_cmds = cxx_compile_srcs(
         ctx,
         CxxRuleConstructorParams(
-            rule_type = "cgo_library",
+            rule_type = "cgo_sources",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
             compiler_flags = c_flags + ctx.attrs.cxx_compiler_flags,

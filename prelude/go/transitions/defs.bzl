@@ -233,12 +233,6 @@ go_library_transition = transition(
     attrs = [],
 )
 
-cgo_library_transition = transition(
-    impl = _chain_transitions(_all_level_tansitions),
-    refs = _all_level_refs,
-    attrs = [],
-)
-
 go_stdlib_transition = transition(
     impl = _chain_transitions(_all_level_tansitions),
     refs = _all_level_refs,

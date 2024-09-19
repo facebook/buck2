@@ -13,76 +13,11 @@
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
-load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 
 BuildMode = ["executable", "c_shared", "c_archive"]
 
 GoTestCoverStepMode = ["set", "count", "atomic", "none"]
-
-cgo_library = prelude_rule(
-    name = "cgo_library",
-    docs = """
-        A cgo\\_library() rule builds an object from the supplied set of Go/C source files and
-        dependencies. The outputs are linked into go executable in the last step (compile).
-
-        The 'go build' command would collect the cgo directives from the source files, however
-        with buck the flags needs to be passed in the cgo\\_library manually
-
-        This rule borrows from `cxx_binary()` since C/C++ sources are being compiled.
-    """,
-    examples = """
-        ```
-
-        # A rule that builds a Go native executable with linked cgo library based on
-        # C/C++ util library.
-        go_binary(
-            name = "bin",
-            srcs = ["main.go"],
-            deps = [":lib"]
-        )
-
-        cgo_library(
-            name = "lib",
-            srcs = ["cgo_source.go"],
-            deps = [":util"],
-        )
-
-        cxx_library(
-            name = "util",
-            srcs = ["util.c"],
-            headers = ["util.h"],
-        )
-
-        ```
-    """,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        go_common.package_name_arg() |
-        go_common.srcs_arg() |
-        go_common.embedcfg_arg() |
-        go_common.package_root_arg() |
-        cxx_common.headers_arg() |
-        cxx_common.header_namespace_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        native_common.link_style() |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        go_common.generate_exported_header() |
-        {
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        } |
-        buck.allow_cache_upload_arg()
-    ),
-)
 
 go_binary = prelude_rule(
     name = "go_binary",
@@ -176,7 +111,7 @@ go_exported_library = prelude_rule(
             deps = [":example"],
         )
 
-        cgo_library(
+        go_library(
             name = "example",
             package_name = "cgo",
             srcs = [
@@ -431,7 +366,6 @@ go_bootstrap_binary = prelude_rule(
 )
 
 go_rules = struct(
-    cgo_library = cgo_library,
     go_binary = go_binary,
     go_bootstrap_binary = go_bootstrap_binary,
     go_exported_library = go_exported_library,

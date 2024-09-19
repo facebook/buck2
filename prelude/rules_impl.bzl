@@ -20,14 +20,13 @@ load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
 load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
-load("@prelude//go:cgo_library.bzl", "cgo_library_impl")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
 load("@prelude//go:go_library.bzl", "go_library_impl")
 load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "asan_attr", "cgo_enabled_attr", "cgo_library_transition", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition", "race_attr", "tags_attr")
+load("@prelude//go/transitions:defs.bzl", "asan_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition", "race_attr", "tags_attr")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
 load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
 load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
@@ -173,7 +172,6 @@ extra_implemented_rules = struct(
     git_fetch = git_fetch_impl,
 
     #go
-    cgo_library = cgo_library_impl,
     go_binary = go_binary_impl,
     go_bootstrap_binary = go_bootstrap_binary_impl,
     go_exported_library = go_exported_library_impl,
@@ -401,18 +399,6 @@ def _create_manifest_for_source_dir():
 
 inlined_extra_attributes = {
 
-    # go
-    "cgo_library": {
-        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
-        "_asan": asan_attr,
-        "_coverage_mode": coverage_mode_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
-        "_go_toolchain": toolchains_common.go(),
-        "_race": race_attr,
-        "_tags": tags_attr,
-    },
     # csharp
     "csharp_library": {
         "_csharp_toolchain": toolchains_common.csharp(),
@@ -697,7 +683,6 @@ transitions = {
     "apple_library": target_sdk_version_transition,
     "apple_resource": apple_resource_transition,
     "apple_test": target_sdk_version_transition,
-    "cgo_library": cgo_library_transition,
     "cxx_binary": constraint_overrides_transition,
     "cxx_test": constraint_overrides_transition,
     "go_binary": go_binary_transition,

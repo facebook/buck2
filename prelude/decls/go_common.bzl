@@ -91,8 +91,6 @@ def _external_linker_flags_arg():
     return {
         "external_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
     Extra external linker flags passed to go link via `-extld` argument.
-     If argument is non-empty or `cgo_library` is used, the link mode
-     will switch to `external`.
 """),
     }
 
