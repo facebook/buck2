@@ -212,7 +212,7 @@ impl Display for StarlarkStr {
 
 pub(crate) fn str_methods() -> Option<&'static Methods> {
     static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::stdlib::string::string_methods)
+    RES.methods(crate::values::types::string::methods::string_methods)
 }
 
 #[starlark_value(type = STRING_TYPE)]

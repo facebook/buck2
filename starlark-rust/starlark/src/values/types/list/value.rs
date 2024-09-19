@@ -438,7 +438,7 @@ pub(crate) fn display_list(xs: &[Value], f: &mut fmt::Formatter<'_>) -> fmt::Res
 
 pub(crate) fn list_methods() -> Option<&'static Methods> {
     static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::stdlib::list::list_methods)
+    RES.methods(crate::values::types::list::methods::list_methods)
 }
 
 #[starlark_value(type = ListData::TYPE)]

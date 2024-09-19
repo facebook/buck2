@@ -19,6 +19,7 @@
 
 pub(crate) mod alloc;
 mod list_type;
+pub(crate) mod methods;
 mod refs;
 pub(crate) mod unpack;
 pub(crate) mod value;

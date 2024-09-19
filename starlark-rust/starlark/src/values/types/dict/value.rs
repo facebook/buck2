@@ -397,7 +397,7 @@ impl<'v> DictLike<'v> for FrozenDictData {
 
 pub(crate) fn dict_methods() -> Option<&'static Methods> {
     static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::stdlib::dict::dict_methods)
+    RES.methods(crate::values::types::dict::methods::dict_methods)
 }
 
 #[starlark_value(type = Dict::TYPE)]

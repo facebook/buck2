@@ -22,6 +22,7 @@ pub(crate) mod dot_format;
 pub(crate) mod intern;
 pub(crate) mod interpolation;
 pub(crate) mod iter;
+pub(crate) mod methods;
 pub(crate) mod repr;
 pub(crate) mod simd;
 pub(crate) mod str_type;

@@ -24,14 +24,11 @@ use crate::environment::GlobalsBuilder;
 
 pub(crate) mod breakpoint;
 pub(crate) mod call_stack;
-pub(crate) mod dict;
 pub(crate) mod extra;
 mod funcs;
 pub(crate) mod internal;
 pub(crate) mod json;
-pub(crate) mod list;
 pub(crate) mod partial;
-pub(crate) mod string;
 pub(crate) mod structs;
 
 pub use extra::PrintHandler;
