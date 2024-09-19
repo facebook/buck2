@@ -79,29 +79,20 @@ fn render_property(name: &str, property: &DocProperty) -> String {
 
 /// If there are any parameter docs to render, render them as a list.
 fn render_function_parameters(params: &[DocParam]) -> Option<String> {
-    // Filter out parameters without docs
-    let has_docs: Vec<_> = params
-        .iter()
-        .filter(|p| match p {
-            DocParam::Arg { docs, .. } => docs.is_some(),
-            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => false,
-            DocParam::Args { docs, .. } => docs.is_some(),
-            DocParam::Kwargs { docs, .. } => docs.is_some(),
-        })
-        .collect();
-
-    if has_docs.is_empty() {
-        return None;
-    }
-
-    let mut param_list = String::new();
-    for p in has_docs {
+    let mut param_list: Option<String> = None;
+    for p in params {
         let (name, docs) = match p {
             DocParam::Arg { name, docs, .. } => (name, docs),
             DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => continue,
             DocParam::Args { name, docs, .. } => (name, docs),
             DocParam::Kwargs { name, docs, .. } => (name, docs),
         };
+
+        if docs.is_none() {
+            continue;
+        }
+
+        let param_list = param_list.get_or_insert_with(String::new);
 
         let docs = render_doc_string(DSOpts::Combined, docs).unwrap_or_default();
 
@@ -116,7 +107,7 @@ fn render_function_parameters(params: &[DocParam]) -> Option<String> {
         }
     }
 
-    Some(param_list)
+    param_list
 }
 
 fn render_function(name: &str, function: &DocFunction) -> String {
