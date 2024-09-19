@@ -149,11 +149,7 @@ def cxx_darwin_dist_link(
     lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare
     lto_copy = cxx_toolchain.internal_tools.dist_lto.copy
 
-    # Information used to construct thinlto index link command:
-    # Note: The index into index_link_data is important as it's how things will appear in
-    # the plans produced by indexing. That allows us to map those indexes back to
-    # the actual artifacts.
-    index_link_data = []
+    unsorted_index_link_data = []
     linker_flags = []
     common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
@@ -191,7 +187,7 @@ def cxx_darwin_dist_link(
                             opt_object = opt_output,
                         ),
                     )
-                    index_link_data.append(data)
+                    unsorted_index_link_data.append(data)
                     plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
             elif isinstance(linkable, ArchiveLinkable):
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
@@ -236,7 +232,7 @@ def cxx_darwin_dist_link(
                         link_whole = linkable.link_whole,
                     ),
                 )
-                index_link_data.append(data)
+                unsorted_index_link_data.append(data)
                 archive_opt_manifests.append(archive_opt_manifest)
                 plan_inputs.extend([archive_manifest, archive_objects])
                 plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
@@ -245,13 +241,34 @@ def cxx_darwin_dist_link(
                     data_type = _DataType("dynamic_library"),
                     link_data = _DynamicLibraryLinkData(linkable = linkable),
                 )
-                index_link_data.append(data)
+                unsorted_index_link_data.append(data)
             elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SwiftmoduleLinkable):
                 # These linkables are handled separately for flag deduplication purposes, as in append_linkable_args:
                 # https://www.internalfb.com/code/fbsource/[c6d2c820b394]/fbcode/buck2/prelude/linking/link_info.bzl?lines=271-278
                 pass
             else:
                 fail("Unhandled linkable type: {}".format(str(linkable)))
+
+    def sort_index_link_data(input_list: list[_IndexLinkData]) -> list[_IndexLinkData]:
+        # Sort link datas to reduce binary size. The idea is to encourage the linker to load the minimal number of object files possible. We load force loaded archives first (since they will be loaded no matter what), then non lazy object files (which will also be loaded no matter what), then shared libraries (to share as many symbols as possible), then finally regular archives
+        force_loaded_archives = []
+        regular_archives = []
+        object_files = []
+        dynamic_libraries = []
+        for link_data in input_list:
+            if link_data.data_type == _DataType("bitcode"):
+                object_files.append(link_data)
+            elif link_data.data_type == _DataType("archive"):
+                if link_data.link_data.link_whole:
+                    force_loaded_archives.append(link_data)
+                else:
+                    regular_archives.append(link_data)
+            elif link_data.data_type == _DataType("dynamic_library"):
+                dynamic_libraries.append(link_data)
+
+        return force_loaded_archives + object_files + dynamic_libraries + regular_archives
+
+    sorted_index_link_data = sort_index_link_data(unsorted_index_link_data)
 
     index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
     final_link_index = ctx.actions.declare_output(output.basename + ".final_link_index")
@@ -262,7 +279,7 @@ def cxx_darwin_dist_link(
 
         if include_inputs:
             # buildifier: disable=uninitialized
-            for idx, artifact in enumerate(index_link_data):
+            for idx, artifact in enumerate(sorted_index_link_data):
                 link_data = artifact.link_data
 
                 if artifact.data_type == _DataType("bitcode"):
@@ -421,8 +438,8 @@ def cxx_darwin_dist_link(
             opt_cmd.add("--")
             opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
-            imports = [index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
-            archives = [index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
+            imports = [sorted_index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
+            archives = [sorted_index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
             opt_cmd.add(cmd_args(hidden = imports + archives))
             ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
@@ -473,8 +490,8 @@ def cxx_darwin_dist_link(
                 opt_cmd.add("--")
                 opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
-                imports = [index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
-                archives = [index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
+                imports = [sorted_index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
+                archives = [sorted_index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
                 opt_cmd.add(cmd_args(
                     hidden = imports + archives + [archive.indexes_dir, archive.objects_dir],
                 ))
@@ -487,7 +504,7 @@ def cxx_darwin_dist_link(
         archive_opt_outputs = [archive.opt_objects_dir.as_output(), archive.opt_manifest.as_output()]
         ctx.actions.dynamic_output(dynamic = archive_opt_inputs, inputs = [], outputs = archive_opt_outputs, f = optimize_archive)
 
-    for artifact in index_link_data:
+    for artifact in sorted_index_link_data:
         link_data = artifact.link_data
         if artifact.data_type == _DataType("bitcode"):
             dynamic_optimize(
@@ -510,24 +527,18 @@ def cxx_darwin_dist_link(
         # non_lto_objects are the ones that weren't compiled with thinlto
         # flags. In that case, we need to link against the original object.
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
-        current_index = 0
         opt_objects = []
         for flag in linker_flags:
             link_args.add(flag)
 
-        for link in link_infos:
-            for linkable in link.linkables:
-                if isinstance(linkable, ObjectsLinkable):
-                    for obj in linkable.objects:
-                        if current_index in plan_index:
-                            opt_objects.append(index_link_data[current_index].link_data.opt_object)
-                        elif current_index in non_lto_objects:
-                            opt_objects.append(obj)
-                        current_index += 1
-                elif isinstance(linkable, ArchiveLinkable):
-                    current_index += 1
-                elif isinstance(linkable, SharedLibLinkable):
-                    append_linkable_args(link_args, linkable)
+        for idx, artifact in enumerate(sorted_index_link_data):
+            if artifact.data_type == _DataType("dynamic_library"):
+                append_linkable_args(link_args, artifact.link_data.linkable)
+            elif artifact.data_type == _DataType("bitcode"):
+                if idx in plan_index:
+                    opt_objects.append(artifact.link_data.opt_object)
+                elif idx in non_lto_objects:
+                    opt_objects.append(artifact.link_data.initial_object)
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
         link_cmd = link_cmd_parts.link_cmd
@@ -535,7 +546,7 @@ def cxx_darwin_dist_link(
         link_cmd_hidden = []
 
         # buildifier: disable=uninitialized
-        for artifact in index_link_data:
+        for artifact in sorted_index_link_data:
             if artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
         link_cmd.add(at_argfile(
