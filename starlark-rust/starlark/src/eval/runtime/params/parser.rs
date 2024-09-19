@@ -73,6 +73,7 @@ mod tests {
 
     use crate::assert::Assert;
     use crate::docs::DocParam;
+    use crate::docs::DocParams;
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
     use crate::eval::compiler::def::FrozenDef;
@@ -144,25 +145,27 @@ mod tests {
         p.optional("b");
         let p = p.finish();
 
-        let expected = vec![
-            DocParam::Args {
-                name: "*args".to_owned(),
-                docs: None,
-                tuple_elem_ty: Ty::any(),
-            },
-            DocParam::Arg {
-                name: "a".to_owned(),
-                docs: None,
-                typ: Ty::int(),
-                default_value: Some("_".to_owned()),
-            },
-            DocParam::Arg {
-                name: "b".to_owned(),
-                docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
-                typ: Ty::any(),
-                default_value: Some("_".to_owned()),
-            },
-        ];
+        let expected = DocParams {
+            params: vec![
+                DocParam::Args {
+                    name: "*args".to_owned(),
+                    docs: None,
+                    tuple_elem_ty: Ty::any(),
+                },
+                DocParam::Arg {
+                    name: "a".to_owned(),
+                    docs: None,
+                    typ: Ty::int(),
+                    default_value: Some("_".to_owned()),
+                },
+                DocParam::Arg {
+                    name: "b".to_owned(),
+                    docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
+                    typ: Ty::any(),
+                    default_value: Some("_".to_owned()),
+                },
+            ],
+        };
         let types = vec![Ty::any(), Ty::int(), Ty::any()];
         let mut docs = HashMap::new();
         docs.insert("a".to_owned(), None);

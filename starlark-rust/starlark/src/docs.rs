@@ -84,7 +84,7 @@ pub struct DocFunction {
     pub docs: Option<DocString>,
     /// The parameters that this function takes. Docs for these parameters should generally be
     /// extracted from the main docstring's details.
-    pub params: Vec<DocParam>,
+    pub params: DocParams,
     /// Details about what this function returns.
     pub ret: DocReturn,
     /// Does this function act as type?
@@ -94,7 +94,7 @@ pub struct DocFunction {
 impl DocFunction {
     /// Used by LSP.
     pub fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
-        self.params.iter().find(|p| match p {
+        self.params.params.iter().find(|p| match p {
             DocParam::Arg { name, .. }
             | DocParam::Args { name, .. }
             | DocParam::Kwargs { name, .. }
@@ -105,6 +105,12 @@ impl DocFunction {
             _ => false,
         })
     }
+}
+
+/// Function parameters.
+#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+pub struct DocParams {
+    pub params: Vec<DocParam>,
 }
 
 /// A single parameter of a function.

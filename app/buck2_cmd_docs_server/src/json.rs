@@ -186,6 +186,7 @@ impl JsonDocFunction {
             docs: f.docs.map(JsonDocString::from_starlark),
             params: f
                 .params
+                .params
                 .into_iter()
                 .map(JsonDocParam::from_starlark)
                 .collect(),

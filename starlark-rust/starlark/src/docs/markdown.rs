@@ -122,7 +122,7 @@ fn render_function(name: &str, function: &DocFunction) -> String {
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
 
-    let parameter_docs = render_function_parameters(&function.params);
+    let parameter_docs = render_function_parameters(&function.params.params);
     let return_docs = render_doc_string(DSOpts::Combined, &function.ret.docs);
 
     let mut body = header;
@@ -251,7 +251,7 @@ impl<'a> TypeRenderer<'a> {
         match self {
             TypeRenderer::Type(t) => raw_type(t),
             TypeRenderer::Function { function_name, f } => {
-                let mut params = f.params.iter().map(|p| match p {
+                let mut params = f.params.params.iter().map(|p| match p {
                     DocParam::Arg {
                         typ,
                         name,
@@ -287,7 +287,7 @@ impl<'a> TypeRenderer<'a> {
                 let single_line_result =
                     format!("{}({}){}", prefix, params.clone().join(", "), ret_type);
 
-                if f.params.len() > MAX_ARGS_BEFORE_MULTILINE
+                if f.params.params.len() > MAX_ARGS_BEFORE_MULTILINE
                     || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
                 {
                     let chunked_params = params.join(",\n    ");

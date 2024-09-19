@@ -17,6 +17,7 @@
 
 use starlark::docs::DocFunction;
 use starlark::docs::DocParam;
+use starlark::docs::DocParams;
 use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
@@ -46,13 +47,15 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(def: &DefP<P>) -> Option<DocFu
                         default_value: None,
                     })
                 }
+                // TODO(nga): this should not ignore `/` and `*` markers.
+                //
                 _ => None,
             })
             .collect();
 
         let doc_function = DocFunction::from_docstring(
             DocStringKind::Starlark,
-            args,
+            DocParams { params: args },
             // TODO: Figure out how to get a `Ty` from the `def.return_type`.
             Ty::any(),
             Some(doc_string),

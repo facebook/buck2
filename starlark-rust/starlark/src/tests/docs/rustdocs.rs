@@ -141,7 +141,7 @@ def with_arguments(*args, **kwargs) -> int: pass
             let DocItem::Member(DocMember::Function(expected)) = &mut expected else {
                 unreachable!()
             };
-            let DocParam::Arg { default_value, .. } = &mut expected.params[0] else {
+            let DocParam::Arg { default_value, .. } = &mut expected.params.params[0] else {
                 unreachable!()
             };
             *default_value = Some("_".to_owned());

@@ -34,6 +34,7 @@ use crate::__macro_refs::coerce;
 use crate::cast::transmute;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
+use crate::docs::DocParams;
 use crate::docs::DocString;
 use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::arguments::ArgumentsImpl;
@@ -765,87 +766,90 @@ impl<'v> ParametersSpec<Value<'v>> {
         &self,
         parameter_types: Vec<Ty>,
         mut parameter_docs: HashMap<String, Option<DocString>>,
-    ) -> Vec<DocParam> {
+    ) -> DocParams {
         assert_eq!(
             self.param_kinds.len(),
             parameter_types.len(),
             "function: `{}`",
             self.function_name,
         );
-        self.iter_params()
-            .enumerate()
-            .zip(parameter_types)
-            .flat_map(|((i, (name, kind)), typ)| {
-                let docs = parameter_docs.remove(name).flatten();
-                let name = name.to_owned();
+        DocParams {
+            params: self
+                .iter_params()
+                .enumerate()
+                .zip(parameter_types)
+                .flat_map(|((i, (name, kind)), typ)| {
+                    let docs = parameter_docs.remove(name).flatten();
+                    let name = name.to_owned();
 
-                // Add `/` before the first named parameter.
-                let only_pos_before = if i != 0 && i == self.positional_only as usize {
-                    Some(DocParam::OnlyPosBefore)
-                } else {
-                    None
-                };
+                    // Add `/` before the first named parameter.
+                    let only_pos_before = if i != 0 && i == self.positional_only as usize {
+                        Some(DocParam::OnlyPosBefore)
+                    } else {
+                        None
+                    };
 
-                // Add `*` before first named-only parameter.
-                let only_named_after = match kind {
-                    ParameterKind::Args | ParameterKind::KWargs => None,
-                    ParameterKind::Required
-                    | ParameterKind::Optional
-                    | ParameterKind::Defaulted(_) => {
-                        if i == self.positional as usize {
-                            Some(DocParam::OnlyNamedAfter)
-                        } else {
-                            None
+                    // Add `*` before first named-only parameter.
+                    let only_named_after = match kind {
+                        ParameterKind::Args | ParameterKind::KWargs => None,
+                        ParameterKind::Required
+                        | ParameterKind::Optional
+                        | ParameterKind::Defaulted(_) => {
+                            if i == self.positional as usize {
+                                Some(DocParam::OnlyNamedAfter)
+                            } else {
+                                None
+                            }
                         }
-                    }
-                };
+                    };
 
-                let doc_param = match kind {
-                    ParameterKind::Required => DocParam::Arg {
-                        name,
-                        docs,
-                        typ,
-                        default_value: None,
+                    let doc_param = match kind {
+                        ParameterKind::Required => DocParam::Arg {
+                            name,
+                            docs,
+                            typ,
+                            default_value: None,
+                        },
+                        ParameterKind::Optional => DocParam::Arg {
+                            name,
+                            docs,
+                            typ,
+                            default_value: Some("_".to_owned()),
+                        },
+                        ParameterKind::Defaulted(v) => DocParam::Arg {
+                            name,
+                            docs,
+                            typ,
+                            default_value: Some(v.to_value().to_repr()),
+                        },
+                        ParameterKind::Args => DocParam::Args {
+                            name,
+                            docs,
+                            tuple_elem_ty: typ,
+                        },
+                        ParameterKind::KWargs => DocParam::Kwargs {
+                            name,
+                            docs,
+                            dict_value_ty: typ,
+                        },
+                    };
+                    only_pos_before
+                        .into_iter()
+                        .chain(only_named_after)
+                        .chain(iter::once(doc_param))
+                })
+                .chain(
+                    // Add last `/`.
+                    if self.positional_only == self.param_kinds.len() as u32
+                        && self.param_kinds.len() != 0
+                    {
+                        Some(DocParam::OnlyPosBefore)
+                    } else {
+                        None
                     },
-                    ParameterKind::Optional => DocParam::Arg {
-                        name,
-                        docs,
-                        typ,
-                        default_value: Some("_".to_owned()),
-                    },
-                    ParameterKind::Defaulted(v) => DocParam::Arg {
-                        name,
-                        docs,
-                        typ,
-                        default_value: Some(v.to_value().to_repr()),
-                    },
-                    ParameterKind::Args => DocParam::Args {
-                        name,
-                        docs,
-                        tuple_elem_ty: typ,
-                    },
-                    ParameterKind::KWargs => DocParam::Kwargs {
-                        name,
-                        docs,
-                        dict_value_ty: typ,
-                    },
-                };
-                only_pos_before
-                    .into_iter()
-                    .chain(only_named_after)
-                    .chain(iter::once(doc_param))
-            })
-            .chain(
-                // Add last `/`.
-                if self.positional_only == self.param_kinds.len() as u32
-                    && self.param_kinds.len() != 0
-                {
-                    Some(DocParam::OnlyPosBefore)
-                } else {
-                    None
-                },
-            )
-            .collect()
+                )
+                .collect(),
+        }
     }
 
     /// Create a [`ParametersParser`] for given arguments.
@@ -907,7 +911,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         &self,
         parameter_types: Vec<Ty>,
         parameter_docs: HashMap<String, Option<DocString>>,
-    ) -> Vec<DocParam> {
+    ) -> DocParams {
         self.as_value()
             .documentation_impl(parameter_types, parameter_docs)
     }

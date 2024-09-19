@@ -265,6 +265,7 @@ impl<T: LspContext> Backend<T> {
                     DocItem::Member(DocMember::Function(doc_function)) => Some(
                         doc_function
                             .params
+                            .params
                             .into_iter()
                             .filter_map(|param| match param {
                                 DocParam::Arg { name, .. } => Some(name),
@@ -311,6 +312,7 @@ impl<T: LspContext> Backend<T> {
                     Some(symbol) => match symbol.1 {
                         DocItem::Member(DocMember::Function(doc_function)) => Some(
                             doc_function
+                                .params
                                 .params
                                 .into_iter()
                                 .filter_map(|param| match param {

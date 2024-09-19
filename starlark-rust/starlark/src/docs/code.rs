@@ -89,6 +89,7 @@ impl DocFunction {
 
         let args_indentation_count = self
             .params
+            .params
             .iter()
             .map(|p| match p {
                 DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => 0,
@@ -101,6 +102,7 @@ impl DocFunction {
         let args_indentation = " ".repeat(args_indentation_count);
 
         let args_docs = self
+            .params
             .params
             .iter()
             .filter_map(|p| p.starlark_docstring(&args_indentation))
@@ -125,7 +127,12 @@ impl DocFunction {
     }
 
     pub fn render_as_code(&self, name: &str) -> String {
-        let params: Vec<_> = self.params.iter().map(DocParam::render_as_code).collect();
+        let params: Vec<_> = self
+            .params
+            .params
+            .iter()
+            .map(DocParam::render_as_code)
+            .collect();
         let spacer_len = if params.is_empty() {
             0
         } else {

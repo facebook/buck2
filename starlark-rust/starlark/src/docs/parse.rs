@@ -30,6 +30,7 @@ use starlark_syntax::syntax::ast::StmtP;
 use crate::codemap::Spanned;
 use crate::docs::DocFunction;
 use crate::docs::DocParam;
+use crate::docs::DocParams;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
 use crate::typing::Ty;
@@ -297,7 +298,7 @@ impl DocFunction {
     ///                    The format is determined by `kind`.
     pub fn from_docstring(
         kind: DocStringKind,
-        mut params: Vec<DocParam>,
+        mut params: DocParams,
         return_type: Ty,
         raw_docstring: Option<&str>,
         as_type: Option<Ty>,
@@ -310,7 +311,7 @@ impl DocFunction {
                 match sections.get("arguments").or_else(|| sections.get("args")) {
                     Some(args) => {
                         let entries = Self::parse_params(kind, args);
-                        for x in &mut params {
+                        for x in &mut params.params {
                             match x {
                                 DocParam::Arg { name, docs, .. }
                                 | DocParam::Args { name, docs, .. }
@@ -687,39 +688,41 @@ mod tests {
         let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
-            params: vec![
-                DocParam::Arg {
-                    name: "**kwargs".to_owned(),
-                    docs: DocString::from_docstring(kind, "Docs for kwargs"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "*args".to_owned(),
-                    docs: DocString::from_docstring(kind, "Docs for args"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_bar".to_owned(),
-                    docs: DocString::from_docstring(
-                        kind,
-                        concat!(
-                            "The argument named bar. It has\n",
-                            "a longer doc string that spans\n",
-                            "over three lines"
+            params: DocParams {
+                params: vec![
+                    DocParam::Arg {
+                        name: "**kwargs".to_owned(),
+                        docs: DocString::from_docstring(kind, "Docs for kwargs"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam::Arg {
+                        name: "*args".to_owned(),
+                        docs: DocString::from_docstring(kind, "Docs for args"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam::Arg {
+                        name: "arg_bar".to_owned(),
+                        docs: DocString::from_docstring(
+                            kind,
+                            concat!(
+                                "The argument named bar. It has\n",
+                                "a longer doc string that spans\n",
+                                "over three lines"
+                            ),
                         ),
-                    ),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_foo".to_owned(),
-                    docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-            ],
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam::Arg {
+                        name: "arg_foo".to_owned(),
+                        docs: DocString::from_docstring(kind, "The argument named foo"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                ],
+            },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
@@ -729,12 +732,14 @@ mod tests {
 
         let function_docs = DocFunction::from_docstring(
             kind,
-            vec![
-                arg("**kwargs"),
-                arg("*args"),
-                arg("arg_bar"),
-                arg("arg_foo"),
-            ],
+            DocParams {
+                params: vec![
+                    arg("**kwargs"),
+                    arg("*args"),
+                    arg("arg_bar"),
+                    arg("arg_foo"),
+                ],
+            },
             return_type,
             Some(docstring),
             None,
@@ -763,27 +768,29 @@ mod tests {
         let return_type = Ty::int();
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
-            params: vec![
-                DocParam::Arg {
-                    name: "arg_bar".to_owned(),
-                    docs: DocString::from_docstring(
-                        kind,
-                        concat!(
-                            "The argument named bar. It has\n",
-                            "a longer doc string that spans\n",
-                            "over three lines"
+            params: DocParams {
+                params: vec![
+                    DocParam::Arg {
+                        name: "arg_bar".to_owned(),
+                        docs: DocString::from_docstring(
+                            kind,
+                            concat!(
+                                "The argument named bar. It has\n",
+                                "a longer doc string that spans\n",
+                                "over three lines"
+                            ),
                         ),
-                    ),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-                DocParam::Arg {
-                    name: "arg_foo".to_owned(),
-                    docs: DocString::from_docstring(kind, "The argument named foo"),
-                    typ: Ty::any(),
-                    default_value: None,
-                },
-            ],
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                    DocParam::Arg {
+                        name: "arg_foo".to_owned(),
+                        docs: DocString::from_docstring(kind, "The argument named foo"),
+                        typ: Ty::any(),
+                        default_value: None,
+                    },
+                ],
+            },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
@@ -793,7 +800,9 @@ mod tests {
 
         let function_docs = DocFunction::from_docstring(
             kind,
-            vec![arg("arg_bar"), arg("arg_foo")],
+            DocParams {
+                params: vec![arg("arg_bar"), arg("arg_foo")],
+            },
             return_type,
             Some(docstring),
             None,

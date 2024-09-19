@@ -345,7 +345,7 @@ fn returns_documentation() -> anyhow::Result<()> {
     let mut params = empty_spec
         .signature("foo_binary".to_owned())
         .documentation(empty_spec.starlark_types(), empty_spec.docstrings());
-    params.extend(vec![
+    params.params.extend(vec![
         arg("any", Ty::any(), None),
         arg("arg", Ty::string(), Some("_")),
         arg("bool", Ty::bool(), Some("_")),
