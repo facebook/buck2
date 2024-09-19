@@ -746,14 +746,14 @@ fn render_signature_arg(arg: &StarArg, purpose: Purpose) -> syn::Result<Option<E
 /// We have an argument that the user wants to use as a default.
 /// That _might_ have a valid `FrozenValue` representation, if so, it would be great to use for documentation.
 /// Try and synthesise it if we can.
-fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
+fn render_default_as_frozen_value(default: &Expr) -> Option<syn::Expr> {
     let x = quote!(#default).to_string();
     if let Ok(x) = x.trim_end_matches("i32").parse::<i32>() {
-        Some(quote! { globals_builder.alloc(#x) })
+        Some(syn::parse_quote! { globals_builder.alloc(#x) })
     } else if let Ok(x) = x.parse::<bool>() {
-        Some(quote! { starlark::values::FrozenValue::new_bool(#x) })
+        Some(syn::parse_quote! { starlark::values::FrozenValue::new_bool(#x) })
     } else if x == "NoneOr :: None" {
-        Some(quote! { starlark::values::FrozenValue::new_none() })
+        Some(syn::parse_quote! { starlark::values::FrozenValue::new_none() })
     } else if matches!(
         default,
         Expr::Lit(ExprLit {
@@ -762,11 +762,11 @@ fn render_default_as_frozen_value(default: &Expr) -> Option<TokenStream> {
         })
     ) {
         // Make sure we don't splice in `x` again, or we double quote the string
-        Some(quote! { globals_builder.alloc(#default) })
+        Some(syn::parse_quote! { globals_builder.alloc(#default) })
     } else if x == "UnpackListOrTuple :: default()" || x == "UnpackList :: default()" {
-        Some(quote! { globals_builder.alloc(starlark::values::list::AllocList::EMPTY) })
+        Some(syn::parse_quote! { globals_builder.alloc(starlark::values::list::AllocList::EMPTY) })
     } else if x == "SmallMap :: new()" {
-        Some(quote! { globals_builder.alloc(starlark::values::dict::AllocDict::EMPTY) })
+        Some(syn::parse_quote! { globals_builder.alloc(starlark::values::dict::AllocDict::EMPTY) })
     } else {
         None
     }
