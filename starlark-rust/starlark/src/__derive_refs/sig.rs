@@ -22,21 +22,38 @@ pub enum NativeSigArg {
     Required(&'static str),
     Optional(&'static str),
     Defaulted(&'static str, FrozenValue),
-    NoMorePositionalArgs,
-    NoMorePositionalOnlyArgs,
     Args,
     Kwargs,
 }
 
-pub fn parameter_spec(name: &'static str, args: &[NativeSigArg]) -> ParametersSpec<FrozenValue> {
+pub fn parameter_spec(
+    name: &'static str,
+    num_pos: usize,
+    num_pos_only: usize,
+    args: &[NativeSigArg],
+) -> ParametersSpec<FrozenValue> {
+    assert!(
+        num_pos_only <= num_pos,
+        "Building signature of `{name}`, num_pos_only={num_pos_only} > num_pos={num_pos}"
+    );
+    assert!(
+        num_pos <= args.len(),
+        "Building signature of `{name}`, num_pos={num_pos} > args.len()={}",
+        args.len()
+    );
+
     let mut spec = ParametersSpec::new(name.to_owned());
-    for arg in args {
+    for (i, arg) in args.iter().enumerate() {
+        if i == num_pos_only {
+            spec.no_more_positional_only_args();
+        }
+        if i == num_pos && !matches!(arg, NativeSigArg::Args | NativeSigArg::Kwargs) {
+            spec.no_more_positional_args();
+        }
         match arg {
             NativeSigArg::Required(name) => spec.required(name),
             NativeSigArg::Optional(name) => spec.optional(name),
             NativeSigArg::Defaulted(name, value) => spec.defaulted(name, *value),
-            NativeSigArg::NoMorePositionalArgs => spec.no_more_positional_args(),
-            NativeSigArg::NoMorePositionalOnlyArgs => spec.no_more_positional_only_args(),
             NativeSigArg::Args => spec.args(),
             NativeSigArg::Kwargs => spec.kwargs(),
         }

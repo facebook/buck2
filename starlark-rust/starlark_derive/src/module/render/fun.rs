@@ -492,11 +492,20 @@ enum Purpose {
 // Or return None if you don't need a signature
 fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     let name_str = ident_string(&x.name);
-    let sig_args: Vec<Expr> = render_signature_args(&x.args, purpose)?;
+    let (num_pos, num_pos_only) = validate_signature_args(&x.args)?;
+
+    let sig_args: Vec<syn::Expr> = x
+        .args
+        .iter()
+        .filter_map(|a| render_signature_arg(a, purpose).transpose())
+        .collect::<Result<_, _>>()?;
+
     Ok(quote! {
         {
             starlark::__derive_refs::sig::parameter_spec(
                 #name_str,
+                #num_pos,
+                #num_pos_only,
                 &[
                     #( #sig_args ),*
                 ]
@@ -583,7 +592,8 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     ))
 }
 
-fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<Expr>> {
+/// Return the number of positional and positional-only arguments.
+fn validate_signature_args(args: &[StarArg]) -> syn::Result<(usize, usize)> {
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
     enum CurrentParamStyle {
         PosOnly,
@@ -592,11 +602,15 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
         NoMore,
     }
 
-    let mut sig_args: Vec<Expr> = Vec::new();
+    let mut num_pos = 0;
+    let mut num_pos_only = 0;
+
     let mut last_param_style = CurrentParamStyle::PosOnly;
     for arg in args {
         match arg.pass_style {
-            StarArgPassStyle::This => {}
+            StarArgPassStyle::This => {
+                continue;
+            }
             StarArgPassStyle::Args => {
                 if last_param_style >= CurrentParamStyle::NamedOnly {
                     return Err(syn::Error::new(
@@ -626,12 +640,7 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
             }
             StarArgPassStyle::Default => {
                 last_param_style = match last_param_style {
-                    CurrentParamStyle::PosOnly => {
-                        sig_args.push(syn::parse_quote! {
-                            starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalOnlyArgs
-                        });
-                        CurrentParamStyle::PosOrNamed
-                    }
+                    CurrentParamStyle::PosOnly => CurrentParamStyle::PosOrNamed,
                     CurrentParamStyle::PosOrNamed => CurrentParamStyle::PosOrNamed,
                     CurrentParamStyle::NamedOnly => {
                         // After named parameters, following parameters cannot be positional,
@@ -653,11 +662,6 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
                         "Named-only parameter cannot follow kwargs",
                     ));
                 }
-                if last_param_style < CurrentParamStyle::NamedOnly {
-                    sig_args.push(syn::parse_quote! {
-                        starlark::__derive_refs::sig::NativeSigArg::NoMorePositionalArgs
-                    });
-                }
                 last_param_style = CurrentParamStyle::NamedOnly;
             }
             StarArgPassStyle::Arguments => {
@@ -667,9 +671,14 @@ fn render_signature_args(args: &[StarArg], purpose: Purpose) -> syn::Result<Vec<
                 ));
             }
         }
-        sig_args.extend(render_signature_arg(arg, purpose)?);
+        if last_param_style <= CurrentParamStyle::PosOnly {
+            num_pos_only += 1;
+        }
+        if last_param_style <= CurrentParamStyle::PosOrNamed {
+            num_pos += 1;
+        }
     }
-    Ok(sig_args)
+    Ok((num_pos, num_pos_only))
 }
 
 // Generate a statement that modifies signature to add a new argument in.
