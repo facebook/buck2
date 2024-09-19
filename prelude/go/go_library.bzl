@@ -11,6 +11,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load(
+    "@prelude//linking:link_groups.bzl",
+    "merge_link_group_lib_info",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "MergedLinkInfo",
     "create_merged_link_info_for_propagation",
@@ -32,7 +36,7 @@ load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "get_inherited_compile_pk
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
-load(":packages.bzl", "go_attr_pkg_name", "merge_pkgs")
+load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -64,6 +68,8 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     default_output = pkg.pkg
     pkgs[pkg_name] = pkg
 
+    own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
+
     return [
         DefaultInfo(default_output = default_output),
         GoPkgCompileInfo(pkgs = merge_pkgs([
@@ -84,10 +90,11 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.actions,
             deps = filter(None, map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         ),
+        merge_link_group_lib_info(deps = ctx.attrs.deps),
         create_linkable_graph(
             ctx,
             deps = ctx.attrs.deps,
         ),
-        cxx_merge_cpreprocessors(ctx, [], cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
+        cxx_merge_cpreprocessors(ctx, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]
