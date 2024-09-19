@@ -12,6 +12,7 @@
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
@@ -673,7 +674,7 @@ apple_test = prelude_rule(
         apple_common.info_plist_arg() |
         apple_common.info_plist_substitutions_arg() |
         {
-            "test_host_app": attrs.option(attrs.dep(), default = None, doc = """
+            "test_host_app": attrs.option(attrs.transition_dep(cfg = apple_test_host_app_transition), default = None, doc = """
                 A build target identifying
                  an `apple_bundle()` rule that builds an
                  application bundle. Output of the specified rule will be used as a test host of this test. This
@@ -683,6 +684,9 @@ apple_test = prelude_rule(
                  to be specified as a dependency of this target and `['-undefined', 'dynamic_lookup']`  needs to be added to this target's `linker_flags` (this will suppress undefined
                  reference errors during compilation, but if the symbols do not exist, it might result in runtime
                  crashes).
+            """),
+            "embed_xctest_frameworks_in_test_host_app": attrs.option(attrs.bool(), default = None, doc = """
+                Controls whether a marker constraint is added to the `test_host_app`.
             """),
         } |
         cxx_common.srcs_arg() |
