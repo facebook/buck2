@@ -19,7 +19,7 @@ def test():
     accept_f(bad_function)
 
 Error:
-error: Expected type `typing.Callable[[int, str], str]` but got `def(#x: int, #y: bool) -> str`
+error: Expected type `typing.Callable[[int, str], str]` but got `def(x: int, y: bool) -> str`
   --> filename:13:14
    |
 13 |     accept_f(bad_function)
@@ -27,7 +27,7 @@ error: Expected type `typing.Callable[[int, str], str]` but got `def(#x: int, #y
    |
 
 Compiler typechecker (eval):
-error: Expected type `typing.Callable[[int, str], str]` but got `def(#x: int, #y: bool) -> str`
+error: Expected type `typing.Callable[[int, str], str]` but got `def(x: int, y: bool) -> str`
   --> filename:13:14
    |
 13 |     accept_f(bad_function)

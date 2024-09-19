@@ -158,26 +158,47 @@ pub struct ParamSpec {
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let num_pos_only = self
+            .params
+            .iter()
+            .take_while(|p| matches!(p.mode, ParamMode::PosOnly(_)))
+            .count();
+        let num_pos = self
+            .params
+            .iter()
+            .take_while(|p| matches!(p.mode, ParamMode::PosOnly(..) | ParamMode::PosOrName(..)))
+            .count();
         for (i, param) in self.params.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
             }
+            if i == num_pos {
+                if matches!(
+                    self.params.get(i).map(|p| &p.mode),
+                    Some(ParamMode::NameOnly(..))
+                ) {
+                    write!(f, "*, ")?;
+                }
+            }
             fn optional(req: &ParamIsRequired) -> &'static str {
                 match req {
                     ParamIsRequired::Yes => "",
-                    ParamIsRequired::No => "=..",
+                    ParamIsRequired::No => "=...",
                 }
             }
             match &param.mode {
-                ParamMode::PosOnly(opt) => write!(f, "#: {}{}", param.ty, optional(opt))?,
+                ParamMode::PosOnly(opt) => write!(f, "_: {}{}", param.ty, optional(opt))?,
                 ParamMode::PosOrName(name, opt) => {
-                    write!(f, "#{}: {}{}", name, param.ty, optional(opt))?
+                    write!(f, "{}: {}{}", name, param.ty, optional(opt))?
                 }
                 ParamMode::NameOnly(name, opt) => {
                     write!(f, "{}: {}{}", name, param.ty, optional(opt))?
                 }
                 ParamMode::Args => write!(f, "*args: {}", param.ty)?,
                 ParamMode::Kwargs => write!(f, "**kwargs: {}", param.ty)?,
+            }
+            if i + 1 == num_pos_only {
+                write!(f, ", /")?;
             }
         }
         Ok(())
