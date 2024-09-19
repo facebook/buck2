@@ -19,6 +19,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
 
     input_android_apk_under_test_info = None
     input_unstripped_shared_libraries = None
+    input_android_apk_subtargets = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
         input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
@@ -28,6 +29,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_materialized_artifacts = input_android_apk_info.materialized_artifacts
         input_unstripped_shared_libraries = input_android_apk_info.unstripped_shared_libraries
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
+        input_android_apk_subtargets = ctx.attrs.apk[DefaultInfo].sub_targets
 
         env_vars = {
             "APK": cmd_args(input_apk),
@@ -101,10 +103,21 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
             default_providers = genrule_providers
 
     else:
-        default_providers = genrule_providers
+        sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
+        sub_targets.update({
+            "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
+            "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
+        })
         expect(genrule_default_output_is_apk, "apk_genrule output must end in '.apk'")
         output_apk = genrule_default_output
         output_aab_info = None
+        default_providers = [
+            DefaultInfo(
+                default_output = output_apk,
+                other_outputs = genrule_default_info[0].other_outputs,
+                sub_targets = sub_targets,
+            ),
+        ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
 
     class_to_src_map = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if (ctx.attrs.apk and JavaClassToSourceMapInfo in ctx.attrs.apk) else []
 
