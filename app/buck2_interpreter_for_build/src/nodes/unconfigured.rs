@@ -127,7 +127,7 @@ impl TargetNodeExt for TargetNode {
 
 // I can't implement a trait for a type that is not of this crate, so I wrap type here
 #[derive(Debug)]
-struct StarlarkCallStackWrapper(CallStack);
+pub struct StarlarkCallStackWrapper(pub CallStack);
 
 use cmp_any::PartialEqAny;
 

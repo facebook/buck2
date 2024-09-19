@@ -9,6 +9,11 @@
 
 namespace explain;
 
+table CodePointer {
+  file_path: string;
+  line: int;
+}
+
 enum TargetValueType : byte { Bool, Int, String, List, Dict }
 
 
@@ -42,6 +47,7 @@ table ConfiguredTargetNode {
     // extras
     configured_target_label: string;
     srcs: long;
+    code_pointer: CodePointer;
 }
 
 table Build {

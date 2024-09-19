@@ -22,6 +22,8 @@ use gazebo::prelude::SliceExt;
 mod fbs {
     pub use crate::explain_generated::explain::Build;
     pub use crate::explain_generated::explain::BuildArgs;
+    pub use crate::explain_generated::explain::CodePointer;
+    pub use crate::explain_generated::explain::CodePointerArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
     pub use crate::explain_generated::explain::TargetField;
@@ -84,6 +86,15 @@ fn target_to_fbs<'a>(
             .map(|(kind, _, _)| kind.to_string())
             .collect(),
     );
+
+    let code_pointer = node
+        .root_location()
+        .map(|l| fbs::CodePointerArgs {
+            file_path: Some(builder.create_shared_string(&l.file)),
+            line: l.line as i32,
+        })
+        .as_ref()
+        .map(|r| fbs::CodePointer::create(builder, r));
 
     let srcs = node
         .get("srcs", AttrInspectOptions::DefinedOnly)
@@ -205,6 +216,7 @@ fn target_to_fbs<'a>(
             // defined attrs
             attrs: all_attrs,
             srcs,
+            code_pointer,
         },
     );
     Ok(target)
@@ -384,6 +396,7 @@ mod tests {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetName;
+    use buck2_interpreter_for_build::nodes::unconfigured::StarlarkCallStackWrapper;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -403,6 +416,7 @@ mod tests {
     use buck2_node::attrs::internal::METADATA_ATTRIBUTE_FIELD;
     use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
     use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+    use buck2_node::call_stack::StarlarkCallStack;
     use buck2_node::metadata::key::MetadataKey;
     use buck2_node::metadata::map::MetadataMap;
     use buck2_node::metadata::value::MetadataValue;
@@ -411,6 +425,9 @@ mod tests {
     use buck2_node::visibility::WithinViewSpecification;
     use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
+    use starlark::codemap::FileSpan;
+    use starlark::errors::Frame;
+    use starlark::eval::CallStack;
     use starlark_map::small_map::SmallMap;
 
     use super::*;
@@ -984,6 +1001,11 @@ mod tests {
         assert_eq!(target.package(), Some("cell//pkg:BUCK"));
         assert_eq!(target.oncall(), None);
         assert_eq!(target.execution_platform(), Some("cell//pkg:bar"));
+        assert_eq!(
+            target.code_pointer().unwrap().file_path(),
+            Some("cell/pkg/BUCK")
+        );
+        assert_eq!(target.code_pointer().unwrap().line(), 0);
         assert_eq!(target.deps().unwrap().is_empty(), true);
         assert_eq!(target.plugins().unwrap().is_empty(), true);
 
@@ -1028,7 +1050,17 @@ mod tests {
             execution_platform_resolution.dupe(),
             attrs,
             internal_attrs,
-            None,
+            Some(StarlarkCallStack::new(StarlarkCallStackWrapper(
+                CallStack {
+                    frames: vec![Frame {
+                        name: "foo".to_owned(),
+                        location: Some(FileSpan::new(
+                            "cell/pkg/BUCK".to_owned(),
+                            "source".to_owned(),
+                        )),
+                    }],
+                },
+            ))),
         );
 
         let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");

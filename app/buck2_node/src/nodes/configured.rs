@@ -56,6 +56,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::call_stack::StarlarkCallStack;
+use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::configuration::resolved::ResolvedConfigurationSettings;
@@ -472,6 +473,13 @@ impl ConfiguredTargetNode {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(n) => n.call_stack(),
             TargetNodeOrForward::Forward(_, n) => n.call_stack(),
+        }
+    }
+
+    pub fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
+        match &self.0.target_node {
+            TargetNodeOrForward::TargetNode(n) => n.root_location(),
+            TargetNodeOrForward::Forward(_, n) => n.root_location(),
         }
     }
 
