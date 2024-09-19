@@ -764,9 +764,9 @@ fn render_default_as_frozen_value(default: &Expr) -> Option<syn::Expr> {
         // Make sure we don't splice in `x` again, or we double quote the string
         Some(syn::parse_quote! { globals_builder.alloc(#default) })
     } else if x == "UnpackListOrTuple :: default()" || x == "UnpackList :: default()" {
-        Some(syn::parse_quote! { globals_builder.alloc(starlark::values::list::AllocList::EMPTY) })
+        Some(syn::parse_quote! { starlark::values::FrozenValue::new_empty_list() })
     } else if x == "SmallMap :: new()" {
-        Some(syn::parse_quote! { globals_builder.alloc(starlark::values::dict::AllocDict::EMPTY) })
+        Some(syn::parse_quote! { starlark::values::FrozenValue::new_empty_dict() })
     } else {
         None
     }
