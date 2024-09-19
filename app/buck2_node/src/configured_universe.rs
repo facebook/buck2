@@ -330,6 +330,7 @@ mod tests {
                 ExecutionPlatformResolution::new(None, Vec::new()),
                 vec![],
                 vec![],
+                None,
             )]))
             .unwrap();
         let provider_label = ConfiguredProvidersLabel::new(target_label, providers_name());

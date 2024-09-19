@@ -168,6 +168,7 @@ fn mock_analysis_for_action_resolution(
                 ExecutionPlatformResolution::new(None, Vec::new()),
                 vec![],
                 vec![],
+                None,
             ),
         )),
     )

@@ -635,6 +635,7 @@ pub mod testing {
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
             internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            call_stack: Option<StarlarkCallStack>,
         ) -> Self;
     }
 
@@ -644,6 +645,7 @@ pub mod testing {
             rule_type: RuleType,
             attrs: Vec<(&str, Attribute, CoercedAttr)>,
             internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            call_stack: Option<StarlarkCallStack>,
         ) -> TargetNode {
             let attr_spec = AttributeSpec::testing_new(
                 attrs
@@ -692,7 +694,7 @@ pub mod testing {
                 label,
                 attributes,
                 CoercedDeps::from(deps_cache),
-                None,
+                call_stack,
             )
         }
     }

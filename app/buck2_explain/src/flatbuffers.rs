@@ -1028,6 +1028,7 @@ mod tests {
             execution_platform_resolution.dupe(),
             attrs,
             internal_attrs,
+            None,
         );
 
         let target_label2 = TargetLabel::testing_parse("cell//pkg:baz");
@@ -1038,6 +1039,7 @@ mod tests {
             execution_platform_resolution,
             vec![],
             vec![],
+            None,
         );
         vec![target, target2]
     }

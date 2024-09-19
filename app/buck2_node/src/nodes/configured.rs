@@ -55,6 +55,7 @@ use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::call_stack::StarlarkCallStack;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
 use crate::configuration::resolved::ResolvedConfigurationSettings;
@@ -203,6 +204,7 @@ impl ConfiguredTargetNode {
         execution_platform_resolution: ExecutionPlatformResolution,
         attrs: Vec<(&str, Attribute, CoercedAttr)>,
         internal_attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        call_stack: Option<StarlarkCallStack>,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
 
@@ -213,7 +215,13 @@ impl ConfiguredTargetNode {
 
         Self::new(
             name.dupe(),
-            TargetNode::testing_new(name.unconfigured().dupe(), rule_type, attrs, internal_attrs),
+            TargetNode::testing_new(
+                name.unconfigured().dupe(),
+                rule_type,
+                attrs,
+                internal_attrs,
+                call_stack,
+            ),
             ResolvedConfiguration::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
                 ResolvedConfigurationSettings::empty(),

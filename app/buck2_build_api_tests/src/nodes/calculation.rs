@@ -93,7 +93,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, vec![]);
+    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, vec![], None);
 
     let attrs2 = vec![
         (
@@ -117,7 +117,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, vec![]);
+    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, vec![], None);
 
     let eval_result = EvaluationResult::new(
         Arc::new(BuildFilePath::new(
