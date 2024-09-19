@@ -19,6 +19,7 @@ use crate::environment::GlobalsBuilder;
 use crate::stdlib::funcs::min_max::register_min_max;
 use crate::stdlib::funcs::other::register_other;
 use crate::stdlib::funcs::zip::register_zip;
+use crate::values::bool::globals::register_bool;
 use crate::values::range::globals::register_range;
 use crate::values::string::globals::register_str;
 use crate::values::types::dict::globals::register_dict;
@@ -27,6 +28,7 @@ use crate::values::types::list::globals::register_list;
 pub(crate) fn register_globals(globals: &mut GlobalsBuilder) {
     register_list(globals);
     register_dict(globals);
+    register_bool(globals);
     register_str(globals);
     register_range(globals);
     register_min_max(globals);

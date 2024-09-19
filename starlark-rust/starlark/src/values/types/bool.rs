@@ -23,6 +23,7 @@
 //! but as special values.
 
 mod alloc;
+pub(crate) mod globals;
 mod type_repr;
 mod unpack;
 pub(crate) mod value;
