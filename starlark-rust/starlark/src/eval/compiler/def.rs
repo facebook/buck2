@@ -37,6 +37,7 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::def::DefParam;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
+use starlark_syntax::syntax::def::DefRegularParamMode;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -150,6 +151,8 @@ pub(crate) enum ParameterCompiled<T> {
     Normal(
         /// Name.
         ParameterName,
+        /// Pos, named or both.
+        DefRegularParamMode,
         /// Type.
         Option<TypeCompiled<FrozenValue>>,
         /// Default value.
@@ -162,8 +165,8 @@ pub(crate) enum ParameterCompiled<T> {
 impl<T> ParameterCompiled<T> {
     pub(crate) fn map_expr<U>(&self, f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
         match self {
-            ParameterCompiled::Normal(n, o, t) => {
-                ParameterCompiled::Normal(n.clone(), *o, t.as_ref().map(f))
+            ParameterCompiled::Normal(n, m, o, t) => {
+                ParameterCompiled::Normal(n.clone(), *m, *o, t.as_ref().map(f))
             }
             ParameterCompiled::Args(n, o) => ParameterCompiled::Args(n.clone(), *o),
             ParameterCompiled::KwArgs(n, o) => ParameterCompiled::KwArgs(n.clone(), *o),
@@ -183,7 +186,7 @@ impl<T> ParameterCompiled<T> {
 
     pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<FrozenValue>>) {
         match self {
-            Self::Normal(n, t, _) => (n, *t),
+            Self::Normal(n, _, t, _) => (n, *t),
             Self::Args(n, t) => (n, *t),
             Self::KwArgs(n, t) => (n, *t),
         }
@@ -267,24 +270,21 @@ impl<T> ParametersCompiled<T> {
         ParamSpec::new(
             self.params
                 .iter()
-                .enumerate()
-                .map(|(i, p)| {
+                .map(|p| {
                     let ty = p.ty();
                     match &p.node {
-                        ParameterCompiled::Normal(name, _ty, None) => {
-                            if i < self.num_positional as usize {
-                                Param::pos_or_name(&name.name, ty)
-                            } else {
-                                Param::name_only(&name.name, ty)
-                            }
-                        }
-                        ParameterCompiled::Normal(name, _ty, Some(_)) => {
-                            if i < self.num_positional as usize {
+                        ParameterCompiled::Normal(name, m, _ty, None) => match m {
+                            DefRegularParamMode::PosOrName => Param::pos_or_name(&name.name, ty),
+                            DefRegularParamMode::NameOnly => Param::name_only(&name.name, ty),
+                        },
+                        ParameterCompiled::Normal(name, m, _ty, Some(_)) => match m {
+                            DefRegularParamMode::PosOrName => {
                                 Param::pos_or_name(&name.name, ty).optional()
-                            } else {
+                            }
+                            DefRegularParamMode::NameOnly => {
                                 Param::name_only(&name.name, ty).optional()
                             }
-                        }
+                        },
                         ParameterCompiled::Args(..) => Param::args(ty),
                         ParameterCompiled::KwArgs(..) => Param::kwargs(ty),
                     }
@@ -414,8 +414,9 @@ impl Compiler<'_, '_, '_, '_> {
         Ok(IrSpanned {
             span,
             node: match &x.node.kind {
-                DefParamKind::Regular(_mode, default_value) => ParameterCompiled::Normal(
+                DefParamKind::Regular(mode, default_value) => ParameterCompiled::Normal(
                     parameter_name,
+                    *mode,
                     self.expr_for_type(x.ty).map(|t| t.node),
                     default_value.as_ref().map(|d| self.expr(d)).transpose()?,
                 ),

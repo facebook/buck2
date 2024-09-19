@@ -1409,6 +1409,9 @@ impl InstrNoFlowImpl for InstrDefImpl {
         for (i, x) in def_data.params.params.iter().enumerate() {
             let i = i as u32;
 
+            // TODO(nga): don't forget to call `no_more_positional_only_args`,
+            //   when it is provider by the parser.
+
             if i == def_data.params.num_positional && !x.is_star_or_star_star() {
                 parameters.no_more_positional_args();
             }
@@ -1418,8 +1421,8 @@ impl InstrNoFlowImpl for InstrDefImpl {
             }
 
             match &x.node {
-                ParameterCompiled::Normal(n, _, None) => parameters.required(&n.name),
-                ParameterCompiled::Normal(n, ty, Some(v)) => {
+                ParameterCompiled::Normal(n, _, _, None) => parameters.required(&n.name),
+                ParameterCompiled::Normal(n, _, ty, Some(v)) => {
                     assert!(*v == pop_index);
                     let value = pop[pop_index as usize];
                     pop_index += 1;

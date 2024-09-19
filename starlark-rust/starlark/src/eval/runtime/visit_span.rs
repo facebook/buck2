@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use starlark_syntax::syntax::def::DefRegularParamMode;
+
 use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::expr::CompareOp;
@@ -124,4 +126,8 @@ impl<V: VisitSpanMut> VisitSpanMut for Option<V> {
             v.visit_spans(visitor);
         }
     }
+}
+
+impl VisitSpanMut for DefRegularParamMode {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
