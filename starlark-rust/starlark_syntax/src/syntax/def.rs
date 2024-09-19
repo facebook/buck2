@@ -17,6 +17,8 @@
 
 use std::collections::HashSet;
 
+use dupe::Dupe;
+
 use crate::codemap::CodeMap;
 use crate::codemap::Spanned;
 use crate::eval_exception::EvalException;
@@ -27,8 +29,15 @@ use crate::syntax::ast::AstPayload;
 use crate::syntax::ast::AstTypeExprP;
 use crate::syntax::ast::ParameterP;
 
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
+pub enum DefRegularParamMode {
+    PosOrName,
+    NameOnly,
+}
+
 pub enum DefParamKind<'a, P: AstPayload> {
     Regular(
+        DefRegularParamMode,
         /// Default value.
         Option<&'a AstExprP<P>>,
     ),
@@ -129,11 +138,16 @@ impl<'a, P: AstPayload> DefParams<'a, P> {
                     if state < State::SeenStar {
                         num_positional += 1;
                     }
+                    let mode = if state < State::SeenStar {
+                        DefRegularParamMode::PosOrName
+                    } else {
+                        DefRegularParamMode::NameOnly
+                    };
                     params.push(Spanned {
                         span,
                         node: DefParam {
                             ident: n,
-                            kind: DefParamKind::Regular(default_value.as_deref()),
+                            kind: DefParamKind::Regular(mode, default_value.as_deref()),
                             ty: ty.as_deref(),
                         },
                     });

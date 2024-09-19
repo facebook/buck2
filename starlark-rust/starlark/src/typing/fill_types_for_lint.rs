@@ -35,6 +35,7 @@ use starlark_syntax::syntax::ast::LoadP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
+use starlark_syntax::syntax::def::DefRegularParamMode;
 use starlark_syntax::syntax::type_expr::TypeExprUnpackP;
 use starlark_syntax::syntax::type_expr::TypePathP;
 
@@ -441,21 +442,19 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
     fn top_level_def(&mut self, def: &DefP<CstPayload>) -> Result<(), InternalError> {
         let DefParams {
             params: def_params,
-            num_positional,
+            num_positional: _,
         } = DefParams::unpack(&def.params, self.ctx.codemap)
             .map_err(InternalError::from_eval_exception)?;
 
         let mut params = Vec::with_capacity(def_params.len());
-        for (i, param) in def_params.iter().enumerate() {
+        for param in def_params {
             let ty = self.get_ty_expr_opt(param.ty)?;
             match param.kind {
-                DefParamKind::Regular(default_value) => {
-                    let pos_only = i < num_positional as usize;
+                DefParamKind::Regular(mode, default_value) => {
                     let name = param.ident.ident.as_str();
-                    let param = if pos_only {
-                        Param::pos_or_name(name, ty)
-                    } else {
-                        Param::name_only(name, ty)
+                    let param = match mode {
+                        DefRegularParamMode::PosOrName => Param::pos_or_name(name, ty),
+                        DefRegularParamMode::NameOnly => Param::name_only(name, ty),
                     };
                     let param = if default_value.is_some() {
                         param.optional()

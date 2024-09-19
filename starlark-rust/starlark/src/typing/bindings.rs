@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::syntax::ast::AssignOp;
 use starlark_syntax::syntax::ast::AssignP;
@@ -30,6 +31,7 @@ use starlark_syntax::syntax::ast::IdentP;
 use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
+use starlark_syntax::syntax::def::DefRegularParamMode;
 use starlark_syntax::syntax::uniplate::Visit;
 
 use crate::codemap::CodeMap;
@@ -218,18 +220,19 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut params2 = Vec::with_capacity(params.len());
         let DefParams {
             params,
-            num_positional,
+            num_positional: _,
         } = DefParams::unpack(params, codemap).map_err(InternalError::from_eval_exception)?;
-        for (i, p) in params.iter().enumerate() {
+        for p in params {
             let name = &p.node.ident;
             let ty = p.node.ty;
             let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
             let name_ty = match &p.node.kind {
-                DefParamKind::Regular(default_value) => {
-                    let mut param = if i >= num_positional as usize {
-                        Param::name_only(&name.ident, ty.clone())
-                    } else {
-                        Param::pos_or_name(&name.ident, ty.clone())
+                DefParamKind::Regular(mode, default_value) => {
+                    let mut param = match mode {
+                        DefRegularParamMode::PosOrName => {
+                            Param::pos_or_name(&name.ident, ty.dupe())
+                        }
+                        DefRegularParamMode::NameOnly => Param::name_only(&name.ident, ty.dupe()),
                     };
                     if default_value.is_some() {
                         param = param.optional();

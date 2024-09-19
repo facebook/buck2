@@ -414,7 +414,7 @@ impl Compiler<'_, '_, '_, '_> {
         Ok(IrSpanned {
             span,
             node: match &x.node.kind {
-                DefParamKind::Regular(default_value) => ParameterCompiled::Normal(
+                DefParamKind::Regular(_mode, default_value) => ParameterCompiled::Normal(
                     parameter_name,
                     self.expr_for_type(x.ty).map(|t| t.node),
                     default_value.as_ref().map(|d| self.expr(d)).transpose()?,
