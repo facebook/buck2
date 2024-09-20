@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::io;
-
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use clap::Command;
@@ -43,6 +41,10 @@ pub struct CompletionCommand {
         group = "operation"
     )]
     shell: Shell,
+
+    // FIXME(JakobDegen): Remove after rollout
+    #[clap(help = "Only emit completions for option flags", long, hide = true)]
+    options_only: bool,
 }
 
 impl CompletionCommand {
@@ -53,7 +55,7 @@ impl CompletionCommand {
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let mut command = command;
-        print_completion_script(self.shell, &mut command)?;
+        print_completion_script(self.shell, self.options_only, &mut command)?;
         ExitResult::success()
     }
 }
@@ -64,11 +66,21 @@ const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
 const BASH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.bash");
 const ZSH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.zsh");
 
-fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Result<()> {
+fn print_completion_script(
+    shell_arg: Shell,
+    options_only: bool,
+    cmd: &mut Command,
+) -> anyhow::Result<()> {
     let (wrapper, shell) = match shell_arg {
         Shell::Bash => (BASH_COMPLETION_WRAPPER, clap_complete::Shell::Bash),
         Shell::Zsh => (ZSH_COMPLETION_WRAPPER, clap_complete::Shell::Zsh),
     };
+
+    if options_only {
+        buck2_client_ctx::println!("{}", option_completions(shell, cmd)?)?;
+        return Ok(());
+    }
+
     let mut wrapper_iter = wrapper.lines();
     let mut found_insertion_point = false;
 
@@ -84,8 +96,7 @@ fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Resul
             COMPLETION_INSERTION_POINT => {
                 found_insertion_point = true;
 
-                // FIXME: it appears that this might silently swallow errors; would require a PR to fix
-                generate(shell, cmd, cmd.get_name().to_owned(), &mut io::stdout());
+                buck2_client_ctx::println!("{}", option_completions(shell, cmd)?)?;
             }
             s => {
                 buck2_client_ctx::println!("{}", s)?;
@@ -102,4 +113,11 @@ fn print_completion_script(shell_arg: Shell, cmd: &mut Command) -> anyhow::Resul
     } else {
         Ok(())
     }
+}
+
+fn option_completions(shell: clap_complete::Shell, cmd: &mut Command) -> anyhow::Result<String> {
+    let mut v = Vec::new();
+    // FIXME: it appears that this might silently swallow errors; would require a PR to fix
+    generate(shell, cmd, cmd.get_name().to_owned(), &mut v);
+    Ok(String::from_utf8(v)?)
 }

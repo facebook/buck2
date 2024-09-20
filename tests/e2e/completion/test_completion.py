@@ -10,21 +10,25 @@
 import os
 import platform
 import subprocess
+import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
+IS_LINUX: bool = platform.system() == "Linux"
+
 # FIXME(JakobDegen): `zsh` not avaialable on Linux CI
 # FIXME(JakobDegen): `fish` not avaialable on any CI
-SHELLS = ["bash", "zsh"] if platform.system() == "Darwin" else ["bash"]
+SHELLS = ["bash"] if IS_LINUX else ["bash", "zsh"]
 
 
 def completion_test(
     name: str,
     input: str,
-    expected: list[str],
+    expected: typing.List[str] | typing.Callable[[list[str]], bool],
     shells: list[str] = SHELLS,
+    options_only: bool = False,
 ) -> None:
     async def impl(buck: Buck) -> None:
         tmp_path = Path(buck.cwd).parent / "tmp"
@@ -35,7 +39,9 @@ def completion_test(
         for shell in shells:
             if shell not in SHELLS:
                 continue
-            get_completions = await buck.completion(shell)
+            get_completions = await buck.completion(
+                shell, *(["--options-only"] if options_only else [])
+            )
             completions_path = tmp_path / f"completion.{shell}"
             completions_path.write_text(get_completions.stdout)
 
@@ -63,10 +69,35 @@ def completion_test(
                 cwd=buck.cwd,
             )
             actual = actual.strip().split("\n")
-            assert actual == expected, "testing shell: " + shell
+            if isinstance(expected, list):
+                assert actual == expected, "testing shell: " + shell
+            else:
+                assert expected(actual), "testing shell: " + shell
 
     globals()[name] = buck_test(inplace=False)(impl)
 
+
+completion_test(
+    name="test_command_name",
+    input="t",
+    # FIXME(JakobDegen): Should probably not be inconsistent
+    expected=["test", "targets"] if IS_LINUX else ["targets", "test"],
+    options_only=True,
+    # Skip this on zsh because it has fancy formatting with help messages for commands (and nothing
+    # else)
+    shells=["bash"],
+)
+
+completion_test(
+    name="test_build_flags",
+    # Use `--p` so that we don't get too many outputs, which the test framework doesn't handle well
+    # on zsh
+    input="build --p",
+    options_only=True,
+    expected=lambda actual: (
+        "--prefer-local" in actual and "--prefer-remote" in actual
+    ),
+)
 
 completion_test(
     name="test_completes_simple_partial_directory",
