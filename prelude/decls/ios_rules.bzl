@@ -163,6 +163,7 @@ apple_binary = prelude_rule(
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
         apple_common.serialize_debugging_options_arg() |
+        apple_common.uses_explicit_modules_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -231,7 +232,6 @@ apple_binary = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
         } |
         buck.allow_cache_upload_arg()
@@ -457,6 +457,7 @@ apple_library = prelude_rule(
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
         apple_common.serialize_debugging_options_arg() |
+        apple_common.uses_explicit_modules_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -521,7 +522,6 @@ apple_library = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
         } |
         buck.allow_cache_upload_arg()
@@ -705,6 +705,7 @@ apple_test = prelude_rule(
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
         apple_common.serialize_debugging_options_arg() |
+        apple_common.uses_explicit_modules_arg() |
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "bridging_header": attrs.option(attrs.source(), default = None),
@@ -790,7 +791,6 @@ apple_test = prelude_rule(
             "ui_test_target_app": attrs.option(attrs.dep(), default = None),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_explicit_modules": attrs.bool(default = False),
             "uses_modules": attrs.bool(default = False),
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         } |
@@ -982,9 +982,9 @@ swift_library = prelude_rule(
             "srcs": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
             "target_sdk_version": attrs.option(attrs.string(), default = None),
-            "uses_explicit_modules": attrs.bool(default = False),
             "version": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        apple_common.uses_explicit_modules_arg()
     ),
 )
 

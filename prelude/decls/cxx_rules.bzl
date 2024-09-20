@@ -553,6 +553,7 @@ cxx_library = prelude_rule(
         cxx_common.precompiled_header_arg() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
+        apple_common.uses_explicit_modules_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -587,7 +588,6 @@ cxx_library = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "use_archive": attrs.option(attrs.bool(), default = None),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_explicit_modules": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
             "use_header_units": attrs.bool(default = False),

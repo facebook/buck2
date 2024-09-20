@@ -158,6 +158,11 @@ def _serialize_debugging_options_arg():
         "serialize_debugging_options": attrs.bool(default = True),
     }
 
+def _uses_explicit_modules_arg():
+    return {
+        "uses_explicit_modules": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -171,4 +176,5 @@ apple_common = struct(
     privacy_manifest_arg = _privacy_manifest_arg,
     debug_artifacts_validators_arg = _debug_artifacts_validators_arg,
     serialize_debugging_options_arg = _serialize_debugging_options_arg,
+    uses_explicit_modules_arg = _uses_explicit_modules_arg,
 )
