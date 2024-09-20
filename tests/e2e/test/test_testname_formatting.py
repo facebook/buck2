@@ -19,20 +19,6 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-class TestCaseRun:
-    def __init__(self, start_event_test_name: str, stop_event_test_name: str) -> None:
-        self.start_event_test_name = start_event_test_name
-        self.stop_event_test_name = stop_event_test_name
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, TestCaseRun):
-            return (
-                self.start_event_test_name == other.start_event_test_name
-                and self.stop_event_test_name == other.stop_event_test_name
-            )
-        return False
-
-
 @buck_test(inplace=True)
 @pytest.mark.parametrize("adapter", ["legacy", "new"])
 @pytest.mark.parametrize("listing", ["static", "dynamic"])
@@ -56,25 +42,13 @@ async def testname_formatting(
     log = (await buck.log("show")).stdout.strip().splitlines()
     test_results_paths = get_test_results_path(log)
     assert test_results_paths
-    test_runs = get_events_test_names(test_results_paths)
-    assert (
-        TestCaseRun(
-            "test_success (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-            "test_success (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-        )
-    ) in test_runs
-    assert (
-        TestCaseRun(
-            "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-            "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-        )
-    ) in test_runs
-    assert (
-        TestCaseRun(
-            "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-            "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
-        )
-    ) in test_runs
+    actual_tests = get_events_test_names(test_results_paths)
+    expected_tests = [
+        "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+        "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+        "test_success (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
+    ]
+    assert expected_tests == actual_tests
 
 
 #########
@@ -104,17 +78,12 @@ def get_event_test_name_from_test_results(
     return ""
 
 
-def get_events_test_names(tpx_test_result_paths: List[str]) -> List[TestCaseRun]:
-    test_runs: List[TestCaseRun] = []
+def get_events_test_names(tpx_test_result_paths: List[str]) -> List[str]:
+    test_runs = set()
     for tpx_test_result_path in tpx_test_result_paths:
         f = open(tpx_test_result_path, "r")
         test_results = f.readlines()
         f.close()
-        start_event_test_name = get_event_test_name_from_test_results(
-            test_results, "start"
-        )
-        end_event_test_name = get_event_test_name_from_test_results(
-            test_results, "finish"
-        )
-        test_runs.append(TestCaseRun(start_event_test_name, end_event_test_name))
-    return test_runs
+        test_name = get_event_test_name_from_test_results(test_results, "finish")
+        test_runs.add(test_name)
+    return sorted(test_runs)
