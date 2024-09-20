@@ -1421,8 +1421,8 @@ impl InstrNoFlowImpl for InstrDefImpl {
             }
 
             match &x.node {
-                ParameterCompiled::Normal(n, _, _, None) => parameters.required(&n.name),
-                ParameterCompiled::Normal(n, _, ty, Some(v)) => {
+                ParameterCompiled::Normal(n, _, None) => parameters.required(&n.name),
+                ParameterCompiled::Normal(n, ty, Some(v)) => {
                     assert!(*v == pop_index);
                     let value = pop[pop_index as usize];
                     pop_index += 1;

@@ -18,6 +18,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::iter;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -319,6 +320,39 @@ impl ParamSpec {
                 },
             })
         }
+    }
+
+    pub(crate) fn new_parts(
+        pos_only: impl IntoIterator<Item = (ParamIsRequired, Ty)>,
+        pos_or_name: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
+        args: Option<Ty>,
+        named_only: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
+        kwargs: Option<Ty>,
+    ) -> crate::Result<ParamSpec> {
+        Self::new(
+            iter::empty()
+                .chain(pos_only.into_iter().map(|(req, ty)| Param {
+                    mode: ParamMode::PosOnly(req),
+                    ty,
+                }))
+                .chain(pos_or_name.into_iter().map(|(name, req, ty)| Param {
+                    mode: ParamMode::PosOrName(name, req),
+                    ty,
+                }))
+                .chain(args.map(|ty| Param {
+                    mode: ParamMode::Args,
+                    ty,
+                }))
+                .chain(named_only.into_iter().map(|(name, req, ty)| Param {
+                    mode: ParamMode::NameOnly(name, req),
+                    ty,
+                }))
+                .chain(kwargs.map(|ty| Param {
+                    mode: ParamMode::Kwargs,
+                    ty,
+                }))
+                .collect(),
+        )
     }
 
     /// `*args`.
