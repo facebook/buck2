@@ -125,7 +125,7 @@ impl RageCommand {
         let client_ctx = ctx.empty_client_context("rage")?;
 
         // Don't fail the rage if you can't figure out whether to do vpnless.
-        let manifold = ManifoldClient::new(ctx.allow_vpnless().unwrap_or(true)).await?;
+        let manifold = ManifoldClient::new().await?;
 
         let rage_id = TraceId::new();
         let mut manifold_id = format!("{}", rage_id);

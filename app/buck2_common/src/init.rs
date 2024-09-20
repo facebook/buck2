@@ -283,7 +283,6 @@ pub struct DaemonStartupConfig {
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
     pub source_digest_algorithm: Option<String>,
-    pub allow_vpnless: bool,
     pub paranoid: bool,
     pub materializations: Option<String>,
     pub http: HttpConfig,
@@ -293,13 +292,6 @@ pub struct DaemonStartupConfig {
 impl DaemonStartupConfig {
     pub fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
         // Intepreted client side because we need the value here.
-        let allow_vpnless = config
-            .parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "allow_vpnless",
-            })?
-            .unwrap_or(true);
-
         Ok(Self {
             daemon_buster: config
                 .get(BuckconfigKeyRef {
@@ -319,7 +311,6 @@ impl DaemonStartupConfig {
                     property: "source_digest_algorithm",
                 })
                 .map(ToOwned::to_owned),
-            allow_vpnless,
             paranoid: false, // Setup later in ImmediateConfig
             materializations: config
                 .get(BuckconfigKeyRef {
@@ -345,7 +336,6 @@ impl DaemonStartupConfig {
             daemon_buster: None,
             digest_algorithms: None,
             source_digest_algorithm: None,
-            allow_vpnless: false,
             paranoid: false,
             materializations: None,
             http: HttpConfig::default(),

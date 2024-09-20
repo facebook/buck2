@@ -133,7 +133,6 @@ impl StreamingCommand for ExplainCommand {
                     output,
                     target,
                     fbs_dump: self.fbs_dump.map(|x| x.resolve(&ctx.working_dir)),
-                    allow_vpnless: ctx.allow_vpnless().unwrap_or(true),
                     manifold_path: manifold_path.clone(),
                     target_universe,
                     target_cfg,

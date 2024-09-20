@@ -2261,7 +2261,6 @@ message PersistEventLogSubprocess {
   repeated string remote_error_messages = 4;
   optional string remote_error_category = 5;
   bool remote_success = 6;
-  bool allow_vpnless = 7;
   map<string, string> metadata = 8;
 }
 

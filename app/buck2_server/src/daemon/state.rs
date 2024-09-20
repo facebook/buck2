@@ -862,7 +862,7 @@ async fn http_client_from_startup_config(
     let mut builder = if is_open_source() {
         HttpClientBuilder::oss().await?
     } else {
-        HttpClientBuilder::internal(config.allow_vpnless).await?
+        HttpClientBuilder::internal().await?
     };
     builder.with_max_redirects(config.http.max_redirects.unwrap_or(DEFAULT_MAX_REDIRECTS));
     builder.with_http2(config.http.http2);

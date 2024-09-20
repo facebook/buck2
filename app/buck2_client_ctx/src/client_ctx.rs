@@ -247,8 +247,4 @@ impl<'a> ClientCommandContext<'a> {
     pub fn async_cleanup_context(&self) -> &AsyncCleanupContext<'a> {
         &self.async_cleanup
     }
-
-    pub fn allow_vpnless(&self) -> anyhow::Result<bool> {
-        Ok(self.immediate_config.daemon_startup_config()?.allow_vpnless)
-    }
 }

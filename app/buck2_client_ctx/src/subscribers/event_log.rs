@@ -40,7 +40,6 @@ impl<'a> EventLog<'a> {
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-        allow_vpnless: bool,
     ) -> anyhow::Result<EventLog> {
         Ok(Self {
             async_cleanup_context: Some(async_cleanup_context),
@@ -52,7 +51,6 @@ impl<'a> EventLog<'a> {
                 sanitized_argv,
                 command_name,
                 log_size_counter_bytes,
-                allow_vpnless,
             )?,
         })
     }

@@ -23,38 +23,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 @buck_test(inplace=False)
 @env("CPE_RUST_X2P_SUPPORTS_VPNLESS", "0")
 @env("CPE_RUST_X2P_HTTP1_PROXY_PORT", "5555")
-async def test_vpnless_disabled_by_buckconfig_and_host(buck: Buck) -> None:
-    # Insert necessary buckconfig to pick up vpnless configuration.
-    with open(f"{buck.cwd}/.buckconfig", "a") as buckconfig:
-        buckconfig.writelines(["[buck2]\n", "allow_vpnless = false\n"])
-
-    # Get a daemon to start
-    await buck.build()
-    result = await buck.status()
-    status = json.loads(result.stdout)
-    assert not status[
-        "supports_vpnless"
-    ], "vpnless should be disabled by buckconfig and non-supporting host"
-
-
-@buck_test(inplace=False)
-@env("CPE_RUST_X2P_SUPPORTS_VPNLESS", "1")
-@env("CPE_RUST_X2P_HTTP1_PROXY_PORT", "5555")
-async def test_vpnless_disabled_by_buckconfig(buck: Buck) -> None:
-    # Insert necessary buckconfig to pick up vpnless configuration.
-    with open(f"{buck.cwd}/.buckconfig", "a") as buckconfig:
-        buckconfig.writelines(["[buck2]\n", "allow_vpnless = false\n"])
-
-    # Get a daemon to start
-    await buck.build()
-    result = await buck.status()
-    status = json.loads(result.stdout)
-    assert not status["supports_vpnless"], "vpnless should be disabled by buckconfig"
-
-
-@buck_test(inplace=False)
-@env("CPE_RUST_X2P_SUPPORTS_VPNLESS", "0")
-@env("CPE_RUST_X2P_HTTP1_PROXY_PORT", "5555")
 async def test_vpnless_disabled_by_host(buck: Buck) -> None:
     # Get a daemon to start
     await buck.build()
@@ -74,6 +42,4 @@ async def test_vpnless_enabled(buck: Buck) -> None:
     await buck.build()
     result = await buck.status()
     status = json.loads(result.stdout)
-    assert status[
-        "supports_vpnless"
-    ], "vpnless should be enabled by buckconfig and host"
+    assert status["supports_vpnless"], "vpnless should be enabled by host"

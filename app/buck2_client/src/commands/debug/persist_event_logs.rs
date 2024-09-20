@@ -57,8 +57,6 @@ pub struct PersistEventLogsCommand {
     local_path: AbsPathBuf,
     #[clap(long, help = "If present, only write to disk and don't upload")]
     no_upload: bool,
-    #[clap(long, help = "Allow vpnless")]
-    allow_vpnless: bool,
     #[clap(
         long,
         help = "UUID of invocation that called this subcommand for logging purposes"
@@ -73,7 +71,6 @@ impl PersistEventLogsCommand {
         let trace_id = self.trace_id.clone();
         ctx.with_runtime(|mut ctx| async move {
             let mut stdin = io::BufReader::new(ctx.stdin());
-            let allow_vpnless = self.allow_vpnless;
             let (local_result, remote_result) = self.write_and_upload(&mut stdin).await;
 
             let (local_error_messages, local_error_category, local_success) =
@@ -88,7 +85,6 @@ impl PersistEventLogsCommand {
                 remote_error_messages,
                 remote_error_category,
                 remote_success,
-                allow_vpnless,
                 metadata: buck2_events::metadata::collect(),
             };
             dispatch_event_to_scribe(sink.as_ref(), &trace_id, event_to_send).await;
@@ -106,13 +102,7 @@ impl PersistEventLogsCommand {
             Err(e) => return (Err(e), Err(anyhow::anyhow!("Not tried"))),
         };
         let write = write_task(&file, tx, stdin);
-        let upload = upload_task(
-            &file,
-            rx,
-            self.manifold_name,
-            self.no_upload,
-            self.allow_vpnless,
-        );
+        let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
 
         // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
         let (write_result, upload_result) = tokio::join!(write, upload);
@@ -164,13 +154,12 @@ async fn upload_task(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
     manifold_name: String,
     no_upload: bool,
-    allow_vpnless: bool,
 ) -> anyhow::Result<()> {
     if no_upload {
         return Ok(());
     }
 
-    let manifold_client = ManifoldClient::new(allow_vpnless).await?;
+    let manifold_client = ManifoldClient::new().await?;
     let manifold_path = format!("flat/{}", manifold_name);
     let mut uploader = Uploader::new(file_mutex, &manifold_path, &manifold_client)?;
 

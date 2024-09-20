@@ -78,9 +78,9 @@ impl HttpClientBuilder {
     }
 
     /// Builds an http client compatible with internal Meta usage.
-    pub async fn internal(allow_vpnless: bool) -> anyhow::Result<Self> {
+    pub async fn internal() -> anyhow::Result<Self> {
         let mut builder = Self::https_with_system_roots().await?;
-        if allow_vpnless && supports_vpnless() {
+        if supports_vpnless() {
             tracing::debug!("Using vpnless client");
             let proxy = x2p::find_proxy()?.context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
             builder.with_x2p_proxy(proxy);

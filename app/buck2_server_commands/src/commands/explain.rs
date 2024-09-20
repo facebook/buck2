@@ -125,7 +125,6 @@ pub(crate) async fn explain(
             all_deps,
             req.output.as_ref(),
             req.fbs_dump.as_ref(),
-            req.allow_vpnless,
             req.manifold_path.as_deref(),
         )
         .await?;

@@ -22,9 +22,6 @@ use tokio::io::BufReader;
 pub struct UploadReLogsCommand {
     #[clap(long)]
     session_id: String,
-
-    #[clap(long)]
-    allow_vpnless: bool,
 }
 
 impl UploadReLogsCommand {
@@ -33,7 +30,7 @@ impl UploadReLogsCommand {
 
         // TODO: This should receive the path from the caller.
         ctx.with_runtime(|ctx| async move {
-            let manifold = ManifoldClient::new(self.allow_vpnless).await?;
+            let manifold = ManifoldClient::new().await?;
             let re_logs_dir = ctx.paths()?.re_logs_dir();
             upload_re_logs(
                 &manifold,

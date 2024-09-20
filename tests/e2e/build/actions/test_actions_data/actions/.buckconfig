@@ -9,13 +9,3 @@ fbcode = fbcode
 fbsource = fbsource
 prelude = prelude
 toolchains = toolchains
-
-# TODO(nga): we should be able to download from localhost without this.
-#   `test_download_file` fails without it.
-#   Without it, test fails like this:
-#   [2024-03-28T00:45:34.880+00:00] Error performing http_download request:
-#   While making request to http://localhost:65032/always_times_out via x2p:
-#   folly::AsyncSocketException: AsyncSocketException: error decoding record in state ExpectingServerHello:
-#   std::runtime_error: received plaintext content type 72, header: 485454502f312e302034, type = SSL error
-[buck2]
-allow_vpnless = false

@@ -29,7 +29,6 @@ pub async fn main(
     data: Vec<ConfiguredTargetNode>,
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
-    allow_vpnless: bool,
     manifold_path: Option<&str>,
 ) -> anyhow::Result<()> {
     let fbs = flatbuffers::gen_fbs(data)?;
@@ -60,7 +59,7 @@ pub async fn main(
     if let Some(p) = manifold_path {
         // TODO iguridi: compress before upload
         // TODO iguridi: write and upload concurrently
-        let manifold = ManifoldClient::new(allow_vpnless).await?;
+        let manifold = ManifoldClient::new().await?;
 
         manifold
             .read_and_upload(Bucket::EVENT_LOGS, &p, Default::default(), &mut cursor)
