@@ -28,6 +28,7 @@ use crate::values::string::globals::register_str;
 use crate::values::tuple::globals::register_tuple;
 use crate::values::types::dict::globals::register_dict;
 use crate::values::types::list::globals::register_list;
+use crate::values::types::num::globals::register_num;
 
 pub(crate) fn register_globals(globals: &mut GlobalsBuilder) {
     register_list(globals);
@@ -38,6 +39,7 @@ pub(crate) fn register_globals(globals: &mut GlobalsBuilder) {
     register_str(globals);
     register_range(globals);
     register_int(globals);
+    register_num(globals);
     register_float(globals);
     register_min_max(globals);
     register_zip(globals);

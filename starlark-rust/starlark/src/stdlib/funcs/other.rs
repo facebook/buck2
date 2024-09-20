@@ -27,8 +27,6 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::list::AllocList;
 use crate::values::tuple::UnpackTuple;
-use crate::values::types::num::value::Num;
-use crate::values::types::num::value::NumRef;
 use crate::values::typing::never::StarlarkNever;
 use crate::values::typing::ty::AbstractType;
 use crate::values::typing::StarlarkIter;
@@ -64,24 +62,6 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         Err(starlark::Error::new(starlark::ErrorKind::Fail(
             anyhow::Error::msg(s),
         )))
-    }
-
-    /// Take the absolute value of an int.
-    ///
-    /// ```
-    /// # starlark::assert::all_true(r#"
-    /// abs(0)   == 0
-    /// abs(-10) == 10
-    /// abs(10)  == 10
-    /// abs(10.0) == 10.0
-    /// abs(-12.34) == 12.34
-    /// # "#);
-    /// ```
-    fn abs(#[starlark(require = pos)] x: NumRef) -> anyhow::Result<Num> {
-        match x {
-            NumRef::Int(a) => Ok(Num::Int(a.abs())),
-            NumRef::Float(a) => Ok(Num::Float(a.0.abs())),
-        }
     }
 
     /// [any](
