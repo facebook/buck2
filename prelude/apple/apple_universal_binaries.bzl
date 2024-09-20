@@ -11,6 +11,19 @@ load(":apple_bundle_types.bzl", "AppleBundleBinaryOutput")
 load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":debug.bzl", "AppleDebuggableInfo")
 
+def get_universal_binary_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.executable_name:
+        return ctx.attrs.executable_name
+    binary_deps = ctx.attrs.executable
+
+    # Because `binary_deps` is a split transition of the same target,
+    # the filenames would be identical, so we just pick the first one.
+    first_binary_dep = binary_deps.values()[0]
+    first_binary_artifact = first_binary_dep[DefaultInfo].default_outputs[0]
+
+    # The universal executable should have the same name as the base/thin ones
+    return first_binary_artifact.short_path
+
 def lipo_binaries(
         ctx: AnalysisContext,
         binary_deps: dict[str, Dependency],
