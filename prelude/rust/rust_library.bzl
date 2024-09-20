@@ -144,6 +144,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
     rust_param_artifact = {}
+    rust_param_subtargets = {}
     native_param_artifact = {}
     for params, langs in param_lang.items():
         link = rust_compile(
@@ -167,6 +168,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
                 MetadataKind("fast"): meta_fast,
+            }
+
+            rust_param_subtargets[params] = {
+                "llvm-ir": rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("llvm-ir"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                ),
             }
 
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
@@ -248,15 +260,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
-    llvm_ir = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("llvm-ir"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
-
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
     doctests_enabled = \
@@ -312,6 +315,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers += _default_providers(
         lang_style_param = lang_style_param,
         rust_param_artifact = rust_param_artifact,
+        rust_param_subtargets = rust_param_subtargets,
         native_param_artifact = native_param_artifact,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
@@ -319,7 +323,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
-        llvm_ir = llvm_ir.output,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
     )
@@ -531,13 +534,13 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         native_param_artifact: dict[BuildParams, RustcOutput],
+        rust_param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
         check_artifacts: dict[str, Artifact | None],
         expand: Artifact,
         sources: Artifact,
-        llvm_ir: Artifact,
         rustdoc_coverage: Artifact,
         named_deps_names: Artifact | None) -> list[Provider]:
     targets = {}
@@ -546,7 +549,6 @@ def _default_providers(
     targets["expand"] = expand
     targets["doc"] = rustdoc
     targets["doc-coverage"] = rustdoc_coverage
-    targets["llvm-ir"] = llvm_ir
     if named_deps_names:
         targets["named_deps"] = named_deps_names
     sub_targets = {
@@ -559,8 +561,9 @@ def _default_providers(
     # determined by `get_output_styles_for_linkage` in `linking/link_info.bzl`.
     # Do we want to do the same?
     for output_style in LibOutputStyle:
-        link = rust_param_artifact[lang_style_param[(LinkageLang("rust"), output_style)]][MetadataKind("link")]
-        nested_sub_targets = {}
+        param = lang_style_param[(LinkageLang("rust"), output_style)]
+        link = rust_param_artifact[param][MetadataKind("link")]
+        nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in rust_param_subtargets[param].items()}
         if link.pdb:
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = link.output)
 

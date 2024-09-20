@@ -469,7 +469,7 @@ def rust_compile(
     # TODO(pickett): We can expand this to support all linked crate types (cdylib + binary)
     # We can also share logic here for producing linked artifacts with cxx_library (instead of using)
     # deferred_link_action
-    if params.crate_type == CrateType("dylib") and compile_ctx.dep_ctx.advanced_unstable_linking:
+    if params.crate_type == CrateType("dylib") and emit == Emit("link") and compile_ctx.dep_ctx.advanced_unstable_linking:
         out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
         out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
         out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
@@ -1219,7 +1219,12 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
         return "expand"
 
     if emit == Emit("llvm-ir"):
-        return "llvm-ir"
+        link_strategy_suffix = {
+            LinkStrategy("static"): " [static]",
+            LinkStrategy("static_pic"): " [pic]",
+            LinkStrategy("shared"): " [shared]",
+        }[link_strategy]
+        return "llvm-ir" + link_strategy_suffix
 
     fail("unrecognized rustc action:", crate_type, link_strategy, emit)
 
