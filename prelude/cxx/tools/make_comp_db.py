@@ -22,6 +22,25 @@ import shlex
 import sys
 
 
+def process_arguments(arguments: list[str]) -> list[str]:
+    """
+    Process arguments to expand argsfiles.
+    """
+
+    combined_arguments = []
+    for arg in arguments:
+        if arg.startswith("@"):
+            with open(arg[1:]) as argsfile:
+                # The argsfile's arguments are separated by newlines; we
+                # don't want those included in the argument list.
+                lines = [" ".join(shlex.split(line)) for line in argsfile.readlines()]
+                # Support nested argsfiles.
+                combined_arguments.extend(process_arguments(lines))
+        else:
+            combined_arguments.append(arg)
+    return combined_arguments
+
+
 def gen(args: argparse.Namespace) -> None:
     """
     Generate a single compilation command in JSON form.
@@ -30,18 +49,7 @@ def gen(args: argparse.Namespace) -> None:
     entry = {}
     entry["file"] = args.directory + "/" + args.filename
     entry["directory"] = "."
-
-    arguments = []
-    for arg in args.arguments:
-        if arg.startswith("@"):
-            with open(arg[1:]) as argsfile:
-                for line in argsfile:
-                    # The argsfile's arguments are separated by newlines; we
-                    # don't want those included in the argument list.
-                    arguments.append(" ".join(shlex.split(line)))
-        else:
-            arguments.append(arg)
-    entry["arguments"] = arguments
+    entry["arguments"] = process_arguments(args.arguments)
 
     json.dump(entry, args.output, indent=2)
     args.output.close()
