@@ -17,6 +17,52 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::iter;
+
+/// Parameter or `*` or `/` separator, but only if needed for formatting.
+enum FmtParam<T> {
+    /// Positional-only, positional-or-named, or named-only parameter.
+    Regular(T),
+    /// `*args` parameter.
+    Args(T),
+    /// `**kwargs` parameter.
+    Kwargs(T),
+    /// `/` separator.
+    Slash,
+    /// `*` separator.
+    Star,
+}
+
+/// Flatten parameters and insert `/` and `*` separators if needed.
+fn iter_fmt_param_spec<T>(
+    pos_only: impl IntoIterator<Item = T>,
+    pos_named: impl IntoIterator<Item = T>,
+    args: Option<T>,
+    named_only: impl IntoIterator<Item = T>,
+    kwargs: Option<T>,
+) -> impl Iterator<Item = FmtParam<T>> {
+    let mut pos_only = pos_only.into_iter().peekable();
+    let slash = match pos_only.peek().is_some() {
+        true => Some(FmtParam::Slash),
+        false => None,
+    };
+
+    let mut named_only = named_only.into_iter().peekable();
+    // `*args`, otherwise `*` if needed.
+    let args_or_star = match (named_only.peek().is_some(), args) {
+        (_, Some(args)) => Some(FmtParam::Args(args)),
+        (true, None) => Some(FmtParam::Star),
+        (false, None) => None,
+    };
+
+    iter::empty()
+        .chain(pos_only.map(FmtParam::Regular))
+        .chain(slash)
+        .chain(pos_named.into_iter().map(FmtParam::Regular))
+        .chain(args_or_star)
+        .chain(named_only.map(FmtParam::Regular))
+        .chain(kwargs.map(FmtParam::Kwargs))
+}
 
 pub(crate) struct ParamFmt<'a, T: Display, D: Display> {
     /// Parameter name.
@@ -36,28 +82,16 @@ pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
     kwargs: Option<ParamFmt<'n, T, D>>,
 ) -> fmt::Result {
     struct Printer<'w> {
-        first: bool,
         f: &'w mut dyn fmt::Write,
     }
 
     impl<'w> Printer<'w> {
-        fn write_comma_if_needed(&mut self) -> fmt::Result {
-            if self.first {
-                self.first = false;
-            } else {
-                write!(self.f, ", ")?;
-            }
-            Ok(())
-        }
-
         fn write_param(
             &mut self,
             name: impl Display,
             ty: Option<impl Display>,
             default: Option<impl Display>,
         ) -> fmt::Result {
-            self.write_comma_if_needed()?;
-
             write!(self.f, "{name}")?;
             if let Some(ty) = ty {
                 write!(self.f, ": {ty}")?;
@@ -69,37 +103,31 @@ pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
         }
     }
 
-    let mut printer = Printer { first: true, f };
+    let mut printer = Printer { f };
 
-    let mut seen_pos_only = false;
-    for pos_only in pos_only {
-        seen_pos_only = true;
-        printer.write_param(pos_only.name, pos_only.ty, pos_only.default)?;
-    }
-    if seen_pos_only {
-        printer.write_comma_if_needed()?;
-        write!(printer.f, "/")?;
-    }
+    let iter = iter_fmt_param_spec(pos_only, pos_named, args, named_only, kwargs);
 
-    for pos_named in pos_named {
-        printer.write_param(pos_named.name, pos_named.ty, pos_named.default)?;
-    }
-
-    let mut named_only = named_only.into_iter().peekable();
-
-    if let Some(args) = args {
-        printer.write_param(format_args!("*{}", args.name), args.ty, args.default)?;
-    } else if named_only.peek().is_some() {
-        printer.write_comma_if_needed()?;
-        write!(printer.f, "*")?;
-    }
-
-    for named_only in named_only {
-        printer.write_param(named_only.name, named_only.ty, named_only.default)?;
-    }
-
-    if let Some(kwargs) = kwargs {
-        printer.write_param(format_args!("**{}", kwargs.name), kwargs.ty, kwargs.default)?;
+    for (i, param) in iter.enumerate() {
+        if i != 0 {
+            write!(printer.f, ", ")?;
+        }
+        match param {
+            FmtParam::Regular(p) => {
+                printer.write_param(p.name, p.ty, p.default)?;
+            }
+            FmtParam::Args(p) => {
+                printer.write_param(format_args!("*{}", p.name), p.ty, p.default)?;
+            }
+            FmtParam::Kwargs(p) => {
+                printer.write_param(format_args!("**{}", p.name), p.ty, p.default)?;
+            }
+            FmtParam::Slash => {
+                write!(printer.f, "/")?;
+            }
+            FmtParam::Star => {
+                write!(printer.f, "*")?;
+            }
+        }
     }
 
     Ok(())
