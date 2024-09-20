@@ -36,6 +36,7 @@
 
 pub(crate) mod alloc;
 pub(crate) mod refs;
+pub(crate) mod structs;
 pub(crate) mod unordered_hasher;
 pub(crate) mod value;
 

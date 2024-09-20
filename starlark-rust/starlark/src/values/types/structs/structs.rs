@@ -72,8 +72,9 @@ impl TyCustomFunctionImpl for StructType {
     }
 }
 
+/// Register `struct` builtin.
 #[starlark_module]
-pub fn global(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_struct(builder: &mut GlobalsBuilder) {
     #[starlark(
         ty_custom_function = StructType,
         as_type = FrozenStruct,

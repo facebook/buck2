@@ -29,7 +29,6 @@ mod funcs;
 pub(crate) mod internal;
 pub(crate) mod json;
 pub(crate) mod partial;
-pub(crate) mod structs;
 
 pub use extra::PrintHandler;
 
@@ -37,6 +36,7 @@ use crate::stdlib::funcs::globals::register_globals;
 use crate::stdlib::internal::register_internal;
 use crate::values::enumeration::globals::register_enum;
 use crate::values::record::globals::register_record;
+use crate::values::structs::structs::register_struct;
 use crate::values::typing;
 
 /// Return the default global environment, it is not yet frozen so that a caller
@@ -108,7 +108,7 @@ impl LibraryExtension {
     pub fn add(self, builder: &mut GlobalsBuilder) {
         use LibraryExtension::*;
         match self {
-            StructType => structs::global(builder),
+            StructType => register_struct(builder),
             RecordType => register_record(builder),
             EnumType => register_enum(builder),
             Map => extra::map(builder),
