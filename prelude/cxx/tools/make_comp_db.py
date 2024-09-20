@@ -22,7 +22,7 @@ import shlex
 import sys
 
 
-def gen(args):
+def gen(args: argparse.Namespace) -> None:
     """
     Generate a single compilation command in JSON form.
     """
@@ -47,7 +47,7 @@ def gen(args):
     args.output.close()
 
 
-def merge(args):
+def merge(args: argparse.Namespace) -> None:
     """
     Merge multiple compilation DB commands into a single DB.
     """
@@ -69,7 +69,7 @@ def merge(args):
     args.output.close()
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
@@ -89,6 +89,7 @@ def main(argv):
 
     args = parser.parse_args(argv[1:])
     args.func(args)
+    return 0
 
 
 sys.exit(main(sys.argv))
