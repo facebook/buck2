@@ -12,6 +12,8 @@ import json
 import re
 from typing import List
 
+import pytest
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -32,13 +34,23 @@ class TestCaseRun:
 
 
 @buck_test(inplace=True)
-async def test_python_test_success_print_correct_name_legacy_adapter_with_static_listing(
+@pytest.mark.parametrize("adapter", ["legacy", "new"])
+@pytest.mark.parametrize("listing", ["static", "dynamic"])
+@pytest.mark.parametrize("python_version", ["3.10", "3.12"])
+async def testname_formatting(
     buck: Buck,
+    adapter: str,
+    listing: str,
+    python_version: str,
 ) -> None:
+    target = f"{adapter}_{listing}_{python_version}"
+
+    if python_version == "3.12":
+        pytest.xfail("Test name formatting is different in 3.12")  # pyre-ignore[29]
+
     await expect_failure(
         buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test_name_formatting:legacy_static_3.10",
-            "@fbcode//mode/dev",
+            f"fbcode//buck2/tests/targets/rules/python/test_name_formatting:{target}",
         )
     )
     log = (await buck.log("show")).stdout.strip().splitlines()
