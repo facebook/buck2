@@ -470,8 +470,7 @@ def _pex_bootstrap_args(
     if symlink_tree_path != None:
         cmd.add(cmd_args(["--modules-dir", symlink_tree_path], ignore_artifacts = True))
 
-    if toolchain.main_runner:
-        cmd.add(["--main-runner", toolchain.main_runner])
+    cmd.add(["--main-runner", toolchain.main_runner])
 
     # Package style `inplace_lite` cannot be used with shared libraries
     if package_style == PackageStyle("inplace_lite") and not shared_libraries:
