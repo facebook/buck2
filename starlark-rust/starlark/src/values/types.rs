@@ -32,6 +32,7 @@ pub(crate) mod known_methods;
 pub mod list;
 pub mod list_or_tuple;
 pub mod none;
+pub(crate) mod num;
 pub mod range;
 pub mod record;
 pub mod starlark_value_as_type;

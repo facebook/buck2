@@ -16,9 +16,9 @@
  */
 
 use crate::typing::Ty;
-use crate::values::num::value::Num;
-use crate::values::num::value::NumRef;
 use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::types::num::value::Num;
+use crate::values::types::num::value::NumRef;
 use crate::values::UnpackValue;
 use crate::values::Value;
 

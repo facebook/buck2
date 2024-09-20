@@ -32,8 +32,8 @@ use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::Span;
 use crate::syntax::AstModule;
-use crate::values::num::value::NumRef;
 use crate::values::types::int::int_or_big::StarlarkInt;
+use crate::values::types::num::value::NumRef;
 
 #[derive(Error, Debug)]
 pub(crate) enum Dubious {

@@ -22,7 +22,7 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::values::int::int_or_big::StarlarkInt;
 use crate::values::int::pointer_i32::PointerI32;
-use crate::values::num::value::NumRef;
+use crate::values::types::num::value::NumRef;
 use crate::values::Heap;
 use crate::values::ValueOf;
 use crate::values::ValueOfUnchecked;

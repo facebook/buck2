@@ -113,7 +113,6 @@ pub(crate) mod frozen_ref;
 mod index;
 pub(crate) mod iter;
 pub(crate) mod layout;
-pub(crate) mod num;
 mod owned;
 pub(crate) mod owned_frozen_ref;
 pub(crate) mod recursive_repr_or_json_guard;

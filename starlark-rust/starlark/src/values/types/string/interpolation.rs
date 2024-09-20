@@ -26,9 +26,9 @@ use thiserror::Error;
 
 use crate::values::float::float;
 use crate::values::float::StarlarkFloat;
-use crate::values::num::value::NumRef;
 use crate::values::string::dot_format::format_one;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
+use crate::values::types::num::value::NumRef;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::Heap;
 use crate::values::StringValue;

@@ -21,8 +21,8 @@ use starlark_derive::starlark_module;
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::values::float::StarlarkFloat;
-use crate::values::num::value::NumRef;
 use crate::values::string::repr::string_repr;
+use crate::values::types::num::value::NumRef;
 
 #[starlark_module]
 pub(crate) fn register_float(globals: &mut GlobalsBuilder) {
