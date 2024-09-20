@@ -37,7 +37,7 @@ async def test_python_test_success_print_correct_name_legacy_adapter_with_static
 ) -> None:
     await expect_failure(
         buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test_name_formatting:test_name_formatting_legacy_adapter_with_static_listing",
+            "fbcode//buck2/tests/targets/rules/python/test_name_formatting:legacy_static_3.10",
             "@fbcode//mode/dev",
         )
     )
