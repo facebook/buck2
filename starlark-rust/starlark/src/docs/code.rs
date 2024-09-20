@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::fmt::Display;
+
 use itertools::Itertools;
 
 use crate::docs::Doc;
@@ -23,10 +25,13 @@ use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocParam;
+use crate::docs::DocParams;
 use crate::docs::DocProperty;
 use crate::docs::DocReturn;
 use crate::docs::DocString;
 use crate::docs::DocType;
+use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
+use crate::eval::runtime::params::display::ParamFmt;
 use crate::typing::Ty;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
@@ -89,22 +94,15 @@ impl DocFunction {
 
         let args_indentation_count = self
             .params
-            .params
-            .iter()
-            .map(|p| match p {
-                DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => 0,
-                DocParam::Arg { name, .. }
-                | DocParam::Args { name, .. }
-                | DocParam::Kwargs { name, .. } => name.len() + 2,
-            })
+            .doc_params()
+            .map(|p| p.name.len() + 2)
             .max()
             .unwrap_or_default();
         let args_indentation = " ".repeat(args_indentation_count);
 
         let args_docs = self
             .params
-            .params
-            .iter()
+            .doc_params()
             .filter_map(|p| p.starlark_docstring(&args_indentation))
             .join("\n");
         if !args_docs.is_empty() {
@@ -127,22 +125,12 @@ impl DocFunction {
     }
 
     pub fn render_as_code(&self, name: &str) -> String {
-        let params: Vec<_> = self
-            .params
-            .params
-            .iter()
-            .map(DocParam::render_as_code)
-            .collect();
-        let spacer_len = if params.is_empty() {
-            0
+        let params_one_line = self.params.render_code(None);
+
+        let params = if params_one_line.len() > 60 {
+            format!("(\n{})", self.params.render_code(Some("    ")))
         } else {
-            (params.len() - 1) * 2
-        };
-        let params_len = params.iter().map(|a| a.len()).sum::<usize>() + spacer_len;
-        let params = if params_len > 60 {
-            format!("(\n{}\n)", indent_trimmed(&params.join(",\n"), "    "))
-        } else {
-            format!("({})", params.join(", "))
+            format!("({})", params_one_line)
         };
         let docstring = self
             .starlark_docstring()
@@ -162,47 +150,44 @@ impl DocFunction {
 
 impl DocParam {
     fn starlark_docstring(&self, max_indentation: &str) -> Option<String> {
-        let (name, docs) = match self {
-            DocParam::Arg { name, docs, .. } => Some((name, docs)),
-            DocParam::OnlyNamedAfter | DocParam::OnlyPosBefore => None,
-            DocParam::Args { name, docs, .. } => Some((name, docs)),
-            DocParam::Kwargs { name, docs, .. } => Some((name, docs)),
-        }?;
+        let DocParam { name, docs, .. } = self;
         let rendered_docs = docs.as_ref()?.render_as_code();
         let mut indented = indent_trimmed(&rendered_docs, max_indentation);
         indented.replace_range(..name.len() + 2, &format!("{}: ", name));
         Some(indented)
     }
 
-    fn render_as_code(&self) -> String {
-        match self {
-            DocParam::Arg {
-                name,
-                typ,
-                default_value,
-                ..
-            } => match (typ, default_value.as_ref()) {
-                (t, Some(default)) if t.is_any() => format!("{} = {}", name, default),
-                (t, None) if t.is_any() => name.clone(),
-                (t, Some(default)) => format!("{}: {} = {}", name, t, default),
-                (t, None) => format!("{}: {}", name, t),
-            },
-            DocParam::OnlyNamedAfter => "*".to_owned(),
-            DocParam::OnlyPosBefore => "/".to_owned(),
-            DocParam::Args {
-                name,
-                tuple_elem_ty: typ,
-                ..
-            }
-            | DocParam::Kwargs {
-                name,
-                dict_value_ty: typ,
-                ..
-            } => match typ {
-                t if t.is_any() => name.clone(),
-                typ => format!("{}: {}", name, typ),
-            },
+    fn fmt_param(&self) -> ParamFmt<'_, impl Display + '_, impl Display + '_> {
+        let DocParam {
+            name,
+            docs: _,
+            typ,
+            default_value,
+        } = self;
+        let ty = if typ.is_any() { None } else { Some(typ) };
+        ParamFmt {
+            name,
+            ty,
+            default: default_value.as_ref(),
         }
+    }
+}
+
+impl DocParams {
+    /// Render multiline if `indent` is `Some`.
+    pub(crate) fn render_code(&self, indent: Option<&str>) -> String {
+        let mut s = String::new();
+        fmt_param_spec_maybe_multiline(
+            &mut s,
+            indent,
+            self.pos_only.iter().map(DocParam::fmt_param),
+            self.pos_or_named.iter().map(DocParam::fmt_param),
+            self.args.as_ref().map(DocParam::fmt_param),
+            self.named_only.iter().map(DocParam::fmt_param),
+            self.kwargs.as_ref().map(DocParam::fmt_param),
+        )
+        .unwrap();
+        s
     }
 }
 

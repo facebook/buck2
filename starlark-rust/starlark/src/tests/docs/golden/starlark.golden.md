@@ -20,7 +20,7 @@ def f1(
     c: int = 5,
     *,
     d: str = "some string",
-    **kwargs
+    **kwargs,
 ) -> list[str]
 ```
 

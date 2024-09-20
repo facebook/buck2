@@ -311,15 +311,11 @@ impl DocFunction {
                 match sections.get("arguments").or_else(|| sections.get("args")) {
                     Some(args) => {
                         let entries = Self::parse_params(kind, args);
-                        for x in &mut params.params {
-                            match x {
-                                DocParam::Arg { name, docs, .. }
-                                | DocParam::Args { name, docs, .. }
-                                | DocParam::Kwargs { name, docs, .. } => match entries.get(name) {
-                                    Some(raw) => *docs = DocString::from_docstring(kind, raw),
-                                    _ => (),
-                                },
-                                _ => (),
+                        for x in &mut params.doc_params_mut() {
+                            let DocParam { name, docs, .. } = x;
+                            match entries.get(name) {
+                                Some(raw) => *docs = DocString::from_docstring(kind, raw),
+                                None => {}
                             }
                         }
                     }
@@ -361,7 +357,7 @@ impl DocFunction {
     /// docstring (e.g. if a user wants both the `Args:` and `Returns:` sections)
     fn parse_params(kind: DocStringKind, args_section: &str) -> HashMap<String, String> {
         static STARLARK_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^(\*{0,2}\w+):\s*(.*)").unwrap());
+            Lazy::new(|| Regex::new(r"^\*{0,2}(\w+):\s*(.*)").unwrap());
         static RUST_ARG_RE: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"^(?:\* )?`(\w+)`:?\s*(.*)").unwrap());
 
@@ -658,7 +654,7 @@ mod tests {
     }
 
     fn arg(name: &str) -> DocParam {
-        DocParam::Arg {
+        DocParam {
             name: name.to_owned(),
             docs: None,
             typ: Ty::any(),
@@ -689,20 +685,20 @@ mod tests {
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: DocParams {
-                params: vec![
-                    DocParam::Arg {
-                        name: "**kwargs".to_owned(),
-                        docs: DocString::from_docstring(kind, "Docs for kwargs"),
-                        typ: Ty::any(),
-                        default_value: None,
-                    },
-                    DocParam::Arg {
-                        name: "*args".to_owned(),
-                        docs: DocString::from_docstring(kind, "Docs for args"),
-                        typ: Ty::any(),
-                        default_value: None,
-                    },
-                    DocParam::Arg {
+                kwargs: Some(DocParam {
+                    name: "kwargs".to_owned(),
+                    docs: DocString::from_docstring(kind, "Docs for kwargs"),
+                    typ: Ty::any(),
+                    default_value: None,
+                }),
+                args: Some(DocParam {
+                    name: "args".to_owned(),
+                    docs: DocString::from_docstring(kind, "Docs for args"),
+                    typ: Ty::any(),
+                    default_value: None,
+                }),
+                pos_or_named: vec![
+                    DocParam {
                         name: "arg_bar".to_owned(),
                         docs: DocString::from_docstring(
                             kind,
@@ -715,13 +711,15 @@ mod tests {
                         typ: Ty::any(),
                         default_value: None,
                     },
-                    DocParam::Arg {
+                    DocParam {
                         name: "arg_foo".to_owned(),
                         docs: DocString::from_docstring(kind, "The argument named foo"),
                         typ: Ty::any(),
                         default_value: None,
                     },
                 ],
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
             },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
@@ -733,12 +731,11 @@ mod tests {
         let function_docs = DocFunction::from_docstring(
             kind,
             DocParams {
-                params: vec![
-                    arg("**kwargs"),
-                    arg("*args"),
-                    arg("arg_bar"),
-                    arg("arg_foo"),
-                ],
+                kwargs: Some(arg("kwargs")),
+                args: Some(arg("args")),
+                pos_or_named: vec![arg("arg_bar"), arg("arg_foo")],
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
             },
             return_type,
             Some(docstring),
@@ -769,8 +766,8 @@ mod tests {
         let expected = DocFunction {
             docs: DocString::from_docstring(kind, "This is an example docstring\n\nDetails here"),
             params: DocParams {
-                params: vec![
-                    DocParam::Arg {
+                pos_or_named: vec![
+                    DocParam {
                         name: "arg_bar".to_owned(),
                         docs: DocString::from_docstring(
                             kind,
@@ -783,13 +780,17 @@ mod tests {
                         typ: Ty::any(),
                         default_value: None,
                     },
-                    DocParam::Arg {
+                    DocParam {
                         name: "arg_foo".to_owned(),
                         docs: DocString::from_docstring(kind, "The argument named foo"),
                         typ: Ty::any(),
                         default_value: None,
                     },
                 ],
+                kwargs: None,
+                args: None,
+                pos_only: Vec::new(),
+                named_only: Vec::new(),
             },
             ret: DocReturn {
                 docs: DocString::from_docstring(kind, "A value"),
@@ -801,7 +802,8 @@ mod tests {
         let function_docs = DocFunction::from_docstring(
             kind,
             DocParams {
-                params: vec![arg("arg_bar"), arg("arg_foo")],
+                pos_or_named: vec![arg("arg_bar"), arg("arg_foo")],
+                ..DocParams::default()
             },
             return_type,
             Some(docstring),

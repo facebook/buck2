@@ -28,6 +28,7 @@ use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::environment::GlobalsBuilder;
+use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::list::UnpackList;
@@ -141,10 +142,8 @@ def with_arguments(*args, **kwargs) -> int: pass
             let DocItem::Member(DocMember::Function(expected)) = &mut expected else {
                 unreachable!()
             };
-            let DocParam::Arg { default_value, .. } = &mut expected.params.params[0] else {
-                unreachable!()
-            };
-            *default_value = Some("_".to_owned());
+            let DocParam { default_value, .. } = expected.params.doc_params_mut().next().unwrap();
+            *default_value = Some(PARAM_FMT_OPTIONAL.to_owned());
         }
         // Comparing one at a time produces more useful error messages
         assert_eq!(&expected, got.get(&name).unwrap());

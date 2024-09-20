@@ -46,12 +46,7 @@ def func2() -> str
 ## func3
 
 ```python
-def func3(
-    a1: int,
-    a2: int = _,
-    step: int = 1,
-    /
-) -> str
+def func3(a1: int, a2: int = ..., step: int = 1, /) -> str
 ```
 
 A function with only positional arguments.
@@ -87,13 +82,7 @@ def notypes(a)
 ## pos\_either\_named
 
 ```python
-def pos_either_named(
-    a: int,
-    /,
-    b: int,
-    *,
-    c: int
-) -> None
+def pos_either_named(a: int, /, b: int, *, c: int) -> None
 ```
 
 ---
@@ -119,7 +108,7 @@ def starlark_kwargs(**kwargs: int) -> None
 ```python
 def with_defaults(
     explicit_default: list[str] = [],
-    hidden_default: list[str] = _,
-    string_default: str = "my_default"
+    hidden_default: list[str] = ...,
+    string_default: str = "my_default",
 ) -> None
 ```

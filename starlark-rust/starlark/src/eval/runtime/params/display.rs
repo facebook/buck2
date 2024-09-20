@@ -20,7 +20,7 @@ use std::fmt::Display;
 use std::iter;
 
 /// Parameter or `*` or `/` separator, but only if needed for formatting.
-enum FmtParam<T> {
+pub enum FmtParam<T> {
     /// Positional-only, positional-or-named, or named-only parameter.
     Regular(T),
     /// `*args` parameter.
@@ -34,7 +34,7 @@ enum FmtParam<T> {
 }
 
 /// Flatten parameters and insert `/` and `*` separators if needed.
-fn iter_fmt_param_spec<T>(
+pub(crate) fn iter_fmt_param_spec<T>(
     pos_only: impl IntoIterator<Item = T>,
     pos_named: impl IntoIterator<Item = T>,
     args: Option<T>,
@@ -64,6 +64,9 @@ fn iter_fmt_param_spec<T>(
         .chain(kwargs.map(FmtParam::Kwargs))
 }
 
+/// What to print for unknown default/optional.
+pub(crate) const PARAM_FMT_OPTIONAL: &str = "...";
+
 pub(crate) struct ParamFmt<'a, T: Display, D: Display> {
     /// Parameter name.
     pub(crate) name: &'a str,
@@ -75,6 +78,20 @@ pub(crate) struct ParamFmt<'a, T: Display, D: Display> {
 /// Utility to format function signature.
 pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
     f: &mut dyn fmt::Write,
+    pos_only: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
+    pos_named: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
+    args: Option<ParamFmt<'n, T, D>>,
+    named_only: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
+    kwargs: Option<ParamFmt<'n, T, D>>,
+) -> fmt::Result {
+    fmt_param_spec_maybe_multiline(f, None, pos_only, pos_named, args, named_only, kwargs)
+}
+
+#[allow(clippy::write_with_newline)]
+pub(crate) fn fmt_param_spec_maybe_multiline<'n, T: Display, D: Display>(
+    f: &mut dyn fmt::Write,
+    // Single-line if `None`.
+    indent: Option<&str>,
     pos_only: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
     pos_named: impl IntoIterator<Item = ParamFmt<'n, T, D>>,
     args: Option<ParamFmt<'n, T, D>>,
@@ -105,11 +122,21 @@ pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
 
     let mut printer = Printer { f };
 
-    let iter = iter_fmt_param_spec(pos_only, pos_named, args, named_only, kwargs);
+    let mut iter = iter_fmt_param_spec(pos_only, pos_named, args, named_only, kwargs).peekable();
+
+    let not_empty = iter.peek().is_some();
 
     for (i, param) in iter.enumerate() {
-        if i != 0 {
-            write!(printer.f, ", ")?;
+        if i == 0 {
+            if let Some(indent) = indent {
+                write!(printer.f, "{indent}")?;
+            }
+        } else {
+            if let Some(indent) = indent {
+                write!(printer.f, ",\n{indent}")?;
+            } else {
+                write!(printer.f, ", ")?;
+            }
         }
         match param {
             FmtParam::Regular(p) => {
@@ -128,6 +155,10 @@ pub(crate) fn fmt_param_spec<'n, T: Display, D: Display>(
                 write!(printer.f, "*")?;
             }
         }
+    }
+
+    if not_empty && indent.is_some() {
+        write!(printer.f, ",\n")?;
     }
 
     Ok(())

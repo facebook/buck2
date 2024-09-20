@@ -19,7 +19,6 @@ use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
-use std::iter;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -43,6 +42,7 @@ use crate::eval::runtime::arguments::FunctionError;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::eval::runtime::params::display::ParamFmt;
+use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
@@ -368,11 +368,10 @@ impl<V> ParametersSpec<V> {
                 name,
                 ty: None::<&str>,
                 default: match self.param_kinds[i as usize] {
-                    ParameterKind::Defaulted(_) => Some("..."),
-                    ParameterKind::Required
-                    | ParameterKind::Optional
-                    | ParameterKind::Args
-                    | ParameterKind::KWargs => None,
+                    ParameterKind::Defaulted(_) | ParameterKind::Optional => {
+                        Some(PARAM_FMT_OPTIONAL)
+                    }
+                    ParameterKind::Required | ParameterKind::Args | ParameterKind::KWargs => None,
                 },
             }
         };
@@ -767,83 +766,40 @@ impl<'v> ParametersSpec<Value<'v>> {
             "function: `{}`",
             self.function_name,
         );
+
+        let mut dp = |i: u32| -> DocParam {
+            let name = self.param_names[i as usize].as_str();
+            let name = name.strip_prefix("**").unwrap_or(name);
+            let name = name.strip_prefix("*").unwrap_or(name);
+
+            let docs = parameter_docs.remove(name).flatten();
+
+            let name = name.to_owned();
+
+            DocParam {
+                name,
+                docs,
+                typ: parameter_types[i as usize].dupe(),
+                default_value: match self.param_kinds[i as usize] {
+                    ParameterKind::Required => None,
+                    ParameterKind::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
+                    ParameterKind::Defaulted(v) => Some(v.to_value().to_repr()),
+                    ParameterKind::Args => None,
+                    ParameterKind::KWargs => None,
+                },
+            }
+        };
+
         DocParams {
-            params: self
-                .iter_params()
-                .enumerate()
-                .zip(parameter_types)
-                .flat_map(|((i, (name, kind)), typ)| {
-                    let docs = parameter_docs.remove(name).flatten();
-                    let name = name.to_owned();
-
-                    // Add `/` before the first named parameter.
-                    let only_pos_before =
-                        if i != 0 && i == self.indices.num_positional_only as usize {
-                            Some(DocParam::OnlyPosBefore)
-                        } else {
-                            None
-                        };
-
-                    // Add `*` before first named-only parameter.
-                    let only_named_after = match kind {
-                        ParameterKind::Args | ParameterKind::KWargs => None,
-                        ParameterKind::Required
-                        | ParameterKind::Optional
-                        | ParameterKind::Defaulted(_) => {
-                            if i == self.indices.num_positional as usize {
-                                Some(DocParam::OnlyNamedAfter)
-                            } else {
-                                None
-                            }
-                        }
-                    };
-
-                    let doc_param = match kind {
-                        ParameterKind::Required => DocParam::Arg {
-                            name,
-                            docs,
-                            typ,
-                            default_value: None,
-                        },
-                        ParameterKind::Optional => DocParam::Arg {
-                            name,
-                            docs,
-                            typ,
-                            default_value: Some("_".to_owned()),
-                        },
-                        ParameterKind::Defaulted(v) => DocParam::Arg {
-                            name,
-                            docs,
-                            typ,
-                            default_value: Some(v.to_value().to_repr()),
-                        },
-                        ParameterKind::Args => DocParam::Args {
-                            name,
-                            docs,
-                            tuple_elem_ty: typ,
-                        },
-                        ParameterKind::KWargs => DocParam::Kwargs {
-                            name,
-                            docs,
-                            dict_value_ty: typ,
-                        },
-                    };
-                    only_pos_before
-                        .into_iter()
-                        .chain(only_named_after)
-                        .chain(iter::once(doc_param))
-                })
-                .chain(
-                    // Add last `/`.
-                    if self.indices.num_positional_only == self.param_kinds.len() as u32
-                        && self.param_kinds.len() != 0
-                    {
-                        Some(DocParam::OnlyPosBefore)
-                    } else {
-                        None
-                    },
-                )
+            pos_only: self.indices.pos_only().map(&mut dp).collect(),
+            pos_or_named: self.indices.pos_or_named().map(&mut dp).collect(),
+            args: self.indices.args.map(&mut dp),
+            named_only: self
+                .indices
+                .named_only(self.param_kinds.len() as u32)
+                .map(&mut dp)
                 .collect(),
+            kwargs: self.indices.kwargs.map(&mut dp),
         }
     }
 

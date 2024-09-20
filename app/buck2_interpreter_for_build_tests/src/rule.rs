@@ -332,7 +332,7 @@ fn returns_documentation() -> anyhow::Result<()> {
     );
 
     fn arg(name: &str, raw_type: Ty, default: Option<&str>) -> DocParam {
-        DocParam::Arg {
+        DocParam {
             name: name.to_owned(),
             docs: DocString::from_docstring(DocStringKind::Starlark, &format!("{} docs", name)),
             typ: raw_type,
@@ -345,20 +345,20 @@ fn returns_documentation() -> anyhow::Result<()> {
     let mut params = empty_spec
         .signature("foo_binary".to_owned())
         .documentation(empty_spec.starlark_types(), empty_spec.docstrings());
-    params.params.extend(vec![
+    params.named_only.extend(vec![
         arg("any", Ty::any(), None),
-        arg("arg", Ty::string(), Some("_")),
-        arg("bool", Ty::bool(), Some("_")),
-        arg("default_only", Ty::string(), Some("_")),
-        arg("dep", Ty::string(), Some("_")),
-        arg("dict", Ty::dict(Ty::string(), Ty::bool()), Some("_")),
-        arg("list", Ty::list(Ty::string()), Some("_")),
-        arg("one_of", Ty::union2(Ty::bool(), Ty::string()), Some("_")),
-        arg("option", Ty::union2(Ty::none(), Ty::string()), Some("_")),
+        arg("arg", Ty::string(), Some("...")),
+        arg("bool", Ty::bool(), Some("...")),
+        arg("default_only", Ty::string(), Some("...")),
+        arg("dep", Ty::string(), Some("...")),
+        arg("dict", Ty::dict(Ty::string(), Ty::bool()), Some("...")),
+        arg("list", Ty::list(Ty::string()), Some("...")),
+        arg("one_of", Ty::union2(Ty::bool(), Ty::string()), Some("...")),
+        arg("option", Ty::union2(Ty::none(), Ty::string()), Some("...")),
         arg("query", Ty::string(), None),
-        arg("source", Ty::string(), Some("_")),
-        arg("string", Ty::string(), Some("_")),
-        arg("tuple", Ty::tuple2(Ty::bool(), Ty::string()), Some("_")),
+        arg("source", Ty::string(), Some("...")),
+        arg("string", Ty::string(), Some("...")),
+        arg("tuple", Ty::tuple2(Ty::bool(), Ty::string()), Some("...")),
     ]);
 
     let expected_docs = DocItem::Member(DocMember::Function(DocFunction {

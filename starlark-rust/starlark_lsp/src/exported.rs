@@ -164,7 +164,7 @@ impl AstModuleExportedSymbols for AstModule {
                                 .collect(),
                         },
                         || {
-                            get_doc_item_for_def(def)
+                            get_doc_item_for_def(def, self.codemap())
                                 .map(|x| DocItem::Member(DocMember::Function(x)))
                         },
                     );

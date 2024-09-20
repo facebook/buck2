@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 
+use dupe::Dupe;
 use serde::Serialize;
 use starlark::collections::SmallMap;
 use starlark::typing::Ty;
@@ -186,8 +187,7 @@ impl JsonDocFunction {
             docs: f.docs.map(JsonDocString::from_starlark),
             params: f
                 .params
-                .params
-                .into_iter()
+                .fmt_params()
                 .map(JsonDocParam::from_starlark)
                 .collect(),
             ret: JsonDocReturn::from_starlark(f.ret),
@@ -240,38 +240,40 @@ enum JsonDocParam {
 }
 
 impl JsonDocParam {
-    fn from_starlark(param: starlark::docs::DocParam) -> Self {
+    fn from_starlark(param: starlark::docs::FmtParam<&'_ starlark::docs::DocParam>) -> Self {
         match param {
-            starlark::docs::DocParam::Arg {
+            starlark::docs::FmtParam::Regular(starlark::docs::DocParam {
                 name,
                 docs,
                 typ,
                 default_value,
-            } => Self::Arg {
+            }) => Self::Arg {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                typ: typ.dupe(),
+                default_value: default_value.clone(),
+            },
+            starlark::docs::FmtParam::Slash => Self::OnlyPosBefore,
+            starlark::docs::FmtParam::Star => Self::OnlyNamedAfter,
+            starlark::docs::FmtParam::Args(starlark::docs::DocParam {
                 name,
-                docs: docs.map(JsonDocString::from_starlark),
+                docs,
                 typ,
-                default_value,
+                default_value: _,
+            }) => Self::Args {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                tuple_elem_ty: typ.dupe(),
             },
-            starlark::docs::DocParam::OnlyNamedAfter => Self::OnlyNamedAfter,
-            starlark::docs::DocParam::OnlyPosBefore => Self::OnlyPosBefore,
-            starlark::docs::DocParam::Args {
+            starlark::docs::FmtParam::Kwargs(starlark::docs::DocParam {
                 name,
                 docs,
-                tuple_elem_ty,
-            } => Self::Args {
-                name,
-                docs: docs.map(JsonDocString::from_starlark),
-                tuple_elem_ty,
-            },
-            starlark::docs::DocParam::Kwargs {
-                name,
-                docs,
-                dict_value_ty,
-            } => Self::Kwargs {
-                name,
-                docs: docs.map(JsonDocString::from_starlark),
-                dict_value_ty,
+                typ,
+                default_value: _,
+            }) => Self::Kwargs {
+                name: name.clone(),
+                docs: docs.clone().map(JsonDocString::from_starlark),
+                dict_value_ty: typ.dupe(),
             },
         }
     }

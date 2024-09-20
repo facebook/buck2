@@ -22,40 +22,50 @@ use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::typing::Ty;
+use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::syntax::ast::AstAssignTargetP;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::AstPayload;
 use starlark_syntax::syntax::ast::AstStmtP;
 use starlark_syntax::syntax::ast::DefP;
 use starlark_syntax::syntax::ast::ExprP;
-use starlark_syntax::syntax::ast::ParameterP;
 use starlark_syntax::syntax::ast::StmtP;
+use starlark_syntax::syntax::def::DefParams;
 
 /// Given the AST node for a `def` statement, return a `DocFunction` if the
 /// `def` statement has a docstring as its first statement.
-pub(crate) fn get_doc_item_for_def<P: AstPayload>(def: &DefP<P>) -> Option<DocFunction> {
+pub(crate) fn get_doc_item_for_def<P: AstPayload>(
+    def: &DefP<P>,
+    codemap: &CodeMap,
+) -> Option<DocFunction> {
     if let Some(doc_string) = peek_docstring(&def.body) {
-        let args: Vec<_> = def
-            .params
-            .iter()
-            .filter_map(|param| match &param.node {
-                ParameterP::Normal(p, ..) | ParameterP::Args(p, _) | ParameterP::KwArgs(p, _) => {
-                    Some(DocParam::Arg {
-                        name: p.ident.to_owned(),
-                        docs: None,
-                        typ: Ty::any(),
-                        default_value: None,
-                    })
-                }
-                // TODO(nga): this should not ignore `/` and `*` markers.
-                //
-                _ => None,
-            })
-            .collect();
+        // TODO(nga): do not unwrap.
+        let def = DefParams::unpack(&def.params, codemap).unwrap();
 
+        let dp = |i: u32| -> DocParam {
+            let param = &def.params[i as usize];
+            DocParam {
+                name: param.ident.ident.clone(),
+                docs: None,
+                typ: Ty::any(),
+                default_value: None,
+            }
+        };
+
+        let doc_params = DocParams {
+            pos_only: def.indices.pos_only().map(dp).collect(),
+            pos_or_named: def.indices.pos_or_named().map(dp).collect(),
+            args: def.indices.args.map(dp),
+            named_only: def
+                .indices
+                .named_only(def.params.len() as u32)
+                .map(dp)
+                .collect(),
+            kwargs: def.indices.kwargs.map(dp),
+        };
         let doc_function = DocFunction::from_docstring(
             DocStringKind::Starlark,
-            DocParams { params: args },
+            doc_params,
             // TODO: Figure out how to get a `Ty` from the `def.return_type`.
             Ty::any(),
             Some(doc_string),

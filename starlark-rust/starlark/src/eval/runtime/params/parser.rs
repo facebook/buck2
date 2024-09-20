@@ -77,6 +77,7 @@ mod tests {
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
     use crate::eval::compiler::def::FrozenDef;
+    use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParameterKind;
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
@@ -146,25 +147,29 @@ mod tests {
         let p = p.finish();
 
         let expected = DocParams {
-            params: vec![
-                DocParam::Args {
-                    name: "*args".to_owned(),
-                    docs: None,
-                    tuple_elem_ty: Ty::any(),
-                },
-                DocParam::Arg {
+            args: Some(DocParam {
+                name: "args".to_owned(),
+                docs: None,
+                typ: Ty::any(),
+                default_value: None,
+            }),
+            named_only: vec![
+                DocParam {
                     name: "a".to_owned(),
                     docs: None,
                     typ: Ty::int(),
-                    default_value: Some("_".to_owned()),
+                    default_value: Some(PARAM_FMT_OPTIONAL.to_owned()),
                 },
-                DocParam::Arg {
+                DocParam {
                     name: "b".to_owned(),
                     docs: DocString::from_docstring(DocStringKind::Rust, "param b docs"),
                     typ: Ty::any(),
-                    default_value: Some("_".to_owned()),
+                    default_value: Some(PARAM_FMT_OPTIONAL.to_owned()),
                 },
             ],
+            pos_only: Vec::new(),
+            pos_or_named: Vec::new(),
+            kwargs: None,
         };
         let types = vec![Ty::any(), Ty::int(), Ty::any()];
         let mut docs = HashMap::new();

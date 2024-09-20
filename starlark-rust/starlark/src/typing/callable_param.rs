@@ -28,6 +28,7 @@ use starlark_syntax::syntax::def::DefParamIndices;
 
 use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::eval::runtime::params::display::ParamFmt;
+use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
@@ -179,7 +180,7 @@ impl Display for ParamSpec {
                     | ParamMode::NameOnly(_, ParamIsRequired::Yes) => None,
                     ParamMode::PosOnly(ParamIsRequired::No)
                     | ParamMode::PosOrName(_, ParamIsRequired::No)
-                    | ParamMode::NameOnly(_, ParamIsRequired::No) => Some("..."),
+                    | ParamMode::NameOnly(_, ParamIsRequired::No) => Some(PARAM_FMT_OPTIONAL),
                     ParamMode::Args | ParamMode::Kwargs => None,
                 },
             }

@@ -1086,9 +1086,9 @@ impl<T: LspContext> Backend<T> {
                             range: Some(source.into()),
                         })
                         .or_else(|| {
-                            symbol.param.map(|docs| Hover {
+                            symbol.param.map(|(starred_name, doc)| Hover {
                                 contents: HoverContents::Array(vec![MarkedString::String(
-                                    render_doc_param(&docs),
+                                    render_doc_param(starred_name, &doc),
                                 )]),
                                 range: Some(source.into()),
                             })

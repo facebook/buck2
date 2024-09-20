@@ -25,6 +25,7 @@ pub mod markdown;
 mod parse;
 
 use std::collections::HashMap;
+use std::iter;
 
 use allocative::Allocative;
 pub use code::render_docs_as_code;
@@ -33,6 +34,8 @@ pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
+use crate::eval::runtime::params::display::iter_fmt_param_spec;
+pub use crate::eval::runtime::params::display::FmtParam;
 use crate::typing::Ty;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::StarlarkValue;
@@ -92,54 +95,84 @@ pub struct DocFunction {
 }
 
 impl DocFunction {
-    /// Used by LSP.
-    pub fn find_param_with_name(&self, param_name: &str) -> Option<&DocParam> {
-        self.params.params.iter().find(|p| match p {
-            DocParam::Arg { name, .. }
-            | DocParam::Args { name, .. }
-            | DocParam::Kwargs { name, .. }
-                if name == param_name =>
-            {
-                true
-            }
-            _ => false,
-        })
+    /// Used by LSP. Return starred name and the doc.
+    pub fn find_param_with_name(&self, param_name: &str) -> Option<(String, &DocParam)> {
+        self.params
+            .doc_params_with_starred_names()
+            .find(|(_, p)| p.name == param_name)
     }
 }
 
 /// Function parameters.
 #[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocParams {
-    pub params: Vec<DocParam>,
+    pub pos_only: Vec<DocParam>,
+    pub pos_or_named: Vec<DocParam>,
+    pub args: Option<DocParam>,
+    pub named_only: Vec<DocParam>,
+    pub kwargs: Option<DocParam>,
+}
+
+impl DocParams {
+    /// Iterate parameters ignoring information about positional-only, named-only.
+    pub(crate) fn doc_params(&self) -> impl Iterator<Item = &DocParam> {
+        iter::empty()
+            .chain(&self.pos_only)
+            .chain(&self.pos_or_named)
+            .chain(&self.args)
+            .chain(&self.named_only)
+            .chain(&self.kwargs)
+    }
+
+    pub(crate) fn doc_params_with_starred_names(
+        &self,
+    ) -> impl Iterator<Item = (String, &DocParam)> {
+        iter::empty()
+            .chain(self.pos_only.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.pos_or_named.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.args.iter().map(|p| (format!("*{}", p.name), p)))
+            .chain(self.named_only.iter().map(|p| (p.name.clone(), p)))
+            .chain(self.kwargs.iter().map(|p| (format!("**{}", p.name), p)))
+    }
+
+    pub(crate) fn doc_params_mut(&mut self) -> impl Iterator<Item = &mut DocParam> {
+        iter::empty()
+            .chain(&mut self.pos_only)
+            .chain(&mut self.pos_or_named)
+            .chain(&mut self.args)
+            .chain(&mut self.named_only)
+            .chain(&mut self.kwargs)
+    }
+
+    /// Non-star parameters.
+    pub fn regular_params(&self) -> impl Iterator<Item = &DocParam> {
+        iter::empty()
+            .chain(&self.pos_only)
+            .chain(&self.pos_or_named)
+            .chain(&self.named_only)
+    }
+
+    /// Iterate params with `/` and `*` markers to output function signature.
+    pub fn fmt_params(&self) -> impl Iterator<Item = FmtParam<&'_ DocParam>> {
+        iter_fmt_param_spec(
+            &self.pos_only,
+            &self.pos_or_named,
+            self.args.as_ref(),
+            &self.named_only,
+            self.kwargs.as_ref(),
+        )
+    }
 }
 
 /// A single parameter of a function.
 #[derive(Debug, Clone, PartialEq, Allocative)]
-pub enum DocParam {
-    /// A regular parameter that may or may not have a default value.
-    Arg {
-        name: String,
-        docs: Option<DocString>,
-        typ: Ty,
-        /// If present, this parameter has a default value. This is the `repr()` of that value.
-        default_value: Option<String>,
-    },
-    /// Represents the "*" argument from [PEP 3102](https://peps.python.org/pep-3102/).
-    OnlyNamedAfter,
-    /// Represents the "/" argument from [PEP 570](https://peps.python.org/pep-0570/).
-    OnlyPosBefore,
-    /// Represents the "*args" style of argument.
-    Args {
-        name: String,
-        docs: Option<DocString>,
-        tuple_elem_ty: Ty,
-    },
-    /// Represents the "**kwargs" style of argument.
-    Kwargs {
-        name: String,
-        docs: Option<DocString>,
-        dict_value_ty: Ty,
-    },
+pub struct DocParam {
+    /// Does not include `*` or `**`.
+    pub name: String,
+    pub docs: Option<DocString>,
+    /// Element type for `*args` and value type for `**kwargs`.
+    pub typ: Ty,
+    pub default_value: Option<String>,
 }
 
 /// Details about the return value of a function.
@@ -274,12 +307,7 @@ impl DocMember {
 impl DocParam {
     /// Get the underlying [`DocString`] for this item, if it exists.
     pub fn get_doc_string(&self) -> Option<&DocString> {
-        match self {
-            DocParam::Arg { docs, .. }
-            | DocParam::Args { docs, .. }
-            | DocParam::Kwargs { docs, .. } => docs.as_ref(),
-            _ => None,
-        }
+        self.docs.as_ref()
     }
 
     /// Get the summary of the underlying [`DocString`] for this item, if it exists.
