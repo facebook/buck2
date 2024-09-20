@@ -109,7 +109,6 @@ def _apple_library_extra_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
-        "serialize_debugging_options": attrs.bool(default = True),
         # Mach-O file type for binary when the target is built as a shared library.
         "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
         "stripped": attrs.option(attrs.bool(), default = None),

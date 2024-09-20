@@ -162,6 +162,7 @@ apple_binary = prelude_rule(
         apple_common.target_sdk_version() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
+        apple_common.serialize_debugging_options_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -220,7 +221,6 @@ apple_binary = prelude_rule(
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
             "sdk_modules": attrs.list(attrs.string(), default = []),
-            "serialize_debugging_options": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
@@ -456,6 +456,7 @@ apple_library = prelude_rule(
         cxx_common.exported_deps_arg() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
+        apple_common.serialize_debugging_options_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -510,7 +511,6 @@ apple_library = prelude_rule(
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "sdk_modules": attrs.list(attrs.string(), default = []),
-            "serialize_debugging_options": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
@@ -704,6 +704,7 @@ apple_test = prelude_rule(
         buck.test_label_arg() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
+        apple_common.serialize_debugging_options_arg() |
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "bridging_header": attrs.option(attrs.source(), default = None),
@@ -773,7 +774,6 @@ apple_test = prelude_rule(
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "sdk_modules": attrs.list(attrs.string(), default = []),
-            "serialize_debugging_options": attrs.bool(default = False),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "snapshot_reference_images_path": attrs.option(attrs.one_of(attrs.source(), attrs.string()), default = None),
             "soname": attrs.option(attrs.string(), default = None),
@@ -962,6 +962,7 @@ swift_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        apple_common.serialize_debugging_options_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "compiler_flags": attrs.list(attrs.arg(), default = []),
@@ -977,7 +978,6 @@ swift_library = prelude_rule(
             "module_name": attrs.option(attrs.string(), default = None),
             "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
             "sdk_modules": attrs.list(attrs.string(), default = []),
-            "serialize_debugging_options": attrs.bool(default = False),
             "soname": attrs.option(attrs.string(), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),

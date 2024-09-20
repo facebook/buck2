@@ -153,6 +153,11 @@ def _debug_artifacts_validators_arg():
         ),
     }
 
+def _serialize_debugging_options_arg():
+    return {
+        "serialize_debugging_options": attrs.bool(default = True),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -165,4 +170,5 @@ apple_common = struct(
     extra_xcode_files = _extra_xcode_files,
     privacy_manifest_arg = _privacy_manifest_arg,
     debug_artifacts_validators_arg = _debug_artifacts_validators_arg,
+    serialize_debugging_options_arg = _serialize_debugging_options_arg,
 )

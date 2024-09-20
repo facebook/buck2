@@ -623,7 +623,8 @@ def _get_shared_flags(
             ctx.attrs.swift_package_name,
         ])
 
-    if uses_explicit_modules(ctx):
+    explicit_modules_enabled = uses_explicit_modules(ctx)
+    if explicit_modules_enabled:
         cmd.add([
             "-Xcc",
             "-Xclang",
@@ -656,7 +657,7 @@ def _get_shared_flags(
         else:
             cmd.add(["-enable-experimental-cxx-interop"])
 
-    serialize_debugging_options = ctx.attrs.serialize_debugging_options and not objc_headers and toolchain.prefix_serialized_debugging_options
+    serialize_debugging_options = ctx.attrs.serialize_debugging_options and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
     if serialize_debugging_options:
         cmd.add([
             "-Xfrontend",
