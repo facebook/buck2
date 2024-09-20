@@ -139,7 +139,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
-        bundle_parts = part_list_output.parts + _get_xctest_framework(ctx, xctest_swift_support_needed)
+        bundle_parts = part_list_output.parts + _get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
             frameworks_destination = AppleBundleDestination("frameworks")
@@ -345,7 +345,7 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
         xctest_framework_search_path,
     ]
 
-def _get_xctest_framework(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
+def _get_xctest_frameworks_bundle_parts(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
     swift_support = []
     if swift_support_needed:
         swift_support.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"))
