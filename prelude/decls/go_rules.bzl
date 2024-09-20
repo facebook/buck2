@@ -77,6 +77,10 @@ go_binary = prelude_rule(
         go_common.race_arg() |
         go_common.asan_arg() |
         go_common.tags_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -331,6 +335,10 @@ go_test = prelude_rule(
         go_common.race_arg() |
         go_common.asan_arg() |
         go_common.tags_arg() |
+        cxx_common.headers_arg() |
+        cxx_common.header_namespace_arg() |
+        go_common.cxx_preprocessor_flags_arg() |
+        go_common.cxx_compiler_flags_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files that are symlinked into the working directory of the
