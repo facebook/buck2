@@ -9,9 +9,9 @@ load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
 )
-load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities") 
 # @oss-disable: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case") 
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
@@ -139,7 +139,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
-        bundle_parts = part_list_output.parts + _get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
+        bundle_parts = part_list_output.parts + get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
             frameworks_destination = AppleBundleDestination("frameworks")
@@ -344,34 +344,3 @@ def _get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, 
         "-F",
         xctest_framework_search_path,
     ]
-
-def _get_xctest_frameworks_bundle_parts(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
-    swift_support = []
-    if swift_support_needed:
-        swift_support.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"))
-
-        # T201426509: Xcode 16 introduces the Swift Testing framework
-        # that is a load dependency of libXCTestSwiftSupport.dylib
-        if int(ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version[:2]) >= 16:
-            swift_support.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/Testing.framework"))
-
-    return [
-        _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestCore.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestSupport.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUIAutomation.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUnit.framework"),
-        _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestBundleInject.dylib"),
-    ] + swift_support
-
-def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart:
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    copied_framework = ctx.actions.declare_output(paths.basename(platform_relative_path))
-
-    # We have to copy because:
-    # 1) Platform path might be a string (e.g. for Xcode toolchains)
-    # 2) It's not possible to project artifact which is not produced by different target (and platform path is a separate target for distributed toolchains).
-    ctx.actions.run(["cp", "-PR", cmd_args(toolchain.platform_path, platform_relative_path, delimiter = "/"), copied_framework.as_output()], category = "extract_framework", identifier = platform_relative_path)
-
-    return AppleBundlePart(source = copied_framework, destination = AppleBundleDestination("frameworks"), codesign_on_copy = True)
