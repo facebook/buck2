@@ -86,6 +86,7 @@ async def run_and_verify_project(
     for name, value in config_args_map.items():
         config_args.append("-c")
         config_args.append(f"{name}={value}")
+    root = await buck.root()
     await buck.run(
         "fbsource//xplat/buck2/intellij_project/tools/project_writer:project_writer",
         "--",
@@ -93,6 +94,8 @@ async def run_and_verify_project(
         output_dir.as_posix(),
         "--output_path",
         xml_output_temp_dir,
+        "--repo_path",
+        root.stdout.strip(),
         "--manifests-to-copy-json",
         (output_dir.parent / "manifests_to_copy").as_posix(),
         *config_args,
