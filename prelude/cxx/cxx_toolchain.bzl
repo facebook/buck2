@@ -195,6 +195,7 @@ def cxx_toolchain_impl(ctx):
         cuda_dep_tracking_mode = DepTrackingMode(ctx.attrs.cuda_dep_tracking_mode),
         dumpbin_toolchain_path = ctx.attrs._dumpbin_toolchain_path[DefaultInfo].default_outputs[0] if ctx.attrs._dumpbin_toolchain_path else None,
         target_sdk_version = get_toolchain_target_sdk_version(ctx),
+        lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
         remap_cwd = ctx.attrs.remap_cwd,
         optimization_compiler_flags_EXPERIMENTAL = ctx.attrs.optimization_compiler_flags_EXPERIMENTAL,
     )
