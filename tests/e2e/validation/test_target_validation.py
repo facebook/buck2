@@ -9,7 +9,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
 @buck_test(inplace=False)
@@ -38,6 +38,21 @@ Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 Full validation result is located at""",
     )
     await buck.run(":date")
+
+
+@buck_test(inplace=False)
+@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+async def test_validation_affects_test_command(buck: Buck) -> None:
+    await expect_failure(
+        buck.test(":plate", test_executor=""),
+        stderr_regex="""
+Validation for `prelude//:mate \\(<unspecified>\\)` failed:
+
+"Here I am describing the failure reason"\\.
+
+Full validation result is located at""",
+    )
+    await buck.test(":date", test_executor="")
 
 
 @buck_test(inplace=False)

@@ -16,6 +16,7 @@ def _impl(ctx) -> list[Provider]:
     return [
         DefaultInfo(),
         RunInfo(args = ["echo", "hello"]),
+        ExternalRunnerTestInfo(type = "dummy", command = ["true"]),
         ValidationInfo(
             validations = [
                 ValidationSpec(
