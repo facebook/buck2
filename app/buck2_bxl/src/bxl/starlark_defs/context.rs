@@ -318,12 +318,11 @@ impl<'v> BxlContext<'v> {
         heap: &'v Heap,
         core: BxlContextCoreData,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
-        async_ctx: BxlSafeDiceComputations<'v, '_>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         output_sink: RefCell<Box<dyn Write>>,
         error_sink: RefCell<Box<dyn Write>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Self> {
-        let async_ctx = Rc::new(RefCell::new(async_ctx));
         let root_data = RootBxlContextData {
             cli_args,
             output_stream: heap.alloc_typed(OutputStream::new(
@@ -646,11 +645,17 @@ impl BxlEvalContext<'_> {
     ) -> anyhow::Result<RecordedAnalysisValues> {
         let env = Module::new();
 
+        let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
+            dice,
+            self.liveness,
+        )));
+
         let analysis_registry = {
+            let extra = BxlEvalExtraTag::new(bxl_dice.dupe());
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-            eval.extra = Some(&BxlEvalExtraTag);
+            eval.extra = Some(&extra);
 
             let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                 self.dynamic_lambda,
@@ -663,15 +668,10 @@ impl BxlEvalContext<'_> {
                 &env,
             )?;
 
-            let async_ctx = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
-                dice,
-                self.liveness,
-            )));
-
             let bxl_dynamic_ctx = BxlContext::new_dynamic(
                 env.heap(),
                 self.data,
-                async_ctx,
+                bxl_dice,
                 self.digest_config,
                 dynamic_lambda_ctx_data.registry,
                 self.dynamic_data,

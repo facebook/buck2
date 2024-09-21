@@ -7,13 +7,21 @@
  * of this source tree.
  */
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use starlark::eval::Evaluator;
 use starlark::values::ProvidesStaticType;
+
+use super::context::starlark_async::BxlDiceComputations;
 
 /// A tag that is only available when running in Bxl, to guard Bxl
 /// functions from a non-Bxl context.
 #[derive(ProvidesStaticType)]
-pub(crate) struct BxlEvalExtraTag;
+pub(crate) struct BxlEvalExtraTag<'e> {
+    #[allow(unused)]
+    pub(crate) dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
+}
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum BxlContextError {
@@ -21,10 +29,14 @@ pub(crate) enum BxlContextError {
     UnavailableOutsideBxl,
 }
 
-impl BxlEvalExtraTag {
-    pub(crate) fn from_context<'v, 'a1, 'a2>(
-        eval: &Evaluator<'v, 'a1, 'a2>,
-    ) -> anyhow::Result<&'a1 BxlEvalExtraTag> {
+impl<'e> BxlEvalExtraTag<'e> {
+    pub(crate) fn new(dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>) -> Self {
+        Self { dice }
+    }
+
+    pub(crate) fn from_context<'v, 'a>(
+        eval: &Evaluator<'v, 'a, 'e>,
+    ) -> anyhow::Result<&'a BxlEvalExtraTag<'e>> {
         let f = || eval.extra?.downcast_ref::<BxlEvalExtraTag>();
         f().ok_or_else(|| BxlContextError::UnavailableOutsideBxl.into())
     }

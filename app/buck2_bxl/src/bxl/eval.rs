@@ -8,6 +8,7 @@
  */
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use anyhow::Context;
 use buck2_build_api::bxl::result::BxlResult;
@@ -134,6 +135,7 @@ impl BxlInnerEvaluator {
             dispatcher,
         } = self;
         let bxl_dice = BxlSafeDiceComputations::new(dice, liveness);
+        let bxl_dice = Rc::new(RefCell::new(bxl_dice));
 
         let env = Module::new();
         let key = data.key().dupe();
@@ -172,13 +174,15 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
+            let extra = BxlEvalExtraTag::new(bxl_dice.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();
             let frozen_callable = get_bxl_callable(key.label(), &module)?;
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-            eval.extra = Some(&BxlEvalExtraTag);
+
+            eval.extra = Some(&extra);
 
             let force_print_stacktrace = key.force_print_stacktrace();
             let bxl_ctx = BxlContext::new(
