@@ -187,8 +187,10 @@ mod tests {
         let command_hashes_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
             "command_hashes/db.sqlite",
         ));
-        fs.create_file(&materializer_state_db, false).unwrap();
-        fs.create_file(&command_hashes_db, false).unwrap();
+        fs_util::create_dir_all(materializer_state_db.parent().unwrap()).unwrap();
+        fs_util::write(&materializer_state_db, b"").unwrap();
+        fs_util::create_dir_all(command_hashes_db.parent().unwrap()).unwrap();
+        fs_util::write(&command_hashes_db, b"").unwrap();
         assert!(materializer_state_db.exists());
         assert!(command_hashes_db.exists());
 
@@ -209,8 +211,10 @@ mod tests {
         let command_hashes_db = cache_dir_path.join(ForwardRelativePath::unchecked_new(
             "command_hashes/db.sqlite",
         ));
-        fs.create_file(&materializer_state_db, false).unwrap();
-        fs.create_file(&command_hashes_db, false).unwrap();
+        fs_util::create_dir_all(materializer_state_db.parent().unwrap()).unwrap();
+        fs_util::write(&materializer_state_db, b"").unwrap();
+        fs_util::create_dir_all(command_hashes_db.parent().unwrap()).unwrap();
+        fs_util::write(&command_hashes_db, b"").unwrap();
         assert!(materializer_state_db.exists());
         assert!(command_hashes_db.exists());
 
