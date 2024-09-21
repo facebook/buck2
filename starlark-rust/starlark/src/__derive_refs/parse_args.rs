@@ -21,7 +21,9 @@ use crate::eval::Arguments;
 use crate::eval::ParametersSpec;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::ValueError;
 
 /// Collect `N` arguments.
 ///
@@ -53,4 +55,32 @@ pub fn parse_positional<'v, const R: usize, const O: usize>(
 ) -> crate::Result<([Value<'v>; R], [Option<Value<'v>>; O])> {
     args.no_named_args()?;
     args.optional(heap)
+}
+
+/// Utility for checking a `this` parameter matches what you expect.
+#[inline]
+pub fn check_this<'v, T: UnpackValue<'v>>(this: Value<'v>) -> anyhow::Result<T> {
+    T::unpack_named_param(this, "this")
+}
+
+/// Utility for checking a required parameter matches what you expect.
+#[inline]
+pub fn check_required<'v, T: UnpackValue<'v>>(
+    name: &str,
+    x: Option<Value<'v>>,
+) -> anyhow::Result<T> {
+    let x = x.ok_or_else(|| ValueError::MissingRequired(name.to_owned()))?;
+    T::unpack_named_param(x, name)
+}
+
+/// Utility for checking an optional parameter matches what you expect.
+#[inline]
+pub fn check_optional<'v, T: UnpackValue<'v>>(
+    name: &str,
+    x: Option<Value<'v>>,
+) -> anyhow::Result<Option<T>> {
+    match x {
+        None => Ok(None),
+        Some(x) => Ok(Some(T::unpack_named_param(x, name)?)),
+    }
 }

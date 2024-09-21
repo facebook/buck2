@@ -38,9 +38,7 @@ use crate::values::dict::DictRef;
 use crate::values::iter::StarlarkIterator;
 use crate::values::Heap;
 use crate::values::StringValue;
-use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueError;
 use crate::values::ValueLike;
 
 #[derive(Debug, Clone, Error)]
@@ -507,33 +505,6 @@ impl<'v, 'a> Arguments<'v, 'a> {
         // Could be implemented more directly, let's see if profiling shows it up
         let ([], [x]) = self.optional(heap)?;
         Ok(x)
-    }
-}
-
-impl Arguments<'_, '_> {
-    /// Utility for checking a `this` parameter matches what you expect.
-    pub fn check_this<'v, T: UnpackValue<'v>>(this: Value<'v>) -> anyhow::Result<T> {
-        T::unpack_named_param(this, "this")
-    }
-
-    /// Utility for checking a required parameter matches what you expect.
-    pub fn check_required<'v, T: UnpackValue<'v>>(
-        name: &str,
-        x: Option<Value<'v>>,
-    ) -> anyhow::Result<T> {
-        let x = x.ok_or_else(|| ValueError::MissingRequired(name.to_owned()))?;
-        T::unpack_named_param(x, name)
-    }
-
-    /// Utility for checking an optional parameter matches what you expect.
-    pub fn check_optional<'v, T: UnpackValue<'v>>(
-        name: &str,
-        x: Option<Value<'v>>,
-    ) -> anyhow::Result<Option<T>> {
-        match x {
-            None => Ok(None),
-            Some(x) => Ok(Some(T::unpack_named_param(x, name)?)),
-        }
     }
 }
 

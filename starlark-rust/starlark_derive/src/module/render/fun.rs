@@ -451,14 +451,14 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 
     // Rust doesn't have powerful enough nested if yet
     let next = if arg.pass_style == StarArgPassStyle::This {
-        syn::parse_quote! { starlark::eval::Arguments::check_this(#source)? }
+        syn::parse_quote! { starlark::__derive_refs::parse_args::check_this(#source)? }
     } else if arg.is_option() {
         assert!(
             arg.default.is_none(),
             "Can't have Option argument with a default, for `{}`",
             name_str
         );
-        syn::parse_quote! { starlark::eval::Arguments::check_optional(#name_str, #source)? }
+        syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
     } else if !arg.is_value() && arg.default.is_some() {
         let default = arg
             .default
@@ -470,12 +470,11 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
                 #[allow(clippy::manual_unwrap_or)]
                 #[allow(clippy::unnecessary_lazy_evaluations)]
                 #[allow(clippy::redundant_closure)]
-                let x = starlark::eval::Arguments::check_optional(#name_str, #source)?.unwrap_or_else(|| #default);
-                x
+                starlark::__derive_refs::parse_args::check_optional(#name_str, #source)?.unwrap_or_else(|| #default)
             }
         }
     } else {
-        syn::parse_quote! { starlark::eval::Arguments::check_required(#name_str, #source)? }
+        syn::parse_quote! { starlark::__derive_refs::parse_args::check_required(#name_str, #source)? }
     };
 
     BindingArg {
