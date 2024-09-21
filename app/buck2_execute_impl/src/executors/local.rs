@@ -436,9 +436,7 @@ impl LocalExecutor {
                         &args[0],
                         &args[1..],
                         env,
-                        request
-                            .working_directory()
-                            .unwrap_or(ProjectRelativePath::empty()),
+                        request.working_directory(),
                         request.timeout(),
                         request.local_environment_inheritance(),
                         liveliness_observer,

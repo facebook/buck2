@@ -47,7 +47,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -1417,9 +1416,7 @@ fn create_prepare_for_local_execution_result(
     request: CommandExecutionRequest,
     local_resource_setup_commands: Vec<PreparedLocalResourceSetupContext>,
 ) -> PrepareForLocalExecutionResult {
-    let relative_cwd = request
-        .working_directory()
-        .unwrap_or_else(|| ProjectRelativePath::empty());
+    let relative_cwd = request.working_directory();
     let cwd = fs.fs().resolve(relative_cwd);
     let cmd = request.all_args_vec();
 
@@ -1450,10 +1447,7 @@ fn local_resource_setup_command_prepared_for_local_execution(
     fs: &ArtifactFs,
     resource_setup_command: PreparedLocalResourceSetupContext,
 ) -> LocalExecutionCommand {
-    let relative_cwd = resource_setup_command
-        .execution_request
-        .working_directory()
-        .unwrap_or_else(|| ProjectRelativePath::empty());
+    let relative_cwd = resource_setup_command.execution_request.working_directory();
     let cwd = fs.fs().resolve(relative_cwd);
     let cmd = resource_setup_command.execution_request.all_args_vec();
 

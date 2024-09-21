@@ -296,7 +296,7 @@ pub struct CommandExecutionRequest {
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
     /// Working directory, relative to the project root.
-    working_directory: Option<ProjectRelativePathBuf>,
+    working_directory: ProjectRelativePathBuf,
     /// Whether we should always prefetch stderr when executing. When it's needed, this lets us
     /// overlap stderr download with output downloads, which might be marginally useful to improve
     /// latency.
@@ -339,7 +339,7 @@ impl CommandExecutionRequest {
             executor_preference: ExecutorPreference::Default,
             host_sharing_requirements: HostSharingRequirements::default(),
             low_pass_filter: true,
-            working_directory: None,
+            working_directory: ProjectRelativePathBuf::default(),
             prefetch_lossy_stderr: false,
             outputs_cleanup: true,
             local_environment_inheritance: None,
@@ -381,7 +381,7 @@ impl CommandExecutionRequest {
     }
 
     pub fn with_working_directory(mut self, working_directory: ProjectRelativePathBuf) -> Self {
-        self.working_directory = Some(working_directory);
+        self.working_directory = working_directory;
         self
     }
 
@@ -469,8 +469,8 @@ impl CommandExecutionRequest {
         self.low_pass_filter
     }
 
-    pub fn working_directory(&self) -> Option<&ProjectRelativePath> {
-        self.working_directory.as_deref()
+    pub fn working_directory(&self) -> &ProjectRelativePath {
+        &self.working_directory
     }
 
     pub fn with_local_environment_inheritance(

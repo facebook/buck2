@@ -187,9 +187,7 @@ impl CommandExecutor {
             let action = re_create_action(
                 request.all_args_vec(),
                 request.paths().output_paths(),
-                request
-                    .working_directory()
-                    .unwrap_or(ProjectRelativePath::empty()),
+                request.working_directory(),
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
