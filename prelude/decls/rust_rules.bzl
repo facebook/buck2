@@ -260,6 +260,7 @@ rust_test = prelude_rule(
         rust_common.rustc_flags_arg() |
         rust_common.crate(crate_type = attrs.option(attrs.string(), default = None)) |
         rust_common.crate_root() |
+        rust_common.default_roots_arg() |
         rust_common.run_env_arg() |
         rust_common.build_and_run_env_arg() |
         _rust_binary_attrs_group(prefix = "") |

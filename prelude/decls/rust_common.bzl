@@ -95,6 +95,15 @@ def _crate_root():
 """),
     }
 
+def _default_roots_arg():
+    return {
+        "default_roots": attrs.option(attrs.list(attrs.string()), default = None, doc = """
+    Set the candidate source names to consider for crate root. Typically used to disambiguate between
+     lib.rs or main.rs for rust_test, which may be declare a test suite for either library or binary
+     rules. Has no effect if an explicit `crate_root` is provided.
+"""),
+    }
+
 def _env_arg():
     return {
         "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
@@ -172,6 +181,7 @@ rust_common = struct(
     exported_linker_flags_arg = _exported_linker_flags_arg,
     crate = _crate,
     crate_root = _crate_root,
+    default_roots_arg = _default_roots_arg,
     env_arg = _env_arg,
     run_env_arg = _run_env_arg,
     build_and_run_env_arg = _build_and_run_env_arg,

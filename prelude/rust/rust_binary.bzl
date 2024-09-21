@@ -423,7 +423,10 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     providers, args = _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        default_roots = ["main.rs", "lib.rs"],
+        # Unless default_roots are provided, it is ambiguous whether this test rule is invoked
+        # to test a binary, or to test a library. As such, we must consider both main.rs and
+        # lib.rs as potential candidates.
+        default_roots = ctx.attrs.default_roots or ["main.rs", "lib.rs"],
         extra_flags = extra_flags,
         allow_cache_upload = False,
     )
