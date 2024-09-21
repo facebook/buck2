@@ -78,64 +78,9 @@ mod tests {
     use crate::docs::DocStringKind;
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
-    use crate::eval::runtime::params::spec::ParameterKind;
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
     use crate::values::FrozenValue;
-
-    #[test]
-    fn test_parameter_iteration() {
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.required("a");
-        p.optional("b");
-        p.no_more_positional_args();
-        p.optional("c");
-        p.kwargs();
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("a", &ParameterKind::Required),
-            ("b", &ParameterKind::Optional),
-            ("c", &ParameterKind::Optional),
-            ("**kwargs", &ParameterKind::KWargs),
-        ];
-
-        assert_eq!(expected, params);
-
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.required("a");
-        p.args();
-        p.kwargs();
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("a", &ParameterKind::Required),
-            ("*args", &ParameterKind::Args),
-            ("**kwargs", &ParameterKind::KWargs),
-        ];
-
-        assert_eq!(expected, params);
-
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.args();
-        p.optional("a");
-        p.optional("b");
-        let p = p.finish();
-
-        let params: Vec<(&str, &ParameterKind<FrozenValue>)> = p.iter_params().collect();
-
-        let expected: Vec<(&str, &ParameterKind<FrozenValue>)> = vec![
-            ("*args", &ParameterKind::Args),
-            ("a", &ParameterKind::Optional),
-            ("b", &ParameterKind::Optional),
-        ];
-
-        assert_eq!(expected, params);
-    }
 
     #[test]
     fn test_documentation() -> anyhow::Result<()> {

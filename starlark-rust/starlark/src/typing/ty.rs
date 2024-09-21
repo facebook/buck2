@@ -24,7 +24,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use itertools::Itertools;
 use starlark_derive::Trace;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
@@ -34,7 +33,6 @@ use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::callable::TyCallable;
-use crate::typing::callable_param::Param;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::function::TyCustomFunction;
@@ -479,19 +477,9 @@ impl Ty {
         comp: &NativeCallableComponents,
         as_type: Option<Ty>,
     ) -> starlark::Result<Self> {
-        let params: Vec<_> = comp
-            .signature
-            .iter_param_modes()
-            .zip_eq(&comp.parameter_types)
-            .map(|((_, mode), ty)| Param {
-                mode,
-                ty: ty.dupe(),
-            })
-            .collect();
-
         let result = comp.return_type.clone();
 
-        let params = ParamSpec::new(params)?;
+        let params = comp.param_spec.param_spec();
 
         match as_type {
             None => Ok(Ty::function(params, result)),

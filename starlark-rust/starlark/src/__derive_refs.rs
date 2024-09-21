@@ -28,4 +28,5 @@ pub mod serde {
 }
 pub use inventory;
 pub mod components;
+pub mod param_spec;
 pub mod sig;

@@ -522,6 +522,26 @@ fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     })
 }
 
+fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
+    match expr {
+        Some(x) => syn::parse_quote! { std::option::Option::Some(#x) },
+        None => syn::parse_quote! { std::option::Option::None },
+    }
+}
+
+fn render_regular_native_callable_param(arg: &StarArg) -> syn::Expr {
+    let ty = render_starlark_type(arg.without_option());
+    let required = arg.is_required();
+    let name_str = ident_string(&arg.name);
+    syn::parse_quote! {
+        starlark::__derive_refs::param_spec::NativeCallableParam {
+            name: #name_str,
+            ty: #ty,
+            required: #required,
+        }
+    }
+}
+
 fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     // A signature is not needed to invoke positional-only functions, but we still want
     // information like names, order, type, etc to be available to call '.documentation()' on.
@@ -548,52 +568,91 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
         Some(d) => quote!(Some(#d)),
         None => quote!(None),
     };
-    let parameter_types: Vec<syn::Expr> = x
-        .args
-        .iter()
-        .flat_map(|arg| {
-            match arg.pass_style {
-                StarArgPassStyle::This => {
-                    // "this" gets ignored when creating the signature, so make sure the indexes match up.
-                    vec![]
-                }
-                StarArgPassStyle::Args => {
-                    let typ_str = render_starlark_type(&arg.ty);
-                    vec![syn::parse_quote! {
-                    starlark::typing::macro_support::unpack_args_item_ty(#typ_str) }]
-                }
-                StarArgPassStyle::Kwargs => {
-                    let typ_str = render_starlark_type(&arg.ty);
-                    vec![syn::parse_quote! {
-                    starlark::typing::macro_support::unpack_kwargs_value_ty(#typ_str) }]
-                }
-                StarArgPassStyle::PosOnly
-                | StarArgPassStyle::Default
-                | StarArgPassStyle::NamedOnly => {
-                    let typ_str = render_starlark_type(arg.without_option());
-                    vec![syn::parse_quote! { #typ_str }]
-                }
-                StarArgPassStyle::Arguments => {
-                    // `*args` and `**kwargs`.
-                    vec![
-                        syn::parse_quote! { starlark::typing::Ty::any() },
-                        syn::parse_quote! { starlark::typing::Ty::any() },
-                    ]
-                }
+
+    let param_spec: syn::Expr = if x.is_arguments() {
+        let args: syn::Expr = syn::parse_quote! {
+            starlark::__derive_refs::param_spec::NativeCallableParam::args(
+                "args",
+                starlark::typing::Ty::any()
+            )
+        };
+        let kwargs: syn::Expr = syn::parse_quote! {
+            starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(
+                "kwargs",
+                starlark::typing::Ty::any()
+            )
+        };
+        syn::parse_quote! {
+            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
+                pos_only: vec![],
+                pos_or_named: vec![],
+                args: std::option::Option::Some(#args),
+                named_only: vec![],
+                kwargs: std::option::Option::Some(#kwargs),
             }
-        })
-        .collect();
+        }
+    } else {
+        let ParamSpec {
+            pos_only,
+            pos_or_named,
+            args,
+            named_only,
+            kwargs,
+        } = ParamSpec::split(&x.args)?;
+
+        let pos_only: Vec<syn::Expr> = pos_only
+            .iter()
+            .copied()
+            .map(render_regular_native_callable_param)
+            .collect::<Vec<_>>();
+        let pos_or_named: Vec<syn::Expr> = pos_or_named
+            .iter()
+            .copied()
+            .map(render_regular_native_callable_param)
+            .collect::<Vec<_>>();
+        let args: Option<syn::Expr> = args.map(|arg| {
+            let name_str = ident_string(&arg.name);
+            let ty = render_starlark_type(&arg.ty);
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
+            }
+        });
+        let named_only: Vec<syn::Expr> = named_only
+            .iter()
+            .copied()
+            .map(render_regular_native_callable_param)
+            .collect::<Vec<_>>();
+        let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
+            let name_str = ident_string(&arg.name);
+            let ty = render_starlark_type(&arg.ty);
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
+            }
+        });
+
+        let args = render_option(args);
+        let kwargs = render_option(kwargs);
+        syn::parse_quote! {
+            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
+                pos_only: vec![#(#pos_only),*],
+                pos_or_named: vec![#(#pos_or_named),*],
+                args: #args,
+                named_only: vec![#(#named_only),*],
+                kwargs: #kwargs,
+            }
+        }
+    };
 
     let return_type_str = render_starlark_return_type(x);
     let speculative_exec_safe = x.speculative_exec_safe;
     Ok(quote!(
         {
-            let parameter_types = std::vec![#(#parameter_types),*];
+            let param_spec = #param_spec;
             starlark::__derive_refs::components::NativeCallableComponents {
                 speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
                 signature: #documentation_signature,
-                parameter_types,
+                param_spec,
                 return_type: #return_type_str,
             }
         }

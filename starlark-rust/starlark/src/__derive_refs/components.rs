@@ -17,6 +17,9 @@
 
 use std::collections::HashMap;
 
+use dupe::IterDupedExt;
+
+use crate::__derive_refs::param_spec::NativeCallableParamSpec;
 use crate::docs::DocFunction;
 use crate::docs::DocStringKind;
 use crate::docs::DocType;
@@ -29,7 +32,7 @@ pub struct NativeCallableComponents {
     pub speculative_exec_safe: bool,
     pub rust_docstring: Option<&'static str>,
     pub signature: ParametersSpec<FrozenValue>,
-    pub parameter_types: Vec<Ty>,
+    pub param_spec: NativeCallableParamSpec,
     pub return_type: Ty,
 }
 
@@ -39,8 +42,10 @@ impl NativeCallableComponents {
         let as_type = as_type.map(|x| x.0);
         DocFunction::from_docstring(
             DocStringKind::Rust,
-            self.signature
-                .documentation(self.parameter_types.clone(), HashMap::new()),
+            self.signature.documentation(
+                self.param_spec.param_types().duped().collect(),
+                HashMap::new(),
+            ),
             self.return_type.clone(),
             self.rust_docstring,
             as_type,

@@ -95,6 +95,12 @@ impl StarFun {
         }
     }
 
+    pub(crate) fn is_arguments(&self) -> bool {
+        self.args
+            .iter()
+            .any(|arg| matches!(arg.pass_style, StarArgPassStyle::Arguments))
+    }
+
     pub(crate) fn span(&self) -> Span {
         self.name
             .span()
@@ -174,6 +180,10 @@ pub(crate) enum StarFunSource {
 impl StarArg {
     pub fn is_option(&self) -> bool {
         is_type_name(&self.ty, "Option")
+    }
+
+    pub(crate) fn is_required(&self) -> bool {
+        !self.is_option() && self.default.is_none()
     }
 
     /// Remove the `Option` if it exists, otherwise return the real type.
