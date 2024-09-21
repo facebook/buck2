@@ -28,15 +28,15 @@ def completion_test(
     shells: list[str] = SHELLS,
     options_only: bool = False,
 ) -> None:
-    async def impl(buck: Buck) -> None:
-        tmp_path = Path(buck.cwd).parent / "tmp"
-        tmp_path.mkdir(exist_ok=True)
+    for shell in shells:
 
-        verify_bin = Path(os.environ["BUCK2_COMPLETION_VERIFY"])
+        # shell=shell is a trick to get the variable captured by value
+        async def impl(buck: Buck, shell: str = shell) -> None:
+            tmp_path = Path(buck.cwd).parent / "tmp"
+            tmp_path.mkdir(exist_ok=True)
 
-        for shell in shells:
-            if shell not in SHELLS:
-                continue
+            verify_bin = Path(os.environ["BUCK2_COMPLETION_VERIFY"])
+
             get_completions = await buck.completion(
                 shell, *(["--options-only"] if options_only else [])
             )
@@ -72,7 +72,7 @@ def completion_test(
             else:
                 assert expected(actual), "testing shell: " + shell
 
-    globals()[name] = buck_test(inplace=False)(impl)
+        globals()[name + "_" + shell] = buck_test(inplace=False)(impl)
 
 
 completion_test(
