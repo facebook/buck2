@@ -570,7 +570,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     // TODO(cjhopman): Why does this get the digest_config from dice???
     let digest_config = dice_ctx.global_data().get_digest_config();
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
-    let eval_ctx = BxlEvalContext {
+    let eval_ctx = BxlDynamicOutputEvaluator {
         data: BxlContextCoreData::new(key, dice_ctx).await?,
         self_key,
         liveness,
@@ -623,7 +623,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     }
 }
 
-struct BxlEvalContext<'f> {
+struct BxlDynamicOutputEvaluator<'f> {
     data: BxlContextCoreData,
     self_key: DynamicLambdaResultsKey,
     liveness: CancellationObserver,
@@ -637,7 +637,7 @@ struct BxlEvalContext<'f> {
     print: EventDispatcherPrintHandler,
 }
 
-impl BxlEvalContext<'_> {
+impl BxlDynamicOutputEvaluator<'_> {
     fn do_eval(
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
