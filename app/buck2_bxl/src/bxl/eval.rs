@@ -67,8 +67,8 @@ use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
-use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
@@ -174,7 +174,7 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
-            let extra = BxlEvalExtraTag::new(bxl_dice.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();

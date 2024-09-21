@@ -124,13 +124,13 @@ use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExprArg;
-use crate::bxl::starlark_defs::tag::BxlEvalExtraTag;
 use crate::bxl::starlark_defs::target_list_expr::filter_incompatible;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
@@ -651,7 +651,7 @@ impl BxlEvalContext<'_> {
         )));
 
         let analysis_registry = {
-            let extra = BxlEvalExtraTag::new(bxl_dice.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe());
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
