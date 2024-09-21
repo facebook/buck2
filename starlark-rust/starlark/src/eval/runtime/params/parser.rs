@@ -79,17 +79,24 @@ mod tests {
     use crate::eval::compiler::def::FrozenDef;
     use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParametersSpec;
+    use crate::eval::ParametersSpecParam;
     use crate::typing::Ty;
     use crate::values::FrozenValue;
 
     #[test]
     fn test_documentation() -> anyhow::Result<()> {
         // Make sure that documentation for some odder parameter specs works properly.
-        let mut p = ParametersSpec::<FrozenValue>::new("f".to_owned());
-        p.args();
-        p.optional("a");
-        p.optional("b");
-        let p = p.finish();
+        let p = ParametersSpec::<FrozenValue>::new_parts(
+            "f",
+            [],
+            [],
+            true,
+            [
+                ("a", ParametersSpecParam::Optional),
+                ("b", ParametersSpecParam::Optional),
+            ],
+            false,
+        );
 
         let expected = DocParams {
             args: Some(DocParam {

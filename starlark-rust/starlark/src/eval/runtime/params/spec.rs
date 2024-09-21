@@ -55,6 +55,19 @@ use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
+/// Describe parameter for [`ParametersSpec`].
+#[derive(
+    Debug, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Trace, Freeze, Allocative
+)]
+pub enum ParametersSpecParam<V> {
+    /// Parameter is required.
+    Required,
+    /// Parameter is optional (returned as `None`).
+    Optional,
+    /// Parameter has default value.
+    Defaulted(V),
+}
+
 #[derive(Debug, Copy, Clone, Dupe, Coerce, PartialEq, Trace, Freeze, Allocative)]
 #[repr(C)]
 pub(crate) enum ParameterKind<V> {
@@ -176,6 +189,14 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// prepend a `$` to the name.
     pub fn defaulted(&mut self, name: &str, val: V) {
         self.add(name, ParameterKind::Defaulted(val));
+    }
+
+    fn param(&mut self, name: &str, param: ParametersSpecParam<V>) {
+        match param {
+            ParametersSpecParam::Required => self.required(name),
+            ParametersSpecParam::Optional => self.optional(name),
+            ParametersSpecParam::Defaulted(x) => self.defaulted(name, x),
+        }
     }
 
     /// Add an `*args` parameter which will be an iterable sequence of parameters,
@@ -310,6 +331,70 @@ impl<V> ParametersSpec<V> {
             args: None,
             kwargs: None,
         }
+    }
+
+    /// Create a new [`ParametersSpec`].
+    pub fn new_parts<'a>(
+        function_name: &str,
+        pos_only: impl IntoIterator<Item = (&'a str, ParametersSpecParam<V>)>,
+        pos_or_named: impl IntoIterator<Item = (&'a str, ParametersSpecParam<V>)>,
+        args: bool,
+        named_only: impl IntoIterator<Item = (&'a str, ParametersSpecParam<V>)>,
+        kwargs: bool,
+    ) -> ParametersSpec<V>
+    where
+        V: Copy,
+    {
+        let pos_only = pos_only.into_iter();
+        let pos_or_named = pos_or_named.into_iter();
+        let named_only = named_only.into_iter();
+
+        let mut builder = ParametersSpec::with_capacity(
+            function_name.to_owned(),
+            pos_only.size_hint().0
+                + pos_or_named.size_hint().0
+                + args as usize
+                + named_only.size_hint().0
+                + kwargs as usize,
+        );
+
+        for (name, val) in pos_only {
+            builder.param(name, val);
+        }
+        builder.no_more_positional_only_args();
+        for (name, val) in pos_or_named {
+            builder.param(name, val);
+        }
+        if args {
+            builder.args();
+        } else {
+            builder.no_more_positional_args();
+        }
+        for (name, val) in named_only {
+            builder.param(name, val);
+        }
+        if kwargs {
+            builder.kwargs();
+        }
+        builder.finish()
+    }
+
+    /// Parameter parse with only named parameters.
+    pub fn new_named_only<'a>(
+        function_name: &str,
+        named_only: impl IntoIterator<Item = (&'a str, ParametersSpecParam<V>)>,
+    ) -> ParametersSpec<V>
+    where
+        V: Copy,
+    {
+        Self::new_parts(
+            function_name,
+            std::iter::empty(),
+            std::iter::empty(),
+            false,
+            named_only,
+            false,
+        )
     }
 
     /// Produce an approximate signature for the function, combining the name and arguments.

@@ -16,12 +16,23 @@
  */
 
 use crate::eval::ParametersSpec;
+use crate::eval::ParametersSpecParam;
 use crate::values::FrozenValue;
 
 pub enum NativeSigArg {
     Required(&'static str),
     Optional(&'static str),
     Defaulted(&'static str, FrozenValue),
+}
+
+impl NativeSigArg {
+    fn param(&self) -> (&str, ParametersSpecParam<FrozenValue>) {
+        match self {
+            NativeSigArg::Required(name) => (name, ParametersSpecParam::Required),
+            NativeSigArg::Optional(name) => (name, ParametersSpecParam::Optional),
+            NativeSigArg::Defaulted(name, value) => (name, ParametersSpecParam::Defaulted(*value)),
+        }
+    }
 }
 
 pub fn parameter_spec(
@@ -32,42 +43,12 @@ pub fn parameter_spec(
     named_only: &[NativeSigArg],
     kwargs: bool,
 ) -> ParametersSpec<FrozenValue> {
-    let mut spec = ParametersSpec::new(name.to_owned());
-
-    for pos_only in pos_only {
-        match pos_only {
-            NativeSigArg::Required(name) => spec.required(name),
-            NativeSigArg::Optional(name) => spec.optional(name),
-            NativeSigArg::Defaulted(name, value) => spec.defaulted(name, *value),
-        }
-    }
-    spec.no_more_positional_only_args();
-
-    for pos_or_named in pos_or_named {
-        match pos_or_named {
-            NativeSigArg::Required(name) => spec.required(name),
-            NativeSigArg::Optional(name) => spec.optional(name),
-            NativeSigArg::Defaulted(name, value) => spec.defaulted(name, *value),
-        }
-    }
-
-    if args {
-        spec.args();
-    } else {
-        spec.no_more_positional_args();
-    }
-
-    for named_only in named_only {
-        match named_only {
-            NativeSigArg::Required(name) => spec.required(name),
-            NativeSigArg::Optional(name) => spec.optional(name),
-            NativeSigArg::Defaulted(name, value) => spec.defaulted(name, *value),
-        }
-    }
-
-    if kwargs {
-        spec.kwargs();
-    }
-
-    spec.finish()
+    ParametersSpec::new_parts(
+        name,
+        pos_only.iter().map(NativeSigArg::param),
+        pos_or_named.iter().map(NativeSigArg::param),
+        args,
+        named_only.iter().map(NativeSigArg::param),
+        kwargs,
+    )
 }

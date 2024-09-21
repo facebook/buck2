@@ -37,6 +37,7 @@ pub use runtime::file_loader::ReturnFileLoader;
 pub use runtime::params::parser::ParametersParser;
 pub use runtime::params::spec::ParametersSpec;
 pub use runtime::params::spec::ParametersSpecBuilder;
+pub use runtime::params::spec::ParametersSpecParam;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::mode::ProfileMode;
 pub use soft_error::SoftErrorHandler;

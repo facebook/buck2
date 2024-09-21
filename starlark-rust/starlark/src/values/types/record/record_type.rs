@@ -42,6 +42,7 @@ use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
+use crate::eval::ParametersSpecParam;
 use crate::starlark_complex_values;
 use crate::typing::callable::TyCallable;
 use crate::typing::starlark_value::TyStarlarkValue;
@@ -165,16 +166,18 @@ impl<'v> RecordType<'v> {
     fn make_parameter_spec(
         fields: &SmallMap<String, FieldGen<Value<'v>>>,
     ) -> ParametersSpec<FrozenValue> {
-        let mut parameters = ParametersSpec::with_capacity("record".to_owned(), fields.len());
-        parameters.no_more_positional_args();
-        for (name, field) in fields {
-            if field.default.is_some() {
-                parameters.optional(name);
-            } else {
-                parameters.required(name);
-            }
-        }
-        parameters.finish()
+        ParametersSpec::new_named_only(
+            "record",
+            fields.iter().map(|(name, field)| {
+                (
+                    name.as_str(),
+                    match field.default {
+                        None => ParametersSpecParam::Required,
+                        Some(_default) => ParametersSpecParam::Optional,
+                    },
+                )
+            }),
+        )
     }
 }
 
