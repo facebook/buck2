@@ -126,8 +126,8 @@ impl ProjectRoot {
     ///
     /// # anyhow::Ok(())
     /// ```
-    pub fn resolve(&self, path: impl PathLike) -> AbsNormPathBuf {
-        path.resolve(self).into_owned()
+    pub fn resolve(&self, path: impl AsRef<ProjectRelativePath>) -> AbsNormPathBuf {
+        self.root().join(path.as_ref())
     }
 
     ///
@@ -294,56 +294,56 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn write_file(
         &self,
-        path: impl PathLike,
+        path: impl AsRef<ProjectRelativePath>,
         contents: impl AsRef<[u8]>,
         executable: bool,
     ) -> anyhow::Result<()> {
-        let abs_path = path.resolve(self);
+        let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
             fs_util::create_dir_all(parent).with_context(|| {
                 format!(
                     "`write_file` for `{}` creating directory `{}`",
-                    abs_path.as_ref(),
-                    parent
+                    abs_path, parent
                 )
             })?;
         }
-        fs_util::write(abs_path.as_ref(), contents)
-            .with_context(|| format!("`write_file` writing `{}`", abs_path.as_ref()))?;
+        fs_util::write(&abs_path, contents)
+            .with_context(|| format!("`write_file` writing `{}`", abs_path))?;
         if executable {
-            self.set_executable(abs_path.as_ref()).with_context(|| {
-                format!("`write_file` setting executable `{}`", abs_path.as_ref())
-            })?;
+            fs_util::set_executable(&abs_path)
+                .with_context(|| format!("`write_file` setting executable `{}`", abs_path))?;
         }
         Ok(())
     }
 
     // TODO(nga): refactor this to global function.
-    pub fn create_file(&self, path: impl PathLike, executable: bool) -> anyhow::Result<File> {
-        let abs_path = path.resolve(self);
+    pub fn create_file(
+        &self,
+        path: impl AsRef<ProjectRelativePath>,
+        executable: bool,
+    ) -> anyhow::Result<File> {
+        let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
             fs_util::create_dir_all(parent).with_context(|| {
                 format!(
                     "`create_file` for `{}` creating directory `{}`",
-                    abs_path.as_ref(),
-                    parent
+                    abs_path, parent
                 )
             })?;
         }
-        let file = File::create(abs_path.as_ref())
-            .with_context(|| format!("`create_file` creating `{}`", abs_path.as_ref()))?;
+        let file = File::create(&abs_path)
+            .with_context(|| format!("`create_file` creating `{}`", abs_path))?;
         if executable {
-            self.set_executable(abs_path.as_ref()).with_context(|| {
-                format!("`create_file` setting executable `{}`", abs_path.as_ref())
-            })?;
+            fs_util::set_executable(&abs_path)
+                .with_context(|| format!("`create_file` setting executable `{}`", abs_path))?;
         }
         Ok(file)
     }
 
     // TODO(nga): refactor this to global function.
-    pub fn set_executable(&self, path: impl PathLike) -> anyhow::Result<()> {
-        let path = path.resolve(self);
-        fs_util::set_executable(path.as_ref())
+    pub fn set_executable(&self, path: impl AsRef<ProjectRelativePath>) -> anyhow::Result<()> {
+        let path = self.root().join(path.as_ref());
+        fs_util::set_executable(path)
     }
 
     /// Create a soft link from one location to another.
@@ -358,7 +358,11 @@ impl ProjectRoot {
     ///
     /// Filesystems that do not support soft links will return `Err`.
     // TODO(nga): refactor this to global function.
-    pub fn soft_link_raw(&self, src: impl AsRef<Path>, dest: impl PathLike) -> anyhow::Result<()> {
+    pub fn soft_link_raw(
+        &self,
+        src: impl AsRef<Path>,
+        dest: impl AsRef<ProjectRelativePath>,
+    ) -> anyhow::Result<()> {
         let dest_abs = self.resolve(dest);
 
         if let Some(parent) = dest_abs.parent() {
@@ -384,8 +388,8 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn soft_link_relativized(
         &self,
-        src: impl PathLike,
-        dest: impl PathLike,
+        src: impl AsRef<ProjectRelativePath>,
+        dest: impl AsRef<ProjectRelativePath>,
     ) -> anyhow::Result<()> {
         let target_abs = self.resolve(src);
         let dest_abs = self.resolve(dest);
@@ -404,7 +408,11 @@ impl ProjectRoot {
     ///  - Re-writing relative symlinks. That is, a link to `foo/bar` might end up
     ///    as `../../../other/foo/bar` in the destination. Absolute symlinks are not changed.
     // TODO(nga): refactor this to global function.
-    pub fn copy(&self, src: impl PathLike, dest: impl PathLike) -> anyhow::Result<()> {
+    pub fn copy(
+        &self,
+        src: impl AsRef<ProjectRelativePath>,
+        dest: impl AsRef<ProjectRelativePath>,
+    ) -> anyhow::Result<()> {
         let src_abs = self.resolve(src);
         let dest_abs = self.resolve(dest);
 
@@ -444,7 +452,11 @@ impl ProjectRoot {
     }
 
     /// Find the relative path between two paths within the project
-    pub fn relative_path(&self, target: impl PathLike, dest: impl PathLike) -> PathBuf {
+    pub fn relative_path(
+        &self,
+        target: impl AsRef<ProjectRelativePath>,
+        dest: impl AsRef<ProjectRelativePath>,
+    ) -> PathBuf {
         Self::find_relative_path(&self.resolve(target), &self.resolve(dest))
     }
 
@@ -529,54 +541,11 @@ impl ProjectRoot {
 }
 
 use allocative::Allocative;
-pub use internals::PathLike;
 
 use crate::fs::paths::abs_path::AbsPath;
 use crate::fs::paths::abs_path::AbsPathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
-
-mod internals {
-    use std::borrow::Cow;
-
-    use crate::fs::paths::abs_norm_path::AbsNormPath;
-    use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use crate::fs::project::ProjectRoot;
-    use crate::fs::project_rel_path::ProjectRelativePath;
-    use crate::fs::project_rel_path::ProjectRelativePathBuf;
-
-    pub trait PathLike: PathLikeResolvable {}
-
-    impl<T> PathLike for T where T: PathLikeResolvable {}
-
-    pub trait PathLikeResolvable {
-        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsNormPath>;
-    }
-
-    impl PathLikeResolvable for &AbsNormPath {
-        fn resolve(&self, _fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Borrowed(self)
-        }
-    }
-
-    impl PathLikeResolvable for &AbsNormPathBuf {
-        fn resolve(&self, _fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Borrowed(self)
-        }
-    }
-
-    impl PathLikeResolvable for &ProjectRelativePath {
-        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Owned(fs.root.join(&self.0))
-        }
-    }
-
-    impl PathLikeResolvable for &ProjectRelativePathBuf {
-        fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Owned(fs.root().join(&self.0))
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
