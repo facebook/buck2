@@ -29,6 +29,7 @@ use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
+use starlark::eval::ParametersSpecParam;
 use starlark::typing::Param;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
@@ -173,15 +174,19 @@ impl AttributeSpecExt for AttributeSpec {
 
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
-        let mut signature = ParametersSpec::with_capacity(rule_name, self.len());
-        signature.no_more_positional_args();
-        for (name, _idx, attribute) in self.attr_specs() {
-            match attribute.default() {
-                Some(_) => signature.optional(name),
-                None => signature.required(name),
-            };
-        }
-        signature.finish()
+        ParametersSpec::new_named_only(
+            &rule_name,
+            self.attr_specs().map(|(name, _idx, attribute)| {
+                let default = attribute.default();
+                (
+                    name,
+                    match default {
+                        Some(_) => ParametersSpecParam::Optional,
+                        None => ParametersSpecParam::Required,
+                    },
+                )
+            }),
+        )
     }
 
     fn ty_function(&self) -> TyFunction {

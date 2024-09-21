@@ -24,6 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
+use starlark::eval::ParametersSpecParam;
 use starlark::typing::Param;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
@@ -212,13 +213,15 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
             .into_inner()
             .context(DynamicActionCallableError::NotExported)?;
 
-        let mut signature = ParametersSpec::with_capacity(name.clone(), 3);
-        signature.no_more_positional_args();
-        signature.required("dynamic");
-        signature.optional("dynamic_values");
-        signature.required("outputs");
-        signature.required("arg");
-        let signature = signature.finish();
+        let signature = ParametersSpec::new_named_only(
+            &name,
+            [
+                ("dynamic", ParametersSpecParam::Required),
+                ("dynamic_values", ParametersSpecParam::Optional),
+                ("outputs", ParametersSpecParam::Required),
+                ("arg", ParametersSpecParam::Required),
+            ],
+        );
 
         Ok(FrozenStarlarkDynamicActionsCallable {
             implementation: implementation.freeze(freezer)?,
