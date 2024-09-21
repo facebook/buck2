@@ -337,7 +337,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     // This function is not spec-safe, because it may call `key` function
     // which might be not spec-safe.
     fn sorted<'v>(
-        #[starlark(require = pos)] x: ValueOfUnchecked<'v, ValueOfUnchecked<Value<'v>>>,
+        #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         #[starlark(require = named)] key: Option<Value<'v>>,
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_, '_>,
