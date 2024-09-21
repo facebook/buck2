@@ -35,7 +35,7 @@ export function GraphViz(props: {
       enableNodeDrag={true}
       warmupTicks={100}
       // looks
-      linkDirectionalArrowLength={5 / Math.pow(nodes.length, 0.2)}
+      linkDirectionalArrowLength={10 / Math.pow(nodes.length, 0.2)}
       linkDirectionalArrowRelPos={1}
       linkCurvature={0.2}
       linkWidth={3 / Math.pow(nodes.length, 0.5)}

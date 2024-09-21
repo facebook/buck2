@@ -14,6 +14,11 @@ import {Node} from './GraphView'
 import {GraphViz} from './GraphViz'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
 
+enum NodeSizeOption {
+  transitiveDeps,
+  transitiveSrcs,
+}
+
 // Here it goes everything that should reload on user interaction
 export function GraphImpl(props: {
   nodes: Map<number, Node>
@@ -33,6 +38,7 @@ export function GraphImpl(props: {
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
+  const [selectedOption, setSelectedOption] = useState(NodeSizeOption.transitiveDeps)
 
   const activeCategories = categories.filter(v => v.checked).map(v => v.category)
 
@@ -118,15 +124,21 @@ export function GraphImpl(props: {
   const data: NodeObject[] = []
   const edges: LinkObject[] = []
 
+  console.log(selectedOption, 'hooola')
+
   for (const [k, _] of filteredNodes) {
     const target = build.targets(k)!
-    // TODO iguridi: let the user choose what to use for the node size
-    // const tdeps = nodeMap.get(k)!.transitiveDeps
-    const srcs = nodeMap.get(k)!.transitiveSrcs
+
+    const [sizeValue, maxValue] =
+      selectedOption === NodeSizeOption.transitiveDeps
+        ? [nodeMap.get(k)!.transitiveDeps, nodeMap.size]
+        : selectedOption === NodeSizeOption.transitiveSrcs
+        ? [nodeMap.get(k)!.transitiveSrcs, maxSrcs - 1]
+        : [1, 1] // This should never happen
 
     // Add nodes to graph
     data.push({
-      val: translateValues(srcs, maxSrcs - 1), // controls size
+      val: translateValues(sizeValue, maxValue), // controls size
       id: k,
       name: target.configuredTargetLabel()!,
       group: target.configuredTargetLabel()!.split('#')[1],
@@ -233,16 +245,28 @@ export function GraphImpl(props: {
             </div>
           </div>
         </div>
-        <div className="cell" id="checkboxes">
-          <div className="field">
-            <label className="label">Include targets with rule types:</label>
-            <RuleTypeDropdown options={categories} activeCount={activeCategories.length} />
-          </div>
-        </div>
         <div className="cell">
+          <div id="checkboxes">
+            <div className="field">
+              <label className="label">Include targets with rule types:</label>
+              <RuleTypeDropdown options={categories} activeCount={activeCategories.length} />
+            </div>
+          </div>
           <button type="submit" onClick={applyFilters} className="button is-dark">
             <span>Apply filters</span>
           </button>
+        </div>
+        <div className="cell">
+          <div className="select">
+            <div className="select">
+              <select
+                value={selectedOption}
+                onChange={e => setSelectedOption(parseInt(e.target.value))}>
+                <option value={NodeSizeOption.transitiveDeps}>Size by transitive deps count</option>
+                <option value={NodeSizeOption.transitiveSrcs}>Size by transitive srcs count</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div className="cell">
           <div className="field">
@@ -295,7 +319,7 @@ export function GraphImpl(props: {
 }
 
 function translateValues(inputValue: number, maxValue: number) {
-  const outputMin = 0.1
+  const outputMin = 0.01
   const outputMax = 4
   const normalized = inputValue / maxValue
   const scaled = normalized * outputMax + outputMin
