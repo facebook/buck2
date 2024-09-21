@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+pub(crate) mod param_spec;
 pub(crate) mod parse;
 mod render;
 mod typ;

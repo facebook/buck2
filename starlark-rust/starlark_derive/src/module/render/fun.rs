@@ -24,6 +24,7 @@ use syn::Expr;
 use syn::ExprLit;
 use syn::Lit;
 
+use crate::module::param_spec::ParamSpec;
 use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
 use crate::module::typ::SpecialParam;
@@ -675,121 +676,29 @@ struct ParametersSpecArgs {
 
 /// Return the number of positional and positional-only arguments.
 fn parameter_spec_args(star_args: &[StarArg], purpose: Purpose) -> syn::Result<ParametersSpecArgs> {
-    #[derive(PartialEq, Eq, PartialOrd, Ord)]
-    enum CurrentParamStyle {
-        PosOnly,
-        PosOrNamed,
-        NamedOnly,
-        NoMore,
-    }
+    let ParamSpec {
+        pos_only,
+        pos_or_named,
+        args,
+        named_only,
+        kwargs,
+    } = ParamSpec::split(star_args)?;
 
-    let mut seen_optional = false;
+    let pos_only = pos_only
+        .iter()
+        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .collect();
+    let pos_or_named = pos_or_named
+        .iter()
+        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .collect();
+    let args = args.is_some();
+    let named_only = named_only
+        .iter()
+        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .collect();
+    let kwargs = kwargs.is_some();
 
-    let mut pos_only = Vec::new();
-    let mut pos_or_named = Vec::new();
-    let mut args = false;
-    let mut named_only = Vec::new();
-    let mut kwargs = false;
-
-    let mut last_param_style = CurrentParamStyle::PosOnly;
-    for arg in star_args {
-        match arg.pass_style {
-            StarArgPassStyle::This => {
-                continue;
-            }
-            StarArgPassStyle::Args => {
-                if last_param_style >= CurrentParamStyle::NamedOnly {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "`args` cannot follow named-only parameters",
-                    ));
-                }
-                if args {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Cannot have more than one `args` parameter (internal error)",
-                    ));
-                }
-                args = true;
-                last_param_style = CurrentParamStyle::NamedOnly;
-            }
-            StarArgPassStyle::Kwargs => {
-                if last_param_style == CurrentParamStyle::NoMore {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Cannot have more than one `kwargs` parameter",
-                    ));
-                }
-                if kwargs {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Cannot have more than one `kwargs` parameter (internal error)",
-                    ));
-                }
-                kwargs = true;
-                last_param_style = CurrentParamStyle::NoMore;
-            }
-            StarArgPassStyle::PosOnly => {
-                if last_param_style > CurrentParamStyle::PosOnly {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Positional-only parameter after non-positional-only",
-                    ));
-                }
-                last_param_style = CurrentParamStyle::PosOnly;
-                pos_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
-            }
-            StarArgPassStyle::Default => {
-                last_param_style = match last_param_style {
-                    CurrentParamStyle::PosOnly | CurrentParamStyle::PosOrNamed => {
-                        pos_or_named.push(SignatureRegularArg::from_star_arg(arg, purpose));
-                        CurrentParamStyle::PosOrNamed
-                    }
-                    CurrentParamStyle::NamedOnly => {
-                        // After named parameters, following parameters cannot be positional,
-                        // so defaut means named-only.
-                        named_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
-                        CurrentParamStyle::NamedOnly
-                    }
-                    CurrentParamStyle::NoMore => {
-                        return Err(syn::Error::new(
-                            arg.span,
-                            "Regular parameter after **kwargs",
-                        ));
-                    }
-                }
-            }
-            StarArgPassStyle::NamedOnly => {
-                if last_param_style > CurrentParamStyle::NamedOnly {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "Named-only parameter cannot follow kwargs",
-                    ));
-                }
-                named_only.push(SignatureRegularArg::from_star_arg(arg, purpose));
-                last_param_style = CurrentParamStyle::NamedOnly;
-            }
-            StarArgPassStyle::Arguments => {
-                return Err(syn::Error::new(
-                    arg.span,
-                    "unreachable: signature is not meant to be created for `&Arguments`",
-                ));
-            }
-        }
-
-        let optional = arg.default.is_some() || arg.is_option();
-
-        if last_param_style <= CurrentParamStyle::PosOrNamed {
-            if seen_optional && !optional {
-                return Err(syn::Error::new(
-                    arg.span,
-                    "Positional parameter without default after optional parameter",
-                ));
-            }
-        }
-
-        seen_optional |= optional;
-    }
     Ok(ParametersSpecArgs {
         pos_only,
         pos_or_named,
