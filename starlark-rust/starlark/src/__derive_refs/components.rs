@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-
-use dupe::IterDupedExt;
+use dupe::Dupe;
 
 use crate::__derive_refs::param_spec::NativeCallableParam;
 use crate::__derive_refs::param_spec::NativeCallableParamDefaultValue;
 use crate::__derive_refs::param_spec::NativeCallableParamSpec;
 use crate::docs::DocFunction;
+use crate::docs::DocParam;
+use crate::docs::DocParams;
 use crate::docs::DocStringKind;
 use crate::docs::DocType;
-use crate::eval::ParametersSpec;
-use crate::eval::ParametersSpecBuilder;
+use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 
 /// A wrapper for the parameters to `GlobalsBuilder::set_function` and `MethodBuilder::set_method`
 pub struct NativeCallableComponents {
@@ -39,45 +37,30 @@ pub struct NativeCallableComponents {
 }
 
 impl NativeCallableComponents {
-    fn param_spec_for_docs(&self) -> ParametersSpec<FrozenValue> {
-        let NativeCallableParamSpec {
-            pos_only,
-            pos_or_named,
-            args,
-            named_only,
-            kwargs,
-        } = &self.param_spec;
-        let mut parameters_spec = ParametersSpec::new("not used".to_owned());
-
-        fn add_param(spec: &mut ParametersSpecBuilder<FrozenValue>, param: &NativeCallableParam) {
-            match param.required {
-                None => spec.required(param.name),
-                Some(NativeCallableParamDefaultValue::Value(default)) => {
-                    spec.defaulted(param.name, default)
-                }
-                Some(NativeCallableParamDefaultValue::Optional) => spec.optional(param.name),
+    fn doc_params(&self) -> DocParams {
+        fn doc_param(p: &NativeCallableParam) -> DocParam {
+            let NativeCallableParam { name, ty, required } = p;
+            DocParam {
+                name: (*name).to_owned(),
+                docs: None,
+                typ: ty.dupe(),
+                default_value: match required {
+                    None => None,
+                    Some(NativeCallableParamDefaultValue::Optional) => {
+                        Some(PARAM_FMT_OPTIONAL.to_owned())
+                    }
+                    Some(NativeCallableParamDefaultValue::Value(v)) => Some(v.to_value().to_repr()),
+                },
             }
         }
 
-        for pos_only in pos_only {
-            add_param(&mut parameters_spec, pos_only);
+        DocParams {
+            pos_only: self.param_spec.pos_only.iter().map(doc_param).collect(),
+            pos_or_named: self.param_spec.pos_or_named.iter().map(doc_param).collect(),
+            args: self.param_spec.args.as_ref().map(doc_param),
+            named_only: self.param_spec.named_only.iter().map(doc_param).collect(),
+            kwargs: self.param_spec.kwargs.as_ref().map(doc_param),
         }
-        parameters_spec.no_more_positional_only_args();
-        for pos_or_named in pos_or_named {
-            add_param(&mut parameters_spec, pos_or_named);
-        }
-        if let Some(_args) = args {
-            parameters_spec.args();
-        } else {
-            parameters_spec.no_more_positional_args();
-        }
-        for named_only in named_only {
-            add_param(&mut parameters_spec, named_only);
-        }
-        if let Some(_kwargs) = kwargs {
-            parameters_spec.kwargs();
-        }
-        parameters_spec.finish()
     }
 
     pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>) -> DocFunction {
@@ -85,10 +68,7 @@ impl NativeCallableComponents {
         let as_type = as_type.map(|x| x.0);
         DocFunction::from_docstring(
             DocStringKind::Rust,
-            self.param_spec_for_docs().documentation(
-                self.param_spec.param_types().duped().collect(),
-                HashMap::new(),
-            ),
+            self.doc_params(),
             self.return_type.clone(),
             self.rust_docstring,
             as_type,

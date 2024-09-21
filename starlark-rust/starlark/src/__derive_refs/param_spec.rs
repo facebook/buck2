@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::iter;
-
 use dupe::Dupe;
 
 use crate::typing::callable_param::ParamIsRequired;
@@ -76,15 +74,6 @@ pub struct NativeCallableParamSpec {
 }
 
 impl NativeCallableParamSpec {
-    pub(crate) fn param_types(&self) -> impl Iterator<Item = &Ty> {
-        iter::empty()
-            .chain(self.pos_only.iter().map(|p| &p.ty))
-            .chain(self.pos_or_named.iter().map(|p| &p.ty))
-            .chain(self.args.as_ref().map(|p| &p.ty))
-            .chain(self.named_only.iter().map(|p| &p.ty))
-            .chain(self.kwargs.as_ref().map(|p| &p.ty))
-    }
-
     pub(crate) fn param_spec(&self) -> ParamSpec {
         ParamSpec::new_parts(
             self.pos_only.iter().map(|p| (p.is_required(), p.ty.dupe())),
