@@ -17,6 +17,7 @@ use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_futures::cancellation::CancellationContext;
@@ -188,8 +189,7 @@ impl CommandExecutor {
                 request.paths().output_paths(),
                 request
                     .working_directory()
-                    .map(|p| p.as_str().to_owned())
-                    .unwrap_or_default(),
+                    .unwrap_or(ProjectRelativePath::empty()),
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
@@ -210,7 +210,7 @@ impl CommandExecutor {
 fn re_create_action(
     args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
-    working_directory: String,
+    working_directory: &ProjectRelativePath,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
     blobs: impl IntoIterator<Item = (PathsWithDigestBlobData, TrackedFileDigest)>,
@@ -225,7 +225,7 @@ fn re_create_action(
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
-        working_directory,
+        working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
             .iter()
             .map(|(k, v)| RE::EnvironmentVariable {
