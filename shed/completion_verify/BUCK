@@ -6,7 +6,15 @@ oncall("build_infra")
 rust_binary(
     name = "completion_verify",
     srcs = glob(["src/**/*.rs"]),
+    resources = select({
+        "DEFAULT": {},
+        "ovr_config//os:linux": {
+            "fish": "//buck2/shed/completion_verify/packages:fish",
+            "zsh": "//buck2/shed/completion_verify/packages:zsh",
+        },
+    }),
     deps = [
+        "fbsource//third-party/rust:buck-resources",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:ptyprocess",
         "fbsource//third-party/rust:tempfile",

@@ -8,6 +8,7 @@
  */
 
 use std::io;
+use std::process::Command;
 
 use clap::Parser;
 
@@ -26,6 +27,28 @@ enum Shell {
     Bash,
     Fish,
     Zsh,
+}
+
+impl Shell {
+    fn find(self) -> io::Result<Command> {
+        match self {
+            Self::Bash => Ok(Command::new("bash")),
+            Self::Fish => {
+                let mut path = buck_resources::get("buck2/shed/completion_verify/fish").unwrap();
+                path.push("usr/bin/fish");
+                Ok(Command::new(path))
+            }
+            Self::Zsh => {
+                if cfg!(target_os = "macos") {
+                    Ok(Command::new("zsh"))
+                } else {
+                    let mut path = buck_resources::get("buck2/shed/completion_verify/zsh").unwrap();
+                    path.push("usr/bin/zsh");
+                    Ok(Command::new(path))
+                }
+            }
+        }
+    }
 }
 
 fn extract_from_outputs<S: AsRef<str>>(
@@ -156,35 +179,33 @@ compdef _impl buck2
 ";
 
     fn test_complete(input: &str, expected: &[&'static str]) {
-        check_tool_available("bash");
+        check_shell_available(Shell::Bash);
         let actual = run(BASH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Bash).unwrap();
         assert_eq!(actual, expected, "testing bash");
 
-        // FIXME(JakobDegen): Make fish available on CI so that we can run these
-        if false {
-            check_tool_available("fish");
+        if cfg!(target_os = "linux") {
+            check_shell_available(Shell::Fish);
             let actual = run(FISH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Fish).unwrap();
             assert_eq!(actual, expected, "testing fish");
         }
 
-        // FIXME(JakobDegen): Make zsh available on Linux CI so that we can run these
-        if cfg!(target_os = "macos") {
-            check_tool_available("zsh");
-            let actual = run(ZSH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Zsh).unwrap();
-            assert_eq!(actual, expected, "testing zsh");
-        }
+        check_shell_available(Shell::Zsh);
+        let actual = run(ZSH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Zsh).unwrap();
+        assert_eq!(actual, expected, "testing zsh");
     }
 
-    fn check_tool_available(tool: &str) {
+    fn check_shell_available(shell: Shell) {
         #[allow(clippy::expect_fun_call)]
-        let output = std::process::Command::new(tool)
+        let output = shell
+            .find()
+            .unwrap()
             .arg("--version")
             .output()
-            .expect(format!("Failed to run `{}`", tool).as_str());
+            .expect(format!("Failed to run {:?}", shell).as_str());
         assert!(
             output.status.success(),
-            "checking that `{}` is available",
-            tool
+            "checking that `{:?}` is available",
+            shell,
         );
     }
 

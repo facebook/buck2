@@ -18,9 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 IS_LINUX: bool = platform.system() == "Linux"
 
-# FIXME(JakobDegen): `zsh` not avaialable on Linux CI
-# FIXME(JakobDegen): `fish` not avaialable on any CI
-SHELLS = ["bash"] if IS_LINUX else ["bash", "zsh"]
+SHELLS = ["bash", "zsh"]
 
 
 def completion_test(

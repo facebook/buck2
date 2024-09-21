@@ -17,17 +17,42 @@ use crate::runtime::ZshRuntime;
 pub(crate) fn run_zsh(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
     let home = tempdir;
 
+    // A couple of locals need to be set based on the zsh install dir, if we installed into
+    // a tempdir as we do on Linux
+    let extra_fpath;
+    let extra_mpath;
+    if cfg!(target_os = "linux") {
+        let base_path = buck_resources::get("buck2/shed/completion_verify/zsh").unwrap();
+        let version_dir = base_path.join("usr/lib64/zsh");
+        let version = std::fs::read_dir(version_dir)?
+            .next()
+            .unwrap()?
+            .file_name()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let base_path = base_path.to_str().unwrap();
+        extra_fpath = format!("{base_path}/usr/share/zsh/{version}/functions");
+        extra_mpath = format!("module_path={base_path}/usr/lib64/zsh/{version}");
+    } else {
+        extra_fpath = String::new();
+        extra_mpath = String::new();
+    }
+
     // Copy and paste of `ZshRuntime::new` which works around a zsh bug in which completions are not
     // autoloaded completely
     let config_path = home.join(".zshenv");
-    let config = "\
-fpath=($fpath $ZDOTDIR/zsh)
+    let config = format!(
+        "\
+fpath=($ZDOTDIR/zsh {extra_fpath} $fpath)
+{extra_mpath}
 autoload -U +X compinit && compinit -u # bypass compaudit security checking
 precmd_functions=\"\"  # avoid the prompt being overwritten
 PS1='%% '
 PROMPT='%% '
 _buck2 >/dev/null 2>/dev/null ; # Force the completion to be loaded
-";
+"
+    );
     std::fs::write(config_path, config)?;
 
     let mut r = ZshRuntime::with_home(home.to_owned())?;
