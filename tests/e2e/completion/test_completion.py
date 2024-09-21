@@ -64,6 +64,11 @@ def completion_test(
             script_path.write_text(script)
             script_path.chmod(0o755)
 
+            # Because shells don't report when they're done generating completions, these tests are
+            # fundamentally racey. Improve on that a little bit by "warming up" the daemon before
+            # doing the actual test.
+            buck.uquery("//...")
+
             actual = subprocess.check_output(
                 script_path.absolute(),
                 input="buck2 " + input,
