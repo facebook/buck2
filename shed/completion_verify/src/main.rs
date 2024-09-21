@@ -35,7 +35,7 @@ impl Shell {
             Self::Bash => Ok(Command::new("bash")),
             Self::Fish => {
                 let mut path = buck_resources::get("buck2/shed/completion_verify/fish").unwrap();
-                path.push("usr/bin/fish");
+                path.push("bin/fish");
                 Ok(Command::new(path))
             }
             Self::Zsh => {

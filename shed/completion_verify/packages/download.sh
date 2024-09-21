@@ -12,3 +12,10 @@ dnf download "$1" --destdir "$BUCK_SCRATCH_PATH"
 rpm=$(echo "$BUCK_SCRATCH_PATH"/*)
 mkdir -p "$2"
 rpm2archive - < "$rpm" | tar -xvzf - -C "$(realpath "$2")"
+
+if [[ $1 =~ fish ]]; then
+    # In order to get fish to behave like it's been installed into a relocatable
+    # directory, we need to move things out of `usr/`
+    mv "$2/usr/"* "$2"
+    rmdir "$2/usr"
+fi

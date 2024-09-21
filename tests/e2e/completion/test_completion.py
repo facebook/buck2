@@ -18,7 +18,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 IS_LINUX: bool = platform.system() == "Linux"
 
-SHELLS = ["bash", "zsh"]
+# Downloading fish on Mac is not straightforward, so only test it on Linux
+SHELLS = ["bash", "fish", "zsh"] if IS_LINUX else ["bash", "zsh"]
 
 
 def completion_test(
@@ -29,6 +30,9 @@ def completion_test(
     options_only: bool = False,
 ) -> None:
     for shell in shells:
+        if shell == "fish" and not options_only:
+            # Fish only supports options-only completions
+            continue
 
         # shell=shell is a trick to get the variable captured by value
         async def impl(buck: Buck, shell: str = shell) -> None:
@@ -81,8 +85,7 @@ completion_test(
     # FIXME(JakobDegen): Should probably not be inconsistent
     expected=["test", "targets"] if IS_LINUX else ["targets", "test"],
     options_only=True,
-    # Skip this on zsh because it has fancy formatting with help messages for commands (and nothing
-    # else)
+    # Skip this on zsh and fish because they have fancy formatting with help messages for commands
     shells=["bash"],
 )
 

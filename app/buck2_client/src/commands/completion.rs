@@ -24,6 +24,7 @@ use clap_complete::generate;
 #[clap(rename_all = "kebab-case")]
 enum Shell {
     Bash,
+    Fish,
     Zsh,
 }
 
@@ -74,9 +75,10 @@ fn print_completion_script(
     let (wrapper, shell) = match shell_arg {
         Shell::Bash => (BASH_COMPLETION_WRAPPER, clap_complete::Shell::Bash),
         Shell::Zsh => (ZSH_COMPLETION_WRAPPER, clap_complete::Shell::Zsh),
+        Shell::Fish => ("", clap_complete::Shell::Fish),
     };
 
-    if options_only {
+    if options_only || shell == clap_complete::Shell::Fish {
         buck2_client_ctx::println!("{}", option_completions(shell, cmd)?)?;
         return Ok(());
     }

@@ -12,7 +12,7 @@ Arguments:
   <SHELL>
           shell for which to generate completion script
 
-          [possible values: bash, zsh]
+          [possible values: bash, fish, zsh]
 
 Options:
   -h, --help
