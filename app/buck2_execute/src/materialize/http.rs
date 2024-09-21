@@ -217,7 +217,7 @@ pub async fn http_download(
 ) -> anyhow::Result<TrackedFileDigest> {
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
-        fs_util::create_dir_all(fs.resolve(dir))?;
+        fs_util::create_dir_all(dir)?;
     }
 
     Ok(http_retry(
