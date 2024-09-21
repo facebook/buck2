@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::ops::ControlFlow;
@@ -141,7 +140,7 @@ impl LocalExecutor {
         exe: &'a str,
         args: impl IntoIterator<Item = impl AsRef<OsStr> + Send> + Send + 'a,
         env: impl IntoIterator<Item = (impl AsRef<OsStr> + Send, impl AsRef<OsStr> + Send)> + Send + 'a,
-        working_directory: Option<&'a ProjectRelativePath>,
+        working_directory: &'a ProjectRelativePath,
         timeout: Option<Duration>,
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
@@ -151,10 +150,7 @@ impl LocalExecutor {
     > + Send
     + 'a {
         async move {
-            let working_directory = match working_directory {
-                Some(d) => Cow::Owned(self.root.join(d)),
-                None => Cow::Borrowed(&self.root),
-            };
+            let working_directory = self.root.join_cow(working_directory);
 
             match &self.forkserver {
                 Some(forkserver) => {
@@ -440,7 +436,9 @@ impl LocalExecutor {
                         &args[0],
                         &args[1..],
                         env,
-                        request.working_directory(),
+                        request
+                            .working_directory()
+                            .unwrap_or(ProjectRelativePath::empty()),
                         request.timeout(),
                         request.local_environment_inheritance(),
                         liveliness_observer,
@@ -1314,7 +1312,7 @@ mod tests {
                 interpreter,
                 ["-c", "echo $PWD; pwd"],
                 &HashMap::<String, String>::default(),
-                None,
+                ProjectRelativePath::empty(),
                 None,
                 None,
                 NoopLivelinessObserver::create(),
@@ -1350,7 +1348,7 @@ mod tests {
                 "sh",
                 ["-c", "echo $USER"],
                 &HashMap::<String, String>::default(),
-                None,
+                ProjectRelativePath::empty(),
                 None,
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
