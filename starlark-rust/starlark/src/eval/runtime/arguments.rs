@@ -432,40 +432,8 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// arguments. Ignores named arguments.
     #[inline(always)]
     pub fn positional<const N: usize>(&self, heap: &'v Heap) -> crate::Result<[Value<'v>; N]> {
-        #[cold]
-        #[inline(never)]
-        fn rare<'v, const N: usize>(
-            x: &Arguments<'v, '_>,
-            heap: &'v Heap,
-        ) -> crate::Result<[Value<'v>; N]> {
-            // Very sad that we allocate into a vector, but I expect calling into a small positional argument
-            // with a *args is very rare.
-            let xs =
-                x.0.pos
-                    .iter()
-                    .copied()
-                    .chain(x.0.args.unwrap().iterate(heap)?)
-                    .collect::<Vec<_>>();
-            xs.as_slice().try_into().map_err(|_| {
-                crate::Error::from(FunctionError::WrongNumberOfArgs {
-                    min: N,
-                    max: N,
-                    got: x.0.pos.len(),
-                })
-            })
-        }
-
-        if self.0.args.is_none() {
-            self.0.pos.try_into().map_err(|_| {
-                crate::Error::from(FunctionError::WrongNumberOfArgs {
-                    min: N,
-                    max: N,
-                    got: self.0.pos.len(),
-                })
-            })
-        } else {
-            rare(self, heap)
-        }
+        let (positional, []) = self.optional::<N, 0>(heap)?;
+        Ok(positional)
     }
 
     /// Collect exactly `REQUIRED` positional arguments, plus at most `OPTIONAL` positional arguments
