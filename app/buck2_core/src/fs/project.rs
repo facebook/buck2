@@ -567,13 +567,13 @@ mod internals {
 
     impl PathLikeResolvable for &ProjectRelativePath {
         fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Owned(self.0.resolve(fs.root()))
+            Cow::Owned(fs.root.join(&self.0))
         }
     }
 
     impl PathLikeResolvable for &ProjectRelativePathBuf {
         fn resolve(&self, fs: &ProjectRoot) -> Cow<'_, AbsNormPath> {
-            Cow::Owned(self.0.resolve(fs.root()))
+            Cow::Owned(fs.root().join(&self.0))
         }
     }
 }

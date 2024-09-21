@@ -26,8 +26,6 @@ use serde::Serialize;
 use smallvec::SmallVec;
 
 use crate::fs::fs_util;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::path_util::path_remove_prefix;
 
@@ -201,31 +199,6 @@ impl ForwardRelativePath {
             .ok_or_else(|| ForwardRelativePathError::PathNotUtf8(path.display().to_string()))?;
         let path = path.trim_end_matches('/');
         ForwardRelativePath::new(path)
-    }
-
-    /// Build an owned `AbsPathBuf` relative to `path` for the current relative
-    /// path based on the supplied root.
-    ///
-    /// ```
-    /// use std::path::Path;
-    ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    /// use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    ///
-    /// if cfg!(not(windows)) {
-    ///     let path = ForwardRelativePath::new("foo/bar")?.resolve(AbsNormPath::new("/some")?);
-    ///     assert_eq!(AbsNormPathBuf::from("/some/foo/bar".into())?, path);
-    /// } else {
-    ///     let path = ForwardRelativePath::new("foo/bar")?.resolve(AbsNormPath::new("c:/some")?);
-    ///     assert_eq!(AbsNormPathBuf::from("c:/some/foo/bar".into())?, path);
-    /// }
-    ///
-    /// # anyhow::Ok(())
-    /// ```
-    #[inline]
-    pub fn resolve<P: AsRef<AbsNormPath>>(&self, relative_to: P) -> AbsNormPathBuf {
-        relative_to.as_ref().join(self)
     }
 
     #[inline]
