@@ -148,14 +148,20 @@ impl AbsNormPath {
     /// ```
     #[allow(clippy::collapsible_else_if)]
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> AbsNormPathBuf {
+        self.join_cow(path).into_owned()
+    }
+
+    pub fn join_cow<'a, P: AsRef<ForwardRelativePath>>(&'a self, path: P) -> Cow<'a, AbsNormPath> {
         let path = path.as_ref();
         if path.is_empty() {
-            self.to_buf()
+            Cow::Borrowed(self)
         } else {
             if cfg!(windows) {
-                AbsNormPathBuf(self.0.join(path.as_str().replace('/', "\\")))
+                Cow::Owned(AbsNormPathBuf(
+                    self.0.join(path.as_str().replace('/', "\\")),
+                ))
             } else {
-                AbsNormPathBuf(self.0.join(path.as_str()))
+                Cow::Owned(AbsNormPathBuf(self.0.join(path.as_str())))
             }
         }
     }
