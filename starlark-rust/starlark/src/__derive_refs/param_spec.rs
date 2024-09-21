@@ -25,14 +25,21 @@ use crate::typing::macro_support::unpack_kwargs_value_ty;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::values::FrozenValue;
+
+pub enum NativeCallableParamDefaultValue {
+    /// Value is used for documentation only, not when the function is called.
+    Value(FrozenValue),
+    Optional,
+}
 
 pub struct NativeCallableParam {
     pub name: &'static str,
     /// Type of the parameter.
     /// For `*args` is the type of the element, and for `**kwargs` is the type of the value.
     pub ty: Ty,
-    /// False for `*args` and `**kwargs`.
-    pub required: bool,
+    /// `None` means the parameter is required.
+    pub required: Option<NativeCallableParamDefaultValue>,
 }
 
 impl NativeCallableParam {
@@ -40,7 +47,7 @@ impl NativeCallableParam {
         NativeCallableParam {
             name,
             ty: unpack_args_item_ty(param_ty),
-            required: false,
+            required: None,
         }
     }
 
@@ -48,15 +55,14 @@ impl NativeCallableParam {
         NativeCallableParam {
             name,
             ty: unpack_kwargs_value_ty(param_ty),
-            required: false,
+            required: None,
         }
     }
 
     fn is_required(&self) -> ParamIsRequired {
-        if self.required {
-            ParamIsRequired::Yes
-        } else {
-            ParamIsRequired::No
+        match self.required {
+            None => ParamIsRequired::Yes,
+            Some(_) => ParamIsRequired::No,
         }
     }
 }

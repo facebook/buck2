@@ -182,10 +182,6 @@ impl StarArg {
         is_type_name(&self.ty, "Option")
     }
 
-    pub(crate) fn is_required(&self) -> bool {
-        !self.is_option() && self.default.is_none()
-    }
-
     /// Remove the `Option` if it exists, otherwise return the real type.
     pub fn without_option(&self) -> &Type {
         unpack_option(&self.ty).unwrap_or(&self.ty)

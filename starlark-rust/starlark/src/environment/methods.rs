@@ -203,11 +203,6 @@ impl MethodsBuilder {
     where
         F: NativeMeth,
     {
-        assert_eq!(
-            components.signature.len(),
-            components.param_spec.param_types().count()
-        );
-
         // TODO(nga): do not unwrap.
         let ty = Ty::from_native_callable_components(&components, None).unwrap();
 

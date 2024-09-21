@@ -173,7 +173,7 @@ impl StarFun {
     /// Fields and field initializers for the struct implementing the trait.
     fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
         let signature = if let StarFunSource::Signature { .. } = self.source {
-            Some(render_signature(self, Purpose::Parsing)?)
+            Some(render_signature(self)?)
         } else {
             None
         };
@@ -483,15 +483,9 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum Purpose {
-    Documentation,
-    Parsing,
-}
-
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
+fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
     let name_str = ident_string(&x.name);
     let ParametersSpecArgs {
         pos_only,
@@ -499,7 +493,7 @@ fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
         args,
         named_only,
         kwargs,
-    } = parameter_spec_args(&x.args, purpose)?;
+    } = parameter_spec_args(&x.args)?;
 
     let pos_only: Vec<syn::Expr> = pos_only.iter().map(SignatureRegularArg::render).collect();
     let pos_or_named: Vec<syn::Expr> = pos_or_named
@@ -522,48 +516,65 @@ fn render_signature(x: &StarFun, purpose: Purpose) -> syn::Result<TokenStream> {
     })
 }
 
+fn render_none() -> syn::Expr {
+    syn::parse_quote! { std::option::Option::None }
+}
+
+fn render_some(expr: syn::Expr) -> syn::Expr {
+    syn::parse_quote! { std::option::Option::Some(#expr) }
+}
+
 fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
     match expr {
-        Some(x) => syn::parse_quote! { std::option::Option::Some(#x) },
-        None => syn::parse_quote! { std::option::Option::None },
+        Some(x) => render_some(x),
+        None => render_none(),
     }
 }
 
-fn render_regular_native_callable_param(arg: &StarArg) -> syn::Expr {
+fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr> {
     let ty = render_starlark_type(arg.without_option());
-    let required = arg.is_required();
     let name_str = ident_string(&arg.name);
-    syn::parse_quote! {
+    let required: syn::Expr = match (&arg.default, arg.is_option()) {
+        (Some(_), true) => {
+            return Err(syn::Error::new(
+                arg.span,
+                "Option arguments cannot have defaults",
+            ));
+        }
+        (None, true) => render_some(
+            syn::parse_quote! { starlark::__derive_refs::param_spec::NativeCallableParamDefaultValue::Optional },
+        ),
+        (None, false) => render_none(),
+        (Some(default), _) => {
+            // For things that are type Value, we put them on the frozen heap.
+            // For things that aren't type value, use optional and then next_opt/unwrap
+            // to avoid the to/from value conversion.
+            let default = if arg.is_value() {
+                Some(syn::parse_quote! { globals_builder.alloc(#default) })
+            } else {
+                render_default_as_frozen_value(default)
+            };
+            render_some(match default {
+                None => {
+                    syn::parse_quote! { starlark::__derive_refs::param_spec::NativeCallableParamDefaultValue::Optional }
+                }
+                Some(_) => {
+                    syn::parse_quote! { starlark::__derive_refs::param_spec::NativeCallableParamDefaultValue::Value(#default) }
+                }
+            })
+        }
+    };
+
+    Ok(syn::parse_quote! {
         starlark::__derive_refs::param_spec::NativeCallableParam {
             name: #name_str,
             ty: #ty,
             required: #required,
         }
-    }
+    })
 }
 
 fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
-    // A signature is not needed to invoke positional-only functions, but we still want
-    // information like names, order, type, etc to be available to call '.documentation()' on.
-    let name_str = ident_string(&x.name);
-    let need_render_signature = match &x.source {
-        StarFunSource::Signature { .. } | StarFunSource::Positional { .. } => true,
-        StarFunSource::Arguments | StarFunSource::ThisArguments => false,
-    };
-    let documentation_signature = if need_render_signature {
-        render_signature(x, Purpose::Documentation)?
-    } else {
-        // An Arguments can take anything, so give the most generic documentation signature
-        quote! {
-            {
-                let mut __signature = starlark::eval::ParametersSpec::<starlark::values::FrozenValue>::new(#name_str.to_owned());
-                __signature.args();
-                __signature.kwargs();
-                __signature.finish()
-            }
-        }
-    };
-
     let docs = match x.docstring.as_ref() {
         Some(d) => quote!(Some(#d)),
         None => quote!(None),
@@ -604,12 +615,12 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
             .iter()
             .copied()
             .map(render_regular_native_callable_param)
-            .collect::<Vec<_>>();
+            .collect::<syn::Result<Vec<_>>>()?;
         let pos_or_named: Vec<syn::Expr> = pos_or_named
             .iter()
             .copied()
             .map(render_regular_native_callable_param)
-            .collect::<Vec<_>>();
+            .collect::<syn::Result<Vec<_>>>()?;
         let args: Option<syn::Expr> = args.map(|arg| {
             let name_str = ident_string(&arg.name);
             let ty = render_starlark_type(&arg.ty);
@@ -621,7 +632,7 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
             .iter()
             .copied()
             .map(render_regular_native_callable_param)
-            .collect::<Vec<_>>();
+            .collect::<syn::Result<Vec<_>>>()?;
         let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
             let name_str = ident_string(&arg.name);
             let ty = render_starlark_type(&arg.ty);
@@ -651,7 +662,6 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
             starlark::__derive_refs::components::NativeCallableComponents {
                 speculative_exec_safe: #speculative_exec_safe,
                 rust_docstring: #docs,
-                signature: #documentation_signature,
                 param_spec,
                 return_type: #return_type_str,
             }
@@ -666,7 +676,7 @@ enum SignatureRegularArgMode {
 }
 
 impl SignatureRegularArgMode {
-    fn from_star_arg(arg: &StarArg, purpose: Purpose) -> SignatureRegularArgMode {
+    fn from_star_arg(arg: &StarArg) -> SignatureRegularArgMode {
         if arg.is_option() {
             SignatureRegularArgMode::Optional
         } else if let Some(default) = &arg.default {
@@ -677,12 +687,6 @@ impl SignatureRegularArgMode {
                 SignatureRegularArgMode::Defaulted(syn::parse_quote! {
                     globals_builder.alloc(#default)
                 })
-            } else if purpose == Purpose::Documentation
-                && render_default_as_frozen_value(default).is_some()
-            {
-                // We want the repr of the default argument to show up, so pass it along
-                let frozen = render_default_as_frozen_value(default).unwrap();
-                SignatureRegularArgMode::Defaulted(frozen)
             } else {
                 SignatureRegularArgMode::Optional
             }
@@ -699,10 +703,10 @@ struct SignatureRegularArg {
 }
 
 impl SignatureRegularArg {
-    fn from_star_arg(arg: &StarArg, purpose: Purpose) -> SignatureRegularArg {
+    fn from_star_arg(arg: &StarArg) -> SignatureRegularArg {
         SignatureRegularArg {
             name: ident_string(&arg.name),
-            mode: SignatureRegularArgMode::from_star_arg(arg, purpose),
+            mode: SignatureRegularArgMode::from_star_arg(arg),
         }
     }
 
@@ -734,7 +738,7 @@ struct ParametersSpecArgs {
 }
 
 /// Return the number of positional and positional-only arguments.
-fn parameter_spec_args(star_args: &[StarArg], purpose: Purpose) -> syn::Result<ParametersSpecArgs> {
+fn parameter_spec_args(star_args: &[StarArg]) -> syn::Result<ParametersSpecArgs> {
     let ParamSpec {
         pos_only,
         pos_or_named,
@@ -745,16 +749,16 @@ fn parameter_spec_args(star_args: &[StarArg], purpose: Purpose) -> syn::Result<P
 
     let pos_only = pos_only
         .iter()
-        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .map(|a| SignatureRegularArg::from_star_arg(a))
         .collect();
     let pos_or_named = pos_or_named
         .iter()
-        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .map(|a| SignatureRegularArg::from_star_arg(a))
         .collect();
     let args = args.is_some();
     let named_only = named_only
         .iter()
-        .map(|a| SignatureRegularArg::from_star_arg(a, purpose))
+        .map(|a| SignatureRegularArg::from_star_arg(a))
         .collect();
     let kwargs = kwargs.is_some();
 
