@@ -907,7 +907,10 @@ mod tests {
         let builder =
             http_client_from_startup_config(&DaemonStartupConfig::testing_empty()).await?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
-        assert!(!builder.supports_vpnless());
+        assert_eq!(
+            builder.supports_vpnless(),
+            buck2_certs::certs::supports_vpnless()
+        );
         assert_eq!(
             Some(Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS)),
             builder.connect_timeout()
