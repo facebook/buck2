@@ -343,12 +343,12 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Unwrap all named arguments (both explicit and in `**kwargs`) into a dictionary.
     ///
     /// This operation fails if named argument names are not unique.
-    pub fn names(&self) -> crate::Result<Dict<'v>> {
+    pub(crate) fn names(&self) -> crate::Result<Dict<'v>> {
         Ok(Dict::new(coerce(self.names_map()?)))
     }
 
     /// Unpack all positional parameters into an iterator.
-    pub fn positions<'b>(
+    pub(crate) fn positions<'b>(
         &'b self,
         heap: &'v Heap,
     ) -> crate::Result<impl Iterator<Item = Value<'v>> + 'b> {
@@ -364,7 +364,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// will _not_ have been validated to be strings (as they must be).
     /// The arguments may also overlap with named, which would be an error.
     #[inline(always)]
-    pub fn unpack_kwargs(&self) -> crate::Result<Option<DictRef<'v>>> {
+    pub(crate) fn unpack_kwargs(&self) -> crate::Result<Option<DictRef<'v>>> {
         match self.0.kwargs {
             None => Ok(None),
             Some(kwargs) => match DictRef::from_value(kwargs) {
@@ -385,7 +385,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
     /// Confirm that a key in the `kwargs` field is indeed a string, or [`Err`].
     #[inline(always)]
-    pub fn unpack_kwargs_key(k: Value<'v>) -> crate::Result<&'v str> {
+    pub(crate) fn unpack_kwargs_key(k: Value<'v>) -> crate::Result<&'v str> {
         Arguments::unpack_kwargs_key_as_value(k).map(|k| k.as_str())
     }
 
@@ -431,7 +431,10 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect exactly `N` positional arguments from the [`Arguments`], failing if there are too many/few
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn positional<const N: usize>(&self, heap: &'v Heap) -> crate::Result<[Value<'v>; N]> {
+    pub(crate) fn positional<const N: usize>(
+        &self,
+        heap: &'v Heap,
+    ) -> crate::Result<[Value<'v>; N]> {
         let (positional, []) = self.optional::<N, 0>(heap)?;
         Ok(positional)
     }
@@ -440,7 +443,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// from the [`Arguments`], failing if there are too many/few arguments. Ignores named arguments.
     /// The `OPTIONAL` array will never have a [`Some`] after a [`None`].
     #[inline(always)]
-    pub fn optional<const REQUIRED: usize, const OPTIONAL: usize>(
+    pub(crate) fn optional<const REQUIRED: usize, const OPTIONAL: usize>(
         &self,
         heap: &'v Heap,
     ) -> crate::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
@@ -500,7 +503,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect up to 1 optional arguments from the [`Arguments`], failing if there are too many
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn optional1(&self, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
+    pub(crate) fn optional1(&self, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
         // Could be implemented more directly, let's see if profiling shows it up
         let ([], [x]) = self.optional(heap)?;
         Ok(x)

@@ -373,7 +373,9 @@ fn render_binding(x: &StarFun) -> Bindings {
             let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
             Bindings {
                 prepare: quote! {
-                    let __args: [_; #count] = self.signature.collect_into(parameters, eval.heap())?;
+                    let __args: [_; #count] =
+                        starlark::__derive_refs::parse_args::parse_signature(
+                            &self.signature, parameters, eval.heap())?;
                 },
                 bindings: bind_args,
             }
@@ -383,16 +385,18 @@ fn render_binding(x: &StarFun) -> Bindings {
             if optional == 0 {
                 Bindings {
                     prepare: quote! {
-                        parameters.no_named_args()?;
-                        let __required: [_; #required] = parameters.positional(eval.heap())?;
+                        let __required: [_; #required] =
+                            starlark::__derive_refs::parse_args::parse_positional_required(
+                                &parameters, eval.heap())?;
                     },
                     bindings: bind_args,
                 }
             } else {
                 Bindings {
                     prepare: quote! {
-                        parameters.no_named_args()?;
-                        let (__required, __optional): ([_; #required], [_; #optional]) = parameters.optional(eval.heap())?;
+                        let (__required, __optional): ([_; #required], [_; #optional]) =
+                            starlark::__derive_refs::parse_args::parse_positional(
+                                &parameters, eval.heap())?;
                     },
                     bindings: bind_args,
                 }
