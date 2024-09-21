@@ -186,7 +186,10 @@ impl CommandExecutor {
             let action = re_create_action(
                 request.all_args_vec(),
                 request.paths().output_paths(),
-                request.working_directory().map(|p| p.as_str().to_owned()),
+                request
+                    .working_directory()
+                    .map(|p| p.as_str().to_owned())
+                    .unwrap_or_default(),
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
@@ -207,7 +210,7 @@ impl CommandExecutor {
 fn re_create_action(
     args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
-    workdir: Option<String>,
+    working_directory: String,
     environment: &SortedVectorMap<String, String>,
     input_digest: &TrackedFileDigest,
     blobs: impl IntoIterator<Item = (PathsWithDigestBlobData, TrackedFileDigest)>,
@@ -222,7 +225,7 @@ fn re_create_action(
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
-        working_directory: workdir.unwrap_or_default(),
+        working_directory,
         environment_variables: environment
             .iter()
             .map(|(k, v)| RE::EnvironmentVariable {
