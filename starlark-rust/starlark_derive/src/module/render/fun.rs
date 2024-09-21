@@ -449,32 +449,40 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
         ref s => unreachable!("unknown source: {:?}", s),
     };
 
-    // Rust doesn't have powerful enough nested if yet
-    let next = if arg.pass_style == StarArgPassStyle::This {
+    let next: syn::Expr = if arg.pass_style == StarArgPassStyle::This {
         syn::parse_quote! { starlark::__derive_refs::parse_args::check_this(#source)? }
-    } else if arg.is_option() {
-        assert!(
-            arg.default.is_none(),
-            "Can't have Option argument with a default, for `{}`",
-            name_str
-        );
-        syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
-    } else if !arg.is_value() && arg.default.is_some() {
-        let default = arg
-            .default
-            .as_ref()
-            .unwrap_or_else(|| unreachable!("Checked on the line above"));
-        syn::parse_quote! {
-            {
-                // Combo
-                #[allow(clippy::manual_unwrap_or)]
-                #[allow(clippy::unnecessary_lazy_evaluations)]
-                #[allow(clippy::redundant_closure)]
-                starlark::__derive_refs::parse_args::check_optional(#name_str, #source)?.unwrap_or_else(|| #default)
+    } else {
+        match (arg.is_option(), arg.is_value(), &arg.default) {
+            (true, _, None) => {
+                syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
+            }
+            (true, _, Some(_)) => {
+                panic!("Can't have Option argument with a default, for `{name_str}`")
+            }
+            (false, false, Some(default)) => {
+                syn::parse_quote! {
+                    {
+                        // Combo
+                        #[allow(clippy::manual_unwrap_or)]
+                        #[allow(clippy::unnecessary_lazy_evaluations)]
+                        #[allow(clippy::redundant_closure)]
+                        starlark::__derive_refs::parse_args::check_optional(#name_str, #source)?.unwrap_or_else(|| #default)
+                    }
+                }
+            }
+            (false, false, None) => {
+                syn::parse_quote! {
+                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
+                }
+            }
+            (false, true, _) => {
+                // Even if `default` is `Some`, we call `check_required`,
+                // because default value is allocated in `ParameterSpec` when `is_value` is true.
+                syn::parse_quote! {
+                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
+                }
             }
         }
-    } else {
-        syn::parse_quote! { starlark::__derive_refs::parse_args::check_required(#name_str, #source)? }
     };
 
     BindingArg {
