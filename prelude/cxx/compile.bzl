@@ -999,6 +999,22 @@ def _add_compiler_info_flags(ctx: AnalysisContext, compiler_info: typing.Any, ex
 
 def _mk_argsfile(
         ctx: AnalysisContext,
+        file_name: str,
+        args_list: list,
+        is_nasm: bool,
+        is_xcode_argsfile: bool) -> Artifact:
+    if is_xcode_argsfile:
+        replace_regex = []
+        for re, sub in _XCODE_ARG_SUBSTITUTION:
+            replace_regex.append((re, sub))
+        file_args = cmd_args(args_list, replace_regex = replace_regex)
+    else:
+        file_args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
+    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
+    return argsfile
+
+def _mk_argsfiles(
+        ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
@@ -1008,59 +1024,79 @@ def _mk_argsfile(
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
+    is_nasm = compiler_info.compiler_type == "nasm"
+    filename_prefix = "xcode_" if is_xcode_argsfile else ""
+
+    argsfiles = []
     args_list = []
 
-    args_list.append(_add_compiler_info_flags(ctx, compiler_info, ext))
+    compiler_info_flags = _add_compiler_info_flags(ctx, compiler_info, ext)
+    compiler_info_filename = ext.value + ".{}toolchain_cxx_args".format(filename_prefix)
+    argsfiles.append(_mk_argsfile(ctx, compiler_info_filename, compiler_info_flags, is_nasm, is_xcode_argsfile))
+    args_list.append(compiler_info_flags)
 
-    args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
+    deps_args = []
+    deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("args")))
 
     # Different preprocessors will contain whether to use modules,
     # and the modulemap to use, so we need to get the final outcome.
     if preprocessor.set.reduce("uses_modules"):
-        args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
+        deps_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("modular_args")))
 
-    args_list.append(_preprocessor_flags(ctx, impl_params, ext.value))
-    args_list.append(get_flags_for_compiler_type(compiler_info.compiler_type))
-    args_list.append(_compiler_flags(ctx, impl_params, ext.value))
-    args_list.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
+    deps_argsfile_filename = ext.value + ".{}deps_cxx_args".format(filename_prefix)
+    argsfiles.append(_mk_argsfile(ctx, deps_argsfile_filename, deps_args, is_nasm, is_xcode_argsfile))
+    args_list.extend(deps_args)
+
+    target_args = []
+    target_args.append(_preprocessor_flags(ctx, impl_params, ext.value))
+    target_args.append(get_flags_for_compiler_type(compiler_info.compiler_type))
+    target_args.append(_compiler_flags(ctx, impl_params, ext.value))
+    target_args.append(headers_tag.tag_artifacts(preprocessor.set.project_as_args("include_dirs")))
 
     # Workaround as that's not precompiled, but working just as prefix header.
     # Another thing is that it's clang specific, should be generalized.
     if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None:
-        args_list.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
+        target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
     if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-        args_list.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+        target_args.append(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+
+    target_argsfile_filename = ext.value + ".{}target_cxx_args".format(filename_prefix)
+    argsfiles.append(_mk_argsfile(ctx, target_argsfile_filename, target_args, is_nasm, is_xcode_argsfile))
+    args_list.extend(target_args)
 
     # Create a copy of the args so that we can continue to modify it later.
     args_without_file_prefix_args = cmd_args(args_list)
 
-    # Put file_prefix_args in argsfile directly, make sure they do not appear when evaluating $(cxxppflags)
+    # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
     # to avoid "argument too long" errors
-    args_list.append(headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args"))))
+    file_prefix_args = headers_tag.tag_artifacts(cmd_args(preprocessor.set.project_as_args("file_prefix_args")))
+    file_prefix_args_filename = ext.value + ".{}file_prefix_cxx_args".format(filename_prefix)
+    argsfiles.append(_mk_argsfile(ctx, file_prefix_args_filename, [file_prefix_args], is_nasm, is_xcode_argsfile))
+    args_list.append(file_prefix_args)
 
     if is_xcode_argsfile:
         replace_regex = []
         for re, sub in _XCODE_ARG_SUBSTITUTION:
             replace_regex.append((re, sub))
         args = cmd_args(args_list, replace_regex = replace_regex)
-        file_args = args
+        file_args = cmd_args(argsfiles, format = "@{}")
     else:
-        args = cmd_args(args_list)
-        file_args = cmd_args(args) if compiler_info.compiler_type == "nasm" else cmd_args(args, quote = "shell")
+        args = cmd_args(args_list) if is_nasm else cmd_args(args_list, quote = "shell")
+        file_args = cmd_args(argsfiles, format = "-@{}") if is_nasm else cmd_args(argsfiles, format = "@{}", quote = "shell")
 
-    file_name = ext.value + ".{}cxx_compile_argsfile".format("xcode_" if is_xcode_argsfile else "")
+    file_name = ext.value + ".{}cxx_compile_argsfile".format(filename_prefix)
     argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
 
-    input_args = [args]
+    input_args = [args, file_args]
 
-    format = "-@{}" if compiler_info.compiler_type == "nasm" else "@{}"
+    format = "-@{}" if is_nasm else "@{}"
     cmd_form = cmd_args(argsfile, format = format, hidden = input_args)
 
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
         input_args = input_args,
-        args = file_args,
+        args = args,
         args_without_file_prefix_args = args_without_file_prefix_args,
     )
 
@@ -1166,8 +1202,8 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
-    xcode_argsfile = _mk_argsfile(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
+    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
+    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
     header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, header_pre, ext, False)
     private_header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, True)
 
