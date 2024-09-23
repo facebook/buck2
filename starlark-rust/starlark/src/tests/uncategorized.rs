@@ -37,6 +37,7 @@ use crate::eval::Evaluator;
 use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::tests::util::trim_rust_backtrace;
 use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::none::NoneType;
 use crate::values::Freeze;
@@ -407,15 +408,6 @@ assert_eq(names[mine], "mine")
 assert_eq(names[str], "str")
 "#,
     );
-}
-
-/// There's no anyhow API to print error without rust backtrace
-/// ([issue](https://github.com/dtolnay/anyhow/issues/300)).
-fn trim_rust_backtrace(error: &str) -> &str {
-    match error.find("\nStack backtrace:") {
-        Some(pos) => error[..pos].trim_end(),
-        None => error.trim_end(),
-    }
 }
 
 #[test]
