@@ -19,7 +19,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(inplace=True)
-@pytest.mark.parametrize("adapter", ["legacy", "new"])
+@pytest.mark.parametrize("adapter", ["legacy", "new", "builtin"])
 @pytest.mark.parametrize("listing", ["static", "dynamic"])
 @pytest.mark.parametrize("python_version", ["3.10", "3.12"])
 async def testname_formatting(
