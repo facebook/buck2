@@ -96,6 +96,14 @@ load(":sh_test.bzl", "sh_test_impl")
 load(":test_suite.bzl", "test_suite_impl")
 load(":worker_tool.bzl", "worker_tool")
 
+BUILD_INFO_ATTR = attrs.dict(
+    key = attrs.string(),
+    value = attrs.option(attrs.any()),
+    sorted = False,
+    default = {},
+    doc = "Build info that is passed along here will be late-stamped into a fb_build_info section on the output binary",
+)
+
 rule_decl_records = [
     android_rules,
     core_rules,
@@ -329,6 +337,7 @@ def _python_executable_attrs():
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
         "strip_libpar": attrs.enum(StripLibparStrategy, default = "none"),
         "strip_stapsdt": attrs.bool(default = False),
+        "_build_info": BUILD_INFO_ATTR,
         "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -372,6 +381,7 @@ def _cxx_binary_and_test_attrs():
         "link_whole": attrs.default_only(attrs.bool(default = False)),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
+        "_build_info": BUILD_INFO_ATTR,
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
     }

@@ -41,6 +41,7 @@ load(
     "map_to_link_infos",
     "unpack_external_debug_info",
 )
+load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
@@ -622,6 +623,8 @@ def cxx_gnu_dist_link(
     )
 
     final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, identifier)
+    final_output = stamp_build_info(ctx, final_output) if executable_link else final_output
+
     dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
 
     if generate_dwp:
