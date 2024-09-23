@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -127,7 +126,7 @@ impl TargetNodeExt for TargetNode {
 }
 
 // I can't implement a trait for a type that is not of this crate, so I wrap type here
-#[derive(Debug)]
+#[derive(Debug, derive_more::Display, PartialEq)]
 pub struct StarlarkCallStackWrapper(pub CallStack);
 
 impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
@@ -149,17 +148,5 @@ impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
                 file: l.file.clone(),
                 line: l.line,
             })
-    }
-}
-
-impl Display for StarlarkCallStackWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl PartialEq for StarlarkCallStackWrapper {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
