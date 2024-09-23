@@ -462,3 +462,23 @@ def foo() -> test:
 "#,
     );
 }
+
+#[test]
+fn test_bit_or_with_load() {
+    let (interface, module) = TypeCheck::new().check(
+        "test_bit_or_with_load_foo",
+        r#"
+def foo() -> str:
+    return "test"
+"#,
+    );
+    TypeCheck::new().load("foo.bzl", interface, module).check(
+        "test_bit_or_with_load",
+        r#"
+load("foo.bzl", "foo")
+test = int | foo()
+def test() -> test:
+    pass
+"#,
+    );
+}
