@@ -420,8 +420,6 @@ fn trim_rust_backtrace(error: &str) -> &str {
 
 #[test]
 // Tests diagnostics error display.
-//
-// > EYEBALL=1 cargo test -p starlark diagnostics_display -- --nocapture
 fn test_diagnostics_display() {
     fn fail1() -> anyhow::Result<()> {
         Err(anyhow::anyhow!("fail 1"))
@@ -483,13 +481,8 @@ should_fail()"#,
 }
 
 #[test]
-// Check that errors print out "nicely" - can be used to view it.
-// First set `display` to `true` then run:
-//
-// > EYEBALL=1 cargo test -p starlark eyeball -- --nocapture
-fn test_eyeball() {
-    let display = std::env::var("EYEBALL") == Ok("1".to_owned());
-
+// Check that errors print out "nicely"
+fn test_error_display() {
     let mut a = Assert::new();
     a.module(
         "imported",
@@ -505,7 +498,8 @@ def add2(z):
 def add(z):
   x.append(z)"#,
     );
-    let diag = a.fail(
+
+    let err = a.fail(
         r#"
 load('imported', 'add2')
 def add3(z):
@@ -513,48 +507,15 @@ def add3(z):
 add3(8)"#,
         "Immutable",
     );
-    if display {
-        diag.eprint();
-    }
-    assert_eq!(
-        &format!("\n{}", diag),
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:5, in <module>
-      add3(8)
-  * assert.bzl:4, in add3
-      add2(z)
-  * imported.bzl:9, in add2
-      add(z)
-  * imported.bzl:11, in add
-      x.append(z)
-error: Immutable
-  --> imported.bzl:11:3
-   |
-11 |   x.append(z)
-   |   ^^^^^^^^^^^
-   |
-"#
+
+    golden_test_template(
+        "src/tests/uncategorized_error_display.golden",
+        trim_rust_backtrace(&format!("{}", err)),
     );
-    assert_eq!(
-        &format!("\n{:#}", diag),
-        r#"
-Traceback (most recent call last):
-  * assert.bzl:5, in <module>
-      add3(8)
-  * assert.bzl:4, in add3
-      add2(z)
-  * imported.bzl:9, in add2
-      add(z)
-  * imported.bzl:11, in add
-      x.append(z)
-error: Immutable
-  --> imported.bzl:11:3
-   |
-11 |   x.append(z)
-   |   ^^^^^^^^^^^
-   |
-"#
+
+    golden_test_template(
+        "src/tests/uncategorized_error_display_hash.golden",
+        trim_rust_backtrace(&format!("{:#}", err)),
     );
 }
 
