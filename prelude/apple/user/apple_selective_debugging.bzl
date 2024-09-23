@@ -172,7 +172,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         map = {}
-        swift_modules = set()
         selected_targets_contain_swift = False
         for infos in debug_info:
             for info in infos:
@@ -187,11 +186,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     else:
                         map[info.label] = list(info.artifacts)
 
-                    if is_swiftmodule:
-                        swift_modules.add(info.label)
-
                     selected_targets_contain_swift = selected_targets_contain_swift or ArtifactInfoTag("swiftmodule") in info.tags
-        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = swift_modules.list())
+        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = [])
 
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
