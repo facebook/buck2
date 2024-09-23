@@ -9,8 +9,7 @@
 
 
 import json
-import re
-from typing import List
+from typing import Any, List
 
 import pytest
 
@@ -40,9 +39,7 @@ async def testname_formatting(
         )
     )
     log = (await buck.log("show")).stdout.strip().splitlines()
-    test_results_paths = get_test_results_path(log)
-    assert test_results_paths
-    actual_tests = get_events_test_names(test_results_paths)
+    actual_tests = get_events_test_names(log)
     expected_tests = [
         "test_failure (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
         "test_nested_test_class (buck2.tests.targets.rules.python.test_name_formatting.test_name_formatting.TestCase)",
@@ -56,34 +53,15 @@ async def testname_formatting(
 #########
 
 
-def get_test_results_path(log: list[str]) -> List[str]:
-    tpx_paths: List[str] = []
-    for line in log:
-        candidate_line = re.search(
-            r"/data[\w/.-]+/tpx_execution_dir/test_results\.json", line
-        )
-        if candidate_line:
-            tpx_paths.append(candidate_line.group())
-    return tpx_paths
+def get_test_name_from_end_event(event: Any) -> List[str]:  # pyre-ignore[2]
+    return event["Event"]["data"]["SpanEnd"]["data"]["TestEnd"]["suite"]["test_names"]
 
 
-def get_event_test_name_from_test_results(
-    test_results: list[str], event_name: str
-) -> str:
-    for test_result in test_results:
-        data = json.loads(test_result)
-        event = data.get(event_name)
-        if event:
-            return str(event.get("name"))
-    return ""
-
-
-def get_events_test_names(tpx_test_result_paths: List[str]) -> List[str]:
-    test_runs = set()
-    for tpx_test_result_path in tpx_test_result_paths:
-        f = open(tpx_test_result_path, "r")
-        test_results = f.readlines()
-        f.close()
-        test_name = get_event_test_name_from_test_results(test_results, "finish")
-        test_runs.add(test_name)
-    return sorted(test_runs)
+def get_events_test_names(log: List[str]) -> List[str]:
+    test_end_events = [json.loads(line) for line in log if "TestEnd" in line]
+    test_end_events = [
+        test_name
+        for test_event in test_end_events
+        for test_name in get_test_name_from_end_event(test_event)
+    ]
+    return sorted(test_end_events)
