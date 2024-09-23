@@ -25,6 +25,7 @@ use buck2_node::call_stack::StarlarkTargetCallStackRoot;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
+use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
@@ -128,8 +129,6 @@ impl TargetNodeExt for TargetNode {
 // I can't implement a trait for a type that is not of this crate, so I wrap type here
 #[derive(Debug)]
 pub struct StarlarkCallStackWrapper(pub CallStack);
-
-use cmp_any::PartialEqAny;
 
 impl StarlarkCallStackImpl for StarlarkCallStackWrapper {
     fn eq_token(&self) -> PartialEqAny {
