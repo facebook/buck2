@@ -31,7 +31,7 @@ async def testname_formatting(
 ) -> None:
     target = f"{adapter}_{listing}_{python_version}"
 
-    if python_version == "3.12":
+    if python_version == "3.12" and adapter == "new":
         pytest.xfail("Test name formatting is different in 3.12")  # pyre-ignore[29]
 
     await expect_failure(
