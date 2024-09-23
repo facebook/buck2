@@ -32,6 +32,7 @@ use crate::eval::runtime::file_loader::ReturnOwnedFileLoader;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
+use crate::tests::util::trim_rust_backtrace;
 use crate::typing::interface::Interface;
 use crate::typing::AstModuleTypecheck;
 use crate::values::none::NoneType;
@@ -155,14 +156,15 @@ impl TypeCheck {
 
             eval.enable_static_typechecking(true);
             let eval_result = eval.eval_module(ast, &globals);
-            match &eval_result {
-                Ok(_) => writeln!(output, "No errors.").unwrap(),
-                Err(err) => writeln!(output, "{}", err).unwrap(),
+            if eval_result.is_ok() != errors.is_empty() {
+                writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
+                writeln!(output).unwrap();
             }
 
-            if eval_result.is_ok() != errors.is_empty() {
-                writeln!(output).unwrap();
-                writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
+            // Additional writes must happen above this line otherwise it might be erased by trim_rust_backtrace
+            match &eval_result {
+                Ok(_) => writeln!(output, "No errors.").unwrap(),
+                Err(err) => writeln!(output, "{:?}", err).unwrap(),
             }
 
             // Help borrow checker.
@@ -173,7 +175,7 @@ impl TypeCheck {
 
         golden_test_template(
             &format!("src/typing/tests/golden/{}.golden", test_name),
-            &output,
+            trim_rust_backtrace(&output),
         );
 
         (interface, module)
@@ -431,6 +433,32 @@ fn test_methods_work_for_ty_starlark_value() {
         r#"
 def test(s: str):
     x = s.startswith("a")
+"#,
+    );
+}
+
+#[test]
+fn test_bit_or_return_int() {
+    TypeCheck::new().check(
+        "bit_or_return_int",
+        r#"
+test = int | 3
+
+def foo() -> test:
+    pass
+"#,
+    );
+}
+
+#[test]
+fn test_bit_or_return_list() {
+    TypeCheck::new().check(
+        "bit_or_return_list",
+        r#"
+test = int | list[3]
+
+def foo() -> test:
+    pass
 "#,
     );
 }
