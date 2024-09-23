@@ -20,9 +20,10 @@ import argparse
 import json
 import shlex
 import sys
+from typing import List
 
 
-def process_arguments(arguments: list[str]) -> list[str]:
+def process_arguments(arguments: List[str]) -> List[str]:
     """
     Process arguments to expand argsfiles.
     """
@@ -77,7 +78,7 @@ def merge(args: argparse.Namespace) -> None:
     args.output.close()
 
 
-def main(argv: list[str]) -> int:
+def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
