@@ -18,15 +18,9 @@ Approximation: Unknown type = "Span { begin: Pos(57), end: Pos(61) }"
 Compiler typechecker (eval):
 Compiler typechecker and eval results mismatch.
 
-error: converting RHS to type
+error: String literals are not allowed in type expressions: `"test"`
  --> filename:3:8
   |
 3 | test = int | foo()
   |        ^^^^^^^^^^^
   |
-
-
-converting RHS to type
-
-Caused by:
-    String literals are not allowed in type expressions: `"test"`

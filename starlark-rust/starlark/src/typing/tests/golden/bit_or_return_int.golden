@@ -18,15 +18,9 @@ Approximation: Unknown type = "Span { begin: Pos(30), end: Pos(34) }"
 Compiler typechecker (eval):
 Compiler typechecker and eval results mismatch.
 
-error: converting RHS to type
+error: Type `3` is not a valid type annotation
  --> filename:2:8
   |
 2 | test = int | 3
   |        ^^^^^^^
   |
-
-
-converting RHS to type
-
-Caused by:
-    Type `3` is not a valid type annotation
