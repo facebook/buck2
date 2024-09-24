@@ -64,7 +64,6 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
             ]),
             category = "bolt_strip_stapsdt",
             identifier = identifier,
-            local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
         )
         output = stripped_postbolt_output
 
