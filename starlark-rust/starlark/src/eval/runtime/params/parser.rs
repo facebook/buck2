@@ -25,12 +25,12 @@ use crate::values::Value;
 /// Parse a series of parameters which were specified by
 /// [`ParametersSpec`](crate::eval::ParametersSpec).
 ///
-/// This is usually created with [`ParametersSpec::parser`](crate::eval::ParametersSpec::parser).
+/// This is created with [`ParametersSpec::parser`](crate::eval::ParametersSpec::parser).
 pub struct ParametersParser<'v, 'a>(std::slice::Iter<'a, Cell<Option<Value<'v>>>>);
 
 impl<'v, 'a> ParametersParser<'v, 'a> {
     /// Create a parameter parser, which stored parameters into provided slots reference.
-    pub fn new(slots: &'a [Cell<Option<Value<'v>>>]) -> Self {
+    pub(crate) fn new(slots: &'a [Cell<Option<Value<'v>>>]) -> Self {
         Self(slots.iter())
     }
 
