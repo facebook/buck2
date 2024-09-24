@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
+
+use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
 
 /// Common code executed in the end of command to produce `CommandEnd`.
@@ -37,4 +41,31 @@ where
         errors,
         data: Some(data.into()),
     }
+}
+
+/// Common code to send TargetCfg event after command execution.
+pub fn send_target_cfg_event(
+    event_dispatcher: &EventDispatcher,
+    conf_labels: impl IntoIterator<Item = &ConfiguredProvidersLabel>,
+    target_cfg: &Option<buck2_cli_proto::TargetCfg>,
+) {
+    let mut target_platforms = HashSet::new();
+    for conf in conf_labels {
+        // cfg can be unbound
+        if let Ok(label) = conf.cfg().label() {
+            if !target_platforms.contains(label) {
+                target_platforms.insert(label.to_owned());
+            }
+        }
+    }
+
+    let cli_modifiers = target_cfg
+        .as_ref()
+        .map(|cfg| cfg.cli_modifiers.clone())
+        .unwrap_or_default();
+
+    event_dispatcher.instant_event(buck2_data::TargetCfg {
+        target_platforms: target_platforms.into_iter().collect(),
+        cli_modifiers,
+    });
 }
