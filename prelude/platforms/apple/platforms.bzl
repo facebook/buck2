@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//platforms/apple:base.bzl", "BUILD_MODE_TO_CONSTRAINTS_MAP", "apple_build_mode_backed_platform", "is_buck2_mac_platform", "is_mobile_platform")
 load(
@@ -147,8 +146,6 @@ def get_default_target_platform_for_platform(sdk_arch) -> [str, None]:
 
 def set_apple_platforms(platform, base_config_backed_target_platform, kwargs):
     def get_supported_platforms():
-        if not is_buck2():
-            return None
         if platform in _SUPPORTED_IOS_PLATFORMS:
             return _SUPPORTED_IOS_PLATFORMS
         elif platform in _SUPPORTED_MACOS_PLATFORMS:
