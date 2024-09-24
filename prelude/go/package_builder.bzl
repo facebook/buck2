@@ -64,10 +64,10 @@ def build_package(
         cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
-        go_files = go_list.go_files + cgo_go_files
-        src_list_for_argsfile = go_files + (go_list.test_go_files + go_list.x_test_go_files if tests else [])
+        src_list_for_argsfile = go_list.go_files + (go_list.test_go_files + go_list.x_test_go_files if tests else [])
         ctx.actions.write(outputs[srcs_list_argsfile], cmd_args(src_list_for_argsfile, ""))
 
+        go_files = go_list.go_files + cgo_go_files
         covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
