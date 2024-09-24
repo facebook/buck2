@@ -385,6 +385,7 @@ def create_jar_artifact_kotlincd(
         additional_compiled_srcs = None,
         jar_builder = java_toolchain.jar_builder,
         jar_postprocessor = jar_postprocessor,
+        zip_scrubber = java_toolchain.zip_scrubber,
     )
 
     if not is_creating_subtarget:
