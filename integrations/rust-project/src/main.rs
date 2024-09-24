@@ -104,6 +104,10 @@ enum Command {
         #[clap(long, hide = true)]
         relative_paths: bool,
 
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
+
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
@@ -122,6 +126,10 @@ enum Command {
         #[clap(long, default_value = "rustc")]
         sysroot_mode: SysrootMode,
 
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
+
         args: JsonArguments,
     },
     /// Build the saved file's owning target. This is meant to be used by IDEs to provide diagnostics on save.
@@ -129,8 +137,14 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
         #[clap(short = 'c', long, default_value = "true", action = ArgAction::Set)]
         use_clippy: bool,
+
+        /// The name of the client invoking rust-project, such as 'vscode'.
+        #[clap(long)]
+        client: Option<String>,
+
         /// The file saved by the user. `rust-project` will infer the owning target(s) of the saved file and build them.
         saved_file: PathBuf,
     },
@@ -266,6 +280,7 @@ fn main() -> Result<(), anyhow::Error> {
             mode,
             use_clippy,
             saved_file,
+            ..
         } => {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
@@ -351,6 +366,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
+            client: None,
         }),
         version: false,
     };
@@ -367,6 +383,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
+            client: None,
         }),
         version: false,
     };
@@ -383,6 +400,7 @@ fn json_args_pass() {
         command: Some(Command::DevelopJson {
             args,
             sysroot_mode: SysrootMode::Rustc,
+            client: None,
         }),
         version: false,
     };

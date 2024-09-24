@@ -64,6 +64,7 @@ impl Develop {
             relative_paths,
             mode,
             check_cycles,
+            ..
         } = command
         {
             let out = if stdout {
@@ -102,7 +103,10 @@ impl Develop {
             return (develop, input, out);
         }
 
-        if let crate::Command::DevelopJson { sysroot_mode, args } = command {
+        if let crate::Command::DevelopJson {
+            sysroot_mode, args, ..
+        } = command
+        {
             let out = Output::Stdout;
             let mode = select_mode(None);
 
