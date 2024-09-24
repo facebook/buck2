@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
 load("@prelude//cfg/modifier:common.bzl?v2_only", "MODIFIER_METADATA_KEY", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load("@prelude//cfg/modifier:types.bzl?v2_only", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
@@ -26,8 +25,6 @@ def set_cfg_modifiers(
             For example, if this dictionary is `{"python_binary": ["ovr_config//os/constraints:macos"]}`,
             then all python_binary targets covered will have the macos constraint added to their configurations.
     """
-    if not is_buck2():
-        return
 
     # Make this buck1-proof
     call_stack_frame = getattr(native, "call_stack_frame", None)
@@ -63,15 +60,11 @@ def set_cfg_modifiers(
         overwrite = True,
     )
 
-_BUCK1_COMPAT_STR = "Internal error: Modifiers are for buck2 only"
-
 def _get_package_path() -> str:
     """
     Returns the cell-relative path of the current PACKAGE file.
     Ex. `foo//bar/PACKAGE`
     """
-    if not is_buck2():
-        return _BUCK1_COMPAT_STR
 
     # Make this buck1-proof
     get_cell_name = getattr(native, "get_cell_name", None)
