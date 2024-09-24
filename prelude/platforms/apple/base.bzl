@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2") 
-
 load("@prelude//:is_buck2.bzl", "is_buck2") # @oss-enable
 load(
     "@prelude//platforms/apple:build_mode.bzl",
@@ -90,7 +88,7 @@ def is_mobile_platform(platform):
     return platform in _MOBILE_PLATFORMS
 
 def is_buck2_mac_platform(platform):
-    return is_buck2() and platform in _MAC_PLATFORMS
+    return platform in _MAC_PLATFORMS
 
 def _get_generated_name(name, platform, build_mode):
     if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
