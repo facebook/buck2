@@ -483,6 +483,7 @@ impl RemoteExecutionClientImpl {
                     use remote_execution::RemoteCASdAddress;
                     use remote_execution::RemoteCacheConfig;
                     use remote_execution::RemoteCacheManagerMode;
+                    use remote_execution::RemoteCacheSyncConfig;
                     use remote_execution::RemoteFetchPolicy;
 
                     let mode = match static_metadata
@@ -495,6 +496,7 @@ impl RemoteExecutionClientImpl {
                     {
                         "BIG_FILES" => RemoteCacheManagerMode::BIG_FILES,
                         "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
+                        "TURBOCACHE" => RemoteCacheManagerMode::TURBOCACHE,
                         unknown => {
                             return Err(anyhow::anyhow!(
                                 "Unknown RemoteCacheManagerMode: {}",
@@ -503,14 +505,25 @@ impl RemoteExecutionClientImpl {
                         }
                     };
 
-                    let (small_files_policy, large_files_policy) = match mode {
+                    let (small_files_policy, large_files_policy, sync_files_config) = match mode {
                         RemoteCacheManagerMode::BIG_FILES => (
                             RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
                             RemoteFetchPolicy::REMOTE_FETCH,
+                            None,
                         ),
                         RemoteCacheManagerMode::ALL_FILES => (
                             RemoteFetchPolicy::REMOTE_FETCH,
                             RemoteFetchPolicy::REMOTE_FETCH,
+                            None,
+                        ),
+                        RemoteCacheManagerMode::TURBOCACHE => (
+                            RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
+                            RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
+                            Some(RemoteCacheSyncConfig {
+                                max_batch_size: 1000,
+                                max_delay_ms: 1000,
+                                ..Default::default()
+                            }),
                         ),
                         _ => unreachable!(),
                     };
@@ -524,6 +537,7 @@ impl RemoteExecutionClientImpl {
                             address: RemoteCASdAddress::tcp_port(
                                 static_metadata.cas_shared_cache_port.unwrap_or(23333),
                             ),
+                            sync_files_config,
                             ..Default::default()
                         };
                         if let Some(tls) = static_metadata.cas_shared_cache_tls {
