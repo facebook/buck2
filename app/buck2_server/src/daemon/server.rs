@@ -93,6 +93,7 @@ use rand::RngCore;
 use rand::SeedableRng;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
+use tokio::time::timeout;
 use tonic::service::interceptor;
 use tonic::service::Interceptor;
 use tonic::transport::Server;
@@ -1512,18 +1513,7 @@ fn server_shutdown_signal(
 
 async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
     // this restarts the timer everytime there is a new command
-    loop {
-        let command = command_receiver.next();
-        let timer = tokio::time::sleep(duration);
-
-        futures::pin_mut!(command);
-        futures::pin_mut!(timer);
-
-        match futures::future::select(command, timer).await {
-            futures::future::Either::Left(_) => continue,
-            futures::future::Either::Right(_) => break,
-        };
-    }
+    while (timeout(duration, command_receiver.next()).await).is_ok() {}
 }
 
 async fn certs_validation_background_job(cert_state: CertState) {
