@@ -12,7 +12,7 @@
 #![feature(used_with_arg)]
 
 pub mod bxl;
-pub mod command_end;
+pub mod commands;
 pub mod concurrency;
 pub mod ctx;
 pub mod global_cfg_options;

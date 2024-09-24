@@ -12,7 +12,7 @@ use std::time::Duration;
 use anyhow::Context;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;

@@ -12,7 +12,7 @@ use buck2_cli_proto::new_generic::MaterializeRequest;
 use buck2_cli_proto::new_generic::MaterializeResponse;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
 use crate::ctx::BaseServerCommandContext;

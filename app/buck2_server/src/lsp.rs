@@ -43,7 +43,7 @@ use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::globals::base_globals;
 use buck2_interpreter_for_build::interpreter::interpreter_for_cell::ParseData;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;

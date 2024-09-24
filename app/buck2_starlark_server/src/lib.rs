@@ -16,7 +16,7 @@ mod util;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::StarlarkServerCommand;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;

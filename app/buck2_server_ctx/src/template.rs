@@ -13,7 +13,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
 
-use crate::command_end::command_end_ext;
+use crate::commands::command_end_ext;
 use crate::ctx::ServerCommandContextTrait;
 use crate::ctx::ServerCommandDiceContext;
 use crate::partial_result_dispatcher::PartialResultDispatcher;

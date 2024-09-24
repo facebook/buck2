@@ -13,7 +13,7 @@ use buck2_cli_proto::trace_io_response;
 use buck2_common::file_ops::RawSymlink;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_events::dispatch::span_async;
-use buck2_server_ctx::command_end::command_end;
+use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
 use crate::ctx::ServerCommandContext;
