@@ -27,6 +27,7 @@ use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_syntax::other_error;
 use starlark_syntax::syntax::def::DefParamIndices;
 
 use crate as starlark;
@@ -865,7 +866,14 @@ impl<'v> ParametersSpec<Value<'v>> {
             |slots, eval| {
                 self.collect_inline(&args.0, slots, eval.heap())?;
                 let mut parser = ParametersParser::new(slots);
-                k(&mut parser, eval)
+                let r = k(&mut parser, eval)?;
+                if !parser.is_eof() {
+                    return Err(other_error!(
+                        "Parser for `{}` did not consume all arguments",
+                        self.function_name
+                    ));
+                }
+                Ok(r)
             },
         )
     }

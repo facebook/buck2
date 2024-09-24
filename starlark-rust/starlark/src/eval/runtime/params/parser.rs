@@ -65,6 +65,11 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
         };
         T::unpack_named_param(v, name)
     }
+
+    #[inline]
+    pub(crate) fn is_eof(&self) -> bool {
+        self.0.len() == 0
+    }
 }
 
 #[cfg(test)]
