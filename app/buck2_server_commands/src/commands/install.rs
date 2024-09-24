@@ -44,6 +44,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -206,9 +207,6 @@ async fn install(
     )
     .await?;
 
-    let materializations = MaterializationContext::Materialize { force: true };
-    let materializations = &materializations; // Don't move this below.
-
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
         &mut ctx,
@@ -228,8 +226,8 @@ async fn install(
     for (package, spec) in resolved_pattern.specs {
         let ctx = &mut ctx;
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
-            buck2_core::pattern::pattern::PackageSpec::Targets(targets) => targets,
-            buck2_core::pattern::pattern::PackageSpec::All => {
+            PackageSpec::Targets(targets) => targets,
+            PackageSpec::All => {
                 let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
@@ -291,7 +289,6 @@ async fn install(
             async move {
                 handle_install_request(
                     ctx,
-                    materializations,
                     install_log_dir,
                     &install_files_vector,
                     installer_label,
@@ -335,7 +332,6 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 
 async fn handle_install_request<'a>(
     ctx: &'a mut DiceComputations<'_>,
-    materializations: &'a MaterializationContext,
     install_log_dir: &AbsNormPathBuf,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     installer_label: &ConfiguredProvidersLabel,
@@ -347,7 +343,7 @@ async fn handle_install_request<'a>(
         .try_compute2(
             |ctx| {
                 async move {
-                    build_files(ctx, materializations, install_files_slice, files_tx).await?;
+                    build_files(ctx, install_files_slice, files_tx).await?;
                     anyhow::Ok(Instant::now())
                 }
                 .boxed()
@@ -381,7 +377,6 @@ async fn handle_install_request<'a>(
 
                     build_launch_installer(
                         ctx,
-                        materializations,
                         installer_label,
                         &installer_run_args,
                         installer_debug,
@@ -505,7 +500,6 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::
 
 async fn build_launch_installer<'a>(
     ctx: &'a mut DiceComputations<'_>,
-    materializations: &'a MaterializationContext,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
     installer_log_console: bool,
@@ -538,9 +532,13 @@ async fn build_launch_installer<'a>(
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
         ctx.try_compute_join(inputs, |ctx, input| {
             async move {
-                materialize_artifact_group(ctx, &input, materializations)
-                    .await
-                    .map(|value| (input, value))
+                materialize_artifact_group(
+                    ctx,
+                    &input,
+                    &MaterializationContext::Materialize { force: true },
+                )
+                .await
+                .map(|value| (input, value))
             }
             .boxed()
         })
@@ -580,7 +578,6 @@ pub struct FileResult {
 
 async fn build_files(
     ctx: &mut DiceComputations<'_>,
-    materializations: &MaterializationContext,
     install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
@@ -600,8 +597,12 @@ async fn build_files(
         file_outputs,
         |ctx, (install_id, name, artifact, tx_clone)| {
             async move {
-                let artifact_values =
-                    materialize_artifact_group(ctx, &artifact, materializations).await?;
+                let artifact_values = materialize_artifact_group(
+                    ctx,
+                    &artifact,
+                    &MaterializationContext::Materialize { force: true },
+                )
+                .await?;
                 for (artifact, artifact_value) in artifact_values.iter() {
                     let file_result = FileResult {
                         install_id: (*install_id).to_owned(),
