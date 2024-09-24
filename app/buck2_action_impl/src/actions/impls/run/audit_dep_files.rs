@@ -64,7 +64,9 @@ async fn audit_dep_files(
     let dirs = match &*fingerprints {
         StoredFingerprints::Digests(..) => {
             // This is bit awkward but this only for testing right now so that's OK
-            return Err(anyhow::anyhow!("Fingerprints were stored as digests!"));
+            return Err(anyhow::anyhow!(
+                "Fingerprints were stored as digests! You probably need to use BUCK2_KEEP_DEP_FILE_DIRECTORIES=true"
+            ));
         }
         StoredFingerprints::Dirs(dirs) => dirs,
     };

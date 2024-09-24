@@ -74,7 +74,7 @@ use tracing::instrument;
 #[allocative::root]
 static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
 
-/// When this is set, we retain directories after fingerprintig, so that we can output them later
+/// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
 fn keep_directories() -> anyhow::Result<bool> {
     buck2_env!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
