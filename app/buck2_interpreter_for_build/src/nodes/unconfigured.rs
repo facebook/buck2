@@ -10,12 +10,9 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
-use buck2_core::target::name::TargetNameRef;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
@@ -23,7 +20,6 @@ use buck2_node::rule::Rule;
 use dupe::Dupe;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
-use starlark::values::Value;
 
 use crate::call_stack::StarlarkCallStackWrapper;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -56,24 +52,17 @@ impl TargetNodeExt for TargetNode {
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
     ) -> anyhow::Result<Self> {
-        for (attr_name, _attr_idx, _attr) in rule.attributes.attr_specs() {
-            let value: Value = param_parser.next(attr_name)?;
-            if attr_name == NAME_ATTRIBUTE_FIELD {
-                let label = TargetLabel::new(
-                    internals.buildfile_path().package().dupe(),
-                    TargetNameRef::new(value.unpack_str().unwrap()).unwrap(),
-                );
-                return Ok(TargetNode::new(
-                    rule.dupe(),
-                    package,
-                    label,
-                    AttrValues::with_capacity(0),
-                    CoercedDeps::default(),
-                    None,
-                ));
-            }
-        }
-        unreachable!("`name` attribute not found");
+        let (name, _indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
+
+        let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
+        Ok(TargetNode::new(
+            rule.dupe(),
+            package,
+            label,
+            attr_values,
+            CoercedDeps::default(),
+            None,
+        ))
     }
 
     /// The body of the callable returned by `rule()`. Records the target in this package's `TargetMap`

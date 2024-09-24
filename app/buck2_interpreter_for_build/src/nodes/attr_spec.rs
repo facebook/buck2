@@ -13,10 +13,12 @@ use anyhow::Context;
 use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetNameRef;
 use buck2_error::internal_error;
+use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
+use buck2_node::attrs::id::AttributeId;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::attr_is_configurable;
 use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
@@ -41,6 +43,19 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::check_within_view::check_within_view;
 
 pub trait AttributeSpecExt {
+    fn start_parse<'a, 'v>(
+        &'a self,
+        param_parser: &mut ParametersParser<'v, '_>,
+        size_hint: usize,
+    ) -> anyhow::Result<(
+        // "name" attribute value.
+        &'v TargetNameRef,
+        // Remaining attributes.
+        impl ExactSizeIterator<Item = (&'a str, AttributeId, &'a Attribute)> + 'a,
+        // Populated with name.
+        AttrValues,
+    )>;
+
     fn parse_params<'v>(
         &self,
         param_parser: &mut ParametersParser<'v, '_>,
@@ -54,11 +69,37 @@ pub trait AttributeSpecExt {
     fn ty_function(&self) -> TyFunction;
 
     fn starlark_types(&self) -> Vec<Ty>;
-
     fn docstrings(&self) -> HashMap<String, Option<DocString>>;
 }
 
 impl AttributeSpecExt for AttributeSpec {
+    fn start_parse<'a, 'v>(
+        &'a self,
+        param_parser: &mut ParametersParser<'v, '_>,
+        size_hint: usize,
+    ) -> anyhow::Result<(
+        &'v TargetNameRef,
+        impl ExactSizeIterator<Item = (&'a str, AttributeId, &'a Attribute)> + 'a,
+        AttrValues,
+    )> {
+        let mut attr_values = AttrValues::with_capacity(size_hint);
+
+        let mut indices = self.attr_specs();
+        let name = match indices.next() {
+            Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE_FIELD => {
+                let name = param_parser.next(NAME_ATTRIBUTE_FIELD)?;
+                attr_values.push_sorted(
+                    attr_idx,
+                    CoercedAttr::String(StringLiteral(ArcStr::from(name))),
+                );
+                name
+            }
+            _ => return Err(internal_error!("First attribute is `name`, it is known")),
+        };
+        let name = TargetNameRef::new(name)?;
+        Ok((name, indices, attr_values))
+    }
+
     /// Parses params extracting the TargetName and the attribute values to store in the TargetNode.
     fn parse_params<'v>(
         &self,
@@ -66,24 +107,7 @@ impl AttributeSpecExt for AttributeSpec {
         arg_count: usize,
         internals: &ModuleInternals,
     ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)> {
-        let mut attr_values = AttrValues::with_capacity(arg_count);
-
-        let mut indices = self.attr_specs();
-        let name = match indices.next() {
-            Some((name_name, attr_idx, _attr))
-                if name_name == NAME_ATTRIBUTE_FIELD && attr_idx.index_in_attribute_spec == 0 =>
-            {
-                let name: &str = param_parser.next(NAME_ATTRIBUTE_FIELD)?;
-
-                attr_values.push_sorted(
-                    attr_idx,
-                    CoercedAttr::String(StringLiteral(ArcStr::from(name))),
-                );
-
-                TargetNameRef::new(name)?
-            }
-            _ => panic!("First attribute is `name`, it is known"),
-        };
+        let (name, indices, mut attr_values) = self.start_parse(param_parser, arg_count)?;
 
         let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name);
 
