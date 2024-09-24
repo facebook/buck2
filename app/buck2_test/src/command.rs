@@ -65,6 +65,7 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -369,6 +370,12 @@ async fn test(
         request.ignore_tests_attribute,
     )
     .await?;
+
+    send_target_cfg_event(
+        server_ctx.events(),
+        test_outcome.build_target_result.configured.keys(),
+        &request.target_cfg,
+    );
 
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome.exit_code().context("No exit code available")?;
