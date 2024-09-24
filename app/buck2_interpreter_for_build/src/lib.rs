@@ -13,6 +13,7 @@
 use std::sync::Once;
 
 pub mod attrs;
+pub mod call_stack;
 pub mod interpreter;
 pub mod label;
 pub mod nodes;

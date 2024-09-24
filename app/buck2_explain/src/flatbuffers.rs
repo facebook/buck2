@@ -396,7 +396,7 @@ mod tests {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetName;
-    use buck2_interpreter_for_build::nodes::unconfigured::StarlarkCallStackWrapper;
+    use buck2_interpreter_for_build::call_stack::StarlarkCallStackWrapper;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::arg::StringWithMacros;
     use buck2_node::attrs::attr_type::bool::BoolLiteral;
