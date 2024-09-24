@@ -857,15 +857,15 @@ impl<'v> ParametersSpec<Value<'v>> {
         k: F,
     ) -> crate::Result<R>
     where
-        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
+        F: FnOnce(&mut ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
     {
         eval.alloca_init(
             self.len(),
             || Cell::new(None),
             |slots, eval| {
                 self.collect_inline(&args.0, slots, eval.heap())?;
-                let parser = ParametersParser::new(slots);
-                k(parser, eval)
+                let mut parser = ParametersParser::new(slots);
+                k(&mut parser, eval)
             },
         )
     }
@@ -921,7 +921,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         k: F,
     ) -> crate::Result<R>
     where
-        F: FnOnce(ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
+        F: FnOnce(&mut ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
     {
         self.as_value().parser_impl(args, eval, k)
     }

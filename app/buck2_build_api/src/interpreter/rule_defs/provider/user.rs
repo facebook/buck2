@@ -171,7 +171,7 @@ impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
 pub(crate) fn user_provider_creator<'v>(
     callable: FrozenRef<'static, UserProviderCallableData>,
     eval: &Evaluator<'v, '_, '_>,
-    mut param_parser: ParametersParser<'v, '_>,
+    param_parser: &mut ParametersParser<'v, '_>,
 ) -> anyhow::Result<Value<'v>> {
     let heap = eval.heap();
     let values = callable

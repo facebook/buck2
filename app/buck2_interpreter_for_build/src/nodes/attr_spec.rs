@@ -43,7 +43,7 @@ use crate::nodes::check_within_view::check_within_view;
 pub trait AttributeSpecExt {
     fn parse_params<'v>(
         &self,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
     ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)>;
@@ -62,7 +62,7 @@ impl AttributeSpecExt for AttributeSpec {
     /// Parses params extracting the TargetName and the attribute values to store in the TargetNode.
     fn parse_params<'v>(
         &self,
-        mut param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
     ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)> {

@@ -242,7 +242,7 @@ where
         let this = me;
 
         self.parameter_spec
-            .parser(args, eval, |mut param_parser, eval| {
+            .parser(args, eval, |param_parser, eval| {
                 let fields = record_fields(RecordType::from_value(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());
                 for (name, field) in fields.iter() {

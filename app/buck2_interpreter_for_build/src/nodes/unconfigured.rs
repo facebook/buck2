@@ -34,14 +34,14 @@ pub trait TargetNodeExt: Sized {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
     ) -> anyhow::Result<Self>;
 
     fn from_params<'v>(
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
@@ -54,7 +54,7 @@ impl TargetNodeExt for TargetNode {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        mut param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
     ) -> anyhow::Result<Self> {
         for (attr_name, _attr_idx, _attr) in rule.attributes.attr_specs() {
             let value: Value = param_parser.next(attr_name)?;
@@ -82,7 +82,7 @@ impl TargetNodeExt for TargetNode {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
-        param_parser: ParametersParser<'v, '_>,
+        param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,

@@ -159,7 +159,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         let me = me.unpack_frozen().internal_error("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
         let (dynamic, dynamic_values, outputs, arg) =
-            self.signature.parser(args, eval, |mut parser, _eval| {
+            self.signature.parser(args, eval, |parser, _eval| {
                 // TODO(nga): we are not checking that what we parse here actually matches signature.
                 let dynamic: UnpackList<UnpackArtifactOrDeclaredArtifact> =
                     parser.next("dynamic")?;
