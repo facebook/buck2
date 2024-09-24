@@ -20,6 +20,7 @@ use buck2_node::rule::Rule;
 use dupe::Dupe;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
+use starlark::values::Value;
 
 use crate::call_stack::StarlarkCallStackWrapper;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -52,7 +53,13 @@ impl TargetNodeExt for TargetNode {
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
     ) -> anyhow::Result<Self> {
-        let (name, _indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
+        let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
+
+        for (attr_name, _, _) in indices {
+            // Consume all the arguments.
+            // We call `next_opt` even for non-optional parameters. starlark-rust doesn't check.
+            param_parser.next_opt::<Value>(attr_name)?;
+        }
 
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
         Ok(TargetNode::new(
