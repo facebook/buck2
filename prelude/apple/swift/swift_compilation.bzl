@@ -578,6 +578,11 @@ def _compile_with_argsfile(
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
     return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile})
 
+def _get_serialize_debugging_options_attr_value(ctx: AnalysisContext):
+    if ctx.attrs.serialize_debugging_options == None:
+        return True
+    return ctx.attrs.serialize_debugging_options
+
 def _get_shared_flags(
         ctx: AnalysisContext,
         deps_providers: list,
@@ -657,7 +662,7 @@ def _get_shared_flags(
         else:
             cmd.add(["-enable-experimental-cxx-interop"])
 
-    serialize_debugging_options = ctx.attrs.serialize_debugging_options and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
+    serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
     if serialize_debugging_options:
         cmd.add([
             "-Xfrontend",

@@ -155,7 +155,13 @@ def _debug_artifacts_validators_arg():
 
 def _serialize_debugging_options_arg():
     return {
-        "serialize_debugging_options": attrs.bool(default = True),
+        # Need ability to distinguish between no value provided by users
+        # vs value explicitly set to `True` (in the latter case, we should
+        # show warning if value cannot be respected in mixed modules while
+        # in the former, we do not show a warning).
+        #
+        # Lack of value defaults to enabling serialized debugging options.
+        "serialize_debugging_options": attrs.option(attrs.bool(), default = None),
     }
 
 def _uses_explicit_modules_arg():
