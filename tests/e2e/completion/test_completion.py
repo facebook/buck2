@@ -28,6 +28,7 @@ def completion_test(
     expected: typing.List[str] | typing.Callable[[list[str]], bool],
     shells: list[str] = SHELLS,
     options_only: bool = False,
+    cwd: str = "",
 ) -> None:
     for shell in shells:
         if shell == "fish" and not options_only:
@@ -76,7 +77,7 @@ def completion_test(
                 script_path.absolute(),
                 input="buck2 " + input,
                 text=True,
-                cwd=buck.cwd,
+                cwd=buck.cwd.joinpath(cwd),
             )
             actual = actual.splitlines()
             if isinstance(expected, list):
@@ -138,5 +139,40 @@ completion_test(
     name="test_completes_rule_zsh",
     input="build dir1:target1",
     expected=["dir1:target1a", "dir1:target1b"],
+    shells=["zsh"],
+)
+
+completion_test(
+    name="test_starts_with_colon",
+    input="build :tar",
+    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
+    expected=[] if IS_LINUX else ["target1a", "target1b"],
+    cwd="dir1",
+    shells=["bash"],
+)
+
+completion_test(
+    name="test_starts_with_colon",
+    input="build :tar",
+    expected=[":target1a", ":target1b"],
+    cwd="dir1",
+    shells=["zsh"],
+)
+
+completion_test(
+    name="test_colon_only_arg",
+    input="build :",
+    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
+    expected=["TARGETS.fixture", "prelude/"],
+    cwd="dir1",
+    shells=["bash"],
+)
+
+completion_test(
+    name="test_colon_only_arg",
+    input="build :",
+    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
+    expected=[],
+    cwd="dir1",
     shells=["zsh"],
 )
