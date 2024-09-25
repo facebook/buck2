@@ -90,6 +90,15 @@ trait Fields<'v> {
 /// Wrapper because we cannot implement traits for traits.
 struct FieldsRef<'v, F: Fields<'v>>(F, PhantomData<Value<'v>>);
 
+/// There's no good reason for a user to write `cmd_args` as JSON in analysis or BXL.
+///
+/// This implementation exists for operations such as:
+///
+/// ```ignore
+/// buck2 cquery :buck2 --providers
+/// ```
+///
+/// which must not fail if a provider contains `cmd_args` (D34887765).
 impl<'v, F: Fields<'v>> Serialize for FieldsRef<'v, F> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
