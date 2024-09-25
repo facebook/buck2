@@ -75,7 +75,7 @@ def completion_test(
                 text=True,
                 cwd=buck.cwd,
             )
-            actual = actual.strip().split("\n")
+            actual = actual.splitlines()
             if isinstance(expected, list):
                 assert actual == expected, "testing shell: " + shell
             else:
