@@ -53,10 +53,13 @@ def completion_test(
             # Write this to a script to make it easier to debug with `BUCK_E2E_KEEP_TMP=1`
             script = "\n".join(
                 [
-                    "#!/bin/sh",
+                    "#!/bin/bash",
+                    "shopt -s dotglob",
                     f'export PATH="{buck.path_to_executable.parent.absolute()}:$PATH"',
                     "export BUCK2_COMPLETION_TIMEOUT=30000",
-                    f"rm -r -- {shell_home}/*",
+                    f"if [ -n \"$( ls -A '{shell_home}' )\" ]; then",
+                    f"    rm -r -- {shell_home}/*",
+                    "fi",
                     f"{verify_bin.absolute()} {shell} {completions_path.absolute()} {shell_home}",
                 ]
             )
