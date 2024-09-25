@@ -60,16 +60,12 @@ impl Term {
 #[derive(Debug)]
 pub(crate) struct ZshRuntime {
     home: PathBuf,
-    timeout: Duration,
 }
 
 impl ZshRuntime {
     /// Reuse an existing runtime's home
     pub(crate) fn with_home(home: PathBuf) -> std::io::Result<Self> {
-        Ok(Self {
-            home,
-            timeout: Duration::from_millis(2000),
-        })
+        Ok(Self { home })
     }
 
     /// Register a completion script
@@ -85,7 +81,7 @@ impl ZshRuntime {
         command.arg("--noglobalrcs");
         command.env("TERM", "xterm").env("ZDOTDIR", &self.home);
         let echo = false;
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, term)
     }
 }
 
@@ -94,7 +90,6 @@ impl ZshRuntime {
 pub(crate) struct BashRuntime {
     home: PathBuf,
     config: PathBuf,
-    timeout: Duration,
 }
 
 impl BashRuntime {
@@ -105,8 +100,6 @@ impl BashRuntime {
         Ok(Self {
             home,
             config: config_path,
-            // Bash needs an artifically high timeout because of echo being enabled
-            timeout: Duration::from_millis(2000),
         })
     }
 
@@ -133,7 +126,7 @@ impl BashRuntime {
                 self.config.as_os_str(),
             ]);
         let echo = !input.contains("\t\t");
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, term)
     }
 }
 
@@ -141,7 +134,6 @@ impl BashRuntime {
 #[derive(Debug)]
 pub(crate) struct FishRuntime {
     home: PathBuf,
-    timeout: Duration,
 }
 
 impl FishRuntime {
@@ -168,10 +160,7 @@ end;
 
     /// Reuse an existing runtime's home
     pub(crate) fn with_home(home: PathBuf) -> std::io::Result<Self> {
-        Ok(Self {
-            home,
-            timeout: Duration::from_millis(2000),
-        })
+        Ok(Self { home })
     }
 
     /// Register a completion script
@@ -189,17 +178,11 @@ end;
             .env("TERM", "xterm")
             .env("XDG_CONFIG_HOME", &self.home);
         let echo = false;
-        comptest(command, echo, input, term, self.timeout)
+        comptest(command, echo, input, term)
     }
 }
 
-fn comptest(
-    command: Command,
-    echo: bool,
-    input: &str,
-    term: &Term,
-    timeout: Duration,
-) -> std::io::Result<String> {
+fn comptest(command: Command, echo: bool, input: &str, term: &Term) -> std::io::Result<String> {
     #![allow(clippy::unwrap_used)] // some unwraps need extra investigation
 
     // spawn a new process, pass it the input was.
@@ -227,7 +210,7 @@ fn comptest(
             // since we don't know when exactly shell is done completing the idea is to wait until
             // something at all is produced, then wait for some duration since the last produced chunk.
             rcv.recv().unwrap();
-            while rcv.recv_timeout(timeout).is_ok() {}
+            while rcv.recv_timeout(Duration::from_millis(2000)).is_ok() {}
             shutdown_ref.store(true, std::sync::atomic::Ordering::SeqCst);
             process.exit(false).unwrap();
         });
