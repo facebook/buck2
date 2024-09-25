@@ -20,6 +20,9 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
+use buck2_core::buck2_env;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_path::AbsPath;
 use clap::ArgMatches;
 use package::PackageCompleter;
 use target::CompleteTargetCommand;
@@ -73,6 +76,24 @@ pub struct CompleteCommand {
 
 impl CompleteCommand {
     pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let lockfile = buck2_env!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?
+            .map(AbsPath::new)
+            .transpose()?;
+
+        if let Some(lockfile) = lockfile {
+            drop(fs_util::write(lockfile, ""));
+        }
+
+        let res = self.exec_no_lockfile(matches, ctx);
+
+        if let Some(lockfile) = lockfile {
+            drop(fs_util::remove_file(lockfile));
+        }
+
+        res
+    }
+
+    fn exec_no_lockfile(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let start = Instant::now();
         let time_limit = Duration::from_millis(self.timeout_ms);
         let deadline = start + time_limit;

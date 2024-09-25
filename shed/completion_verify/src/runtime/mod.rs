@@ -32,6 +32,7 @@
 use std::ffi::OsStr;
 use std::io::Read as _;
 use std::io::Write as _;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
@@ -65,7 +66,7 @@ impl ZshRuntime {
         command.arg("--noglobalrcs");
         command.env("TERM", "xterm").env("ZDOTDIR", &self.home);
         let echo = false;
-        comptest(command, echo, input)
+        comptest(command, echo, input, &self.home)
     }
 }
 
@@ -110,7 +111,7 @@ impl BashRuntime {
                 self.config.as_os_str(),
             ]);
         let echo = !input.contains("\t\t");
-        comptest(command, echo, input)
+        comptest(command, echo, input, &self.home)
     }
 }
 
@@ -162,15 +163,24 @@ end;
             .env("TERM", "xterm")
             .env("XDG_CONFIG_HOME", &self.home);
         let echo = false;
-        comptest(command, echo, input)
+        comptest(command, echo, input, &self.home)
     }
 }
 
 const TERM_WIDTH: u16 = 120;
 const TERM_HEIGHT: u16 = 60;
 
-fn comptest(command: Command, echo: bool, input: &str) -> std::io::Result<String> {
+fn comptest(
+    mut command: Command,
+    echo: bool,
+    input: &str,
+    lockfile_dir: &Path,
+) -> std::io::Result<String> {
     #![allow(clippy::unwrap_used)] // some unwraps need extra investigation
+
+    let lockfile = lockfile_dir.join("completion_verify_lockfile");
+
+    command.env("COMPLETION_VERIFY_LOCKFILE", &lockfile);
 
     // spawn a new process, pass it the input was.
     //
@@ -194,13 +204,17 @@ fn comptest(command: Command, echo: bool, input: &str) -> std::io::Result<String
     let shutdown_ref = &shutdown;
     std::thread::scope(|scope| {
         scope.spawn(move || {
+            // The lockfile can be created by a completions impl to indicate that it hasn't finished
+            // yet
+            let check_lockfile = || !lockfile.exists();
+
             // First wait for anything to be produced. This is usually the prompt
             rcv.recv().unwrap();
             // Then, wait for a potentially extended amount of time for the next data to be
             // produced. This will only not happen if there are no completions to output
-            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() {
+            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() && check_lockfile() {
                 // Finally, wait for shorter intervals until new output stops being produced
-                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() {}
+                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() && check_lockfile() {}
             }
 
             shutdown_ref.store(true, std::sync::atomic::Ordering::SeqCst);
