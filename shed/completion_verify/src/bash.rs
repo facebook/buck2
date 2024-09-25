@@ -12,7 +12,6 @@ use std::path::Path;
 
 use crate::extract_from_outputs;
 use crate::runtime::BashRuntime;
-use crate::runtime::Term;
 
 pub(crate) fn run_bash(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
     let home = tempdir;
@@ -30,7 +29,7 @@ PS1='% '
     let mut r = BashRuntime::with_home(home.to_owned())?;
     r.register("buck2", script)?;
 
-    let one_tab = r.complete(&format!("{}\t", input), &Term::new())?;
+    let one_tab = r.complete(&format!("{}\t", input))?;
     // complete_pty turns on echoing in this case to work around a bash bug, so strip that
     let one_tab = one_tab.strip_prefix(input).unwrap_or(&one_tab).trim_start();
 
@@ -39,8 +38,8 @@ PS1='% '
         input,
         [
             Ok(one_tab.to_owned()),
-            r.complete(&format!("{}\t\t", input), &Term::new()),
-            r.complete(&format!("{}\t\t\t", input), &Term::new()),
+            r.complete(&format!("{}\t\t", input)),
+            r.complete(&format!("{}\t\t\t", input)),
         ],
     )
 }

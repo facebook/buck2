@@ -11,7 +11,6 @@ use std::io;
 use std::path::Path;
 
 use crate::extract_from_outputs;
-use crate::runtime::Term;
 use crate::runtime::ZshRuntime;
 
 pub(crate) fn run_zsh(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
@@ -61,8 +60,8 @@ _buck2 >/dev/null 2>/dev/null ; # Force the completion to be loaded
     extract_from_outputs(
         input,
         [
-            r.complete(&format!("{}\t", input), &Term::new()),
-            r.complete(&format!("{}\t\t", input), &Term::new()),
+            r.complete(&format!("{}\t", input)),
+            r.complete(&format!("{}\t\t", input)),
         ],
     )
 }

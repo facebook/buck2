@@ -12,7 +12,6 @@ use std::path::Path;
 
 use crate::extract_from_outputs;
 use crate::runtime::FishRuntime;
-use crate::runtime::Term;
 
 pub(crate) fn run_fish(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
     let home = tempdir;
@@ -23,8 +22,8 @@ pub(crate) fn run_fish(script: &str, input: &str, tempdir: &Path) -> io::Result<
     extract_from_outputs(
         input,
         [
-            r.complete(&format!("{}\t", input), &Term::new()),
-            r.complete(&format!("{}\t\t", input), &Term::new()),
+            r.complete(&format!("{}\t", input)),
+            r.complete(&format!("{}\t\t", input)),
         ],
     )
 }

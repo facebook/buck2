@@ -40,22 +40,6 @@ use ptyprocess::PtyProcess;
 
 use crate::Shell;
 
-/// Terminal that shell's will run completions in
-#[derive(Debug)]
-pub(crate) struct Term {
-    width: u16,
-    height: u16,
-}
-
-impl Term {
-    pub(crate) fn new() -> Self {
-        Self {
-            width: 120,
-            height: 60,
-        }
-    }
-}
-
 /// Zsh runtime
 #[derive(Debug)]
 pub(crate) struct ZshRuntime {
@@ -76,12 +60,12 @@ impl ZshRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Zsh.find()?;
         command.arg("--noglobalrcs");
         command.env("TERM", "xterm").env("ZDOTDIR", &self.home);
         let echo = false;
-        comptest(command, echo, input, term)
+        comptest(command, echo, input)
     }
 }
 
@@ -113,7 +97,7 @@ impl BashRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Bash.find()?;
         let inputrc_path = self.home.join(".inputrc");
         command
@@ -126,7 +110,7 @@ impl BashRuntime {
                 self.config.as_os_str(),
             ]);
         let echo = !input.contains("\t\t");
-        comptest(command, echo, input, term)
+        comptest(command, echo, input)
     }
 }
 
@@ -171,18 +155,21 @@ end;
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str, term: &Term) -> std::io::Result<String> {
+    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Fish.find()?;
         command
             // fish requires TERM to be set.
             .env("TERM", "xterm")
             .env("XDG_CONFIG_HOME", &self.home);
         let echo = false;
-        comptest(command, echo, input, term)
+        comptest(command, echo, input)
     }
 }
 
-fn comptest(command: Command, echo: bool, input: &str, term: &Term) -> std::io::Result<String> {
+const TERM_WIDTH: u16 = 120;
+const TERM_HEIGHT: u16 = 60;
+
+fn comptest(command: Command, echo: bool, input: &str) -> std::io::Result<String> {
     #![allow(clippy::unwrap_used)] // some unwraps need extra investigation
 
     // spawn a new process, pass it the input was.
@@ -190,11 +177,11 @@ fn comptest(command: Command, echo: bool, input: &str, term: &Term) -> std::io::
     // This triggers completion loading process which takes some time in shell so we should let it
     // run for some time
     let mut process = PtyProcess::spawn(command)?;
-    process.set_window_size(term.width, term.height)?;
+    process.set_window_size(TERM_WIDTH, TERM_HEIGHT)?;
     // for some reason bash does not produce anything with echo disabled...
     process.set_echo(echo, None)?;
 
-    let mut parser = vt100::Parser::new(term.height, term.width, 0);
+    let mut parser = vt100::Parser::new(TERM_HEIGHT, TERM_WIDTH, 0);
 
     let mut stream = process.get_raw_handle()?;
     // pass the completion input
