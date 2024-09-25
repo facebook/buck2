@@ -137,14 +137,15 @@ fn run(
 #[derive(Debug, clap::Parser)]
 #[clap(name = "completion-verify")]
 struct CompletionVerify {
+    /// The path to a directory to use as a tempdir
+    ///
+    /// Must be empty prior to each invocation of this binary
+    #[clap(long, value_name = "DIR")]
+    tempdir: Option<String>,
     /// The shell to test with
     shell: Shell,
     /// The path of the completion script to load
     script: String,
-    /// The path to a directory to use as a tempdir
-    ///
-    /// Must be empty prior to each invocation of this binary
-    tempdir: Option<String>,
 }
 
 fn main() -> io::Result<()> {
