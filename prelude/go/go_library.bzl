@@ -32,7 +32,7 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
-load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo", "get_inherited_compile_pkgs")
+load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
@@ -54,7 +54,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         pkg_name,
         srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
-        deps = ctx.attrs.deps + ctx.attrs.exported_deps,
+        deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         assembler_flags = ctx.attrs.assembler_flags,
         tags = ctx.attrs._tags,
@@ -72,13 +72,10 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_output = default_output),
-        GoPkgCompileInfo(pkgs = merge_pkgs([
-            pkgs,
-            get_inherited_compile_pkgs(ctx.attrs.exported_deps),
-        ])),
+        GoPkgCompileInfo(pkgs = pkgs),
         GoPkgLinkInfo(pkgs = merge_pkgs([
             pkgs,
-            get_inherited_link_pkgs(ctx.attrs.deps + ctx.attrs.exported_deps),
+            get_inherited_link_pkgs(ctx.attrs.deps),
         ])),
         GoTestInfo(
             deps = ctx.attrs.deps,

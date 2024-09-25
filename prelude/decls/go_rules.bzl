@@ -233,7 +233,6 @@ go_library = prelude_rule(
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         }
