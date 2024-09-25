@@ -15,8 +15,12 @@ use anyhow::Context;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
@@ -27,6 +31,7 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::StarlarkResultExt;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
@@ -124,9 +129,39 @@ where
 }
 
 #[starlark_value(type = "ValidationSpec")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V> where
-    Self: ProvidesStaticType<'v>
+impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
+where
+    Self: ProvidesStaticType<'v>,
 {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(validation_spec_methods)
+    }
+}
+
+#[starlark_module]
+fn validation_spec_methods(builder: &mut MethodsBuilder) {
+    #[starlark(attribute)]
+    /// Name identifying validation.
+    fn name<'v>(
+        this: &'v StarlarkValidationSpec,
+        heap: &'v Heap,
+    ) -> anyhow::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.name()))
+    }
+
+    #[starlark(attribute)]
+    /// Is validation optional.
+    fn optional<'v>(this: &'v StarlarkValidationSpec) -> anyhow::Result<bool> {
+        Ok(this.optional())
+    }
+
+    #[starlark(attribute)]
+    /// Artifact which is the result of running a validation.
+    fn validation_result<'v>(this: &'v StarlarkValidationSpec) -> anyhow::Result<StarlarkArtifact> {
+        let artifact = this.validation_result.unpack().into_anyhow_result()?;
+        artifact.0.get_bound_starlark_artifact()
+    }
 }
 
 #[starlark_module]
