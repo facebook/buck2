@@ -207,15 +207,21 @@ fn comptest(command: Command, echo: bool, input: &str, term: &Term) -> std::io::
     let shutdown_ref = &shutdown;
     std::thread::scope(|scope| {
         scope.spawn(move || {
-            // since we don't know when exactly shell is done completing the idea is to wait until
-            // something at all is produced, then wait for some duration since the last produced chunk.
+            // First wait for anything to be produced. This is usually the prompt
             rcv.recv().unwrap();
-            while rcv.recv_timeout(Duration::from_millis(2000)).is_ok() {}
+            // Then, wait for a potentially extended amount of time for the next data to be
+            // produced. This will only not happen if there are no completions to output
+            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() {
+                // Finally, wait for shorter intervals until new output stops being produced
+                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() {}
+            }
+
             shutdown_ref.store(true, std::sync::atomic::Ordering::SeqCst);
             process.exit(false).unwrap();
         });
 
         let mut buf = [0; 2048];
+        let mut seen_prompt = false;
         while let Ok(n) = stream.read(&mut buf) {
             if shutdown.load(std::sync::atomic::Ordering::SeqCst) {
                 // fish clears completions on process teardown
@@ -225,8 +231,21 @@ fn comptest(command: Command, echo: bool, input: &str, term: &Term) -> std::io::
             if buf.is_empty() {
                 break;
             }
-            let _ = snd.send(());
             parser.process(buf);
+
+            // We know that we will see at least one prompt, so we never need to consider exiting
+            // before that comes through
+            match seen_prompt {
+                false => {
+                    if buf.contains(&b'%') {
+                        seen_prompt = true;
+                        _ = snd.send(());
+                    }
+                }
+                true => {
+                    _ = snd.send(());
+                }
+            }
         }
     });
 
