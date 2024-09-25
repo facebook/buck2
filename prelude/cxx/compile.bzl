@@ -729,6 +729,26 @@ def _is_standalone_header(header: CHeader) -> bool:
         return False
     return True
 
+def _convert_raw_header(
+        ctx: AnalysisContext,
+        raw_header: Artifact,
+        include_dirs: list[CellPath]) -> CHeader:
+    package_prefix = str(ctx.label.path)
+    ns = paths.dirname(raw_header.short_path)
+    for d in include_dirs:
+        abs_dir = str(d)
+        if paths.starts_with(abs_dir, package_prefix):
+            prefix = paths.relativize(abs_dir, package_prefix)
+            if paths.starts_with(ns, prefix):
+                ns = paths.relativize(ns, prefix)
+                break
+    return CHeader(
+        artifact = raw_header,
+        name = raw_header.basename,
+        namespace = ns,
+        named = False,
+    )
+
 def create_precompile_cmd(
         ctx: AnalysisContext,
         preprocessors: list[CPreprocessor],
@@ -747,9 +767,14 @@ def create_precompile_cmd(
         return None
     cmd = compile_cmd_output.base_compile_cmds[ext]
 
+    include_dirs = flatten([x.include_dirs for x in preprocessors])
+    converted_headers = [
+        _convert_raw_header(ctx, raw_header, include_dirs)
+        for raw_header in flatten([x.raw_headers for x in preprocessors])
+    ]
     headers = [
         header
-        for header in flatten([x.headers for x in preprocessors])
+        for header in flatten([x.headers for x in preprocessors]) + converted_headers
         if (_is_standalone_header(header) if include_headers == None else regex_match(include_headers, header.name))
     ]
     if not headers:
