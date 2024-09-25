@@ -39,6 +39,7 @@ use crate::legacy_configs::parser::resolver::ConfigResolver;
 mod resolver;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ConfigError {
     #[error("Expected line of the form `key = value` but key was empty. Line was `{0}`")]
     EmptyKey(String),

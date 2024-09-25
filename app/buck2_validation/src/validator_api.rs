@@ -37,6 +37,7 @@ pub(crate) struct ValidationResult {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ValidationApiError {
     #[error("Validation result should contain valid JSON.")]
     InvalidJson {
