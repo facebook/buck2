@@ -187,6 +187,13 @@ impl CommandExecutor {
                 }
                 CommandExecutionInput::ScratchPath(_) => None,
             });
+            let mut platform = self.0.re_platform.clone();
+            if self.0.options.use_remote_persistent_workers && let Some(worker) = request.worker() && let Some(key) = worker.remote_key.as_ref() {
+                platform.properties.push(RE::Property {
+                    name: "persistentWorkerKey".to_owned(),
+                    value: key.to_string(),
+                });
+            }
             let action = re_create_action(
                 request.all_args_vec(),
                 request.paths().output_paths(),
@@ -195,7 +202,7 @@ impl CommandExecutor {
                 input_digest,
                 action_metadata_blobs,
                 request.timeout(),
-                self.0.re_platform.clone(),
+                platform,
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,

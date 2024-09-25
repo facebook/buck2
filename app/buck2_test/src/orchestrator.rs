@@ -1191,6 +1191,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
+                use_remote_persistent_workers: false,
             },
         };
         let CommandExecutorResponse {
@@ -1733,6 +1734,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     id: WorkerId(worker.id),
                     concurrency: worker.concurrency(),
                     streaming: worker.streaming(),
+                    remote_key: None,
                 })
             }
             _ => None,
