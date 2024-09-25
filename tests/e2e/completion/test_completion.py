@@ -193,3 +193,10 @@ completion_test(
     cwd="dir1",
     shells=["bash"],
 )
+
+completion_test(
+    name="test_no_targets_for_required_option_param",
+    input="build --console ",
+    # FIXME(JakobDegen): Bug: expected=["auto", "none", "simple", "simplenotty", "simpletty", "super"],
+    expected=lambda actual: "root//" in actual,
+)
