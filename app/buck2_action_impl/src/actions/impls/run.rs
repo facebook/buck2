@@ -40,6 +40,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -261,6 +262,7 @@ struct UnpackedWorkerValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     id: WorkerId,
     concurrency: Option<usize>,
+    remote: bool,
 }
 
 struct UnpackedRunActionValues<'v> {
@@ -317,6 +319,7 @@ impl RunAction {
             exe: worker.exe_command_line(),
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),
+            remote: worker.remote(),
         });
 
         Ok(UnpackedRunActionValues {
@@ -349,10 +352,31 @@ impl RunAction {
                 .exe
                 .add_to_command_line(&mut worker_rendered, &mut cli_ctx)?;
             worker.exe.visit_artifacts(artifact_visitor)?;
+            let worker_key = if worker.remote {
+                let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
+                worker.exe.visit_artifacts(&mut worker_visitor)?;
+                if !worker_visitor.outputs.is_empty() {
+                    // TODO[AH] create appropriate error enum value.
+                    return Err(buck2_error!(
+                        [],
+                        "remote persistent worker command should not produce an output"
+                    ));
+                }
+                let worker_inputs: Vec<&ArtifactGroupValues> = worker_visitor
+                    .inputs()
+                    .map(|group| action_execution_ctx.artifact_values(group))
+                    .collect();
+                let (_, worker_digest) =
+                    metadata_content(fs.fs(), &worker_inputs, action_execution_ctx.digest_config())?;
+                Some(worker_digest)
+            } else {
+                None
+            };
             Some(WorkerSpec {
                 exe: worker_rendered,
                 id: worker.id,
                 concurrency: worker.concurrency,
+                remote_key: worker_key,
             })
         } else {
             None
