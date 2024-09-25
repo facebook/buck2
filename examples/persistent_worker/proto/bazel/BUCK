@@ -1,0 +1,24 @@
+genrule(
+    name = "build-pb2",
+    cmd = r"""
+        $(exe //proto:protoc) \
+            -Iproto/bazel=${SRCDIR} \
+            --python_out=${OUT} \
+            --pyi_out=${OUT} \
+            --grpc_python_out=${OUT} \
+            ${SRCS}
+        mv ${OUT}/proto/bazel/* ${OUT}/
+    """,
+    srcs = ["worker_protocol.proto"],
+    outs = {"pb2": [
+        "worker_protocol_pb2.py",
+        "worker_protocol_pb2.pyi",
+        "worker_protocol_pb2_grpc.py",
+    ]},
+)
+
+python_library(
+    name = "worker_protocol_pb2",
+    srcs = [":build-pb2[pb2]"],
+    visibility = ["PUBLIC"],
+)
