@@ -176,3 +176,20 @@ completion_test(
     cwd="dir1",
     shells=["zsh"],
 )
+
+completion_test(
+    name="test_does_not_complete_files_in_target_position",
+    input="build TARG",
+    expected=[],
+    cwd="dir1",
+    shells=["zsh"],
+)
+
+completion_test(
+    name="test_does_not_complete_files_in_target_position",
+    input="build TARG",
+    # FIXME(JakobDegen): Bug: expected=[],
+    expected=["TARGETS.fixture"],
+    cwd="dir1",
+    shells=["bash"],
+)
