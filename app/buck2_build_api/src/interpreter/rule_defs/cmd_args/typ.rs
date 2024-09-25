@@ -95,7 +95,7 @@ impl<'v, F: Fields<'v>> Serialize for FieldsRef<'v, F> {
     where
         S: Serializer,
     {
-        /// Make sure mutable mutable and frozen `cmd_args` are serialized identically
+        /// Make sure mutable and frozen `cmd_args` are serialized identically
         /// by routing through this struct.
         #[derive(Serialize)]
         struct Mirror<'v, 'a> {
