@@ -61,7 +61,7 @@ pub enum LexemeError {
 
 impl From<LexemeError> for crate::error::Error {
     fn from(e: LexemeError) -> Self {
-        crate::error::Error::new(crate::error::ErrorKind::Parser(anyhow::Error::new(e)))
+        crate::error::Error::new_kind(crate::error::ErrorKind::Parser(anyhow::Error::new(e)))
     }
 }
 

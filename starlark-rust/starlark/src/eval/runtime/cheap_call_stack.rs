@@ -157,7 +157,7 @@ impl<'v> CheapCallStack<'v> {
         span: Option<FrozenRef<'static, FrameSpan>>,
     ) -> crate::Result<()> {
         if unlikely(self.count >= self.stack.len()) {
-            return Err(crate::Error::new(ErrorKind::StackOverflow(
+            return Err(crate::Error::new_kind(ErrorKind::StackOverflow(
                 CallStackError::Overflow.into(),
             )));
         }

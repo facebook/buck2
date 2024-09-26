@@ -31,7 +31,7 @@ impl InternalError {
     #[cold]
     pub(crate) fn msg(message: impl Display, span: Span, codemap: &CodeMap) -> InternalError {
         InternalError(EvalException::new(
-            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+            crate::Error::new_kind(crate::ErrorKind::Internal(anyhow::Error::msg(
                 message.to_string(),
             ))),
             span,
@@ -42,7 +42,7 @@ impl InternalError {
     #[cold]
     pub(crate) fn from_diagnostic(d: WithDiagnostic<impl Display>) -> InternalError {
         let internal = d.map(|m| {
-            crate::Error::new(crate::ErrorKind::Internal(anyhow::Error::msg(
+            crate::Error::new_kind(crate::ErrorKind::Internal(anyhow::Error::msg(
                 m.to_string(),
             )))
         });

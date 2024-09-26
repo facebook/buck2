@@ -59,7 +59,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 None => x.collect_repr(&mut s),
             }
         }
-        Err(starlark::Error::new(starlark::ErrorKind::Fail(
+        Err(starlark::Error::new_kind(starlark::ErrorKind::Fail(
             anyhow::Error::msg(s),
         )))
     }

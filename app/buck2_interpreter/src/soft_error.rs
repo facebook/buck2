@@ -19,7 +19,7 @@ impl SoftErrorHandler for Buck2StarlarkSoftErrorHandler {
         let error =
             buck2_error::Error::from(error.into_anyhow()).tag([ErrorTag::AnyStarlarkEvaluation]);
         soft_error!(&format!("starlark_rust_{category}"), error, deprecation: true, quiet:true)
-            .map_err(|e| starlark::Error::new(ErrorKind::Other(e.into())))?;
+            .map_err(|e| starlark::Error::new_kind(ErrorKind::Other(e.into())))?;
         Ok(())
     }
 }

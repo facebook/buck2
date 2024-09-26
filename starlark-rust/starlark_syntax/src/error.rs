@@ -39,7 +39,7 @@ const _: () = assert!(mem::size_of::<Error>() == mem::size_of::<usize>());
 impl Error {
     /// Create a new error
     #[cold]
-    pub fn new(kind: ErrorKind) -> Self {
+    pub fn new_kind(kind: ErrorKind) -> Self {
         Self(WithDiagnostic::new_empty(kind))
     }
 
@@ -280,19 +280,19 @@ impl<T> StarlarkResultExt<T> for crate::Result<T> {
 #[doc(hidden)]
 #[cold]
 pub fn internal_error_impl(args: fmt::Arguments<'_>) -> Error {
-    Error::new(ErrorKind::Internal(anyhow::anyhow!("{}", args)))
+    Error::new_kind(ErrorKind::Internal(anyhow::anyhow!("{}", args)))
 }
 
 #[doc(hidden)]
 #[cold]
 pub fn other_error_impl(args: fmt::Arguments<'_>) -> Error {
-    Error::new(ErrorKind::Other(anyhow::anyhow!("{}", args)))
+    Error::new_kind(ErrorKind::Other(anyhow::anyhow!("{}", args)))
 }
 
 #[doc(hidden)]
 #[cold]
 pub fn value_error_impl(args: fmt::Arguments<'_>) -> Error {
-    Error::new(ErrorKind::Value(anyhow::anyhow!("{}", args)))
+    Error::new_kind(ErrorKind::Value(anyhow::anyhow!("{}", args)))
 }
 
 /// Internal error of starlark.

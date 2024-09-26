@@ -85,7 +85,7 @@ enum ScopeError {
 
 impl From<ScopeError> for crate::Error {
     fn from(e: ScopeError) -> Self {
-        crate::Error::new(crate::ErrorKind::Scope(anyhow::Error::new(e)))
+        crate::Error::new_kind(crate::ErrorKind::Scope(anyhow::Error::new(e)))
     }
 }
 
