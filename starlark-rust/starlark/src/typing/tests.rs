@@ -41,6 +41,7 @@ use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
 mod call;
+mod callable;
 mod list;
 mod special_function;
 mod tuple;
