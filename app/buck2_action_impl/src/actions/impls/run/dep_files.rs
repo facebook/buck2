@@ -668,6 +668,7 @@ pub(crate) async fn match_if_identical_action(
     };
 
     let actions_match = check_action(
+        key,
         &previous_state,
         input_directory_digest,
         cli_digest,
@@ -707,6 +708,7 @@ pub(crate) async fn match_or_clear_dep_file(
     };
 
     let dep_files_match = dep_files_match(
+        key,
         &previous_state,
         input_directory_digest,
         cli_digest,
@@ -758,6 +760,7 @@ async fn outputs_match(
 }
 
 fn check_action(
+    key: &DepFilesKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
@@ -768,16 +771,19 @@ fn check_action(
         // We first need to check if the same dep files existed before or not. If not, then we
         // can't assume they'll still be on disk, and we have to bail.
         tracing::trace!("Dep files miss: Dep files declaration has changed");
+        DEP_FILES.remove(key);
         return InitialDepFileLookupResult::Miss;
     }
 
     if !outputs_are_reusable(declared_outputs, &previous_state.result) {
         tracing::trace!("Dep files miss: Output declaration has changed");
+        DEP_FILES.remove(key);
         return InitialDepFileLookupResult::Miss;
     }
 
     if *cli_digest != previous_state.digests.cli {
         tracing::trace!("Dep files miss: Command line has changed");
+        DEP_FILES.remove(key);
         return InitialDepFileLookupResult::Miss;
     }
 
@@ -790,6 +796,7 @@ fn check_action(
 }
 
 async fn dep_files_match(
+    key: &DepFilesKey,
     previous_state: &DepFileState,
     input_directory_digest: &FileDigest,
     cli_digest: &ExpandedCommandLineDigest,
@@ -799,6 +806,7 @@ async fn dep_files_match(
     ctx: &dyn ActionExecutionCtx,
 ) -> anyhow::Result<bool> {
     let initial_check = check_action(
+        key,
         previous_state,
         input_directory_digest,
         cli_digest,
