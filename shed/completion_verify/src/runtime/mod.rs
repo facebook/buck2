@@ -206,15 +206,15 @@ fn comptest(
         scope.spawn(move || {
             // The lockfile can be created by a completions impl to indicate that it hasn't finished
             // yet
-            let check_lockfile = || !lockfile.exists();
+            let check_lockfile = || lockfile.exists();
 
             // First wait for anything to be produced. This is usually the prompt
             rcv.recv().unwrap();
             // Then, wait for a potentially extended amount of time for the next data to be
             // produced. This will only not happen if there are no completions to output
-            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() && check_lockfile() {
+            if rcv.recv_timeout(Duration::from_millis(5000)).is_ok() || check_lockfile() {
                 // Finally, wait for shorter intervals until new output stops being produced
-                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() && check_lockfile() {}
+                while rcv.recv_timeout(Duration::from_millis(1000)).is_ok() || check_lockfile() {}
             }
 
             shutdown_ref.store(true, std::sync::atomic::Ordering::SeqCst);
