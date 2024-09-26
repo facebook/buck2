@@ -126,7 +126,6 @@ fn create_callable_function_signature(
 ) -> anyhow::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
     let mut signature = ParametersSpec::with_capacity(function_name.to_owned(), fields.len());
     let mut ty_params = Vec::with_capacity(fields.len());
-    // TODO(nmj): Should double check we don't actually need positional args in-repo
     signature.no_more_positional_args();
     for (name, field) in fields {
         if field.default.is_some() {
