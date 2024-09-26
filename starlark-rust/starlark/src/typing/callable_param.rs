@@ -156,6 +156,14 @@ impl Param {
     }
 }
 
+struct ParamSpecSplit<'a> {
+    pos_only: &'a [Param],
+    pos_or_named: &'a [Param],
+    args: Option<&'a Param>,
+    named_only: &'a [Param],
+    kwargs: Option<&'a Param>,
+}
+
 /// Callable parameter specification (e.g. positional only followed by `**kwargs`).
 #[derive(Debug, Eq, PartialEq, Clone, Dupe, Hash, PartialOrd, Ord, Allocative)]
 pub struct ParamSpec {
@@ -165,11 +173,10 @@ pub struct ParamSpec {
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let pf = |i: usize| -> ParamFmt<'_, &'_ Ty, &'static str> {
-            let p = &self.params()[i];
+        fn pf(p: &'_ Param) -> ParamFmt<'_, &'_ Ty, &'static str> {
             ParamFmt {
                 name: match &p.mode {
-                    ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name,
+                    ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name.as_str(),
                     ParamMode::PosOnly(_) => "_",
                     ParamMode::Args => "args",
                     ParamMode::Kwargs => "kwargs",
@@ -185,15 +192,23 @@ impl Display for ParamSpec {
                     ParamMode::Args | ParamMode::Kwargs => None,
                 },
             }
-        };
+        }
+
+        let ParamSpecSplit {
+            pos_only,
+            pos_or_named,
+            args,
+            named_only,
+            kwargs,
+        } = self.split();
 
         fmt_param_spec(
             f,
-            self.indices.pos_only().map(pf),
-            self.indices.pos_or_named().map(pf),
-            self.indices.args.map(|a| a as usize).map(pf),
-            self.indices.named_only(self.params().len()).map(pf),
-            self.indices.kwargs.map(|a| a as usize).map(pf),
+            pos_only.iter().map(pf),
+            pos_or_named.iter().map(pf),
+            args.map(pf),
+            named_only.iter().map(pf),
+            kwargs.map(pf),
         )
     }
 }
@@ -405,6 +420,16 @@ impl ParamSpec {
     /// Is `*args, **kwargs`.
     pub(crate) fn is_any(&self) -> bool {
         self == &Self::any()
+    }
+
+    fn split(&self) -> ParamSpecSplit<'_> {
+        ParamSpecSplit {
+            pos_only: &self.params[self.indices.pos_only()],
+            pos_or_named: &self.params[self.indices.pos_or_named()],
+            args: self.indices.args.map(|a| &self.params[a as usize]),
+            named_only: &self.params[self.indices.named_only(self.params.len())],
+            kwargs: self.indices.kwargs.map(|a| &self.params[a as usize]),
+        }
     }
 
     /// All parameters are required and positional only.
