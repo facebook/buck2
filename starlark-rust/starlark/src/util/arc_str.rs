@@ -39,14 +39,16 @@ use crate::util::arc_or_static::ArcOrStatic;
     Allocative
 )]
 #[display("{}", &**self)]
-pub(crate) struct ArcStr(ArcOrStatic<str>);
+pub struct ArcStr(ArcOrStatic<str>);
 
 impl ArcStr {
-    pub(crate) fn new_static(s: &'static str) -> ArcStr {
+    /// Create from static `str` without allocation.
+    pub fn new_static(s: &'static str) -> ArcStr {
         ArcStr(ArcOrStatic::new_static(s))
     }
 
-    pub(crate) fn as_str(&self) -> &str {
+    /// Get the `str`.
+    pub fn as_str(&self) -> &str {
         self
     }
 }

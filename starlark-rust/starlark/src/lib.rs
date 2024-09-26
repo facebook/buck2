@@ -455,7 +455,7 @@ pub mod typing;
 pub(crate) mod cast;
 mod hint;
 mod stdlib;
-mod util;
+pub mod util;
 pub mod values;
 pub mod wasm;
 
