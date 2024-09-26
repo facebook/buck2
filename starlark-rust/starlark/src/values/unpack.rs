@@ -191,34 +191,31 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
     #[inline]
     fn unpack_value_err(value: Value<'v>) -> anyhow::Result<Self> {
         #[cold]
-        fn error<'v, U: UnpackValue<'v>>(value: Value<'v>) -> anyhow::Error {
+        fn error<'v>(value: Value<'v>, ty: fn() -> Ty) -> anyhow::Error {
             #[derive(thiserror::Error, Debug)]
             #[error("Expected `{0}`, but got `{1}`")]
             struct IncorrectType(Ty, String);
 
-            crate::Error::new_value(IncorrectType(
-                U::starlark_type_repr(),
-                value.to_string_for_type_error(),
-            ))
-            .into_anyhow()
+            crate::Error::new_value(IncorrectType(ty(), value.to_string_for_type_error()))
+                .into_anyhow()
         }
 
         Self::unpack_value(value)
             .into_anyhow_result()?
-            .ok_or_else(|| error::<Self>(value))
+            .ok_or_else(|| error(value, Self::starlark_type_repr))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect argument type.
     #[inline]
     fn unpack_param(value: Value<'v>) -> anyhow::Result<Self> {
         #[cold]
-        fn error<'v, U: UnpackValue<'v>>(value: Value<'v>) -> anyhow::Error {
+        fn error<'v>(value: Value<'v>, ty: fn() -> Ty) -> anyhow::Error {
             #[derive(thiserror::Error, Debug)]
             #[error("Type of parameters mismatch, expected `{0}`, actual `{1}`")]
             struct IncorrectParameterTypeWithExpected(Ty, String);
 
             crate::Error::new_value(IncorrectParameterTypeWithExpected(
-                U::starlark_type_repr(),
+                ty(),
                 value.to_string_for_type_error(),
             ))
             .into_anyhow()
@@ -226,21 +223,21 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
 
         Self::unpack_value(value)
             .into_anyhow_result()?
-            .ok_or_else(|| error::<Self>(value))
+            .ok_or_else(|| error(value, Self::starlark_type_repr))
     }
 
     /// Unpack value, but instead of `None` return error about incorrect named argument type.
     #[inline]
     fn unpack_named_param(value: Value<'v>, param_name: &str) -> anyhow::Result<Self> {
         #[cold]
-        fn error<'v, U: UnpackValue<'v>>(value: Value<'v>, param_name: &str) -> anyhow::Error {
+        fn error<'v>(value: Value<'v>, param_name: &str, ty: fn() -> Ty) -> anyhow::Error {
             #[derive(thiserror::Error, Debug)]
             #[error("Type of parameter `{0}` doesn't match, expected `{1}`, actual `{2}`")]
             struct IncorrectParameterTypeNamedWithExpected(String, Ty, String);
 
             crate::Error::new_value(IncorrectParameterTypeNamedWithExpected(
                 param_name.to_owned(),
-                U::starlark_type_repr(),
+                ty(),
                 value.to_string_for_type_error(),
             ))
             .into_anyhow()
@@ -255,7 +252,7 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
                     Self::starlark_type_repr()
                 )
             })?
-            .ok_or_else(|| error::<Self>(value, param_name))
+            .ok_or_else(|| error(value, param_name, Self::starlark_type_repr))
     }
 }
 
