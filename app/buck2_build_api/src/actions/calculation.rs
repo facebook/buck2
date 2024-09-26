@@ -24,6 +24,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
+use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -165,30 +166,7 @@ async fn build_action_no_redirect(
         )
         .await;
 
-        let mut action_digest = None;
-        if let Some(command_execution) = commands.last() {
-            if let Some(details) = &command_execution.details {
-                if let Some(command_kind) = &details.command_kind {
-                    if let Some(command) = &command_kind.command {
-                        action_digest = match command {
-                            buck2_data::command_execution_kind::Command::RemoteCommand(
-                                remote_command,
-                            ) => Some(remote_command.action_digest.to_owned()),
-                            buck2_data::command_execution_kind::Command::LocalCommand(
-                                local_command,
-                            ) => Some(local_command.action_digest.to_owned()),
-                            buck2_data::command_execution_kind::Command::WorkerCommand(
-                                worker_command,
-                            ) => Some(worker_command.action_digest.to_owned()),
-                            buck2_data::command_execution_kind::Command::OmittedLocalCommand(
-                                omitted_local_command,
-                            ) => Some(omitted_local_command.action_digest.to_owned()),
-                            _ => None,
-                        };
-                    }
-                }
-            }
-        }
+        let action_digest = get_action_digest(&commands);
 
         let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
 
