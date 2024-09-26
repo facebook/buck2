@@ -42,3 +42,15 @@ def foo(x: list.foo.bar):
 "#,
     );
 }
+
+#[test]
+fn test_function_as_type_bit_or() {
+    TypeCheck::new().ty("t").check(
+        "function_as_type_bit_or",
+        r#"
+def test():
+    # This test should work even if `t` is global. There's a bug in test framework somewhere.
+    t = int | str
+"#,
+    );
+}
