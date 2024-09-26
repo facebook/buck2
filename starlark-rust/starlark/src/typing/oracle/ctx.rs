@@ -855,7 +855,7 @@ impl<'a> TypingOracleCtx<'a> {
 
     fn params_all_pos_only_intersect(
         &self,
-        x: &[Ty],
+        x: &[&Ty],
         y: &ParamSpec,
     ) -> Result<bool, InternalError> {
         match self.validate_args(
@@ -864,7 +864,7 @@ impl<'a> TypingOracleCtx<'a> {
                 pos: x
                     .iter()
                     .map(|ty| Spanned {
-                        node: ty.dupe(),
+                        node: (*ty).dupe(),
                         // TODO(nga): proper span.
                         span: Span::default(),
                     })
