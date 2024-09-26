@@ -34,7 +34,9 @@ use starlark_map::StarlarkHasher;
 use crate::codemap::Span;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
+use crate::typing::error::InternalError;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -71,16 +73,20 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         let _unused = (bin_op, rhs, ctx);
-        Err(TypingNoContextError)
+        Err(TypingNoContextOrInternalError::Typing)
     }
     fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
         Err(TypingNoContextError)
     }
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
+    fn index(
+        &self,
+        item: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         let _unused = (item, ctx);
-        Err(TypingNoContextError)
+        Err(TypingNoContextOrInternalError::Typing)
     }
     fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
@@ -117,15 +123,18 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn as_callable_dyn(&self) -> Option<TyCallable>;
     fn as_function_dyn(&self) -> Option<&TyFunction>;
     fn iter_item_dyn(&self) -> Result<Ty, TypingNoContextError>;
-    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx)
-    -> Result<Ty, TypingNoContextError>;
+    fn index_dyn(
+        &self,
+        index: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError>;
     fn attribute_dyn(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn bin_op_dyn(
         &self,
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError>;
+    ) -> Result<Ty, TypingNoContextOrInternalError>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -200,7 +209,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         &self,
         index: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         self.index(index, ctx)
     }
 
@@ -209,7 +218,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         self.bin_op(bin_op, rhs, ctx)
     }
 
@@ -269,21 +278,25 @@ impl TyCustom {
         x.0.intersects_dyn(&*y.0)
     }
 
-    pub(crate) fn intersects_with(&self, other: &TyBasic, ctx: TypingOracleCtx) -> bool {
+    pub(crate) fn intersects_with(
+        &self,
+        other: &TyBasic,
+        ctx: TypingOracleCtx,
+    ) -> Result<bool, InternalError> {
         if self.0.is_intersects_with_dyn(other) {
-            return true;
+            return Ok(true);
         }
         match other {
-            TyBasic::Custom(other) => Self::intersects(self, other),
-            TyBasic::Name(name) => self.as_name() == Some(name.as_str()),
+            TyBasic::Custom(other) => Ok(Self::intersects(self, other)),
+            TyBasic::Name(name) => Ok(self.as_name() == Some(name.as_str())),
             TyBasic::Callable(c) => {
                 if let Some(this) = self.0.as_callable_dyn() {
                     ctx.callables_intersect(&this, c)
                 } else {
-                    false
+                    Ok(false)
                 }
             }
-            _ => false,
+            _ => Ok(false),
         }
     }
 

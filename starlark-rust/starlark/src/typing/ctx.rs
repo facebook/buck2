@@ -102,10 +102,22 @@ impl TypingContext<'_> {
         self.result_to_ty(self.oracle.iter_item(Spanned { node: ty, span }))
     }
 
-    pub(crate) fn validate_type(&self, got: Spanned<&Ty>, require: &Ty) {
+    pub(crate) fn validate_type(
+        &self,
+        got: Spanned<&Ty>,
+        require: &Ty,
+    ) -> Result<(), InternalError> {
         if let Err(e) = self.oracle.validate_type(got, require) {
-            self.errors.borrow_mut().push(e);
+            match e {
+                TypingOrInternalError::Typing(e) => {
+                    self.errors.borrow_mut().push(e);
+                }
+                TypingOrInternalError::Internal(e) => {
+                    return Err(e);
+                }
+            }
         }
+        Ok(())
     }
 
     fn expr_dot(&self, ty: &Ty, attr: &str, span: Span) -> Ty {
@@ -180,7 +192,7 @@ impl TypingContext<'_> {
                 // We know about list and dict, everything else we just ignore
                 if self.types[id].is_list() {
                     // If we know it MUST be a list, then the index must be an int
-                    self.validate_type(index.as_ref(), &Ty::int());
+                    self.validate_type(index.as_ref(), &Ty::int())?;
                 }
                 for ty in self.types[id].iter_union() {
                     match ty {
@@ -199,7 +211,7 @@ impl TypingContext<'_> {
                 Ok(Ty::unions(res))
             }
             BindExpr::ListAppend(id, e) => {
-                if self.oracle.probably_a_list(&self.types[id]) {
+                if self.oracle.probably_a_list(&self.types[id])? {
                     Ok(Ty::list(self.expression_type(e)?))
                 } else {
                     // It doesn't seem to be a list, so let's assume the append is non-mutating
@@ -207,7 +219,7 @@ impl TypingContext<'_> {
                 }
             }
             BindExpr::ListExtend(id, e) => {
-                if self.oracle.probably_a_list(&self.types[id]) {
+                if self.oracle.probably_a_list(&self.types[id])? {
                     Ok(Ty::list(
                         self.from_iterated(&self.expression_type(e)?, e.span),
                     ))
@@ -335,7 +347,7 @@ impl TypingContext<'_> {
 
         let kwargs_ty = if let Some(star_star) = star_star {
             let ty = self.expression_type_spanned(&star_star.node.expr())?;
-            self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()));
+            self.validate_type(ty.as_ref(), &Ty::dict(Ty::string(), Ty::any()))?;
             Some(ty)
         } else {
             None
@@ -363,7 +375,7 @@ impl TypingContext<'_> {
         stride: Option<&CstExpr>,
     ) -> Result<Ty, InternalError> {
         for e in [start, stop, stride].iter().copied().flatten() {
-            self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int());
+            self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int())?;
         }
         Ok(self.result_to_ty(self.oracle.expr_slice(span, self.expression_type(x)?)))
     }

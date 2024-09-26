@@ -118,7 +118,7 @@ pub(crate) fn solve_bindings(
                 span: *span,
             },
             require,
-        );
+        )?;
     }
     Ok((
         ctx.errors.into_inner(),

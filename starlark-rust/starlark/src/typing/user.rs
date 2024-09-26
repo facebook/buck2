@@ -28,6 +28,7 @@ use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
@@ -223,14 +224,18 @@ impl TyCustomImpl for TyUser {
         }
     }
 
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
+    fn index(
+        &self,
+        item: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         if let Some(index) = &self.index {
-            if !ctx.intersects(&Ty::basic(item.dupe()), &index.index) {
-                return Err(TypingNoContextError);
+            if !ctx.intersects(&Ty::basic(item.dupe()), &index.index)? {
+                return Err(TypingNoContextOrInternalError::Typing);
             }
             Ok(index.result.dupe())
         } else {
-            self.base.index(item)
+            Ok(self.base.index(item)?)
         }
     }
 

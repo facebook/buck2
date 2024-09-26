@@ -18,13 +18,13 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::typing::arc_ty::ArcTy;
+use crate::typing::error::InternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
@@ -60,17 +60,30 @@ impl TyTuple {
         }
     }
 
-    pub(crate) fn intersects(this: &TyTuple, other: &TyTuple, ctx: &TypingOracleCtx) -> bool {
+    pub(crate) fn intersects(
+        this: &TyTuple,
+        other: &TyTuple,
+        ctx: &TypingOracleCtx,
+    ) -> Result<bool, InternalError> {
         match (this, other) {
-            (TyTuple::Elems(this), TyTuple::Elems(other)) => {
-                this.len() == other.len()
-                    && iter::zip(&**this, &**other).all(|(x, y)| ctx.intersects(x, y))
-            }
+            (TyTuple::Elems(this), TyTuple::Elems(other)) => Ok(this.len() == other.len() && {
+                for (x, y) in this.iter().zip(other.iter()) {
+                    if !ctx.intersects(x, y)? {
+                        return Ok(false);
+                    }
+                }
+                true
+            }),
             (TyTuple::Of(this), TyTuple::Of(other)) => ctx.intersects(this, other),
             (TyTuple::Elems(elems), TyTuple::Of(item))
             | (TyTuple::Of(item), TyTuple::Elems(elems)) => {
                 // For example `tuple[str, int]` does not intersect with `tuple[str, ...]`.
-                elems.iter().all(|x| ctx.intersects(x, item))
+                for x in elems.iter() {
+                    if !ctx.intersects(x, item)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
             }
         }
     }

@@ -26,6 +26,7 @@ use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -100,15 +101,19 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         bin_op: TypingBinOp,
         _rhs: &TyBasic,
         _ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         match bin_op {
             // `str | list`.
             TypingBinOp::BitOr if self.0.has_type_attr() => Ok(Ty::basic(TyBasic::Type)),
-            _ => Err(TypingNoContextError),
+            _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
 
-    fn index(&self, _item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
+    fn index(
+        &self,
+        _item: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
         //   Should be a custom type.
         Ok(Ty::any())

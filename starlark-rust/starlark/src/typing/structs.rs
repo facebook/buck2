@@ -26,6 +26,7 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -66,17 +67,17 @@ impl TyCustomImpl for TyStruct {
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         match bin_op {
             TypingBinOp::Less => {
                 // TODO(nga): do not clone.
-                if ctx.intersects_basic(&TyBasic::custom(self.clone()), rhs) {
+                if ctx.intersects_basic(&TyBasic::custom(self.clone()), rhs)? {
                     Ok(Ty::bool())
                 } else {
-                    Err(TypingNoContextError)
+                    Err(TypingNoContextOrInternalError::Typing)
                 }
             }
-            _ => Err(TypingNoContextError),
+            _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
 
