@@ -161,6 +161,12 @@ def _incremental():
     """),
     }
 
+def _plugins():
+    return {
+        "plugins": attrs.list(attrs.dep(), default = []),
+        "_wip_java_plugin_arguments": attrs.dict(attrs.label(), attrs.list(attrs.string()), default = {}),
+    }
+
 jvm_common = struct(
     test_env = _test_env,
     resources_arg = _resources_arg,
@@ -174,4 +180,5 @@ jvm_common = struct(
     on_unused_dependencies = _on_unused_dependencies,
     k2 = _k2,
     incremental = _incremental,
+    plugins = _plugins,
 )
