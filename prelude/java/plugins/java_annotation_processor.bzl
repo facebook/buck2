@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingDepTSet", "JavaPackagingInfo")
+load("@prelude//utils:type_defs.bzl", "is_tuple")
 
 JavaProcessorsType = enum(
     "java_annotation_processor",
@@ -57,7 +58,7 @@ def derive_transitive_deps(ctx: AnalysisContext, deps: list[Dependency]) -> [Jav
 
 def create_annotation_processor_properties(
         ctx: AnalysisContext,
-        plugins: list[Dependency],
+        plugins: list[[Dependency, (Dependency, list[str])]],
         annotation_processor_names: list[str],
         annotation_processor_params: list[str],
         annotation_processor_deps: list[Dependency]) -> AnnotationProcessorProperties:
@@ -65,7 +66,7 @@ def create_annotation_processor_properties(
 
     # Extend `ap_processor_deps` with java deps from `annotation_processor_deps`
     if annotation_processor_names or annotation_processor_deps:
-        for ap_dep in [x.get(JavaLibraryInfo) for x in annotation_processor_deps]:
+        for ap_dep in [_get_plugin_provider(x, JavaLibraryInfo) for x in annotation_processor_deps]:
             if not ap_dep:
                 fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
 
@@ -80,7 +81,7 @@ def create_annotation_processor_properties(
         ))
 
     # APs derived from `plugins` attribute
-    for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
+    for ap_plugin in filter(None, [_get_plugin_provider(x, JavaProcessorsInfo) for x in plugins]):
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("java_annotation_processor"):
@@ -101,7 +102,7 @@ def create_ksp_annotation_processor_properties(plugins: list[Dependency]) -> Ann
     annotation_processors = []
 
     # APs derived from `plugins` attribute
-    for ap_plugin in filter(None, [x.get(JavaProcessorsInfo) for x in plugins]):
+    for ap_plugin in filter(None, [_get_plugin_provider(x, JavaProcessorsInfo) for x in plugins]):
         if not ap_plugin:
             fail("Plugin must have a type of `java_annotation_processor` or `java_plugin`. Plugins: {}".format(plugins))
         if ap_plugin.type == JavaProcessorsType("ksp_annotation_processor"):
@@ -123,6 +124,9 @@ def _get_processor_type(processor_class: str) -> JavaProcessorsType:
         return JavaProcessorsType("ksp_annotation_processor")
 
     return JavaProcessorsType("java_annotation_processor")
+
+def _get_plugin_provider(plugin: [Dependency, (Dependency, list[str])], provider: typing.Callable[[], Provider]) -> [Provider, None]:
+    return (plugin[0] if is_tuple(plugin) else plugin).get(provider)
 
 def java_annotation_processor_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:

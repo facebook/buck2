@@ -163,8 +163,13 @@ def _incremental():
 
 def _plugins():
     return {
-        "plugins": attrs.list(attrs.dep(), default = []),
-        "_wip_java_plugin_arguments": attrs.dict(attrs.label(), attrs.list(attrs.string()), default = {}),
+        "plugins": attrs.list(
+            attrs.one_of(
+                attrs.dep(),
+                attrs.tuple(attrs.dep(), attrs.list(attrs.string())),
+            ),
+            default = [],
+        ),
     }
 
 jvm_common = struct(
