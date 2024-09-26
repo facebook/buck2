@@ -21,7 +21,7 @@ load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "buck", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 
@@ -698,7 +698,6 @@ apple_test = prelude_rule(
         cxx_common.compiler_flags_arg() |
         cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_flags_arg() |
-        native_common.link_style() |
         apple_common.target_sdk_version() |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
         buck.test_label_arg() |
@@ -755,6 +754,9 @@ apple_test = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
+            # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
+            # be treated as "static" deps and linked into the shared test library.
+            "link_style": attrs.enum(LinkableDepType, default = "static"),
             "link_whole": attrs.option(attrs.bool(), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
             "modular": attrs.bool(default = False),
@@ -767,7 +769,8 @@ apple_test = prelude_rule(
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.source(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
+            # The test source code and lib dependencies should be built into a shared library.
+            "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
             "prefix_header": attrs.option(attrs.source(), default = None),
             "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),

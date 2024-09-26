@@ -18,8 +18,6 @@ load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
-load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//decls/common.bzl", "LinkableDepType")
 
 def get_apple_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
@@ -127,12 +125,7 @@ def apple_test_extra_attrs():
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
-        # be treated as "static" deps and linked into the shared test library.
-        "link_style": attrs.enum(LinkableDepType, default = "static"),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        # The test source code and lib dependencies should be built into a shared library.
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
