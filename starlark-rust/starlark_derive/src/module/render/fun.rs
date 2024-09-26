@@ -443,7 +443,7 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 
     let source = match arg.source {
         StarArgSource::This => quote! { __this },
-        StarArgSource::Argument(i) => quote! { __args[#i].get() },
+        StarArgSource::Argument(i) => quote! { __args[#i] },
         StarArgSource::Required(i) => quote! {  Some(__required[#i])},
         StarArgSource::Optional(i) => quote! { __optional[#i] },
         ref s => unreachable!("unknown source: {:?}", s),

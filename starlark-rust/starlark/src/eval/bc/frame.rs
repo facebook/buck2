@@ -17,7 +17,6 @@
 
 //! Local variables and stack, in single allocation.
 
-use std::cell::Cell;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
@@ -96,7 +95,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    fn frame_mut(&mut self) -> &mut BcFrame<'v> {
+    fn frame_mut<'a>(self) -> &'a mut BcFrame<'v> {
         debug_assert!(self.is_inititalized());
         unsafe {
             let frame = (self.slots_ptr as *mut u8).sub(BcFrame::offset_of_slots()) as *mut BcFrame;
@@ -120,7 +119,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_slot(mut self, slot: LocalSlotIdCapturedOrNot, value: Value<'v>) {
+    pub(crate) fn set_slot(self, slot: LocalSlotIdCapturedOrNot, value: Value<'v>) {
         self.frame_mut().set_slot(slot, value)
     }
 
@@ -130,7 +129,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_bc_slot(mut self, slot: BcSlotOut, value: Value<'v>) {
+    pub(crate) fn set_bc_slot(self, slot: BcSlotOut, value: Value<'v>) {
         self.frame_mut().set_bc_slot(slot, value)
     }
 
@@ -145,7 +144,7 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn set_iter_index(mut self, loop_depth: LoopDepth, index: usize) {
+    pub(crate) fn set_iter_index(self, loop_depth: LoopDepth, index: usize) {
         self.frame_mut().set_iter_index(loop_depth, index)
     }
 
@@ -154,8 +153,8 @@ impl<'v> BcFramePtr<'v> {
     }
 
     #[inline(always)]
-    pub(crate) fn locals(&self) -> &[Cell<Option<Value<'v>>>] {
-        self.frame().locals()
+    pub(crate) unsafe fn locals_mut<'a>(self) -> &'a mut [Option<Value<'v>>] {
+        self.frame_mut().locals_mut()
     }
 }
 
@@ -173,16 +172,6 @@ impl<'v> BcFrame<'v> {
             BcFramePtr {
                 slots_ptr: (self as *mut _ as *mut u8).add(Self::offset_of_slots()) as *mut _,
             }
-        }
-    }
-
-    #[inline(always)]
-    fn locals(&self) -> &[Cell<Option<Value<'v>>>] {
-        unsafe {
-            slice::from_raw_parts(
-                self.slots.as_ptr() as *const Cell<Option<Value>>,
-                self.local_count as usize,
-            )
         }
     }
 
@@ -361,7 +350,7 @@ pub(crate) fn alloca_frame<'v, 'a, 'e, R>(
         local_count,
         max_stack_size,
         loop_depth,
-        |eval, mut frame| {
+        |eval, frame| {
             // TODO(nga): no need to fill the slots for parameters.
             frame.frame_mut().init();
             let old_frame = mem::replace(&mut eval.current_frame, frame);

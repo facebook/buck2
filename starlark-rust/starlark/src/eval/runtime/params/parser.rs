@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::cell::Cell;
-
 use starlark_syntax::other_error;
 
 use crate::values::UnpackValue;
@@ -26,11 +24,11 @@ use crate::values::Value;
 /// [`ParametersSpec`](crate::eval::ParametersSpec).
 ///
 /// This is created with [`ParametersSpec::parser`](crate::eval::ParametersSpec::parser).
-pub struct ParametersParser<'v, 'a>(std::slice::Iter<'a, Cell<Option<Value<'v>>>>);
+pub struct ParametersParser<'v, 'a>(std::slice::Iter<'a, Option<Value<'v>>>);
 
 impl<'v, 'a> ParametersParser<'v, 'a> {
     /// Create a parameter parser, which stored parameters into provided slots reference.
-    pub(crate) fn new(slots: &'a [Cell<Option<Value<'v>>>]) -> Self {
+    pub(crate) fn new(slots: &'a [Option<Value<'v>>]) -> Self {
         Self(slots.iter())
     }
 
@@ -38,7 +36,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
         let Some(v) = self.0.next() else {
             return Err(other_error!("Requested parameter `{name}`, which is after the number of parameters in provided signature").into_anyhow());
         };
-        Ok(v.get())
+        Ok(*v)
     }
 
     /// Obtain the next parameter, corresponding to

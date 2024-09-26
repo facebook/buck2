@@ -751,7 +751,11 @@ where
             bc.max_stack_size,
             bc.max_loop_depth,
             |eval| {
-                let slots = eval.current_frame.locals();
+                // SAFETY: `slots` is unique: `alloca_frame` just allocated the frame,
+                //   so there are no references to the frame except `eval.current_frame`.
+                //   We use `slots` only in `collect_inline`,
+                //   which does not have access to `eval` thus cannot access the frame indirectly.
+                let slots = unsafe { eval.current_frame.locals_mut() };
                 self.parameters.collect_inline(args, slots, eval.heap())?;
                 self.invoke_raw(me, eval)
             },

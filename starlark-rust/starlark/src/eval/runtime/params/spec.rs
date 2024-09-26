@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::cell::Cell;
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
@@ -505,7 +504,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     fn collect_impl(
         &self,
         args: &Arguments<'v, '_>,
-        slots: &[Cell<Option<Value<'v>>>],
+        slots: &mut [Option<Value<'v>>],
         heap: &'v Heap,
     ) -> crate::Result<()> {
         self.collect_inline(&args.0, slots, heap)
@@ -519,9 +518,9 @@ impl<'v> ParametersSpec<Value<'v>> {
         &self,
         args: &Arguments<'v, '_>,
         heap: &'v Heap,
-    ) -> crate::Result<[Cell<Option<Value<'v>>>; N]> {
-        let slots = [(); N].map(|_| Cell::new(None));
-        self.collect(args, &slots, heap)?;
+    ) -> crate::Result<[Option<Value<'v>>; N]> {
+        let mut slots = [(); N].map(|_| None);
+        self.collect(args, &mut slots, heap)?;
         Ok(slots)
     }
 
@@ -531,7 +530,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     fn collect_inline_impl<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
         args: &A,
-        slots: &[Cell<Option<Value<'v>>>],
+        slots: &mut [Option<Value<'v>>],
         heap: &'v Heap,
     ) -> crate::Result<()>
     where
@@ -546,8 +545,8 @@ impl<'v> ParametersSpec<Value<'v>> {
             && args.args().is_none()
             && args.kwargs().is_none()
         {
-            for (v, s) in args.pos().iter().zip(slots.iter()) {
-                s.set(Some(*v));
+            for (v, s) in args.pos().iter().zip(slots.iter_mut()) {
+                *s = Some(*v);
             }
 
             return Ok(());
@@ -559,7 +558,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     fn collect_slow<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
         args: &A,
-        slots: &[Cell<Option<Value<'v>>>],
+        slots: &mut [Option<Value<'v>>],
         heap: &'v Heap,
     ) -> crate::Result<()>
     where
@@ -606,14 +605,14 @@ impl<'v> ParametersSpec<Value<'v>> {
         // First deal with positional parameters
         if args.pos().len() <= (self.indices.num_positional as usize) {
             // fast path for when we don't need to bounce down to filling in args
-            for (v, s) in args.pos().iter().zip(slots.iter()) {
-                s.set(Some(*v));
+            for (v, s) in args.pos().iter().zip(slots.iter_mut()) {
+                *s = Some(*v);
             }
             next_position = args.pos().len();
         } else {
             for v in args.pos() {
                 if next_position < (self.indices.num_positional as usize) {
-                    slots[next_position].set(Some(*v));
+                    slots[next_position] = Some(*v);
                     next_position += 1;
                 } else {
                     star_args.push(*v);
@@ -635,7 +634,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                         kwargs.insert(Hashed::new_unchecked(name.small_hash(), *name_value), *v);
                     }
                     Some(i) => {
-                        slots[i].set(Some(*v));
+                        slots[i] = Some(*v);
                         lowest_name = cmp::min(lowest_name, i);
                     }
                 }
@@ -649,7 +648,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 .map_err(|_| FunctionError::ArgsArrayIsNotIterable)?
             {
                 if next_position < (self.indices.num_positional as usize) {
-                    slots[next_position].set(Some(v));
+                    slots[next_position] = Some(v);
                     next_position += 1;
                 } else {
                     star_args.push(v);
@@ -679,9 +678,9 @@ impl<'v> ParametersSpec<Value<'v>> {
                                 {
                                     None => kwargs.insert(Hashed::new_unchecked(k.hash(), s), v),
                                     Some(i) => {
-                                        let this_slot = &slots[*i as usize];
-                                        let repeat = this_slot.get().is_some();
-                                        this_slot.set(Some(v));
+                                        let this_slot = &mut slots[*i as usize];
+                                        let repeat = this_slot.is_some();
+                                        *this_slot = Some(v);
                                         repeat
                                     }
                                 };
@@ -706,11 +705,11 @@ impl<'v> ParametersSpec<Value<'v>> {
         for index in next_position..kinds.len() {
             // The number of locals must be at least the number of parameters, see `collect`
             // which reserves `max(_, kinds.len())`.
-            let slot = unsafe { slots.get_unchecked(index) };
+            let slot = unsafe { slots.get_unchecked_mut(index) };
             let def = unsafe { kinds.get_unchecked(index) };
 
             // We know that up to next_position got filled positionally, so we don't need to check those
-            if slot.get().is_some() {
+            if slot.is_some() {
                 continue;
             }
             match def {
@@ -722,7 +721,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                     .into());
                 }
                 ParameterKind::Defaulted(x) => {
-                    slot.set(Some(x.to_value()));
+                    *slot = Some(x.to_value());
                 }
                 _ => {}
             }
@@ -732,7 +731,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         // Note that we deliberately give warnings about missing parameters _before_ giving warnings
         // about unexpected extra parameters, so if a user misspells an argument they get a better error.
         if let Some(args_pos) = self.indices.args {
-            slots[args_pos as usize].set(Some(heap.alloc_tuple(&star_args)));
+            slots[args_pos as usize] = Some(heap.alloc_tuple(&star_args));
         } else if unlikely(!star_args.is_empty()) {
             return Err(FunctionError::ExtraPositionalArg {
                 count: star_args.len(),
@@ -742,7 +741,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         }
 
         if let Some(kwargs_pos) = self.indices.kwargs {
-            slots[kwargs_pos as usize].set(Some(kwargs.alloc(heap)));
+            slots[kwargs_pos as usize] = Some(kwargs.alloc(heap));
         } else if let Some(kwargs) = kwargs.kwargs {
             return Err(FunctionError::ExtraNamedArg {
                 names: kwargs.keys().map(|x| x.as_str().to_owned()).collect(),
@@ -862,7 +861,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     {
         eval.alloca_init(
             self.len(),
-            || Cell::new(None),
+            || None,
             |slots, eval| {
                 self.collect_inline(&args.0, slots, eval.heap())?;
                 let mut parser = ParametersParser::new(slots);
@@ -888,7 +887,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         &self,
         args: &Arguments<'v, '_>,
         heap: &'v Heap,
-    ) -> crate::Result<[Cell<Option<Value<'v>>>; N]> {
+    ) -> crate::Result<[Option<Value<'v>>; N]> {
         self.as_value().collect_into_impl(args, heap)
     }
 
@@ -898,7 +897,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     pub fn collect(
         &self,
         args: &Arguments<'v, '_>,
-        slots: &[Cell<Option<Value<'v>>>],
+        slots: &mut [Option<Value<'v>>],
         heap: &'v Heap,
     ) -> crate::Result<()> {
         self.as_value().collect_impl(args, slots, heap)
@@ -940,7 +939,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     pub(crate) fn collect_inline<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
         args: &A,
-        slots: &[Cell<Option<Value<'v>>>],
+        slots: &mut [Option<Value<'v>>],
         heap: &'v Heap,
     ) -> crate::Result<()>
     where

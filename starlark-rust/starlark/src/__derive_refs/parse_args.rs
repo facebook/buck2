@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use std::cell::Cell;
-
 use crate::eval::Arguments;
 use crate::eval::ParametersSpec;
 use crate::values::FrozenValue;
@@ -33,7 +31,7 @@ pub fn parse_signature<'v, const N: usize>(
     parser: &ParametersSpec<FrozenValue>,
     args: &Arguments<'v, '_>,
     heap: &'v Heap,
-) -> crate::Result<[Cell<Option<Value<'v>>>; N]> {
+) -> crate::Result<[Option<Value<'v>>; N]> {
     parser.collect_into(args, heap)
 }
 
