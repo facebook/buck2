@@ -42,8 +42,8 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(
         // TODO(nga): do not unwrap.
         let def = DefParams::unpack(&def.params, codemap).unwrap();
 
-        let dp = |i: u32| -> DocParam {
-            let param = &def.params[i as usize];
+        let dp = |i: usize| -> DocParam {
+            let param = &def.params[i];
             DocParam {
                 name: param.ident.ident.clone(),
                 docs: None,
@@ -55,13 +55,9 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(
         let doc_params = DocParams {
             pos_only: def.indices.pos_only().map(dp).collect(),
             pos_or_named: def.indices.pos_or_named().map(dp).collect(),
-            args: def.indices.args.map(dp),
-            named_only: def
-                .indices
-                .named_only(def.params.len() as u32)
-                .map(dp)
-                .collect(),
-            kwargs: def.indices.kwargs.map(dp),
+            args: def.indices.args.map(|a| a as usize).map(dp),
+            named_only: def.indices.named_only(def.params.len()).map(dp).collect(),
+            kwargs: def.indices.kwargs.map(|a| a as usize).map(dp),
         };
         let doc_function = DocFunction::from_docstring(
             DocStringKind::Starlark,

@@ -443,14 +443,14 @@ impl<V> ParametersSpec<V> {
             }
         }
 
-        let pf = |i: u32| {
-            let name = self.param_names[i as usize].as_str();
+        let pf = |i: usize| {
+            let name = self.param_names[i].as_str();
             let name = name.strip_prefix("**").unwrap_or(name);
             let name = name.strip_prefix("*").unwrap_or(name);
             ParamFmt {
                 name,
                 ty: None::<&str>,
-                default: match self.param_kinds[i as usize] {
+                default: match self.param_kinds[i] {
                     ParameterKind::Defaulted(_) | ParameterKind::Optional => {
                         Some(PARAM_FMT_OPTIONAL)
                     }
@@ -464,11 +464,9 @@ impl<V> ParametersSpec<V> {
             &mut s,
             self.indices.pos_only().map(pf),
             self.indices.pos_or_named().map(pf),
-            self.indices.args.map(pf),
-            self.indices
-                .named_only(self.param_kinds.len() as u32)
-                .map(pf),
-            self.indices.kwargs.map(pf),
+            self.indices.args.map(|a| a as usize).map(pf),
+            self.indices.named_only(self.param_kinds.len()).map(pf),
+            self.indices.kwargs.map(|a| a as usize).map(pf),
         )
         .unwrap();
         s
@@ -812,8 +810,8 @@ impl<'v> ParametersSpec<Value<'v>> {
             self.function_name,
         );
 
-        let mut dp = |i: u32| -> DocParam {
-            let name = self.param_names[i as usize].as_str();
+        let mut dp = |i: usize| -> DocParam {
+            let name = self.param_names[i].as_str();
             let name = name.strip_prefix("**").unwrap_or(name);
             let name = name.strip_prefix("*").unwrap_or(name);
 
@@ -824,8 +822,8 @@ impl<'v> ParametersSpec<Value<'v>> {
             DocParam {
                 name,
                 docs,
-                typ: parameter_types[i as usize].dupe(),
-                default_value: match self.param_kinds[i as usize] {
+                typ: parameter_types[i].dupe(),
+                default_value: match self.param_kinds[i] {
                     ParameterKind::Required => None,
                     ParameterKind::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
                     ParameterKind::Defaulted(v) => Some(v.to_value().to_repr()),
@@ -838,13 +836,13 @@ impl<'v> ParametersSpec<Value<'v>> {
         DocParams {
             pos_only: self.indices.pos_only().map(&mut dp).collect(),
             pos_or_named: self.indices.pos_or_named().map(&mut dp).collect(),
-            args: self.indices.args.map(&mut dp),
+            args: self.indices.args.map(|a| a as usize).map(&mut dp),
             named_only: self
                 .indices
-                .named_only(self.param_kinds.len() as u32)
+                .named_only(self.param_kinds.len())
                 .map(&mut dp)
                 .collect(),
-            kwargs: self.indices.kwargs.map(&mut dp),
+            kwargs: self.indices.kwargs.map(|a| a as usize).map(&mut dp),
         }
     }
 

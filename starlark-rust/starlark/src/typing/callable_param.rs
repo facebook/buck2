@@ -165,8 +165,8 @@ pub struct ParamSpec {
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let pf = |i: u32| -> ParamFmt<'_, &'_ Ty, &'static str> {
-            let p = &self.params()[i as usize];
+        let pf = |i: usize| -> ParamFmt<'_, &'_ Ty, &'static str> {
+            let p = &self.params()[i];
             ParamFmt {
                 name: match &p.mode {
                     ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name,
@@ -191,9 +191,9 @@ impl Display for ParamSpec {
             f,
             self.indices.pos_only().map(pf),
             self.indices.pos_or_named().map(pf),
-            self.indices.args.map(pf),
-            self.indices.named_only(self.params().len() as u32).map(pf),
-            self.indices.kwargs.map(pf),
+            self.indices.args.map(|a| a as usize).map(pf),
+            self.indices.named_only(self.params().len()).map(pf),
+            self.indices.kwargs.map(|a| a as usize).map(pf),
         )
     }
 }

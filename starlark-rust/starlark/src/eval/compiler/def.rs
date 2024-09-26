@@ -275,11 +275,11 @@ impl<T> ParametersCompiled<T> {
     pub(crate) fn to_ty_params(&self) -> ParamSpec {
         ParamSpec::new_parts(
             self.indices.pos_only().map(|i| {
-                let p = &self.params[i as usize].node;
+                let p = &self.params[i].node;
                 (p.required(), p.ty())
             }),
             self.indices.pos_or_named().map(|i| {
-                let p = &self.params[i as usize].node;
+                let p = &self.params[i].node;
                 (
                     ArcStr::from(p.name_ty().0.name.as_str()),
                     p.required(),
@@ -290,8 +290,8 @@ impl<T> ParametersCompiled<T> {
                 let p = &self.params[i as usize].node;
                 p.ty()
             }),
-            self.indices.named_only(self.params.len() as u32).map(|i| {
-                let p = &self.params[i as usize].node;
+            self.indices.named_only(self.params.len()).map(|i| {
+                let p = &self.params[i].node;
                 (
                     ArcStr::from(p.name_ty().0.name.as_str()),
                     p.required(),
