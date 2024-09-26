@@ -139,7 +139,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
-        bundle_parts = part_list_output.parts + get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
+        bundle_parts = part_list_output.parts
+        if not ctx.attrs.embed_xctest_frameworks_in_test_host_app:
+            # The XCTest frameworks should only be embedded in a single place,
+            # either the test host (as per Xcode) or in the test itself
+            bundle_parts += get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
             frameworks_destination = AppleBundleDestination("frameworks")

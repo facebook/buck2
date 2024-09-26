@@ -181,11 +181,20 @@ def apple_xcuitest_extra_attrs():
 
     return attribs
 
+def _embed_xctest_frameworks_default_value():
+    return select({
+        "DEFAULT": False,
+        # Xcode copies XCTest frameworks to test host apps, required when the
+        # selected Xcode version != Xcode version used to build an app under test
+        "config//marker/apple/constraints:embed_xctest_frameworks_enabled": True,
+    })
+
 def apple_bundle_extra_attrs():
     attribs = {
         "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
         "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
+        "embed_xctest_frameworks": attrs.bool(default = _embed_xctest_frameworks_default_value()),
         "module_map": attrs.option(attrs.source(), default = None),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
