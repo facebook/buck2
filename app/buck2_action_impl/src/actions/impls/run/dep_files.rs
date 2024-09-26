@@ -817,6 +817,11 @@ async fn dep_files_match(
         return Ok(true);
     }
 
+    // We didn't get an exact match, and we don't have any dep files, so we're done.
+    if declared_dep_files.tagged.is_empty() {
+        return Ok(false);
+    }
+
     let dep_files = read_dep_files(
         previous_state.has_signatures(),
         previous_state.declared_dep_files(),
