@@ -135,3 +135,20 @@ impl From<InternalError> for TypingOrInternalError {
         TypingOrInternalError::Internal(e)
     }
 }
+
+pub enum TypingNoContextOrInternalError {
+    Typing,
+    Internal(InternalError),
+}
+
+impl From<TypingNoContextError> for TypingNoContextOrInternalError {
+    fn from(_: TypingNoContextError) -> Self {
+        TypingNoContextOrInternalError::Typing
+    }
+}
+
+impl From<InternalError> for TypingNoContextOrInternalError {
+    fn from(e: InternalError) -> Self {
+        TypingNoContextOrInternalError::Internal(e)
+    }
+}

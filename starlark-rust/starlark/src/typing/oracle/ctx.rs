@@ -32,6 +32,7 @@ use crate::typing::callable_param::ParamMode;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
@@ -364,32 +365,30 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         array: &TyBasic,
         index: Spanned<&TyBasic>,
-    ) -> Result<Result<Ty, TypingNoContextError>, InternalError> {
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
         match array {
-            TyBasic::Any | TyBasic::Callable(_) | TyBasic::Iter(_) | TyBasic::Type => {
-                Ok(Ok(Ty::any()))
-            }
+            TyBasic::Any | TyBasic::Callable(_) | TyBasic::Iter(_) | TyBasic::Type => Ok(Ty::any()),
             TyBasic::Tuple(tuple) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
-                    return Ok(Err(TypingNoContextError));
+                    return Err(TypingNoContextOrInternalError::Typing);
                 }
-                Ok(Ok(tuple.item_ty()))
+                Ok(tuple.item_ty())
             }
             TyBasic::List(item) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
-                    return Ok(Err(TypingNoContextError));
+                    return Err(TypingNoContextOrInternalError::Typing);
                 }
-                Ok(Ok((**item).dupe()))
+                Ok((**item).dupe())
             }
             TyBasic::Dict(k, v) => {
                 if !self.intersects(&Ty::basic(index.node.dupe()), k) {
-                    return Ok(Err(TypingNoContextError));
+                    return Err(TypingNoContextOrInternalError::Typing);
                 }
-                Ok(Ok((**v).dupe()))
+                Ok((**v).dupe())
             }
-            TyBasic::StarlarkValue(array) => Ok(array.index(index.node)),
-            TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node, self)),
-            TyBasic::Name(_) => Ok(Ok(Ty::any())),
+            TyBasic::StarlarkValue(array) => Ok(array.index(index.node)?),
+            TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node, self)?),
+            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -415,11 +414,14 @@ impl<'a> TypingOracleCtx<'a> {
                         span: index.span,
                         node: index_basic,
                     },
-                )? {
+                ) {
                     Ok(ty) => {
                         good.push(ty);
                     }
-                    Err(TypingNoContextError) => {}
+                    Err(TypingNoContextOrInternalError::Internal(e)) => {
+                        return Err(TypingOrInternalError::Internal(e));
+                    }
+                    Err(TypingNoContextOrInternalError::Typing) => {}
                 }
             }
         }
