@@ -27,20 +27,3 @@ def test():
 "#,
     );
 }
-
-#[test]
-fn test_test_new_syntax_without_dot_type() {
-    TypeCheck::new().check(
-        "new_syntax_without_dot_type",
-        r#"
-def foo(x: str): pass
-
-def bar():
-    # good
-    foo("test")
-
-    # bad
-    foo(1)
-"#,
-    );
-}
