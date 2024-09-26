@@ -674,13 +674,7 @@ for rule in [
     "robolectric_test",
     "julia_test",
 ]:
-    # NOTE: We make this a `dep` not an `exec_dep` even though we'll execute
-    # it, because it needs to execute in the same platform as the test itself
-    # (we run tests in the target platform not the exec platform, since the
-    # goal is to test the code that is being built!).
-    all_extra_attributes[rule] = _merge_dictionaries([all_extra_attributes[rule], {
-        "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
-    }])
+    all_extra_attributes[rule] = _merge_dictionaries([all_extra_attributes[rule], buck.inject_test_env_arg()])
 
 extra_attributes = struct(**all_extra_attributes)
 
