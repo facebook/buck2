@@ -41,7 +41,7 @@ pub struct StarlarkCellPath(pub CellPath);
 
 starlark_simple_value!(StarlarkCellPath);
 
-#[starlark_value(type = "label_relative_path")]
+#[starlark_value(type = "CellPath")]
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
