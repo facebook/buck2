@@ -23,7 +23,6 @@ use std::iter;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_map::small_set::SmallSet;
-use starlark_syntax::internal_error;
 use starlark_syntax::other_error;
 use starlark_syntax::syntax::def::DefParamIndices;
 
@@ -183,125 +182,6 @@ impl ParamSpec {
         &self.params
     }
 
-    /// Constructor.
-    /// Return an error if the sequence of parameters is incorrect,
-    /// for example, if positional-only parameters follow named-only.
-    fn new(params: Vec<Param>) -> crate::Result<ParamSpec> {
-        if params.as_slice() == Self::any().params() {
-            Ok(ParamSpec::any())
-        } else {
-            #[derive(Ord, PartialOrd, Eq, PartialEq)]
-            enum State {
-                PosOnly,
-                PosOrName,
-                Args,
-                NameOnly,
-                Kwargs,
-            }
-
-            let mut names = SmallSet::new();
-
-            let mut state = State::PosOnly;
-
-            let mut seen_optional = false;
-
-            let mut num_positional_only = 0;
-            let mut num_positional = 0;
-            let mut args = None;
-            let mut kwargs = None;
-
-            for (i, param) in params.iter().enumerate() {
-                if let Some(name) = param.name() {
-                    if !names.insert(name) {
-                        return Err(other_error!("duplicate parameter name: `{}`", name));
-                    }
-                }
-
-                match param.mode {
-                    ParamMode::PosOnly(req) => {
-                        if state > State::PosOnly {
-                            return Err(other_error!(
-                                "positional only parameters may only be in the beginning"
-                            ));
-                        }
-                        if req == ParamIsRequired::Yes && seen_optional {
-                            return Err(other_error!(
-                                "required positional only parameter after optional"
-                            ));
-                        }
-                        if req == ParamIsRequired::No {
-                            seen_optional = true;
-                        }
-                        state = State::PosOnly;
-                    }
-                    ParamMode::PosOrName(_, req) => {
-                        if state > State::PosOrName {
-                            return Err(other_error!(
-                                "positional or named parameters may only follow positional only"
-                            ));
-                        }
-                        if req == ParamIsRequired::Yes && seen_optional {
-                            return Err(other_error!(
-                                "required positional or named parameter after optional"
-                            ));
-                        }
-                        if req == ParamIsRequired::No {
-                            seen_optional = true;
-                        }
-                        state = State::PosOrName;
-                    }
-                    ParamMode::Args => {
-                        if state >= State::Args {
-                            return Err(other_error!("*args must not come after *-args"));
-                        }
-                        if args.is_some() {
-                            return Err(internal_error!("args must not be already set"));
-                        }
-                        args = Some(i.try_into().unwrap());
-                        state = State::Args;
-                    }
-                    ParamMode::NameOnly(_, req) => {
-                        if state > State::NameOnly {
-                            return Err(other_error!("named only parameters may only follow star"));
-                        }
-                        if req == ParamIsRequired::No {
-                            // This is no-op, but update for consistency.
-                            seen_optional = true;
-                        }
-                        state = State::NameOnly;
-                    }
-                    ParamMode::Kwargs => {
-                        if state >= State::Kwargs {
-                            return Err(other_error!("**kwargs must be the last parameter"));
-                        }
-                        if kwargs.is_some() {
-                            return Err(internal_error!("kwargs must not be already set"));
-                        }
-                        kwargs = Some(i.try_into().unwrap());
-                        state = State::Kwargs;
-                    }
-                }
-
-                if state <= State::PosOnly {
-                    num_positional_only += 1;
-                }
-                if state <= State::PosOrName {
-                    num_positional += 1;
-                }
-            }
-
-            Ok(ParamSpec {
-                params: SmallArcVec1OrStatic::clone_from_slice(&params),
-                indices: DefParamIndices {
-                    num_positional_only,
-                    num_positional,
-                    args,
-                    kwargs,
-                },
-            })
-        }
-    }
-
     /// Create a new parameter specification from different parameter kinds in order.
     pub fn new_parts(
         pos_only: impl IntoIterator<Item = (ParamIsRequired, Ty)>,
@@ -310,30 +190,78 @@ impl ParamSpec {
         named_only: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
         kwargs: Option<Ty>,
     ) -> crate::Result<ParamSpec> {
-        Self::new(
-            iter::empty()
-                .chain(pos_only.into_iter().map(|(req, ty)| Param {
-                    mode: ParamMode::PosOnly(req),
-                    ty,
-                }))
-                .chain(pos_or_name.into_iter().map(|(name, req, ty)| Param {
-                    mode: ParamMode::PosOrName(name, req),
-                    ty,
-                }))
-                .chain(args.map(|ty| Param {
-                    mode: ParamMode::Args,
-                    ty,
-                }))
-                .chain(named_only.into_iter().map(|(name, req, ty)| Param {
-                    mode: ParamMode::NameOnly(name, req),
-                    ty,
-                }))
-                .chain(kwargs.map(|ty| Param {
-                    mode: ParamMode::Kwargs,
-                    ty,
-                }))
-                .collect(),
-        )
+        let pos_only = pos_only.into_iter();
+        let pos_or_name = pos_or_name.into_iter();
+        let named_only = named_only.into_iter();
+
+        let mut seen_names: SmallSet<ArcStr> = SmallSet::new();
+
+        let mut params = Vec::with_capacity(
+            pos_only.size_hint().0
+                + pos_or_name.size_hint().0
+                + args.is_some() as usize
+                + named_only.size_hint().0
+                + kwargs.is_some() as usize,
+        );
+
+        for (req, ty) in pos_only {
+            params.push(Param {
+                mode: ParamMode::PosOnly(req),
+                ty,
+            });
+        }
+
+        let num_positional_only = params.len() as u32;
+
+        for (name, req, ty) in pos_or_name {
+            if !seen_names.insert(name.dupe()) {
+                return Err(other_error!("duplicate parameter name: `{}`", name));
+            }
+            params.push(Param {
+                mode: ParamMode::PosOrName(name, req),
+                ty,
+            });
+        }
+
+        let num_positional = params.len() as u32;
+
+        let mut index_of_args = None;
+        if let Some(ty) = args {
+            index_of_args = Some(params.len() as u32);
+            params.push(Param {
+                mode: ParamMode::Args,
+                ty,
+            });
+        }
+
+        for (name, req, ty) in named_only {
+            if !seen_names.insert(name.dupe()) {
+                return Err(other_error!("duplicate parameter name: `{}`", name));
+            }
+            params.push(Param {
+                mode: ParamMode::NameOnly(name, req),
+                ty,
+            });
+        }
+
+        let mut index_of_kwargs = None;
+        if let Some(ty) = kwargs {
+            index_of_kwargs = Some(params.len() as u32);
+            params.push(Param {
+                mode: ParamMode::Kwargs,
+                ty,
+            });
+        }
+
+        Ok(ParamSpec {
+            params: SmallArcVec1OrStatic::clone_from_slice(&params),
+            indices: DefParamIndices {
+                num_positional,
+                num_positional_only,
+                args: index_of_args,
+                kwargs: index_of_kwargs,
+            },
+        })
     }
 
     /// `*args`.
