@@ -34,11 +34,14 @@ use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 
+/// Indication whether parameter is required.
 #[derive(
     Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative
 )]
-pub(crate) enum ParamIsRequired {
+pub enum ParamIsRequired {
+    /// Parameter is required.
     Yes,
+    /// Parameter is optional.
     No,
 }
 
@@ -337,7 +340,8 @@ impl ParamSpec {
         }
     }
 
-    pub(crate) fn new_parts(
+    /// Create a new parameter specification from different parameter kinds in order.
+    pub fn new_parts(
         pos_only: impl IntoIterator<Item = (ParamIsRequired, Ty)>,
         pos_or_name: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
         args: Option<Ty>,
