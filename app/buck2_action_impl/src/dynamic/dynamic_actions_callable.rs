@@ -25,9 +25,10 @@ use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
-use starlark::typing::Param;
+use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
+use starlark::util::ArcStr;
 use starlark::values::dict::DictType;
 use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
@@ -55,22 +56,35 @@ pub(crate) struct DynamicActionsCallbackParamSpec;
 
 impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     fn params() -> ParamSpec {
-        ParamSpec::new(vec![
-            Param::name_only("actions", AnalysisActions::starlark_type_repr()),
-            Param::name_only(
-                "artifacts",
-                DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
-            ),
-            Param::name_only(
-                "dynamic_values",
-                DictType::<FrozenValue, FrozenValue>::starlark_type_repr(),
-            ),
-            Param::name_only(
-                "outputs",
-                DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
-            ),
-            Param::name_only("arg", Ty::any()),
-        ])
+        ParamSpec::new_parts(
+            [],
+            [],
+            None,
+            [
+                (
+                    ArcStr::new_static("actions"),
+                    ParamIsRequired::Yes,
+                    AnalysisActions::starlark_type_repr(),
+                ),
+                (
+                    ArcStr::new_static("artifacts"),
+                    ParamIsRequired::Yes,
+                    DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
+                ),
+                (
+                    ArcStr::new_static("dynamic_values"),
+                    ParamIsRequired::Yes,
+                    DictType::<FrozenValue, FrozenValue>::starlark_type_repr(),
+                ),
+                (
+                    ArcStr::new_static("outputs"),
+                    ParamIsRequired::Yes,
+                    DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
+                ),
+                (ArcStr::new_static("arg"), ParamIsRequired::Yes, Ty::any()),
+            ],
+            None,
+        )
         .unwrap()
     }
 }
