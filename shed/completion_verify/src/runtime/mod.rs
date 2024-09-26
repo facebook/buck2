@@ -61,7 +61,7 @@ impl ZshRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Zsh.find()?;
         command.arg("--noglobalrcs");
         command.env("TERM", "xterm").env("ZDOTDIR", &self.home);
@@ -98,7 +98,7 @@ impl BashRuntime {
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Bash.find()?;
         let inputrc_path = self.home.join(".inputrc");
         command
@@ -156,7 +156,7 @@ end;
     }
 
     /// Get the output from typing `input` into the shell
-    pub(crate) fn complete(&mut self, input: &str) -> std::io::Result<String> {
+    pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
         let mut command = Shell::Fish.find()?;
         command
             // fish requires TERM to be set.

@@ -59,9 +59,10 @@ _buck2 >/dev/null 2>/dev/null ; # Force the completion to be loaded
 
     extract_from_outputs(
         input,
-        [
-            r.complete(&format!("{}\t", input)),
-            r.complete(&format!("{}\t\t", input)),
-        ],
+        std::iter::empty()
+            .chain(std::iter::once_with(|| r.complete(&format!("{}\t", input))))
+            .chain(std::iter::once_with(|| {
+                r.complete(&format!("{}\t\t", input))
+            })),
     )
 }

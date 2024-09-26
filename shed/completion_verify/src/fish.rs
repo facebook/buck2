@@ -21,9 +21,10 @@ pub(crate) fn run_fish(script: &str, input: &str, tempdir: &Path) -> io::Result<
 
     extract_from_outputs(
         input,
-        [
-            r.complete(&format!("{}\t", input)),
-            r.complete(&format!("{}\t\t", input)),
-        ],
+        std::iter::empty()
+            .chain(std::iter::once_with(|| r.complete(&format!("{}\t", input))))
+            .chain(std::iter::once_with(|| {
+                r.complete(&format!("{}\t\t", input))
+            })),
     )
 }

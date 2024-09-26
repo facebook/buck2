@@ -36,10 +36,12 @@ PS1='% '
     // Depending on situation, bash might need as many as three tabs to produce all completions
     extract_from_outputs(
         input,
-        [
-            Ok(one_tab.to_owned()),
-            r.complete(&format!("{}\t\t", input)),
-            r.complete(&format!("{}\t\t\t", input)),
-        ],
+        std::iter::once(Ok(one_tab.to_owned()))
+            .chain(std::iter::once_with(|| {
+                r.complete(&format!("{}\t\t", input))
+            }))
+            .chain(std::iter::once_with(|| {
+                r.complete(&format!("{}\t\t\t", input))
+            })),
     )
 }
