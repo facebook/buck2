@@ -34,6 +34,7 @@ use starlark_map::StarlarkHasher;
 use crate::codemap::Span;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -65,18 +66,23 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }
-    fn bin_op(&self, bin_op: TypingBinOp, rhs: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn bin_op(
+        &self,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextError> {
         let _unused = (bin_op, rhs, ctx);
-        Err(())
+        Err(TypingNoContextError)
     }
-    fn iter_item(&self) -> Result<Ty, ()> {
-        Err(())
+    fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
+        Err(TypingNoContextError)
     }
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
         let _unused = (item, ctx);
-        Err(())
+        Err(TypingNoContextError)
     }
-    fn attribute(&self, attr: &str) -> Result<Ty, ()>;
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
@@ -110,15 +116,16 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     fn is_intersects_with_dyn(&self, other: &TyBasic) -> bool;
     fn as_callable_dyn(&self) -> Option<TyCallable>;
     fn as_function_dyn(&self) -> Option<&TyFunction>;
-    fn iter_item_dyn(&self) -> Result<Ty, ()>;
-    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()>;
-    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()>;
+    fn iter_item_dyn(&self) -> Result<Ty, TypingNoContextError>;
+    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx)
+    -> Result<Ty, TypingNoContextError>;
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
     fn bin_op_dyn(
         &self,
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()>;
+    ) -> Result<Ty, TypingNoContextError>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -181,15 +188,19 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.as_function()
     }
 
-    fn attribute_dyn(&self, attr: &str) -> Result<Ty, ()> {
+    fn attribute_dyn(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
         self.attribute(attr)
     }
 
-    fn iter_item_dyn(&self) -> Result<Ty, ()> {
+    fn iter_item_dyn(&self) -> Result<Ty, TypingNoContextError> {
         self.iter_item()
     }
 
-    fn index_dyn(&self, index: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index_dyn(
+        &self,
+        index: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextError> {
         self.index(index, ctx)
     }
 
@@ -198,7 +209,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         bin_op: TypingBinOp,
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextError> {
         self.bin_op(bin_op, rhs, ctx)
     }
 

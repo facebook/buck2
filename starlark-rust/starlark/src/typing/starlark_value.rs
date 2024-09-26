@@ -29,6 +29,7 @@ use dupe::Dupe;
 use starlark_syntax::codemap::Span;
 
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -198,44 +199,52 @@ impl TyStarlarkValue {
     }
 
     /// Result of applying unary operator to this type.
-    pub(crate) fn un_op(self, un_op: TypingUnOp) -> Result<TyStarlarkValue, ()> {
+    pub(crate) fn un_op(self, un_op: TypingUnOp) -> Result<TyStarlarkValue, TypingNoContextError> {
         let has = match un_op {
             TypingUnOp::Plus => self.vtable.vtable.HAS_plus,
             TypingUnOp::Minus => self.vtable.vtable.HAS_minus,
             TypingUnOp::BitNot => self.vtable.vtable.HAS_bit_not,
         };
-        if has { Ok(self) } else { Err(()) }
+        if has {
+            Ok(self)
+        } else {
+            Err(TypingNoContextError)
+        }
     }
 
-    pub(crate) fn bin_op(self, op: TypingBinOp, rhs: &TyBasic) -> Result<Ty, ()> {
+    pub(crate) fn bin_op(self, op: TypingBinOp, rhs: &TyBasic) -> Result<Ty, TypingNoContextError> {
         match (self.vtable.vtable.bin_op_ty)(op, rhs) {
             Some(ty) => Ok(ty),
-            None => Err(()),
+            None => Err(TypingNoContextError),
         }
     }
 
-    pub(crate) fn rbin_op(self, op: TypingBinOp, lhs: &TyBasic) -> Result<Ty, ()> {
+    pub(crate) fn rbin_op(
+        self,
+        op: TypingBinOp,
+        lhs: &TyBasic,
+    ) -> Result<Ty, TypingNoContextError> {
         match (self.vtable.vtable.rbin_op_ty)(lhs, op) {
             Some(ty) => Ok(ty),
-            None => Err(()),
+            None => Err(TypingNoContextError),
         }
     }
 
-    pub(crate) fn index(self, _index: &TyBasic) -> Result<Ty, ()> {
+    pub(crate) fn index(self, _index: &TyBasic) -> Result<Ty, TypingNoContextError> {
         if self.vtable.vtable.HAS_at {
             Ok(Ty::any())
         } else {
-            Err(())
+            Err(TypingNoContextError)
         }
     }
 
     /// If this type can be slice, return the result type of slicing.
-    pub(crate) fn slice(self) -> Result<Ty, ()> {
+    pub(crate) fn slice(self) -> Result<Ty, TypingNoContextError> {
         if self.vtable.vtable.HAS_slice {
             // All known implementations of slice return self type.
             Ok(Ty::basic(TyBasic::StarlarkValue(self)))
         } else {
-            Err(())
+            Err(TypingNoContextError)
         }
     }
 
@@ -243,23 +252,23 @@ impl TyStarlarkValue {
         self.vtable.vtable.HAS_at
     }
 
-    pub(crate) fn attr_from_methods(self, name: &str) -> Result<Ty, ()> {
+    pub(crate) fn attr_from_methods(self, name: &str) -> Result<Ty, TypingNoContextError> {
         if let Some(methods) = (self.vtable.vtable.get_methods)() {
             if let Some(ty) = methods.get_ty(name) {
                 return Ok(ty);
             }
         }
-        Err(())
+        Err(TypingNoContextError)
     }
 
-    pub(crate) fn attr(self, name: &str) -> Result<Ty, ()> {
+    pub(crate) fn attr(self, name: &str) -> Result<Ty, TypingNoContextError> {
         if let Ok(ty) = self.attr_from_methods(name) {
             return Ok(ty);
         }
         if let Some(ty) = (self.vtable.vtable.attr_ty)(name) {
             return Ok(ty);
         }
-        Err(())
+        Err(TypingNoContextError)
     }
 
     pub(crate) fn is_callable(self) -> bool {
@@ -294,11 +303,11 @@ impl TyStarlarkValue {
         Self::is_type_from_vtable(&self.vtable.vtable)
     }
 
-    pub(crate) fn iter_item(self) -> Result<Ty, ()> {
+    pub(crate) fn iter_item(self) -> Result<Ty, TypingNoContextError> {
         if Self::is_iterable(&self.vtable.vtable) {
             Ok(Ty::any())
         } else {
-            Err(())
+            Err(TypingNoContextError)
         }
     }
 

@@ -25,6 +25,7 @@ use crate::codemap::Span;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -99,22 +100,22 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
         bin_op: TypingBinOp,
         _rhs: &TyBasic,
         _ctx: &TypingOracleCtx,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextError> {
         match bin_op {
             // `str | list`.
             TypingBinOp::BitOr if self.0.has_type_attr() => Ok(Ty::basic(TyBasic::Type)),
-            _ => Err(()),
+            _ => Err(TypingNoContextError),
         }
     }
 
-    fn index(&self, _item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(&self, _item: &TyBasic, _ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
         // TODO(nga): this is hack for `enum` (type) which pretends to be a function.
         //   Should be a custom type.
         Ok(Ty::any())
     }
 
-    fn attribute(&self, _attr: &str) -> Result<Ty, ()> {
-        Err(())
+    fn attribute(&self, _attr: &str) -> Result<Ty, TypingNoContextError> {
+        Err(TypingNoContextError)
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {

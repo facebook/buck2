@@ -27,6 +27,7 @@ use starlark_syntax::codemap::Span;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
@@ -205,7 +206,7 @@ impl TyCustomImpl for TyUser {
         Some(&self.name)
     }
 
-    fn attribute(&self, attr: &str) -> Result<Ty, ()> {
+    fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError> {
         if let Ok(ty) = self.base.attr_from_methods(attr) {
             Ok(ty)
         } else {
@@ -215,17 +216,17 @@ impl TyCustomImpl for TyUser {
                     if self.fields.unknown {
                         Ok(Ty::any())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
             }
         }
     }
 
-    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, ()> {
+    fn index(&self, item: &TyBasic, ctx: &TypingOracleCtx) -> Result<Ty, TypingNoContextError> {
         if let Some(index) = &self.index {
             if !ctx.intersects(&Ty::basic(item.dupe()), &index.index) {
-                return Err(());
+                return Err(TypingNoContextError);
             }
             Ok(index.result.dupe())
         } else {
@@ -233,7 +234,7 @@ impl TyCustomImpl for TyUser {
         }
     }
 
-    fn iter_item(&self) -> Result<Ty, ()> {
+    fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
         if let Some(iter_item) = &self.iter_item {
             Ok(iter_item.dupe())
         } else {

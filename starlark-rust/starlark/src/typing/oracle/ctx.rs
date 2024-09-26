@@ -31,6 +31,7 @@ use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::callable_param::ParamMode;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
@@ -331,7 +332,7 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, ()> {
+    fn iter_item_basic(&self, ty: &TyBasic) -> Result<Ty, TypingNoContextError> {
         match ty {
             TyBasic::Any => Ok(Ty::any()),
             TyBasic::StarlarkValue(ty) => ty.iter_item(),
@@ -350,7 +351,7 @@ impl<'a> TypingOracleCtx<'a> {
     pub(crate) fn iter_item(&self, iter: Spanned<&Ty>) -> Result<Ty, TypingError> {
         match iter.typecheck_union_simple(|basic| self.iter_item_basic(basic)) {
             Ok(ty) => Ok(ty),
-            Err(()) => Err(self.mk_error(
+            Err(TypingNoContextError) => Err(self.mk_error(
                 iter.span,
                 TypingOracleCtxError::NotIterable {
                     ty: iter.node.clone(),
@@ -363,26 +364,26 @@ impl<'a> TypingOracleCtx<'a> {
         &self,
         array: &TyBasic,
         index: Spanned<&TyBasic>,
-    ) -> Result<Result<Ty, ()>, InternalError> {
+    ) -> Result<Result<Ty, TypingNoContextError>, InternalError> {
         match array {
             TyBasic::Any | TyBasic::Callable(_) | TyBasic::Iter(_) | TyBasic::Type => {
                 Ok(Ok(Ty::any()))
             }
             TyBasic::Tuple(tuple) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
-                    return Ok(Err(()));
+                    return Ok(Err(TypingNoContextError));
                 }
                 Ok(Ok(tuple.item_ty()))
             }
             TyBasic::List(item) => {
                 if !self.intersects_basic(index.node, &TyBasic::int()) {
-                    return Ok(Err(()));
+                    return Ok(Err(TypingNoContextError));
                 }
                 Ok(Ok((**item).dupe()))
             }
             TyBasic::Dict(k, v) => {
                 if !self.intersects(&Ty::basic(index.node.dupe()), k) {
-                    return Ok(Err(()));
+                    return Ok(Err(TypingNoContextError));
                 }
                 Ok(Ok((**v).dupe()))
             }
@@ -418,7 +419,7 @@ impl<'a> TypingOracleCtx<'a> {
                     Ok(ty) => {
                         good.push(ty);
                     }
-                    Err(()) => {}
+                    Err(TypingNoContextError) => {}
                 }
             }
         }
@@ -439,31 +440,31 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    fn expr_slice_basic(&self, array: &TyBasic) -> Result<Ty, ()> {
+    fn expr_slice_basic(&self, array: &TyBasic) -> Result<Ty, TypingNoContextError> {
         if let TyBasic::StarlarkValue(v) = array {
             v.slice()
         } else if array.is_tuple() || array.is_list() {
             Ok(Ty::basic(array.dupe()))
         } else {
-            Err(())
+            Err(TypingNoContextError)
         }
     }
 
     pub(crate) fn expr_slice(&self, span: Span, array: Ty) -> Result<Ty, TypingError> {
         match array.typecheck_union_simple(|basic| self.expr_slice_basic(basic)) {
             Ok(ty) => Ok(ty),
-            Err(()) => Err(self.mk_error(
+            Err(TypingNoContextError) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::MissingSliceOperator { ty: array },
             )),
         }
     }
 
-    fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, ()> {
+    fn expr_dot_basic(&self, array: &TyBasic, attr: &str) -> Result<Ty, TypingNoContextError> {
         match array {
             TyBasic::Any | TyBasic::Callable(_) | TyBasic::Iter(_) | TyBasic::Type => Ok(Ty::any()),
             TyBasic::StarlarkValue(s) => s.attr(attr),
-            TyBasic::Tuple(_) => Err(()),
+            TyBasic::Tuple(_) => Err(TypingNoContextError),
             TyBasic::List(elem) => match attr {
                 "pop" => Ok(Ty::function(
                     ParamSpec::pos_only([], [Ty::int()]),
@@ -516,7 +517,7 @@ impl<'a> TypingOracleCtx<'a> {
     pub(crate) fn expr_dot(&self, span: Span, array: &Ty, attr: &str) -> Result<Ty, TypingError> {
         match array.typecheck_union_simple(|basic| self.expr_dot_basic(basic, attr)) {
             Ok(x) => Ok(x),
-            Err(()) => Err(self.mk_error(
+            Err(TypingNoContextError) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::AttributeNotAvailable {
                     ty: array.clone(),
@@ -526,13 +527,17 @@ impl<'a> TypingOracleCtx<'a> {
         }
     }
 
-    fn expr_un_op_basic(&self, ty: &TyBasic, un_op: TypingUnOp) -> Result<Ty, ()> {
+    fn expr_un_op_basic(
+        &self,
+        ty: &TyBasic,
+        un_op: TypingUnOp,
+    ) -> Result<Ty, TypingNoContextError> {
         match ty {
             TyBasic::StarlarkValue(ty) => match ty.un_op(un_op) {
                 Ok(x) => Ok(Ty::basic(TyBasic::StarlarkValue(x))),
-                Err(()) => Err(()),
+                Err(TypingNoContextError) => Err(TypingNoContextError),
             },
-            _ => Err(()),
+            _ => Err(TypingNoContextError),
         }
     }
 
@@ -544,7 +549,7 @@ impl<'a> TypingOracleCtx<'a> {
     ) -> Result<Ty, TypingError> {
         match ty.typecheck_union_simple(|basic| self.expr_un_op_basic(basic, un_op)) {
             Ok(ty) => Ok(ty),
-            Err(()) => Err(self.mk_error(
+            Err(TypingNoContextError) => Err(self.mk_error(
                 span,
                 TypingOracleCtxError::UnaryOperatorNotAvailable { ty, un_op },
             )),
@@ -556,7 +561,7 @@ impl<'a> TypingOracleCtx<'a> {
         lhs: &TyBasic,
         bin_op: TypingBinOp,
         rhs: Spanned<&TyBasic>,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextError> {
         match lhs {
             TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable(_) | TyBasic::Type => Ok(Ty::any()),
             TyBasic::StarlarkValue(lhs) => lhs.bin_op(bin_op, rhs.node),
@@ -565,14 +570,14 @@ impl<'a> TypingOracleCtx<'a> {
                     if self.intersects_basic(lhs, rhs.node) {
                         Ok(Ty::bool())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 TypingBinOp::In => {
                     if self.intersects(elem, &Ty::basic(rhs.node.dupe())) {
                         Ok(Ty::bool())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 TypingBinOp::Add => {
@@ -582,14 +587,14 @@ impl<'a> TypingOracleCtx<'a> {
                             self.iter_item_basic(rhs.node)?,
                         )))
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 TypingBinOp::Mul => {
                     if self.intersects_basic(rhs.node, &TyBasic::int()) {
                         Ok(Ty::basic(lhs.dupe()))
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 _ => TyStarlarkValue::new::<List>().bin_op(bin_op, rhs.node),
@@ -606,14 +611,14 @@ impl<'a> TypingOracleCtx<'a> {
                             Ty::basic(rhs.node.dupe()),
                         ))
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 TypingBinOp::In => {
                     if self.intersects(&Ty::basic(rhs.node.dupe()), k) {
                         Ok(Ty::bool())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 bin_op => TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node),
@@ -628,7 +633,7 @@ impl<'a> TypingOracleCtx<'a> {
         lhs: &TyBasic,
         bin_op: TypingBinOp,
         rhs: &TyBasic,
-    ) -> Result<Ty, ()> {
+    ) -> Result<Ty, TypingNoContextError> {
         match rhs {
             TyBasic::StarlarkValue(rhs) => rhs.rbin_op(bin_op, lhs),
             rhs @ TyBasic::List(_) => match bin_op {
@@ -636,7 +641,7 @@ impl<'a> TypingOracleCtx<'a> {
                     if self.intersects_basic(lhs, &TyBasic::int()) {
                         Ok(Ty::basic(rhs.clone()))
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 _ => TyStarlarkValue::new::<List>().rbin_op(bin_op, lhs),
@@ -646,13 +651,13 @@ impl<'a> TypingOracleCtx<'a> {
                     if self.intersects_basic(lhs, &TyBasic::int()) {
                         Ok(Ty::any_tuple())
                     } else {
-                        Err(())
+                        Err(TypingNoContextError)
                     }
                 }
                 _ => TyStarlarkValue::tuple().rbin_op(bin_op, lhs),
             },
             TyBasic::Name(..) => Ok(Ty::any()),
-            _ => Err(()),
+            _ => Err(TypingNoContextError),
         }
     }
 
@@ -888,7 +893,7 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::Iter(x), TyBasic::Iter(y)) => self.intersects(x, y),
             (TyBasic::Iter(x), y) | (y, TyBasic::Iter(x)) => match self.iter_item_basic(y) {
                 Ok(yy) => self.intersects(x, &yy),
-                Err(()) => false,
+                Err(TypingNoContextError) => false,
             },
             (TyBasic::Callable(x), TyBasic::Callable(y)) => self.callables_intersect(x, y),
             (TyBasic::Callable(_), TyBasic::Custom(_)) => {

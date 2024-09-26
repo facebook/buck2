@@ -113,6 +113,9 @@ impl TypingError {
     }
 }
 
+/// Like [`TypingError`], but without a message or span.
+pub struct TypingNoContextError;
+
 /// Either a typing error or an internal error.
 /// * Typing error means, types are not compatible.
 /// * Internal error means, bug in the typechecker.

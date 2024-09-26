@@ -35,6 +35,7 @@ use crate::typing::basic::TyBasic;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextError;
 use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
@@ -410,8 +411,8 @@ impl Ty {
     /// If at least one was successful, return the union of all successful results.
     pub(crate) fn typecheck_union_simple(
         &self,
-        typecheck: impl Fn(&TyBasic) -> Result<Ty, ()>,
-    ) -> Result<Ty, ()> {
+        typecheck: impl Fn(&TyBasic) -> Result<Ty, TypingNoContextError>,
+    ) -> Result<Ty, TypingNoContextError> {
         if self.is_any() || self.is_never() {
             Ok(self.dupe())
         } else {
@@ -423,11 +424,11 @@ impl Ty {
                     for basic in xs {
                         match typecheck(basic) {
                             Ok(ty) => good.push(ty),
-                            Err(()) => {}
+                            Err(TypingNoContextError) => {}
                         }
                     }
                     if good.is_empty() {
-                        Err(())
+                        Err(TypingNoContextError)
                     } else {
                         Ok(Ty::unions(good))
                     }
