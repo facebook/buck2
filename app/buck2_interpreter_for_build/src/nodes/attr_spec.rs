@@ -32,7 +32,7 @@ use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
-use starlark::typing::Param;
+use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
@@ -220,14 +220,13 @@ impl AttributeSpecExt for AttributeSpec {
                 AttrIsConfigurable::Yes => attribute.starlark_type().to_ty_with_select(),
                 AttrIsConfigurable::No => attribute.starlark_type().to_ty(),
             };
-            let param = Param::name_only(name, ty);
-            let param = match attribute.default() {
-                Some(_) => param.optional(),
-                None => param,
+            let required = match attribute.default() {
+                Some(_) => ParamIsRequired::No,
+                None => ParamIsRequired::Yes,
             };
-            params.push(param);
+            params.push((starlark::util::ArcStr::from(name), required, ty));
         }
-        let params = ParamSpec::new(params).unwrap();
+        let params = ParamSpec::new_parts([], [], None, params, None).unwrap();
         TyFunction::new(params, Ty::none())
     }
 
