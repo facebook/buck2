@@ -18,6 +18,9 @@ changes. The Buck daemon excludes from monitoring any subtrees of the project
 file system that are specified in the `[project].ignore` setting of
 `.buckconfig`.
 
+You can see detailed information about the status of the daemon by running
+`buck2 status`.
+
 ## Killing or disabling the Buck daemon
 
 The Buck daemon process is killed if `buck2 clean` or `buck2 kill` commands are
