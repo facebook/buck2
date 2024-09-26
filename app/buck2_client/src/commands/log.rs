@@ -10,6 +10,7 @@
 mod critical_path;
 pub(crate) mod debug_replay;
 pub(crate) mod debug_what_ran;
+mod diff;
 pub(crate) mod options;
 pub(crate) mod path_log;
 mod replay;
@@ -91,6 +92,8 @@ pub enum LogCommand {
     Replay(replay::ReplayCommand),
     ShowUser(show_user_log::ShowUserLogCommand),
     Summary(summary::SummaryCommand),
+    #[clap(subcommand)]
+    Diff(diff::DiffCommand),
 }
 
 impl LogCommand {
@@ -108,6 +111,7 @@ impl LogCommand {
             Self::Replay(cmd) => cmd.exec(matches, ctx),
             Self::ShowUser(cmd) => cmd.exec(matches, ctx),
             Self::Summary(cmd) => cmd.exec(matches, ctx),
+            Self::Diff(cmd) => cmd.exec(matches, ctx),
         }
     }
 

@@ -1,24 +1,12 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-Commands for interacting with buck2 logs
+Subcommands for diff'ing two buck2 commands
 
-Usage: buck2 log [OPTIONS] <COMMAND>
+Usage: buck2 log diff [OPTIONS] <COMMAND>
 
 Commands:
-  what-ran           Output everything Buck2 ran from selected invocation
-  what-failed        Outputs every command that failed in the selected invocation
-  path               Output the path to the selected log
-  show               Outputs the log in JSON format from selected invocation
-  cmd                Show buck command line arguments from selected invocation
-  what-up            Show the spans that were open when the log ended
-  what-materialized  Outputs materializations from selected invocation
-  what-uploaded      Outputs stats about uploads to RE from the selected invocation
-  critical-path      Show the critical path for a selected build
-  replay             Replay an event log
-  show-user          Converts the event log from a selected invocation into a user event log, in
-                         JSONL format
-  summary            Outputs high level statistics about the build
-  diff               Subcommands for diff'ing two buck2 commands
+  action-divergence
+  configs
   help               Print this message or the help of the given subcommand(s)
 
 Options:

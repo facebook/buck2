@@ -35,7 +35,7 @@ enum EventLogOptionsError {
     LogNotFoundLocally(TraceId),
 }
 
-#[derive(Debug, clap::Parser)]
+#[derive(Debug, Clone, clap::Parser)]
 #[clap(group = clap::ArgGroup::new("event_log"))]
 pub(crate) struct EventLogOptions {
     /// Open the event-log file from a recent command.
