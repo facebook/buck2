@@ -48,7 +48,7 @@ pub struct ActionDivergenceCommand {
     recent2: Option<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ActionExecutionData {
     name: Option<ActionName>,
     output_tiny_digests: String,
@@ -114,19 +114,24 @@ fn print_divergence_msg(
         ad2.name.as_ref(),
         TargetDisplayOptions::for_log(),
     )?;
-    match ad1 {
-        Some(ad1) => buck2_client_ctx::println!(
-            "This is the first action present in both builds with differing output digests: {}\ndigest(s)1 :  {} | digest(s)2: {}",
-            action_identity,
-            ad1.output_tiny_digests,
+    let header = match ad1 {
+        Some(_) => "Present in both builds with differing output digests",
+        None => "Present in only the second build",
+    };
+    let output = [
+        format!("{:-^44}", "First Divergent Action"),
+        header.to_owned(),
+        action_identity,
+        format!("{:-^44}", "Tiny Output Digest(s)"),
+        format!(
+            "first: {} \t second: {}",
+            ad1.map(|data| data.output_tiny_digests.as_ref())
+                .unwrap_or("<none>"),
             ad2.output_tiny_digests
-        )?,
-        None => buck2_client_ctx::println!(
-            "This is the first action present in only the second build: {}\ndigest(s)1 :  None | digest(s)2: {}",
-            action_identity,
-            ad2.output_tiny_digests
-        )?,
-    }
+        ),
+    ];
+    buck2_client_ctx::println!("{}", output.join("\n"))?;
+
     Ok(())
 }
 

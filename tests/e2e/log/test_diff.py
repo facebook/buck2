@@ -44,6 +44,6 @@ async def test_action_divergence_command(buck: Buck) -> None:
     )
 
     assert (
-        "This is the first action present in both builds with differing output digests: prelude//:non_det (<unspecified>) (write foo.txt)"
+        "Present in both builds with differing output digests\nprelude//:non_det (<unspecified>) (write foo.txt)"
         in out.stdout
     )
