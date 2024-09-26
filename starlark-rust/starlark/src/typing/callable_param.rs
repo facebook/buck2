@@ -434,13 +434,22 @@ impl ParamSpec {
 
     /// All parameters are required and positional only.
     pub(crate) fn all_required_pos_only(&self) -> Option<Vec<Ty>> {
-        self.params
-            .iter()
-            .map(|p| match &p.mode {
-                ParamMode::PosOnly(ParamIsRequired::Yes) => Some(p.ty.clone()),
-                _ => None,
-            })
-            .collect()
+        match self.split() {
+            ParamSpecSplit {
+                pos_only,
+                pos_or_named: [],
+                args: None,
+                named_only: [],
+                kwargs: None,
+            } => pos_only
+                .iter()
+                .map(|p| match p.mode {
+                    ParamMode::PosOnly(ParamIsRequired::Yes) => Some(p.ty.dupe()),
+                    _ => None,
+                })
+                .collect(),
+            _ => None,
+        }
     }
 }
 
