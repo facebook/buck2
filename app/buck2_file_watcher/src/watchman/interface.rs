@@ -22,7 +22,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
@@ -47,7 +46,6 @@ struct WatchmanQueryProcessor {
     // a bug.
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
-    retain_dep_files_on_watchman_fresh_instance: bool,
     report_global_rev: bool,
     last_mergebase: Option<String>,
     last_mergebase_global_rev: Option<u64>,
@@ -261,11 +259,9 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         let has_new_mergebase = self.last_mergebase.as_ref() != mergebase.as_ref();
 
-        let clear_dep_files =
-            has_new_mergebase || !self.retain_dep_files_on_watchman_fresh_instance;
+        let clear_dep_files = has_new_mergebase;
 
-        // We'll clear dep files if we're configured to do so on all fresh instances. Otherwise,
-        // we'll drop them if the mergebase has changed, which means our dep files are likely
+        // We'll clear dep files if the mergebase has changed, which means our dep files are likely
         // irrelevant.
         //
         // This is imperfect. If the user rebased from yesterday's stable to today's stable, then
@@ -335,14 +331,6 @@ impl WatchmanFileWatcher {
             })
             .map(|s| s.to_owned());
 
-        let retain_dep_files_on_watchman_fresh_instance = root_config
-            .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "retain_dep_files_on_watchman_fresh_instance",
-            })?
-            .unwrap_or_else(RolloutPercentage::always)
-            .roll();
-
         let report_global_rev = root_config
             .parse::<bool>(BuckconfigKeyRef {
                 section: "buck2",
@@ -361,7 +349,6 @@ impl WatchmanFileWatcher {
             Box::new(WatchmanQueryProcessor {
                 cells,
                 ignore_specs,
-                retain_dep_files_on_watchman_fresh_instance,
                 report_global_rev,
                 last_mergebase: None,
                 last_mergebase_global_rev: None,
