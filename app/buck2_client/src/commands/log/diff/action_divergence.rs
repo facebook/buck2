@@ -13,6 +13,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_data::ActionKey;
 use buck2_data::ActionName;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_event_observer::action_util::get_action_digest;
 use buck2_event_observer::display::display_action_identity;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -51,6 +52,7 @@ pub struct ActionDivergenceCommand {
 #[derive(Clone, Debug)]
 struct ActionExecutionData {
     name: Option<ActionName>,
+    action_digest: Option<String>,
     output_tiny_digests: String,
 }
 
@@ -66,6 +68,7 @@ fn get_action_execution_data<'a>(
                             key.clone(),
                             ActionExecutionData {
                                 name: data.name.clone(),
+                                action_digest: get_action_digest(&data.commands),
                                 output_tiny_digests: data
                                     .outputs
                                     .iter()
@@ -122,6 +125,13 @@ fn print_divergence_msg(
         format!("{:-^44}", "First Divergent Action"),
         header.to_owned(),
         action_identity,
+        format!("{:-^44}", "Input Digest"),
+        format!(
+            "first: {} \t second: {}",
+            ad1.and_then(|data| data.action_digest.as_deref())
+                .unwrap_or("<none>"),
+            ad2.action_digest.as_deref().unwrap_or("<none>"),
+        ),
         format!("{:-^44}", "Tiny Output Digest(s)"),
         format!(
             "first: {} \t second: {}",
