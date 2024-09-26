@@ -95,7 +95,7 @@ enum CurrentParameterStyle {
 }
 
 /// Builder for [`ParametersSpec`]
-pub struct ParametersSpecBuilder<V> {
+pub(crate) struct ParametersSpecBuilder<V> {
     function_name: String,
     params: Vec<(String, ParameterKind<V>)>,
     names: SymbolMap<u32>,
@@ -173,21 +173,21 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// Add a required parameter. Will be an error if the caller doesn't supply
     /// it. If you want to supply a position-only argument, prepend a `$` to
     /// the name.
-    pub fn required(&mut self, name: &str) {
+    pub(crate) fn required(&mut self, name: &str) {
         self.add(name, ParameterKind::Required);
     }
 
     /// Add an optional parameter. Will be None if the caller doesn't supply it.
     /// If you want to supply a position-only argument, prepend a `$` to the
     /// name.
-    pub fn optional(&mut self, name: &str) {
+    pub(crate) fn optional(&mut self, name: &str) {
         self.add(name, ParameterKind::Optional);
     }
 
     /// Add an optional parameter. Will be the default value if the caller
     /// doesn't supply it. If you want to supply a position-only argument,
     /// prepend a `$` to the name.
-    pub fn defaulted(&mut self, name: &str, val: V) {
+    pub(crate) fn defaulted(&mut self, name: &str, val: V) {
         self.add(name, ParameterKind::Defaulted(val));
     }
 
@@ -206,7 +206,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
-    pub fn args(&mut self) {
+    pub(crate) fn args(&mut self) {
         assert!(
             self.args.is_none(),
             "adding *args to `{}`",
@@ -228,7 +228,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     }
 
     /// Following parameters can be filled positionally or by name.
-    pub fn no_more_positional_only_args(&mut self) {
+    pub(crate) fn no_more_positional_only_args(&mut self) {
         assert_eq!(
             self.current_style,
             CurrentParameterStyle::PosOnly,
@@ -244,7 +244,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
-    pub fn no_more_positional_args(&mut self) {
+    pub(crate) fn no_more_positional_args(&mut self) {
         assert!(self.args.is_none(), "adding * to `{}`", self.function_name);
         assert!(
             self.current_style < CurrentParameterStyle::NamedOnly,
@@ -266,7 +266,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by position.
-    pub fn kwargs(&mut self) {
+    pub(crate) fn kwargs(&mut self) {
         assert!(
             self.kwargs.is_none(),
             "adding **kwargs to `{}`",
@@ -279,7 +279,7 @@ impl<V: Copy> ParametersSpecBuilder<V> {
     }
 
     /// Construct the parameters specification.
-    pub fn finish(self) -> ParametersSpec<V> {
+    pub(crate) fn finish(self) -> ParametersSpec<V> {
         let ParametersSpecBuilder {
             function_name,
             positional_only,
@@ -314,13 +314,11 @@ impl<V: Copy> ParametersSpecBuilder<V> {
 }
 
 impl<V> ParametersSpec<V> {
-    /// Create a new [`ParametersSpec`] with the given function name.
-    pub fn new(function_name: String) -> ParametersSpecBuilder<V> {
-        Self::with_capacity(function_name, 0)
-    }
-
     /// Create a new [`ParametersSpec`] with the given function name and an advance capacity hint.
-    pub fn with_capacity(function_name: String, capacity: usize) -> ParametersSpecBuilder<V> {
+    pub(crate) fn with_capacity(
+        function_name: String,
+        capacity: usize,
+    ) -> ParametersSpecBuilder<V> {
         ParametersSpecBuilder {
             function_name,
             params: Vec::with_capacity(capacity),

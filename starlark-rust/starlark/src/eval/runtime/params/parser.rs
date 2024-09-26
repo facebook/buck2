@@ -56,10 +56,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
         Ok((*v, name))
     }
 
-    /// Obtain the next parameter, corresponding to
-    /// [`ParametersSpecBuilder::optional`](crate::eval::ParametersSpecBuilder::optional).
-    /// It is an error to request more parameters than were specified.
-    /// The `name` is only used for error messages.
+    /// Obtain the next optional parameter (without a default value).
     pub fn next_opt<T: UnpackValue<'v>>(&mut self) -> anyhow::Result<Option<T>> {
         match self.get_next()? {
             (None, _) => Ok(None),
@@ -67,10 +64,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
         }
     }
 
-    /// Obtain the next parameter, which can't be defined by
-    /// [`ParametersSpecBuilder::optional`](crate::eval::ParametersSpecBuilder::optional).
-    /// It is an error to request more parameters than were specified.
-    /// The `name` is only used for error messages.
+    /// Obtain the next parameter. Fail if the parameter is optional and not provided.
     pub fn next<T: UnpackValue<'v>>(&mut self) -> anyhow::Result<T> {
         let (v, name) = self.get_next()?;
         let Some(v) = v else {
