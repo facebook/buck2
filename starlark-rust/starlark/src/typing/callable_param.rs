@@ -62,7 +62,7 @@ pub(crate) enum ParamMode {
 
 /// A parameter argument to a function
 #[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub struct Param {
+pub(crate) struct Param {
     /// The type of parameter
     pub(crate) mode: ParamMode,
     /// The type of the parameter.
@@ -72,44 +72,6 @@ pub struct Param {
 }
 
 impl Param {
-    /// Create a positional only parameter.
-    pub fn pos_only(ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::PosOnly(ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Create a named only parameter.
-    pub fn name_only(name: &str, ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::NameOnly(ArcStr::from(name), ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Create a positional or named parameter.
-    pub fn pos_or_name(name: &str, ty: Ty) -> Self {
-        Self {
-            mode: ParamMode::PosOrName(ArcStr::from(name), ParamIsRequired::Yes),
-            ty,
-        }
-    }
-
-    /// Make a parameter optional.
-    pub fn optional(self) -> Self {
-        Param {
-            mode: match self.mode {
-                ParamMode::PosOnly(_x) => ParamMode::PosOnly(ParamIsRequired::No),
-                ParamMode::PosOrName(x, _y) => ParamMode::PosOrName(x, ParamIsRequired::No),
-                ParamMode::NameOnly(x, _y) => ParamMode::NameOnly(x, ParamIsRequired::No),
-                ParamMode::Args => ParamMode::Args,
-                ParamMode::Kwargs => ParamMode::Kwargs,
-            },
-            ty: self.ty,
-        }
-    }
-
     /// Create a `*args` parameter.
     ///
     /// `ty` is a tuple item type.
@@ -224,7 +186,7 @@ impl ParamSpec {
     /// Constructor.
     /// Return an error if the sequence of parameters is incorrect,
     /// for example, if positional-only parameters follow named-only.
-    pub fn new(params: Vec<Param>) -> crate::Result<ParamSpec> {
+    fn new(params: Vec<Param>) -> crate::Result<ParamSpec> {
         if params.as_slice() == Self::any().params() {
             Ok(ParamSpec::any())
         } else {
@@ -376,31 +338,29 @@ impl ParamSpec {
 
     /// `*args`.
     pub(crate) fn args(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::args(ty)]).unwrap()
+        ParamSpec::new_parts([], [], Some(ty), [], None).expect("Cannot fail")
     }
 
     /// `**kwargs`.
     pub fn kwargs(ty: Ty) -> ParamSpec {
-        ParamSpec::new(vec![Param::kwargs(ty)]).unwrap()
+        ParamSpec::new_parts([], [], None, [], Some(ty)).expect("Cannot fail")
     }
 
-    /// `/, arg=, arg=, ..., arg, arg, ...`.
+    /// `arg=, arg=, ..., arg, arg, ..., /`.
     pub(crate) fn pos_only(
         required: impl IntoIterator<Item = Ty>,
         optional: impl IntoIterator<Item = Ty>,
     ) -> ParamSpec {
-        ParamSpec::new(
-            required
-                .into_iter()
-                .map(Param::pos_only)
-                .chain(
-                    optional
-                        .into_iter()
-                        .map(|ty| Param::pos_only(ty).optional()),
-                )
-                .collect(),
+        ParamSpec::new_parts(
+            iter::empty()
+                .chain(required.into_iter().map(|ty| (ParamIsRequired::Yes, ty)))
+                .chain(optional.into_iter().map(|ty| (ParamIsRequired::No, ty))),
+            [],
+            None,
+            [],
+            None,
         )
-        .unwrap()
+        .expect("Cannot fail")
     }
 
     /// No parameters.
