@@ -146,10 +146,6 @@ impl TyBasic {
     pub(crate) fn is_list(&self) -> bool {
         self.as_name() == Some("list")
     }
-
-    pub(crate) fn is_str(&self) -> bool {
-        self == &TyBasic::string()
-    }
 }
 
 impl Display for TyBasic {

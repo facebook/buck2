@@ -229,6 +229,16 @@ impl TyStarlarkValue {
         }
     }
 
+    /// If this type can be slice, return the result type of slicing.
+    pub(crate) fn slice(self) -> Result<Ty, ()> {
+        if self.vtable.vtable.HAS_slice {
+            // All known implementations of slice return self type.
+            Ok(Ty::basic(TyBasic::StarlarkValue(self)))
+        } else {
+            Err(())
+        }
+    }
+
     pub(crate) fn is_indexable(self) -> bool {
         self.vtable.vtable.HAS_at
     }

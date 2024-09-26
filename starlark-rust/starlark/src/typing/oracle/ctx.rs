@@ -440,8 +440,9 @@ impl<'a> TypingOracleCtx<'a> {
     }
 
     fn expr_slice_basic(&self, array: &TyBasic) -> Result<Ty, ()> {
-        if array.is_str() || array.is_tuple() || array.is_list() || array.as_name() == Some("range")
-        {
+        if let TyBasic::StarlarkValue(v) = array {
+            v.slice()
+        } else if array.is_tuple() || array.is_list() {
             Ok(Ty::basic(array.dupe()))
         } else {
             Err(())
