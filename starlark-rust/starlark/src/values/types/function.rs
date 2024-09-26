@@ -243,7 +243,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::List) => {
-                let index = TypeCompiled::new_with_string(index, heap)?;
+                let index = TypeCompiled::new(index, heap)?;
                 Ok(TypeCompiled::type_list_of(index, heap).to_inner())
             }
             _ => ValueError::unsupported(self, "[]"),
