@@ -36,6 +36,7 @@ struct Stats {
     total_local_actions: u64,
     // TODO(yurysamkevich): split by RE platform - mac/windows/linux once available in log
     total_remote_actions: u64,
+    total_cached_actions: u64,
     total_other_actions: u64,
     total_targets_analysed: u64,
     peak_process_memory_bytes: Option<u64>,
@@ -66,7 +67,7 @@ impl Stats {
                     match ActionExecutionKind::from_i32(data.execution_kind) {
                         Some(ActionExecutionKind::Local) => self.total_local_actions += 1,
                         Some(ActionExecutionKind::Remote) => self.total_remote_actions += 1,
-                        Some(ActionExecutionKind::ActionCache) => self.total_remote_actions += 1,
+                        Some(ActionExecutionKind::ActionCache) => self.total_cached_actions += 1,
                         _ => self.total_other_actions += 1,
                     }
                 }
@@ -149,6 +150,7 @@ impl Display for Stats {
         writeln!(f, "total bytes uploaded: {}", self.total_bytes_uploaded)?;
         writeln!(f, "local actions: {}", self.total_local_actions)?;
         writeln!(f, "remote actions: {}", self.total_remote_actions)?;
+        writeln!(f, "cached actions: {}", self.total_cached_actions)?;
         writeln!(f, "other actions: {}", self.total_other_actions)?;
         writeln!(f, "targets analysed: {}", self.total_targets_analysed)?;
         if let (Some(peak_process_memory_bytes), Some(system_total_memory_bytes)) = (
