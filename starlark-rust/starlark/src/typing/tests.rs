@@ -44,6 +44,7 @@ mod call;
 mod list;
 mod special_function;
 mod tuple;
+mod types;
 
 #[derive(Default)]
 struct TypeCheck {
@@ -398,30 +399,6 @@ def func_which_returns_union(p) -> str | int:
         return 1
     else:
         return []
-"#,
-    );
-}
-
-#[test]
-fn test_type_alias() {
-    TypeCheck::new().ty("x").check(
-        "type_alias",
-        r#"
-MyList = list[int]
-
-def f(x: MyList):
-    pass
-"#,
-    );
-}
-
-#[test]
-fn test_incorrect_type_dot() {
-    TypeCheck::new().check(
-        "incorrect_type_dot",
-        r#"
-def foo(x: list.foo.bar):
-    pass
 "#,
     );
 }
