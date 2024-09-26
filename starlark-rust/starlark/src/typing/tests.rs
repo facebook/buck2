@@ -33,9 +33,15 @@ use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::util::trim_rust_backtrace;
+use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::interface::Interface;
 use crate::typing::AstModuleTypecheck;
+use crate::typing::ParamSpec;
+use crate::typing::Ty;
+use crate::util::ArcStr;
 use crate::values::none::NoneType;
+use crate::values::typing::StarlarkCallable;
+use crate::values::typing::StarlarkCallableParamSpec;
 use crate::values::typing::StarlarkIter;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
@@ -53,6 +59,18 @@ struct TypeCheck {
     loads: HashMap<String, (Interface, FrozenModule)>,
 }
 
+struct NamedXy;
+
+impl StarlarkCallableParamSpec for NamedXy {
+    fn params() -> ParamSpec {
+        ParamSpec::new_named_only([
+            (ArcStr::new_static("x"), ParamIsRequired::Yes, Ty::string()),
+            (ArcStr::new_static("y"), ParamIsRequired::Yes, Ty::int()),
+        ])
+        .unwrap()
+    }
+}
+
 #[starlark_module]
 fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
     fn accepts_iterable<'v>(
@@ -66,6 +84,13 @@ fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
         #[starlark(kwargs)] x: SmallMap<String, u32>,
     ) -> anyhow::Result<NoneType> {
         let _ignore = x;
+        Ok(NoneType)
+    }
+
+    fn accepts_callable_named_xy<'v>(
+        #[starlark(require = pos)] f: StarlarkCallable<'v, NamedXy, NoneType>,
+    ) -> anyhow::Result<NoneType> {
+        let _ignore = f;
         Ok(NoneType)
     }
 }

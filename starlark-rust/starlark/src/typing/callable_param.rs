@@ -264,6 +264,14 @@ impl ParamSpec {
         })
     }
 
+    /// `*, x, y`.
+    #[cfg(test)]
+    pub(crate) fn new_named_only(
+        named_only: impl IntoIterator<Item = (ArcStr, ParamIsRequired, Ty)>,
+    ) -> crate::Result<ParamSpec> {
+        Self::new_parts([], [], None, named_only, None)
+    }
+
     /// `*args`.
     pub(crate) fn args(ty: Ty) -> ParamSpec {
         ParamSpec::new_parts([], [], Some(ty), [], None).expect("Cannot fail")

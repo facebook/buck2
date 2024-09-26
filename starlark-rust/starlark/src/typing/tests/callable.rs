@@ -39,3 +39,33 @@ def test():
 "#,
     );
 }
+
+#[test]
+fn test_callable_named() {
+    TypeCheck::new().check(
+        "callable_named",
+        r#"
+def good_function_pos_or_named(x: str, y: int) -> None:
+    pass
+
+def good_function_named_only(*, x: str, y: int) -> None:
+    pass
+
+def bad_function_wrong_types(x: bool, y: list) -> None:
+    pass
+
+def bad_function_missing_params(x: str) -> None:
+    pass
+
+def bad_function_extra_params(x: str, y: int, z: int) -> None:
+    pass
+
+def test():
+    accepts_callable_named_xy(good_function_pos_or_named)
+    accepts_callable_named_xy(good_function_named_only)
+    accepts_callable_named_xy(bad_function_wrong_types)
+    accepts_callable_named_xy(bad_function_missing_params)
+    accepts_callable_named_xy(bad_function_extra_params)
+"#,
+    );
+}
