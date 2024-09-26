@@ -102,10 +102,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     ) -> Result<Ty, ()> {
         match bin_op {
             // `str | list`.
-            TypingBinOp::BitOr if self.0.has_type_attr() => {
-                // TODO(nga): result is type, but we don't have a type for type yet.
-                Ok(Ty::any())
-            }
+            TypingBinOp::BitOr if self.0.has_type_attr() => Ok(Ty::basic(TyBasic::Type)),
             _ => Err(()),
         }
     }

@@ -12,7 +12,7 @@ def test():
 No errors.
 
 Types:
-t: typing.Any
+t: type
 
 Compiler typechecker (eval):
 No errors.
