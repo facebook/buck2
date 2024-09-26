@@ -864,7 +864,7 @@ impl<'v> ParametersSpec<Value<'v>> {
             || None,
             |slots, eval| {
                 self.collect_inline(&args.0, slots, eval.heap())?;
-                let mut parser = ParametersParser::new(slots);
+                let mut parser = ParametersParser::new(slots, &self.param_names);
                 let r = k(&mut parser, eval)?;
                 if !parser.is_eof() {
                     return Err(other_error!(

@@ -55,10 +55,10 @@ impl TargetNodeExt for TargetNode {
     ) -> anyhow::Result<Self> {
         let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
 
-        for (attr_name, _, _) in indices {
+        for (_, _, _) in indices {
             // Consume all the arguments.
             // We call `next_opt` even for non-optional parameters. starlark-rust doesn't check.
-            param_parser.next_opt::<Value>(attr_name)?;
+            param_parser.next_opt::<Value>()?;
         }
 
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);

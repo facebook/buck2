@@ -161,12 +161,11 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         let (dynamic, dynamic_values, outputs, arg) =
             self.signature.parser(args, eval, |parser, _eval| {
                 // TODO(nga): we are not checking that what we parse here actually matches signature.
-                let dynamic: UnpackList<UnpackArtifactOrDeclaredArtifact> =
-                    parser.next("dynamic")?;
+                let dynamic: UnpackList<UnpackArtifactOrDeclaredArtifact> = parser.next()?;
                 let dynamic_values: UnpackList<&StarlarkDynamicValue> =
-                    parser.next_opt("dynamic_values")?.unwrap_or_default();
-                let outputs: UnpackList<&StarlarkOutputArtifact> = parser.next("outputs")?;
-                let arg: Value = parser.next("arg")?;
+                    parser.next_opt()?.unwrap_or_default();
+                let outputs: UnpackList<&StarlarkOutputArtifact> = parser.next()?;
+                let arg: Value = parser.next()?;
                 Ok((dynamic, dynamic_values, outputs, arg))
             })?;
         let dynamic = dynamic

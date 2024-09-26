@@ -177,7 +177,7 @@ pub(crate) fn user_provider_creator<'v>(
     let values = callable
         .fields
         .iter()
-        .map(|(name, field)| match param_parser.next_opt(name)? {
+        .map(|(name, field)| match param_parser.next_opt()? {
             Some(value) => {
                 if !field.ty.matches(value) {
                     return Err(UserProviderError::MismatchedType(

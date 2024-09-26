@@ -248,12 +248,12 @@ where
                 for (name, field) in fields.iter() {
                     let value = match field.default {
                         None => {
-                            let v: Value = param_parser.next(name)?;
+                            let v: Value = param_parser.next()?;
                             field.typ.check_type(v, Some(name))?;
                             v
                         }
                         Some(default) => {
-                            let v: Option<Value> = param_parser.next_opt(name)?;
+                            let v: Option<Value> = param_parser.next_opt()?;
                             match v {
                                 None => default,
                                 Some(v) => {
