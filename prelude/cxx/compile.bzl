@@ -1110,7 +1110,9 @@ def _mk_argsfiles(
         file_args = cmd_args(argsfiles, format = "-@{}") if is_nasm else cmd_args(argsfiles, format = "@{}", quote = "shell")
 
     file_name = ext.value + ".{}cxx_compile_argsfile".format(filename_prefix)
-    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True)
+
+    # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
+    argsfile, _ = ctx.actions.write(file_name, file_args, allow_args = True, absolute = is_xcode_argsfile)
 
     input_args = [args, file_args]
 
