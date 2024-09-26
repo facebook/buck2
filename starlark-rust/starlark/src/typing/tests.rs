@@ -267,17 +267,6 @@ def bar():
 }
 
 #[test]
-fn test_special_function_zip() {
-    TypeCheck::new().ty("x").check(
-        "zip",
-        r#"
-def test():
-    x = zip([1,2], [True, False], ["a", "b"])
-"#,
-    );
-}
-
-#[test]
 fn test_accepts_iterable() {
     TypeCheck::new().check(
         "accepts_iterable",

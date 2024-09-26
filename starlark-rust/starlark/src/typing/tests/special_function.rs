@@ -27,3 +27,14 @@ def test():
 "#,
     );
 }
+
+#[test]
+fn test_special_function_zip() {
+    TypeCheck::new().ty("x").check(
+        "zip",
+        r#"
+def test():
+    x = zip([1,2], [True, False], ["a", "b"])
+"#,
+    );
+}
