@@ -31,7 +31,7 @@ use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 use crate::values::FrozenStringValue;
 
 pub(crate) struct TypecheckProfilerType;
@@ -137,7 +137,7 @@ mod tests {
     use crate::eval::Evaluator;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
-    use crate::values::layout::heap::profile::arc_str::ArcStr;
+    use crate::util::arc_str::ArcStr;
 
     #[test]
     fn test_typecheck_profile() -> crate::Result<()> {

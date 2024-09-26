@@ -54,7 +54,7 @@ use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::typing::ParamSpec;
 use crate::typing::TyBasic;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 
 #[derive(Clone)]
 pub(crate) enum BindExpr<'a> {

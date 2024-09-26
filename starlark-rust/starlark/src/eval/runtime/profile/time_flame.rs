@@ -32,7 +32,7 @@ use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::eval::ProfileMode;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::FrozenValue;
 use crate::values::Trace;

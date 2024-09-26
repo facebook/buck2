@@ -16,5 +16,6 @@
  */
 
 pub(crate) mod arc_or_static;
+pub(crate) mod arc_str;
 pub(crate) mod non_static_type_id;
 pub(crate) mod rtabort;

@@ -32,7 +32,7 @@ use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
 use crate::typing::Ty;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 
 #[derive(
     Debug, Clone, Dupe, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative

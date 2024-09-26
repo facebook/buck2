@@ -34,7 +34,7 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::values::layout::heap::profile::arc_str::ArcStr;
+use crate::util::arc_str::ArcStr;
 use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::Heap;
