@@ -1,4 +1,5 @@
 load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
+load("@fbcode_macros//build_defs/lib:oss.bzl", "translate_target")
 
 oncall("build_infra")
 
@@ -6,7 +7,9 @@ rust_protobuf_library(
     name = "buck2_forkserver_proto",
     srcs = glob(["src/**/*.rs"]),
     build_env = {
-        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location //buck2/app/buck2_data:data_proto)",
+        "BUCK_HACK_DATA_PROTOC_INCLUDE": "$(location {})".format(
+            translate_target("//buck2/app/buck2_data:data_proto"),
+        ),
     },
     build_script = "build.rs",
     protos = ["forkserver.proto"],
