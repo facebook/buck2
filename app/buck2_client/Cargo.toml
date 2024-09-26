@@ -24,6 +24,7 @@ gazebo = { workspace = true }
 humantime = { workspace = true }
 indexmap = { workspace = true }
 libc = { workspace = true }
+linked-hash-map = { workspace = true }
 lsp-server = { workspace = true }
 maplit = { workspace = true }
 multimap = { workspace = true }

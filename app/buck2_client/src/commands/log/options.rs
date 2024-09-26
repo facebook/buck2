@@ -40,23 +40,23 @@ enum EventLogOptionsError {
 pub(crate) struct EventLogOptions {
     /// Open the event-log file from a recent command.
     #[clap(long, group = "event_log", value_name = "NUMBER")]
-    recent: Option<usize>,
+    pub(crate) recent: Option<usize>,
 
     /// Show log by trace id.
     #[clap(long, group = "event_log", value_name = "ID")]
-    trace_id: Option<TraceId>,
+    pub(crate) trace_id: Option<TraceId>,
 
     /// This option does nothing.
     #[clap(long, requires = "trace_id")]
-    allow_remote: bool,
+    pub(crate) allow_remote: bool,
 
     /// Do not allow downloading the log from manifold if it's not found locally.
     #[clap(long, requires = "trace_id")]
-    no_remote: bool,
+    pub(crate) no_remote: bool,
 
     /// A path to an event-log file to read from.
     #[clap(group = "event_log", value_name = "PATH")]
-    path: Option<PathArg>,
+    pub(crate) path: Option<PathArg>,
 }
 
 impl EventLogOptions {

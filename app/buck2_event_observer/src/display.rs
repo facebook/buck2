@@ -181,7 +181,7 @@ pub fn display_action_key(
     }
 }
 
-fn display_action_name_opt(name: Option<&ActionName>) -> String {
+pub fn display_action_name_opt(name: Option<&ActionName>) -> String {
     match name {
         Some(name) if name.identifier.is_empty() => name.category.clone(),
         Some(name) => format!("{} {}", name.category, name.identifier),

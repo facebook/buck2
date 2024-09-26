@@ -73,3 +73,9 @@ buck2_e2e_test(
     srcs = ["test_what_uploaded.py"],
     data_dir = "test_what_uploaded_data",
 )
+
+buck2_e2e_test(
+    name = "test_diff",
+    srcs = ["test_diff.py"],
+    data_dir = "test_diff_data",
+)
