@@ -873,10 +873,7 @@ impl<'a> TypingOracleCtx<'a> {
     fn intersects_one_side(&self, x: &TyBasic, y: &TyBasic) -> bool {
         match (x, y) {
             (TyBasic::Any, _) => true,
-            (TyBasic::Name(x), TyBasic::Name(y)) => x == y,
-            (TyBasic::Name(_), TyBasic::Custom(_)) => true,
-            (TyBasic::Name(_), TyBasic::StarlarkValue(_)) => true,
-            (TyBasic::Name(x), y) => Some(x.as_str()) == y.as_name(),
+            (TyBasic::Name(_), _) => true,
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::List(_), TyBasic::StarlarkValue(y)) => y.is_list(),
             (TyBasic::List(_), _) => false,
