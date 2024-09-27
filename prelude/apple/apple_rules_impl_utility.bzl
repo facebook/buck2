@@ -67,6 +67,7 @@ APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default 
 def apple_dsymutil_attrs():
     return {
         "_dsymutil_extra_flags": attrs.list(attrs.string()),
+        "_dsymutil_verify_dwarf": attrs.string(),
     }
 
 def get_apple_info_plist_build_system_identification_attrs():
@@ -171,6 +172,7 @@ def apple_xcuitest_extra_attrs():
     }
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.pop("_dsymutil_extra_flags", None)
+    attribs.pop("_dsymutil_verify_dwarf", None)
 
     return attribs
 

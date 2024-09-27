@@ -18,7 +18,6 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
 
 # TODO(T110672942): Things which are still unsupported:
 # - oso_prefix
-# - dsym_verification
 def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
@@ -26,10 +25,7 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     cmd = cmd_args(
         [
             dsymutil,
-            # https://github.com/llvm/llvm-project/blob/e3eb12cce97fa75d1d2443bcc2c2b26aa660fe34/llvm/tools/dsymutil/dsymutil.cpp#L94-L98
-            # The validation default changes depending on build mode, so
-            # explicitly set validation as disabled to unify behavior.
-            "--verify-dwarf=none",
+            "--verify-dwarf={}".format(ctx.attrs._dsymutil_verify_dwarf),
             # Reproducers are not useful, we can reproduce from the action digest.
             "--reproducer=Off",
         ] + ctx.attrs._dsymutil_extra_flags + [
