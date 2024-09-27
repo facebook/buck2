@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::label::TargetLabel;
@@ -21,6 +22,7 @@ use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION
 use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
@@ -29,10 +31,17 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
+use starlark::typing::ParamIsRequired;
+use starlark::typing::ParamSpec;
+use starlark::util::ArcStr;
+use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
+use starlark::values::structs::StructRef;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -185,10 +194,47 @@ impl TransitionValue for FrozenTransition {
     }
 }
 
+struct TransitionImplParams;
+
+impl StarlarkCallableParamSpec for TransitionImplParams {
+    fn params() -> ParamSpec {
+        ParamSpec::new_parts(
+            [],
+            [],
+            None,
+            [
+                (
+                    ArcStr::new_static("platform"),
+                    ParamIsRequired::Yes,
+                    PlatformInfo::starlark_type_repr(),
+                ),
+                (
+                    ArcStr::new_static("refs"),
+                    ParamIsRequired::Yes,
+                    StructRef::starlark_type_repr(),
+                ),
+                (
+                    ArcStr::new_static("attrs"),
+                    ParamIsRequired::No,
+                    StructRef::starlark_type_repr(),
+                ),
+            ],
+            None,
+        )
+        .unwrap()
+    }
+}
+
 #[starlark_module]
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
-        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        // Note that precise function type is not checked by static or runtime typechecker,
+        // and exists here only for documentation purposes.
+        #[starlark(require = named)] r#impl: StarlarkCallable<
+            'v,
+            TransitionImplParams,
+            Either<PlatformInfo, DictType<String, PlatformInfo>>,
+        >,
         #[starlark(require = named)] refs: UnpackDictEntries<StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
