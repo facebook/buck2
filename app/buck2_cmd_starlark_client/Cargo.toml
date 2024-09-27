@@ -2,7 +2,7 @@
 description = "`buck2 starlark` command client implementation"
 edition = "2021"
 license = { workspace = true }
-name = "buck2_starlark"
+name = "buck2_cmd_starlark_client"
 repository = { workspace = true }
 version = "0.1.0"
 

@@ -15,13 +15,13 @@ mod util;
 
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
+use buck2_cmd_starlark_client::StarlarkSubcommand;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::StarlarkServerCommand;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use buck2_starlark::StarlarkSubcommand;
 
 pub fn init_late_bindings() {
     STARLARK_SERVER_COMMAND.init(&StarlarkServerCommandImpl);

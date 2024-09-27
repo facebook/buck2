@@ -25,4 +25,4 @@ buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_server_ctx = { workspace = true }
-buck2_starlark = { workspace = true }
+buck2_cmd_starlark_client = { workspace = true }
