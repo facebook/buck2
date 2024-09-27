@@ -170,7 +170,7 @@ impl ActionDivergenceCommand {
             let (invocation2, events2) = log_path2.unpack_stream().await?;
 
             buck2_client_ctx::println!(
-                "Analzying divergent actions between: \n{} and \n{}",
+                "Analyzing divergent actions between: \n{} and \n{}",
                 invocation1.display_command_line(),
                 invocation2.display_command_line()
             )?;
