@@ -10,6 +10,8 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+
 def _headers_arg():
     return {
         "headers": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
@@ -169,6 +171,22 @@ def _uses_explicit_modules_arg():
         "uses_explicit_modules": attrs.bool(default = False),
     }
 
+def _meta_apple_library_validation_enabled_default_value():
+    if not is_full_meta_repo():
+        return False
+
+    meta_apple_library_validation_enabled_default = (read_root_config("apple", "meta_apple_library_validation", "false").lower() == "true")
+    return select({
+        "DEFAULT": meta_apple_library_validation_enabled_default,
+        "config//features/apple:fb_xplat_suffixing_check_disabled": False,
+        "config//features/apple:fb_xplat_suffixing_check_enabled": True,
+    })
+
+def _meta_apple_library_validation_enabled_arg():
+    return {
+        "_meta_apple_library_validation_enabled": attrs.bool(default = _meta_apple_library_validation_enabled_default_value()),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -183,4 +201,5 @@ apple_common = struct(
     debug_artifacts_validators_arg = _debug_artifacts_validators_arg,
     serialize_debugging_options_arg = _serialize_debugging_options_arg,
     uses_explicit_modules_arg = _uses_explicit_modules_arg,
+    meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
 )

@@ -458,6 +458,7 @@ apple_library = prelude_rule(
         apple_common.extra_xcode_files() |
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
+        apple_common.meta_apple_library_validation_enabled_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
