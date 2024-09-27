@@ -51,6 +51,8 @@ load(":debug.bzl", "AppleDebuggableInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
 
+_XCTOOLCHAIN_SUB_TARGET = "xctoolchain"
+
 def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
     def get_apple_test_providers(deps_providers) -> list[Provider]:
         xctest_bundle = bundle_output(ctx)
@@ -192,6 +194,8 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]),
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, dsym_artifact, ui_test_target_app_bundle),
         ]
+
+        sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
         return [
             DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
