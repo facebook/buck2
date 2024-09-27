@@ -264,7 +264,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
                 Ok(TypeCompiled::type_dict_of(index0, index1, heap).to_inner())
             }
             Some(SpecialBuiltinFunction::Tuple) => {
-                let item = TypeCompiled::new_with_string(index0, heap)?;
+                let item = TypeCompiled::new(index0, heap)?;
                 if index1.downcast_ref::<Ellipsis>().is_some() {
                     Ok(TypeCompiled::from_ty(
                         &Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(
