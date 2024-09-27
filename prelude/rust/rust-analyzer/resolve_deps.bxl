@@ -42,6 +42,7 @@ def _process_target_config(
         analysis: bxl.AnalysisResult,
         in_workspace: bool) -> TargetInfo:
     providers = analysis.providers()
+    ra_info = providers[RustAnalyzerInfo]
 
     # convert all source paths to absolute paths
     resolved_attrs = target.resolved_attrs_eager(ctx)
@@ -55,7 +56,7 @@ def _process_target_config(
     # remove the configured platform from the deps. for example,
     # `fbsource//third-party/rust:tracing (ovr_config//platform/linux:x86_64-fbcode-platform010-clang-9f23200ddcddc3cb)`
     # becomes `fbsource//third-party/rust:tracing`.
-    deps = [dep.label.raw_target() for dep in providers[RustAnalyzerInfo].rust_deps]
+    deps = [dep.label.raw_target() for dep in ra_info.rust_deps]
 
     # Grab only the values that the the gen-rules are being mapped to.
     mapped_srcs = {}
@@ -83,16 +84,14 @@ def _process_target_config(
     if crate_dynamic:
         crate_dynamic = crate_dynamic.get(DefaultInfo).default_outputs[0]
 
-    # resolved_attrs.env maps str to various output types (str | string_with_macros | artifact).
-    # Wrapping with cmd_args here to ensure the value is always a flat string and not a list
-    env = {k: cmd_args(v, delimiter = "") for k, v in resolved_attrs.env.items()}
+    env = {k: cmd_args(v, delimiter = "") for k, v in ra_info.env.items()}
 
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
         "crate": _get_nullable_attr(attrs, "crate"),
         "crate_dynamic": crate_dynamic,
-        "crate_root": providers[RustAnalyzerInfo].crate_root,
+        "crate_root": ra_info.crate_root,
         "deps": deps,
         "edition": _get_nullable_attr(attrs, "edition"),
         "env": env,

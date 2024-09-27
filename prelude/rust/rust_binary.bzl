@@ -394,7 +394,7 @@ def _rust_binary_common(
     ]
     providers.append(rust_analyzer_provider(
         ctx = ctx,
-        dep_ctx = compile_ctx.dep_ctx,
+        compile_ctx = compile_ctx,
         default_roots = default_roots,
     ))
     return (providers, args)

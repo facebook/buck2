@@ -5,9 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//rust:build.bzl", "crate_root")
+load("@prelude//rust:build.bzl", "crate_root", "process_env")
 load(
     "@prelude//rust:context.bzl",
+    "CompileContext",  # @unused Used as a type
     "DepCollectionContext",  # @unused Used as a type
 )
 load("@prelude//rust:link_info.bzl", "get_available_proc_macros", "resolve_rust_deps")
@@ -17,6 +18,9 @@ RustAnalyzerInfo = provider(
     fields = {
         # The root source for the rust target (typically lib.rs, main.rs), relative to the buck target file.
         "crate_root": str,
+        # The processed env as produced by the buck build prelude. Some env vars like `OUT_DIR` and `CARGO_MANIFEST_DIR`
+        # will be made into absolute paths.
+        "env": dict[str, cmd_args],
         # The list of rust deps needed for RustAnalyzer to function. Namely, this excludes things like
         # exec deps used as inputs to genrules and other non-rust dependencies.
         "rust_deps": list[Dependency],
@@ -55,13 +59,21 @@ def _compute_transitive_target_set(
         transitive_targets.update(target_set)
     return transitive_targets.list()
 
+def _compute_env(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext) -> dict[str, cmd_args]:
+    # Disable rustc_action processing, as rust-project will handle windows + any escaping necessary.
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, False, False)
+    return plain_env | path_env
+
 def rust_analyzer_provider(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
+        compile_ctx: CompileContext,
         default_roots: list[str]) -> RustAnalyzerInfo:
-    rust_deps = _compute_rust_deps(ctx, dep_ctx)
+    rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     return RustAnalyzerInfo(
         crate_root = crate_root(ctx, default_roots),
+        env = _compute_env(ctx, compile_ctx),
         rust_deps = rust_deps,
         transitive_target_set = _compute_transitive_target_set(ctx, rust_deps),
     )

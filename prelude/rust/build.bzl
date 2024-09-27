@@ -187,7 +187,7 @@ def generate_rustdoc(
     subdir = common_args.subdir + "-rustdoc"
     output = ctx.actions.declare_output(subdir)
 
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
     rustdoc_cmd = cmd_args(
@@ -255,7 +255,7 @@ def generate_rustdoc_coverage(
     )
 
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
 
     rustdoc_cmd_action = cmd_args(
@@ -370,8 +370,8 @@ def generate_rustdoc_test(
     else:
         runtool = ["--runtool=/usr/bin/env"]
 
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
-    doc_plain_env, doc_path_env = _process_env(compile_ctx, ctx.attrs.doc_env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    doc_plain_env, doc_path_env = process_env(compile_ctx, ctx.attrs.doc_env, exec_is_windows)
     for k, v in doc_plain_env.items():
         path_env.pop(k, None)
         plain_env[k] = v
@@ -1347,9 +1347,9 @@ def _rustc_invoke(
 
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = _process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
 
-    more_plain_env, more_path_env = _process_env(compile_ctx, env, exec_is_windows)
+    more_plain_env, more_path_env = process_env(compile_ctx, env, exec_is_windows)
     plain_env.update(more_plain_env)
     path_env.update(more_path_env)
 
@@ -1477,10 +1477,11 @@ _DIRECTORY_ENV = [
 # paths to absolute paths so they'll work in any context. Hence the need to
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
-def _process_env(
+def process_env(
         compile_ctx: CompileContext,
         env: dict[str, str | ResolvedStringWithMacros | Artifact],
-        exec_is_windows: bool) -> (dict[str, cmd_args], dict[str, cmd_args]):
+        exec_is_windows: bool,
+        escape_for_rustc_action: bool = True) -> (dict[str, cmd_args], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 
@@ -1491,7 +1492,7 @@ def _process_env(
         v = cmd_args(v)
         if len(v.inputs) > 0:
             path_env[k] = v
-        else:
+        elif escape_for_rustc_action:
             # Environment variables may have newlines, escape them for now.
             # Will be unescaped in rustc_action.
             # Variable may have "\\n" as well.
@@ -1503,6 +1504,8 @@ def _process_env(
                     (_ESCAPED_NEWLINE_RE, "\\n"),
                 ],
             )
+        else:
+            plain_env[k] = cmd_args(v)
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
