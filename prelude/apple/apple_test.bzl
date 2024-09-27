@@ -131,11 +131,14 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         xctest_swift_support_needed = None
         debug_info = None
+        cxx_providers = []
         for p in cxx_library_output.providers:
             if isinstance(p, XCTestSwiftSupportInfo):
                 xctest_swift_support_needed = p.support_needed
-            if isinstance(p, AppleDebuggableInfo):
+            elif isinstance(p, AppleDebuggableInfo):
                 debug_info = project_artifacts(ctx.actions, [p.debug_info_tset])
+            elif isinstance(p, ValidationInfo):
+                cxx_providers.append(p)
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
@@ -195,7 +198,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
             cxx_library_output.xcode_data_info,
             cxx_library_output.cxx_compilationdb_info,
-        ] + bundle_result.providers
+        ] + bundle_result.providers + cxx_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_test_providers)
