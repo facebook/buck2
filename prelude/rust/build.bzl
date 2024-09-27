@@ -1464,6 +1464,10 @@ def _long_command(
 
 _DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
 _ESCAPED_NEWLINE_RE = regex("\\n")
+_DIRECTORY_ENV = [
+    "CARGO_MANIFEST_DIR",
+    "OUT_DIR",
+]
 
 # Separate env settings into "plain" and "with path". Path env vars are often
 # used in Rust `include!()` and similar directives, which always interpret the
@@ -1535,13 +1539,14 @@ def _process_env(
     # and proc macros using std::fs to read thing like .pest grammars, which
     # would need paths relative to the directory that rustc got invoked in
     # (which is the repo root in Buck builds).
-    cargo_manifest_dir = plain_env.pop("CARGO_MANIFEST_DIR", None)
-    if cargo_manifest_dir:
-        path_env["CARGO_MANIFEST_DIR"] = cmd_args(
-            compile_ctx.symlinked_srcs,
-            "\\" if exec_is_windows else "/",
-            cargo_manifest_dir,
-            delimiter = "",
-        )
+    for key in _DIRECTORY_ENV:
+        value = plain_env.pop(key, None)
+        if value:
+            path_env[key] = cmd_args(
+                compile_ctx.symlinked_srcs,
+                "\\" if exec_is_windows else "/",
+                value,
+                delimiter = "",
+            )
 
     return (plain_env, path_env)
