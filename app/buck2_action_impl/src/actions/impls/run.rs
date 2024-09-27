@@ -804,8 +804,10 @@ impl IncrementalActionExecutable for RunAction {
                     re_result,
                     // match needed for coercion, https://github.com/rust-lang/rust/issues/108999
                     match dep_file_bundle.as_mut() {
-                        Some(dep_file_bundle) => Some(dep_file_bundle),
-                        None => None,
+                        Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
+                            Some(dep_file_bundle)
+                        }
+                        _ => None,
                     },
                 )
                 .await?;

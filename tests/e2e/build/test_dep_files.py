@@ -395,11 +395,11 @@ async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
         "--remote-only",
     ]
 
-    # Check that building on RE does not result in a dep file cache upload
-    # TODO(ianc) fixed in next diff, for now it does result in a dep file cache upload
+    # Check that we don't do a dep file cache upload when allow_dep_file_cache_upload is false,
+    # even though allow_cache_upload is true
     await buck.build(*target)
-    key = await _dep_file_key_from_executions(buck)
-    await _check_uploaded_dep_file_key(buck, key)
+    uploads = await _dep_file_uploads(buck)
+    assert len(uploads) == 0
 
 
 @buck_test(inplace=False, data_dir="upload_dep_files")
