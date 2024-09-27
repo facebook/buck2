@@ -171,9 +171,9 @@ That said, it's easy to see where this breaks down.
 
 For example:
 
-- For iOS tests, the execution platform for builds needs to be XCode (local or
+- For iOS tests, the execution platform for builds needs to be Xcode (local or
   RE Mac).
-- For test listing, XCode is not needed (it's preferable to do it on RE Linux
+- For test listing, Xcode is not needed (it's preferable to do it on RE Linux
   where capacity is cheaper).
 - To run the tests, a simulator is required.
 
