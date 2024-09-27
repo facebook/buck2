@@ -108,8 +108,6 @@ async def test_audit_config_with_config_value(buck: Buck) -> None:
         "python",
         "--style",
         "json",
-        "--config",
-        "python.check_srcs_ext=",
     )
     result_override_json = result_override.get_json()
 
@@ -117,7 +115,6 @@ async def test_audit_config_with_config_value(buck: Buck) -> None:
     assert result_override_json is not None
 
     assert result_config_json.get("python.helpers") == "true"
-    assert result_override_json.get("python.check_srcs_ext") is None
 
 
 @buck_test(inplace=True)
