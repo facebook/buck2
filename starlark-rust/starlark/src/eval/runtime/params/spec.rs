@@ -47,6 +47,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersParser;
 use crate::hint::unlikely;
+use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
@@ -57,7 +58,7 @@ use crate::values::ValueLike;
 
 /// Describe parameter for [`ParametersSpec`].
 #[derive(
-    Debug, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord, Trace, Freeze, Allocative
+    Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Trace, Freeze, Allocative
 )]
 pub enum ParametersSpecParam<V> {
     /// Parameter is required.
@@ -66,6 +67,17 @@ pub enum ParametersSpecParam<V> {
     Optional,
     /// Parameter has default value.
     Defaulted(V),
+}
+
+impl<V> ParametersSpecParam<V> {
+    pub(crate) fn is_required(&self) -> ParamIsRequired {
+        match self {
+            ParametersSpecParam::Required => ParamIsRequired::Yes,
+            ParametersSpecParam::Optional | ParametersSpecParam::Defaulted(_) => {
+                ParamIsRequired::No
+            }
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Dupe, Coerce, PartialEq, Trace, Freeze, Allocative)]

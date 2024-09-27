@@ -20,6 +20,7 @@
 
 pub(crate) mod bc;
 pub(crate) mod compiler;
+mod params;
 pub(crate) mod runtime;
 pub(crate) mod soft_error;
 
@@ -53,6 +54,7 @@ use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::eval::compiler::scope::ModuleScopes;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::Compiler;
+pub use crate::eval::params::param_specs;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::evaluator;
