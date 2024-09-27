@@ -8,17 +8,17 @@
  */
 
 use async_trait::async_trait;
-use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
-use dice::LinearRecomputeDiceComputations;
+use dice::DiceComputations;
 
 #[async_trait]
 pub trait ValidationImpl: Send + Sync + 'static {
     /// Validate a given configured target node and any transitive nodes.
-    async fn validate_target_node_transitively<'a>(
+    async fn validate_target_node_transitively(
         &self,
-        ctx: &'a LinearRecomputeDiceComputations<'_>,
-        target_node: ConfiguredTargetNode,
+        ctx: &mut DiceComputations<'_>,
+        target: ConfiguredTargetLabel,
     ) -> Result<(), buck2_error::Error>;
 }
 

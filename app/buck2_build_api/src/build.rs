@@ -18,10 +18,10 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -468,24 +468,25 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let configured_node = ctx
-        .get()
-        .get_configured_target_node(providers_label.target())
-        .await?
-        .require_compatible()
-        .internal_error(
-            "Incompatible node unexpected as compatibility should have been checked earlier",
-        )?;
-    let validation_result = VALIDATION_IMPL
-        .get()?
-        .validate_target_node_transitively(ctx, configured_node)
-        .map({
+    let validation_result = {
+        async fn linear_validate(
+            ctx: &LinearRecomputeDiceComputations<'_>,
+            target: ConfiguredTargetLabel,
+        ) -> Result<(), buck2_error::Error> {
+            let mut ctx = ctx.get();
+            VALIDATION_IMPL
+                .get()?
+                .validate_target_node_transitively(&mut ctx, target)
+                .await
+        }
+        linear_validate(&ctx, providers_label.target().dupe()).map({
             let providers_label = providers_label.dupe();
             move |result| ConfiguredBuildEvent {
                 label: providers_label,
                 variant: ConfiguredBuildEventVariant::Validation { result },
             }
-        });
+        })
+    };
 
     let outputs = outputs
         .into_iter()
