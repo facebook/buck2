@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 
 def stamp_build_info(ctx: AnalysisContext, obj: Artifact) -> Artifact:
@@ -14,7 +15,8 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact) -> Artifact:
     if hasattr(ctx.attrs, "_build_info") and ctx.attrs._build_info:
         ctx.attrs._build_info["late_stamping"] = True
         build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", ctx.attrs._build_info)
-        stamped_output = ctx.actions.declare_output(obj.short_path + "-stamped")
+        stem, ext = paths.split_extension(obj.short_path)
+        stamped_output = ctx.actions.declare_output(stem + "-stamped" + ext)
 
         ctx.actions.run(
             cmd_args([
