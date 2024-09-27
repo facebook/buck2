@@ -31,16 +31,14 @@ use starlark::docs::DocItem;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
+use starlark::eval::param_specs;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
-use starlark::typing::ParamIsRequired;
-use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
-use starlark::util::ArcStr;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::list::AllocList;
@@ -126,36 +124,27 @@ fn create_callable_function_signature(
     fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
 ) -> anyhow::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
-    let mut runtime_params = Vec::with_capacity(fields.len());
-    let mut typechecker_params = Vec::with_capacity(fields.len());
-
-    for (name, field) in fields {
-        if field.default.is_some() {
-            runtime_params.push((name.as_str(), ParametersSpecParam::Optional));
-            typechecker_params.push((
-                ArcStr::from(name.as_str()),
-                ParamIsRequired::No,
+    let (parameters_spec, param_spec) = param_specs(
+        function_name,
+        [],
+        [],
+        None,
+        fields.iter().map(|(name, field)| {
+            (
+                name.as_str(),
+                match field.default {
+                    None => ParametersSpecParam::Required,
+                    Some(default) => ParametersSpecParam::Defaulted(default),
+                },
                 field.ty.as_ty().dupe(),
-            ));
-        } else {
-            runtime_params.push((name.as_str(), ParametersSpecParam::Required));
-            typechecker_params.push((
-                ArcStr::from(name.as_str()),
-                ParamIsRequired::Yes,
-                field.ty.as_ty().dupe(),
-            ));
-        }
-    }
+            )
+        }),
+        None,
+    )
+    .into_anyhow_result()
+    .internal_error("Must have created correct signature")?;
 
-    Ok((
-        ParametersSpec::new_parts(function_name, [], [], false, runtime_params, false),
-        TyCallable::new(
-            ParamSpec::new_parts([], [], None, typechecker_params, None)
-                .into_anyhow_result()
-                .internal_error("Must have created correct signature")?,
-            ret_ty,
-        ),
-    ))
+    Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
 
 #[derive(Debug, Allocative)]
