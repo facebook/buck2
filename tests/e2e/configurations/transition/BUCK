@@ -20,6 +20,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_rule",
     srcs = ["test_rule.py"],
+    data_dir = "test_rule_data",
 )
 
 buck2_e2e_test(
