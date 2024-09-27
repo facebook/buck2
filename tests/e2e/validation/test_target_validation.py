@@ -56,6 +56,21 @@ Full validation result is located at""",
 
 
 @buck_test(inplace=False)
+async def test_validation_affects_install_command(buck: Buck) -> None:
+    await expect_failure(
+        buck.install(":plate"),
+        stderr_regex="Validation for `prelude//:mate \\(<unspecified>\\)` failed",
+    )
+    # It's too complicated to set up installer properly.
+    # We intentionally fail on the installer side, but interpret
+    # an attempt to run it as a successful verification.
+    await expect_failure(
+        buck.install(":date"),
+        stderr_regex="Installer: Incoming connection accepted, now closing it",
+    )
+
+
+@buck_test(inplace=False)
 async def test_optional_validation(buck: Buck) -> None:
     await buck.build(":optional_passing")
 

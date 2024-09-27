@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::Fr
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::materialize::materialize_artifact_group;
 use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
@@ -622,12 +623,30 @@ async fn build_files(
         file_outputs,
         |ctx, (installed_target, name, artifact, tx_clone)| {
             async move {
-                let artifact_values = materialize_artifact_group(
-                    ctx,
-                    &artifact,
-                    &MaterializationContext::Materialize { force: true },
-                )
-                .await?;
+                let (_, artifact_values) = ctx
+                    .try_compute2(
+                        |ctx| {
+                            async move {
+                                VALIDATION_IMPL
+                                    .get()?
+                                    .validate_target_node_transitively(ctx, installed_target.dupe())
+                                    .await
+                            }
+                            .boxed()
+                        },
+                        |ctx| {
+                            async move {
+                                Ok(materialize_artifact_group(
+                                    ctx,
+                                    &artifact,
+                                    &MaterializationContext::Materialize { force: true },
+                                )
+                                .await?)
+                            }
+                            .boxed()
+                        },
+                    )
+                    .await?;
                 for (artifact, artifact_value) in artifact_values.iter() {
                     let install_id = install_id(installed_target);
                     let file_result = FileResult {

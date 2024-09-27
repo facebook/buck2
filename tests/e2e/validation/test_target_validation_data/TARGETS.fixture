@@ -33,3 +33,8 @@ china(
     fail = False,
     optional = True,
 )
+
+installer(
+    name = "my_installer",
+    main = "installer.py",
+)
