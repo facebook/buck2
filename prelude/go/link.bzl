@@ -26,6 +26,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//linking:stamp_build_info.bzl", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load(
     "@prelude//utils:utils.bzl",
@@ -218,5 +219,7 @@ def link(
     env = get_toolchain_env_vars(go_toolchain)
 
     ctx.actions.run(cmd, env = env, category = "go_link", identifier = identifier_prefix)
+
+    output = stamp_build_info(ctx, output)
 
     return (output, executable_args.runtime_files, executable_args.external_debug_info)
