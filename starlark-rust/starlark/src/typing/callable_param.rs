@@ -334,20 +334,42 @@ impl ParamSpec {
 
     /// All parameters are required and positional only.
     pub(crate) fn all_required_pos_only(&self) -> Option<Vec<&Ty>> {
+        let (pos_only, named_only) = self.all_required_pos_only_named_only()?;
+        if named_only.is_empty() {
+            Some(pos_only)
+        } else {
+            None
+        }
+    }
+
+    /// All parameters are required and positional only or named only.
+    pub(crate) fn all_required_pos_only_named_only(&self) -> Option<(Vec<&Ty>, Vec<(&str, &Ty)>)> {
         match self.split() {
             ParamSpecSplit {
                 pos_only,
                 pos_or_named: [],
                 args: None,
-                named_only: [],
+                named_only,
                 kwargs: None,
-            } => pos_only
-                .iter()
-                .map(|p| match p.mode {
-                    ParamMode::PosOnly(ParamIsRequired::Yes) => Some(&p.ty),
-                    _ => None,
-                })
-                .collect(),
+            } => {
+                let pos_only: Vec<&Ty> = pos_only
+                    .iter()
+                    .map(|p| match p.mode {
+                        ParamMode::PosOnly(ParamIsRequired::Yes) => Some(&p.ty),
+                        _ => None,
+                    })
+                    .collect::<Option<_>>()?;
+                let named_only: Vec<(&str, &Ty)> = named_only
+                    .iter()
+                    .map(|p| match &p.mode {
+                        ParamMode::NameOnly(name, ParamIsRequired::Yes) => {
+                            Some((name.as_str(), &p.ty))
+                        }
+                        _ => None,
+                    })
+                    .collect::<Option<_>>()?;
+                Some((pos_only, named_only))
+            }
             _ => None,
         }
     }

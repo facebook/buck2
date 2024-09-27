@@ -19,6 +19,7 @@ use std::fmt::Display;
 use std::iter;
 
 use dupe::Dupe;
+use starlark_map::small_map::SmallMap;
 use starlark_syntax::syntax::ast::BinOp;
 
 use crate::codemap::CodeMap;
@@ -834,34 +835,55 @@ impl<'a> TypingOracleCtx<'a> {
         if x.is_any() || y.is_any() {
             return Ok(true);
         }
-        match (x.all_required_pos_only(), y.all_required_pos_only()) {
-            (Some(x), Some(y)) => Ok(x.len() == y.len() && {
-                for (x, y) in x.iter().zip(y.iter()) {
+        match (
+            x.all_required_pos_only_named_only(),
+            y.all_required_pos_only_named_only(),
+        ) {
+            (Some((x_p, x_n)), Some((y_p, y_n))) => {
+                if x_p.len() != y_p.len() || x_n.len() != y_n.len() {
+                    return Ok(false);
+                }
+                for (x, y) in x_p.iter().zip(y_p.iter()) {
                     if !self.intersects(x, y)? {
                         return Ok(false);
                     }
                 }
-                true
-            }),
-            (Some(x), None) => self.params_all_pos_only_intersect(&x, y),
-            (None, Some(y)) => self.params_all_pos_only_intersect(&y, x),
+                let y_n = SmallMap::from_iter(y_n);
+                for (name, x) in x_n {
+                    if let Some(y) = y_n.get(name) {
+                        if !self.intersects(x, y)? {
+                            return Ok(false);
+                        }
+                    } else {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            (Some((x_p, x_n)), None) => {
+                self.params_all_pos_only_named_only_intersect(&x_p, &x_n, y)
+            }
+            (None, Some((y_p, y_n))) => {
+                self.params_all_pos_only_named_only_intersect(&y_p, &y_n, x)
+            }
             _ => {
-                // This is hard to check, but required pos-only in signatures
+                // The rest is hard to check, but required pos-only in signatures
                 // is what we need the most.
                 Ok(true)
             }
         }
     }
 
-    fn params_all_pos_only_intersect(
+    fn params_all_pos_only_named_only_intersect(
         &self,
-        x: &[&Ty],
+        x_p: &[&Ty],
+        x_n: &[(&str, &Ty)],
         y: &ParamSpec,
     ) -> Result<bool, InternalError> {
         match self.validate_args(
             y,
             &TyCallArgs {
-                pos: x
+                pos: x_p
                     .iter()
                     .map(|ty| Spanned {
                         node: (*ty).dupe(),
@@ -869,7 +891,14 @@ impl<'a> TypingOracleCtx<'a> {
                         span: Span::default(),
                     })
                     .collect(),
-                named: Vec::new(),
+                named: x_n
+                    .iter()
+                    .map(|(name, ty)| Spanned {
+                        node: (*name, (*ty).dupe()),
+                        // TODO(nga): proper span.
+                        span: Span::default(),
+                    })
+                    .collect(),
                 args: None,
                 kwargs: None,
             },
