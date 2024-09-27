@@ -6,7 +6,12 @@
 # of this source tree.
 
 def _impl(ctx: bxl.Context):
-    targets = ctx.target_universe(ctx.cli_args.targets).universe_target_set()
+    if ctx.cli_args.transitive:
+        targets = (
+            ctx.target_universe(ctx.cli_args.targets).universe_target_set()
+        )
+    else:
+        targets = ctx.cli_args.targets
 
     info = {}
     for target, analysis_result in ctx.analysis(targets).items():
@@ -52,10 +57,10 @@ main = bxl_main(
     impl = _impl,
     cli_args = {
         "targets": cli_args.target_expr(),
-        # By default, targets with no validations will be stripped from
-        # the JSON output.
-        #
-        # For larger targets, this shrinks the output considerably.
-        "trim": cli_args.bool(True),
+        "transitive": cli_args.bool(False),
+        "trim": cli_args.bool(
+            default = True,
+            doc = "By default, targets with no validations will be stripped from the output.",
+        ),
     },
 )
