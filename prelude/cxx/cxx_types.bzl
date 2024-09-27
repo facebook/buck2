@@ -50,6 +50,13 @@ load(
     "cxx_populate_xcode_attributes",
 )
 
+CxxLibraryInfo = provider(
+    fields = dict(
+        target = provider_field(Label),
+        labels = provider_field(list[str]),
+    ),
+)
+
 # Parameters to control which sub targets to define when processing Cxx rules.
 # By default, generates all subtargets.
 CxxRuleSubTargetParams = record(

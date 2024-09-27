@@ -31,7 +31,8 @@ load(
     "AppleCoreDataSpec",  # @unused Used as a type
 )
 load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
-load(":apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
+load(":apple_library.bzl", "AppleLibraryForDistributionInfo")
+load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(
     ":apple_resource_types.bzl",
     "AppleResourceDestination",

@@ -166,6 +166,7 @@ load(
 )
 load(
     ":cxx_types.bzl",
+    "CxxLibraryInfo",
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(":diagnostics.bzl", "check_sub_target")
@@ -970,6 +971,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 shared_libs = shared_libs,
                 shared_link_infos = library_outputs.link_infos.get(LibOutputStyle("shared_lib")),
                 deps = exported_deps + non_exported_deps,
+            ),
+        )
+
+    if getattr(ctx.attrs, "_meta_apple_library_validation_enabled", False):
+        providers.append(
+            CxxLibraryInfo(
+                target = ctx.label,
+                labels = ctx.attrs.labels,
             ),
         )
 

@@ -7,7 +7,6 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
 )
@@ -89,6 +88,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//apple/mockingbird/mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
+load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
@@ -140,15 +140,9 @@ AppleLibraryForDistributionInfo = provider(
         "target_triple": str,
     },
 )
-AppleLibraryInfo = provider(
-    fields = {
-        "public_framework_headers": ArtifactTSet,
-        "swift_header": [Artifact, None],
-    },
-)
 
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
-    # @oss-disable: apple_library_validate_for_meta_restrictions() 
+    # @oss-disable: apple_library_validate_for_meta_restrictions(ctx) 
 
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         shared_type = AppleSharedLibraryMachOFileType(ctx.attrs.shared_library_macho_file_type)
@@ -256,7 +250,12 @@ def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None,
         children = [apple_library.public_framework_headers for apple_library in apple_library_infos],
     )
 
-    return [AppleLibraryInfo(public_framework_headers = public_framework_header_tset, swift_header = swift_header)]
+    return [AppleLibraryInfo(
+        public_framework_headers = public_framework_header_tset,
+        swift_header = swift_header,
+        target = ctx.label,
+        labels = ctx.attrs.labels,
+    )]
 
 def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)

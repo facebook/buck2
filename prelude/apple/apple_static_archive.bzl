@@ -7,7 +7,8 @@
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE", "get_validation_deps_outputs")
-load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo", "AppleLibraryInfo")
+load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
+load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args")
@@ -67,7 +68,12 @@ def _get_apple_library_info(ctx: AnalysisContext) -> AppleLibraryInfo:
         if distribution_flat_dep_apple_library_info:
             swift_header = distribution_flat_dep_apple_library_info.swift_header
 
-    return AppleLibraryInfo(public_framework_headers = public_framework_header_tset, swift_header = swift_header)
+    return AppleLibraryInfo(
+        public_framework_headers = public_framework_header_tset,
+        swift_header = swift_header,
+        target = ctx.label,
+        labels = ctx.attrs.labels,
+    )
 
 def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
     args = []
@@ -106,6 +112,7 @@ registration_spec = RuleRegistrationSpec(
         "deps": attrs.list(attrs.dep(), default = []),
         "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
         "flat_deps": attrs.list(attrs.dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         "_apple_toolchain": get_apple_toolchain_attr(),
     },
