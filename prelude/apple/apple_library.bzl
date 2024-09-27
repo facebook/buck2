@@ -18,6 +18,7 @@ load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+# @oss-disable: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions") 
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
@@ -147,6 +148,8 @@ AppleLibraryInfo = provider(
 )
 
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
+    # @oss-disable: apple_library_validate_for_meta_restrictions() 
+
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         shared_type = AppleSharedLibraryMachOFileType(ctx.attrs.shared_library_macho_file_type)
         if shared_type == AppleSharedLibraryMachOFileType("bundle"):
