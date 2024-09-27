@@ -533,9 +533,9 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         Ok(env.allpaths(from, to).await?)
     }
 
-    /// Find the shortest path from one target set to another.
+    /// Find the shortest path (dependency chain) from one target set to another.
     ///
-    /// First parameter is downstream (for example, final binary), second is upstream (for example, a library).
+    /// First parameter is upstream (for example, final binary), second is some downstream (for example, a library).
     ///
     /// If there are multiple paths, which one is returned is unspecified.
     ///
@@ -548,10 +548,10 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     /// ```text
     /// $ buck2 uquery 'somepath(fbcode//buck2:buck2, fbcode//buck2/app/buck2_node:buck2_node)'
     ///
-    /// fbcode//buck2/app/buck2_node:buck2_node
-    /// fbcode//buck2/app/buck2_analysis:buck2_analysis
-    /// fbcode//buck2/app/buck2:buck2-bin
     /// fbcode//buck2:buck2
+    /// fbcode//buck2/app/buck2:buck2-bin
+    /// fbcode//buck2/app/buck2_analysis:buck2_analysis
+    /// fbcode//buck2/app/buck2_node:buck2_node
     /// ```
     pub async fn somepath(
         &self,

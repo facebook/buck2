@@ -218,7 +218,7 @@ async def test_uquery_somepath(buck: Buck) -> None:
         "//bxl:uquery.bxl:somepath_test",
     )
 
-    assert "[root//graph:three, root//graph:two, root//graph:one]\n" == result.stdout
+    assert "[root//graph:one, root//graph:two, root//graph:three]\n" == result.stdout
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
@@ -390,7 +390,7 @@ async def test_cquery_somepath(buck: Buck) -> None:
     )
 
     assert (
-        "[root//graph:three (<unspecified>), root//graph:two (<unspecified>), root//graph:one (<unspecified>)]\n"
+        "[root//graph:one (<unspecified>), root//graph:two (<unspecified>), root//graph:three (<unspecified>)]\n"
         == result.stdout
     )
 

@@ -190,7 +190,7 @@ pub trait QueryEnvironment: Send + Sync {
         from: &TargetSet<Self::Target>,
         to: &TargetSet<Self::Target>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        let mut path = async_bfs_find_path(
+        let path = async_bfs_find_path(
             from.iter(),
             QueryEnvironmentAsNodeLookup { env: self },
             QueryTargetDepsSuccessors,
@@ -198,8 +198,6 @@ pub trait QueryEnvironment: Send + Sync {
         )
         .await?
         .unwrap_or_default();
-
-        path.reverse();
 
         let target_set = TargetSet::from_iter(path);
         Ok(target_set)
