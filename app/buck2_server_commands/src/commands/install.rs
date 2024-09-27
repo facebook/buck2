@@ -49,6 +49,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
@@ -190,11 +191,55 @@ impl ServerCommandTemplate for InstallServerCommand {
     }
 }
 
+struct InstallRequestData<'a> {
+    installer_label: ConfiguredProvidersLabel,
+    installed_targets: Vec<(ConfiguredTargetLabel, SmallMap<&'a str, Artifact>)>,
+}
+
+fn install_id(installed_target: &ConfiguredTargetLabel) -> String {
+    format!("{}", installed_target)
+}
+
 async fn install(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &InstallRequest,
 ) -> anyhow::Result<InstallResponse> {
+    let install_request_data_vec =
+        collect_install_request_data(server_ctx, &mut ctx, request).await?;
+
+    let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx).await?;
+
+    let install_requests = install_request_data_vec.into_iter().map(|data| {
+        let installer_run_args = &request.installer_run_args;
+        DiceComputations::declare_closure(move |ctx| {
+            async move {
+                handle_install_request(
+                    ctx,
+                    install_log_dir,
+                    &data,
+                    installer_run_args,
+                    request.installer_debug,
+                )
+                .await
+            }
+            .boxed()
+        })
+    });
+
+    let install_requests = ctx.compute_many(install_requests);
+    try_join_all(install_requests)
+        .await
+        .context("Interaction with installer failed.")?;
+
+    Ok(InstallResponse {})
+}
+
+async fn collect_install_request_data<'a>(
+    server_ctx: &dyn ServerCommandContextTrait,
+    ctx: &mut DiceTransaction,
+    request: &InstallRequest,
+) -> anyhow::Result<impl IntoIterator<Item = InstallRequestData<'a>>> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(
@@ -203,20 +248,19 @@ async fn install(
             .as_ref()
             .internal_error("target_cfg must be set")?,
         server_ctx,
-        &mut ctx,
+        ctx,
     )
     .await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns = parse_patterns_from_cli_args::<ConfiguredProvidersPatternExtra>(
-        &mut ctx,
+        ctx,
         &request.target_patterns,
         cwd,
     )
     .await?;
     server_ctx.log_target_pattern(&parsed_patterns);
-
-    let resolved_pattern = ResolveTargetPatterns::resolve(&mut ctx, &parsed_patterns).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve(ctx, &parsed_patterns).await?;
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()
@@ -224,7 +268,6 @@ async fn install(
 
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
-        let ctx = &mut ctx;
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
             PackageSpec::Targets(targets) => targets,
             PackageSpec::All => {
@@ -255,12 +298,11 @@ async fn install(
             let providers = frozen_providers.provider_collection();
             match providers.builtin_provider::<FrozenInstallInfo>() {
                 Some(install_info) => {
-                    let install_id = format!("{}", providers_label.target());
                     let installer_label = install_info.get_installer()?;
                     installer_to_files_map
                         .entry(installer_label)
                         .or_insert_with(Vec::new)
-                        .push((install_id, install_info));
+                        .push((providers_label.target().dupe(), install_info));
                 }
                 None => {
                     return Err(InstallError::NoInstallProvider(
@@ -273,41 +315,19 @@ async fn install(
         }
     }
 
-    let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx).await?;
-
-    let mut install_requests = Vec::with_capacity(installer_to_files_map.len());
-    for (installer_label, install_info_vector) in &installer_to_files_map {
-        let installer_run_args = &request.installer_run_args;
-
-        let mut install_files_vector: Vec<(&String, SmallMap<_, _>)> = Vec::new();
-        for (install_id, install_info) in install_info_vector {
+    let mut request_data_vec = Vec::with_capacity(installer_to_files_map.len());
+    for (installer_label, install_info_vector) in installer_to_files_map {
+        let mut installed_targets = Vec::with_capacity(install_info_vector.len());
+        for (installed_target, install_info) in install_info_vector {
             let install_files = install_info.get_files()?;
-            install_files_vector.push((install_id, install_files));
+            installed_targets.push((installed_target, install_files));
         }
-
-        let handle_install_request_future = DiceComputations::declare_closure(move |ctx| {
-            async move {
-                handle_install_request(
-                    ctx,
-                    install_log_dir,
-                    &install_files_vector,
-                    installer_label,
-                    installer_run_args,
-                    request.installer_debug,
-                )
-                .await
-            }
-            .boxed()
+        request_data_vec.push(InstallRequestData {
+            installer_label,
+            installed_targets,
         });
-        install_requests.push(handle_install_request_future);
     }
-
-    let install_requests = ctx.compute_many(install_requests);
-    try_join_all(install_requests)
-        .await
-        .context("Interaction with installer failed.")?;
-
-    Ok(InstallResponse {})
+    Ok(request_data_vec)
 }
 
 fn get_random_tcp_port() -> anyhow::Result<u16> {
@@ -333,8 +353,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 async fn handle_install_request<'a>(
     ctx: &'a mut DiceComputations<'_>,
     install_log_dir: &AbsNormPathBuf,
-    install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
-    installer_label: &ConfiguredProvidersLabel,
+    install_request_data: &InstallRequestData<'_>,
     initial_installer_run_args: &[String],
     installer_debug: bool,
 ) -> anyhow::Result<()> {
@@ -343,7 +362,7 @@ async fn handle_install_request<'a>(
         .try_compute2(
             |ctx| {
                 async move {
-                    build_files(ctx, install_files_slice, files_tx).await?;
+                    build_files(ctx, &install_request_data.installed_targets, files_tx).await?;
                     anyhow::Ok(Instant::now())
                 }
                 .boxed()
@@ -363,7 +382,7 @@ async fn handle_install_request<'a>(
                         "{}/installer_{}_{}.log",
                         install_log_dir,
                         get_timestamp_as_string()?,
-                        calculate_hash(&installer_label.target().name())
+                        calculate_hash(&install_request_data.installer_label.target().name())
                     );
 
                     let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
@@ -377,7 +396,7 @@ async fn handle_install_request<'a>(
 
                     build_launch_installer(
                         ctx,
-                        installer_label,
+                        &install_request_data.installer_label,
                         &installer_run_args,
                         installer_debug,
                     )
@@ -386,9 +405,15 @@ async fn handle_install_request<'a>(
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
                     let installer_ready = Instant::now();
-                    for (install_id, install_files) in install_files_slice {
-                        send_install_info(client.clone(), install_id, install_files, &artifact_fs)
-                            .await?;
+                    for (installed_target, install_files) in &install_request_data.installed_targets
+                    {
+                        send_install_info(
+                            client.clone(),
+                            &install_id(installed_target),
+                            install_files,
+                            &artifact_fs,
+                        )
+                        .await?;
                     }
 
                     let device_metadata = Arc::new(Mutex::new(Vec::new()));
@@ -578,7 +603,7 @@ pub struct FileResult {
 
 async fn build_files(
     ctx: &mut DiceComputations<'_>,
-    install_files_slice: &[(&String, SmallMap<&str, Artifact>)],
+    install_files_slice: &[(ConfiguredTargetLabel, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> anyhow::Result<()> {
     let mut file_outputs = Vec::with_capacity(install_files_slice.len());
@@ -595,7 +620,7 @@ async fn build_files(
 
     ctx.try_compute_join(
         file_outputs,
-        |ctx, (install_id, name, artifact, tx_clone)| {
+        |ctx, (installed_target, name, artifact, tx_clone)| {
             async move {
                 let artifact_values = materialize_artifact_group(
                     ctx,
@@ -604,8 +629,9 @@ async fn build_files(
                 )
                 .await?;
                 for (artifact, artifact_value) in artifact_values.iter() {
+                    let install_id = install_id(installed_target);
                     let file_result = FileResult {
-                        install_id: (*install_id).to_owned(),
+                        install_id,
                         name: (*name).to_owned(),
                         artifact: artifact.to_owned(),
                         artifact_value: artifact_value.to_owned(),
