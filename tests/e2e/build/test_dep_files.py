@@ -381,6 +381,30 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
 @buck_test(inplace=False, data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
+async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
+    buck: Buck,
+) -> None:
+    target = [
+        "root//:dep_files1",
+        "-c",
+        "test.allow_dep_file_cache_upload=false",
+        "-c",
+        "test.allow_cache_upload=true",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "--remote-only",
+    ]
+
+    # Check that building on RE does not result in a dep file cache upload
+    # TODO(ianc) fixed in next diff, for now it does result in a dep file cache upload
+    await buck.build(*target)
+    key = await _dep_file_key_from_executions(buck)
+    await _check_uploaded_dep_file_key(buck, key)
+
+
+@buck_test(inplace=False, data_dir="upload_dep_files")
+@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
+@env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_remote_upload(buck: Buck) -> None:
     target = [
         "root//:dep_files1",

@@ -17,6 +17,7 @@ def _get_tagged_artifacts(ctx, dep_file: Artifact, used_files: list[Artifact], u
 
 def _with_two_dep_files_impl(ctx):
     allow_dep_file_cache_upload = read_config("test", "allow_dep_file_cache_upload") in ["true", "True"]
+    allow_cache_upload = read_config("test", "allow_cache_upload") in ["true", "True"]
 
     out = ctx.actions.declare_output(ctx.attrs.out_name)
 
@@ -55,6 +56,7 @@ def _with_two_dep_files_impl(ctx):
         cmd,
         category = "create_dep_file",
         dep_files = {"dep_file_tag0": tag0, "dep_file_tag1": tag1},
+        allow_cache_upload = allow_cache_upload,
         allow_dep_file_cache_upload = allow_dep_file_cache_upload,
         env = {"cache_buster": ctx.attrs.cache_buster},
     )
