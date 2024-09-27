@@ -30,8 +30,6 @@ def create_per_target_type_check(
         cmd = [executable]
         hidden = []
 
-        cmd.append(cmd_args("check"))
-
         # Source artifacts
         source_manifests = []
         if srcs != None:
