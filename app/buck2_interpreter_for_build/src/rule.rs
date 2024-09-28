@@ -55,6 +55,7 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -441,7 +442,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     /// })
     /// ```
     fn rule<'v>(
-        #[starlark(require = named)] r#impl: StarlarkCallable<
+        #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,
             (AnalysisContextReprLate,),
             Either<ListType<ProviderReprLate>, StarlarkPromise>,
