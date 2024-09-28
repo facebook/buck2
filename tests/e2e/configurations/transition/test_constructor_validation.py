@@ -22,5 +22,21 @@ async def test_construction_validation_good(buck: Buck) -> None:
 async def test_construction_validation_bad(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//bad:"),
-        stderr_regex="`impl` parameter for `transition` call must be a function with",
+        stderr_regex=r"must be a function matching signature `typing.Callable",
+    )
+
+
+@buck_test(inplace=False)
+async def test_construction_validation_bad_param_types(buck: Buck) -> None:
+    await expect_failure(
+        buck.targets("//bad_param_types:"),
+        stderr_regex=r"must be a function matching signature `typing.Callable",
+    )
+
+
+@buck_test(inplace=False)
+async def test_construction_validation_bad_return_type(buck: Buck) -> None:
+    await expect_failure(
+        buck.targets("//bad_return_type:"),
+        stderr_regex=r"must be a function matching signature `typing.Callable",
     )

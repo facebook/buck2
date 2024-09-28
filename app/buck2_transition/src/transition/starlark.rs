@@ -16,6 +16,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::P
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
@@ -24,7 +26,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
-use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -33,6 +34,8 @@ use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
+use starlark::typing::Ty;
+use starlark::typing::TyCallable;
 use starlark::util::ArcStr;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
@@ -52,6 +55,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
 enum TransitionError {
@@ -59,16 +63,6 @@ enum TransitionError {
     TransitionNotAssigned,
     #[error("`transition` can only be declared in .bzl files")]
     OnlyBzl,
-    #[error(
-        "`transition` implementation must be def with two parameters: `platform` and `refs`, \
-        but it is not a def"
-    )]
-    MustBeDefNotDef,
-    #[error(
-        "`impl` parameter for `transition` call must be a function with the following parameters: {}, \
-        but it is a function with a signature `{0}`",
-        _1.iter().map(|s| format!("`{}`", s)).join(", "))]
-    MustBeDefWrongSig(String, &'static [&'static str]),
     #[error("Non-unique list of attrs")]
     NonUniqueAttrs,
 }
@@ -194,6 +188,27 @@ impl TransitionValue for FrozenTransition {
     }
 }
 
+struct ParamNameAndType {
+    name: &'static str,
+    ty: fn() -> Ty,
+}
+
+const IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
+    name: "platform",
+    ty: PlatformInfo::starlark_type_repr,
+};
+const IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
+    name: "refs",
+    ty: StructRef::starlark_type_repr,
+};
+const IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
+    name: "attrs",
+    ty: StructRef::starlark_type_repr,
+};
+
+type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
+type ImplSplitReturnTy<'v> = DictType<String, PlatformInfo<'v>>;
+
 struct TransitionImplParams;
 
 impl StarlarkCallableParamSpec for TransitionImplParams {
@@ -204,25 +219,71 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
             None,
             [
                 (
-                    ArcStr::new_static("platform"),
+                    ArcStr::new_static(IMPL_PLATFORM_PARAM.name),
                     ParamIsRequired::Yes,
-                    PlatformInfo::starlark_type_repr(),
+                    (IMPL_PLATFORM_PARAM.ty)(),
                 ),
                 (
-                    ArcStr::new_static("refs"),
+                    ArcStr::new_static(IMPL_REFS_PARAM.name),
                     ParamIsRequired::Yes,
-                    StructRef::starlark_type_repr(),
+                    (IMPL_REFS_PARAM.ty)(),
                 ),
                 (
-                    ArcStr::new_static("attrs"),
+                    ArcStr::new_static(IMPL_ATTRS_PARAM.name),
                     ParamIsRequired::No,
-                    StructRef::starlark_type_repr(),
+                    (IMPL_ATTRS_PARAM.ty)(),
                 ),
             ],
             None,
         )
         .unwrap()
     }
+}
+
+// This function is not optimized, but it is called like 10 times during the heavy build.
+fn validate_transition_impl(implementation: Value, attrs: bool, split: bool) -> anyhow::Result<()> {
+    let expected_return_type = match split {
+        false => ImplSingleReturnTy::starlark_type_repr(),
+        true => ImplSplitReturnTy::starlark_type_repr(),
+    };
+
+    let ty = Ty::of_value(implementation);
+    let params: Vec<_> = [
+        (IMPL_PLATFORM_PARAM.name, (IMPL_PLATFORM_PARAM.ty)()),
+        (IMPL_REFS_PARAM.name, (IMPL_REFS_PARAM.ty)()),
+    ]
+    .into_iter()
+    .chain(match attrs {
+        true => Some((IMPL_ATTRS_PARAM.name, (IMPL_ATTRS_PARAM.ty)())),
+        false => None,
+    })
+    .collect();
+
+    let expected_sig = TyCallable::new(
+        ParamSpec::new_parts(
+            [],
+            [],
+            None,
+            params
+                .iter()
+                .map(|(name, ty)| (ArcStr::new_static(name), ParamIsRequired::Yes, ty.dupe())),
+            None,
+        )
+        .into_anyhow_result()
+        .internal_error("Must be correct signature")?,
+        expected_return_type.dupe(),
+    );
+
+    let ok = ty.check_call([], params.clone(), None, None, expected_return_type);
+
+    if !ok {
+        return Err(buck2_error!(
+            [],
+            "transition(impl=) must be a function matching signature `{expected_sig}`, got: `{ty}`"
+        ));
+    }
+
+    Ok(())
 }
 
 #[starlark_module]
@@ -233,7 +294,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
             TransitionImplParams,
-            Either<PlatformInfo, DictType<String, PlatformInfo>>,
+            Either<ImplSingleReturnTy, ImplSplitReturnTy>,
         >,
         #[starlark(require = named)] refs: UnpackDictEntries<StringValue<'v>, StringValue<'v>>,
         #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
@@ -258,26 +319,14 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             .ok_or(TransitionError::OnlyBzl)?)
         .clone();
 
-        let parameters_spec = match implementation.parameters_spec() {
-            Some(parameters_spec) => parameters_spec,
-            None => return Err(TransitionError::MustBeDefNotDef.into()),
-        };
-        let expected_params: &[&str] = if let Some(attrs) = &attrs {
+        if let Some(attrs) = &attrs {
             let attrs_set: HashSet<StringValue> = attrs.items.iter().copied().collect();
             if attrs_set.len() != attrs.items.len() {
                 return Err(TransitionError::NonUniqueAttrs.into());
             }
-            &["platform", "refs", "attrs"]
-        } else {
-            &["platform", "refs"]
         };
-        if !parameters_spec.can_fill_with_args(0, expected_params) {
-            return Err(TransitionError::MustBeDefWrongSig(
-                parameters_spec.parameters_str(),
-                expected_params,
-            )
-            .into());
-        }
+
+        validate_transition_impl(implementation, attrs.is_some(), split)?;
 
         Ok(Transition {
             id: RefCell::new(None),
