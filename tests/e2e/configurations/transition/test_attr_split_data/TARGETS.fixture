@@ -1,0 +1,31 @@
+load(":rules.bzl", "my_android_binary", "my_cxx_library")
+
+constraint_setting(
+    name = "cpu",
+)
+
+constraint_value(
+    name = "arm64",
+    constraint_setting = ":cpu",
+)
+
+platform(
+    name = "default_p",
+    constraint_values = [
+    ],
+)
+
+constraint_value(
+    name = "arm32",
+    constraint_setting = ":cpu",
+)
+
+my_cxx_library(
+    name = "code",
+)
+
+my_android_binary(
+    name = "bb",
+    native_deps = [":code"],
+    default_target_platform = ":default_p",
+)

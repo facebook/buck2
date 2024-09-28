@@ -3,18 +3,21 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 oncall("build_infra")
 
 buck2_e2e_test(
-    name = "test_access_attr.py",
+    name = "test_access_attr",
     srcs = ["test_access_attr.py"],
+    data_dir = "test_access_attr_data",
 )
 
 buck2_e2e_test(
     name = "test_attr",
     srcs = ["test_attr.py"],
+    data_dir = "test_attr_data",
 )
 
 buck2_e2e_test(
     name = "test_attr_split",
     srcs = ["test_attr_split.py"],
+    data_dir = "test_attr_split_data",
 )
 
 buck2_e2e_test(

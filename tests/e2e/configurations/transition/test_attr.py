@@ -12,11 +12,9 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_configuration_transition_attr(buck: Buck) -> None:
-    result = await buck.cquery(
-        "deps(fbcode//buck2/tests/targets/configurations/transition/attr:the-test)"
-    )
+    result = await buck.cquery("deps(root//:the-test)")
     result.check_returncode()
     # Default configuration is iphoneos and it should be transitioned to watchos
     assert ":watchos_resource" in result.stdout

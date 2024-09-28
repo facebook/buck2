@@ -12,9 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_configuration_transition_access_attr(buck: Buck) -> None:
     # Trigger assertions in transition function implementation.
-    await buck.cquery(
-        "fbcode//buck2/tests/targets/configurations/transition/access_attr:faithful"
-    )
+    await buck.cquery("root//:faithful")
