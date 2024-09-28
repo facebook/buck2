@@ -26,6 +26,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_rule_infinite_bug",
     srcs = ["test_rule_infinite_bug.py"],
+    data_dir = "test_rule_infinite_bug_data",
 )
 
 buck2_e2e_test(
