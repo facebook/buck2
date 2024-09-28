@@ -99,7 +99,7 @@ impl<'v> Display for Dict<'v> {
 #[repr(transparent)]
 pub struct Dict<'v> {
     /// The data stored by the dictionary. The keys must all be hashable values.
-    content: SmallMap<Value<'v>, Value<'v>>,
+    pub(crate) content: SmallMap<Value<'v>, Value<'v>>,
 }
 
 impl<'v> StarlarkTypeRepr for Dict<'v> {

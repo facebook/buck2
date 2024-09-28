@@ -223,9 +223,8 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         // TODO(nga): this implementation is O(N).
         //   https://github.com/bazelbuild/starlark/issues/286
 
-        let key = this.iter_hashed().next().map(|(k, _)| k);
-        match key {
-            Some(k) => Ok((*k.key(), this.remove_hashed(k).unwrap())),
+        match this.aref.content.shift_remove_index(0) {
+            Some((k, v)) => Ok((k, v)),
             None => Err(anyhow::anyhow!("Cannot .popitem() on an empty dictionary")),
         }
     }
