@@ -220,6 +220,9 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     fn popitem<'v>(this: Value<'v>) -> anyhow::Result<(Value<'v>, Value<'v>)> {
         let mut this = DictMut::from_value(this)?;
 
+        // TODO(nga): this implementation is O(N).
+        //   https://github.com/bazelbuild/starlark/issues/286
+
         let key = this.iter_hashed().next().map(|(k, _)| k);
         match key {
             Some(k) => Ok((*k.key(), this.remove_hashed(k).unwrap())),
