@@ -358,25 +358,14 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
         }
         StarFunSource::Positional { required, optional } => {
             let bind_args = x.args.iter().map(render_binding_arg).collect();
-            if optional == 0 {
-                Ok(Bindings {
-                    prepare: quote! {
-                        let __required: [_; #required] =
-                            starlark::__derive_refs::parse_args::parse_positional_required(
-                                &parameters, eval.heap())?;
-                    },
-                    bindings: bind_args,
-                })
-            } else {
-                Ok(Bindings {
-                    prepare: quote! {
-                        let (__required, __optional): ([_; #required], [_; #optional]) =
-                            starlark::__derive_refs::parse_args::parse_positional(
-                                &parameters, eval.heap())?;
-                    },
-                    bindings: bind_args,
-                })
-            }
+            Ok(Bindings {
+                prepare: quote! {
+                    let (__required, __optional): ([_; #required], [_; #optional]) =
+                        starlark::__derive_refs::parse_args::parse_positional(
+                            &parameters, eval.heap())?;
+                },
+                bindings: bind_args,
+            })
         }
     }
 }

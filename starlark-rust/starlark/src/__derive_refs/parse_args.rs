@@ -35,16 +35,6 @@ pub fn parse_signature<'v, const N: usize>(
     parser.collect_into(args, heap)
 }
 
-/// Parse positional-only arguments, all required.
-#[inline(always)]
-pub fn parse_positional_required<'v, const N: usize>(
-    args: &Arguments<'v, '_>,
-    heap: &'v Heap,
-) -> crate::Result<[Value<'v>; N]> {
-    args.no_named_args()?;
-    args.positional(heap)
-}
-
 /// Parse positional-only arguments, required and optional.
 #[inline(always)]
 pub fn parse_positional<'v, const R: usize, const O: usize>(
