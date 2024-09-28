@@ -21,6 +21,7 @@ use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
+use buck2_interpreter::late_binding_ty::TransitionReprLate;
 use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
 use dupe::Dupe;
@@ -341,4 +342,5 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
 
 pub(crate) fn init_register_transition() {
     REGISTER_BUCK2_TRANSITION_GLOBALS.init(register_transition_function);
+    TransitionReprLate::init(Transition::starlark_type_repr());
 }

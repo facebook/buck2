@@ -33,3 +33,4 @@ macro_rules! late_binding_ty {
 
 late_binding_ty!(AnalysisContextReprLate, ANALYSIS_CONTEXT_REPR_LATE);
 late_binding_ty!(ProviderReprLate, PROVIDER_REPR_LATE);
+late_binding_ty!(TransitionReprLate, TRANSITION_REPR_LATE);

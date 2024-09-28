@@ -18,6 +18,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
+use buck2_interpreter::late_binding_ty::TransitionReprLate;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
@@ -64,6 +65,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueOfUnchecked;
 use starlark_map::small_map::SmallMap;
 
 use crate::attrs::starlark_attribute::StarlarkAttribute;
@@ -447,7 +449,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             ListType<ProviderReprLate>,
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
-        #[starlark(require = named)] cfg: Option<Value>,
+        #[starlark(require = named)] cfg: Option<ValueOfUnchecked<'v, TransitionReprLate>>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
@@ -458,7 +460,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         RuleCallable::new(
             StarlarkCallable::unchecked_new(r#impl.0),
             attrs,
-            cfg,
+            cfg.map(|v| v.get()),
             doc,
             is_configuration_rule,
             is_toolchain_rule,
