@@ -40,11 +40,14 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
+use dupe::IterDupedExt;
+use dupe::OptionDupedExt;
 use either::Either;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::Equivalent;
+use starlark_syntax::value_error;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
@@ -64,7 +67,11 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::sealed::Sealed;
+use crate::typing::ParamIsRequired;
+use crate::typing::ParamSpec;
 use crate::typing::Ty;
+use crate::typing::TyCallable;
+use crate::util::ArcStr;
 use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
@@ -694,6 +701,78 @@ impl<'v> Value<'v> {
             ..ArgumentsFull::default()
         });
         self.invoke(&params, eval)
+    }
+
+    fn check_callable(self) -> crate::Result<()> {
+        if !self.vtable().starlark_value.HAS_invoke {
+            return Err(value_error!(
+                "Value is not callable: {}",
+                self.to_string_for_type_error()
+            ));
+        }
+        Ok(())
+    }
+
+    /// Check this value can be "called" with given parameter types, and provided return type.
+    ///
+    /// This check is done optimistically: when it is not known
+    /// whether the value is compatible with given arguments, return `Ok(())`.
+    ///
+    /// This operation is expensive.
+    pub fn check_callable_with<'a>(
+        self,
+        pos: impl IntoIterator<Item = &'a Ty>,
+        named: impl IntoIterator<Item = (&'a str, &'a Ty)>,
+        args: Option<&Ty>,
+        kwargs: Option<&Ty>,
+        ret: &Ty,
+    ) -> crate::Result<()> {
+        let pos = Vec::from_iter(pos);
+        let named = Vec::from_iter(named);
+        self.check_callable_with_impl(&pos, &named, args, kwargs, ret)
+    }
+
+    fn check_callable_with_impl<'a>(
+        self,
+        pos: &[&Ty],
+        named: &[(&'a str, &Ty)],
+        args: Option<&Ty>,
+        kwargs: Option<&Ty>,
+        ret: &Ty,
+    ) -> crate::Result<()> {
+        // First, provide a good error message when the value is not callable
+        // without invoking a typechecker.
+        self.check_callable()?;
+
+        let sig = TyCallable::new(
+            ParamSpec::new_parts(
+                pos.iter().map(|ty| (ParamIsRequired::Yes, (*ty).dupe())),
+                [],
+                args.duped(),
+                named
+                    .iter()
+                    .map(|(n, ty)| (ArcStr::from(*n), ParamIsRequired::Yes, (*ty).dupe())),
+                kwargs.duped(),
+            )?,
+            ret.dupe(),
+        );
+
+        let ty = Ty::of_value(self);
+        if !ty.check_call(
+            pos.iter().copied().duped(),
+            named.iter().map(|(n, ty)| (*n, (*ty).dupe())),
+            args.duped(),
+            kwargs.duped(),
+            ret.dupe(),
+        ) {
+            return Err(value_error!(
+                "Value `{}` is not compatible with the signature `{}`",
+                self.to_string_for_type_error(),
+                sig
+            ));
+        }
+
+        Ok(())
     }
 
     /// `type(x)`.
@@ -1395,6 +1474,8 @@ mod tests {
     use num_bigint::BigInt;
 
     use crate::assert;
+    use crate::environment::Globals;
+    use crate::typing::Ty;
     use crate::values::int::pointer_i32::PointerI32;
     use crate::values::list::AllocList;
     use crate::values::none::NoneType;
@@ -1472,6 +1553,47 @@ mod tests {
         assert_eq!(
             "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
             list.to_string_for_type_error(),
+        );
+    }
+
+    #[test]
+    fn test_check_callable_with_none() {
+        let e = Value::new_none()
+            .check_callable_with([], [], None, None, &Ty::int())
+            .unwrap_err();
+        assert!(
+            e.to_string().contains("Value is not callable: NoneType"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn test_check_callable_with_good_function() {
+        let g = Globals::standard();
+        let f = g.get("bool").unwrap();
+
+        // Positional.
+        f.check_callable_with([&Ty::any_list()], [], None, None, &Ty::bool())
+            .unwrap();
+
+        // Named.
+        let e = f
+            .check_callable_with([], [("x", &Ty::any_list())], None, None, &Ty::bool())
+            .unwrap_err();
+        assert!(
+            e.to_string()
+                .contains("Value `function (repr: bool)` is not compatible with"),
+            "{e}"
+        );
+
+        // Return type.
+        let e = f
+            .check_callable_with([&Ty::any_list()], [], None, None, &Ty::string())
+            .unwrap_err();
+        assert!(
+            e.to_string()
+                .contains("Value `function (repr: bool)` is not compatible with"),
+            "{e}"
         );
     }
 }
