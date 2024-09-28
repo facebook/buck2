@@ -53,6 +53,7 @@ use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
 use crate::plugins::plugin_kind_from_value;
 use crate::plugins::AllPlugins;
+use crate::plugins::PluginKindArg;
 
 const OPTION_NONE_EXPLANATION: &str = "`None` as an attribute value always picks the default. For `attrs.option`, if the default isn't `None`, there is no way to express `None`.";
 
@@ -323,13 +324,12 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     fn plugin_dep<'v>(
         #[starlark(this)] _this: Value<'v>,
-        #[starlark(require = named)] kind: Value<'v>,
+        #[starlark(require = named)] kind: PluginKindArg,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
-        let kind = plugin_kind_from_value(kind)?;
-        Attribute::attr(eval, default, doc, AttrType::plugin_dep(kind))
+        Attribute::attr(eval, default, doc, AttrType::plugin_dep(kind.plugin_kind))
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
