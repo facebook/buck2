@@ -170,8 +170,7 @@ completion_test(
 completion_test(
     name="test_colon_only_arg",
     input="build :",
-    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
-    expected=[],
+    expected=[":target1a", ":target1b"],
     cwd="dir1",
     shells=["zsh"],
 )

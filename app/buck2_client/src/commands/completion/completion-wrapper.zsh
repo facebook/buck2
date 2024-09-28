@@ -67,9 +67,15 @@ __buck2_fix()
     local prev="${words[CURRENT-1]}"
     local pprev="${words[CURRENT-2]}"
     if [[ $cur = : ]]; then
-        cur="$prev:"
+        if [[ "${BUFFER:0:$CURRENT}" =~ .*$prev: ]]; then
+            cur="$prev:"
+        fi
     elif [[ $prev = : ]]; then
-        cur="$pprev:$cur"
+        if [[ "${BUFFER:0:$CURRENT}" =~ .*$prev: ]]; then
+            cur="$pprev:$cur"
+        else
+            cur=":$cur"
+        fi
     fi
 
     if __buck2_takes_target "$(__buck2_subcommand)"; then
