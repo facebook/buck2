@@ -21,6 +21,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_constructor_validation",
+    srcs = ["test_constructor_validation.py"],
+    data_dir = "test_constructor_validation_data",
+)
+
+buck2_e2e_test(
     name = "test_rule",
     srcs = ["test_rule.py"],
     data_dir = "test_rule_data",
