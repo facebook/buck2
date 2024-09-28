@@ -145,12 +145,14 @@ impl StarFun {
     }
 
     /// Non-special params.
-    fn binding_params_arg(&self) -> (Vec<syn::FnArg>, Vec<syn::Type>, TokenStream, Vec<syn::Expr>) {
-        let Bindings { prepare, bindings } = render_binding(self);
+    fn binding_params_arg(
+        &self,
+    ) -> syn::Result<(Vec<syn::FnArg>, Vec<syn::Type>, TokenStream, Vec<syn::Expr>)> {
+        let Bindings { prepare, bindings } = render_binding(self)?;
         let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
         let binding_param_types: Vec<_> = bindings.iter().map(|b| b.render_param_type()).collect();
         let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
-        (binding_params, binding_param_types, prepare, binding_args)
+        Ok((binding_params, binding_param_types, prepare, binding_args))
     }
 
     fn trait_name(&self) -> syn::Path {
@@ -245,7 +247,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     let (this_param, this_param_type, this_arg) = x.this_param_arg();
     let (eval_param, eval_param_type, eval_arg) = x.eval_param_arg();
     let (heap_param, heap_param_type, heap_arg) = x.heap_param_arg();
-    let (binding_params, binding_param_types, prepare, binding_args) = x.binding_params_arg();
+    let (binding_params, binding_param_types, prepare, binding_args) = x.binding_params_arg()?;
 
     let trait_name = x.trait_name();
     let (struct_fields, struct_fields_init) = x.struct_fields()?;
@@ -332,63 +334,73 @@ struct Bindings {
 
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
-fn render_binding(x: &StarFun) -> Bindings {
+fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
     match x.source {
         StarFunSource::Arguments => {
-            let arg = &x.args[0];
-            Bindings {
+            let [arg] = x.args.as_slice() else {
+                return Err(syn::Error::new(
+                    x.span(),
+                    "&Arguments function can have only &Arguments parsed parameter",
+                ));
+            };
+            Ok(Bindings {
                 prepare: TokenStream::new(),
                 bindings: vec![BindingArg {
-                    arg: arg.clone(),
+                    arg: (*arg).clone(),
                     expr: syn::parse_quote! { parameters },
                 }],
-            }
+            })
         }
         StarFunSource::ThisArguments => {
-            let arg = &x.args[1];
-            let this = render_binding_arg(&x.args[0]);
-            Bindings {
+            let [this, args] = x.args.as_slice() else {
+                return Err(syn::Error::new(
+                    x.span(),
+                    "&Arguments method can have only &Arguments parsed parameter",
+                ));
+            };
+            let this = render_binding_arg(this);
+            Ok(Bindings {
                 prepare: TokenStream::new(),
                 bindings: vec![
                     this,
                     BindingArg {
-                        arg: arg.clone(),
+                        arg: args.clone(),
                         expr: syn::parse_quote! { parameters },
                     },
                 ],
-            }
+            })
         }
         StarFunSource::Signature { count } => {
             let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
-            Bindings {
+            Ok(Bindings {
                 prepare: quote! {
                     let __args: [_; #count] =
                         starlark::__derive_refs::parse_args::parse_signature(
                             &self.signature, parameters, eval.heap())?;
                 },
                 bindings: bind_args,
-            }
+            })
         }
         StarFunSource::Positional { required, optional } => {
             let bind_args = x.args.iter().map(render_binding_arg).collect();
             if optional == 0 {
-                Bindings {
+                Ok(Bindings {
                     prepare: quote! {
                         let __required: [_; #required] =
                             starlark::__derive_refs::parse_args::parse_positional_required(
                                 &parameters, eval.heap())?;
                     },
                     bindings: bind_args,
-                }
+                })
             } else {
-                Bindings {
+                Ok(Bindings {
                     prepare: quote! {
                         let (__required, __optional): ([_; #required], [_; #optional]) =
                             starlark::__derive_refs::parse_args::parse_positional(
                                 &parameters, eval.heap())?;
                     },
                     bindings: bind_args,
-                }
+                })
             }
         }
     }
