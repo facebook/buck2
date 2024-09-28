@@ -481,7 +481,7 @@ impl Ty {
 
     /// Check if the value of this type can be called with given arguments and expected return type.
     #[must_use]
-    pub fn check_call<'a>(
+    pub(crate) fn check_call<'a>(
         &self,
         pos: impl IntoIterator<Item = Ty>,
         named: impl IntoIterator<Item = (&'a str, Ty)>,
