@@ -19,6 +19,7 @@ use buck2_core::plugins::PluginKind;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
+use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
@@ -31,6 +32,7 @@ use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
@@ -442,7 +444,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
             (AnalysisContextReprLate,),
-            ListType<ProviderReprLate>,
+            Either<ListType<ProviderReprLate>, StarlarkPromise>,
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<ValueOfUnchecked<'v, TransitionReprLate>>,
