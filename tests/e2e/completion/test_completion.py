@@ -81,7 +81,19 @@ def completion_test(
             )
             actual = actual.splitlines()
             if isinstance(expected, list):
-                assert actual == expected, "testing shell: " + shell
+                expected_ = expected
+                if shell == "bash":
+                    # Bash treats `:` as a separator for the purpose of
+                    # completions as long as it's not at the end, so adjust for
+                    # that
+                    expected_ = []
+                    for i in expected:
+                        if i.endswith(":"):
+                            before = i[:-1]
+                            expected_.append(before.split(":")[-1] + ":")
+                        else:
+                            expected_.append(i.split(":")[-1])
+                assert actual == expected_, "testing shell: " + shell
             else:
                 assert expected(actual), "testing shell: " + shell
 
@@ -127,28 +139,10 @@ completion_test(
     expected=["cell2a//", "cell2a//:", "cell3//", "cell3//:"],
 )
 
-# Bash completion treats `:` as a special character and completes the parts
-# before and after the colon separately
-completion_test(
-    name="test_completes_rule",
-    input="build dir1:target1",
-    expected=["target1a", "target1b"],
-    shells=["bash"],
-)
-
 completion_test(
     name="test_completes_rule",
     input="build dir1:target1",
     expected=["dir1:target1a", "dir1:target1b"],
-    shells=["fish", "zsh"],
-)
-
-completion_test(
-    name="test_starts_with_colon",
-    input="build :tar",
-    expected=["target1a", "target1b"],
-    cwd="dir1",
-    shells=["bash"],
 )
 
 completion_test(
@@ -156,15 +150,6 @@ completion_test(
     input="build :tar",
     expected=[":target1a", ":target1b"],
     cwd="dir1",
-    shells=["fish", "zsh"],
-)
-
-completion_test(
-    name="test_colon_only_arg",
-    input="build :",
-    expected=["target1a", "target1b"],
-    cwd="dir1",
-    shells=["bash"],
 )
 
 completion_test(
@@ -172,15 +157,6 @@ completion_test(
     input="build :",
     expected=[":target1a", ":target1b"],
     cwd="dir1",
-    shells=["fish"],
-)
-
-completion_test(
-    name="test_colon_only_arg",
-    input="build :",
-    expected=[":target1a", ":target1b"],
-    cwd="dir1",
-    shells=["zsh"],
 )
 
 completion_test(
