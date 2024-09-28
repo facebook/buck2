@@ -265,12 +265,14 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     ) -> starlark::Result<Value<'v>> {
         let mut this = DictMut::from_value(this)?;
         let key = key.get_hashed()?;
-        if let Some(r) = this.get_hashed(key) {
-            return Ok(r);
+        match this.content.entry_hashed(key) {
+            starlark_map::small_map::Entry::Occupied(e) => Ok(*e.get()),
+            starlark_map::small_map::Entry::Vacant(e) => {
+                let default = default.unwrap_or_else(Value::new_none);
+                e.insert(default);
+                Ok(default)
+            }
         }
-        let def = default.unwrap_or_else(Value::new_none);
-        this.insert_hashed(key, def);
-        Ok(def)
     }
 
     /// [dict.update](
