@@ -61,3 +61,18 @@ pub(crate) fn ident_string(x: &Ident) -> String {
         None => x,
     }
 }
+
+pub(crate) fn pat_type(
+    attrs: &[Attribute],
+    mutability: Option<Token![mut]>,
+    ident: &Ident,
+    ty: &Type,
+) -> syn::PatType {
+    let mut pat_type: syn::PatType = syn::parse_quote! {
+        #mutability #ident: #ty
+    };
+    // For some reason `parse_quote!` doesn't want to parse attributes:
+    // https://github.com/dtolnay/syn/blob/732e6e39406538aebe34ed5f5803113a48c28602/src/pat.rs#L389
+    pat_type.attrs = attrs.to_vec();
+    pat_type
+}

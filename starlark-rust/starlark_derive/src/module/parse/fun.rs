@@ -47,6 +47,7 @@ use crate::module::typ::StarAttr;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::typ::StarStmt;
+use crate::module::typ::ThisParam;
 use crate::util::GenericsUtil;
 
 #[derive(Default)]
@@ -296,6 +297,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
 
     let return_type = parse_fn_output(&func.sig.output, func.sig.span(), has_v)?;
 
+    let mut this = None;
     let mut eval = None;
     let mut heap = None;
 
@@ -323,6 +325,19 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
                 }
                 args.push(arg);
             }
+            StarArgOrSpecial::This(this_param) => {
+                let expecting_this = module_kind == ModuleKind::Methods && i == 0;
+                if !expecting_this {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter can be only first",
+                    ));
+                }
+                if this.is_some() {
+                    return Err(syn::Error::new(span, "Repeated `this` parameter"));
+                }
+                this = Some(this_param);
+            }
         }
     }
 
@@ -341,25 +356,18 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             ));
         }
 
-        if args.len() != 1 {
-            return Err(syn::Error::new(
-                sig_span,
-                "Attribute function must have single parameter",
-            ));
-        }
-        let arg = args.pop().unwrap();
-        if arg.pass_style != StarArgPassStyle::This {
+        if !args.is_empty() {
             return Err(syn::Error::new(
                 sig_span,
                 "Attribute function must have `this` as the only parameter",
             ));
         }
-        if arg.default.is_some() {
+        let Some(this) = this else {
             return Err(syn::Error::new(
                 sig_span,
-                "Attribute function `this` parameter have no default value",
+                "Attribute function must have `this` as the only parameter",
             ));
-        }
+        };
         if starlark_ty_custom_function.is_some() {
             return Err(syn::Error::new(
                 sig_span,
@@ -368,7 +376,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         }
         Ok(StarStmt::Attr(StarAttr {
             name: func.sig.ident,
-            arg: arg.ty,
+            this,
             heap,
             attrs,
             return_type,
@@ -377,11 +385,11 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             docstring,
         }))
     } else {
-        let is_method = !args.is_empty() && args[0].pass_style == StarArgPassStyle::This;
-        if is_method != (module_kind == ModuleKind::Methods) {
+        let is_method = module_kind == ModuleKind::Methods;
+        if is_method && this.is_none() {
             return Err(syn::Error::new(
                 sig_span,
-                "Methods can only be defined in methods module",
+                "Methods must have `this` as the first parameter",
             ));
         }
 
@@ -398,6 +406,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             name: func.sig.ident,
             as_type,
             attrs,
+            this,
             args,
             heap,
             eval,
@@ -418,37 +427,19 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
     if args.len() == 1 && args[0].pass_style == StarArgPassStyle::Arguments {
         args[0].source = StarArgSource::Parameters;
         Ok(StarFunSource::Arguments)
-    } else if args.len() == 2
-        && args[0].pass_style == StarArgPassStyle::This
-        && args[1].pass_style == StarArgPassStyle::Arguments
-    {
-        args[0].source = StarArgSource::This;
-        args[1].source = StarArgSource::Parameters;
-        Ok(StarFunSource::ThisArguments)
     } else {
-        let use_arguments = args
-            .iter()
-            .filter(|x| x.pass_style != StarArgPassStyle::This)
-            .any(|x| x.requires_signature());
+        let use_arguments = args.iter().any(|x| x.requires_signature());
         if use_arguments {
             let mut count = 0;
             for x in args.iter_mut() {
-                if x.pass_style == StarArgPassStyle::This {
-                    x.source = StarArgSource::This;
-                } else {
-                    x.source = StarArgSource::Argument(count);
-                    count += 1;
-                }
+                x.source = StarArgSource::Argument(count);
+                count += 1;
             }
             Ok(StarFunSource::Signature { count })
         } else {
             let mut required = 0;
             let mut optional = 0;
             for x in args.iter_mut() {
-                if x.pass_style == StarArgPassStyle::This {
-                    x.source = StarArgSource::This;
-                    continue;
-                }
                 if optional == 0 && x.default.is_none() && !x.is_option() {
                     x.source = StarArgSource::Required(required);
                     required += 1;
@@ -546,6 +537,9 @@ fn parse_fn_generics(generics: &Generics) -> syn::Result<bool> {
 
 #[allow(clippy::large_enum_variant)]
 enum StarArgOrSpecial {
+    /// Receiver.
+    This(ThisParam),
+    /// Function parameters.
     StarArg(StarArg),
     /// `&mut Evaluator`.
     Eval(SpecialParam),
@@ -588,6 +582,46 @@ fn is_heap(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option
     } else {
         Ok(None)
     }
+}
+
+fn parse_this_param(
+    span: Span,
+    mutable: Option<Token![mut]>,
+    ident: &Ident,
+    ty: &syn::Type,
+    attrs: FnParamAttrs,
+) -> syn::Result<ThisParam> {
+    let FnParamAttrs {
+        default,
+        this,
+        pos_only,
+        named_only,
+        args,
+        kwargs,
+        unused_attrs,
+    } = attrs;
+
+    if !this && ident != "this" {
+        return Err(syn::Error::new(
+            span,
+            "Receiver parameter must be named `this` \
+                            or have `#[starlark(this)]` annotation",
+        ));
+    }
+
+    if default.is_some() || pos_only || named_only || args || kwargs {
+        return Err(syn::Error::new(
+            span,
+            "Attributes are not compatible with receiver parameter",
+        ));
+    }
+
+    Ok(ThisParam {
+        mutable,
+        ident: ident.clone(),
+        ty: ty.clone(),
+        attrs: unused_attrs,
+    })
 }
 
 #[allow(clippy::collapsible_else_if)]
@@ -648,13 +682,13 @@ fn parse_arg(
             }
 
             if this {
-                if !param_attrs.this && ident.ident != "this" {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter must be named `this` \
-                            or have `#[starlark(this)]` annotation",
-                    ));
-                }
+                return Ok(StarArgOrSpecial::This(parse_this_param(
+                    span,
+                    ident.mutability,
+                    &ident.ident,
+                    &ty,
+                    param_attrs,
+                )?));
             } else {
                 if param_attrs.this {
                     return Err(syn::Error::new(
@@ -667,7 +701,6 @@ fn parse_arg(
             let arguments = is_ref_something(&ty, "Arguments");
 
             let pass_style = match (
-                this,
                 param_attrs.args,
                 param_attrs.kwargs,
                 seen_star_args,
@@ -675,33 +708,32 @@ fn parse_arg(
                 param_attrs.named_only,
                 arguments,
             ) {
-                (true, _, _, _, _, _, false) => StarArgPassStyle::This,
-                (false, true, _, _, _, _, false) => StarArgPassStyle::Args,
-                (false, _, true, _, _, _, false) => StarArgPassStyle::Kwargs,
-                (false, _, _, true, true, _, false) => {
+                (true, _, _, _, _, false) => StarArgPassStyle::Args,
+                (_, true, _, _, _, false) => StarArgPassStyle::Kwargs,
+                (_, _, true, true, _, false) => {
                     return Err(syn::Error::new(
                         span,
                         "Positional-only arguments cannot follow *args",
                     ));
                 }
-                (false, false, false, true, false, _, false) => StarArgPassStyle::NamedOnly,
+                (false, false, true, false, _, false) => StarArgPassStyle::NamedOnly,
                 // TODO(nga): currently, without `#[starlark(require = named)]`
                 //   and without `#[starlark(require = pos)]`, parameter is positional-or-named.
                 //   We want to change that: either make it positional by default,
                 //   or require explicit `#[starlark(pos, named)]`.
                 //   Discussion there:
                 //   https://fb.workplace.com/groups/1267349253953900/posts/1299495914072567
-                (false, false, false, false, false, false, false) => StarArgPassStyle::Default,
-                (false, false, false, false, true, false, false) => StarArgPassStyle::PosOnly,
-                (false, false, false, false, false, true, false) => StarArgPassStyle::NamedOnly,
-                (false, false, false, false, true, true, false) => {
+                (false, false, false, false, false, false) => StarArgPassStyle::Default,
+                (false, false, false, true, false, false) => StarArgPassStyle::PosOnly,
+                (false, false, false, false, true, false) => StarArgPassStyle::NamedOnly,
+                (false, false, false, true, true, false) => {
                     return Err(syn::Error::new(
                         span,
                         "Function parameter cannot be both positional-only and named-only",
                     ));
                 }
-                (false, false, false, _, false, false, true) => StarArgPassStyle::Arguments,
-                (_, _, _, _, _, _, true) => {
+                (false, false, _, false, false, true) => StarArgPassStyle::Arguments,
+                (_, _, _, _, _, true) => {
                     return Err(syn::Error::new(
                         span,
                         "`&Arguments` parameter type is incompatible with annotations",

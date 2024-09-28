@@ -48,9 +48,6 @@ impl<'a> ParamSpec<'a> {
         let mut last_param_style = CurrentParamStyle::PosOnly;
         for arg in star_args {
             match arg.pass_style {
-                StarArgPassStyle::This => {
-                    continue;
-                }
                 StarArgPassStyle::Args => {
                     if last_param_style >= CurrentParamStyle::NamedOnly {
                         return Err(syn::Error::new(

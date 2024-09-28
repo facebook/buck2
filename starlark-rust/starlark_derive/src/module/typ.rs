@@ -27,6 +27,7 @@ use syn::Visibility;
 
 use crate::module::parse::ModuleKind;
 use crate::module::util::is_type_name;
+use crate::module::util::pat_type;
 use crate::module::util::unpack_option;
 
 #[derive(Debug)]
@@ -68,6 +69,7 @@ pub(crate) struct StarFun {
     pub name: Ident,
     pub as_type: Option<syn::Path>,
     pub attrs: Vec<Attribute>,
+    pub this: Option<ThisParam>,
     pub args: Vec<StarArg>,
     /// Has `&Heap` parameter.
     pub heap: Option<SpecialParam>,
@@ -86,13 +88,7 @@ pub(crate) struct StarFun {
 impl StarFun {
     /// Is this function a method? (I. e. has `this` as first parameter).
     pub(crate) fn is_method(&self) -> bool {
-        match self.args.first() {
-            Some(first) => {
-                assert!(first.source != StarArgSource::Unknown, "not yet resolved");
-                first.source == StarArgSource::This
-            }
-            None => false,
-        }
+        self.this.is_some()
     }
 
     pub(crate) fn is_arguments(&self) -> bool {
@@ -112,7 +108,7 @@ impl StarFun {
 #[derive(Debug)]
 pub(crate) struct StarAttr {
     pub name: Ident,
-    pub arg: Type,
+    pub this: ThisParam,
     /// Has `&Heap` parameter.
     pub heap: Option<SpecialParam>,
     pub attrs: Vec<Attribute>,
@@ -125,8 +121,6 @@ pub(crate) struct StarAttr {
 
 #[derive(Debug, PartialEq, Copy, Clone, Dupe)]
 pub(crate) enum StarArgPassStyle {
-    /// Receiver.
-    This,
     /// Parameter can be filled only positionally.
     PosOnly,
     /// Parameter can filled both positionally and by name by default,
@@ -140,6 +134,30 @@ pub(crate) enum StarArgPassStyle {
     Kwargs,
     /// `&Arguments`.
     Arguments,
+}
+
+/// Method `this` parameter, always first.
+#[derive(Debug, Clone)]
+pub(crate) struct ThisParam {
+    pub(crate) mutable: Option<syn::Token![mut]>,
+    pub(crate) ident: syn::Ident,
+    pub(crate) ty: syn::Type,
+    pub(crate) attrs: Vec<Attribute>,
+}
+
+impl ThisParam {
+    pub(crate) fn render_prepare(&self, target: &syn::Ident, value: &syn::Ident) -> syn::Stmt {
+        let ty = &self.ty;
+        syn::parse_quote! {
+            let #target: #ty = starlark::__derive_refs::parse_args::check_this(#value)?;
+        }
+    }
+
+    // TODO(nga): this is not used for `#[starlark(attribute)]`,
+    //   so non-starlark attributes are ignored.
+    pub(crate) fn reconstruct_param(&self) -> syn::PatType {
+        pat_type(&self.attrs, self.mutable, &self.ident, &self.ty)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -157,7 +175,6 @@ pub(crate) struct StarArg {
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StarArgSource {
     Unknown,
-    This,
     Parameters,
     Argument(usize),
     Required(usize),
@@ -168,8 +185,6 @@ pub(crate) enum StarArgSource {
 pub(crate) enum StarFunSource {
     /// Function signature is single `Arguments` parameter.
     Arguments,
-    /// Function signature is `this` parameter followed by `Arguments` parameter.
-    ThisArguments,
     /// Normal function which uses a signature and parameters parser.
     Signature { count: usize },
     /// Fast-path function of some required parameters, followed by some optional parameters.

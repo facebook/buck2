@@ -87,7 +87,7 @@ fn render_const(x: StarConst) -> syn::Stmt {
 fn render_attr(x: StarAttr) -> syn::Stmt {
     let StarAttr {
         name,
-        arg,
+        this,
         heap,
         attrs,
         return_type,
@@ -108,17 +108,21 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         None
     };
 
+    let this_value: syn::Ident = syn::parse_quote! { s_this_value };
+
+    let unpack = this.render_prepare(&this.ident, &this_value);
+
     syn::parse_quote! {
         {
             #( #attrs )*
             #[allow(non_snake_case)] // Starlark doesn't have this convention
             fn #name_inner<'v>(
-                this: starlark::values::Value<'v>,
+                #this_value: starlark::values::Value<'v>,
                 #[allow(unused_variables)]
                 __heap: &'v starlark::values::Heap,
             ) -> #return_type {
                 #[allow(unused_variables)]
-                let this: #arg = starlark::values::UnpackValue::unpack_named_param(this, "this")?;
+                #unpack
                 #let_heap
                 #body
             }

@@ -30,11 +30,11 @@ use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
-use crate::module::typ::StarArgPassStyle;
 use crate::module::typ::StarArgSource;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::util::ident_string;
+use crate::module::util::pat_type;
 
 impl StarFun {
     fn ty_custom_expr(&self) -> syn::Expr {
@@ -110,14 +110,28 @@ impl StarFun {
     }
 
     /// `this` param if needed and call argument.
-    fn this_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
-        if self.is_method() {
-            (
-                Some(syn::parse_quote! { __this: starlark::values::Value<'v> }),
-                Some(quote! { __this, }),
-            )
-        } else {
-            (None, None)
+    fn this_param_arg(
+        &self,
+    ) -> (
+        // Outer function parameter.
+        Option<syn::FnArg>,
+        // Inner function parameter.
+        Option<syn::PatType>,
+        Option<syn::Stmt>,
+        Option<TokenStream>,
+    ) {
+        match &self.this {
+            Some(this) => {
+                let outer_param_name: syn::Ident = syn::parse_quote! { s_this_value };
+                let local_var: syn::Ident = syn::parse_quote! { s_this_typed };
+                (
+                    Some(syn::parse_quote! { #outer_param_name: starlark::values::Value<'v> }),
+                    Some(this.reconstruct_param()),
+                    Some(this.render_prepare(&local_var, &outer_param_name)),
+                    Some(quote! { #local_var, }),
+                )
+            }
+            None => (None, None, None, None),
         }
     }
 
@@ -218,7 +232,7 @@ impl StarFun {
 }
 
 pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
-    let (this_param, this_arg) = x.this_param_arg();
+    let (this_outer_param, this_inner_param, this_prepare, this_arg) = x.this_param_arg();
     let (eval_param, eval_arg) = x.eval_param_arg();
     let (heap_param, heap_arg) = x.heap_param_arg();
     let (binding_params, prepare, binding_args) = x.binding_params_arg()?;
@@ -238,7 +252,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     } = x;
 
     let invoke_params: Vec<syn::PatType> = iter::empty()
-        .chain(this_param.clone())
+        .chain(this_inner_param)
         .chain(binding_params)
         .chain(eval_param)
         .chain(heap_param)
@@ -246,7 +260,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
 
     let param_types: Vec<_> = invoke_params.iter().map(|p| &p.ty).collect();
 
-    let this_param = this_param.into_iter();
+    let this_outer_param = this_outer_param.into_iter();
 
     Ok(syn::parse_quote! {
         {
@@ -288,9 +302,10 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 fn invoke<'v>(
                     &self,
                     eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
-                    #(#this_param,)*
+                    #(#this_outer_param,)*
                     parameters: &starlark::eval::Arguments<'v, '_>,
                 ) -> starlark::Result<starlark::values::Value<'v>> {
+                    #this_prepare
                     #prepare
                     match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
                         Ok(v) => Ok(eval.heap().alloc(v)),
@@ -328,25 +343,6 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                     arg: (*arg).clone(),
                     expr: syn::parse_quote! { parameters },
                 }],
-            })
-        }
-        StarFunSource::ThisArguments => {
-            let [this, args] = x.args.as_slice() else {
-                return Err(syn::Error::new(
-                    x.span(),
-                    "&Arguments method can have only &Arguments parsed parameter",
-                ));
-            };
-            let this = render_binding_arg(this);
-            Ok(Bindings {
-                prepare: TokenStream::new(),
-                bindings: vec![
-                    this,
-                    BindingArg {
-                        arg: args.clone(),
-                        expr: syn::parse_quote! { parameters },
-                    },
-                ],
             })
         }
         StarFunSource::Signature { count } => {
@@ -391,21 +387,13 @@ struct BindingArg {
 }
 
 impl BindingArg {
-    fn render_param_type(&self) -> syn::Type {
-        self.arg.ty.clone()
-    }
-
     fn render_param(&self) -> syn::PatType {
-        let mutability = &self.arg.mutable;
-        let name = &self.arg.name;
-        let ty = self.render_param_type();
-        let mut param: syn::PatType = syn::parse_quote! {
-            #mutability #name: #ty
-        };
-        // For some reason `parse_quote!` doesn't want to parse attributes:
-        // https://github.com/dtolnay/syn/blob/732e6e39406538aebe34ed5f5803113a48c28602/src/pat.rs#L389
-        param.attrs = self.arg.attrs.clone();
-        param
+        pat_type(
+            &self.arg.attrs,
+            self.arg.mutable,
+            &self.arg.name,
+            &self.arg.ty,
+        )
     }
 
     fn render_arg(&self) -> syn::Expr {
@@ -419,16 +407,13 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
     let name_str = ident_string(name);
 
     let source = match arg.source {
-        StarArgSource::This => quote! { __this },
         StarArgSource::Argument(i) => quote! { __args[#i] },
         StarArgSource::Required(i) => quote! {  Some(__required[#i])},
         StarArgSource::Optional(i) => quote! { __optional[#i] },
         ref s => unreachable!("unknown source: {:?}", s),
     };
 
-    let next: syn::Expr = if arg.pass_style == StarArgPassStyle::This {
-        syn::parse_quote! { starlark::__derive_refs::parse_args::check_this(#source)? }
-    } else {
+    let next: syn::Expr = {
         match (arg.is_option(), arg.is_value(), &arg.default) {
             (true, _, None) => {
                 syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
