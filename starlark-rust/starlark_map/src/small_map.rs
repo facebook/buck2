@@ -558,6 +558,36 @@ impl<K, V> SmallMap<K, V> {
         }
     }
 
+    /// Remove the entry by index. This is *O(N)* operation.
+    pub fn shift_remove_index_hashed(&mut self, i: usize) -> Option<(Hashed<K>, V)> {
+        if i >= self.len() {
+            return None;
+        }
+        if let Some(index) = &mut self.index {
+            let mut removed = false;
+            index.retain(|j| {
+                if *j == i {
+                    debug_assert!(!removed);
+                    removed = true;
+                    false
+                } else if *j > i {
+                    *j -= 1;
+                    true
+                } else {
+                    true
+                }
+            });
+            debug_assert!(removed);
+        }
+        Some(self.entries.remove(i))
+    }
+
+    /// Remove the entry by index. This is *O(N)* operation.
+    pub fn shift_remove_index(&mut self, i: usize) -> Option<(K, V)> {
+        let (key, value) = self.shift_remove_index_hashed(i)?;
+        Some((key.into_key(), value))
+    }
+
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
@@ -1362,6 +1392,16 @@ mod tests {
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
         assert_eq!(Some((99, 990)), m.shift_remove_entry(&99));
         assert_eq!(Some(&980), m.get(&98));
+        m.assert_invariants();
+    }
+
+    #[test]
+    fn test_shift_remove_index() {
+        let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
+        m.shift_remove_index(5);
+        assert_eq!(Some(&40), m.get(&4));
+        assert_eq!(None, m.get(&5));
+        assert_eq!(Some(&60), m.get(&6));
         m.assert_invariants();
     }
 

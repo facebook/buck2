@@ -244,6 +244,18 @@ impl<T> SmallSet<T> {
         self.0.shift_remove(key).is_some()
     }
 
+    /// Remove the element by index. This is *O(N)* operation.
+    #[inline]
+    pub fn shift_remove_index_hashed(&mut self, i: usize) -> Option<Hashed<T>> {
+        Some(self.0.shift_remove_index_hashed(i)?.0)
+    }
+
+    /// Remove the element by index. This is *O(N)* operation.
+    #[inline]
+    pub fn shift_remove_index(&mut self, i: usize) -> Option<T> {
+        Some(self.shift_remove_index_hashed(i)?.into_key())
+    }
+
     /// Insert entry if it doesn't exist.
     ///
     /// Return the resulting entry in the map.
