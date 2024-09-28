@@ -25,6 +25,9 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
 use starlark_derive::Trace;
+use starlark_syntax::codemap::CodeMap;
+use starlark_syntax::codemap::Span;
+use starlark_syntax::codemap::Spanned;
 use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
@@ -32,6 +35,7 @@ use crate::__derive_refs::components::NativeCallableComponents;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
+use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
@@ -44,6 +48,7 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ParamSpec;
+use crate::typing::TypingOracleCtx;
 use crate::util::arc_str::ArcStr;
 use crate::values::bool::StarlarkBool;
 use crate::values::typing::never::TypingNever;
@@ -472,6 +477,55 @@ impl Ty {
         } else {
             value.get_type_starlark_repr()
         }
+    }
+
+    /// Check if the value of this type can be called with given arguments and expected return type.
+    #[must_use]
+    pub fn check_call<'a>(
+        &self,
+        pos: impl IntoIterator<Item = Ty>,
+        named: impl IntoIterator<Item = (&'a str, Ty)>,
+        args: Option<Ty>,
+        kwargs: Option<Ty>,
+        expected_return_type: Ty,
+    ) -> bool {
+        let oracle = TypingOracleCtx {
+            codemap: CodeMap::empty_static(),
+        };
+        let Ok(ret) = oracle.validate_call(
+            Span::default(),
+            self,
+            &TyCallArgs {
+                pos: pos
+                    .into_iter()
+                    .map(|p| Spanned {
+                        span: Span::default(),
+                        node: p,
+                    })
+                    .collect(),
+                named: named
+                    .into_iter()
+                    .map(|p| Spanned {
+                        span: Span::default(),
+                        node: p,
+                    })
+                    .collect(),
+                args: args.map(|t| Spanned {
+                    span: Span::default(),
+                    node: t,
+                }),
+                kwargs: kwargs.map(|t| Spanned {
+                    span: Span::default(),
+                    node: t,
+                }),
+            },
+        ) else {
+            return false;
+        };
+        let Ok(ok) = oracle.intersects(&ret, &expected_return_type) else {
+            return false;
+        };
+        ok
     }
 
     pub(crate) fn from_native_callable_components(
