@@ -19,6 +19,7 @@
 
 use std::mem;
 
+use either::Either;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -29,6 +30,7 @@ use crate::values::list::AllocList;
 use crate::values::list::ListRef;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
+use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
@@ -305,17 +307,19 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn update<'v>(
         this: Value<'v>,
-        #[starlark(require = pos)] pairs: Option<Value<'v>>,
+        #[starlark(require = pos)] pairs: Option<
+            ValueOfUnchecked<'v, Either<DictRef<'v>, StarlarkIter<(Value<'v>, Value<'v>)>>>,
+        >,
         #[starlark(kwargs)] kwargs: DictRef<'v>,
         heap: &'v Heap,
     ) -> starlark::Result<NoneType> {
-        let pairs = if pairs.map(|x| x.ptr_eq(this)) == Some(true) {
+        let pairs = if pairs.map(|x| x.get().ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
             // with trying to iterate over x while holding x for mutation, and it doesn't do
             // anything useful, so just change pairs back to None
             None
         } else {
-            pairs
+            pairs.map(|x| x.get())
         };
 
         let mut this = DictMut::from_value(this)?;
