@@ -452,7 +452,7 @@ impl<'v> TypeCompiled<Value<'v>> {
     /// Evaluate type annotation at runtime.
     ///
     /// This function accepts string literals in type expressions. It is deprecated.
-    pub(crate) fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         TypeCompiled::new_impl(ty, heap, true)
     }
 
