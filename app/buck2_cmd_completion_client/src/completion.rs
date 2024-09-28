@@ -76,6 +76,17 @@ fn bash_completion_wrapper() -> &'static str {
     }
 }
 
+fn fish_completion_wrapper() -> &'static str {
+    #[cfg(buck_build)]
+    {
+        completion_wrapper_fish::get()
+    }
+    #[cfg(not(buck_build))]
+    {
+        include_str!("completion/completion-wrapper.fish")
+    }
+}
+
 fn zsh_completion_wrapper() -> &'static str {
     #[cfg(buck_build)]
     {
@@ -95,10 +106,10 @@ fn print_completion_script(
     let (wrapper, shell) = match shell_arg {
         Shell::Bash => (bash_completion_wrapper(), clap_complete::Shell::Bash),
         Shell::Zsh => (zsh_completion_wrapper(), clap_complete::Shell::Zsh),
-        Shell::Fish => ("", clap_complete::Shell::Fish),
+        Shell::Fish => (fish_completion_wrapper(), clap_complete::Shell::Fish),
     };
 
-    if options_only || shell == clap_complete::Shell::Fish {
+    if options_only {
         buck2_client_ctx::println!("{}", option_completions(shell, cmd)?)?;
         return Ok(());
     }

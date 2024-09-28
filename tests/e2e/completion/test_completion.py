@@ -31,8 +31,8 @@ def completion_test(
     cwd: str = "",
 ) -> None:
     for shell in shells:
-        if shell == "fish" and not options_only:
-            # Fish only supports options-only completions
+        if shell == "fish" and not IS_LINUX:
+            # As above, not supported on Mac
             continue
 
         # shell=shell is a trick to get the variable captured by value
@@ -140,7 +140,7 @@ completion_test(
     name="test_completes_rule",
     input="build dir1:target1",
     expected=["dir1:target1a", "dir1:target1b"],
-    shells=["zsh"],
+    shells=["fish", "zsh"],
 )
 
 completion_test(
@@ -156,7 +156,7 @@ completion_test(
     input="build :tar",
     expected=[":target1a", ":target1b"],
     cwd="dir1",
-    shells=["zsh"],
+    shells=["fish", "zsh"],
 )
 
 completion_test(
@@ -165,6 +165,14 @@ completion_test(
     expected=["target1a", "target1b"],
     cwd="dir1",
     shells=["bash"],
+)
+
+completion_test(
+    name="test_colon_only_arg",
+    input="build :",
+    expected=[":target1a", ":target1b"],
+    cwd="dir1",
+    shells=["fish"],
 )
 
 completion_test(
@@ -180,7 +188,7 @@ completion_test(
     input="build TARG",
     expected=[],
     cwd="dir1",
-    shells=["zsh"],
+    shells=["fish", "zsh"],
 )
 
 completion_test(
@@ -195,6 +203,14 @@ completion_test(
 completion_test(
     name="test_no_targets_for_required_option_param",
     input="build --console ",
-    # FIXME(JakobDegen): Bug: expected=["auto", "none", "simple", "simplenotty", "simpletty", "super"],
+    # FIXME(JakobDegen): Bug: Should be the same as fish
     expected=lambda actual: "root//" in actual,
+    shells=["bash", "zsh"],
+)
+
+completion_test(
+    name="test_no_targets_for_required_option_param",
+    input="build --console ",
+    expected=["auto", "none", "simple", "simplenotty", "simpletty", "super"],
+    shells=["fish"],
 )
