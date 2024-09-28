@@ -15,6 +15,7 @@ use buck2_core::plugins::PluginKind;
 use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -22,8 +23,10 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
+use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Freezer;
@@ -32,8 +35,9 @@ use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
+use starlark::values::ValueTypedComplex;
 use starlark::StarlarkDocs;
 
 use crate::interpreter::build_context::BuildContext;
@@ -125,13 +129,42 @@ impl Freeze for StarlarkPluginKind {
     }
 }
 
+fn plugin_kind_from_value_typed<'v>(
+    v: ValueTypedComplex<'v, StarlarkPluginKind>,
+) -> anyhow::Result<PluginKind> {
+    match v.unpack() {
+        Either::Left(unfrozen) => unfrozen.expect_bound(),
+        Either::Right(frozen) => Ok(frozen.0.dupe()),
+    }
+}
+
 pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
-    if let Some(unfrozen) = v.downcast_ref::<StarlarkPluginKind>() {
-        unfrozen.expect_bound()
-    } else if let Some(frozen) = v.downcast_ref::<FrozenStarlarkPluginKind>() {
-        Ok(frozen.0.dupe())
-    } else {
-        Err(PluginKindError::NotAPluginKind(v.to_repr()).into())
+    let Some(v) = ValueTypedComplex::new(v) else {
+        return Err(PluginKindError::NotAPluginKind(v.to_repr()).into());
+    };
+    plugin_kind_from_value_typed(v)
+}
+
+pub(crate) struct PluginKindArg {
+    pub(crate) plugin_kind: PluginKind,
+}
+
+impl StarlarkTypeRepr for PluginKindArg {
+    type Canonical = <StarlarkPluginKind as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for PluginKindArg {
+    type Error = anyhow::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        let Some(v) = ValueTypedComplex::new(value) else {
+            return Ok(None);
+        };
+        plugin_kind_from_value_typed(v).map(|kind| Some(PluginKindArg { plugin_kind: kind }))
     }
 }
 

@@ -72,7 +72,7 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
 use crate::nodes::unconfigured::TargetNodeExt;
-use crate::plugins::plugin_kind_from_value;
+use crate::plugins::PluginKindArg;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
@@ -160,7 +160,7 @@ impl<'v> RuleCallable<'v> {
         doc: &str,
         is_configuration_rule: bool,
         is_toolchain_rule: bool,
-        uses_plugins: Vec<Value<'v>>,
+        uses_plugins: Vec<PluginKind>,
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
@@ -187,10 +187,6 @@ impl<'v> RuleCallable<'v> {
             .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
 
         let cfg = cfg.try_map(transition_id_from_value)?;
-        let uses_plugins = uses_plugins
-            .into_iter()
-            .map(plugin_kind_from_value)
-            .collect::<anyhow::Result<_>>()?;
 
         let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
             (false, false) => RuleKind::Normal,
@@ -456,7 +452,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
-        uses_plugins: UnpackListOrTuple<Value<'v>>,
+        uses_plugins: UnpackListOrTuple<PluginKindArg>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         RuleCallable::new(
@@ -466,7 +462,11 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             doc,
             is_configuration_rule,
             is_toolchain_rule,
-            uses_plugins.items,
+            uses_plugins
+                .items
+                .into_iter()
+                .map(|PluginKindArg { plugin_kind }| plugin_kind)
+                .collect(),
             None,
             eval,
         )
