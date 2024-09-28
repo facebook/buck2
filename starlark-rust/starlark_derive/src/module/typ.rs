@@ -142,7 +142,7 @@ pub(crate) enum StarArgPassStyle {
     Arguments,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct StarArg {
     pub span: Span,
     pub attrs: Vec<Attribute>,
@@ -154,7 +154,7 @@ pub(crate) struct StarArg {
     pub source: StarArgSource,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StarArgSource {
     Unknown,
     This,

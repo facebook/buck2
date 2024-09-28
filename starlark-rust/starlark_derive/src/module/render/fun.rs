@@ -19,7 +19,6 @@ use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use syn::Attribute;
 use syn::Expr;
 use syn::ExprLit;
 use syn::Lit;
@@ -336,34 +335,24 @@ struct Bindings {
 fn render_binding(x: &StarFun) -> Bindings {
     match x.source {
         StarFunSource::Arguments => {
-            let StarArg {
-                attrs, name, ty, ..
-            } = &x.args[0];
+            let arg = &x.args[0];
             Bindings {
                 prepare: TokenStream::new(),
                 bindings: vec![BindingArg {
-                    name: name.to_owned(),
-                    ty: ty.to_owned(),
-                    attrs: attrs.clone(),
-                    mutability: None,
+                    arg: arg.clone(),
                     expr: syn::parse_quote! { parameters },
                 }],
             }
         }
         StarFunSource::ThisArguments => {
-            let StarArg {
-                attrs, name, ty, ..
-            } = &x.args[1];
+            let arg = &x.args[1];
             let this = render_binding_arg(&x.args[0]);
             Bindings {
                 prepare: TokenStream::new(),
                 bindings: vec![
                     this,
                     BindingArg {
-                        name: name.to_owned(),
-                        ty: ty.to_owned(),
-                        attrs: attrs.clone(),
-                        mutability: None,
+                        arg: arg.clone(),
                         expr: syn::parse_quote! { parameters },
                     },
                 ],
@@ -407,24 +396,19 @@ fn render_binding(x: &StarFun) -> Bindings {
 
 struct BindingArg {
     expr: syn::Expr,
-
-    attrs: Vec<Attribute>,
-    mutability: Option<syn::Token![mut]>,
-    name: Ident,
-    ty: syn::Type,
+    arg: StarArg,
 }
 
 impl BindingArg {
     fn render_param_type(&self) -> syn::Type {
-        let BindingArg { ty, .. } = self;
-        ty.clone()
+        self.arg.ty.clone()
     }
 
     fn render_param(&self) -> syn::FnArg {
-        let mutability = &self.mutability;
-        let name = &self.name;
+        let mutability = &self.arg.mutable;
+        let name = &self.arg.name;
         let ty = self.render_param_type();
-        let attrs = &self.attrs;
+        let attrs = &self.arg.attrs;
         syn::parse_quote! {
             #( #attrs )*
             #mutability #name: #ty
@@ -483,10 +467,7 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
 
     BindingArg {
         expr: next,
-        attrs: arg.attrs.clone(),
-        mutability: arg.mutable,
-        name: arg.name.to_owned(),
-        ty: arg.ty.clone(),
+        arg: arg.clone(),
     }
 }
 
