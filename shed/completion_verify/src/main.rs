@@ -230,4 +230,22 @@ compdef _impl buck2
         test_complete("ca", &["car1", "cat2"]);
         test_complete("c", &["car1", "cat2"]);
     }
+
+    #[test]
+    fn test_long_completion() {
+        let arg1 = "abcdefghijkl0";
+        let arg2 = "abcdefghijkl1";
+        let script: &str = &format!("complete -c buck2 -a '{arg1} {arg2}'");
+
+        if cfg!(target_os = "linux") {
+            check_shell_available(Shell::Fish);
+            let _actual = run(script, "buck2 abcdefghijkl", &None, Shell::Fish).unwrap();
+            // FIXME(JakobDegen): Bug: "...bcdefghijkl0"
+            // assert_eq!(
+            //     actual,
+            //     vec![arg1.to_owned(), arg2.to_owned()],
+            //     "testing fish"
+            // );
+        }
+    }
 }
