@@ -43,7 +43,7 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -272,7 +272,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
         // Note that precise function type is not checked by static or runtime typechecker,
         // and exists here only for documentation purposes.
-        #[starlark(require = named)] r#impl: StarlarkCallable<
+        #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,
             TransitionImplParams,
             Either<ImplSingleReturnTy, ImplSplitReturnTy>,
