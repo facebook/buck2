@@ -112,7 +112,7 @@ fn main() -> ! {
         buck2_query_impls::init_late_bindings();
         buck2_interpreter_for_build::init_late_bindings();
         buck2_server_commands::init_late_bindings();
-        buck2_starlark_server::init_late_bindings();
+        buck2_cmd_starlark_server::init_late_bindings();
         buck2_test::init_late_bindings();
         buck2_validation::init_late_bindings();
     }

@@ -3,7 +3,7 @@ load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
 oncall("build_infra")
 
 rust_library(
-    name = "buck2_starlark_server",
+    name = "buck2_cmd_starlark_server",
     srcs = glob(["src/**/*.rs"]),
     deps = [
         "fbsource//third-party/rust:anyhow",

@@ -2,7 +2,7 @@
 description = "`buck2 starlark` command server implementation"
 edition = "2021"
 license = { workspace = true }
-name = "buck2_starlark_server"
+name = "buck2_cmd_starlark_server"
 repository = { workspace = true }
 version = "0.1.0"
 
@@ -17,6 +17,7 @@ starlark = { workspace = true }
 
 buck2_cli_proto = { workspace = true }
 buck2_client_ctx = { workspace = true }
+buck2_cmd_starlark_client = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
@@ -25,4 +26,3 @@ buck2_events = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_server_ctx = { workspace = true }
-buck2_cmd_starlark_client = { workspace = true }
