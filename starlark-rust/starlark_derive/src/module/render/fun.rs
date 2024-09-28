@@ -462,11 +462,7 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
             (false, false, Some(default)) => {
                 syn::parse_quote! {
                     {
-                        // Combo
-                        #[allow(clippy::manual_unwrap_or)]
-                        #[allow(clippy::unnecessary_lazy_evaluations)]
-                        #[allow(clippy::redundant_closure)]
-                        starlark::__derive_refs::parse_args::check_optional(#name_str, #source)?.unwrap_or_else(|| #default)
+                        starlark::__derive_refs::parse_args::check_defaulted(#name_str, #source, || #default)?
                     }
                 }
             }

@@ -82,3 +82,12 @@ pub fn check_optional<'v, T: UnpackValue<'v>>(
         Some(x) => Ok(Some(T::unpack_named_param(x, name)?)),
     }
 }
+
+#[inline]
+pub fn check_defaulted<'v, T: UnpackValue<'v>>(
+    name: &str,
+    x: Option<Value<'v>>,
+    default: impl FnOnce() -> T,
+) -> anyhow::Result<T> {
+    Ok(check_optional(name, x)?.unwrap_or_else(default))
+}
