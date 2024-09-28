@@ -76,7 +76,6 @@ pub enum TypeExprUnpackP<'a, P: AstPayload> {
     List(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Union(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
     Tuple(Vec<Spanned<TypeExprUnpackP<'a, P>>>),
-    Literal(Spanned<&'a str>),
 }
 
 impl<'a, P: AstPayload> TypeExprUnpackP<'a, P> {

@@ -589,13 +589,6 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             TypeExprUnpackP::Union(xs) => {
                 Ok(Ty::unions(xs.try_map(|x| self.from_type_expr_impl(x))?))
             }
-            TypeExprUnpackP::Literal(x) => {
-                if x.is_empty() || x.starts_with('_') {
-                    Ok(Ty::any())
-                } else {
-                    Ok(Ty::name(x))
-                }
-            }
             TypeExprUnpackP::Path(path) => self.path_ty(path),
             TypeExprUnpackP::Index(a, i) => {
                 if let Some(a) = self.expr_ident(a)?.value {
