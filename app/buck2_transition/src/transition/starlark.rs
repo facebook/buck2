@@ -10,14 +10,14 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
+use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::buck2_error;
-use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
@@ -36,7 +36,6 @@ use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
-use starlark::typing::TyCallable;
 use starlark::util::ArcStr;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
@@ -191,20 +190,20 @@ impl TransitionValue for FrozenTransition {
 
 struct ParamNameAndType {
     name: &'static str,
-    ty: fn() -> Ty,
+    ty: LazyLock<Ty>,
 }
 
-const IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
+static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
     name: "platform",
-    ty: PlatformInfo::starlark_type_repr,
+    ty: LazyLock::new(PlatformInfo::starlark_type_repr),
 };
-const IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
+static IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "refs",
-    ty: StructRef::starlark_type_repr,
+    ty: LazyLock::new(StructRef::starlark_type_repr),
 };
-const IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
+static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "attrs",
-    ty: StructRef::starlark_type_repr,
+    ty: LazyLock::new(StructRef::starlark_type_repr),
 };
 
 type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
@@ -222,17 +221,17 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
                 (
                     ArcStr::new_static(IMPL_PLATFORM_PARAM.name),
                     ParamIsRequired::Yes,
-                    (IMPL_PLATFORM_PARAM.ty)(),
+                    IMPL_PLATFORM_PARAM.ty.dupe(),
                 ),
                 (
                     ArcStr::new_static(IMPL_REFS_PARAM.name),
                     ParamIsRequired::Yes,
-                    (IMPL_REFS_PARAM.ty)(),
+                    IMPL_REFS_PARAM.ty.dupe(),
                 ),
                 (
                     ArcStr::new_static(IMPL_ATTRS_PARAM.name),
                     ParamIsRequired::No,
-                    (IMPL_ATTRS_PARAM.ty)(),
+                    IMPL_ATTRS_PARAM.ty.dupe(),
                 ),
             ],
             None,
@@ -248,43 +247,24 @@ fn validate_transition_impl(implementation: Value, attrs: bool, split: bool) -> 
         true => ImplSplitReturnTy::starlark_type_repr(),
     };
 
-    let ty = Ty::of_value(implementation);
-    let params: Vec<_> = [
-        (IMPL_PLATFORM_PARAM.name, (IMPL_PLATFORM_PARAM.ty)()),
-        (IMPL_REFS_PARAM.name, (IMPL_REFS_PARAM.ty)()),
-    ]
-    .into_iter()
-    .chain(match attrs {
-        true => Some((IMPL_ATTRS_PARAM.name, (IMPL_ATTRS_PARAM.ty)())),
-        false => None,
-    })
-    .collect();
-
-    let expected_sig = TyCallable::new(
-        ParamSpec::new_parts(
+    implementation
+        .check_callable_with(
             [],
-            [],
+            [
+                (IMPL_PLATFORM_PARAM.name, &*IMPL_PLATFORM_PARAM.ty),
+                (IMPL_REFS_PARAM.name, &*IMPL_REFS_PARAM.ty),
+            ]
+            .into_iter()
+            .chain(match attrs {
+                true => Some((IMPL_ATTRS_PARAM.name, &*IMPL_ATTRS_PARAM.ty)),
+                false => None,
+            }),
             None,
-            params
-                .iter()
-                .map(|(name, ty)| (ArcStr::new_static(name), ParamIsRequired::Yes, ty.dupe())),
             None,
+            &expected_return_type,
         )
         .into_anyhow_result()
-        .internal_error("Must be correct signature")?,
-        expected_return_type.dupe(),
-    );
-
-    let ok = ty.check_call([], params.clone(), None, None, expected_return_type);
-
-    if !ok {
-        return Err(buck2_error!(
-            [],
-            "transition(impl=) must be a function matching signature `{expected_sig}`, got: `{ty}`"
-        ));
-    }
-
-    Ok(())
+        .context("`impl` function signature is incorrect")
 }
 
 #[starlark_module]
