@@ -72,6 +72,27 @@ struct FnParamAttrs {
     unused_attrs: Vec<Attribute>,
 }
 
+impl FnParamAttrs {
+    fn is_empty(&self) -> bool {
+        let FnParamAttrs {
+            default,
+            this,
+            pos_only,
+            named_only,
+            args,
+            kwargs,
+            unused_attrs,
+        } = self;
+        default.is_none()
+            && !*this
+            && !*pos_only
+            && !*named_only
+            && !*args
+            && !*kwargs
+            && unused_attrs.is_empty()
+    }
+}
+
 /// Parse `#[starlark(...)]` fn param attribute.
 fn parse_starlark_fn_param_attr(
     tokens: &Attribute,
@@ -533,8 +554,15 @@ enum StarArgOrSpecial {
 }
 
 /// Function parameter is `eval: &mut Evaluator`.
-fn is_eval(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
+fn is_eval(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
     if is_mut_something(ty, "Evaluator") {
+        if !attrs.is_empty() {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`&mut Evaluator` parameter cannot have attributes",
+            ));
+        }
+
         Ok(Some(SpecialParam {
             ident: ident.clone(),
             ty: ty.clone(),
@@ -545,8 +573,14 @@ fn is_eval(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
 }
 
 /// Function parameter is `heap: &Heap`.
-fn is_heap(ident: &Ident, ty: &Type) -> syn::Result<Option<SpecialParam>> {
+fn is_heap(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
     if is_ref_something(ty, "Heap") {
+        if !attrs.is_empty() {
+            return Err(syn::Error::new(
+                ident.span(),
+                "`&Heap` parameter cannot have attributes",
+            ));
+        }
         Ok(Some(SpecialParam {
             ident: ident.clone(),
             ty: ty.clone(),
@@ -595,7 +629,7 @@ fn parse_arg(
             check_lifetimes_in_type(&ty, has_v)?;
             let param_attrs = parse_fn_param_attrs(attrs)?;
 
-            if let Some(heap) = is_heap(&ident.ident, &ty)? {
+            if let Some(heap) = is_heap(&ident.ident, &ty, &param_attrs)? {
                 if this {
                     return Err(syn::Error::new(
                         span,
@@ -603,7 +637,7 @@ fn parse_arg(
                     ));
                 }
                 return Ok(StarArgOrSpecial::Heap(heap));
-            } else if let Some(eval) = is_eval(&ident.ident, &ty)? {
+            } else if let Some(eval) = is_eval(&ident.ident, &ty, &param_attrs)? {
                 if this {
                     return Err(syn::Error::new(
                         span,
