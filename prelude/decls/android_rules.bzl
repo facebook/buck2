@@ -122,7 +122,6 @@ android_aar = prelude_rule(
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "javac": attrs.option(attrs.source(), default = None),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -752,6 +751,7 @@ android_library = prelude_rule(
         jvm_common.source_only_abi_deps() |
         jvm_common.required_for_source_only_abi() |
         jvm_common.k2() |
+        jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         {
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
@@ -766,7 +766,6 @@ android_library = prelude_rule(
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1436,7 +1435,6 @@ robolectric_test = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
             "javac": attrs.option(attrs.source(), default = None),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1476,7 +1474,7 @@ robolectric_test = prelude_rule(
             "used_as_dependency_deprecated_do_not_use": attrs.bool(default = False),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-        } | jvm_common.k2() | jvm_common.incremental() | jvm_common.plugins() |
+        } | jvm_common.k2() | jvm_common.incremental() | jvm_common.plugins() | jvm_common.kotlin_compiler_plugins() |
         re_test_common.test_args()
     ),
 )

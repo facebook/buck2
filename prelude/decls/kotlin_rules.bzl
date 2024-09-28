@@ -90,65 +90,6 @@ kotlin_library = prelude_rule(
                 Rules (usually other `kotlin_library` rules) that are used to
                  generate the classpath required to compile this `kotlin_library`.
             """),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}, doc = """
-                Use this to specify [Kotlin compiler plugins](https://kotlinlang.org/docs/reference/compiler-plugins.html) to use when compiling this library.
-                 This takes a map, with each entry specify one plugin. Entry's key is plugin source path,
-                 and value is a map of plugin option key value pair. Unlike `extra_kotlinc_arguments`,
-                 these can be *source paths*, not just strings.
-
-                 A special option value is
-                 `__codegen_dir__`, in which case Buck will provide a default codegen folder's path as
-                 option value instead.
-                 E.g.
-
-                ```
-
-                kotlin_compiler_plugins = {
-                    "somePluginSourcePath": {
-                        "plugin:somePluginId:somePluginOptionKey": "somePluginOptionValue",
-                        "plugin:somePluginId:someDirectoryRelatedOptionKey": "__codegen_dir__",
-                    },
-                },
-
-                ```
-                Each plugin source path will be prefixed with `-Xplugin=` and passed as extra
-                 arguments to the compiler. Plugin options will be appended after its plugin with `-P`.
-
-                 A specific example is, if you want to use [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)
-                 with `kotlin_library()`, you need to specify `kotlinx-serialization-compiler-plugin.jar` under `kotlin_compiler_plugins` and `kotlinx-serialization-runtime.jar` (which you may have to fetch from Maven) in your `deps`:
-
-                ```
-
-                kotlin_library(
-                    name = "example",
-                    srcs = glob(["*.kt"]),
-                    deps = [
-                        ":kotlinx-serialization-runtime",
-                    ],
-                    kotlin_compiler_plugins = {
-                        # Likely copied from your $KOTLIN_HOME directory.
-                        "kotlinx-serialization-compiler-plugin.jar": {},
-                    },
-                )
-
-                prebuilt_jar(
-                    name = "kotlinx-serialization-runtime",
-                    binary_jar = ":kotlinx-serialization-runtime-0.10.0",
-                )
-
-                # Note you probably want to set
-                # maven_repo=http://jcenter.bintray.com/ in your .buckconfig until
-                # https://github.com/Kotlin/kotlinx.serialization/issues/64
-                # is closed.
-                remote_file(
-                    name = "kotlinx-serialization-runtime-0.10.0",
-                    out = "kotlinx-serialization-runtime-0.10.0.jar",
-                    url = "mvn:org.jetbrains.kotlinx:kotlinx-serialization-runtime:jar:0.10.0",
-                    sha1 = "23d777a5282c1957c7ce35946374fff0adab114c"
-                )
-
-                ```
-            """),
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
@@ -169,6 +110,7 @@ kotlin_library = prelude_rule(
         jvm_common.provided_deps() |
         jvm_common.exported_provided_deps() |
         jvm_common.k2() |
+        jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.plugins() |
         buck.labels_arg() |
@@ -258,6 +200,7 @@ kotlin_test = prelude_rule(
             """),
         } |
         jvm_common.k2() |
+        jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.test_env() |
         {
@@ -279,7 +222,6 @@ kotlin_test = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
             "javac": attrs.option(attrs.source(), default = None),
-            "kotlin_compiler_plugins": attrs.dict(key = attrs.source(), value = attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), sorted = False, default = {}),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
