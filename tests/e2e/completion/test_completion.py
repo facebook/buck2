@@ -127,16 +127,17 @@ completion_test(
     expected=["cell2a//", "cell2a//:", "cell3//", "cell3//:"],
 )
 
-# FIXME(JakobDegen): Why doesn't this output the same thing as zsh?
+# Bash completion treats `:` as a special character and completes the parts
+# before and after the colon separately
 completion_test(
-    name="test_completes_rule_bash",
+    name="test_completes_rule",
     input="build dir1:target1",
     expected=["target1a", "target1b"],
     shells=["bash"],
 )
 
 completion_test(
-    name="test_completes_rule_zsh",
+    name="test_completes_rule",
     input="build dir1:target1",
     expected=["dir1:target1a", "dir1:target1b"],
     shells=["zsh"],
@@ -145,8 +146,7 @@ completion_test(
 completion_test(
     name="test_starts_with_colon",
     input="build :tar",
-    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
-    expected=[] if IS_LINUX else ["target1a", "target1b"],
+    expected=["target1a", "target1b"],
     cwd="dir1",
     shells=["bash"],
 )
@@ -162,8 +162,7 @@ completion_test(
 completion_test(
     name="test_colon_only_arg",
     input="build :",
-    # FIXME(JakobDegen): Bug: expected=[":target1a", ":target1b"],
-    expected=["TARGETS.fixture", "prelude/"],
+    expected=["target1a", "target1b"],
     cwd="dir1",
     shells=["bash"],
 )

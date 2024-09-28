@@ -69,9 +69,15 @@ __buck2_fix()
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
     local pprev="${COMP_WORDS[COMP_CWORD-2]}"
     if [[ $cur = : ]]; then
-        cur="$prev:"
+        if [[ "${COMP_LINE:0:$COMP_POINT}" =~ .*$prev: ]]; then
+            cur="$prev:"
+        fi
     elif [[ $prev = : ]]; then
-        cur="$pprev:$cur"
+        if [[ "${COMP_LINE:0:$COMP_POINT}" =~ .*$pprev:$cur ]]; then
+            cur="$pprev:$cur"
+        else
+            cur=":$cur"
+        fi
     fi
 
     if __buck2_takes_target "$(__buck2_subcommand)"; then
