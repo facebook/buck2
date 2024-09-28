@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use std::iter;
+
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -76,20 +78,14 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(
-        &self,
-    ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
-    ) {
+    fn eval_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
         if let Some(SpecialParam { ident, ty }) = &self.eval {
             (
-                Some(quote! {
-                    #ident: #ty,
+                Some(syn::parse_quote! {
+                    #ident: #ty
                 }),
-                Some(quote! {
-                    #ty,
+                Some(syn::parse_quote! {
+                    #ty
                 }),
                 Some(quote! {
                     eval,
@@ -101,20 +97,14 @@ impl StarFun {
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(
-        &self,
-    ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
-    ) {
+    fn heap_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
         if let Some(SpecialParam { ident, ty }) = &self.heap {
             (
-                Some(quote! {
-                    #ident: #ty,
+                Some(syn::parse_quote! {
+                    #ident: #ty
                 }),
-                Some(quote! {
-                    #ty,
+                Some(syn::parse_quote! {
+                    #ty
                 }),
                 Some(quote! {
                     eval.heap(),
@@ -126,17 +116,11 @@ impl StarFun {
     }
 
     /// `this` param if needed and call argument.
-    fn this_param_arg(
-        &self,
-    ) -> (
-        Option<TokenStream>,
-        Option<TokenStream>,
-        Option<TokenStream>,
-    ) {
+    fn this_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
         if self.is_method() {
             (
-                Some(quote! { __this: starlark::values::Value<'v>, }),
-                Some(quote! { starlark::values::Value<'v>, }),
+                Some(syn::parse_quote! { __this: starlark::values::Value<'v> }),
+                Some(syn::parse_quote! { starlark::values::Value<'v> }),
                 Some(quote! { __this, }),
             )
         } else {
@@ -263,6 +247,20 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         ..
     } = x;
 
+    let invoke_params = iter::empty()
+        .chain(this_param.clone())
+        .chain(binding_params)
+        .chain(eval_param)
+        .chain(heap_param);
+
+    let param_types = iter::empty()
+        .chain(this_param_type)
+        .chain(binding_param_types)
+        .chain(eval_param_type)
+        .chain(heap_param_type);
+
+    let this_param = this_param.into_iter();
+
     Ok(syn::parse_quote! {
         {
             struct #struct_name {
@@ -275,10 +273,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 #[allow(clippy::extra_unused_lifetimes)]
                 #( #attrs )*
                 fn invoke_impl<'v>(
-                    #this_param
-                    #( #binding_params, )*
-                    #eval_param
-                    #heap_param
+                    #( #invoke_params, )*
                 ) -> #return_type {
                     #body
                 }
@@ -292,10 +287,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 fn return_type_starlark_type_repr() -> starlark::typing::Ty {
                     fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
                         _f: fn(
-                            #this_param_type
-                            #( #binding_param_types, )*
-                            #eval_param_type
-                            #heap_param_type
+                            #( #param_types, )*
                         ) -> std::result::Result<T, E>,
                     ) -> starlark::typing::Ty {
                         <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
@@ -309,7 +301,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 fn invoke<'v>(
                     &self,
                     eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
-                    #this_param
+                    #(#this_param,)*
                     parameters: &starlark::eval::Arguments<'v, '_>,
                 ) -> starlark::Result<starlark::values::Value<'v>> {
                     #prepare
