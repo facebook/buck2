@@ -78,65 +78,55 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
+    fn eval_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
         if let Some(SpecialParam { ident, ty }) = &self.eval {
             (
                 Some(syn::parse_quote! {
                     #ident: #ty
-                }),
-                Some(syn::parse_quote! {
-                    #ty
                 }),
                 Some(quote! {
                     eval,
                 }),
             )
         } else {
-            (None, None, None)
+            (None, None)
         }
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
+    fn heap_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
         if let Some(SpecialParam { ident, ty }) = &self.heap {
             (
                 Some(syn::parse_quote! {
                     #ident: #ty
-                }),
-                Some(syn::parse_quote! {
-                    #ty
                 }),
                 Some(quote! {
                     eval.heap(),
                 }),
             )
         } else {
-            (None, None, None)
+            (None, None)
         }
     }
 
     /// `this` param if needed and call argument.
-    fn this_param_arg(&self) -> (Option<syn::FnArg>, Option<syn::Type>, Option<TokenStream>) {
+    fn this_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
         if self.is_method() {
             (
                 Some(syn::parse_quote! { __this: starlark::values::Value<'v> }),
-                Some(syn::parse_quote! { starlark::values::Value<'v> }),
                 Some(quote! { __this, }),
             )
         } else {
-            (None, None, None)
+            (None, None)
         }
     }
 
     /// Non-special params.
-    fn binding_params_arg(
-        &self,
-    ) -> syn::Result<(Vec<syn::FnArg>, Vec<syn::Type>, TokenStream, Vec<syn::Expr>)> {
+    fn binding_params_arg(&self) -> syn::Result<(Vec<syn::PatType>, TokenStream, Vec<syn::Expr>)> {
         let Bindings { prepare, bindings } = render_binding(self)?;
         let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
-        let binding_param_types: Vec<_> = bindings.iter().map(|b| b.render_param_type()).collect();
         let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
-        Ok((binding_params, binding_param_types, prepare, binding_args))
+        Ok((binding_params, prepare, binding_args))
     }
 
     fn trait_name(&self) -> syn::Path {
@@ -228,10 +218,10 @@ impl StarFun {
 }
 
 pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
-    let (this_param, this_param_type, this_arg) = x.this_param_arg();
-    let (eval_param, eval_param_type, eval_arg) = x.eval_param_arg();
-    let (heap_param, heap_param_type, heap_arg) = x.heap_param_arg();
-    let (binding_params, binding_param_types, prepare, binding_args) = x.binding_params_arg()?;
+    let (this_param, this_arg) = x.this_param_arg();
+    let (eval_param, eval_arg) = x.eval_param_arg();
+    let (heap_param, heap_arg) = x.heap_param_arg();
+    let (binding_params, prepare, binding_args) = x.binding_params_arg()?;
 
     let trait_name = x.trait_name();
     let (struct_fields, struct_fields_init) = x.struct_fields()?;
@@ -247,17 +237,14 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         ..
     } = x;
 
-    let invoke_params = iter::empty()
+    let invoke_params: Vec<syn::PatType> = iter::empty()
         .chain(this_param.clone())
         .chain(binding_params)
         .chain(eval_param)
-        .chain(heap_param);
+        .chain(heap_param)
+        .collect();
 
-    let param_types = iter::empty()
-        .chain(this_param_type)
-        .chain(binding_param_types)
-        .chain(eval_param_type)
-        .chain(heap_param_type);
+    let param_types: Vec<_> = invoke_params.iter().map(|p| &p.ty).collect();
 
     let this_param = this_param.into_iter();
 
@@ -408,15 +395,17 @@ impl BindingArg {
         self.arg.ty.clone()
     }
 
-    fn render_param(&self) -> syn::FnArg {
+    fn render_param(&self) -> syn::PatType {
         let mutability = &self.arg.mutable;
         let name = &self.arg.name;
         let ty = self.render_param_type();
-        let attrs = &self.arg.attrs;
-        syn::parse_quote! {
-            #( #attrs )*
+        let mut param: syn::PatType = syn::parse_quote! {
             #mutability #name: #ty
-        }
+        };
+        // For some reason `parse_quote!` doesn't want to parse attributes:
+        // https://github.com/dtolnay/syn/blob/732e6e39406538aebe34ed5f5803113a48c28602/src/pat.rs#L389
+        param.attrs = self.arg.attrs.clone();
+        param
     }
 
     fn render_arg(&self) -> syn::Expr {
