@@ -15,6 +15,7 @@ mod attr;
 mod attrs;
 mod functions;
 pub mod interpreter;
+mod label;
 mod rule;
 pub mod select;
 mod super_package;
