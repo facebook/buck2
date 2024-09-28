@@ -32,7 +32,7 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        TypeCompiled::new_with_deprecation(ty.get(), eval)
+        TypeCompiled::new(ty.get(), eval.heap())
     }
 
     /// Check if a value matches the given type.
@@ -41,7 +41,7 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<bool> {
-        Ok(TypeCompiled::new_with_deprecation(ty.get(), eval)?.matches(value))
+        Ok(TypeCompiled::new(ty.get(), eval.heap())?.matches(value))
     }
 }
 

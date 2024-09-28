@@ -29,7 +29,6 @@ use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
-use starlark_syntax::StarlarkResultExt;
 use thiserror::Error;
 
 use crate as starlark;
@@ -38,7 +37,6 @@ use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
-use crate::eval::Evaluator;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::dict::DictRef;
@@ -87,8 +85,6 @@ enum TypingError {
     ValueDoesNotMatchType(String, &'static str, String),
     #[error("String literals are not allowed in type expressions: `{0}`")]
     StringLiteralNotAllowed(String),
-    #[error("String literals are not allowed in type expressions: `{0}` (at {1})")]
-    StringLiteralNotAllowedWithLoc(String, String),
 }
 
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
@@ -450,45 +446,6 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 
     /// Evaluate type annotation at runtime.
-    ///
-    /// This function accepts string literals in type expressions. It is deprecated.
-    fn new_with_string(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
-        TypeCompiled::new_impl(ty, heap, true)
-    }
-
-    pub(crate) fn new_with_deprecation(
-        ty: Value<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Self> {
-        // Try shiny new types.
-        match Self::new(ty, eval.heap()) {
-            Ok(ty) => Ok(ty),
-            Err(e) => {
-                // If shiny new types do not work, try deprecated types.
-                match Self::new_with_string(ty, eval.heap()) {
-                    Ok(ty) => {
-                        eval.soft_error_handler
-                            .soft_error(
-                                "string_in_type",
-                                crate::Error::new_other(
-                                    TypingError::StringLiteralNotAllowedWithLoc(
-                                        ty.to_string(),
-                                        eval.call_stack_top_location()
-                                            .map(|s| s.to_string())
-                                            .unwrap_or_else(|| "<unknown>".to_owned()),
-                                    ),
-                                ),
-                            )
-                            .into_anyhow_result()?;
-                        Ok(ty)
-                    }
-                    Err(_) => Err(e),
-                }
-            }
-        }
-    }
-
-    /// Evaluate type annotation at runtime.
     pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         TypeCompiled::new_impl(ty, heap, false)
     }
@@ -554,20 +511,5 @@ fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
         TypingError::PerhapsYouMeant(ty.to_str(), name.into())
     } else {
         TypingError::InvalidTypeAnnotation(ty.to_str())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::assert;
-
-    #[test]
-    fn test_new_with_deprecation() {
-        assert::fail(
-            r#"
-isinstance(1, "int")
-"#,
-            "String literals are not allowed in type expressions: `int` (at assert.bzl:2:1-21)",
-        );
     }
 }

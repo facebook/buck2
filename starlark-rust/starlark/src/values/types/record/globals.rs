@@ -66,7 +66,7 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
         let mut mp = SmallMap::with_capacity(kwargs.len());
         for (k, v) in kwargs.into_iter_hashed() {
             let field = match Field::from_value(v) {
-                None => Field::new(TypeCompiled::new_with_deprecation(v, eval)?, None),
+                None => Field::new(TypeCompiled::new(v, eval.heap())?, None),
                 Some(v) => v.dupe(),
             };
             mp.insert_hashed(k, field);
@@ -90,7 +90,7 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Field<'v>> {
         // We compile the type even if we don't have a default to raise the error sooner
-        let compiled = TypeCompiled::new_with_deprecation(typ, eval)?;
+        let compiled = TypeCompiled::new(typ, eval.heap())?;
         if let Some(d) = default {
             compiled.check_type(d, Some("default"))?;
         }
