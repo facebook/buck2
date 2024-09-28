@@ -51,7 +51,6 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::attrs::starlark_attribute::register_attr_type;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
-use crate::plugins::plugin_kind_from_value;
 use crate::plugins::AllPlugins;
 use crate::plugins::PluginKindArg;
 
@@ -343,9 +342,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
-        pulls_plugins: UnpackListOrTuple<Value<'v>>,
+        pulls_plugins: UnpackListOrTuple<PluginKindArg>,
         #[starlark(require = named, default = Either::Left(UnpackListOrTuple::default()))]
-        pulls_and_pushes_plugins: Either<UnpackListOrTuple<Value<'v>>, &'v AllPlugins>,
+        pulls_and_pushes_plugins: Either<UnpackListOrTuple<PluginKindArg>, &'v AllPlugins>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -358,13 +357,13 @@ fn attr_module(registry: &mut MethodsBuilder) {
                 let pulls_and_pushes_plugins: Vec<_> = pulls_and_pushes_plugins
                     .items
                     .into_iter()
-                    .map(plugin_kind_from_value)
-                    .collect::<anyhow::Result<_>>()?;
+                    .map(|PluginKindArg { plugin_kind }| plugin_kind)
+                    .collect();
                 let pulls_plugins: Vec<_> = pulls_plugins
                     .items
                     .into_iter()
-                    .map(plugin_kind_from_value)
-                    .collect::<anyhow::Result<_>>()?;
+                    .map(|PluginKindArg { plugin_kind }| plugin_kind)
+                    .collect();
                 PluginKindSet::new(pulls_plugins, pulls_and_pushes_plugins)?
             }
         };

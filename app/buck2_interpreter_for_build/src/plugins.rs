@@ -138,7 +138,7 @@ fn plugin_kind_from_value_typed<'v>(
     }
 }
 
-pub(crate) fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
+fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
     let Some(v) = ValueTypedComplex::new(v) else {
         return Err(PluginKindError::NotAPluginKind(v.to_repr()).into());
     };
