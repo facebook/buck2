@@ -295,7 +295,7 @@ impl<'v> Dict<'v> {
 
     /// Remove given key from the dictionary.
     pub fn remove_hashed(&mut self, key: Hashed<Value<'v>>) -> Option<Value<'v>> {
-        self.content.remove_hashed(key.as_ref())
+        self.content.shift_remove_hashed(key.as_ref())
     }
 
     /// Remove all elements from the dictionary.

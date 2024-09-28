@@ -144,7 +144,7 @@ impl<K, V> OrderedMap<K, V> {
     where
         Q: Hash + Equivalent<K> + ?Sized,
     {
-        self.0.remove(k)
+        self.0.shift_remove(k)
     }
 
     /// Clear the map.

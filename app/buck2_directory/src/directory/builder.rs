@@ -265,7 +265,7 @@ where
                 DirectoryEntry::Leaf(_) => unreachable!(),
             }
         }
-        let removed = this.as_mut().remove(last);
+        let removed = this.as_mut().shift_remove(last);
         removed.unwrap()
     }
 }

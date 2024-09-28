@@ -218,7 +218,7 @@ impl<'f> ScopeNames<'f> {
         for (name, UnscopeBinding { undo }) in unscope.0 {
             match undo {
                 None => {
-                    self.mp.remove(&name);
+                    self.mp.shift_remove(&name);
                 }
                 Some(v) => *self.mp.get_mut(&name).unwrap() = v,
             }

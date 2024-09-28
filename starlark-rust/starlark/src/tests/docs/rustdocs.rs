@@ -131,8 +131,8 @@ def with_arguments(*args, **kwargs) -> int: pass
     let expected = expected.documentation().members;
     let mut got = got.documentation().members;
 
-    got.remove("Input");
-    got.remove("Output");
+    got.shift_remove("Input");
+    got.shift_remove("Output");
 
     assert_eq!(expected.len(), got.len());
     for (name, mut expected) in expected {

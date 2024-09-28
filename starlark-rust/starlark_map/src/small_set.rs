@@ -236,12 +236,12 @@ impl<T> SmallSet<T> {
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
     #[inline]
-    pub fn remove<Q>(&mut self, key: &Q) -> bool
+    pub fn shift_remove<Q>(&mut self, key: &Q) -> bool
     where
         Q: ?Sized + Hash + Equivalent<T>,
         T: Eq,
     {
-        self.0.remove(key).is_some()
+        self.0.shift_remove(key).is_some()
     }
 
     /// Insert entry if it doesn't exist.
@@ -287,7 +287,7 @@ impl<T> SmallSet<T> {
         Q: ?Sized + Hash + Equivalent<T>,
         T: Eq,
     {
-        self.0.remove_entry(key).map(|(k, _)| k)
+        self.0.shift_remove_entry(key).map(|(k, _)| k)
     }
 
     /// Remove the last element from the set.
@@ -649,7 +649,7 @@ mod tests {
 
         let not_m1 = {
             let mut s = m1.clone();
-            s.remove(&'a');
+            s.shift_remove(&'a');
             s
         };
         assert_ne!(m1, not_m1);
@@ -697,7 +697,7 @@ mod tests {
         assert_eq!(s.first(), Some(&1));
         s.insert(2);
         assert_eq!(s.first(), Some(&1));
-        s.remove(&1);
+        s.shift_remove(&1);
         assert_eq!(s.first(), Some(&2));
     }
 
@@ -711,13 +711,13 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
+    fn test_shift_remove() {
         let mut h: HashSet<u32> = HashSet::from_iter([17]);
         let mut s: SmallSet<u32> = SmallSet::from_iter([17]);
         assert!(h.remove(&17));
-        assert!(s.remove(&17));
+        assert!(s.shift_remove(&17));
         assert!(!h.remove(&17));
-        assert!(!s.remove(&17));
+        assert!(!s.shift_remove(&17));
     }
 
     #[test]

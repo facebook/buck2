@@ -345,7 +345,7 @@ impl DapAdapter for DapAdapterImpl {
                     let mut vars = eval.local_variables();
                     // since vars is owned within this closure scope we can just remove value from the map
                     // obtaining owned variable as the rest of the map will be dropped anyway
-                    vars.remove(name).ok_or_else(|| {
+                    vars.shift_remove(name).ok_or_else(|| {
                         anyhow::Error::msg(format!("Local variable {} not found", name))
                     })
                 }

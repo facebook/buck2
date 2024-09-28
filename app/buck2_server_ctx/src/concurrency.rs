@@ -702,7 +702,7 @@ impl Drop for OnExecExit {
         tokio::task::spawn(async move {
             let mut data = this.0.data.lock().await;
             data.active_commands
-                .remove(&this.1)
+                .shift_remove(&this.1)
                 .expect("command was active but not in active_commands");
             tracing::info!("Active command was removed: {}", this.1);
 

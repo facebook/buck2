@@ -519,17 +519,17 @@ impl<K, V> SmallMap<K, V> {
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
+    pub fn shift_remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<V>
     where
         Q: ?Sized + Equivalent<K>,
     {
-        self.remove_hashed_entry(key).map(|(_k, v)| v)
+        self.shift_remove_hashed_entry(key).map(|(_k, v)| v)
     }
 
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
+    pub fn shift_remove_hashed_entry<Q>(&mut self, key: Hashed<&Q>) -> Option<(K, V)>
     where
         Q: ?Sized + Equivalent<K>,
     {
@@ -561,21 +561,21 @@ impl<K, V> SmallMap<K, V> {
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    pub fn shift_remove<Q>(&mut self, key: &Q) -> Option<V>
     where
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        self.remove_hashed(Hashed::new(key))
+        self.shift_remove_hashed(Hashed::new(key))
     }
 
     /// Remove the entry for the key.
     ///
     /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the map.
-    pub fn remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
+    pub fn shift_remove_entry<Q>(&mut self, key: &Q) -> Option<(K, V)>
     where
         Q: ?Sized + Hash + Equivalent<K>,
     {
-        self.remove_hashed_entry(Hashed::new(key))
+        self.shift_remove_hashed_entry(Hashed::new(key))
     }
 
     /// Get the entry (occupied or not) for the key.
@@ -1137,7 +1137,7 @@ mod tests {
 
         let not_m1 = {
             let mut m = m1.clone();
-            m.remove(&1);
+            m.shift_remove(&1);
             m
         };
         assert_ne!(m1, not_m1);
@@ -1196,7 +1196,7 @@ mod tests {
         assert_eq!(map.insert(K(2), "magic"), None);
         assert_eq!(map.get(&K(2)), Some(&"magic"));
 
-        assert_eq!(map.remove(&K(1)), Some("test"));
+        assert_eq!(map.shift_remove(&K(1)), Some("test"));
         assert_eq!(map.get(&K(1)), None);
         assert_eq!(map.keys().collect::<Vec<_>>(), vec![&K(3), &K(2)]);
     }
@@ -1259,7 +1259,7 @@ mod tests {
         assert_eq!(map.first(), Some((&1, &10)));
         map.insert(2, 20);
         assert_eq!(map.first(), Some((&1, &10)));
-        map.remove(&1);
+        map.shift_remove(&1);
         assert_eq!(map.first(), Some((&2, &20)));
     }
 
@@ -1348,19 +1348,19 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
+    fn test_shift_remove() {
         // Large enough so the index is used.
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
-        assert_eq!(Some((1, 10)), m.remove_entry(&1));
+        assert_eq!(Some((1, 10)), m.shift_remove_entry(&1));
         assert_eq!(Some(&30), m.get(&3));
         m.assert_invariants();
     }
 
     #[test]
-    fn test_remove_last() {
+    fn test_shift_remove_last() {
         // Large enough so the index is used.
         let mut m = (0..100).map(|i| (i, i * 10)).collect::<SmallMap<_, _>>();
-        assert_eq!(Some((99, 990)), m.remove_entry(&99));
+        assert_eq!(Some((99, 990)), m.shift_remove_entry(&99));
         assert_eq!(Some(&980), m.get(&98));
         m.assert_invariants();
     }
