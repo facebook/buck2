@@ -64,8 +64,28 @@ impl CompletionCommand {
 const GENERATED_INSERTION_POINT: &str = "# %INSERT_GENERATED_LINE%";
 const GENERATED_TAG: &str = concat!("@", "generated");
 const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
-const BASH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.bash");
-const ZSH_COMPLETION_WRAPPER: &str = include_str!("completion/completion-wrapper.zsh");
+
+fn bash_completion_wrapper() -> &'static str {
+    #[cfg(buck_build)]
+    {
+        completion_wrapper_bash::get()
+    }
+    #[cfg(not(buck_build))]
+    {
+        include_str!("completion/completion-wrapper.bash")
+    }
+}
+
+fn zsh_completion_wrapper() -> &'static str {
+    #[cfg(buck_build)]
+    {
+        completion_wrapper_zsh::get()
+    }
+    #[cfg(not(buck_build))]
+    {
+        include_str!("completion/completion-wrapper.zsh")
+    }
+}
 
 fn print_completion_script(
     shell_arg: Shell,
@@ -73,8 +93,8 @@ fn print_completion_script(
     cmd: &mut Command,
 ) -> anyhow::Result<()> {
     let (wrapper, shell) = match shell_arg {
-        Shell::Bash => (BASH_COMPLETION_WRAPPER, clap_complete::Shell::Bash),
-        Shell::Zsh => (ZSH_COMPLETION_WRAPPER, clap_complete::Shell::Zsh),
+        Shell::Bash => (bash_completion_wrapper(), clap_complete::Shell::Bash),
+        Shell::Zsh => (zsh_completion_wrapper(), clap_complete::Shell::Zsh),
         Shell::Fish => ("", clap_complete::Shell::Fish),
     };
 

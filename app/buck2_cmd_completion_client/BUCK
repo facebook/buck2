@@ -1,13 +1,11 @@
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+load("@fbcode_macros//build_defs:rust_linkable_symbol.bzl", "rust_linkable_symbol")
 
 oncall("build_infra")
 
 rust_library(
     name = "buck2_cmd_completion_client",
-    srcs = glob([
-        "src/**/*.rs",
-        "src/completion/completion-wrapper.*",
-    ]),
+    srcs = glob(["src/**/*.rs"]),
     test_deps = ["fbsource//third-party/rust:paste"],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -16,9 +14,21 @@ rust_library(
         "fbsource//third-party/rust:clap_complete",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:tokio",
+        ":completion_wrapper_bash",
+        ":completion_wrapper_zsh",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
     ],
+)
+
+rust_linkable_symbol(
+    name = "completion_wrapper_bash",
+    content_str = "src/completion/completion-wrapper.bash",
+)
+
+rust_linkable_symbol(
+    name = "completion_wrapper_zsh",
+    content_str = "src/completion/completion-wrapper.zsh",
 )
