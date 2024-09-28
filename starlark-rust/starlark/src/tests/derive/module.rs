@@ -19,6 +19,7 @@ mod basic;
 mod default_value;
 mod methods;
 mod named_positional;
+mod other_attributes;
 mod return_impl;
 mod special_params;
 mod type_annotation;
