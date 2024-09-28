@@ -162,9 +162,21 @@ impl Display for TyBasic {
                 }
             }
             TyBasic::Callable(c) => write!(f, "{}", c),
-            TyBasic::List(x) => write!(f, "list[{}]", x),
+            TyBasic::List(x) => {
+                if x.is_any() {
+                    write!(f, "list")
+                } else {
+                    write!(f, "list[{}]", x)
+                }
+            }
             TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
-            TyBasic::Dict(k, v) => write!(f, "dict[{}, {}]", k, v),
+            TyBasic::Dict(k, v) => {
+                if k.is_any() && v.is_any() {
+                    write!(f, "dict")
+                } else {
+                    write!(f, "dict[{}, {}]", k, v)
+                }
+            }
             TyBasic::Type => write!(f, "type"),
             TyBasic::Custom(c) => Display::fmt(c, f),
         }

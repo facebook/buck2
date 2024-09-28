@@ -28,7 +28,7 @@ def test():
     accepts_callable_named_xy(bad_function_extra_params)
 
 Error:
-error: Expected type `typing.Callable["*, x: str, y: int", None]` but got `def(x: bool, y: list[typing.Any]) -> None`
+error: Expected type `typing.Callable["*, x: str, y: int", None]` but got `def(x: bool, y: list) -> None`
   --> filename:20:31
    |
 20 |     accepts_callable_named_xy(bad_function_wrong_types)
@@ -52,7 +52,7 @@ error: Expected type `typing.Callable["*, x: str, y: int", None]` but got `def(x
    |
 
 Compiler typechecker (eval):
-error: Expected type `typing.Callable["*, x: str, y: int", None]` but got `def(x: bool, y: list[typing.Any]) -> None`
+error: Expected type `typing.Callable["*, x: str, y: int", None]` but got `def(x: bool, y: list) -> None`
   --> filename:20:31
    |
 20 |     accepts_callable_named_xy(bad_function_wrong_types)

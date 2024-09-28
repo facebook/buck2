@@ -179,8 +179,8 @@ fn test_type_compiled_display() {
     }
 
     t("typing.Any", "typing.Any");
-    t("list[typing.Any]", "list");
-    t("list[typing.Any]", "list[typing.Any]");
+    t("list", "list");
+    t("list", "list[typing.Any]");
     t("None", "None");
 }
 
