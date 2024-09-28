@@ -23,7 +23,6 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
-use crate::hint::unlikely;
 use crate::values::dict::DictMut;
 use crate::values::dict::DictRef;
 use crate::values::list::AllocList;
@@ -328,14 +327,13 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
             } else {
                 for v in pairs.iterate(heap)? {
                     let mut it = v.iterate(heap)?;
-                    let k = it.next();
-                    let v = if k.is_some() { it.next() } else { None };
-                    if unlikely(v.is_none() || it.next().is_some()) {
+                    // `StarlarkIterator` is fused.
+                    let (Some(k), Some(v), None) = (it.next(), it.next(), it.next()) else {
                         return Err(anyhow::anyhow!(
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
                         ).into());
                     };
-                    this.insert_hashed(k.unwrap().get_hashed()?, v.unwrap());
+                    this.insert_hashed(k.get_hashed()?, v);
                 }
             }
         }
