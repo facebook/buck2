@@ -48,6 +48,7 @@ rust_library(
         "//buck2/app/buck2_audit:buck2_audit",
         "//buck2/app/buck2_client:buck2_client",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
+        "//buck2/app/buck2_cmd_completion_client:buck2_cmd_completion_client",
         "//buck2/app/buck2_cmd_docs:buck2_cmd_docs",
         "//buck2/app/buck2_cmd_starlark_client:buck2_cmd_starlark_client",
         "//buck2/app/buck2_common:buck2_common",

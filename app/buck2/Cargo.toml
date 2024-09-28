@@ -34,6 +34,7 @@ buck2_bxl = { workspace = true }
 buck2_cfg_constructor = { workspace = true }
 buck2_client = { workspace = true }
 buck2_client_ctx = { workspace = true }
+buck2_cmd_completion_client = { workspace = true }
 buck2_cmd_docs = { workspace = true }
 buck2_cmd_docs_server = { workspace = true }
 buck2_cmd_starlark_client = { workspace = true }

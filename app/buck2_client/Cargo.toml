@@ -15,7 +15,6 @@ async-trait = { workspace = true }
 bytesize = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-clap_complete = { workspace = true }
 csv = { workspace = true }
 derive_more = { workspace = true }
 dupe = { workspace = true }
@@ -64,5 +63,4 @@ buck2_wrapper_common = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-paste = { workspace = true }
 tempfile = { workspace = true }
