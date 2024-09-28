@@ -239,13 +239,12 @@ compdef _impl buck2
 
         if cfg!(target_os = "linux") {
             check_shell_available(Shell::Fish);
-            let _actual = run(script, "buck2 abcdefghijkl", &None, Shell::Fish).unwrap();
-            // FIXME(JakobDegen): Bug: "...bcdefghijkl0"
-            // assert_eq!(
-            //     actual,
-            //     vec![arg1.to_owned(), arg2.to_owned()],
-            //     "testing fish"
-            // );
+            let actual = run(script, "buck2 abcdefghijkl", &None, Shell::Fish).unwrap();
+            assert_eq!(
+                actual,
+                vec![arg1.to_owned(), arg2.to_owned()],
+                "testing fish"
+            );
         }
     }
 }
