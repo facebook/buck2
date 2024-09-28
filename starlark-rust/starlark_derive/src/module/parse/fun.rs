@@ -577,23 +577,6 @@ fn parse_arg(
                     "Function parameter pattern must be identifier",
                 ));
             };
-            if let Some(heap) = is_heap(&ident.ident, &ty)? {
-                if this {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter cannot be `&Heap`",
-                    ));
-                }
-                return Ok(StarArgOrSpecial::Heap(heap));
-            } else if let Some(eval) = is_eval(&ident.ident, &ty)? {
-                if this {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter cannot be `&mut Evaluator`",
-                    ));
-                }
-                return Ok(StarArgOrSpecial::Eval(eval));
-            }
 
             if ident.subpat.is_some() {
                 return Err(syn::Error::new(
@@ -611,6 +594,24 @@ fn parse_arg(
 
             check_lifetimes_in_type(&ty, has_v)?;
             let param_attrs = parse_fn_param_attrs(attrs)?;
+
+            if let Some(heap) = is_heap(&ident.ident, &ty)? {
+                if this {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter cannot be `&Heap`",
+                    ));
+                }
+                return Ok(StarArgOrSpecial::Heap(heap));
+            } else if let Some(eval) = is_eval(&ident.ident, &ty)? {
+                if this {
+                    return Err(syn::Error::new(
+                        span,
+                        "Receiver parameter cannot be `&mut Evaluator`",
+                    ));
+                }
+                return Ok(StarArgOrSpecial::Eval(eval));
+            }
 
             if this {
                 if !param_attrs.this && ident.ident != "this" {
