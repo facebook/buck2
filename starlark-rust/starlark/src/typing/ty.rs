@@ -528,6 +528,16 @@ impl Ty {
         ok
     }
 
+    pub(crate) fn check_intersects(&self, other: &Ty) -> crate::Result<bool> {
+        let oracle = TypingOracleCtx {
+            codemap: CodeMap::empty_static(),
+        };
+        match oracle.intersects(self, other) {
+            Ok(ok) => Ok(ok),
+            Err(e) => Err(e.into_error()),
+        }
+    }
+
     pub(crate) fn from_native_callable_components(
         comp: &NativeCallableComponents,
         as_type: Option<Ty>,

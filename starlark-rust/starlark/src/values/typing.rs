@@ -31,6 +31,7 @@ pub use crate::values::typing::callable::param::StarlarkCallableParamAny;
 pub use crate::values::typing::callable::param::StarlarkCallableParamSpec;
 pub use crate::values::typing::callable::FrozenStarlarkCallable;
 pub use crate::values::typing::callable::StarlarkCallable;
+pub use crate::values::typing::callable::StarlarkCallableChecked;
 pub use crate::values::typing::iter::StarlarkIter;
 pub use crate::values::typing::never::StarlarkNever;
 pub use crate::values::typing::type_compiled::compiled::TypeCompiled;

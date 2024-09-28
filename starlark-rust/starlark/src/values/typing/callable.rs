@@ -299,6 +299,55 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P
     }
 }
 
+/// More strict version of [`StarlarkCallable`].
+///
+/// This checks not only that the value is callable,
+/// but also that it is a callable with the correct signature.
+///
+/// The implementation uses starlark-rust typechecker with all its limitations.
+/// For example, if there are optional parameters in both value-def and this signature,
+/// signature matching is ignored at the time of writing.
+///
+/// Unpacking with this type is expensive:
+/// usually it is OK to use it for code executed once at top-level scope (like `rule()`),
+/// but not for code executed many times (like `partial()`).
+pub struct StarlarkCallableChecked<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr>(
+    pub Value<'v>,
+    PhantomData<AtomicPtr<(P, R)>>,
+);
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
+    for StarlarkCallableChecked<'v, P, R>
+{
+    type Canonical = <StarlarkCallable<'v, P, R> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
+    for StarlarkCallableChecked<'v, P, R>
+{
+    /// Only internal error is possible.
+    type Error = crate::Error;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        // Check it is a callable first.
+        if StarlarkCallable::<P, R>::unpack_value_opt(value).is_none() {
+            return Ok(None);
+        }
+
+        // We need generic statics to cache this.
+        let ty = Ty::callable(P::params(), R::starlark_type_repr());
+
+        match Ty::of_value(value).check_intersects(&ty)? {
+            true => Ok(Some(StarlarkCallableChecked(value, PhantomData))),
+            false => Ok(None),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use starlark_derive::starlark_module;
@@ -309,6 +358,7 @@ mod tests {
     use crate::environment::GlobalsBuilder;
     use crate::values::none::NoneType;
     use crate::values::typing::StarlarkCallable;
+    use crate::values::typing::StarlarkCallableChecked;
 
     #[test]
     fn test_callable_runtime() {
@@ -455,6 +505,42 @@ def test():
     accept_f(f)
 "#,
             "Expected type `typing.Callable[[str], int]` but got",
+        );
+    }
+
+    #[test]
+    fn test_callable_checked_runtime() {
+        #[starlark_module]
+        fn module(globals: &mut GlobalsBuilder) {
+            fn accept_f(
+                #[starlark(require=pos)] _f: StarlarkCallableChecked<(), NoneType>,
+            ) -> anyhow::Result<NoneType> {
+                Ok(NoneType)
+            }
+
+            fn good() -> anyhow::Result<NoneType> {
+                Ok(NoneType)
+            }
+
+            fn bad() -> anyhow::Result<i32> {
+                Ok(10)
+            }
+        }
+
+        let mut a = Assert::new();
+        a.globals_add(module);
+
+        a.pass("accept_f(good)");
+
+        a.fail(
+            r#"
+def test():
+    x = noop(bad) # Hide the type from static typechecker.
+    accept_f(x)
+
+test()
+        "#,
+            "Type of parameter `_f` doesn't match",
         );
     }
 }
