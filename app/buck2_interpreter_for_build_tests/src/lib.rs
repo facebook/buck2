@@ -12,6 +12,7 @@
 
 #[cfg(test)]
 mod attr;
+mod attrs;
 mod functions;
 pub mod interpreter;
 mod rule;
