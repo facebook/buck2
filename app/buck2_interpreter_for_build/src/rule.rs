@@ -16,6 +16,8 @@ use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
+use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::types::rule::FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL;
 use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
@@ -445,8 +447,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn rule<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
-            (FrozenValue,),
-            ListType<FrozenValue>,
+            (AnalysisContextReprLate,),
+            ListType<ProviderReprLate>,
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<Value>,
@@ -458,7 +460,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<RuleCallable<'v>> {
         RuleCallable::new(
-            r#impl,
+            StarlarkCallable::unchecked_new(r#impl.0),
             attrs,
             cfg,
             doc,

@@ -19,6 +19,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
@@ -348,3 +349,7 @@ pub static ANALYSIS_ACTIONS_METHODS_ACTIONS: LateBinding<fn(&mut MethodsBuilder)
     LateBinding::new("ANALYSIS_ACTIONS_METHODS_ACTIONS");
 pub static ANALYSIS_ACTIONS_METHODS_ANON_TARGET: LateBinding<fn(&mut MethodsBuilder)> =
     LateBinding::new("ANALYSIS_ACTIONS_METHODS_ANON_TARGET");
+
+pub(crate) fn init_analysis_context_ty() {
+    AnalysisContextReprLate::init(AnalysisContext::starlark_type_repr());
+}

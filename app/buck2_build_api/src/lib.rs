@@ -48,5 +48,7 @@ pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         interpreter::more::init_register_build_api_globals();
+        interpreter::rule_defs::context::init_analysis_context_ty();
+        interpreter::rule_defs::provider::ty::abstract_provider::init_provider_ty();
     });
 }

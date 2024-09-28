@@ -10,6 +10,7 @@
 use std::sync::OnceLock;
 
 use allocative::Allocative;
+use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use dupe::Dupe;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
@@ -59,4 +60,8 @@ impl StarlarkTypeRepr for AbstractProvider {
         static TY: OnceLock<Ty> = OnceLock::new();
         TY.get_or_init(|| mk_ty_provider().unwrap()).dupe()
     }
+}
+
+pub(crate) fn init_provider_ty() {
+    ProviderReprLate::init(AbstractProvider::starlark_type_repr())
 }
