@@ -359,10 +359,6 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
 }
 
 impl FrozenRuleCallable {
-    pub fn implementation(&self) -> FrozenStarlarkCallable<(FrozenValue,), ListType<FrozenValue>> {
-        self.implementation
-    }
-
     pub fn rule_type(&self) -> &Arc<StarlarkRuleType> {
         &self.rule_type
     }
