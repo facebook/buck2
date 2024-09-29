@@ -1,4 +1,4 @@
-#compdef buck2
+#compdef buck2 buck
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under both the MIT license found in the
