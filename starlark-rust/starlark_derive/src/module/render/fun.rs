@@ -584,26 +584,8 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
     };
 
     let param_spec: syn::Expr = if x.is_arguments() {
-        let args: syn::Expr = syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParam::args(
-                "args",
-                starlark::typing::Ty::any()
-            )
-        };
-        let kwargs: syn::Expr = syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(
-                "kwargs",
-                starlark::typing::Ty::any()
-            )
-        };
         syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
-                pos_only: vec![],
-                pos_or_named: vec![],
-                args: std::option::Option::Some(#args),
-                named_only: vec![],
-                kwargs: std::option::Option::Some(#kwargs),
-            }
+            starlark::__derive_refs::param_spec::NativeCallableParamSpec::for_arguments()
         }
     } else {
         let ParamSpec {

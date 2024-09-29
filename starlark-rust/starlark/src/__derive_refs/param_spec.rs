@@ -74,6 +74,17 @@ pub struct NativeCallableParamSpec {
 }
 
 impl NativeCallableParamSpec {
+    /// For a function accepting raw `&Arguments`.
+    pub fn for_arguments() -> NativeCallableParamSpec {
+        NativeCallableParamSpec {
+            pos_only: Vec::new(),
+            pos_or_named: Vec::new(),
+            args: Some(NativeCallableParam::args("args", Ty::any())),
+            named_only: Vec::new(),
+            kwargs: Some(NativeCallableParam::kwargs("kwargs", Ty::any())),
+        }
+    }
+
     pub(crate) fn param_spec(&self) -> ParamSpec {
         ParamSpec::new_parts(
             self.pos_only.iter().map(|p| (p.is_required(), p.ty.dupe())),
