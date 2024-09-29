@@ -490,7 +490,7 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
 
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
 // Or return None if you don't need a signature
-fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
+fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     let name_str = ident_string(&x.name);
     let ParametersSpecArgs {
         pos_only,
@@ -507,17 +507,15 @@ fn render_signature(x: &StarFun) -> syn::Result<TokenStream> {
         .collect();
     let named_only: Vec<syn::Expr> = named_only.iter().map(SignatureRegularArg::render).collect();
 
-    Ok(quote! {
-        {
-            starlark::__derive_refs::sig::parameter_spec(
-                #name_str,
-                &[#(#pos_only),*],
-                &[#(#pos_or_named),*],
-                #args,
-                &[#(#named_only),*],
-                #kwargs,
-            )
-        }
+    Ok(syn::parse_quote! {
+        starlark::__derive_refs::sig::parameter_spec(
+            #name_str,
+            &[#(#pos_only),*],
+            &[#(#pos_or_named),*],
+            #args,
+            &[#(#named_only),*],
+            #kwargs,
+        )
     })
 }
 
