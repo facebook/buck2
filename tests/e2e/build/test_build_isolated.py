@@ -706,6 +706,7 @@ async def _assert_locally_executed_upload_attempted(buck: Buck, count: int = 1) 
 async def _assert_upload_attempted(buck: Buck, count: int) -> None:
     log = (await buck.log("show")).stdout.strip().splitlines()
     uploads = []
+    excluded_uploads = []
 
     for line in log:
         e = json_get(
@@ -721,8 +722,16 @@ async def _assert_upload_attempted(buck: Buck, count: int) -> None:
         if e["success"] or e["re_error_code"] == "PERMISSION_DENIED":
             # Tolerate permission denied errors because we don't have a choice on CI :(
             uploads.append(e)
+        else:
+            excluded_uploads.append(e)
 
-    assert len(uploads) == count
+    if len(uploads) == count:
+        return
+    else:
+        print(f"Expected {count} uploads", file=sys.stderr)
+        print(f"Actual uploads: {uploads}", file=sys.stderr)
+        print(f"Excluded uploads: {excluded_uploads}", file=sys.stderr)
+        raise AssertionError("Wrong number of uploads, see above")
 
 
 @buck_test(inplace=False, data_dir="execution_platforms")
