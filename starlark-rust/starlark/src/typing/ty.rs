@@ -28,7 +28,6 @@ use starlark_derive::Trace;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::Span;
 use starlark_syntax::codemap::Spanned;
-use starlark_syntax::syntax::type_expr::type_str_literal_is_wildcard;
 
 use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
@@ -122,10 +121,6 @@ impl PartialEq<str> for TyName {
 }
 
 impl TyName {
-    pub(crate) fn new(s: impl Into<ArcStr>) -> TyName {
-        TyName(s.into())
-    }
-
     /// Get the underlying `str` for a `TyName`.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -157,32 +152,6 @@ impl Ty {
     /// Create a [`Ty::any`], but tagged in such a way it can easily be found.
     pub fn todo() -> Self {
         Ty::any()
-    }
-
-    fn try_name_special(name: &str) -> Option<Self> {
-        match name {
-            name if type_str_literal_is_wildcard(name) => Some(Self::any()),
-            "list" => Some(Self::list(Ty::any())),
-            "dict" => Some(Self::dict(Ty::any(), Ty::any())),
-            "function" => Some(Self::any_callable()),
-            "struct" => Some(Self::custom(TyStruct::any())),
-            "never" => Some(Self::never()),
-            "NoneType" => Some(Self::none()),
-            "bool" => Some(Self::bool()),
-            "int" => Some(Self::int()),
-            "float" => Some(Self::float()),
-            "string" => Some(Self::string()),
-            "tuple" => Some(Self::any_tuple()),
-            _ => None,
-        }
-    }
-
-    pub(crate) fn name(name: &str) -> Self {
-        if let Some(x) = Self::try_name_special(name) {
-            x
-        } else {
-            Ty::basic(TyBasic::Name(TyName::new(name)))
-        }
     }
 
     /// Turn a type back into a name, potentially erasing some structure.

@@ -420,22 +420,13 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    /// For `p: "xxx"`, parse that `"xxx"` as type.
-    pub(crate) fn from_str(t: &str, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
-        TypeCompiledFactory::alloc_ty(&Ty::name(t), heap)
-    }
-
     /// Parse `[t1, t2, ...]` as type.
-    fn from_list(
-        t: &ListRef<'v>,
-        heap: &'v Heap,
-        allow_str: bool,
-    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
+    fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         match t.content() {
             [] | [_] => Err(TypingError::List.into()),
             ts @ [_, _, ..] => {
                 // A union type, can match any
-                let ts = ts.try_map(|t| TypeCompiled::new_impl(*t, heap, allow_str))?;
+                let ts = ts.try_map(|t| TypeCompiled::new_impl(*t, heap))?;
                 Ok(TypeCompiled::type_any_of(ts, heap))
             }
         }
@@ -447,25 +438,22 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     /// Evaluate type annotation at runtime.
     pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
-        TypeCompiled::new_impl(ty, heap, false)
+        TypeCompiled::new_impl(ty, heap)
     }
 
     /// Evaluate type annotation at runtime.
-    pub fn new_impl(ty: Value<'v>, heap: &'v Heap, allow_str: bool) -> anyhow::Result<Self> {
+    pub fn new_impl(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
         if let Some(s) = StringValue::new(ty) {
-            if !allow_str {
-                return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
-            }
-            Ok(TypeCompiled::from_str(s.as_str(), heap))
+            return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
         } else if ty.is_none() {
             Ok(TypeCompiledFactory::alloc_ty(&Ty::none(), heap))
         } else if let Some(t) = Tuple::from_value(ty) {
-            let elems = t.content().try_map(|t| {
-                anyhow::Ok(TypeCompiled::new_impl(*t, heap, allow_str)?.as_ty().clone())
-            })?;
+            let elems = t
+                .content()
+                .try_map(|t| anyhow::Ok(TypeCompiled::new_impl(*t, heap)?.as_ty().clone()))?;
             Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
         } else if let Some(t) = ListRef::from_value(ty) {
-            TypeCompiled::from_list(t, heap, allow_str)
+            TypeCompiled::from_list(t, heap)
         } else if ty.request_value::<&dyn TypeCompiledDyn>().is_some() {
             // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
             // but this branch avoids copying the type.
