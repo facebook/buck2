@@ -120,12 +120,6 @@ impl<'a> ParamSpec<'a> {
                     named_only.push(arg);
                     last_param_style = CurrentParamStyle::NamedOnly;
                 }
-                StarArgPassStyle::Arguments => {
-                    return Err(syn::Error::new(
-                        arg.span,
-                        "unreachable: signature is not meant to be created for `&Arguments`",
-                    ));
-                }
             }
 
             let optional = arg.default.is_some() || arg.is_option();

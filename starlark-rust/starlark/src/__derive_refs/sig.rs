@@ -52,3 +52,8 @@ pub fn parameter_spec(
         kwargs,
     )
 }
+
+/// `ParametersSpec` for a function which accepts `&Arguments`.
+pub fn parameter_spec_for_arguments(name: &'static str) {
+    parameter_spec(name, &[], &[], true, &[], true);
+}

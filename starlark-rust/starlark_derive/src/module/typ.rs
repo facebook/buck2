@@ -70,7 +70,7 @@ pub(crate) struct StarFun {
     pub as_type: Option<syn::Path>,
     pub attrs: Vec<Attribute>,
     pub this: Option<ThisParam>,
-    pub args: Vec<StarArg>,
+    pub args: RegularParams,
     /// Has `&Heap` parameter.
     pub heap: Option<SpecialParam>,
     /// Has `&mut Evaluator` parameter.
@@ -89,12 +89,6 @@ impl StarFun {
     /// Is this function a method? (I. e. has `this` as first parameter).
     pub(crate) fn is_method(&self) -> bool {
         self.this.is_some()
-    }
-
-    pub(crate) fn is_arguments(&self) -> bool {
-        self.args
-            .iter()
-            .any(|arg| matches!(arg.pass_style, StarArgPassStyle::Arguments))
     }
 
     pub(crate) fn span(&self) -> Span {
@@ -132,8 +126,6 @@ pub(crate) enum StarArgPassStyle {
     Args,
     /// `**kwargs`.
     Kwargs,
-    /// `&Arguments`.
-    Arguments,
 }
 
 /// Method `this` parameter, always first.
@@ -172,10 +164,33 @@ pub(crate) struct StarArg {
     pub source: StarArgSource,
 }
 
+/// `&Arguments` parameter.
+#[derive(Debug)]
+pub(crate) struct StarArguments {
+    pub(crate) other_attrs: Vec<syn::Attribute>,
+    pub(crate) mutability: Option<syn::Token![mut]>,
+    pub(crate) ident: syn::Ident,
+    pub(crate) ty: syn::Type,
+}
+
+impl StarArguments {
+    pub(crate) fn reconstruct_param(&self) -> syn::PatType {
+        pat_type(&self.other_attrs, self.mutability, &self.ident, &self.ty)
+    }
+}
+
+/// How we handle `&Arguments`.
+#[derive(Debug)]
+pub(crate) enum RegularParams {
+    /// Pass `&Arguments` as is.
+    Arguments(StarArguments),
+    /// Unpack the `&Arguments` into a multiple typed parameters.
+    Unpack(Vec<StarArg>),
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) enum StarArgSource {
     Unknown,
-    Parameters,
     Argument(usize),
     Required(usize),
     Optional(usize),

@@ -28,6 +28,7 @@ use syn::Lit;
 use crate::module::param_spec::ParamSpec;
 use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
+use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
 use crate::module::typ::StarArgSource;
@@ -138,7 +139,7 @@ impl StarFun {
     /// Non-special params.
     fn binding_params_arg(&self) -> syn::Result<(Vec<syn::PatType>, TokenStream, Vec<syn::Expr>)> {
         let Bindings { prepare, bindings } = render_binding(self)?;
-        let binding_params: Vec<_> = bindings.iter().map(|b| b.render_param()).collect();
+        let binding_params: Vec<_> = bindings.iter().map(|b| b.param.clone()).collect();
         let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
         Ok((binding_params, prepare, binding_args))
     }
@@ -329,25 +330,20 @@ struct Bindings {
 // Given __args and __signature (if render_signature was Some)
 // create bindings for all the arguments
 fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
-    match x.source {
-        StarFunSource::Arguments => {
-            let [arg] = x.args.as_slice() else {
-                return Err(syn::Error::new(
-                    x.span(),
-                    "&Arguments function can have only &Arguments parsed parameter",
-                ));
-            };
-            Ok(Bindings {
-                prepare: TokenStream::new(),
-                bindings: vec![BindingArg {
-                    arg: (*arg).clone(),
-                    expr: syn::parse_quote! { parameters },
-                }],
-            })
-        }
-        StarFunSource::Signature { count } => {
-            let bind_args: Vec<BindingArg> = x
-                .args
+    match (&x.args, &x.source) {
+        (RegularParams::Arguments(arguments), StarFunSource::Arguments) => Ok(Bindings {
+            prepare: TokenStream::new(),
+            bindings: vec![BindingArg {
+                param: arguments.reconstruct_param(),
+                expr: syn::parse_quote! { parameters },
+            }],
+        }),
+        (RegularParams::Arguments(_), _) | (_, StarFunSource::Arguments) => Err(syn::Error::new(
+            x.span(),
+            "Inconsistent params/source (internal error)",
+        )),
+        (RegularParams::Unpack(args), StarFunSource::Signature { count }) => {
+            let bind_args: Vec<BindingArg> = args
                 .iter()
                 .map(render_binding_arg)
                 .collect::<syn::Result<_>>()?;
@@ -360,13 +356,15 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                 bindings: bind_args,
             })
         }
-        StarFunSource::Positional {
-            required,
-            optional,
-            kwargs: false,
-        } => {
-            let bind_args = x
-                .args
+        (
+            RegularParams::Unpack(args),
+            StarFunSource::Positional {
+                required,
+                optional,
+                kwargs: false,
+            },
+        ) => {
+            let bind_args = args
                 .iter()
                 .map(render_binding_arg)
                 .collect::<syn::Result<_>>()?;
@@ -379,13 +377,15 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                 bindings: bind_args,
             })
         }
-        StarFunSource::Positional {
-            required,
-            optional,
-            kwargs: true,
-        } => {
-            let bind_args = x
-                .args
+        (
+            RegularParams::Unpack(args),
+            StarFunSource::Positional {
+                required,
+                optional,
+                kwargs: true,
+            },
+        ) => {
+            let bind_args = args
                 .iter()
                 .map(render_binding_arg)
                 .collect::<syn::Result<_>>()?;
@@ -403,19 +403,10 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
 
 struct BindingArg {
     expr: syn::Expr,
-    arg: StarArg,
+    param: syn::PatType,
 }
 
 impl BindingArg {
-    fn render_param(&self) -> syn::PatType {
-        pat_type(
-            &self.arg.attrs,
-            self.arg.mutable,
-            &self.arg.name,
-            &self.arg.ty,
-        )
-    }
-
     fn render_arg(&self) -> syn::Expr {
         self.expr.clone()
     }
@@ -484,7 +475,7 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
 
     Ok(BindingArg {
         expr: next,
-        arg: arg.clone(),
+        param: pat_type(&arg.attrs, arg.mutable, &arg.name, &arg.ty),
     })
 }
 
@@ -492,31 +483,41 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
 // Or return None if you don't need a signature
 fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     let name_str = ident_string(&x.name);
-    let ParametersSpecArgs {
-        pos_only,
-        pos_or_named,
-        args,
-        named_only,
-        kwargs,
-    } = parameter_spec_args(&x.args)?;
 
-    let pos_only: Vec<syn::Expr> = pos_only.iter().map(SignatureRegularArg::render).collect();
-    let pos_or_named: Vec<syn::Expr> = pos_or_named
-        .iter()
-        .map(SignatureRegularArg::render)
-        .collect();
-    let named_only: Vec<syn::Expr> = named_only.iter().map(SignatureRegularArg::render).collect();
+    match &x.args {
+        RegularParams::Arguments(_) => Ok(syn::parse_quote! {
+            starlark::__derive_refs::sig::parameter_spec_for_arguments(#name_str)
+        }),
+        RegularParams::Unpack(args) => {
+            let ParametersSpecArgs {
+                pos_only,
+                pos_or_named,
+                args,
+                named_only,
+                kwargs,
+            } = parameter_spec_args(args)?;
 
-    Ok(syn::parse_quote! {
-        starlark::__derive_refs::sig::parameter_spec(
-            #name_str,
-            &[#(#pos_only),*],
-            &[#(#pos_or_named),*],
-            #args,
-            &[#(#named_only),*],
-            #kwargs,
-        )
-    })
+            let pos_only: Vec<syn::Expr> =
+                pos_only.iter().map(SignatureRegularArg::render).collect();
+            let pos_or_named: Vec<syn::Expr> = pos_or_named
+                .iter()
+                .map(SignatureRegularArg::render)
+                .collect();
+            let named_only: Vec<syn::Expr> =
+                named_only.iter().map(SignatureRegularArg::render).collect();
+
+            Ok(syn::parse_quote! {
+                starlark::__derive_refs::sig::parameter_spec(
+                    #name_str,
+                    &[#(#pos_only),*],
+                    &[#(#pos_or_named),*],
+                    #args,
+                    &[#(#named_only),*],
+                    #kwargs,
+                )
+            })
+        }
+    }
 }
 
 fn render_none() -> syn::Expr {
@@ -583,58 +584,61 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
         None => quote!(None),
     };
 
-    let param_spec: syn::Expr = if x.is_arguments() {
-        syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParamSpec::for_arguments()
+    let param_spec: syn::Expr = match &x.args {
+        RegularParams::Arguments(_) => {
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParamSpec::for_arguments()
+            }
         }
-    } else {
-        let ParamSpec {
-            pos_only,
-            pos_or_named,
-            args,
-            named_only,
-            kwargs,
-        } = ParamSpec::split(&x.args)?;
+        RegularParams::Unpack(args) => {
+            let ParamSpec {
+                pos_only,
+                pos_or_named,
+                args,
+                named_only,
+                kwargs,
+            } = ParamSpec::split(args)?;
 
-        let pos_only: Vec<syn::Expr> = pos_only
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let pos_or_named: Vec<syn::Expr> = pos_or_named
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let args: Option<syn::Expr> = args.map(|arg| {
-            let name_str = ident_string(&arg.name);
-            let ty = render_starlark_type(&arg.ty);
-            syn::parse_quote! {
-                starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
-            }
-        });
-        let named_only: Vec<syn::Expr> = named_only
-            .iter()
-            .copied()
-            .map(render_regular_native_callable_param)
-            .collect::<syn::Result<Vec<_>>>()?;
-        let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
-            let name_str = ident_string(&arg.name);
-            let ty = render_starlark_type(&arg.ty);
-            syn::parse_quote! {
-                starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
-            }
-        });
+            let pos_only: Vec<syn::Expr> = pos_only
+                .iter()
+                .copied()
+                .map(render_regular_native_callable_param)
+                .collect::<syn::Result<Vec<_>>>()?;
+            let pos_or_named: Vec<syn::Expr> = pos_or_named
+                .iter()
+                .copied()
+                .map(render_regular_native_callable_param)
+                .collect::<syn::Result<Vec<_>>>()?;
+            let args: Option<syn::Expr> = args.map(|arg| {
+                let name_str = ident_string(&arg.name);
+                let ty = render_starlark_type(&arg.ty);
+                syn::parse_quote! {
+                    starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
+                }
+            });
+            let named_only: Vec<syn::Expr> = named_only
+                .iter()
+                .copied()
+                .map(render_regular_native_callable_param)
+                .collect::<syn::Result<Vec<_>>>()?;
+            let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
+                let name_str = ident_string(&arg.name);
+                let ty = render_starlark_type(&arg.ty);
+                syn::parse_quote! {
+                    starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
+                }
+            });
 
-        let args = render_option(args);
-        let kwargs = render_option(kwargs);
-        syn::parse_quote! {
-            starlark::__derive_refs::param_spec::NativeCallableParamSpec {
-                pos_only: vec![#(#pos_only),*],
-                pos_or_named: vec![#(#pos_or_named),*],
-                args: #args,
-                named_only: vec![#(#named_only),*],
-                kwargs: #kwargs,
+            let args = render_option(args);
+            let kwargs = render_option(kwargs);
+            syn::parse_quote! {
+                starlark::__derive_refs::param_spec::NativeCallableParamSpec {
+                    pos_only: vec![#(#pos_only),*],
+                    pos_or_named: vec![#(#pos_or_named),*],
+                    args: #args,
+                    named_only: vec![#(#named_only),*],
+                    kwargs: #kwargs,
+                }
             }
         }
     };
