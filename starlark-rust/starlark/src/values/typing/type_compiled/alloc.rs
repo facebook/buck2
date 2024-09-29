@@ -21,7 +21,6 @@ use crate::typing::custom::TyCustom;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
-use crate::typing::TyName;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 use crate::values::typing::type_compiled::matchers::IsAny;
@@ -35,7 +34,6 @@ use crate::values::typing::type_compiled::matchers::IsInt;
 use crate::values::typing::type_compiled::matchers::IsIterable;
 use crate::values::typing::type_compiled::matchers::IsList;
 use crate::values::typing::type_compiled::matchers::IsListOf;
-use crate::values::typing::type_compiled::matchers::IsName;
 use crate::values::typing::type_compiled::matchers::IsNever;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
@@ -134,14 +132,9 @@ pub trait TypeMatcherAlloc: Sized {
         }
     }
 
-    fn name(self, ty: &TyName) -> Self::Result {
-        self.alloc(IsName(ty.as_str().to_owned()))
-    }
-
     fn ty_basic(self, ty: &TyBasic) -> Self::Result {
         match ty {
             TyBasic::Any => self.any(),
-            TyBasic::Name(name) => self.name(name),
             TyBasic::StarlarkValue(x) => x.matcher(self),
             TyBasic::List(item) => self.list_of(item),
             TyBasic::Tuple(tuple) => tuple.matcher(self),

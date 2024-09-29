@@ -288,7 +288,6 @@ impl TyCustom {
         }
         match other {
             TyBasic::Custom(other) => Ok(Self::intersects(self, other)),
-            TyBasic::Name(name) => Ok(self.as_name() == Some(name.as_str())),
             TyBasic::Callable(c) => {
                 if let Some(this) = self.0.as_callable_dyn() {
                     ctx.callables_intersect(&this, c)

@@ -48,7 +48,6 @@ use crate::typing::structs::TyStruct;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ParamSpec;
 use crate::typing::TypingOracleCtx;
-use crate::util::arc_str::ArcStr;
 use crate::values::bool::StarlarkBool;
 use crate::values::typing::never::TypingNever;
 use crate::values::StarlarkValue;
@@ -102,29 +101,6 @@ pub struct Ty {
     /// This is different handling of union types than in TypeScript for example,
     /// TypeScript would consider such expression to be an error.
     alternatives: SmallArcVec1<TyBasic>,
-}
-
-/// The name of an atomic type.
-#[derive(Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
-pub struct TyName(ArcStr);
-
-impl Display for TyName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "\"{}\"", self.0.as_str())
-    }
-}
-
-impl PartialEq<str> for TyName {
-    fn eq(&self, other: &str) -> bool {
-        self.as_str() == other
-    }
-}
-
-impl TyName {
-    /// Get the underlying `str` for a `TyName`.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 fn merge_adjacent<T>(xs: Vec<T>, f: impl Fn(T, T) -> Either<T, (T, T)>) -> SmallVec1<T> {

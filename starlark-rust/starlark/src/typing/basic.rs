@@ -29,7 +29,6 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
-use crate::typing::TyName;
 use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::typing::any::TypingAny;
@@ -40,10 +39,6 @@ use crate::values::StarlarkValue;
 pub enum TyBasic {
     /// Type that contain anything
     Any,
-    /// A name, represented by `"name"` in the Starlark type.
-    /// Will never be a type that can be represented by another operation,
-    /// e.g. never `"list"` because `Ty::List` could be used instead.
-    Name(TyName),
     /// Type is handled by `StarlarkValue` trait implementation.
     StarlarkValue(TyStarlarkValue),
     /// Iter is a type that supports iteration, only used as arguments to primitive functions.
@@ -118,7 +113,6 @@ impl TyBasic {
     /// Types like [`Ty::any`] will return `None`.
     pub fn as_name(&self) -> Option<&str> {
         match self {
-            TyBasic::Name(x) => Some(x.as_str()),
             TyBasic::StarlarkValue(t) => Some(t.as_name()),
             TyBasic::List(_) => Some("list"),
             TyBasic::Tuple(_) => Some("tuple"),
@@ -152,7 +146,6 @@ impl Display for TyBasic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TyBasic::Any => write!(f, "{}", TypingAny::TYPE),
-            TyBasic::Name(x) => write!(f, "{}", x),
             TyBasic::StarlarkValue(x) => write!(f, "{}", x),
             TyBasic::Iter(x) => {
                 if x.is_any() {

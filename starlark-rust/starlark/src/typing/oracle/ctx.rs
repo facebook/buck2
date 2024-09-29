@@ -39,7 +39,6 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
-use crate::typing::TyName;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::dict::value::MutableDict;
@@ -263,18 +262,6 @@ impl<'a> TypingOracleCtx<'a> {
         Ok(fun.result().dupe())
     }
 
-    fn validate_call_for_type_name(
-        &self,
-        span: Span,
-        ty: &TyName,
-        _args: &TyCallArgs,
-    ) -> Result<Ty, TypingOrInternalError> {
-        Err(self.mk_error_as_maybe_internal(
-            span,
-            TypingOracleCtxError::CallToNonCallable { ty: ty.to_string() },
-        ))
-    }
-
     #[allow(clippy::collapsible_else_if)]
     fn validate_call_basic(
         &self,
@@ -284,7 +271,6 @@ impl<'a> TypingOracleCtx<'a> {
     ) -> Result<Ty, TypingOrInternalError> {
         match fun {
             TyBasic::Any => Ok(Ty::any()),
-            TyBasic::Name(n) => self.validate_call_for_type_name(span, n, args),
             TyBasic::StarlarkValue(t) => Ok(t.validate_call(span, *self)?),
             TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) => Err(self
                 .mk_error_as_maybe_internal(
@@ -349,7 +335,6 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Type => Ok(Ty::any()),
             TyBasic::Iter(ty) => Ok(ty.to_ty()),
             TyBasic::Custom(ty) => ty.0.iter_item_dyn(),
-            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -393,7 +378,6 @@ impl<'a> TypingOracleCtx<'a> {
             }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)?),
             TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node, self)?),
-            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -517,7 +501,6 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
-            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -631,7 +614,6 @@ impl<'a> TypingOracleCtx<'a> {
                 bin_op => Ok(TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node)?),
             },
             TyBasic::Custom(lhs) => Ok(lhs.0.bin_op_dyn(bin_op, rhs.node, self)?),
-            TyBasic::Name(_) => Ok(Ty::any()),
         }
     }
 
@@ -663,7 +645,6 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 _ => Ok(TyStarlarkValue::tuple().rbin_op(bin_op, lhs)?),
             },
-            TyBasic::Name(..) => Ok(Ty::any()),
             _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
@@ -924,7 +905,6 @@ impl<'a> TypingOracleCtx<'a> {
     fn intersects_one_side(&self, x: &TyBasic, y: &TyBasic) -> Result<bool, InternalError> {
         match (x, y) {
             (TyBasic::Any, _) => Ok(true),
-            (TyBasic::Name(_), _) => Ok(true),
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::List(_), TyBasic::StarlarkValue(y)) => Ok(y.is_list()),
             (TyBasic::List(_), _) => Ok(false),
