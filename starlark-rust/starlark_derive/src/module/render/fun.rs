@@ -346,7 +346,11 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
             })
         }
         StarFunSource::Signature { count } => {
-            let bind_args: Vec<BindingArg> = x.args.iter().map(render_binding_arg).collect();
+            let bind_args: Vec<BindingArg> = x
+                .args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
             Ok(Bindings {
                 prepare: quote! {
                     let __args: [_; #count] =
@@ -357,7 +361,11 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
             })
         }
         StarFunSource::Positional { required, optional } => {
-            let bind_args = x.args.iter().map(render_binding_arg).collect();
+            let bind_args = x
+                .args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
             Ok(Bindings {
                 prepare: quote! {
                     let (__required, __optional): ([_; #required], [_; #optional]) =
@@ -391,15 +399,20 @@ impl BindingArg {
 }
 
 // Create a binding for an argument given. If it requires an index, take from the index
-fn render_binding_arg(arg: &StarArg) -> BindingArg {
+fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
     let name = &arg.name;
     let name_str = ident_string(name);
 
-    let source = match arg.source {
+    let source = match &arg.source {
         StarArgSource::Argument(i) => quote! { __args[#i] },
         StarArgSource::Required(i) => quote! {  Some(__required[#i])},
         StarArgSource::Optional(i) => quote! { __optional[#i] },
-        ref s => unreachable!("unknown source: {:?}", s),
+        s => {
+            return Err(syn::Error::new(
+                arg.span,
+                format!("Unexpected source {:?} (internal error)", s),
+            ));
+        }
     };
 
     let next: syn::Expr = {
@@ -408,7 +421,10 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
                 syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
             }
             (true, _, Some(_)) => {
-                panic!("Can't have Option argument with a default, for `{name_str}`")
+                return Err(syn::Error::new(
+                    arg.span,
+                    format!("Can't have Option argument with a default, for `{name_str}`"),
+                ));
             }
             (false, false, Some(default)) => {
                 syn::parse_quote! {
@@ -432,10 +448,10 @@ fn render_binding_arg(arg: &StarArg) -> BindingArg {
         }
     };
 
-    BindingArg {
+    Ok(BindingArg {
         expr: next,
         arg: arg.clone(),
-    }
+    })
 }
 
 // Given the arguments, create a variable `signature` with a `ParametersSpec` object.
