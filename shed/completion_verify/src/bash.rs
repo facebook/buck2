@@ -13,7 +13,12 @@ use std::path::Path;
 use crate::extract_from_outputs;
 use crate::runtime::BashRuntime;
 
-pub(crate) fn run_bash(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
+pub(crate) fn run_bash(
+    completion_name: &str,
+    script: &str,
+    input: &str,
+    tempdir: &Path,
+) -> io::Result<Vec<String>> {
     let home = tempdir;
 
     std::fs::write(
@@ -27,7 +32,7 @@ PS1='% '
         "# expected empty file to disable loading ~/.inputrc\n",
     )?;
     let mut r = BashRuntime::with_home(home.to_owned())?;
-    r.register("buck2", script)?;
+    r.register(completion_name, script)?;
 
     let one_tab = r.complete(&format!("{}\t", input))?;
     // complete_pty turns on echoing in this case to work around a bash bug, so strip that

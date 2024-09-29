@@ -61,7 +61,7 @@ def completion_test(
                     f"if [ -n \"$( ls -A '{shell_home}' )\" ]; then",
                     f"    rm -r -- {shell_home}/*",
                     "fi",
-                    f"{verify_bin.absolute()} --tempdir {shell_home} {shell} {completions_path.absolute()}",
+                    f"{verify_bin.absolute()} --tempdir {shell_home} --name buck2 {shell} {completions_path.absolute()}",
                 ]
             )
             script_path = tmp_path / f"test_{shell}.sh"

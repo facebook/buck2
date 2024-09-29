@@ -109,6 +109,7 @@ fn extract_from_single_output(input: &str, raw_out: &str) -> Option<Vec<String>>
 }
 
 fn run(
+    completion_name: &str,
     script: &str,
     input: &str,
     tempdir: &Option<String>,
@@ -124,9 +125,9 @@ fn run(
     };
 
     match shell {
-        Shell::Bash => run_bash(script, input, &tempdir),
-        Shell::Fish => run_fish(script, input, &tempdir),
-        Shell::Zsh => run_zsh(script, input, &tempdir),
+        Shell::Bash => run_bash(completion_name, script, input, &tempdir),
+        Shell::Fish => run_fish(completion_name, script, input, &tempdir),
+        Shell::Zsh => run_zsh(completion_name, script, input, &tempdir),
     }
 }
 
@@ -146,6 +147,9 @@ struct CompletionVerify {
     /// Must be empty prior to each invocation of this binary
     #[clap(long, value_name = "DIR")]
     tempdir: Option<String>,
+    /// The command we complete
+    #[clap(long, value_name = "COMMAND", default_value = "buck2")]
+    name: String,
     /// The shell to test with
     shell: Shell,
     /// The path of the completion script to load
@@ -158,7 +162,7 @@ fn main() -> io::Result<()> {
     let script = std::fs::read_to_string(&args.script)?;
     let input = std::io::read_to_string(io::stdin())?;
 
-    for option in run(&script, &input, &args.tempdir, args.shell)? {
+    for option in run(&args.name, &script, &input, &args.tempdir, args.shell)? {
         println!("{}", option);
     }
 
@@ -170,32 +174,54 @@ mod tests {
     use crate::run;
     use crate::Shell;
 
-    const BASH_SCRIPT: &str = "complete -W 'car1 cat2' buck2";
+    const BASH_SCRIPT: &str = "complete -W 'car1 cat2' find";
 
-    const FISH_SCRIPT: &str = "complete -c buck2 -a 'car1 cat2'";
+    // Note: fish requires the command to actually exist
+    const FISH_SCRIPT: &str = "complete -c find -a 'car1 cat2'";
 
     const ZSH_SCRIPT: &str = "\
-#compdef buck2
+#compdef find
 _impl()
 {
     compadd car1 cat2
 }
-compdef _impl buck2
+compdef _impl find
 ";
 
     fn test_complete(input: &str, expected: &[&'static str]) {
         check_shell_available(Shell::Bash);
-        let actual = run(BASH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Bash).unwrap();
+        let actual = run(
+            "find",
+            BASH_SCRIPT,
+            &format!("find {}", input),
+            &None,
+            Shell::Bash,
+        )
+        .unwrap();
         assert_eq!(actual, expected, "testing bash");
 
         if cfg!(target_os = "linux") {
             check_shell_available(Shell::Fish);
-            let actual = run(FISH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Fish).unwrap();
+            let actual = run(
+                "find",
+                FISH_SCRIPT,
+                &format!("find {}", input),
+                &None,
+                Shell::Fish,
+            )
+            .unwrap();
             assert_eq!(actual, expected, "testing fish");
         }
 
         check_shell_available(Shell::Zsh);
-        let actual = run(ZSH_SCRIPT, &format!("buck2 {}", input), &None, Shell::Zsh).unwrap();
+        let actual = run(
+            "find",
+            ZSH_SCRIPT,
+            &format!("find {}", input),
+            &None,
+            Shell::Zsh,
+        )
+        .unwrap();
         assert_eq!(actual, expected, "testing zsh");
     }
 
@@ -239,7 +265,7 @@ compdef _impl buck2
 
         if cfg!(target_os = "linux") {
             check_shell_available(Shell::Fish);
-            let actual = run(script, "buck2 abcdefghijkl", &None, Shell::Fish).unwrap();
+            let actual = run("buck2", script, "buck2 abcdefghijkl", &None, Shell::Fish).unwrap();
             assert_eq!(
                 actual,
                 vec![arg1.to_owned(), arg2.to_owned()],

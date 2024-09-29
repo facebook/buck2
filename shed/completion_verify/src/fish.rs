@@ -27,11 +27,16 @@ fn reconstruct_with_beginning_omitted(out: String, last_input_word: &str) -> Str
     unreachable!()
 }
 
-pub(crate) fn run_fish(script: &str, input: &str, tempdir: &Path) -> io::Result<Vec<String>> {
+pub(crate) fn run_fish(
+    completion_name: &str,
+    script: &str,
+    input: &str,
+    tempdir: &Path,
+) -> io::Result<Vec<String>> {
     let home = tempdir;
 
     let mut r = FishRuntime::new(home.to_owned())?;
-    r.register("buck2", script)?;
+    r.register(completion_name, script)?;
 
     let outs = extract_from_outputs(
         input,
