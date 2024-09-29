@@ -144,10 +144,22 @@ impl<'v, T: StarlarkValue<'v>> Serialize for FrozenValueTyped<'v, T> {
     }
 }
 
-// Have to implement these manually to avoid the `T: PartialEq` bound
 impl<'v, T: StarlarkValue<'v>> PartialEq for ValueTyped<'v, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        // Poor man specialization.
+        if T::static_type_id() == StarlarkStr::static_type_id() {
+            // SAFETY: just checked type ids.
+            let (this, other) = unsafe {
+                (
+                    StringValue::new_unchecked(self.0),
+                    StringValue::new_unchecked(other.0),
+                )
+            };
+            this.0.ptr_eq(other.0) || StarlarkStr::eq(this.as_ref(), other.as_ref())
+        } else {
+            // Slow comparison with virtual call.
+            self.0 == other.0
+        }
     }
 }
 
@@ -155,7 +167,7 @@ impl<'v, T: StarlarkValue<'v>> Eq for ValueTyped<'v, T> {}
 
 impl<'v, T: StarlarkValue<'v>> PartialEq for FrozenValueTyped<'v, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.to_value_typed() == other.to_value_typed()
     }
 }
 
