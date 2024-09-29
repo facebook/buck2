@@ -29,6 +29,7 @@ def completion_test(
     shells: list[str] = SHELLS,
     options_only: bool = False,
     cwd: str = "",
+    bin: str = "buck2",
 ) -> None:
     for shell in shells:
         if shell == "fish" and not IS_LINUX:
@@ -61,7 +62,7 @@ def completion_test(
                     f"if [ -n \"$( ls -A '{shell_home}' )\" ]; then",
                     f"    rm -r -- {shell_home}/*",
                     "fi",
-                    f"{verify_bin.absolute()} --tempdir {shell_home} --name buck2 {shell} {completions_path.absolute()}",
+                    f"{verify_bin.absolute()} --tempdir {shell_home} --name {bin} {shell} {completions_path.absolute()}",
                 ]
             )
             script_path = tmp_path / f"test_{shell}.sh"
@@ -75,7 +76,7 @@ def completion_test(
 
             actual = subprocess.check_output(
                 script_path.absolute(),
-                input="buck2 " + input,
+                input=f"{bin} {input}",
                 text=True,
                 cwd=buck.cwd.joinpath(cwd),
             )
@@ -119,6 +120,17 @@ completion_test(
     expected=lambda actual: (
         "--prefer-local" in actual and "--prefer-remote" in actual
     ),
+)
+
+completion_test(
+    name="test_build_flags_buck_bin",
+    # Use `--p` so that we don't get too many outputs, which the test framework doesn't handle well
+    # on zsh
+    input="build --p",
+    options_only=True,
+    # FIXME(JakobDegen): Bug: Should work
+    expected=lambda actual: True,
+    bin="buck",
 )
 
 completion_test(
