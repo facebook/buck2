@@ -30,6 +30,9 @@ end
 
 function __buck2_takes_target
     set -l cmd (commandline --current-process --tokenize --cut-at-cursor)
+    if contains -- -- $cmd[..-1]
+        return 1
+    end
     set -l subcommand (__buck2_subcommand $cmd)
     test -n $subcommand || return
 
