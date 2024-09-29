@@ -84,22 +84,40 @@ fn completion_wrapper(shell: Shell) -> &'static str {
     }
 }
 
+fn options_wrapper(shell: Shell) -> &'static str {
+    #[cfg(buck_build)]
+    {
+        match shell {
+            Shell::Bash => options_wrapper_bash::get(),
+            Shell::Fish => options_wrapper_fish::get(),
+            Shell::Zsh => options_wrapper_zsh::get(),
+        }
+    }
+    #[cfg(not(buck_build))]
+    {
+        match shell {
+            Shell::Bash => include_str!("completion/options-wrapper.bash"),
+            Shell::Fish => include_str!("completion/options-wrapper.fish"),
+            Shell::Zsh => include_str!("completion/options-wrapper.zsh"),
+        }
+    }
+}
+
 fn print_completion_script(
     shell_arg: Shell,
     options_only: bool,
     cmd: &mut Command,
 ) -> anyhow::Result<()> {
-    let wrapper = completion_wrapper(shell_arg);
+    let wrapper = if options_only {
+        options_wrapper(shell_arg)
+    } else {
+        completion_wrapper(shell_arg)
+    };
     let shell = match shell_arg {
         Shell::Bash => clap_complete::Shell::Bash,
         Shell::Zsh => clap_complete::Shell::Zsh,
         Shell::Fish => clap_complete::Shell::Fish,
     };
-
-    if options_only {
-        buck2_client_ctx::println!("{}", option_completions(shell, cmd)?)?;
-        return Ok(());
-    }
 
     let mut wrapper_iter = wrapper.lines();
     let mut found_insertion_point = false;

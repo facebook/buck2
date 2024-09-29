@@ -128,8 +128,9 @@ completion_test(
     # on zsh
     input="build --p",
     options_only=True,
-    # FIXME(JakobDegen): Bug: Should work
-    expected=lambda actual: True,
+    expected=lambda actual: (
+        "--prefer-local" in actual and "--prefer-remote" in actual
+    ),
     bin="buck",
 )
 

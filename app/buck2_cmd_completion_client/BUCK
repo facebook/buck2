@@ -17,6 +17,9 @@ rust_library(
         ":completion_wrapper_bash",
         ":completion_wrapper_fish",
         ":completion_wrapper_zsh",
+        ":options_wrapper_bash",
+        ":options_wrapper_fish",
+        ":options_wrapper_zsh",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_client_ctx:buck2_client_ctx",
         "//buck2/app/buck2_common:buck2_common",
@@ -37,4 +40,19 @@ rust_linkable_symbol(
 rust_linkable_symbol(
     name = "completion_wrapper_zsh",
     content_str = "src/completion/completion-wrapper.zsh",
+)
+
+rust_linkable_symbol(
+    name = "options_wrapper_bash",
+    content_str = "src/completion/options-wrapper.bash",
+)
+
+rust_linkable_symbol(
+    name = "options_wrapper_fish",
+    content_str = "src/completion/options-wrapper.fish",
+)
+
+rust_linkable_symbol(
+    name = "options_wrapper_zsh",
+    content_str = "src/completion/options-wrapper.zsh",
 )
