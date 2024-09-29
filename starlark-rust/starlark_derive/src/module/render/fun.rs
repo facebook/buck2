@@ -398,53 +398,63 @@ impl BindingArg {
     }
 }
 
+/// Convert an expression of type `Value` to an expression of type of parameter.
+fn render_unpack_value(value: syn::Expr, arg: &StarArg) -> syn::Expr {
+    if arg.is_value() {
+        // If we already have a `Value`, no need to unpack it.
+        value
+    } else {
+        let name_str = ident_string(&arg.name);
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_unpack(#name_str, #value)?
+        }
+    }
+}
+
+/// Convert an expression of type `Option<Value>` to an expression of type of parameter.
+fn render_unpack_option_value(option_value: syn::Expr, arg: &StarArg) -> syn::Expr {
+    let name_str = ident_string(&arg.name);
+    if arg.is_option_value() {
+        // If we already have a `Option<Value>`, no need to unpack it.
+        option_value
+    } else if arg.is_option() {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_optional(#name_str, #option_value)?
+        }
+    } else if arg.is_value() {
+        // We call `check_required` even if `default` is set because for `Value`,
+        // default is pulled into `ParametersSpec`.
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_required(#name_str, #option_value)?
+        }
+    } else if let Some(default) = &arg.default {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_defaulted(#name_str, #option_value, || #default)?
+        }
+    } else {
+        syn::parse_quote! {
+            starlark::__derive_refs::parse_args::check_required(#name_str, #option_value)?
+        }
+    }
+}
+
 // Create a binding for an argument given. If it requires an index, take from the index
 fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
-    let name = &arg.name;
-    let name_str = ident_string(name);
-
-    let source = match &arg.source {
-        StarArgSource::Argument(i) => quote! { __args[#i] },
-        StarArgSource::Required(i) => quote! {  Some(__required[#i])},
-        StarArgSource::Optional(i) => quote! { __optional[#i] },
+    let next: syn::Expr = match &arg.source {
+        StarArgSource::Argument(i) => {
+            render_unpack_option_value(syn::parse_quote! { __args[#i] }, arg)
+        }
+        StarArgSource::Optional(i) => {
+            render_unpack_option_value(syn::parse_quote! { __optional[#i] }, arg)
+        }
+        StarArgSource::Required(i) => {
+            render_unpack_value(syn::parse_quote! { __required[#i] }, arg)
+        }
         s => {
             return Err(syn::Error::new(
                 arg.span,
                 format!("Unexpected source {:?} (internal error)", s),
             ));
-        }
-    };
-
-    let next: syn::Expr = {
-        match (arg.is_option(), arg.is_value(), &arg.default) {
-            (true, _, None) => {
-                syn::parse_quote! { starlark::__derive_refs::parse_args::check_optional(#name_str, #source)? }
-            }
-            (true, _, Some(_)) => {
-                return Err(syn::Error::new(
-                    arg.span,
-                    format!("Can't have Option argument with a default, for `{name_str}`"),
-                ));
-            }
-            (false, false, Some(default)) => {
-                syn::parse_quote! {
-                    {
-                        starlark::__derive_refs::parse_args::check_defaulted(#name_str, #source, || #default)?
-                    }
-                }
-            }
-            (false, false, None) => {
-                syn::parse_quote! {
-                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
-                }
-            }
-            (false, true, _) => {
-                // Even if `default` is `Some`, we call `check_required`,
-                // because default value is allocated in `ParameterSpec` when `is_value` is true.
-                syn::parse_quote! {
-                    starlark::__derive_refs::parse_args::check_required(#name_str, #source)?
-                }
-            }
         }
     };
 

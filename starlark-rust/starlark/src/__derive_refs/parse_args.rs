@@ -81,3 +81,9 @@ pub fn check_defaulted<'v, T: UnpackValue<'v>>(
 ) -> anyhow::Result<T> {
     Ok(check_optional(name, x)?.unwrap_or_else(default))
 }
+
+/// We already know the parameter is set, so we just unpack it.
+#[inline]
+pub fn check_unpack<'v, T: UnpackValue<'v>>(name: &str, x: Value<'v>) -> anyhow::Result<T> {
+    T::unpack_named_param(x, name)
+}

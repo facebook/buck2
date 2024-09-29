@@ -206,6 +206,11 @@ impl StarArg {
         is_type_name(&self.ty, "Value")
     }
 
+    /// Parameter type is `Option<Value>`.
+    pub(crate) fn is_option_value(&self) -> bool {
+        self.is_option() && is_type_name(self.without_option(), "Value")
+    }
+
     pub fn requires_signature(&self) -> bool {
         // We need to use a signature if something has a name
         // There are *args or **kwargs
