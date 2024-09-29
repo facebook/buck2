@@ -179,6 +179,7 @@ pub(crate) enum StarArgSource {
     Argument(usize),
     Required(usize),
     Optional(usize),
+    Kwargs,
 }
 
 #[derive(Debug)]
@@ -188,8 +189,12 @@ pub(crate) enum StarFunSource {
     /// Normal function which uses a signature and parameters parser.
     Signature { count: usize },
     /// Fast-path function of some required parameters, followed by some optional parameters.
-    /// No named parameters or `*args`/`**kwargs`.
-    Positional { required: usize, optional: usize },
+    /// No named parameters or `*args`, but may have `**kwargs`.
+    Positional {
+        required: usize,
+        optional: usize,
+        kwargs: bool,
+    },
 }
 
 impl StarArg {
@@ -213,8 +218,10 @@ impl StarArg {
 
     pub fn requires_signature(&self) -> bool {
         // We need to use a signature if something has a name
-        // There are *args or **kwargs
+        // There are *args
         // There is a default that needs promoting to a Value (since the signature stores that value)
-        self.pass_style != StarArgPassStyle::PosOnly || (self.is_value() && self.default.is_some())
+        (self.pass_style != StarArgPassStyle::PosOnly
+            && self.pass_style != StarArgPassStyle::Kwargs)
+            || (self.is_value() && self.default.is_some())
     }
 }

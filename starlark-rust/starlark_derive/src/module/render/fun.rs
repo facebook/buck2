@@ -360,7 +360,11 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                 bindings: bind_args,
             })
         }
-        StarFunSource::Positional { required, optional } => {
+        StarFunSource::Positional {
+            required,
+            optional,
+            kwargs: false,
+        } => {
             let bind_args = x
                 .args
                 .iter()
@@ -370,6 +374,25 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
                 prepare: quote! {
                     let (__required, __optional): ([_; #required], [_; #optional]) =
                         starlark::__derive_refs::parse_args::parse_positional(
+                            &parameters, eval.heap())?;
+                },
+                bindings: bind_args,
+            })
+        }
+        StarFunSource::Positional {
+            required,
+            optional,
+            kwargs: true,
+        } => {
+            let bind_args = x
+                .args
+                .iter()
+                .map(render_binding_arg)
+                .collect::<syn::Result<_>>()?;
+            Ok(Bindings {
+                prepare: quote! {
+                    let (__required, __optional, s_kwargs_value): ([_; #required], [_; #optional], _) =
+                        starlark::__derive_refs::parse_args::parse_positional_kwargs_alloc(
                             &parameters, eval.heap())?;
                 },
                 bindings: bind_args,
@@ -450,6 +473,7 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
         StarArgSource::Required(i) => {
             render_unpack_value(syn::parse_quote! { __required[#i] }, arg)
         }
+        StarArgSource::Kwargs => render_unpack_value(syn::parse_quote! { s_kwargs_value }, arg),
         s => {
             return Err(syn::Error::new(
                 arg.span,

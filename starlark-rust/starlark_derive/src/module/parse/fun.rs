@@ -439,8 +439,15 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
         } else {
             let mut required = 0;
             let mut optional = 0;
+            let mut kwargs = false;
             for x in args.iter_mut() {
-                if optional == 0 && x.default.is_none() && !x.is_option() {
+                if x.pass_style == StarArgPassStyle::Kwargs {
+                    if kwargs {
+                        return Err(syn::Error::new(x.span, "Duplicate `**kwargs` parameter"));
+                    }
+                    x.source = StarArgSource::Kwargs;
+                    kwargs = true;
+                } else if optional == 0 && x.default.is_none() && !x.is_option() {
                     x.source = StarArgSource::Required(required);
                     required += 1;
                 } else {
@@ -448,7 +455,11 @@ fn resolve_args(args: &mut [StarArg]) -> syn::Result<StarFunSource> {
                     optional += 1;
                 }
             }
-            Ok(StarFunSource::Positional { required, optional })
+            Ok(StarFunSource::Positional {
+                required,
+                optional,
+                kwargs,
+            })
         }
     }
 }
