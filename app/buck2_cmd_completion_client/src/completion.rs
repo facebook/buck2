@@ -20,7 +20,7 @@ use clap_complete::generate;
 // user. As such, caution should be taken to ensure error messages are
 // understandable in the context of argument completion.
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Debug, Copy)]
 #[clap(rename_all = "kebab-case")]
 enum Shell {
     Bash,
@@ -65,36 +65,22 @@ const GENERATED_INSERTION_POINT: &str = "# %INSERT_GENERATED_LINE%";
 const GENERATED_TAG: &str = concat!("@", "generated");
 const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
 
-fn bash_completion_wrapper() -> &'static str {
+fn completion_wrapper(shell: Shell) -> &'static str {
     #[cfg(buck_build)]
     {
-        completion_wrapper_bash::get()
+        match shell {
+            Shell::Bash => completion_wrapper_bash::get(),
+            Shell::Fish => completion_wrapper_fish::get(),
+            Shell::Zsh => completion_wrapper_zsh::get(),
+        }
     }
     #[cfg(not(buck_build))]
     {
-        include_str!("completion/completion-wrapper.bash")
-    }
-}
-
-fn fish_completion_wrapper() -> &'static str {
-    #[cfg(buck_build)]
-    {
-        completion_wrapper_fish::get()
-    }
-    #[cfg(not(buck_build))]
-    {
-        include_str!("completion/completion-wrapper.fish")
-    }
-}
-
-fn zsh_completion_wrapper() -> &'static str {
-    #[cfg(buck_build)]
-    {
-        completion_wrapper_zsh::get()
-    }
-    #[cfg(not(buck_build))]
-    {
-        include_str!("completion/completion-wrapper.zsh")
+        match shell {
+            Shell::Bash => include_str!("completion/completion-wrapper.bash"),
+            Shell::Fish => include_str!("completion/completion-wrapper.fish"),
+            Shell::Zsh => include_str!("completion/completion-wrapper.zsh"),
+        }
     }
 }
 
@@ -103,10 +89,11 @@ fn print_completion_script(
     options_only: bool,
     cmd: &mut Command,
 ) -> anyhow::Result<()> {
-    let (wrapper, shell) = match shell_arg {
-        Shell::Bash => (bash_completion_wrapper(), clap_complete::Shell::Bash),
-        Shell::Zsh => (zsh_completion_wrapper(), clap_complete::Shell::Zsh),
-        Shell::Fish => (fish_completion_wrapper(), clap_complete::Shell::Fish),
+    let wrapper = completion_wrapper(shell_arg);
+    let shell = match shell_arg {
+        Shell::Bash => clap_complete::Shell::Bash,
+        Shell::Zsh => clap_complete::Shell::Zsh,
+        Shell::Fish => clap_complete::Shell::Fish,
     };
 
     if options_only {
