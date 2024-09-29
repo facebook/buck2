@@ -17,6 +17,7 @@
 
 mod basic;
 mod default_value;
+mod kwargs;
 mod methods;
 mod named_positional;
 mod other_attributes;
