@@ -210,9 +210,6 @@ impl StarArg {
         // We need to use a signature if something has a name
         // There are *args or **kwargs
         // There is a default that needs promoting to a Value (since the signature stores that value)
-        self.pass_style != StarArgPassStyle::PosOnly
-            || self.pass_style == StarArgPassStyle::Args
-            || self.pass_style == StarArgPassStyle::Kwargs
-            || (self.is_value() && self.default.is_some())
+        self.pass_style != StarArgPassStyle::PosOnly || (self.is_value() && self.default.is_some())
     }
 }
