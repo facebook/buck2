@@ -50,6 +50,7 @@ use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::bxl::BxlFilePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
+use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -190,6 +191,7 @@ async fn bxl(
 
     let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
+    send_bxl_target_cfg_event(server_ctx, request, &labeled_configured_build_results);
     let configured_build_results = labeled_configured_build_results.values();
     let build_result = ensure_artifacts(
         &mut ctx,
@@ -248,6 +250,14 @@ async fn bxl(
         errors,
         serialized_build_report,
     })
+}
+
+fn send_bxl_target_cfg_event(
+    server_ctx: &dyn ServerCommandContextTrait,
+    request: &buck2_cli_proto::BxlRequest,
+    labels: &BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
+) {
+    send_target_cfg_event(server_ctx.events(), labels.keys(), &request.target_cfg);
 }
 
 pub(crate) async fn get_bxl_cli_args(
