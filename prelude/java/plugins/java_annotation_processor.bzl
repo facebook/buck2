@@ -98,7 +98,7 @@ def create_annotation_processor_properties(
         annotation_processor_params = annotation_processor_params,
     )
 
-def create_ksp_annotation_processor_properties(plugins: list[Dependency]) -> AnnotationProcessorProperties:
+def create_ksp_annotation_processor_properties(plugins: list[[Dependency, (Dependency, list[str])]]) -> AnnotationProcessorProperties:
     annotation_processors = []
 
     # APs derived from `plugins` attribute
