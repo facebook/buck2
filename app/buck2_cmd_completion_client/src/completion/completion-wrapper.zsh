@@ -66,6 +66,9 @@ __buck2_fix()
     local cur="${words[CURRENT]}"
     local prev="${words[CURRENT-1]}"
     local pprev="${words[CURRENT-2]}"
+    # Zsh treats `:` as a separate word, so we have to do some work to
+    # recover a partial target name
+
     if [[ $cur = : ]]; then
         if [[ "${BUFFER:0:$CURRENT}" =~ .*$prev: ]]; then
             cur="$prev:"

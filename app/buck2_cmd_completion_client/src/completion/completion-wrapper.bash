@@ -68,6 +68,8 @@ __buck2_fix()
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
     local pprev="${COMP_WORDS[COMP_CWORD-2]}"
+    # Bash treats `:` as a separate word, so we have to do some work to
+    # recover a partial target name
     if [[ $cur = : ]]; then
         if [[ "${COMP_LINE:0:$COMP_POINT}" =~ .*$prev: ]]; then
             cur="$prev:"
