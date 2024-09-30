@@ -19,56 +19,49 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test(inplace=True)
 async def test_python_coverage(buck: Buck) -> None:
-    for new_interface in ("true", "false"):
-        with tempfile.NamedTemporaryFile("w") as covfile:
-            await buck.test(
-                "@fbcode//mode/dbgo-cov",
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/coverage:test",
-                "--",
-                "--collect-coverage",
-                f"--coverage-output={covfile.name}",
-            )
-            paths = []
-            with open(covfile.name) as results:
-                for line in results:
-                    paths.append(json.loads(line)["filepath"])
-        assert "fbcode/buck2/tests/targets/rules/python/coverage/lib.py" in paths, str(
-            paths
+    with tempfile.NamedTemporaryFile("w") as covfile:
+        await buck.test(
+            "@fbcode//mode/dbgo-cov",
+            "fbcode//buck2/tests/targets/rules/python/coverage:test",
+            "--",
+            "--collect-coverage",
+            f"--coverage-output={covfile.name}",
         )
+        paths = []
+        with open(covfile.name) as results:
+            for line in results:
+                paths.append(json.loads(line)["filepath"])
+    assert "fbcode/buck2/tests/targets/rules/python/coverage/lib.py" in paths, str(
+        paths
+    )
 
 
 @buck_test(inplace=True)
 async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
     folder_to_collect = "buck2/tests/targets/rules/python/coverage"
-    for new_interface in ("true", "false"):
-        with tempfile.NamedTemporaryFile("w") as covfile:
-            await buck.test(
-                "@fbcode//mode/dbgo-cov",
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/coverage:test",
-                "-c",
-                f"fbcode.cxx_coverage_only={folder_to_collect}",
-                "--",
-                "--collect-coverage",
-                f"--coverage-output={covfile.name}",
-            )
-            paths = []
-            with open(covfile.name) as results:
-                for line in results:
-                    paths.append(json.loads(line)["filepath"])
-        assert set(paths) == {
-            f"fbcode/{folder_to_collect}/lib.py",
-            f"fbcode/{folder_to_collect}/test.py",
-        }, f"Only folder fbcode/{folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    with tempfile.NamedTemporaryFile("w") as covfile:
+        await buck.test(
+            "@fbcode//mode/dbgo-cov",
+            "fbcode//buck2/tests/targets/rules/python/coverage:test",
+            "-c",
+            f"fbcode.cxx_coverage_only={folder_to_collect}",
+            "--",
+            "--collect-coverage",
+            f"--coverage-output={covfile.name}",
+        )
+        paths = []
+        with open(covfile.name) as results:
+            for line in results:
+                paths.append(json.loads(line)["filepath"])
+    assert set(paths) == {
+        f"fbcode/{folder_to_collect}/lib.py",
+        f"fbcode/{folder_to_collect}/test.py",
+    }, f"Only folder fbcode/{folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
 
 
 @dataclass
 class PythonCoverageResult:
     using_new_testpilot_interface_paths: List[str] = field(default_factory=list)
-    without_using_new_testpilot_interface_paths: List[str] = field(default_factory=list)
 
 
 async def python_collect_coverage_for(
@@ -79,34 +72,28 @@ async def python_collect_coverage_for(
 ) -> PythonCoverageResult:
     filter_str = " ".join(filter)
     result = PythonCoverageResult()
-    for new_interface in ("true", "false"):
-        with tempfile.NamedTemporaryFile("w") as covfile:
-            buck_args = [mode] if mode else []
-            buck_args.extend(
-                [
-                    "--config",
-                    "fbcode.coverage_selective=true",
-                    "--config",
-                    f"fbcode.cxx_coverage_only={filter_str}",
-                    "--config",
-                    f"fbcode.use_new_testpilot_interface={new_interface}",
-                    target,
-                    "fbcode//buck2/tests/targets/rules/python/coverage:test",
-                    "--",
-                    "--collect-coverage",
-                    f"--coverage-output={covfile.name}",
-                ]
-            )
-            await buck.test(*buck_args)
-            paths = []
-            with open(covfile.name) as results:
-                for line in results:
-                    paths.append(json.loads(line)["filepath"])
+    with tempfile.NamedTemporaryFile("w") as covfile:
+        buck_args = [mode] if mode else []
+        buck_args.extend(
+            [
+                "--config",
+                "fbcode.coverage_selective=true",
+                "--config",
+                f"fbcode.cxx_coverage_only={filter_str}",
+                target,
+                "fbcode//buck2/tests/targets/rules/python/coverage:test",
+                "--",
+                "--collect-coverage",
+                f"--coverage-output={covfile.name}",
+            ]
+        )
+        await buck.test(*buck_args)
+        paths = []
+        with open(covfile.name) as results:
+            for line in results:
+                paths.append(json.loads(line)["filepath"])
 
-            if new_interface == "true":
-                result.using_new_testpilot_interface_paths = paths
-            else:
-                result.without_using_new_testpilot_interface_paths = paths
+        result.using_new_testpilot_interface_paths = paths
 
     return result
 
@@ -120,10 +107,6 @@ async def test_python_coverage_filtering_by_file(buck: Buck) -> None:
     assert set(result.using_new_testpilot_interface_paths) == {
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
-
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -142,10 +125,6 @@ async def test_python_coverage_filtering_by_file_with_base_module_remap(
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
-
 
 @buck_test(inplace=True)
 async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> None:
@@ -160,10 +139,6 @@ async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> No
     assert set(result.using_new_testpilot_interface_paths) == {
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
-
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -180,10 +155,6 @@ async def test_python_coverage_filtering_by_file_on_cinder_target(buck: Buck) ->
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
-
 
 @buck_test(inplace=True)
 async def test_python_coverage_filtering_by_source_file_on_cpp_dep(buck: Buck) -> None:
@@ -198,10 +169,6 @@ async def test_python_coverage_filtering_by_source_file_on_cpp_dep(buck: Buck) -
     assert set(result.using_new_testpilot_interface_paths) == {
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
-
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -219,10 +186,6 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(buck: Buck) -
         fbcode_filename
     }, f"Only {source_file} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {source_file} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"
-
 
 @buck_test(inplace=True)
 async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(buck: Buck) -> None:
@@ -239,7 +202,3 @@ async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(buck: Buck) ->
     assert set(result.using_new_testpilot_interface_paths) == {
         fbcode_filename
     }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
-
-    assert set(result.without_using_new_testpilot_interface_paths) == {
-        fbcode_filename
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.without_using_new_testpilot_interface_paths)}"

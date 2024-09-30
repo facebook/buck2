@@ -136,28 +136,21 @@ async def test_python_test(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=MAC_AND_WINDOWS)
 async def test_python_test_with_remote_execution(buck: Buck) -> None:
-    for new_interface in ("true", "false"):
-        await buck.test(
-            "-c",
-            f"fbcode.use_new_testpilot_interface={new_interface}",
-            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution",
-        )
-        await expect_failure(
-            buck.test(
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fail",
-            ),
-            stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
-        )
-        await expect_failure(
-            buck.test(
-                "-c",
-                f"fbcode.use_new_testpilot_interface={new_interface}",
-                "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fatal",
-            ),
-            stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
-        )
+    await buck.test(
+        "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution",
+    )
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fail",
+        ),
+        stderr_regex=r"1 TESTS FAILED\n(\s)+✗ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fail - test",
+    )
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/python/test:test_remote_execution_fatal",
+        ),
+        stderr_regex=r"1 TESTS FATALS\n(\s)+⚠ buck2\/tests\/targets\/rules\/python\/test:test_remote_execution_fatal - test",
+    )
 
 
 @buck_test(inplace=True, skip_for_os=MAC_AND_WINDOWS)
