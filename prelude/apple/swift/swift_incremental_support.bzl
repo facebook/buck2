@@ -17,7 +17,6 @@ load(
 _WriteOutputFileMapOutput = record(
     artifacts = field(list[Artifact]),
     swiftdeps = field(list[Artifact]),
-    main_swiftdeps = field(Artifact),
     output_map_artifact = field(Artifact),
 )
 
@@ -83,8 +82,7 @@ def _get_incremental_compilation_flags_and_objects(
             additional_flags,
         ],
         hidden = [swiftdep.as_output() for swiftdep in output_file_map.swiftdeps] +
-                 [artifact.as_output() for artifact in output_file_map.artifacts] +
-                 [output_file_map.main_swiftdeps.as_output()],
+                 [artifact.as_output() for artifact in output_file_map.artifacts],
     )
 
     return IncrementalCompilationOutput(
@@ -102,7 +100,6 @@ def _write_output_file_map(
         extension: str) -> _WriteOutputFileMapOutput:  # Either ".o" or ".swiftmodule"
     # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
     module_swiftdeps = ctx.actions.declare_output("module-build-record." + compilation_mode + ".priors")
-
     output_file_map = {
         "": {
             "swift-dependencies": module_swiftdeps,
@@ -110,7 +107,7 @@ def _write_output_file_map(
     }
 
     artifacts = []
-    swiftdeps = []
+    swiftdeps = [module_swiftdeps]
     for src in srcs:
         file_name = src.file.basename
         output_artifact = ctx.actions.declare_output(file_name + extension)
@@ -129,6 +126,5 @@ def _write_output_file_map(
     return _WriteOutputFileMapOutput(
         artifacts = artifacts,
         swiftdeps = swiftdeps,
-        main_swiftdeps = module_swiftdeps,
         output_map_artifact = output_map_artifact,
     )
