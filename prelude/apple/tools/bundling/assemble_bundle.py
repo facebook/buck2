@@ -7,6 +7,7 @@
 
 # pyre-strict
 
+import filecmp
 import logging
 import os
 import shutil
@@ -71,7 +72,7 @@ def _assemble_non_incrementally(
     check_conflicts: bool,
     versioned_if_macos: bool,
 ) -> None:
-    logging.getLogger(__name__).info("Assembling bundle non-incrementally.")
+    _LOGGER.info("Assembling bundle non-incrementally.")
     _cleanup_output(incremental=False, path=bundle_path)
 
     copied_contents: Dict[Path, str] = {}
@@ -79,6 +80,12 @@ def _assemble_non_incrementally(
     def _copy(src: str, dst: Path, **kwargs: Any) -> None:
         if check_conflicts:
             if dst in copied_contents:
+                if filecmp.cmp(src, str(dst), shallow=False):
+                    _LOGGER.info(
+                        f"Found a conflict for destination `{os.path.relpath(dst, bundle_path)}` but the files are identical. Treating as a non-conflict as this can normally happen for universal builds."
+                    )
+                    return
+
                 raise RuntimeError(
                     f"Found a conflict for destination `{os.path.relpath(dst, bundle_path)}`: `{src}` conflicts with `{copied_contents[dst]}`"
                 )
@@ -131,7 +138,7 @@ def _assemble_incrementally(
     check_conflicts: bool,
     versioned_if_macos: bool,
 ) -> List[IncrementalStateItem]:
-    logging.getLogger(__name__).info("Assembling bundle incrementally.")
+    _LOGGER.info("Assembling bundle incrementally.")
     _cleanup_output(incremental=True, path=bundle_path)
     _delete_swift_stdlib_files(bundle_path, incremental_state.swift_stdlib_paths)
     paths_to_delete = {
@@ -152,8 +159,9 @@ def _assemble_incrementally(
 
     if check_conflicts:
         _check_path_conflicts(new_incremental_state)
-    else:
-        new_incremental_state = _filter_conflicting_paths(new_incremental_state)
+
+    # Still need to run filtering even when check_conflicts is set, for removing the conflicts with same files
+    new_incremental_state = _filter_conflicting_paths(new_incremental_state)
 
     new_symlinks = set()
     versioned_subdir = Path("Versions/A")
@@ -201,14 +209,22 @@ def _assemble_incrementally(
 
 
 def _check_path_conflicts(incremental_state: List[IncrementalStateItem]) -> None:
+    """
+    Throws an exception if there are multiple items with the same destination path, and those are different files.
+    """
     checked = {}
     for item in incremental_state:
         dst = item.destination_relative_to_bundle
         if dst in checked:
-            raise RuntimeError(
-                f"Found a conflict for destination `{dst}`: `{item.source}` conflicts with `{checked[dst]}`"
-            )
-        checked[dst] = item.source
+            if item.digest != checked[dst].digest:
+                raise RuntimeError(
+                    f"Found a conflict for destination `{dst}`: `{item.source}` conflicts with `{checked[dst].source}`"
+                )
+            else:
+                _LOGGER.info(
+                    f"Found a conflict for destination `{dst}` but the files are identical. Treating as a non-conflict as this can normally happen for universal builds."
+                )
+        checked[dst] = item
 
 
 def _filter_conflicting_paths(
