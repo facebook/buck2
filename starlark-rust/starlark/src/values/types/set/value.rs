@@ -78,7 +78,12 @@ impl<'v> SetData<'v> {
         self.content.clear();
     }
 
-    /// Iterate through the values in the set, but retaining the hash of the keys.
+    /// Iterate through the values in the set.
+    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a {
+        self.content.iter().copied()
+    }
+
+    /// Iterate through the values in the set, but retaining the hash of the values.
     pub fn iter_hashed<'a>(&'a self) -> impl Iterator<Item = Hashed<Value<'v>>> + 'a
     where
         'v: 'a,
@@ -96,6 +101,8 @@ pub struct FrozenSetData {
 
 /// Define the set type.
 pub type Set<'v> = SetGen<SetData<'v>>;
+
+pub type MutableSet<'v> = SetGen<RefCell<SetData<'v>>>;
 
 pub type FrozenSet = SetGen<FrozenSetData>;
 
@@ -116,7 +123,7 @@ impl<'v> StarlarkTypeRepr for SetData<'v> {
 unsafe impl<'v> Coerce<SetData<'v>> for FrozenSetData {}
 
 // TODO Add optimizations not to allocate empty set.
-impl<'v> Freeze for SetGen<RefCell<SetData<'v>>> {
+impl<'v> Freeze for MutableSet<'v> {
     type Frozen = SetGen<FrozenSetData>;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         let content = self.0.into_inner().content.freeze(freezer)?;
