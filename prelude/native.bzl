@@ -210,6 +210,14 @@ def _android_binary_macro_stub(
         **kwargs
     )
 
+def _android_bundle_macro_stub(
+        cpu_filters = None,
+        **kwargs):
+    __rules__["android_bundle"](
+        cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        **kwargs
+    )
+
 def _android_instrumentation_apk_macro_stub(
         cpu_filters = None,
         primary_dex_patterns = [],
@@ -447,6 +455,7 @@ def _prebuilt_apple_framework_macro_stub(**kwargs):
 __extra_rules__ = {
     "android_aar": _android_aar_macro_stub,
     "android_binary": _android_binary_macro_stub,
+    "android_bundle": _android_bundle_macro_stub,
     "android_instrumentation_apk": _android_instrumentation_apk_macro_stub,
     "apple_binary": _apple_binary_macro_stub,
     "apple_bundle": _apple_bundle_macro_stub,
