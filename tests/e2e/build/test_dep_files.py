@@ -92,13 +92,13 @@ async def _get_execution_kind(buck: Buck) -> int:
 
 def touch(buck: Buck, name: str) -> None:
     """
-    Modify the marker in one of our files
+    Append a random string to the marker in the file
     """
     with open(buck.cwd / name, "r", encoding="utf-8") as f:
         text = f.read()
 
     with open(buck.cwd / name, "w", encoding="utf-8") as f:
-        f.write(text.replace("__MARKER__", random_string()))
+        f.write(text.replace("__MARKER__", "__MARKER__{}".format(random_string())))
 
 
 # Flaky because of watchman on mac (and maybe windows)
