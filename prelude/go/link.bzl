@@ -124,7 +124,8 @@ def link(
     else:  # GoBuildMode("executable")
         file_extension = executable_extension
         use_shared_code = False  # non-PIC
-    output = ctx.actions.declare_output(ctx.label.name + file_extension)
+    final_output_name = ctx.label.name + file_extension
+    output = ctx.actions.declare_output(ctx.label.name + "-tmp" + file_extension)
 
     cmd = cmd_args()
 
@@ -222,4 +223,6 @@ def link(
 
     output = stamp_build_info(ctx, output)
 
-    return (output, executable_args.runtime_files, executable_args.external_debug_info)
+    final_output = ctx.actions.copy_file(final_output_name, output)
+
+    return (final_output, executable_args.runtime_files, executable_args.external_debug_info)
