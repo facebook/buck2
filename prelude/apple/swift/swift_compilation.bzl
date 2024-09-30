@@ -88,6 +88,7 @@ SwiftObjectOutput = record(
     object_files = field(list[Artifact]),
     argsfiles = field(CompileArgsfiles),
     output_map_artifact = field(Artifact | None),
+    swiftdeps = field(list[Artifact]),
 )
 
 SwiftLibraryForDistributionOutput = record(
@@ -128,6 +129,8 @@ SwiftCompilationOutput = record(
     swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
     # A list of artifacts that stores the index data
     index_stores = field(list[Artifact]),
+    # A list of artifacts of the swiftdeps files produced during incremental compilation.
+    swiftdeps = field(list[Artifact]),
 )
 
 SwiftDebugInfo = record(
@@ -333,6 +336,7 @@ def compile_swift(
         exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,
         index_stores = index_stores,
+        swiftdeps = object_output.swiftdeps,
     ), swift_interface_info)
 
 # We use separate actions for swiftmodule and object file output. This
@@ -421,9 +425,11 @@ def _compile_object(
         output_map_artifact = incremental_compilation_output.output_map_artifact
         objects = incremental_compilation_output.artifacts
         cmd = incremental_compilation_output.incremental_flags_cmd
+        swiftdeps = incremental_compilation_output.swiftdeps
     else:
         num_threads = 1
         output_map_artifact = None
+        swiftdeps = []
         output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o")
         objects = [output_object]
         object_format = toolchain.object_format.value
@@ -451,6 +457,7 @@ def _compile_object(
         object_files = objects,
         argsfiles = argsfiles,
         output_map_artifact = output_map_artifact,
+        swiftdeps = swiftdeps,
     )
 
 def _compile_index_stores(

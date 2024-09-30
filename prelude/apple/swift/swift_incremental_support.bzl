@@ -25,6 +25,7 @@ IncrementalCompilationOutput = record(
     artifacts = field(list[Artifact]),
     output_map_artifact = field(Artifact),
     num_threads = field(int),
+    swiftdeps = field(list[Artifact]),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
@@ -90,6 +91,7 @@ def _get_incremental_compilation_flags_and_objects(
         artifacts = output_file_map.artifacts,
         output_map_artifact = output_file_map.output_map_artifact,
         num_threads = num_threads,
+        swiftdeps = output_file_map.swiftdeps,
     )
 
 def _write_output_file_map(

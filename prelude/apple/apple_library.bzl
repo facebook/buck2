@@ -436,6 +436,14 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         if swift_compile.output_map_artifact:
             subtargets["swift-output-file-map"] = [DefaultInfo(default_output = swift_compile.output_map_artifact)]
 
+        if swift_compile.swiftdeps:
+            subtargets["swiftdeps"] = [
+                DefaultInfo(
+                    default_output = swift_compile.swiftdeps[0],
+                    other_outputs = swift_compile.swiftdeps[1:],
+                ),
+            ]
+
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
 
     return CxxRuleConstructorParams(
