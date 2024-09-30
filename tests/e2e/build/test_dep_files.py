@@ -526,10 +526,13 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         "test.allow_dep_file_cache_upload=true",
         "--local-only",
     ]
-    target_with_disable_cache_upload = [
+
+    target_upload_enabled_with_action_definition_change = [
         target,
         "-c",
-        "test.allow_dep_file_cache_upload=false",
+        "test.allow_dep_file_cache_upload=true",
+        "-c",
+        "test.allow_cache_upload=true",
         "--local-only",
     ]
 
@@ -542,7 +545,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
     # 1. A remote dep file cache hit and a subsequent dep file validation
     # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
     await buck.debug("flush-dep-files")
-    result = await buck.build(*target_with_disable_cache_upload)
+    result = await buck.build(*target_upload_enabled_with_action_definition_change)
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
 
@@ -564,7 +567,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
     # 1. A remote dep file cache hit and a subsequent dep file validation
     # 2. A remote dep file cache miss, fall back to local execution (local dep file cache is flushed)
     tagged_unused.write_text("CHANGE")
-    result = await buck.build(*target_with_disable_cache_upload)
+    result = await buck.build(*target_upload_enabled)
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1\nused2\nused3\n"
 
@@ -602,12 +605,6 @@ async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
         "test.allow_dep_file_cache_upload=true",
         "--local-only",
     ]
-    target_with_disable_cache_upload = [
-        target,
-        "-c",
-        "test.allow_dep_file_cache_upload=false",
-        "--local-only",
-    ]
 
     # Build it once with cache upload (cache upload will fail locally)
     result = await buck.build(*target_upload_enabled)
@@ -621,7 +618,7 @@ async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
     # Either way, it should be executed locally
     await buck.debug("flush-dep-files")
     tagged_used_file1.write_text("used1(MODIFIED)\n")
-    result = await buck.build(*target_with_disable_cache_upload)
+    result = await buck.build(*target_upload_enabled)
     await check_remote_dep_file_cache_query_took_place(buck)
     await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL])
     output = result.get_build_report().output_for_target(target).read_text()
