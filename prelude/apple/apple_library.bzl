@@ -417,6 +417,27 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     modulemap_info_json_cmd_args = ctx.actions.write_json(modulemap_info_json_file, modulemap_info_json, with_inputs = True, pretty = True)
     modulemap_info_providers = [DefaultInfo(default_output = modulemap_info_json_file, other_outputs = [modulemap_info_json_cmd_args])]
 
+    subtargets = {
+        "modulemap-info": modulemap_info_providers,
+        "swift-compilation-database": [DefaultInfo(default_output = None)],
+        "swift-compile": [DefaultInfo(default_output = None)],
+        "swift-interface": [swift_interface],
+        "swiftmodule": [DefaultInfo(default_output = None)],
+    }
+    if swift_compile:
+        subtargets["swift-compilation-database"] = [
+            DefaultInfo(
+                default_output = swift_compile.compilation_database.db,
+                other_outputs = [swift_compile.compilation_database.other_outputs],
+            ),
+        ]
+        subtargets["swift-compile"] = [DefaultInfo(default_outputs = swift_compile.object_files)]
+
+        if swift_compile.output_map_artifact:
+            subtargets["swift-output-file-map"] = [DefaultInfo(default_output = swift_compile.output_map_artifact)]
+
+        subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -436,31 +457,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             # follow.
             static_external_debug_info = swift_debug_info.static,
             shared_external_debug_info = swift_debug_info.shared,
-            subtargets = {
-                "modulemap-info": modulemap_info_providers,
-                "swift-compilation-database": [
-                    DefaultInfo(
-                        default_output = swift_compile.compilation_database.db if swift_compile else None,
-                        other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
-                    ),
-                ],
-                "swift-compile": [
-                    DefaultInfo(
-                        default_outputs = swift_compile.object_files if swift_compile else None,
-                    ),
-                ],
-                "swift-interface": [swift_interface],
-                "swift-output-file-map": [
-                    DefaultInfo(
-                        default_output = swift_compile.output_map_artifact if swift_compile else None,
-                    ),
-                ],
-                "swiftmodule": [
-                    DefaultInfo(
-                        default_output = swift_compile.swiftmodule if swift_compile else None,
-                    ),
-                ],
-            } | attrs_validators_subtargets,
+            subtargets = subtargets | attrs_validators_subtargets,
             additional_providers_factory = additional_providers_factory,
             external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
