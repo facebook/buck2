@@ -634,8 +634,8 @@ impl<'v> ParametersSpec<Value<'v>> {
         // So no duplicate checking until after all positional arguments
         let mut lowest_name = usize::MAX;
         // Avoid a lot of loop setup etc in the common case
-        if !args.names().is_empty() {
-            for ((name, name_value), v) in args.names().iter().zip(args.named()) {
+        if !args.names().names().is_empty() {
+            for ((name, name_value), v) in args.names().names().iter().zip(args.named()) {
                 // Safe to use new_unchecked because hash for the Value and str are the same
                 match name.get_index_from_param_spec(self) {
                     None => {

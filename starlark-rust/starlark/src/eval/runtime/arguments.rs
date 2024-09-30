@@ -143,18 +143,6 @@ impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
     pub(crate) fn names(&self) -> &'a [(S, StringValue<'v>)] {
         self.names
     }
-
-    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = &'a (S, StringValue<'v>)> {
-        self.names.iter()
-    }
-
-    pub(crate) fn is_empty(&self) -> bool {
-        self.names.is_empty()
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.names.len()
-    }
 }
 
 /// Either full arguments, or short arguments for positional-only calls.
@@ -274,8 +262,8 @@ impl<'v, 'a> Arguments<'v, 'a> {
     pub fn names_map(&self) -> crate::Result<SmallMap<StringValue<'v>, Value<'v>>> {
         match self.unpack_kwargs()? {
             None => {
-                let mut result = SmallMap::with_capacity(self.0.names.len());
-                for (k, v) in self.0.names.iter().zip(self.0.named) {
+                let mut result = SmallMap::with_capacity(self.0.names.names().len());
+                for (k, v) in self.0.names.names().iter().zip(self.0.named) {
                     let old =
                         result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
                     if unlikely(old.is_some()) {
@@ -288,15 +276,16 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 Ok(result)
             }
             Some(kwargs) => {
-                if self.0.names.is_empty() {
+                if self.0.names().names().is_empty() {
                     match kwargs.downcast_ref_key_string() {
                         Some(kwargs) => Ok(kwargs.clone()),
                         None => Err(FunctionError::ArgsValueIsNotString.into()),
                     }
                 } else {
                     // We have to insert the names before the kwargs since the iteration order is observable
-                    let mut result = SmallMap::with_capacity(self.0.names.len() + kwargs.len());
-                    for (k, v) in self.0.names.iter().zip(self.0.named) {
+                    let mut result =
+                        SmallMap::with_capacity(self.0.names.names().len() + kwargs.len());
+                    for (k, v) in self.0.names.names().iter().zip(self.0.named) {
                         let old =
                             result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
                         if unlikely(old.is_some()) {
@@ -402,7 +391,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
         fn bad(x: &Arguments) -> crate::Result<()> {
             // We might have a empty kwargs dictionary, but probably have an error
             let mut extra = Vec::new();
-            extra.extend(x.0.names.iter().map(|x| x.0.as_str().to_owned()));
+            extra.extend(x.0.names.names().iter().map(|x| x.0.as_str().to_owned()));
             if let Some(kwargs) = x.unpack_kwargs()? {
                 for k in kwargs.keys() {
                     extra.push(Arguments::unpack_kwargs_key(k)?.to_owned());
