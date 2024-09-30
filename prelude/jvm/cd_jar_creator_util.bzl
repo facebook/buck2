@@ -488,11 +488,10 @@ def prepare_final_jar(
         output_paths: OutputPaths,
         additional_compiled_srcs: Artifact | None,
         jar_builder: RunInfo,
-        jar_postprocessor: [RunInfo, None],
-        zip_scrubber: RunInfo) -> FinalJarOutput:
+        jar_postprocessor: [RunInfo, None]) -> FinalJarOutput:
     def make_output(jar: Artifact) -> FinalJarOutput:
         if jar_postprocessor:
-            postprocessed_jar = postprocess_jar(actions, zip_scrubber, jar_postprocessor, jar, actions_identifier)
+            postprocessed_jar = postprocess_jar(actions, jar_postprocessor, jar, actions_identifier)
             return FinalJarOutput(final_jar = postprocessed_jar, preprocessed_jar = jar)
         else:
             return FinalJarOutput(final_jar = jar, preprocessed_jar = jar)
@@ -615,23 +614,17 @@ def generate_abi_jars(
 
 def postprocess_jar(
         actions: AnalysisActions,
-        zip_scrubber: RunInfo,
         jar_postprocessor: RunInfo,
         original_jar: Artifact,
         actions_identifier: [str, None]) -> Artifact:
     postprocessed_output = actions.declare_output("postprocessed_{}".format(original_jar.short_path))
-    sh_cmd = cmd_args([
-        "sh",
-        "-c",
-        '"$1" $2 $3 && $4 $5',
-        "--",
+    processor_cmd_args = cmd_args(
         jar_postprocessor,
         original_jar,
         postprocessed_output.as_output(),
-        cmd_args(zip_scrubber, delimiter = " "),
-        postprocessed_output.as_output(),
-    ])
+    )
+
     identifier = actions_identifier if actions_identifier else ""
-    actions.run(sh_cmd, category = "postprocessed{}".format(identifier))
+    actions.run(processor_cmd_args, category = "postprocessed{}".format(identifier))
 
     return postprocessed_output

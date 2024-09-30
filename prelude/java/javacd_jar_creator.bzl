@@ -312,7 +312,6 @@ def create_jar_artifact_javacd(
         additional_compiled_srcs = additional_compiled_srcs,
         jar_builder = java_toolchain.jar_builder,
         jar_postprocessor = jar_postprocessor,
-        zip_scrubber = java_toolchain.zip_scrubber,
     )
 
     if not is_creating_subtarget:
