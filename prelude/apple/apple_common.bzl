@@ -187,9 +187,19 @@ def _meta_apple_library_validation_enabled_arg():
         "_meta_apple_library_validation_enabled": attrs.bool(default = _meta_apple_library_validation_enabled_default_value()),
     }
 
+def _skip_universal_resource_dedupe_default_value():
+    if not is_full_meta_repo():
+        return False
+
+    return select({
+        "DEFAULT": False,
+        "config//features/apple:skip_universal_resource_dedupe_disabled": False,
+        "config//features/apple:skip_universal_resource_dedupe_enabled": True,
+    })
+
 def _skip_universal_resource_dedupe_arg():
     return {
-        "skip_universal_resource_dedupe": attrs.bool(default = False),
+        "skip_universal_resource_dedupe": attrs.bool(default = _skip_universal_resource_dedupe_default_value()),
     }
 
 apple_common = struct(
