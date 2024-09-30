@@ -8,6 +8,7 @@
 # @nolint
 
 def _impl(foo, bar):
+    _ignore = (foo, bar)
     pass
 
 bad = transition(

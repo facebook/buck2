@@ -9,6 +9,7 @@
 
 # This is split transition, return type should be `dict[str, PlatformInfo]`
 def _impl(platform: PlatformInfo, refs) -> PlatformInfo:
+    _ignore = (platform, refs)
     fail()
 
 bad_return_type = transition(

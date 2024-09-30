@@ -9,6 +9,7 @@
 
 # Type of `platform` must be `PlatformInfo`.
 def _impl(platform: str, refs):
+    _ignore = (platform, refs)
     pass
 
 bad_param_types = transition(

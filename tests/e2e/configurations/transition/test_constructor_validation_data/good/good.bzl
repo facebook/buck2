@@ -8,6 +8,7 @@
 # @nolint
 
 def _impl(platform, refs):
+    _ignore = (platform, refs)
     pass
 
 good = transition(
