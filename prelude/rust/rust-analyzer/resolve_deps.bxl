@@ -115,7 +115,8 @@ def cquery_deps(
         top_targets: list[TargetLabel],
         workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
     targets = set([])
-    analysis_set = ctx.analysis(top_targets)
+    target_universe = ctx.target_universe(top_targets).target_set()
+    analysis_set = ctx.analysis(target_universe)
     for _target, analysis in analysis_set.items():
         info = analysis.providers().get(RustAnalyzerInfo)
         if info:
@@ -194,7 +195,7 @@ def expand_targets(
 
                     possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
 
-    workspace_analysis = ctx.analysis(possible_workspaces.keys())
+    workspace_analysis = ctx.analysis(ctx.target_universe(possible_workspaces.keys()).target_set())
 
     active_workspaces = {}
     for workspace_label, analysis in workspace_analysis.items():
