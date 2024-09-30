@@ -11,6 +11,7 @@ load(
     "VALIDATION_DEPS_ATTR_NAME",
     "VALIDATION_DEPS_ATTR_TYPE",
 )
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
@@ -133,8 +134,7 @@ def _apple_library_extra_attrs():
 extra_attributes = {
     "apple_asset_catalog": {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
-        "skip_universal_resource_dedupe": attrs.bool(default = False),
-    },
+    } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_binary": _apple_binary_extra_attrs(),
     "apple_bundle": apple_bundle_extra_attrs(),
     "apple_library": _apple_library_extra_attrs(),
@@ -162,8 +162,7 @@ extra_attributes = {
         "content_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
-        "skip_universal_resource_dedupe": attrs.bool(default = False),
-    },
+    } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_test": apple_test_extra_attrs(),
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but

@@ -187,6 +187,11 @@ def _meta_apple_library_validation_enabled_arg():
         "_meta_apple_library_validation_enabled": attrs.bool(default = _meta_apple_library_validation_enabled_default_value()),
     }
 
+def _skip_universal_resource_dedupe_arg():
+    return {
+        "skip_universal_resource_dedupe": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -202,4 +207,5 @@ apple_common = struct(
     serialize_debugging_options_arg = _serialize_debugging_options_arg,
     uses_explicit_modules_arg = _uses_explicit_modules_arg,
     meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
+    skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
 )
