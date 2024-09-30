@@ -26,6 +26,7 @@ use crate::values::dict::value::dict_methods;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
 use crate::values::list::value::list_methods;
+use crate::values::set::value::set_methods;
 use crate::values::string::str_type::str_methods;
 use crate::values::FrozenRef;
 use crate::values::FrozenValueTyped;
@@ -93,6 +94,7 @@ impl KnownMethods {
         // We don't need to add all the methods, only the most common ones. This is fine.
         add_methods(&mut methods, list_methods());
         add_methods(&mut methods, dict_methods());
+        add_methods(&mut methods, set_methods());
         add_methods(&mut methods, str_methods());
 
         KnownMethods { methods }

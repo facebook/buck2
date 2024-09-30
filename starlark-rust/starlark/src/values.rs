@@ -91,6 +91,7 @@ pub use crate::values::types::list_or_tuple;
 pub use crate::values::types::none;
 pub use crate::values::types::range;
 pub use crate::values::types::record;
+pub use crate::values::types::set;
 pub use crate::values::types::starlark_value_as_type;
 pub use crate::values::types::string;
 pub use crate::values::types::structs;

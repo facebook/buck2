@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 
 use itertools::Itertools;
+use starlark_map::small_set::SmallSet;
 use starlark_map::Equivalent;
 
 use crate::collections::SmallMap;
@@ -61,6 +62,23 @@ where
         }
     }
     Ok(true)
+}
+
+pub(crate) fn equals_small_set<K1: Eq, K2: Eq>(xs: &SmallSet<K1>, ys: &SmallSet<K2>) -> bool
+where
+    K1: Equivalent<K2>,
+{
+    if xs.len() != ys.len() {
+        return false;
+    }
+
+    for x in xs.iter_hashed() {
+        if !ys.contains_hashed(x) {
+            return false;
+        }
+    }
+
+    true
 }
 
 pub(crate) fn compare_slice<E, X1, X2>(

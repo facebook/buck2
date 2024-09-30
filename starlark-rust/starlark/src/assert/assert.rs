@@ -159,11 +159,6 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
         Ok(AllocStruct::EMPTY)
     }
 
-    // Approximate version of a method used by the Go test suite
-    fn set<'v>(xs: Value<'v>) -> anyhow::Result<Value<'v>> {
-        Ok(xs)
-    }
-
     fn assert_eq<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
         assert_equals(a, b)
     }

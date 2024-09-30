@@ -98,6 +98,8 @@ fn test_go() {
             "Verify position of an \"unhashable key\"", // FIXME: we should do better
         ],
     );
+    assert.conformance(test_case!("set.star"));
+
     assert.conformance(&ignore_bad_lines(
         test_case!("float.star"),
         &[

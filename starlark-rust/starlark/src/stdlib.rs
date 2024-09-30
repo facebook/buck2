@@ -37,6 +37,7 @@ use crate::stdlib::internal::register_internal;
 use crate::values::enumeration::globals::register_enum;
 use crate::values::record::globals::register_record;
 use crate::values::structs::structs::register_struct;
+use crate::values::types::set::set::register_set;
 use crate::values::typing;
 
 /// Return the default global environment, it is not yet frozen so that a caller
@@ -91,6 +92,8 @@ pub enum LibraryExtension {
     /// Add a function `call_stack()` which returns a string representation of
     /// the current call stack.
     CallStack,
+    /// Definitions to support the `set` type, the `set()` constructor.
+    SetType,
     // Make sure if you add anything new, you add it to `all` below.
 }
 
@@ -100,7 +103,7 @@ impl LibraryExtension {
         use LibraryExtension::*;
         &[
             StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint, Pstr,
-            Prepr, Breakpoint, Json, Typing, Internal, CallStack,
+            Prepr, Breakpoint, Json, Typing, Internal, CallStack, SetType,
         ]
     }
 
@@ -111,6 +114,7 @@ impl LibraryExtension {
             StructType => register_struct(builder),
             RecordType => register_record(builder),
             EnumType => register_enum(builder),
+            SetType => register_set(builder),
             Map => extra::map(builder),
             Filter => extra::filter(builder),
             Partial => partial::partial(builder),

@@ -40,6 +40,7 @@ use crate::values::dict::value::FrozenDict;
 use crate::values::float::StarlarkFloat;
 use crate::values::list::value::FrozenList;
 use crate::values::none::NoneType;
+use crate::values::set::value::FrozenSet;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::traits::StarlarkValueVTable;
@@ -196,6 +197,12 @@ impl TyStarlarkValue {
     pub(crate) fn is_tuple(self) -> bool {
         self.self_check();
         self == TyStarlarkValue::new::<Tuple>()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn is_set(self) -> bool {
+        self.self_check();
+        self == TyStarlarkValue::new::<FrozenSet>()
     }
 
     /// Result of applying unary operator to this type.
