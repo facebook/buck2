@@ -45,19 +45,19 @@ asserts.true(set([1, 2, 3]))
 x = set([1, 2, 3])
 y = set([3, 4, 5])
 
-# # set + any is not defined
-# asserts.fails(lambda : x + y, "unknown.*: set \\+ set")
+# set + any is not defined
+asserts.fails(lambda : x + y, "unknown.*: set \\+ set")
 
-# # set | set
-# asserts.eq(list(set("a".elems()) | set("b".elems())), ["a", "b"])
-# asserts.eq(list(set("ab".elems()) | set("bc".elems())), ["a", "b", "c"])
-# asserts.fails(lambda : set() | [], "unknown binary op: set | list")
-# asserts.eq(type(x | y), "set")
-# asserts.eq(list(x | y), [1, 2, 3, 4, 5])
-# asserts.eq(list(x | set([5, 1])), [1, 2, 3, 5])
-# asserts.eq(list(x | set((6, 5, 4))), [1, 2, 3, 6, 5, 4])
+# set | set
+asserts.eq(list(set("a".elems()) | set("b".elems())), ["a", "b"])
+asserts.eq(list(set("ab".elems()) | set("bc".elems())), ["a", "b", "c"])
+asserts.fails(lambda : set() | [], "unknown binary op: set | list")
+asserts.eq(type(x | y), "set")
+asserts.eq(list(x | y), [1, 2, 3, 4, 5])
+asserts.eq(list(x | set([5, 1])), [1, 2, 3, 5])
+asserts.eq(list(x | set((6, 5, 4))), [1, 2, 3, 6, 5, 4])
 
-# # set.union (allows any iterable for right operand)
+# set.union (allows any iterable for right operand)
 # asserts.eq(list(set("a".elems()).union("b".elems())), ["a", "b"])
 # asserts.eq(list(set("ab".elems()).union("bc".elems())), ["a", "b", "c"])
 # asserts.eq(set().union([]), set())
@@ -92,7 +92,7 @@ y = set([3, 4, 5])
 # len
 asserts.eq(len(x), 3)
 asserts.eq(len(y), 3)
-#asserts.eq(len(x | y), 5)
+asserts.eq(len(x | y), 5)
 
 # str
 asserts.eq(str(set([1])), "set([1])")

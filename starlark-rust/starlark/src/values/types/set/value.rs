@@ -51,6 +51,7 @@ use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
+use crate::values::ValueError;
 use crate::StarlarkDocs;
 
 #[derive(
@@ -242,6 +243,21 @@ where
     fn to_bool(&self) -> bool {
         !self.0.content().is_empty()
     }
+
+    // Set union
+    fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        // Unlike in `union` it is not possible to `|` `set` and iterable. This is due python semantics.
+        let rhs = SetRef::from_value(rhs)
+            .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
+        if self.0.content().is_empty() {
+            return Ok(heap.alloc((*rhs).clone()));
+        }
+        let mut items = self.0.content().clone();
+        for h in rhs.iter_hashed() {
+            items.insert_hashed(h);
+        }
+        Ok(heap.alloc(SetData { content: items }))
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
@@ -256,5 +272,38 @@ impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
 impl<'v, T: SetLike<'v>> Display for SetGen<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_container(f, "set([", "])", self.0.content().iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_bit_or() {
+        assert::eq("set([1, 2, 3]) | set([3, 4])", "set([1, 2, 3, 4])")
+    }
+
+    #[test]
+    fn test_bit_or_lhs_empty() {
+        assert::eq("set() | set([3, 4])", "set([3, 4])")
+    }
+
+    #[test]
+    fn test_bit_or_rhs_empty() {
+        assert::eq("set([1, 2, 3]) | set()", "set([1, 2, 3])")
+    }
+
+    #[test]
+    fn test_bit_or_fail_iter() {
+        assert::fail(
+            "set([1, 2, 3]) | []",
+            "Operation `|` not supported for types `set` and `list`",
+        );
+    }
+
+    #[test]
+    fn test_bit_or_ord() {
+        assert::eq("list(set([5, 1, 3]) | set([4, 5, 2]))", "[5, 1, 3, 4, 2]")
     }
 }
