@@ -23,13 +23,17 @@ load("@prelude//:prelude.bzl", "native")
 # different machines from reusing the outputs of these rules.
 def external_pkgconfig_library(
         name,
+        package = None,
         visibility = ["PUBLIC"],
         labels = [],
         default_target_platform = "prelude//platforms:default",
         deps = [],
         fallback = None):
-    cmd_cflags = "pkg-config --cflags {} > $OUT".format(name)
-    cmd_libs = "pkg-config --libs {} > $OUT".format(name)
+    if package == None:
+        package = name
+
+    cmd_cflags = "pkg-config --cflags {} > $OUT".format(package)
+    cmd_libs = "pkg-config --libs {} > $OUT".format(package)
 
     if fallback != None:
         preprocessor_flags = (
@@ -40,13 +44,13 @@ def external_pkgconfig_library(
         )
 
         cmd_cflags = "if pkg-config --exists {}; then {}; else echo {} > $OUT; fi".format(
-            name,
+            package,
             cmd_cflags,
             " ".join(preprocessor_flags),
         )
 
         cmd_libs = "if pkg-config --exists {}; then {}; else echo {} > $OUT; fi".format(
-            name,
+            package,
             cmd_libs,
             " ".join(linker_flags),
         )
@@ -70,7 +74,7 @@ def external_pkgconfig_library(
     )
 
     labels = list(labels)
-    labels.append("third-party:pkg-config:{}".format(name))
+    labels.append("third-party:pkg-config:{}".format(package))
 
     native.prebuilt_cxx_library(
         name = name,
