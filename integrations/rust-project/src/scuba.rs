@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(deprecated)] // whoami::hostname is deprecated
+
 use std::path::Path;
 use std::time::Duration;
 
