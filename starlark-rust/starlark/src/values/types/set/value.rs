@@ -238,6 +238,10 @@ where
     unsafe fn iter_stop(&self) {
         self.0.iter_stop();
     }
+
+    fn to_bool(&self) -> bool {
+        !self.0.content().is_empty()
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {

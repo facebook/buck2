@@ -66,4 +66,14 @@ mod tests {
     fn test_iter() {
         assert::is_true("list([elem for elem in set([1, 2, 3])]) ==  [1, 2, 3]")
     }
+
+    #[test]
+    fn test_bool_true() {
+        assert::is_true("bool(set([1, 2, 3]))")
+    }
+
+    #[test]
+    fn test_bool_false() {
+        assert::is_false("bool(set())")
+    }
 }

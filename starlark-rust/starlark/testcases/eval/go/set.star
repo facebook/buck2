@@ -37,10 +37,10 @@ asserts.fails(lambda : set(1), "got int, want iterable")
 asserts.fails(lambda : set(1, 2, 3), "got 3 arguments")
 asserts.fails(lambda : set([1, 2, {}]), "unhashable type: dict")
 
-# # truth
-# asserts.true(not set())
-# asserts.true(set([False]))
-# asserts.true(set([1, 2, 3]))
+# truth
+asserts.true(not set())
+asserts.true(set([False]))
+asserts.true(set([1, 2, 3]))
 
 x = set([1, 2, 3])
 y = set([3, 4, 5])
