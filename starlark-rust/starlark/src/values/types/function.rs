@@ -100,22 +100,6 @@ pub trait NativeFunc: Send + Sync + 'static {
     ) -> crate::Result<Value<'v>>;
 }
 
-impl<T> NativeFunc for T
-where
-    T: for<'v> Fn(&mut Evaluator<'v, '_, '_>, &Arguments<'v, '_>) -> crate::Result<Value<'v>>
-        + Send
-        + Sync
-        + 'static,
-{
-    fn invoke<'v>(
-        &self,
-        eval: &mut Evaluator<'v, '_, '_>,
-        args: &Arguments<'v, '_>,
-    ) -> crate::Result<Value<'v>> {
-        (*self)(eval, args)
-    }
-}
-
 /// Native method implementation.
 ///
 /// This trait is implemented by generated code and rarely needed to be implemented manually.
@@ -127,27 +111,6 @@ pub trait NativeMeth: Send + Sync + 'static {
         this: Value<'v>,
         args: &Arguments<'v, '_>,
     ) -> crate::Result<Value<'v>>;
-}
-
-impl<T> NativeMeth for T
-where
-    T: for<'v> Fn(
-            &mut Evaluator<'v, '_, '_>,
-            Value<'v>,
-            &Arguments<'v, '_>,
-        ) -> crate::Result<Value<'v>>
-        + Send
-        + Sync
-        + 'static,
-{
-    fn invoke<'v>(
-        &self,
-        eval: &mut Evaluator<'v, '_, '_>,
-        this: Value<'v>,
-        args: &Arguments<'v, '_>,
-    ) -> crate::Result<Value<'v>> {
-        (*self)(eval, this, args)
-    }
 }
 
 /// A native function that can be evaluated.
