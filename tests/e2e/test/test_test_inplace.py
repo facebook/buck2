@@ -230,26 +230,6 @@ async def test_python_import_error_with_static_listing_builtin_runner(
 
 
 @buck_test(inplace=True, skip_for_os=["windows"])
-async def test_python_import_error_with_static_listing_legacy_provider(
-    buck: Buck,
-) -> None:
-    output = await expect_failure(
-        buck.test(
-            "fbcode//buck2/tests/targets/rules/python/broken:broken_with_static_listing_legacy_adapter",
-            get_mode_from_platform(),
-        ),
-    )
-
-    assert re.search("2 TESTS FATALS", output.stderr, re.DOTALL)
-    assert re.search(
-        r"test_\d \(buck2.tests.targets.rules.python.broken.broken_import.TestCase\)",
-        output.stderr,
-        re.DOTALL,
-    )
-    assert not re.search("unittest.loader._FailedTest", output.stderr, re.DOTALL)
-
-
-@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_python_import_error_with_static_listing_new_provider(buck: Buck) -> None:
     output = await expect_failure(
         buck.test(
