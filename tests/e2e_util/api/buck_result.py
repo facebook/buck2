@@ -103,17 +103,23 @@ class BuckException(Exception, BuckResult):
         buck_build_id: str,
     ) -> None:
         cmd = " ".join(str(e) for e in cmd_to_run)
-        indented_stderr = textwrap.indent(stderr, " " * 8)
+        if stdout != "":
+            indented_stdout = textwrap.indent(stdout, " " * 8)
+            rendered_stdout = "\n<stdout>\n" + indented_stdout + "\n</stdout>"
+        else:
+            rendered_stdout = ""
+        rendered_stderr = (
+            "\n<stderr>\n" + textwrap.indent(stderr, " " * 8) + "\n</stderr>"
+        )
         error_msg = (
             textwrap.dedent(
                 f"""
             <cmd> {cmd}
             <working_dir> {working_dir}
-            <stderr>
             """
             )
-            + indented_stderr
-            + "\n</stderr>"
+            + rendered_stdout
+            + rendered_stderr
         )
         Exception.__init__(
             self,
