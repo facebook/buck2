@@ -746,7 +746,6 @@ mod tests {
     use parking_lot::Mutex;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
-    use tokio::sync::Semaphore;
 
     use super::*;
 
@@ -1645,38 +1644,39 @@ mod tests {
         Ok(())
     }
 
-    #[ignore] // test hangs with modern dice
     #[tokio::test]
     async fn test_updates_are_synchronized() -> anyhow::Result<()> {
+        async fn wait_on(b: &AtomicBool) {
+            while !b.load(Ordering::Relaxed) {
+                tokio::task::yield_now().await;
+            }
+        }
+
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         struct Updater {
-            should_be_able_to_run: AtomicBool,
-            arrived_update: Semaphore,
+            // Set when the updater enters the update function
+            on_enter: AtomicBool,
+            // Set to indicate that the updater should exit its update function
+            allow_exit: AtomicBool,
         }
-
         #[async_trait]
         impl DiceUpdater for Updater {
             async fn update(
                 &self,
                 ctx: DiceTransactionUpdater,
             ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
-                self.arrived_update.add_permits(1);
-                tokio::task::yield_now().await;
-
-                if self.should_be_able_to_run.load(Ordering::SeqCst) {
-                    Ok((ctx, Default::default()))
-                } else {
-                    panic!("shouldn't be running")
-                }
+                self.on_enter.store(true, Ordering::Relaxed);
+                wait_on(&self.allow_exit).await;
+                Ok((ctx, Default::default()))
             }
         }
 
         let updater1 = Updater {
-            should_be_able_to_run: AtomicBool::new(false),
-            arrived_update: Semaphore::new(0),
+            on_enter: AtomicBool::new(false),
+            allow_exit: AtomicBool::new(false),
         };
         let fut1 = concurrency.enter(
             EventDispatcher::null(),
@@ -1691,12 +1691,13 @@ mod tests {
             ExplicitCancellationContext::testing(),
             PreemptibleWhen::Never,
         );
-
         pin_mut!(fut1);
 
         let updater2 = Updater {
-            should_be_able_to_run: AtomicBool::new(false),
-            arrived_update: Semaphore::new(0),
+            on_enter: AtomicBool::new(false),
+            // We can set this to true immediately as we don't ever need the
+            // second one to wait on anything
+            allow_exit: AtomicBool::new(true),
         };
         let fut2 = concurrency.enter(
             EventDispatcher::null(),
@@ -1711,26 +1712,30 @@ mod tests {
             ExplicitCancellationContext::testing(),
             PreemptibleWhen::Never,
         );
-
         pin_mut!(fut2);
 
-        // poll once will arrive at the `yield` in updater
-        assert_matches!(poll!(&mut fut1), Poll::Pending);
-        let _g = updater1.arrived_update.acquire().await?;
+        // Wait for the first updater's update to be entered
+        tokio::select! {
+            _ = &mut fut1 => panic!("First should not be able to exit yet"),
+            _ = wait_on(&updater1.on_enter) => (),
+        }
 
-        // polling multiple times on the second command will all be pending and not complete
-        assert_matches!(poll!(&mut fut2), Poll::Pending);
-        assert_matches!(poll!(&mut fut2), Poll::Pending);
-        assert_matches!(poll!(&mut fut2), Poll::Pending);
-        assert_matches!(poll!(&mut fut2), Poll::Pending);
+        // Now the first updater is blocked within its update function. Poll the
+        // second one many times so that it makes as much progress as it can
+        for _ in 0..100 {
+            assert_matches!(poll!(&mut fut2), Poll::Pending);
+        }
+        // But it should not have entered its update yet
+        assert!(
+            !updater2.on_enter.load(Ordering::Relaxed),
+            "Updaters are not correctly synchronized"
+        );
 
-        // now make the first command runnable
-        updater1.should_be_able_to_run.store(true, Ordering::SeqCst);
-        fut1.await?;
-
-        // 1 is done and dropped, so `2` can now finish
-        updater2.should_be_able_to_run.store(true, Ordering::SeqCst);
-        fut2.await?;
+        // Now unblock the first one and let both finish
+        updater1.allow_exit.store(true, Ordering::Relaxed);
+        let (a, b) = tokio::join!(fut1, fut2);
+        a.unwrap();
+        b.unwrap();
 
         Ok(())
     }
