@@ -98,7 +98,16 @@ fn test_go() {
             "Verify position of an \"unhashable key\"", // FIXME: we should do better
         ],
     );
-    assert.conformance(test_case!("set.star"));
+    assert.conformance_except(
+        &ignore_bad_lines(
+            test_case!("set.star"),
+            &[
+                "cannot insert into frozen hash table", // We don't actually have freeze
+                "cannot clear frozen hash table",
+            ],
+        ),
+        &[],
+    );
 
     assert.conformance(&ignore_bad_lines(
         test_case!("float.star"),

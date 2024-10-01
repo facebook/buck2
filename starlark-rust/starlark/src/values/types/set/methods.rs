@@ -142,6 +142,24 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         }
         Ok(data)
     }
+
+    /// Add an item to the set.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// x.add(4)
+    /// x == set([1, 2, 3, 4])
+    /// # "#);
+    /// ```
+    fn add<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] value: Value<'v>,
+    ) -> starlark::Result<NoneType> {
+        let mut this = SetMut::from_value(this)?;
+        let hashed = value.get_hashed()?;
+        this.add_hashed(hashed);
+        Ok(NoneType)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -260,5 +278,26 @@ mod tests {
             "list(set([1, 2, 3, 7]).symmetric_difference(set([4, 3, 1])))",
             "[2, 7, 4]",
         )
+    }
+
+    #[test]
+    fn test_add() {
+        assert::eq(r#"x = set([1, 2, 3]);x.add(0);x"#, "set([0, 1, 2, 3])")
+    }
+
+    #[test]
+    fn test_add_empty() {
+        assert::eq(r#"x = set([]);x.add(0);x"#, "set([0])")
+    }
+
+    #[test]
+    fn test_add_existing() {
+        assert::eq(r#"x = set([0]);x.add(0);x"#, "set([0])")
+    }
+
+    #[test]
+    fn test_add_order() {
+        assert::eq(r#"x = set([1, 2, 3]);x.add(2);list(x)"#, "[1, 2, 3]");
+        assert::eq(r#"x = set([1, 2, 3]);x.add(0);list(x)"#, "[1, 2, 3, 0]")
     }
 }

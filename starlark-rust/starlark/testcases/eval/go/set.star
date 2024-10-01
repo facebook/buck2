@@ -120,13 +120,13 @@ asserts.eq(iter(), [1, 2, 3])
 # sets are not indexable
 asserts.fails(lambda : x[0], "unhandled.*operation")
 
-# # adding and removing
-# add_set = set([1,2,3])
-# add_set.add(4)
-# asserts.true(4 in add_set)
-# freeze(add_set) # no mutation of frozen set because key already present
-# add_set.add(4)
-# asserts.fails(lambda: add_set.add(5), "add: cannot insert into frozen hash table")
+# adding and removing
+add_set = set([1,2,3])
+add_set.add(4)
+asserts.true(4 in add_set)
+freeze(add_set) # no mutation of frozen set because key already present
+add_set.add(4)
+asserts.fails(lambda: add_set.add(5), "add: cannot insert into frozen hash table")
 
 # # remove
 # remove_set = set([1,2,3])
