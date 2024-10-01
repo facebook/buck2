@@ -173,8 +173,8 @@ asserts.eq(set([1,2,3,4]).difference([1,2]), set([3,4]))
 asserts.eq(set([1,2,3,4]).difference([]), set([1,2,3,4]))
 asserts.eq(set([1,2,3,4]).difference(set([1,2,3])), set([4]))
 
-# asserts.eq(set([1,2,3,4]) - set([1,2,3,4]), set())
-# asserts.eq(set([1,2,3,4]) - set([1,2]), set([3,4]))
+asserts.eq(set([1,2,3,4]) - set([1,2,3,4]), set())
+asserts.eq(set([1,2,3,4]) - set([1,2]), set([3,4]))
 
 # # issuperset: set >= set or set.issuperset(iterable)
 # asserts.true(set([1,2,3]).issuperset([1,2]))

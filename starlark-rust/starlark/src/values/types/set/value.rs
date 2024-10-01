@@ -317,6 +317,34 @@ where
         }
         Ok(heap.alloc(data))
     }
+
+    // Set difference
+    //TODO(romanp) implement difference on small_set level and reuse it here and in difference function
+    fn sub(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        let rhs = SetRef::from_value(rhs)
+            .map_or_else(|| ValueError::unsupported_with(self, "-", rhs), Ok)?;
+
+        if self.0.content().is_empty() {
+            return Ok(heap.alloc(SetData {
+                content: SmallSet::new(),
+            }));
+        }
+
+        if rhs.content.is_empty() {
+            return Ok(heap.alloc(SetData {
+                content: self.0.content().clone(),
+            }));
+        }
+
+        let mut data = SetData::default();
+
+        for elem in self.0.content().iter_hashed() {
+            if !rhs.contains_hashed(elem.copied()) {
+                data.add_hashed(elem.copied());
+            }
+        }
+        Ok(heap.alloc(data))
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
@@ -419,6 +447,29 @@ mod tests {
         assert::fail(
             "set([1, 2, 3]) ^ []",
             "Operation `^` not supported for types `set` and `list`",
+        );
+    }
+
+    #[test]
+    fn test_sub() {
+        assert::eq("set([1, 2, 3]) - set([2])", "set([1, 3])")
+    }
+
+    #[test]
+    fn test_sub_empty_lhs() {
+        assert::eq("set([]) - set([2])", "set([])")
+    }
+
+    #[test]
+    fn test_sub_empty_rhs() {
+        assert::eq("set([1, 2]) - set([])", "set([2, 1])")
+    }
+
+    #[test]
+    fn test_sub_fail_iter() {
+        assert::fail(
+            "set([1, 2, 3]) - []",
+            "Operation `-` not supported for types `set` and `list`",
         );
     }
 }
