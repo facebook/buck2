@@ -38,5 +38,6 @@ pub struct RemoteExecutionMetadata {
     pub platform: Option<TPlatform>,
     pub use_case_id: String,
     pub do_not_cache: bool,
+    pub respect_file_symlinks: Option<bool>,
     pub _dot_dot: (),
 }

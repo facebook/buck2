@@ -74,6 +74,7 @@ mod fbcode {
         pub remaining_ttl_random_extra_threshold: Option<f32>,
 
         pub disable_fallocate: bool,
+        pub respect_file_symlinks: bool,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -214,6 +215,13 @@ mod fbcode {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "remaining_ttl_random_extra_threshold",
                 })?,
+                respect_file_symlinks: legacy_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "respect_file_symlinks",
+                    })?
+                    .unwrap_or(RolloutPercentage::never())
+                    .roll(),
             })
         }
 

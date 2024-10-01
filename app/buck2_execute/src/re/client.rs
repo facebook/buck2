@@ -359,6 +359,8 @@ struct RemoteExecutionClientImpl {
     /// How many files to kick off downloading concurrently for one request. This should be smaller
     /// than the files semaphore to ensure we can actually *acquire* that semaphore.
     download_chunk_size: usize,
+    /// Preserve file symlinks as symlinks when uploading action result.
+    respect_file_symlinks: bool,
 }
 
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
@@ -676,12 +678,24 @@ impl RemoteExecutionClientImpl {
                 .await?
             };
 
+            let respect_file_symlinks = {
+                #[cfg(fbcode_build)]
+                {
+                    static_metadata.respect_file_symlinks
+                }
+                #[cfg(not(fbcode_build))]
+                {
+                    false
+                }
+            };
+
             Self {
                 client: Some(client),
                 skip_remote_cache: re_config.skip_remote_cache,
                 cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
+                respect_file_symlinks,
             }
         };
 
@@ -988,6 +1002,7 @@ impl RemoteExecutionClientImpl {
                 build_id: identity.trace_id.to_string(),
                 ..Default::default()
             }),
+            respect_file_symlinks: Some(self.respect_file_symlinks),
             ..use_case.metadata(Some(identity))
         };
         let request = ExecuteRequest {
