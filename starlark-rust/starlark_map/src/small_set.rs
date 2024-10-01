@@ -256,6 +256,16 @@ impl<T> SmallSet<T> {
         Some(self.shift_remove_index_hashed(i)?.into_key())
     }
 
+    /// Remove the entry for the key.
+    ///
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    pub fn shift_remove_hashed<Q>(&mut self, key: Hashed<&Q>) -> bool
+    where
+        Q: ?Sized + Equivalent<T>,
+    {
+        self.0.shift_remove_hashed(key).is_some()
+    }
+
     /// Insert entry if it doesn't exist.
     ///
     /// Return the resulting entry in the map.
