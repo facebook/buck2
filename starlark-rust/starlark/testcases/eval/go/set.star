@@ -157,16 +157,16 @@ pop_set.add(2)
 freeze(pop_set)
 asserts.fails(lambda: pop_set.pop(), "pop: cannot delete from frozen hash table")
 
-# # clear
-# clear_set = set([1,2,3])
-# clear_set.clear()
-# asserts.eq(len(clear_set), 0)
-# freeze(clear_set) # no mutation of frozen set because its already empty
-# asserts.eq(clear_set.clear(), None)
+# clear
+clear_set = set([1,2,3])
+clear_set.clear()
+asserts.eq(len(clear_set), 0)
+freeze(clear_set) # no mutation of frozen set because its already empty
+asserts.eq(clear_set.clear(), None)
 
-# other_clear_set = set([1,2,3])
-# freeze(other_clear_set)
-# asserts.fails(lambda: other_clear_set.clear(), "clear: cannot clear frozen hash table")
+other_clear_set = set([1,2,3])
+freeze(other_clear_set)
+asserts.fails(lambda: other_clear_set.clear(), "clear: cannot clear frozen hash table")
 
 # # difference: set - set or set.difference(iterable)
 # asserts.eq(set([1,2,3,4]).difference([1,2,3,4]), set([]))
