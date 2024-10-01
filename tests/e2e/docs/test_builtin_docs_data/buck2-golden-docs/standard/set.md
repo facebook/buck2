@@ -2,3 +2,4 @@
 
 # `set` type
 ## set.clear
+## set.union
