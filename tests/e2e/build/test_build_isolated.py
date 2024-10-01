@@ -1044,3 +1044,24 @@ async def test_build_offline(buck: Buck) -> None:
         "root//executor_threshold_tests:cp_small (<unspecified>) (cp)": "Local",
     }
     assert executors == expected
+
+
+@buck_test(inplace=False, data_dir="execution_platforms")
+async def test_symlink_output(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_re_client]\n")
+        f.write("respect_file_symlinks = false\n")
+    await buck.build(
+        "root//executor_symlink_tests:check_not_symlink",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
+    await buck.kill()
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2_re_client]\n")
+        f.write("respect_file_symlinks = true\n")
+    await buck.build(
+        "root//executor_symlink_tests:check_symlink",
+        "-c",
+        f"test.cache_buster={random_string()}",
+    )
