@@ -4,5 +4,6 @@
 ## set.add
 ## set.clear
 ## set.intersection
+## set.remove
 ## set.symmetric\_difference
 ## set.union

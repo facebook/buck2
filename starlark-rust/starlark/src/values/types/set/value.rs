@@ -104,6 +104,10 @@ impl<'v> SetData<'v> {
     pub(crate) fn add_hashed_unique_unchecked(&mut self, value: Hashed<Value<'v>>) {
         self.content.insert_hashed_unique_unchecked(value)
     }
+
+    pub fn remove_hashed(&mut self, value: Hashed<&Value<'v>>) -> bool {
+        self.content.shift_remove_hashed(value)
+    }
 }
 
 #[derive(Clone, Default, Debug, ProvidesStaticType, Allocative)]

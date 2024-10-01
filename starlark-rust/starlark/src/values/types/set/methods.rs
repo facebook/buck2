@@ -17,8 +17,11 @@
 
 //! Methods for the `set` type.
 
+use std::mem;
+
 use starlark_derive::starlark_module;
 use starlark_map::small_set::SmallSet;
+use starlark_syntax::value_error;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
@@ -160,6 +163,42 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         this.add_hashed(hashed);
         Ok(NoneType)
     }
+
+    /// Remove the item from the set. It raises an error if there is no such item.
+    ///
+    /// `remove` fails if the key is unhashable or if the dictionary is
+    /// frozen.
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    ///
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// x.remove(2)
+    /// x == set([1, 3])
+    /// # "#)
+    /// ```
+    /// A subsequent call to `x.remove(2)` would yield an error because the
+    /// element won't be found.
+    /// ```
+    /// # starlark::assert::fail(r#"
+    /// x = set([1, 2, 3])
+    /// x.remove(2)
+    /// x.remove(2) # error: not found
+    /// # "#, "not found");
+    /// ```
+    fn remove<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] value: Value<'v>,
+    ) -> starlark::Result<NoneType> {
+        let mut set = SetMut::from_value(this)?;
+        let hashed = value.get_hashed()?;
+        if set.remove_hashed(hashed.as_ref()) {
+            Ok(NoneType)
+        } else {
+            mem::drop(set);
+            Err(value_error!("`{value}` not found in `{this}`"))
+        }
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -299,5 +338,20 @@ mod tests {
     fn test_add_order() {
         assert::eq(r#"x = set([1, 2, 3]);x.add(2);list(x)"#, "[1, 2, 3]");
         assert::eq(r#"x = set([1, 2, 3]);x.add(0);list(x)"#, "[1, 2, 3, 0]")
+    }
+
+    #[test]
+    fn test_remove() {
+        assert::eq("x = set([0, 1]);x.remove(1);x", "set([0])")
+    }
+
+    #[test]
+    fn test_remove_empty() {
+        assert::fail("set([]).remove(0)", "`0` not found in `set([])`");
+    }
+
+    #[test]
+    fn test_remove_not_existing() {
+        assert::fail("set([1]).remove(0)", "`0` not found in `set([1])`");
     }
 }

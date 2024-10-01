@@ -128,13 +128,13 @@ freeze(add_set) # no mutation of frozen set because key already present
 add_set.add(4)
 asserts.fails(lambda: add_set.add(5), "add: cannot insert into frozen hash table")
 
-# # remove
-# remove_set = set([1,2,3])
-# remove_set.remove(3)
-# asserts.true(3 not in remove_set)
-# asserts.fails(lambda: remove_set.remove(3), "remove: missing key")
-# freeze(remove_set)
-# asserts.fails(lambda: remove_set.remove(3), "remove: cannot delete from frozen hash table")
+# remove
+remove_set = set([1,2,3])
+remove_set.remove(3)
+asserts.true(3 not in remove_set)
+asserts.fails(lambda: remove_set.remove(3), "remove: missing key")
+freeze(remove_set)
+asserts.fails(lambda: remove_set.remove(3), "remove: cannot delete from frozen hash table")
 
 # # discard
 # discard_set = set([1,2,3])
