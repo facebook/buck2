@@ -1,0 +1,3 @@
+load(":rules.bzl", "ok_test")
+
+ok_test(name = "ok")

@@ -60,6 +60,14 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_listing",
+    srcs = ["test_listing.py"],
+    data_dir = "test_listing_data",
+    serialize_test_cases = False,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
     name = "test_startup",
     srcs = ["test_startup.py"],
     data_dir = "test_startup_data",
