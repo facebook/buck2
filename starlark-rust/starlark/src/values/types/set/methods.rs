@@ -231,6 +231,36 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         set.remove_hashed(hashed.as_ref());
         Ok(NoneType)
     }
+
+    /// Removes and returns the first element of a set.
+    ///
+    /// `S.pop()` removes and returns the first element of the set S.
+    ///
+    /// `pop` fails if the set is empty, or if the set is frozen or has active iterators.
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    ///
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// # (
+    /// x.pop() == 1
+    /// # and
+    /// x.pop() == 2
+    /// # and
+    /// x == set([3])
+    /// # )"#);
+    /// ```
+    fn pop<'v>(this: Value<'v>) -> starlark::Result<Value<'v>> {
+        let mut set = SetMut::from_value(this)?;
+        let first = set.iter_hashed().next();
+        match first {
+            Some(x) => {
+                set.remove_hashed(x.as_ref());
+                Ok(x.into_key())
+            }
+            None => Err(value_error!("pop from an empty set")),
+        }
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -395,5 +425,15 @@ mod tests {
     #[test]
     fn test_discard_multiple_times() {
         assert::eq("x = set([0, 1]); x.discard(0); x.discard(0); x", "set([1])");
+    }
+
+    #[test]
+    fn test_pop() {
+        assert::is_true("x = set([1, 0]); (x.pop() == 1 and x.pop() == 0 and x == set())");
+    }
+
+    #[test]
+    fn test_pop_empty() {
+        assert::fail("x = set([]); x.pop()", "pop from an empty set");
     }
 }
