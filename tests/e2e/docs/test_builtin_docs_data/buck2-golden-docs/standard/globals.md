@@ -43,6 +43,7 @@
 ## record
 ## repr
 ## reversed
+## set
 ## sorted
 ## starlark\_rust\_internal
 ## str
