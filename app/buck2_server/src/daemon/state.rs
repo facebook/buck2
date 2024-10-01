@@ -460,14 +460,11 @@ impl DaemonState {
             let materializer_state_identity =
                 materializer_db.as_ref().map(|d| d.identity().clone());
 
-            #[cfg(fbcode_build)]
-            let re_disable_fallocate = static_metadata.disable_fallocate;
-
             let re_client_manager = Arc::new(ReConnectionManager::new(
                 fb,
                 false,
                 10,
-                static_metadata,
+                static_metadata.dupe(),
                 Some(paths.re_logs_dir()),
                 paths.buck_out_path(),
                 init_ctx.daemon_startup_config.paranoid,
@@ -578,7 +575,12 @@ impl DaemonState {
                 format!("paranoid:{}", paranoid.is_some()),
                 format!("remote-dep-files:{}", remote_dep_files_enabled),
                 #[cfg(fbcode_build)]
-                format!("disable-fallocate:{}", re_disable_fallocate),
+                format!("disable-fallocate:{}", static_metadata.disable_fallocate),
+                #[cfg(fbcode_build)]
+                format!(
+                    "respect-file-symlinks:{}",
+                    static_metadata.respect_file_symlinks
+                ),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
