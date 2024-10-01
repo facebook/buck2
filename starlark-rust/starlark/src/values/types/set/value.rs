@@ -50,6 +50,7 @@ use crate::values::Heap;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::StarlarkDocs;
@@ -228,7 +229,7 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
-        match SetRef::from_value(other) {
+        match SetRef::unpack_value_opt(other) {
             None => Ok(false),
             Some(other) => Ok(equals_small_set(&self.0.content(), &other.content)),
         }
@@ -264,7 +265,7 @@ where
     // Set union
     fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         // Unlike in `union` it is not possible to `|` `set` and iterable. This is due python semantics.
-        let rhs = SetRef::from_value(rhs)
+        let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
             return Ok(heap.alloc((*rhs).clone()));
@@ -282,7 +283,7 @@ where
         if self.0.content().is_empty() {
             return Ok(heap.alloc(SetData { content: items }));
         }
-        let rhs = SetRef::from_value(rhs)
+        let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
 
         for h in rhs.iter_hashed() {
@@ -296,7 +297,7 @@ where
 
     // Set symmetric difference
     fn bit_xor(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        let rhs = SetRef::from_value(rhs)
+        let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "^", rhs), Ok)?;
         if rhs.content.is_empty() {
             return Ok(heap.alloc(SetData {
@@ -321,7 +322,7 @@ where
     // Set difference
     //TODO(romanp) implement difference on small_set level and reuse it here and in difference function
     fn sub(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
-        let rhs = SetRef::from_value(rhs)
+        let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "-", rhs), Ok)?;
 
         if self.0.content().is_empty() {

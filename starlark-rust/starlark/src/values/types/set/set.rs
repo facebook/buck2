@@ -24,6 +24,7 @@ use crate::values::set::refs::SetRef;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
@@ -38,7 +39,7 @@ pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
         let set = match arg {
-            Some(pos) => match SetRef::from_value(pos.get()) {
+            Some(pos) => match SetRef::unpack_value_opt(pos.get()) {
                 Some(set) => (*set).clone(),
                 None => {
                     let it = pos.get().iterate(heap)?;

@@ -42,21 +42,6 @@ pub struct SetRef<'v> {
     pub(crate) aref: Either<Ref<'v, SetData<'v>>, &'v SetData<'v>>,
 }
 
-impl<'v> SetRef<'v> {
-    pub fn from_value(x: Value<'v>) -> Option<SetRef<'v>> {
-        if x.unpack_frozen().is_some() {
-            x.downcast_ref::<SetGen<FrozenSetData>>().map(|x| SetRef {
-                aref: Either::Right(coerce(&x.0)),
-            })
-        } else {
-            let ptr = x.downcast_ref::<SetGen<RefCell<SetData<'v>>>>()?;
-            Some(SetRef {
-                aref: Either::Left(ptr.0.borrow()),
-            })
-        }
-    }
-}
-
 impl<'v> Deref for SetRef<'v> {
     type Target = SetData<'v>;
 
@@ -140,6 +125,19 @@ impl<'v> UnpackValue<'v> for SetRef<'v> {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<SetRef<'v>>, Infallible> {
-        Ok(SetRef::from_value(value))
+        let result = if let Some(value) = value.unpack_frozen() {
+            value
+                .downcast_ref::<SetGen<FrozenSetData>>()
+                .map(|x| SetRef {
+                    aref: Either::Right(coerce(&x.0)),
+                })
+        } else {
+            value
+                .downcast_ref::<SetGen<RefCell<SetData<'v>>>>()
+                .map(|ptr| SetRef {
+                    aref: Either::Left(ptr.0.borrow()),
+                })
+        };
+        Ok(result)
     }
 }
