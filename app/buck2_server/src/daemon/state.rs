@@ -575,8 +575,6 @@ impl DaemonState {
                 format!("paranoid:{}", paranoid.is_some()),
                 format!("remote-dep-files:{}", remote_dep_files_enabled),
                 #[cfg(fbcode_build)]
-                format!("disable-fallocate:{}", static_metadata.disable_fallocate),
-                #[cfg(fbcode_build)]
                 format!(
                     "respect-file-symlinks:{}",
                     static_metadata.respect_file_symlinks
