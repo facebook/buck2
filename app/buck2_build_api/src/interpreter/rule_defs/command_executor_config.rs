@@ -20,6 +20,7 @@ use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
+use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -250,7 +251,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         None => RemoteEnabledExecutor::Remote(remote),
                     };
 
-                    Executor::RemoteEnabled {
+                    Executor::RemoteEnabled(RemoteEnabledExecutorOptions {
                         executor,
                         re_properties: re_properties.context(
                             CommandExecutorConfigErrors::MissingField(
@@ -264,10 +265,10 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
-                    }
+                    })
                 }
                 (Some(local), None, true) => {
-                    Executor::RemoteEnabled {
+                    Executor::RemoteEnabled(RemoteEnabledExecutorOptions {
                         executor: RemoteEnabledExecutor::Local(local),
                         // FIXME: We need a migration flip the default for remote_cache_enabled to
                         // remote_enabled first.
@@ -279,7 +280,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled: true,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
-                    }
+                    })
                 }
                 // If remote cache is disabled, also disable the remote dep file cache as well
                 (Some(local), None, false) => Executor::Local(local),

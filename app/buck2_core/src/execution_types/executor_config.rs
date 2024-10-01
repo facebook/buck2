@@ -37,6 +37,17 @@ impl Default for LocalExecutorOptions {
         }
     }
 }
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct RemoteEnabledExecutorOptions {
+    pub executor: RemoteEnabledExecutor,
+    pub re_properties: RePlatformFields,
+    pub re_use_case: RemoteExecutorUseCase,
+    pub re_action_key: Option<String>,
+    pub cache_upload_behavior: CacheUploadBehavior,
+    pub remote_cache_enabled: bool,
+    pub remote_dep_file_cache_enabled: bool,
+    pub dependencies: Vec<RemoteExecutorDependency>,
+}
 
 #[derive(Debug, buck2_error::Error)]
 enum RemoteExecutorDependencyErrors {
@@ -143,16 +154,7 @@ pub enum Executor {
 
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
-    RemoteEnabled {
-        executor: RemoteEnabledExecutor,
-        re_properties: RePlatformFields,
-        re_use_case: RemoteExecutorUseCase,
-        re_action_key: Option<String>,
-        cache_upload_behavior: CacheUploadBehavior,
-        remote_cache_enabled: bool,
-        remote_dep_file_cache_enabled: bool,
-        dependencies: Vec<RemoteExecutorDependency>,
-    },
+    RemoteEnabled(RemoteEnabledExecutorOptions),
 }
 
 impl Display for Executor {
@@ -165,28 +167,19 @@ impl Display for Executor {
                     options.use_persistent_workers
                 )
             }
-            Self::RemoteEnabled {
-                executor,
-                re_properties: _,
-                re_use_case: _,
-                re_action_key: _,
-                cache_upload_behavior,
-                remote_cache_enabled,
-                remote_dep_file_cache_enabled,
-                dependencies: _,
-            } => {
-                let cache = match remote_cache_enabled {
+            Self::RemoteEnabled(options) => {
+                let cache = match options.remote_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
-                let dep_file_cache = match remote_dep_file_cache_enabled {
+                let dep_file_cache = match options.remote_dep_file_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
                 write!(
                     f,
                     "RemoteEnabled + executor {} + remote cache {} + cache upload {} + remote dep file cache {}",
-                    executor, cache, cache_upload_behavior, dep_file_cache
+                    options.executor, cache, options.cache_upload_behavior, dep_file_cache
                 )
             }
         }
@@ -264,7 +257,7 @@ pub struct CommandGenerationOptions {
     pub output_paths_behavior: OutputPathsBehavior,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone)]
 pub struct CommandExecutorConfig {
     pub executor: Executor,
     pub options: CommandGenerationOptions,
