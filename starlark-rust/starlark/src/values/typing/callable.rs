@@ -311,10 +311,58 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P
 /// Unpacking with this type is expensive:
 /// usually it is OK to use it for code executed once at top-level scope (like `rule()`),
 /// but not for code executed many times (like `partial()`).
+#[derive(Allocative)]
+#[allocative(bound = "")]
 pub struct StarlarkCallableChecked<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr>(
     pub Value<'v>,
     PhantomData<AtomicPtr<(P, R)>>,
 );
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Clone
+    for StarlarkCallableChecked<'v, P, R>
+{
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy
+    for StarlarkCallableChecked<'v, P, R>
+{
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Dupe
+    for StarlarkCallableChecked<'v, P, R>
+{
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug
+    for StarlarkCallableChecked<'v, P, R>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StarlarkCallableChecked")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
+    for StarlarkCallableChecked<'v, P, R>
+{
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        let StarlarkCallableChecked(value, phantom) = self;
+        value.trace(tracer);
+        phantom.trace(tracer);
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
+    for StarlarkCallableChecked<'v, P, R>
+{
+    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+        self.0
+    }
+}
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallableChecked<'v, P, R> {
     /// Convert to [`StarlarkCallable`].
