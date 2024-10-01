@@ -1,0 +1,12 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_root_directory",
+    srcs = ["test_root_directory.py"],
+    data_dir = "test_root_directory_data",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
