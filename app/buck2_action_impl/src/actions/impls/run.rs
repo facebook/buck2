@@ -562,8 +562,12 @@ impl RunAction {
 
         let (dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
             let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;
-            // Enable remote dep file cache lookup
-            let req = req.with_remote_dep_file_key(&bundle.remote_dep_file_action.action.coerce());
+            // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
+            let req = if self.inner.allow_dep_file_cache_upload {
+                req.with_remote_dep_file_key(&bundle.remote_dep_file_action.action.coerce())
+            } else {
+                req
+            };
             (Some(bundle), req)
         } else {
             (None, req)

@@ -126,8 +126,8 @@ async def test_dep_files(buck: Buck) -> None:
     await expect_exec_count(buck, 0)
 
 
-async def check_no_action_cache_query(buck: Buck) -> None:
-    cache_queries = await filter_events(
+async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
+    return await filter_events(
         buck,
         "Event",
         "data",
@@ -137,7 +137,16 @@ async def check_no_action_cache_query(buck: Buck) -> None:
         "stage",
         "CacheQuery",
     )
+
+
+async def check_no_cache_query(buck: Buck) -> None:
+    cache_queries = await get_cache_queries(buck)
     assert len(cache_queries) == 0
+
+
+async def check_cache_query(buck: Buck) -> None:
+    cache_queries = await get_cache_queries(buck)
+    assert len(cache_queries) == 1
 
 
 # Skipping on windows due to gcc dependency
@@ -170,7 +179,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
         f"test.dummy_config={dummy2}",
     )
     # The result should be served by the local dep file cache BEFORE an action cache lookup
-    await check_no_action_cache_query(buck)
+    await check_no_cache_query(buck)
     # Ignoring any simple actions because there can be either one or two symlink dir actions,
     # with the same dice key,
     # Not sure why but this feels like a DICE bug triggered by the buckconfig change.
@@ -400,6 +409,44 @@ async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
     await buck.build(*target)
     uploads = await _dep_file_uploads(buck)
     assert len(uploads) == 0
+
+
+@buck_test(inplace=False, data_dir="upload_dep_files")
+@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
+@env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
+@env("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", "true")
+async def test_only_do_cache_lookup_when_dep_file_upload_is_enabled(
+    buck: Buck,
+) -> None:
+    target = [
+        "root//:dep_files1",
+        "-c",
+        "test.allow_dep_file_cache_upload=false",
+        "-c",
+        "test.allow_cache_upload=true",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "--remote-only",
+    ]
+
+    # Check that we don't do a dep file cache lookup when allow_dep_file_cache_upload is false
+    await buck.build(*target)
+    await check_no_cache_query(buck)
+
+    target = [
+        "root//:dep_files1",
+        "-c",
+        "test.allow_dep_file_cache_upload=true",
+        "-c",
+        "test.allow_cache_upload=true",
+        "-c",
+        f"test.cache_buster={random_string()}",
+        "--remote-only",
+    ]
+
+    # Check that we do a dep file cache lookup when allow_dep_file_cache_upload is true
+    await buck.build(*target)
+    await check_cache_query(buck)
 
 
 @buck_test(inplace=False, data_dir="upload_dep_files")
