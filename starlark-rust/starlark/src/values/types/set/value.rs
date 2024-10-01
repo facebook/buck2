@@ -91,6 +91,19 @@ impl<'v> SetData<'v> {
     {
         self.content.iter_hashed().map(|h| h.copied())
     }
+
+    /// Check if the set contains an hashed element.
+    pub(crate) fn contains_hashed(&self, key: Hashed<Value<'v>>) -> bool {
+        self.content.contains_hashed(key.as_ref())
+    }
+
+    pub(crate) fn add_hashed(&mut self, value: Hashed<Value<'v>>) -> bool {
+        self.content.insert_hashed(value)
+    }
+
+    pub(crate) fn add_hashed_unique_unchecked(&mut self, value: Hashed<Value<'v>>) {
+        self.content.insert_hashed_unique_unchecked(value)
+    }
 }
 
 #[derive(Clone, Default, Debug, ProvidesStaticType, Allocative)]
@@ -276,6 +289,30 @@ where
 
         Ok(heap.alloc(SetData { content: items }))
     }
+
+    // Set symmetric difference
+    fn bit_xor(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        let rhs = SetRef::from_value(rhs)
+            .map_or_else(|| ValueError::unsupported_with(self, "^", rhs), Ok)?;
+        if rhs.content.is_empty() {
+            return Ok(heap.alloc(SetData {
+                content: self.0.content().clone(),
+            }));
+        }
+        let mut data = SetData::default();
+        for elem in self.0.content().iter_hashed() {
+            if !rhs.contains_hashed(elem.copied()) {
+                data.add_hashed_unique_unchecked(elem.copied());
+            }
+        }
+
+        for hashed in rhs.iter_hashed() {
+            if !self.0.content().contains_hashed(hashed.as_ref()) {
+                data.add_hashed(hashed);
+            }
+        }
+        Ok(heap.alloc(data))
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
@@ -350,6 +387,34 @@ mod tests {
         assert::fail(
             "set([1, 2, 3]) & []",
             "Operation `&` not supported for types `set` and `list`",
+        );
+    }
+
+    #[test]
+    fn test_bit_xor() {
+        assert::eq("set([1, 2, 3]) ^ set([3, 4])", "set([4, 2, 1])")
+    }
+
+    #[test]
+    fn test_bit_xor_ord() {
+        assert::eq("list(set([1, 2, 3, 7]) ^ set([4, 3, 1]))", "[2, 7, 4]")
+    }
+
+    #[test]
+    fn test_bit_xor_lhs_empty() {
+        assert::eq("set() ^ set([3, 4])", "set([3, 4])")
+    }
+
+    #[test]
+    fn test_bit_xor_rhs_empty() {
+        assert::eq("set([1, 2, 3]) ^ set()", "set([3, 2, 1])")
+    }
+
+    #[test]
+    fn test_bit_xor_fail_iter() {
+        assert::fail(
+            "set([1, 2, 3]) ^ []",
+            "Operation `^` not supported for types `set` and `list`",
         );
     }
 }
