@@ -145,7 +145,6 @@ freeze(discard_set)
 asserts.eq(discard_set.discard(3), None)  # no mutation of frozen set because key doesn't exist
 asserts.fails(lambda: discard_set.discard(1), "discard: cannot delete from frozen hash table")
 
-
 # pop
 pop_set = set([1,2,3])
 asserts.eq(pop_set.pop(), 1)
@@ -168,11 +167,11 @@ other_clear_set = set([1,2,3])
 freeze(other_clear_set)
 asserts.fails(lambda: other_clear_set.clear(), "clear: cannot clear frozen hash table")
 
-# # difference: set - set or set.difference(iterable)
-# asserts.eq(set([1,2,3,4]).difference([1,2,3,4]), set([]))
-# asserts.eq(set([1,2,3,4]).difference([1,2]), set([3,4]))
-# asserts.eq(set([1,2,3,4]).difference([]), set([1,2,3,4]))
-# asserts.eq(set([1,2,3,4]).difference(set([1,2,3])), set([4]))
+# difference: set - set or set.difference(iterable)
+asserts.eq(set([1,2,3,4]).difference([1,2,3,4]), set([]))
+asserts.eq(set([1,2,3,4]).difference([1,2]), set([3,4]))
+asserts.eq(set([1,2,3,4]).difference([]), set([1,2,3,4]))
+asserts.eq(set([1,2,3,4]).difference(set([1,2,3])), set([4]))
 
 # asserts.eq(set([1,2,3,4]) - set([1,2,3,4]), set())
 # asserts.eq(set([1,2,3,4]) - set([1,2]), set([3,4]))

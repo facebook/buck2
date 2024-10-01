@@ -3,6 +3,7 @@
 # `set` type
 ## set.add
 ## set.clear
+## set.difference
 ## set.discard
 ## set.intersection
 ## set.pop

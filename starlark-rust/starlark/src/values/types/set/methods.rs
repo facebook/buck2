@@ -261,6 +261,46 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
             None => Err(value_error!("pop from an empty set")),
         }
     }
+
+    /// Returns a new set with elements unique the set when compared to the specified iterable.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// y = [3, 4, 5]
+    /// x.difference(y) == set([1, 2])
+    /// # "#);
+    /// ```
+    fn difference<'v>(
+        this: SetRef<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<SetData<'v>> {
+        //TODO(romanp) check if other is set
+        let other_it = other.get().iterate(heap)?;
+
+        if this.content.is_empty() {
+            return Ok(SetData::default());
+        }
+
+        let mut other_set: SmallSet<Value<'v>> = SmallSet::default();
+        for elem in other_it {
+            other_set.insert_hashed(elem.get_hashed()?);
+        }
+
+        if other_set.is_empty() {
+            return Ok(SetData {
+                content: this.content.clone(),
+            });
+        }
+
+        let mut data = SetData::default();
+        for elem in this.content.iter_hashed() {
+            if !other_set.contains_hashed(elem) {
+                data.add_hashed(elem.copied());
+            }
+        }
+        Ok(data)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -435,5 +475,30 @@ mod tests {
     #[test]
     fn test_pop_empty() {
         assert::fail("x = set([]); x.pop()", "pop from an empty set");
+    }
+
+    #[test]
+    fn test_difference() {
+        assert::eq("set([1, 2, 3]).difference(set([2]))", "set([1, 3])")
+    }
+
+    #[test]
+    fn test_difference_iter() {
+        assert::eq("set([1, 2, 3]).difference([3, 2])", "set([1])")
+    }
+
+    #[test]
+    fn test_difference_order() {
+        assert::eq("list(set([3, 2, 1]).difference([2]))", "[3, 1]")
+    }
+
+    #[test]
+    fn test_difference_empty_lhs() {
+        assert::eq("set([]).difference(set([2]))", "set([])")
+    }
+
+    #[test]
+    fn test_difference_empty_rhs() {
+        assert::eq("set([1, 2]).difference(set([]))", "set([2, 1])")
     }
 }
