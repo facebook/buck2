@@ -808,6 +808,7 @@ cxx_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         cxx_common.srcs_arg() |
         cxx_common.headers_arg() |
         cxx_common.preprocessor_flags_arg() |

@@ -410,6 +410,7 @@ python_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         buck.labels_arg() |
         python_common.srcs_arg() |
         python_common.platform_srcs_arg() |

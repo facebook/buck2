@@ -798,7 +798,8 @@ apple_test = prelude_rule(
             "uses_modules": attrs.bool(default = False),
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        buck.inject_test_env_arg()
     ),
 )
 

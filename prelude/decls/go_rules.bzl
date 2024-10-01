@@ -303,6 +303,7 @@ go_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         go_common.srcs_arg() |
         {
             "library": attrs.option(attrs.dep(), default = None, doc = """

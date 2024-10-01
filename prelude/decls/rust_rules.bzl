@@ -253,6 +253,7 @@ rust_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         rust_common.srcs_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |

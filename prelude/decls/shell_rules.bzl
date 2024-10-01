@@ -160,6 +160,7 @@ sh_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         {
             "test": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None, doc = """
                 Either the path to the script (relative to the build file), or a `build target`.

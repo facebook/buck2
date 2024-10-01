@@ -632,7 +632,7 @@ inlined_extra_attributes = {
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
-        **re_test_common.test_args()
+        **(re_test_common.test_args() | buck.inject_test_env_arg())
     ),
     "python_test": _python_test_attrs(),
     "remote_file": {
@@ -660,24 +660,6 @@ all_extra_attributes = _merge_dictionaries([
     _ocaml_extra_attributes,
     _zip_file_extra_attributes,
 ])
-
-# Inject test toolchain in all tests.
-
-for rule in [
-    "sh_test",
-    "rust_test",
-    "python_test",
-    "python_needed_coverage_test",
-    "java_test",
-    "go_test",
-    "cxx_test",
-    "apple_test",
-    "android_instrumentation_test",
-    "kotlin_test",
-    "robolectric_test",
-    "julia_test",
-]:
-    all_extra_attributes[rule] = _merge_dictionaries([all_extra_attributes[rule], buck.inject_test_env_arg()])
 
 extra_attributes = struct(**all_extra_attributes)
 

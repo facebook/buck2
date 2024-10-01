@@ -626,6 +626,7 @@ android_instrumentation_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         {
             "apk": attrs.dep(doc = """
                 The APK containing the tests. Can be an `android_binary()`,
@@ -1404,6 +1405,7 @@ robolectric_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        buck.inject_test_env_arg() |
         {
             "robolectric_runtime_dependency": attrs.option(attrs.source(), default = None, doc = """
                 Robolectric only runs in offline mode with buck. Specify the relative
