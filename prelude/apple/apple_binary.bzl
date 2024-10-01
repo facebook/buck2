@@ -160,6 +160,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
             error_handler = apple_build_error_handler,
             index_stores = swift_compile.index_stores if swift_compile else None,
+            executable_name = ctx.attrs.executable_name,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
