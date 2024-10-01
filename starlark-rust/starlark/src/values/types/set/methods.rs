@@ -95,6 +95,53 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         }
         Ok(data)
     }
+
+    /// Returns a new set with elements in either the set or the specified iterable but not both.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// y = [3, 4, 5]
+    /// x.symmetric_difference(y) == set([1, 2, 4, 5])
+    /// # "#);
+    /// ```
+    fn symmetric_difference<'v>(
+        this: SetRef<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<SetData<'v>> {
+        //TODO(romanp) check if other is set
+        let other_it = other.get().iterate(heap)?;
+        let mut other_set: SmallSet<Value<'v>> = SmallSet::default();
+        for elem in other_it {
+            other_set.insert_hashed(elem.get_hashed()?);
+        }
+
+        if other_set.is_empty() {
+            return Ok(SetData {
+                content: this.content.clone(),
+            });
+        }
+
+        //TODO(romanp) add symmetric_difference to small set and use it here and in xor
+        if this.content.is_empty() {
+            return Ok(SetData { content: other_set });
+        }
+
+        let mut data = SetData::default();
+        for elem in this.content.iter_hashed() {
+            if !other_set.contains_hashed(elem) {
+                data.add_hashed(elem.copied());
+            }
+        }
+
+        for elem in other_set {
+            let hashed = elem.get_hashed()?;
+            if !this.content.contains_hashed(hashed.as_ref()) {
+                data.add_hashed(hashed);
+            }
+        }
+        Ok(data)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -181,5 +228,37 @@ mod tests {
     #[test]
     fn test_intersection_order() {
         assert::eq("list(set([1, 2, 3]).intersection([4, 3, 1]))", "[1, 3]")
+    }
+
+    #[test]
+    fn test_symmetric_difference() {
+        assert::eq(
+            "set([1, 2, 3]).symmetric_difference(set([3, 4, 5]))",
+            "set([1, 2, 4, 5])",
+        )
+    }
+
+    #[test]
+    fn test_symmetric_difference_empty() {
+        assert::eq(
+            "set([1, 2, 3]).symmetric_difference(set([]))",
+            "set([1, 2, 3])",
+        )
+    }
+
+    #[test]
+    fn test_symmetric_difference_iter() {
+        assert::eq(
+            "set([1, 2, 3]).symmetric_difference([3, 4])",
+            "set([1, 2, 4])",
+        )
+    }
+
+    #[test]
+    fn test_symmetric_difference_ord() {
+        assert::eq(
+            "list(set([1, 2, 3, 7]).symmetric_difference(set([4, 3, 1])))",
+            "[2, 7, 4]",
+        )
     }
 }

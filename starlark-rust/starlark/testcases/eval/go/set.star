@@ -75,8 +75,8 @@ asserts.eq(list(set("ab".elems()).intersection("bc".elems())), ["b"])
 
 # symmetric difference, set ^ set or set.symmetric_difference(iterable)
 asserts.eq(set([1, 2, 3]) ^ set([4, 5, 3]), set([1, 2, 4, 5]))
-#asserts.eq(set([1,2,3,4]).symmetric_difference([3,4,5,6]), set([1,2,5,6]))
-#asserts.eq(set([1,2,3,4]).symmetric_difference(set([])), set([1,2,3,4]))
+asserts.eq(set([1,2,3,4]).symmetric_difference([3,4,5,6]), set([1,2,5,6]))
+asserts.eq(set([1,2,3,4]).symmetric_difference(set([])), set([1,2,3,4]))
 
 def test_set_augmented_assign():
     x = set([1, 2, 3])

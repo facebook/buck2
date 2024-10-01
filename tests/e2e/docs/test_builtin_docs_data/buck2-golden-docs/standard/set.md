@@ -3,4 +3,5 @@
 # `set` type
 ## set.clear
 ## set.intersection
+## set.symmetric\_difference
 ## set.union
