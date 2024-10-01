@@ -295,7 +295,7 @@ def encode_base_jar_command(
     else:
         expect(len(source_only_abi_compiling_deps) == 0)
         compiling_classpath = classpath_jars_tag.tag_artifacts(
-            compiling_deps_tset.project_as_json("javacd_json", ordering = "topological") if compiling_deps_tset else None,
+            compiling_deps_tset.project_as_json("javacd_json") if compiling_deps_tset else None,
         )
 
     build_target_value = struct(
