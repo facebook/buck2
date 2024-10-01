@@ -18,6 +18,7 @@
 //! Methods for the `set` type.
 
 use starlark_derive::starlark_module;
+use starlark_map::small_set::SmallSet;
 
 use crate as starlark;
 use crate::environment::MethodsBuilder;
@@ -60,6 +61,39 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
             data.insert_hashed(hashed);
         }
         Ok(SetData { content: data })
+    }
+
+    /// Return a new set with elements common to the set and all others.
+    /// Unlike Python does not support variable number of arguments.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// y = [3, 4, 5]
+    /// x.intersection(y) == set([3])
+    /// # "#);
+    /// ```
+    fn intersection<'v>(
+        this: SetRef<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<SetData<'v>> {
+        //TODO(romanp) check if other is set
+        let other_it = other.get().iterate(heap)?;
+        let mut other_set = SmallSet::default();
+        for elem in other_it {
+            other_set.insert_hashed(elem.get_hashed()?);
+        }
+        let mut data = SetData::default();
+        if other_set.is_empty() {
+            return Ok(data);
+        }
+
+        for hashed in this.content.iter_hashed() {
+            if other_set.contains_hashed(hashed) {
+                data.content.insert_hashed_unique_unchecked(hashed.copied());
+            }
+        }
+        Ok(data)
     }
 }
 #[cfg(test)]
@@ -127,5 +161,25 @@ mod tests {
     #[test]
     fn test_union_ordering_mixed() {
         assert::eq("list(set([1, 3, 5]).union(set([4, 3])))", "[1, 3, 5, 4]");
+    }
+
+    #[test]
+    fn test_intersection() {
+        assert::eq("set([1, 2, 3]).intersection(set([3, 4, 5]))", "set([3])")
+    }
+
+    #[test]
+    fn test_intersection_empty() {
+        assert::eq("set([1, 2, 3]).intersection(set([]))", "set([])")
+    }
+
+    #[test]
+    fn test_intersection_iter() {
+        assert::eq("set([1, 2, 3]).intersection([3, 4])", "set([3])")
+    }
+
+    #[test]
+    fn test_intersection_order() {
+        assert::eq("list(set([1, 2, 3]).intersection([4, 3, 1]))", "[1, 3]")
     }
 }

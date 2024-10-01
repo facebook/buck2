@@ -2,4 +2,5 @@
 
 # `set` type
 ## set.clear
+## set.intersection
 ## set.union
