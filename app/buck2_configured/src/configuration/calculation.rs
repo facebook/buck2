@@ -10,6 +10,7 @@
 use std::sync::Arc;
 use anyhow::Context;
 
+use itertools::Itertools;
 use allocative::Allocative;
 use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
@@ -644,41 +645,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-        #[display("{:?}", self)]
-        struct ExecutionPlatformResolutionKey {
-            target_node_cell: CellName,
-            exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-            exec_deps: Arc<[TargetLabel]>,
-            toolchain_allows: Arc<[ToolchainConstraints]>,
-        }
-
-        #[async_trait]
-        impl Key for ExecutionPlatformResolutionKey {
-            type Value = buck2_error::Result<ExecutionPlatformResolution>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                resolve_execution_platform_from_constraints(
-                    ctx,
-                    self.target_node_cell,
-                    &self.exec_compatible_with,
-                    &self.exec_deps,
-                    &self.toolchain_allows,
-                )
-                .await
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
-        }
         self.compute(&ExecutionPlatformResolutionKey {
             target_node_cell,
             exec_compatible_with,
@@ -686,6 +652,83 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             toolchain_allows,
         })
         .await?
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+pub struct ExecutionPlatformResolutionKey {
+    target_node_cell: CellName,
+    exec_compatible_with: Arc<[ConfigurationSettingKey]>,
+    exec_deps: Arc<[TargetLabel]>,
+    toolchain_allows: Arc<[ToolchainConstraints]>,
+}
+
+impl Display for ExecutionPlatformResolutionKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Resolving execution platform: cell:{}",
+            self.target_node_cell
+        )?;
+
+        if !self.exec_compatible_with.is_empty() {
+            write!(
+                f,
+                ", exec_compatible_with=[{}]",
+                self.exec_compatible_with.iter().join(", ")
+            )?
+        }
+
+        if !self.exec_deps.is_empty() {
+            write!(f, ", exec_deps=[{}]", self.exec_deps.iter().join(", "))?
+        }
+
+        let mut iter = self
+            .toolchain_allows
+            .iter()
+            .flat_map(|v| v.exec_compatible_with())
+            .peekable();
+        if iter.peek().is_some() {
+            write!(f, ", toolchain_exec_compatible_with=[{}]", iter.join(", "))?
+        }
+
+        let mut iter = self
+            .toolchain_allows
+            .iter()
+            .flat_map(|v| v.exec_deps())
+            .peekable();
+        if iter.peek().is_some() {
+            write!(f, ", toolchain_exec_deps=[{}]", iter.join(", "))?
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Key for ExecutionPlatformResolutionKey {
+    type Value = buck2_error::Result<ExecutionPlatformResolution>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        resolve_execution_platform_from_constraints(
+            ctx,
+            self.target_node_cell,
+            &self.exec_compatible_with,
+            &self.exec_deps,
+            &self.toolchain_allows,
+        )
+        .await
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
     }
 }
 

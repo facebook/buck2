@@ -27,6 +27,16 @@ def check_cfg_graph_cycle_stderr(stderr: str) -> None:
     assert r"root//:cycle_top (<unspecified>) ->" in stderr
 
 
+def check_cfg_toolchain_graph_cycle_stderr(stderr: str) -> None:
+    # We're not sure which order these will appear.
+    assert r"root//:toolchain_cycle_top" in stderr
+    # toolchain_cycle_mid is the toolchain rule and it doesn't appear in the error. ideally we'd fix that, but
+    # for performance/memory reasons we aggregate the exec_deps out of toolchain rules.
+    # assert r"root//:toolchain_cycle_mid" in stderr
+    assert r"root//:toolchain_cycle_bot" in stderr
+    assert r"Resolving execution platform" in stderr
+
+
 @buck_test(inplace=False)
 async def test_detect_load_cycle(buck: Buck) -> None:
     failure = await expect_failure(
@@ -64,6 +74,18 @@ async def test_detect_configured_graph_cycles_on_recompute(buck: Buck) -> None:
     )
 
     check_cfg_graph_cycle_stderr(failure.stderr)
+
+
+@buck_test(inplace=False)
+async def test_detect_configured_graph_cycles_2(buck: Buck) -> None:
+    failure = await expect_failure(
+        buck.cquery(
+            "//:top",
+            "-c",
+            "cycles.cfg_toolchain=yes",
+        ),
+    )
+    check_cfg_toolchain_graph_cycle_stderr(failure.stderr)
 
 
 @buck_test(inplace=False)

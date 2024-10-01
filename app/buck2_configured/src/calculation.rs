@@ -29,6 +29,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::configuration::calculation::ConfigurationCalculation;
+use crate::configuration::calculation::ExecutionPlatformResolutionKey;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
 use crate::target::TargetConfiguredTargetLabel;
@@ -140,6 +141,8 @@ fn display_configured_graph_cycle_error(cycle: &[ConfiguredGraphCycleKeys]) -> S
 pub enum ConfiguredGraphCycleKeys {
     #[display("{}", _0)]
     ConfiguredTargetNode(ConfiguredTargetNodeKey),
+    #[display("{}", _0)]
+    ExecutionPlatformResolution(ExecutionPlatformResolutionKey),
 }
 
 #[derive(Debug)]
@@ -162,6 +165,12 @@ impl CycleAdapterDescriptor for ConfiguredGraphCycleDescriptor {
         if let Some(v) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
             return Some(ConfiguredGraphCycleKeys::ConfiguredTargetNode(v.dupe()));
         }
+        if let Some(v) = key.downcast_ref::<ExecutionPlatformResolutionKey>() {
+            return Some(ConfiguredGraphCycleKeys::ExecutionPlatformResolution(
+                v.dupe(),
+            ));
+        }
+
         None
     }
 }
