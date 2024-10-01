@@ -301,6 +301,30 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         }
         Ok(data)
     }
+
+    /// Test whether every element other iterable is in the set.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// y = [1, 3]
+    /// x.issuperset(y) == True
+    /// # "#);
+    /// ```
+    fn issuperset<'v>(
+        this: SetRef<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<bool> {
+        let other = other.get().iterate(heap)?;
+        //TODO (romanp) skip if other is larger
+        for elem in other {
+            let hashed = elem.get_hashed()?;
+            if !this.contains_hashed(hashed) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -500,5 +524,31 @@ mod tests {
     #[test]
     fn test_difference_empty_rhs() {
         assert::eq("set([1, 2]).difference(set([]))", "set([2, 1])")
+    }
+
+    #[test]
+    fn test_is_superset() {
+        assert::is_true("set([1, 2, 3, 4]).issuperset(set([1, 3, 2]))")
+    }
+
+    #[test]
+    fn test_is_not_superset() {
+        assert::is_false("set([1, 2]).issuperset(set([1, 3, 5]))")
+    }
+
+    #[test]
+    fn test_is_not_superset_empty_lhs() {
+        assert::is_false("set([]).issuperset(set([1]))");
+    }
+
+    #[test]
+    fn test_is_superset_empty_rhs() {
+        assert::is_true("set([1, 2]).issuperset(set([]))");
+        assert::is_true("set([]).issuperset(set([]))")
+    }
+
+    #[test]
+    fn test_is_superset_iter() {
+        assert::is_true("set([1, 2, 3]).issuperset([3, 1])")
     }
 }
