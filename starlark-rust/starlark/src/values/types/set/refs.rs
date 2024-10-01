@@ -18,6 +18,7 @@
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::cell::RefMut;
+use std::convert::Infallible;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
@@ -27,8 +28,13 @@ use either::Either;
 use super::value::FrozenSetData;
 use super::value::SetData;
 use crate::coerce::coerce;
+use crate::typing::Ty;
 use crate::values::layout::value::ValueLike;
 use crate::values::set::value::SetGen;
+use crate::values::type_repr::SetType;
+use crate::values::type_repr::StarlarkTypeRepr;
+use crate::values::FrozenValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 
@@ -119,5 +125,21 @@ impl<'v> Deref for SetMut<'v> {
 impl<'v> DerefMut for SetMut<'v> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.aref
+    }
+}
+
+impl<'v> StarlarkTypeRepr for SetRef<'v> {
+    type Canonical = <SetType<FrozenValue> as StarlarkTypeRepr>::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for SetRef<'v> {
+    type Error = Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<SetRef<'v>>, Infallible> {
+        Ok(SetRef::from_value(value))
     }
 }
