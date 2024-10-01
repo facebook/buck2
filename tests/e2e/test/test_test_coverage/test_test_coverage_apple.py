@@ -20,6 +20,8 @@ async def test_apple_coverage(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
             "-c",
+            "xplat.available_platforms=APPLE,CXX",
+            "-c",
             "code_coverage.enable=all",
             "fbsource//fbobjc/Samples/TestInfra/TpxUnitTests:TpxUnitTests",
             "--",
@@ -39,6 +41,8 @@ async def test_apple_coverage(buck: Buck) -> None:
 async def test_apple_coverage_xplat(buck: Buck) -> None:
     with tempfile.NamedTemporaryFile("w") as covfile:
         await buck.test(
+            "-c",
+            "xplat.available_platforms=APPLE,CXX",
             "-c",
             "code_coverage.enable=all",
             "fbsource//xplat/testinfra/playground/cpp:example_testApple",
