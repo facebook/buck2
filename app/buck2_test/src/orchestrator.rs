@@ -9,6 +9,7 @@
 
 //! Implementation of the `TestOrchestrator` from `buck2_test_api`.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::sync::Arc;
@@ -811,12 +812,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         })
     }
 
-    async fn get_command_executor(
-        &self,
-        fs: &ArtifactFs,
-        test_target_node: &ConfiguredTargetNode,
-        executor_override: Option<&CommandExecutorConfig>,
-    ) -> anyhow::Result<CommandExecutor> {
+    fn executor_config_with_disabled_remote_cache<'a>(
+        test_target_node: &'a ConfiguredTargetNode,
+        executor_override: Option<&'a CommandExecutorConfig>,
+    ) -> anyhow::Result<Cow<'a, CommandExecutorConfig>> {
         let executor_config = match executor_override {
             Some(o) => o,
             None => test_target_node
@@ -824,6 +823,29 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .executor_config()
                 .context("Error accessing executor config")?,
         };
+
+        match &executor_config.executor {
+            Executor::RemoteEnabled(options) if options.remote_cache_enabled => {
+                let mut exec_options = options.clone();
+                exec_options.remote_cache_enabled = false;
+                let executor_config = CommandExecutorConfig {
+                    executor: Executor::RemoteEnabled(exec_options),
+                    options: executor_config.options.dupe(),
+                };
+                Ok(Cow::Owned(executor_config))
+            }
+            Executor::Local(_) | Executor::RemoteEnabled(_) => Ok(Cow::Borrowed(executor_config)),
+        }
+    }
+
+    async fn get_command_executor(
+        &self,
+        fs: &ArtifactFs,
+        test_target_node: &ConfiguredTargetNode,
+        executor_override: Option<&CommandExecutorConfig>,
+    ) -> anyhow::Result<CommandExecutor> {
+        let executor_config =
+            &Self::executor_config_with_disabled_remote_cache(test_target_node, executor_override)?;
 
         let CommandExecutorResponse {
             executor,
