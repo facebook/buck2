@@ -125,6 +125,11 @@ fn label_methods(builder: &mut MethodsBuilder) {
         Ok(this.label.pkg().cell_name().as_str())
     }
 
+    #[starlark(attribute)]
+    fn path<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<StarlarkCellPath> {
+        Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
+    }
+
     /// Converts a `TargetLabel` into its corresponding `ProvidersLabel` given the subtarget names,
     /// which is a list for each layer of subtarget
     ///

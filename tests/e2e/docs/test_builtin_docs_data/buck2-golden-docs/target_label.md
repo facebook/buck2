@@ -4,4 +4,5 @@
 ## target\_label.cell
 ## target\_label.name
 ## target\_label.package
+## target\_label.path
 ## target\_label.with\_sub\_target
