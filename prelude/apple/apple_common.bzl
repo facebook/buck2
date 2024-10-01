@@ -177,9 +177,14 @@ def _meta_apple_library_validation_enabled_default_value():
 
     meta_apple_library_validation_enabled_default = (read_root_config("apple", "meta_apple_library_validation", "false").lower() == "true")
     return select({
-        "DEFAULT": meta_apple_library_validation_enabled_default,
-        "config//features/apple:fb_xplat_suffixing_check_disabled": False,
-        "config//features/apple:fb_xplat_suffixing_check_enabled": True,
+        "DEFAULT": select({
+            "DEFAULT": meta_apple_library_validation_enabled_default,
+            "config//features/apple:fb_xplat_suffixing_check_disabled": False,
+            "config//features/apple:fb_xplat_suffixing_check_enabled": True,
+        }),
+        # arvr targets do not use suffixed targets, as any xplat target deps
+        # get rewritten without the Apple-specific suffixes.
+        "config//build_mode/constraints:arvr_mode_enabled": False,
     })
 
 def _meta_apple_library_validation_enabled_arg():
