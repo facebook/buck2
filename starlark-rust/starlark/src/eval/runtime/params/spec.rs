@@ -593,6 +593,20 @@ impl<'v> ParametersSpec<Value<'v>> {
                 }
             }
 
+            #[inline(always)]
+            fn insert_unique_unchecked(&mut self, key: Hashed<StringValue<'v>>, val: Value<'v>) {
+                match &mut self.kwargs {
+                    None => {
+                        let mut mp = SmallMap::with_capacity(12);
+                        mp.insert_hashed_unique_unchecked(key, val);
+                        self.kwargs = Some(mp);
+                    }
+                    Some(mp) => {
+                        mp.insert_hashed_unique_unchecked(key, val);
+                    }
+                }
+            }
+
             fn alloc(self, heap: &'v Heap) -> Value<'v> {
                 let kwargs = match self.kwargs {
                     Some(kwargs) => Dict::new(coerce(kwargs)),
@@ -639,7 +653,10 @@ impl<'v> ParametersSpec<Value<'v>> {
                 // Safe to use new_unchecked because hash for the Value and str are the same
                 match name.get_index_from_param_spec(self) {
                     None => {
-                        kwargs.insert(Hashed::new_unchecked(name.small_hash(), *name_value), *v);
+                        kwargs.insert_unique_unchecked(
+                            Hashed::new_unchecked(name.small_hash(), *name_value),
+                            *v,
+                        );
                     }
                     Some(i) => {
                         slots[i] = Some(*v);

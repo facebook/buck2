@@ -136,7 +136,7 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsFull<S> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new(coerce(&self.names)),
+            names: ArgNames::new_unique(coerce(&self.names)),
             args,
             kwargs,
         }
@@ -150,7 +150,7 @@ impl<S: ArgSymbol> BcCallArgs<S> for BcCallArgsPos {
         ArgumentsFull {
             pos,
             named: &[],
-            names: ArgNames::new(&[]),
+            names: ArgNames::new_unique(&[]),
             args: None,
             kwargs: None,
         }
@@ -175,7 +175,7 @@ impl BcCallArgsForDef for BcCallArgsFull<ResolvedArgName> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new(coerce(&self.names)),
+            names: ArgNames::new_unique(coerce(&self.names)),
             args,
             kwargs,
         }

@@ -22,6 +22,8 @@ use std::marker::PhantomData;
 use dupe::Clone_;
 use dupe::Dupe_;
 use either::Either;
+use starlark_map::small_set::SmallSet;
+use starlark_syntax::value_error;
 use thiserror::Error;
 
 use crate::cast::transmute;
@@ -120,26 +122,45 @@ unsafe impl Coerce<ResolvedArgName> for ResolvedArgName {}
 
 #[derive(Debug, Clone_, Dupe_)]
 pub(crate) struct ArgNames<'a, 'v, S: ArgSymbol> {
-    /// Names are not guaranteed to be unique here.
+    /// Names are guaranteed to be unique here.
     names: &'a [(S, StringValue<'v>)],
 }
 
 impl<'a, 'v, S: ArgSymbol> Default for ArgNames<'a, 'v, S> {
     fn default() -> Self {
-        ArgNames { names: &[] }
+        Self::new_unique(&[])
     }
 }
 
 impl<'a, 'v, S: ArgSymbol> Copy for ArgNames<'a, 'v, S> {}
 
 impl<'a, 'v, S: ArgSymbol> ArgNames<'a, 'v, S> {
-    /// Names are allowed to be not-unique.
+    /// Names must be unique.
     /// String in `Symbol` must be equal to the `StringValue`,
     /// it is caller responsibility to ensure that.
-    pub(crate) fn new(names: &'a [(S, StringValue<'v>)]) -> ArgNames<'a, 'v, S> {
+    ///
+    /// When this invariant is violated, it is memory safe,
+    /// but behavior will be incorrect (errors in wrong places, missing errors, panics, etc.)
+    pub(crate) fn new_unique(names: &'a [(S, StringValue<'v>)]) -> ArgNames<'a, 'v, S> {
         ArgNames { names }
     }
 
+    pub(crate) fn new_check_unique(
+        names: &'a [(S, StringValue<'v>)],
+    ) -> crate::Result<ArgNames<'a, 'v, S>> {
+        let mut set = SmallSet::with_capacity(names.len());
+        for (s, name) in names {
+            if !set.insert_hashed(Hashed::new_unchecked(s.small_hash(), name.as_str())) {
+                return Err(value_error!(
+                    "Argument `{}` occurs more than once",
+                    name.as_str()
+                ));
+            }
+        }
+        Ok(Self::new_unique(names))
+    }
+
+    /// Unique names.
     pub(crate) fn names(&self) -> &'a [(S, StringValue<'v>)] {
         self.names
     }
@@ -264,14 +285,10 @@ impl<'v, 'a> Arguments<'v, 'a> {
             None => {
                 let mut result = SmallMap::with_capacity(self.0.names.names().len());
                 for (k, v) in self.0.names.names().iter().zip(self.0.named) {
-                    let old =
-                        result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
-                    if unlikely(old.is_some()) {
-                        return Err(FunctionError::RepeatedArg {
-                            name: k.1.as_str().to_owned(),
-                        }
-                        .into());
-                    }
+                    result.insert_hashed_unique_unchecked(
+                        Hashed::new_unchecked(k.0.small_hash(), k.1),
+                        *v,
+                    );
                 }
                 Ok(result)
             }
@@ -286,14 +303,10 @@ impl<'v, 'a> Arguments<'v, 'a> {
                     let mut result =
                         SmallMap::with_capacity(self.0.names.names().len() + kwargs.len());
                     for (k, v) in self.0.names.names().iter().zip(self.0.named) {
-                        let old =
-                            result.insert_hashed(Hashed::new_unchecked(k.0.small_hash(), k.1), *v);
-                        if unlikely(old.is_some()) {
-                            return Err(FunctionError::RepeatedArg {
-                                name: k.1.as_str().to_owned(),
-                            }
-                            .into());
-                        }
+                        result.insert_hashed_unique_unchecked(
+                            Hashed::new_unchecked(k.0.small_hash(), k.1),
+                            *v,
+                        );
                     }
                     for (k, v) in kwargs.iter_hashed() {
                         let s = Arguments::unpack_kwargs_key_as_value(*k.key())?;
@@ -623,14 +636,13 @@ mod tests {
         let named = [Value::new_none()];
         p.0.named = &named;
         let names = [(Symbol::new("test"), heap.alloc_str("test"))];
-        p.0.names = ArgNames::new(&names);
+        p.0.names = ArgNames::new_check_unique(&names).unwrap();
         assert!(p.no_named_args().is_err());
         assert_eq!(p.len().unwrap(), 1);
     }
 
     #[test]
     fn test_names_map_repeated_name_in_arg_names() {
-        let named = vec![Value::testing_new_int(10), Value::new_bool(true)];
         let names = vec![
             (
                 Symbol::new("a"),
@@ -641,15 +653,6 @@ mod tests {
                 const_frozen_string!("a").to_string_value(),
             ),
         ];
-        let error = Arguments(ArgumentsFull {
-            pos: &[],
-            named: &named,
-            names: ArgNames::new(&names),
-            args: None,
-            kwargs: None,
-        })
-        .names_map()
-        .unwrap_err();
-        assert!(error.to_string().contains("occurs more than once"));
+        assert!(ArgNames::new_check_unique(&names).is_err());
     }
 }

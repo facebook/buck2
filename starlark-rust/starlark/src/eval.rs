@@ -158,7 +158,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         let params = Arguments(ArgumentsFull {
             pos: positional,
             named: &named,
-            names: ArgNames::new(&names),
+            names: ArgNames::new_check_unique(&names)?,
             args: None,
             kwargs: None,
         });

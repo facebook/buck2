@@ -19,11 +19,13 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use hashbrown::HashTable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
+use starlark_syntax::value_error;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -60,7 +62,7 @@ pub fn partial(builder: &mut GlobalsBuilder) {
         #[starlark(kwargs)] kwargs: DictRef<'v>,
     ) -> anyhow::Result<Partial<'v>> {
         debug_assert!(Tuple::from_value(args).is_some());
-        let names = kwargs
+        let names: Vec<_> = kwargs
             .keys()
             .map(|x| {
                 let x = StringValue::new(x).unwrap();
@@ -72,11 +74,16 @@ pub fn partial(builder: &mut GlobalsBuilder) {
                 )
             })
             .collect();
+        let mut names_index = HashTable::with_capacity(names.len());
+        for (i, (k, _)) in names.iter().enumerate() {
+            names_index.insert_unique(k.hash(), i, |i| names[*i].0.hash());
+        }
         Ok(Partial {
             func,
             pos: args,
             named: kwargs.values().collect(),
             names,
+            names_index,
         })
     }
 }
@@ -89,6 +96,7 @@ struct PartialGen<V, S> {
     pos: V,
     named: Vec<V>,
     names: Vec<(Symbol, S)>,
+    names_index: HashTable<usize>,
 }
 
 impl<'v, V: ValueLike<'v>, S> PartialGen<V, S> {
@@ -132,6 +140,7 @@ impl<'v> Freeze for Partial<'v> {
             names: self
                 .names
                 .into_try_map(|(s, x)| anyhow::Ok((s, x.freeze(freezer)?)))?,
+            names_index: self.names_index,
         })
     }
 }
@@ -159,13 +168,26 @@ where
         let self_named = coerce(&self.named);
         let self_names = coerce(&self.names);
 
+        for (symbol, _) in args.0.names.names() {
+            if self
+                .names_index
+                .find(symbol.hash(), |i| &self.names[*i].0 == symbol)
+                .is_some()
+            {
+                return Err(value_error!(
+                    "partial() got multiple values for argument `{}`",
+                    symbol.as_str(),
+                ));
+            }
+        }
+
         eval.alloca_concat(self_pos, args.0.pos, |pos, eval| {
             eval.alloca_concat(self_named, args.0.named, |named, eval| {
                 eval.alloca_concat(self_names, args.0.names.names(), |names, eval| {
                     let params = Arguments(ArgumentsFull {
                         pos,
                         named,
-                        names: ArgNames::new(names),
+                        names: ArgNames::new_unique(names),
                         args: args.0.args,
                         kwargs: args.0.kwargs,
                     });

@@ -122,7 +122,7 @@ impl ArgsCompiledValue {
         Some(handler(&Arguments(ArgumentsFull {
             pos: &pos,
             named: &named,
-            names: ArgNames::new(coerce(&self.names)),
+            names: ArgNames::new_unique(coerce(&self.names)),
             args,
             kwargs,
         })))
