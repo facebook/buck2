@@ -81,32 +81,23 @@ use crate::re::uploader::UploadStats;
 /// same RE session. Concurrent commands will share an RE session.
 
 #[derive(Clone, Allocative)]
-struct RemoteExecutionConfig {
+pub struct RemoteExecutionConfig {
     #[allocative(skip)] // TODO(nga): implement in `allocative`.
-    fb: FacebookInit,
+    pub fb: FacebookInit,
     /// whether to skip the cache when performing RE
-    skip_remote_cache: bool,
+    pub skip_remote_cache: bool,
     /// number of retries when attempting the initial RE connection
-    connection_retries: usize,
-    static_metadata: Arc<RemoteExecutionStaticMetadata>,
-    logs_dir_path: Option<AbsNormPathBuf>,
-    buck_out_path: AbsNormPathBuf,
+    pub connection_retries: usize,
+    pub static_metadata: Arc<RemoteExecutionStaticMetadata>,
+    pub logs_dir_path: Option<AbsNormPathBuf>,
+    pub buck_out_path: AbsNormPathBuf,
     /// Whether Buck is running in paranoid mode.
-    is_paranoid_mode: bool,
+    pub is_paranoid_mode: bool,
 }
 
 impl RemoteExecutionConfig {
     async fn connect_now(&self) -> anyhow::Result<RemoteExecutionClient> {
-        RemoteExecutionClient::new_retry(
-            self.fb,
-            self.skip_remote_cache,
-            self.connection_retries,
-            self.static_metadata.dupe(),
-            self.logs_dir_path.as_deref(),
-            &self.buck_out_path,
-            self.is_paranoid_mode,
-        )
-        .await
+        RemoteExecutionClient::new_retry(&self).await
     }
 }
 

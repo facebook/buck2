@@ -15,16 +15,13 @@ use anyhow::Context;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
 use either::Either;
-use fbinit::FacebookInit;
 use futures::stream::BoxStream;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -60,7 +57,6 @@ use remote_execution::WriteActionResultRequest;
 use remote_execution::WriteActionResultResponse;
 use tokio::sync::Semaphore;
 
-use super::error::with_error_handler;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
@@ -72,7 +68,9 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
+use crate::re::error::with_error_handler;
 use crate::re::error::RemoteExecutionError;
+use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
@@ -106,27 +104,12 @@ struct RemoteExecutionClientData {
 }
 
 impl RemoteExecutionClient {
-    pub async fn new(
-        fb: FacebookInit,
-        skip_remote_cache: bool,
-        static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        logs_dir_path: Option<&AbsNormPath>,
-        buck_out_path: &AbsNormPath,
-        is_paranoid_mode: bool,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(re_config: &RemoteExecutionConfig) -> anyhow::Result<Self> {
         if buck2_env!("BUCK2_TEST_FAIL_CONNECT", bool, applicability = testing)? {
             return Err(anyhow::anyhow!("Injected RE Connection error"));
         }
 
-        let client = RemoteExecutionClientImpl::new(
-            fb,
-            skip_remote_cache,
-            static_metadata,
-            logs_dir_path,
-            buck_out_path,
-            is_paranoid_mode,
-        )
-        .await?;
+        let client = RemoteExecutionClientImpl::new(re_config).await?;
 
         Ok(Self {
             data: Arc::new(RemoteExecutionClientData {
@@ -143,27 +126,10 @@ impl RemoteExecutionClient {
         })
     }
 
-    pub async fn new_retry(
-        fb: FacebookInit,
-        skip_remote_cache: bool,
-        times: usize, // 0 is treated as 1
-        static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        logs_dir_path: Option<&AbsNormPath>,
-        buck_out_path: &AbsNormPath,
-        is_paranoid_mode: bool,
-    ) -> anyhow::Result<Self> {
+    pub async fn new_retry(re_config: &RemoteExecutionConfig) -> anyhow::Result<Self> {
         // Loop happens times-1 times at most
-        for i in 1..times {
-            match Self::new(
-                fb,
-                skip_remote_cache,
-                static_metadata.dupe(),
-                logs_dir_path,
-                buck_out_path,
-                is_paranoid_mode,
-            )
-            .await
-            {
+        for i in 1..re_config.connection_retries {
+            match Self::new(re_config).await {
                 Ok(v) => return Ok(v),
                 Err(e) => {
                     if e.downcast_ref::<RemoteExecutionError>().is_none() {
@@ -181,15 +147,7 @@ impl RemoteExecutionClient {
                 }
             }
         }
-        Self::new(
-            fb,
-            skip_remote_cache,
-            static_metadata,
-            logs_dir_path,
-            buck_out_path,
-            is_paranoid_mode,
-        )
-        .await
+        Self::new(re_config).await
     }
 
     pub async fn action_cache(
@@ -415,14 +373,7 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
 }
 
 impl RemoteExecutionClientImpl {
-    async fn new(
-        fb: FacebookInit,
-        skip_remote_cache: bool,
-        static_metadata: Arc<RemoteExecutionStaticMetadata>,
-        maybe_logs_dir_path: Option<&AbsNormPath>,
-        buck_out_path: &AbsNormPath,
-        is_paranoid_mode: bool,
-    ) -> anyhow::Result<Self> {
+    async fn new(re_config: &RemoteExecutionConfig) -> anyhow::Result<Self> {
         let op_name = "REClientBuilder";
         tracing::info!("Creating a new RE client");
 
@@ -432,6 +383,7 @@ impl RemoteExecutionClientImpl {
 
             // Split things up into smaller chunks.
             let download_chunk_size = std::cmp::max(download_concurrency / 8, 1);
+            let static_metadata = &re_config.static_metadata;
 
             #[cfg(fbcode_build)]
             let client = {
@@ -462,7 +414,7 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 };
 
-                if is_paranoid_mode {
+                if re_config.is_paranoid_mode {
                     // Dedupe is not compatible with us downloading blobs and moving them.
                     embedded_cas_daemon_config.disable_download_dedup = true;
                 }
@@ -596,7 +548,8 @@ impl RemoteExecutionClientImpl {
                 // Will either choose the SOFT_COPY (on some linux fs like btrfs/extfs etc, on Mac if using APFS) or FULL_COPY otherwise
                 embedded_cas_daemon_config.copy_policy = CopyPolicy::BEST_AVAILABLE;
                 embedded_cas_daemon_config.meterialization_mount_path = Some(
-                    buck_out_path
+                    re_config
+                        .buck_out_path
                         .to_str()
                         .context("invalid meterialization_mount_path")?
                         .to_owned(),
@@ -640,7 +593,7 @@ impl RemoteExecutionClientImpl {
 
                 re_client_config.cas_client_config =
                     CASDaemonClientCfg::embedded_config(embedded_cas_daemon_config);
-                if let Some(logs_dir_path) = maybe_logs_dir_path {
+                if let Some(logs_dir_path) = &re_config.logs_dir_path {
                     // make sure that the log dir exists as glog is expecting that :(
                     fs_util::create_dir_all(logs_dir_path)?;
                     re_client_config.log_file_location = Some(
@@ -704,7 +657,7 @@ impl RemoteExecutionClientImpl {
                 with_error_handler(
                     op_name,
                     "<none>",
-                    REClientBuilder::new(fb)
+                    REClientBuilder::new(re_config.fb)
                         .with_config(re_client_config)
                         .with_logger(logger)
                         .build_and_connect()
@@ -715,8 +668,6 @@ impl RemoteExecutionClientImpl {
 
             #[cfg(not(fbcode_build))]
             let client = {
-                let _unused = (fb, maybe_logs_dir_path, buck_out_path, is_paranoid_mode);
-
                 with_error_handler(
                     op_name,
                     "<none>",
@@ -727,7 +678,7 @@ impl RemoteExecutionClientImpl {
 
             Self {
                 client: Some(client),
-                skip_remote_cache,
+                skip_remote_cache: re_config.skip_remote_cache,
                 cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
