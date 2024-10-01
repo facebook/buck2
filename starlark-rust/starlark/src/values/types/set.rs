@@ -20,4 +20,5 @@ pub(crate) mod methods;
 pub(crate) mod refs;
 pub(crate) mod set;
 pub(crate) mod value;
-pub use crate::values::set::value::Set;
+pub use crate::values::set::refs::SetMut;
+pub use crate::values::set::refs::SetRef;

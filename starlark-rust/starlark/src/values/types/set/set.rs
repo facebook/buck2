@@ -40,7 +40,7 @@ pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<SetData<'v>> {
         let set = match arg {
             Some(pos) => match SetRef::unpack_value_opt(pos.get()) {
-                Some(set) => (*set).clone(),
+                Some(set) => (set.aref).clone(),
                 None => {
                     let it = pos.get().iterate(heap)?;
                     let mut data = SetData::default();

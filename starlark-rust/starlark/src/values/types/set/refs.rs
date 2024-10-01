@@ -19,8 +19,6 @@ use std::cell::Ref;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::convert::Infallible;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
 use dupe::Dupe;
 use either::Either;
@@ -38,16 +36,9 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 
+/// Define the set type.
 pub struct SetRef<'v> {
     pub(crate) aref: Either<Ref<'v, SetData<'v>>, &'v SetData<'v>>,
-}
-
-impl<'v> Deref for SetRef<'v> {
-    type Target = SetData<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.aref
-    }
 }
 
 impl<'v> Clone for SetRef<'v> {
@@ -96,20 +87,6 @@ impl<'v> SetMut<'v> {
                 Err(_) => Err(ValueError::MutationDuringIteration.into()),
             },
         }
-    }
-}
-
-impl<'v> Deref for SetMut<'v> {
-    type Target = SetData<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.aref
-    }
-}
-
-impl<'v> DerefMut for SetMut<'v> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.aref
     }
 }
 

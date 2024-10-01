@@ -66,11 +66,11 @@ use crate::StarlarkDocs;
 )]
 #[starlark_docs(builtin = "standard")]
 #[repr(transparent)]
-pub struct SetGen<T>(pub(crate) T);
+pub(crate) struct SetGen<T>(pub(crate) T);
 
 /// Define the mutable set type.
 #[derive(Default, Trace, Debug, ProvidesStaticType, Allocative, Clone)]
-pub struct SetData<'v> {
+pub(crate) struct SetData<'v> {
     /// The data stored by the list.
     pub(crate) content: SmallSet<Value<'v>>,
 }
@@ -113,17 +113,14 @@ impl<'v> SetData<'v> {
 
 #[derive(Clone, Default, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
-pub struct FrozenSetData {
+pub(crate) struct FrozenSetData {
     /// The data stored by the set. The values must all be hashable values.
     content: SmallSet<FrozenValue>,
 }
 
-/// Define the set type.
-pub type Set<'v> = SetGen<SetData<'v>>;
+pub(crate) type MutableSet<'v> = SetGen<RefCell<SetData<'v>>>;
 
-pub type MutableSet<'v> = SetGen<RefCell<SetData<'v>>>;
-
-pub type FrozenSet = SetGen<FrozenSetData>;
+pub(crate) type FrozenSet = SetGen<FrozenSetData>;
 
 impl<'v> AllocValue<'v> for SetData<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -231,7 +228,7 @@ where
     fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match SetRef::unpack_value_opt(other) {
             None => Ok(false),
-            Some(other) => Ok(equals_small_set(&self.0.content(), &other.content)),
+            Some(other) => Ok(equals_small_set(&self.0.content(), &other.aref.content)),
         }
     }
 
@@ -268,10 +265,10 @@ where
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
         if self.0.content().is_empty() {
-            return Ok(heap.alloc((*rhs).clone()));
+            return Ok(heap.alloc((*rhs.aref).clone()));
         }
         let mut items = self.0.content().clone();
-        for h in rhs.iter_hashed() {
+        for h in rhs.aref.iter_hashed() {
             items.insert_hashed(h);
         }
         Ok(heap.alloc(SetData { content: items }))
@@ -286,7 +283,7 @@ where
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
 
-        for h in rhs.iter_hashed() {
+        for h in rhs.aref.iter_hashed() {
             if self.0.content().contains_hashed(h.as_ref()) {
                 items.insert_hashed_unique_unchecked(h);
             }
@@ -299,19 +296,19 @@ where
     fn bit_xor(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "^", rhs), Ok)?;
-        if rhs.content.is_empty() {
+        if rhs.aref.content.is_empty() {
             return Ok(heap.alloc(SetData {
                 content: self.0.content().clone(),
             }));
         }
         let mut data = SetData::default();
         for elem in self.0.content().iter_hashed() {
-            if !rhs.contains_hashed(elem.copied()) {
+            if !rhs.aref.contains_hashed(elem.copied()) {
                 data.add_hashed_unique_unchecked(elem.copied());
             }
         }
 
-        for hashed in rhs.iter_hashed() {
+        for hashed in rhs.aref.iter_hashed() {
             if !self.0.content().contains_hashed(hashed.as_ref()) {
                 data.add_hashed(hashed);
             }
@@ -331,7 +328,7 @@ where
             }));
         }
 
-        if rhs.content.is_empty() {
+        if rhs.aref.content.is_empty() {
             return Ok(heap.alloc(SetData {
                 content: self.0.content().clone(),
             }));
@@ -340,7 +337,7 @@ where
         let mut data = SetData::default();
 
         for elem in self.0.content().iter_hashed() {
-            if !rhs.contains_hashed(elem.copied()) {
+            if !rhs.aref.contains_hashed(elem.copied()) {
                 data.add_hashed(elem.copied());
             }
         }

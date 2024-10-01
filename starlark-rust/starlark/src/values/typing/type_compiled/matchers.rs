@@ -189,7 +189,7 @@ pub(crate) struct IsSetOf<I: TypeMatcher>(pub(crate) I);
 impl<I: TypeMatcher> TypeMatcher for IsSetOf<I> {
     fn matches(&self, value: Value) -> bool {
         match SetRef::unpack_value_opt(value) {
-            Some(set) => set.iter().all(|v| self.0.matches(v)),
+            Some(set) => set.aref.iter().all(|v| self.0.matches(v)),
             _ => false,
         }
     }
