@@ -10,6 +10,7 @@
 use std::convert::Infallible;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
@@ -19,6 +20,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_events::dispatch::console_message;
@@ -28,6 +30,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::Symlink;
 use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
@@ -312,6 +315,13 @@ impl CasDownloader<'_> {
                 is_executable: x.executable,
             }));
 
+            input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
+        }
+
+        for x in output_spec.output_symlinks() {
+            let entry = DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(
+                Symlink::new(RelativePathBuf::from_path(Path::new(&x.target))?),
+            )));
             input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
         }
 

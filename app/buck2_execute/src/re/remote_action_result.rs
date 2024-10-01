@@ -21,6 +21,7 @@ use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
 use remote_execution::TPerfCount;
 use remote_execution::TSubsysPerfCount;
+use remote_execution::TSymlink;
 use remote_execution::TTimestamp;
 
 use crate::digest_config::DigestConfig;
@@ -35,6 +36,7 @@ pub struct ActionCacheResult(pub ActionResultResponse, pub buck2_data::CacheType
 pub trait RemoteActionResult: Send + Sync {
     fn output_files(&self) -> &[TFile];
     fn output_directories(&self) -> &[TDirectory2];
+    fn output_symlinks(&self) -> &[TSymlink];
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind;
 
@@ -65,6 +67,10 @@ impl RemoteActionResult for ExecuteResponse {
 
     fn output_directories(&self) -> &[TDirectory2] {
         &self.action_result.output_directories
+    }
+
+    fn output_symlinks(&self) -> &[TSymlink] {
+        &self.action_result.output_symlinks
     }
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
@@ -113,6 +119,10 @@ impl RemoteActionResult for ActionCacheResult {
 
     fn output_directories(&self) -> &[TDirectory2] {
         &self.0.action_result.output_directories
+    }
+
+    fn output_symlinks(&self) -> &[TSymlink] {
+        &self.0.action_result.output_symlinks
     }
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
