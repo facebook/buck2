@@ -56,6 +56,8 @@ pub enum TyBasic {
     Dict(ArcTy, ArcTy),
     /// Custom type.
     Custom(TyCustom),
+    /// A set.
+    Set(ArcTy),
 }
 
 impl TyBasic {
@@ -94,9 +96,9 @@ impl TyBasic {
         Self::dict(Ty::any(), Ty::any())
     }
 
-    // pub(crate) fn any_set() -> Self {
-    //     Self::set(Ty::any())
-    // }
+    pub(crate) fn any_set() -> Self {
+        TyBasic::Set(ArcTy::any())
+    }
 
     /// Create a iterable type.
     pub(crate) fn iter(item: Ty) -> Self {
@@ -106,6 +108,11 @@ impl TyBasic {
     /// Create a dictionary type.
     pub(crate) fn dict(key: Ty, value: Ty) -> Self {
         TyBasic::Dict(ArcTy::new(key), ArcTy::new(value))
+    }
+
+    /// Create a set type.
+    pub(crate) fn set(item: Ty) -> Self {
+        TyBasic::Set(ArcTy::new(item))
     }
 
     pub(crate) fn custom(custom: impl TyCustomImpl) -> Self {
@@ -124,6 +131,7 @@ impl TyBasic {
             TyBasic::Type => Some("type"),
             TyBasic::Custom(c) => c.as_name(),
             TyBasic::Any | TyBasic::Iter(_) | TyBasic::Callable(_) => None,
+            TyBasic::Set(_) => Some("set"),
         }
     }
 
@@ -176,6 +184,7 @@ impl Display for TyBasic {
             }
             TyBasic::Type => write!(f, "type"),
             TyBasic::Custom(c) => Display::fmt(c, f),
+            TyBasic::Set(x) => write!(f, "set[{}]", x),
         }
     }
 }

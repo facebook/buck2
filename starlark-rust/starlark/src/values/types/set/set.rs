@@ -19,6 +19,7 @@ use starlark_derive::starlark_module;
 
 use crate as starlark;
 use crate::environment::GlobalsBuilder;
+use crate::values::function::SpecialBuiltinFunction;
 use crate::values::set::refs::SetRef;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
@@ -28,7 +29,10 @@ use crate::values::ValueOfUnchecked;
 
 #[starlark_module]
 pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
-    #[starlark(speculative_exec_safe)]
+    #[starlark(
+        speculative_exec_safe,
+        special_builtin_function = SpecialBuiltinFunction::Set,
+    )]
     fn set<'v>(
         #[starlark(require = pos)] arg: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: &'v Heap,
@@ -49,5 +53,54 @@ pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
             None => SetData::default(),
         };
         Ok(set)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::assert;
+
+    #[test]
+    fn test_set_type_as_type_compile_time() {
+        assert::fail(
+            r"
+def f_fail_ct(x: set[int]):
+    return x
+
+s = set(['not_int'])
+
+f_fail_ct(s)
+",
+            //Is it actually runtime or compile time error?
+            r#"Value `set(["not_int"])` of type `set` does not match the type annotation `set[int]` for argument `x`"#,
+        );
+    }
+
+    #[test]
+    fn test_return_set_type_as_type_compile_time() {
+        assert::fail(
+            r"
+def f_fail_ct(x: str) -> set[int]:
+    return set([x])
+
+f_fail_ct('not_int')
+",
+            //Is it actually runtime or compile time error?
+            r#"Value `set(["not_int"])` of type `set` does not match the type annotation `set[int]` for return type"#,
+        );
+    }
+
+    #[test]
+    fn test_set_type_as_type_run_time() {
+        assert::fail(
+            r"
+def f_fail_rt(x: set[int]):
+    return x
+
+s = set(['not_int'])
+
+noop(f_fail_rt)(s)
+",
+            r#"Value `set(["not_int"])` of type `set` does not match the type annotation `set[int]` for argument `x`"#,
+        );
     }
 }

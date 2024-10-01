@@ -26,6 +26,8 @@ use crate::values::dict::value::FrozenDict;
 use crate::values::dict::DictRef;
 use crate::values::list::value::FrozenList;
 use crate::values::list::ListRef;
+use crate::values::set::refs::SetRef;
+use crate::values::set::value::FrozenSet;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::starlark_type_id::StarlarkTypeIdAligned;
 use crate::values::tuple::value::Tuple;
@@ -167,6 +169,27 @@ impl<K: TypeMatcher, V: TypeMatcher> TypeMatcher for IsDictOf<K, V> {
             Some(dict) => dict
                 .iter()
                 .all(|(k, v)| self.0.matches(k) && self.1.matches(v)),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Dupe, Allocative, Debug)]
+pub(crate) struct IsSet;
+
+impl TypeMatcher for IsSet {
+    fn matches(&self, value: Value) -> bool {
+        value.starlark_type_id() == StarlarkTypeId::of::<FrozenSet>()
+    }
+}
+
+#[derive(Clone, Allocative, Debug)]
+pub(crate) struct IsSetOf<I: TypeMatcher>(pub(crate) I);
+
+impl<I: TypeMatcher> TypeMatcher for IsSetOf<I> {
+    fn matches(&self, value: Value) -> bool {
+        match SetRef::from_value(value) {
+            None => false,
+            Some(set) => set.iter().all(|v| self.0.matches(v)),
         }
     }
 }

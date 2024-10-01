@@ -394,6 +394,13 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&Ty::list(t.as_ty().clone()), heap)
     }
 
+    pub(crate) fn type_set_of(
+        t: TypeCompiled<Value<'v>>,
+        heap: &'v Heap,
+    ) -> TypeCompiled<Value<'v>> {
+        TypeCompiledFactory::alloc_ty(&Ty::set(t.as_ty().clone()), heap)
+    }
+
     pub(crate) fn type_any_of_two(
         t0: TypeCompiled<Value<'v>>,
         t1: TypeCompiled<Value<'v>>,

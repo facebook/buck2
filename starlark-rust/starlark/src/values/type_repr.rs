@@ -78,7 +78,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for SetType<T> {
     type Canonical = SetType<T::Canonical>;
 
     fn starlark_type_repr() -> Ty {
-        Ty::todo()
+        Ty::set(T::starlark_type_repr())
     }
 }
 

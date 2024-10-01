@@ -43,6 +43,7 @@ use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
 use crate::values::dict::value::MutableDict;
 use crate::values::list::value::List;
+use crate::values::set::value::MutableSet;
 use crate::values::tuple::value::Tuple;
 
 #[derive(Debug, thiserror::Error)]
@@ -272,7 +273,7 @@ impl<'a> TypingOracleCtx<'a> {
         match fun {
             TyBasic::Any => Ok(Ty::any()),
             TyBasic::StarlarkValue(t) => Ok(t.validate_call(span, *self)?),
-            TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) => Err(self
+            TyBasic::List(_) | TyBasic::Dict(..) | TyBasic::Tuple(_) | TyBasic::Set(_) => Err(self
                 .mk_error_as_maybe_internal(
                     span,
                     TypingOracleCtxError::CallToNonCallable {
@@ -335,6 +336,7 @@ impl<'a> TypingOracleCtx<'a> {
             TyBasic::Type => Ok(Ty::any()),
             TyBasic::Iter(ty) => Ok(ty.to_ty()),
             TyBasic::Custom(ty) => ty.0.iter_item_dyn(),
+            TyBasic::Set(item) => Ok((**item).dupe()),
         }
     }
 
@@ -375,6 +377,12 @@ impl<'a> TypingOracleCtx<'a> {
                     return Err(TypingNoContextOrInternalError::Typing);
                 }
                 Ok((**v).dupe())
+            }
+            TyBasic::Set(item) => {
+                if !self.intersects(&Ty::basic(index.node.dupe()), item)? {
+                    return Err(TypingNoContextOrInternalError::Typing);
+                }
+                Ok((**item).dupe())
             }
             TyBasic::StarlarkValue(array) => Ok(array.index(index.node)?),
             TyBasic::Custom(c) => Ok(c.0.index_dyn(index.node, self)?),
@@ -501,6 +509,8 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             TyBasic::Custom(custom) => custom.0.attribute_dyn(attr),
+            //TODO(romanp) add match on attr similar to Dict
+            TyBasic::Set(_) => TyStarlarkValue::new::<MutableSet>().attr(attr),
         }
     }
 
@@ -614,6 +624,29 @@ impl<'a> TypingOracleCtx<'a> {
                 bin_op => Ok(TyStarlarkValue::new::<MutableDict>().bin_op(bin_op, rhs.node)?),
             },
             TyBasic::Custom(lhs) => Ok(lhs.0.bin_op_dyn(bin_op, rhs.node, self)?),
+            TyBasic::Set(elem) => match bin_op {
+                TypingBinOp::In => {
+                    if self.intersects(&Ty::basic(rhs.node.dupe()), elem)? {
+                        Ok(Ty::bool())
+                    } else {
+                        Err(TypingNoContextOrInternalError::Typing)
+                    }
+                }
+                TypingBinOp::BitXor
+                | TypingBinOp::BitAnd
+                | TypingBinOp::Sub
+                | TypingBinOp::BitOr => {
+                    if self.intersects_basic(rhs.node, &TyBasic::any_set())? {
+                        Ok(Ty::union2(
+                            Ty::set(elem.to_ty()),
+                            Ty::basic(rhs.node.dupe()),
+                        ))
+                    } else {
+                        Err(TypingNoContextOrInternalError::Typing)
+                    }
+                }
+                bin_op => Ok(TyStarlarkValue::new::<MutableSet>().bin_op(bin_op, rhs.node)?),
+            },
         }
     }
 
@@ -908,6 +941,9 @@ impl<'a> TypingOracleCtx<'a> {
             (TyBasic::List(x), TyBasic::List(y)) => self.intersects(x, y),
             (TyBasic::List(_), TyBasic::StarlarkValue(y)) => Ok(y.is_list()),
             (TyBasic::List(_), _) => Ok(false),
+            (TyBasic::Set(x), TyBasic::Set(y)) => self.intersects(x, y),
+            (TyBasic::Set(_), TyBasic::StarlarkValue(y)) => Ok(y.is_set()),
+            (TyBasic::Set(_), _) => Ok(false),
             (TyBasic::Dict(x_k, x_v), TyBasic::Dict(y_k, y_v)) => {
                 Ok(self.intersects(x_k, y_k)? && self.intersects(x_v, y_v)?)
             }

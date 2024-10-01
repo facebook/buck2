@@ -214,6 +214,15 @@ impl Ty {
         Self::dict(Ty::any(), Ty::any())
     }
 
+    /// Create a set type.
+    pub fn set(item: Ty) -> Self {
+        Ty::basic(TyBasic::set(item))
+    }
+
+    pub(crate) fn any_set() -> Self {
+        Self::set(Ty::any())
+    }
+
     /// Create a tuple of two elements
     pub fn tuple2(a: Ty, b: Ty) -> Self {
         Ty::tuple(vec![a, b])

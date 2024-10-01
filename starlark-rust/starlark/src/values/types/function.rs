@@ -86,6 +86,7 @@ pub enum SpecialBuiltinFunction {
     List,
     Dict,
     Tuple,
+    Set,
 }
 
 /// A native function that can be evaluated.
@@ -208,6 +209,10 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
             Some(SpecialBuiltinFunction::List) => {
                 let index = TypeCompiled::new(index, heap)?;
                 Ok(TypeCompiled::type_list_of(index, heap).to_inner())
+            }
+            Some(SpecialBuiltinFunction::Set) => {
+                let index = TypeCompiled::new(index, heap)?;
+                Ok(TypeCompiled::type_set_of(index, heap).to_inner())
             }
             _ => ValueError::unsupported(self, "[]"),
         }

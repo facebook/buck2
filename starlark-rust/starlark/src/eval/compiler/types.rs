@@ -168,7 +168,9 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
-                if !a.ptr_eq(Constants::get().fn_list.0.to_value()) {
+                if !a.ptr_eq(Constants::get().fn_list.0.to_value())
+                    && !a.ptr_eq(Constants::get().fn_set.0.to_value())
+                {
                     return Err(EvalException::new_anyhow(
                         TypesError::TypeIndexOnNonList.into(),
                         expr.span,

@@ -36,6 +36,8 @@ use crate::values::typing::type_compiled::matchers::IsList;
 use crate::values::typing::type_compiled::matchers::IsListOf;
 use crate::values::typing::type_compiled::matchers::IsNever;
 use crate::values::typing::type_compiled::matchers::IsNone;
+use crate::values::typing::type_compiled::matchers::IsSet;
+use crate::values::typing::type_compiled::matchers::IsSetOf;
 use crate::values::typing::type_compiled::matchers::IsStr;
 use crate::values::typing::type_compiled::matchers::IsType;
 use crate::values::typing::type_compiled::matchers::StarlarkTypeIdMatcher;
@@ -143,6 +145,7 @@ pub trait TypeMatcherAlloc: Sized {
             TyBasic::Callable(_c) => self.alloc(IsCallable),
             TyBasic::Type => self.alloc(IsType),
             TyBasic::Custom(custom) => self.custom(custom),
+            TyBasic::Set(item) => self.set_of(item),
         }
     }
 
@@ -250,6 +253,49 @@ pub trait TypeMatcherAlloc: Sized {
             let k = TypeMatcherBoxAlloc.ty(k);
             let v = TypeMatcherBoxAlloc.ty(v);
             self.dict_of_matcher(k, v)
+        }
+    }
+
+    /// `set`.
+    fn set(self) -> Self::Result {
+        self.alloc(IsSet)
+    }
+
+    /// `set[Item]`.
+    fn set_of_matcher(self, item: impl TypeMatcher) -> Self::Result {
+        if item.is_wildcard() {
+            self.set()
+        } else {
+            self.alloc(IsSetOf(item))
+        }
+    }
+
+    /// `set[Item]`.
+    fn set_of_starlark_value(self, item: TyStarlarkValue) -> Self::Result {
+        if item.is_str() {
+            self.set_of_matcher(IsStr)
+        } else {
+            self.set_of_matcher(StarlarkTypeIdMatcher::new(item))
+        }
+    }
+
+    /// `set[Item]`.
+    fn set_of_basic(self, item: &TyBasic) -> Self::Result {
+        match item {
+            TyBasic::Any => self.set(),
+            TyBasic::StarlarkValue(ty) => self.set_of_starlark_value(*ty),
+            ty => self.set_of_matcher(TypeMatcherBoxAlloc.ty_basic(ty)),
+        }
+    }
+
+    fn set_of(self, item: &Ty) -> Self::Result {
+        if item.is_any() {
+            self.set()
+        } else if let [ty] = item.iter_union() {
+            self.set_of_basic(ty)
+        } else {
+            let matcher = TypeMatcherBoxAlloc.ty(item);
+            self.set_of_matcher(matcher)
         }
     }
 }

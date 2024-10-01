@@ -345,6 +345,14 @@ where
         }
         Ok(heap.alloc(data))
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(Ty::any_set())
+    }
+
+    fn get_type_starlark_repr() -> Ty {
+        Ty::any_set()
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
