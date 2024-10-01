@@ -5,17 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cfg/modifier:common.bzl?v2_only", "MODIFIER_METADATA_KEY", "get_tagged_modifiers", "tagged_modifiers_to_json")
-load("@prelude//cfg/modifier:types.bzl?v2_only", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
-
-##########################################################
-# NOTE: This file is now available in the buck2 prelude. #
-#                                                        #
-# You should prefer including / using that version.      #
-#                                                        #
-# If you are modifying this file, please make sure to    #
-# keep the prelude version in sync.                      #
-##########################################################
+load("@prelude//:prelude.bzl", "native")
+load(":common.bzl", "MODIFIER_METADATA_KEY", "get_tagged_modifiers", "tagged_modifiers_to_json")
+load(":types.bzl", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
 def set_cfg_modifiers(
         cfg_modifiers: list[Modifier] | None = None,
