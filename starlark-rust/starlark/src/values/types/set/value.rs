@@ -258,6 +258,24 @@ where
         }
         Ok(heap.alloc(SetData { content: items }))
     }
+
+    // Set intersection
+    fn bit_and(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        let mut items = SmallSet::new();
+        if self.0.content().is_empty() {
+            return Ok(heap.alloc(SetData { content: items }));
+        }
+        let rhs = SetRef::from_value(rhs)
+            .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
+
+        for h in rhs.iter_hashed() {
+            if self.0.content().contains_hashed(h.as_ref()) {
+                items.insert_hashed_unique_unchecked(h);
+            }
+        }
+
+        Ok(heap.alloc(SetData { content: items }))
+    }
 }
 
 impl<'v, T: SetLike<'v>> Serialize for SetGen<T> {
@@ -305,5 +323,33 @@ mod tests {
     #[test]
     fn test_bit_or_ord() {
         assert::eq("list(set([5, 1, 3]) | set([4, 5, 2]))", "[5, 1, 3, 4, 2]")
+    }
+
+    #[test]
+    fn test_bit_and() {
+        assert::eq("set([1, 2, 3]) & set([3, 4])", "set([3])")
+    }
+
+    #[test]
+    fn test_bit_and_lhs_empty() {
+        assert::eq("set() & set([3, 4])", "set([])")
+    }
+
+    #[test]
+    fn test_bit_and_rhs_empty() {
+        assert::eq("set([1, 2, 3]) & set()", "set([])")
+    }
+
+    #[test]
+    fn test_bit_and_ord() {
+        assert::eq("list(set([1, 2, 3]) & set([4, 3, 1]))", "[3, 1]")
+    }
+
+    #[test]
+    fn test_bit_and_fail_iter() {
+        assert::fail(
+            "set([1, 2, 3]) & []",
+            "Operation `&` not supported for types `set` and `list`",
+        );
     }
 }

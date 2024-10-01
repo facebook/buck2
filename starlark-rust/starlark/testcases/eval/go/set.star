@@ -67,9 +67,9 @@ asserts.eq(list(x.union([5, 1])), [1, 2, 3, 5])
 asserts.eq(list(x.union((6, 5, 4))), [1, 2, 3, 6, 5, 4])
 asserts.fails(lambda : x.union([1, 2, {}]), "unhashable type: dict")
 
-# # intersection, set & set or set.intersection(iterable)
-# asserts.eq(list(set("a".elems()) & set("b".elems())), [])
-# asserts.eq(list(set("ab".elems()) & set("bc".elems())), ["b"])
+# intersection, set & set or set.intersection(iterable)
+asserts.eq(list(set("a".elems()) & set("b".elems())), [])
+asserts.eq(list(set("ab".elems()) & set("bc".elems())), ["b"])
 # asserts.eq(list(set("a".elems()).intersection("b".elems())), [])
 # asserts.eq(list(set("ab".elems()).intersection("bc".elems())), ["b"])
 
