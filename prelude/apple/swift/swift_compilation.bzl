@@ -554,9 +554,7 @@ def _compile_with_argsfile(
         # do not result in further build perf efficiency later on when modules need to be recompiled.
         "allow_cache_upload": True,
     }
-    if build_swift_incrementally and not toolchain.supports_relative_resource_dir:
-        # When adding -working-directory= we end up with absolute paths in the
-        # swiftdeps files.
+    if build_swift_incrementally:
         run_extra_args["local_only"] = True
     else:
         # Swift compilation on RE without explicit modules is impractically expensive
