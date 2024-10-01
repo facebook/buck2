@@ -6,6 +6,7 @@
 ## set.difference
 ## set.discard
 ## set.intersection
+## set.issubset
 ## set.issuperset
 ## set.pop
 ## set.remove

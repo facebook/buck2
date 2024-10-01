@@ -325,7 +325,41 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         }
         Ok(true)
     }
+
+    /// Test whether every element in the set is in other iterable.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// y = [3, 1, 2]
+    /// x.issubset(y)
+    /// # "#);
+    /// ```
+    fn issubset<'v>(
+        this: SetRef<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<bool> {
+        let other = other.get().iterate(heap)?;
+        if this.content.is_empty() {
+            return Ok(true);
+        }
+        //TODO(romanp): check if other is already a set
+        let mut rhs: SmallSet<Value<'v>> = SmallSet::default();
+        for elem in other {
+            rhs.insert_hashed(elem.get_hashed()?);
+        }
+        if rhs.is_empty() {
+            return Ok(false);
+        }
+        for elem in this.content.iter_hashed() {
+            if !rhs.contains_hashed(elem) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::assert;
@@ -550,5 +584,31 @@ mod tests {
     #[test]
     fn test_is_superset_iter() {
         assert::is_true("set([1, 2, 3]).issuperset([3, 1])")
+    }
+
+    #[test]
+    fn test_is_subset() {
+        assert::is_true("set([1, 2]).issubset(set([1, 3, 2]))")
+    }
+
+    #[test]
+    fn test_is_not_subset() {
+        assert::is_false("set([1, 2]).issubset(set([1, 3, 5]))")
+    }
+
+    #[test]
+    fn test_is_subset_empty_lhs() {
+        assert::is_true("set([]).issubset(set([1, 3, 5]))");
+        assert::is_true("set([]).issubset(set([]))")
+    }
+
+    #[test]
+    fn test_is_not_subset_empty_rhs() {
+        assert::is_false("set([1, 2]).issubset(set([]))")
+    }
+
+    #[test]
+    fn test_is_subset_iter() {
+        assert::is_true("set([1, 2]).issubset([1, 3, 2])")
     }
 }
