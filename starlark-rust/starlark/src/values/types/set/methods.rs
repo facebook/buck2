@@ -199,6 +199,38 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
             Err(value_error!("`{value}` not found in `{this}`"))
         }
     }
+
+    /// Remove the item from the set. It does nothing if there is no such item.
+    ///
+    /// `discard` fails if the key is unhashable or if the dictionary is
+    /// frozen.
+    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    ///
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// x.discard(2)
+    /// x == set([1, 3])
+    /// # "#)
+    /// ```
+    /// A subsequent call to `x.discard(2)` would do nothing.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 2, 3])
+    /// x.discard(2)
+    /// x.discard(2)
+    /// x == set([1, 3])
+    /// # "#);
+    /// ```
+    fn discard<'v>(
+        this: Value<'v>,
+        #[starlark(require = pos)] value: Value<'v>,
+    ) -> starlark::Result<NoneType> {
+        let mut set = SetMut::from_value(this)?;
+        let hashed = value.get_hashed()?;
+        set.remove_hashed(hashed.as_ref());
+        Ok(NoneType)
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -353,5 +385,15 @@ mod tests {
     #[test]
     fn test_remove_not_existing() {
         assert::fail("set([1]).remove(0)", "`0` not found in `set([1])`");
+    }
+
+    #[test]
+    fn test_discard() {
+        assert::eq("x = set([0, 1]);x.discard(1);x", "set([0])")
+    }
+
+    #[test]
+    fn test_discard_multiple_times() {
+        assert::eq("x = set([0, 1]); x.discard(0); x.discard(0); x", "set([1])");
     }
 }

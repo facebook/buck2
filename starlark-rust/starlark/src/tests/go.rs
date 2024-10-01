@@ -104,6 +104,7 @@ fn test_go() {
             &[
                 "cannot insert into frozen hash table", // We don't actually have freeze
                 "cannot clear frozen hash table",
+                "discard: cannot delete from frozen hash table",
             ],
         ),
         &[],

@@ -136,14 +136,14 @@ asserts.fails(lambda: remove_set.remove(3), "remove: missing key")
 freeze(remove_set)
 asserts.fails(lambda: remove_set.remove(3), "remove: cannot delete from frozen hash table")
 
-# # discard
-# discard_set = set([1,2,3])
-# discard_set.discard(3)
-# asserts.true(3 not in discard_set)
-# asserts.eq(discard_set.discard(3), None)
-# freeze(discard_set)
-# asserts.eq(discard_set.discard(3), None)  # no mutation of frozen set because key doesn't exist
-# asserts.fails(lambda: discard_set.discard(1), "discard: cannot delete from frozen hash table")
+# discard
+discard_set = set([1,2,3])
+discard_set.discard(3)
+asserts.true(3 not in discard_set)
+asserts.eq(discard_set.discard(3), None)
+freeze(discard_set)
+asserts.eq(discard_set.discard(3), None)  # no mutation of frozen set because key doesn't exist
+asserts.fails(lambda: discard_set.discard(1), "discard: cannot delete from frozen hash table")
 
 
 # # pop

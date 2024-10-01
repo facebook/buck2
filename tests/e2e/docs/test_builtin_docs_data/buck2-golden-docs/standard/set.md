@@ -3,6 +3,7 @@
 # `set` type
 ## set.add
 ## set.clear
+## set.discard
 ## set.intersection
 ## set.remove
 ## set.symmetric\_difference
