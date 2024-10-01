@@ -316,6 +316,13 @@ pub struct StarlarkCallableChecked<'v, P: StarlarkCallableParamSpec, R: Starlark
     PhantomData<AtomicPtr<(P, R)>>,
 );
 
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallableChecked<'v, P, R> {
+    /// Convert to [`StarlarkCallable`].
+    pub fn to_unchecked(self) -> StarlarkCallable<'v, P, R> {
+        StarlarkCallable::unchecked_new(self.0)
+    }
+}
+
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
     for StarlarkCallableChecked<'v, P, R>
 {
