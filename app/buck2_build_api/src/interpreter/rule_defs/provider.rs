@@ -81,7 +81,7 @@ pub(crate) mod doc;
 pub mod execution_platform;
 pub mod registration;
 pub mod test_provider;
-pub(crate) mod ty;
+pub mod ty;
 pub(crate) mod user;
 
 /// Implemented by providers (builtin or user defined).

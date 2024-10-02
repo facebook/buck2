@@ -18,6 +18,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -89,8 +90,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     }
 }
 
-// TODO(nga): should be list of provider.
-pub(crate) type DynamicActionsCallbackReturnType = ListType<FrozenValue>;
+pub(crate) type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
 
 #[derive(Debug, thiserror::Error)]
 enum DynamicActionCallableError {
