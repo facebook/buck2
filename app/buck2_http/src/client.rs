@@ -122,7 +122,7 @@ impl HttpClient {
                 "http: request: changing scheme for '{}' to http for vpnless",
                 request.uri()
             );
-            change_scheme_to_http(&mut request);
+            change_scheme_to_http(&mut request)?;
         }
         let resp = self.inner.request(request).await.map_err(|e| {
             if is_hyper_error_due_to_timeout(&e) {
@@ -246,11 +246,16 @@ pub async fn to_bytes(body: BoxStream<'_, hyper::Result<Bytes>>) -> anyhow::Resu
 
 /// x2pagent proxies only speak plain HTTP, so we need to mutate requests prior
 /// to sending them off.
-fn change_scheme_to_http(request: &mut Request<Bytes>) {
+fn change_scheme_to_http(request: &mut Request<Bytes>) -> Result<(), HttpError> {
     let uri = request.uri().clone();
+    let uri_for_error = uri.clone();
     let mut parts = uri.into_parts();
     parts.scheme = Some(Scheme::HTTP);
-    *request.uri_mut() = Uri::from_parts(parts).expect("Unexpected invalid URI from request");
+    *request.uri_mut() = Uri::from_parts(parts).map_err(|e| HttpError::InvalidUriParts {
+        uri: uri_for_error.to_string(),
+        source: e,
+    })?;
+    Ok(())
 }
 
 /// Helper function to check if any error in the chain of errors produced by
@@ -286,7 +291,7 @@ mod tests {
             .method(Method::GET)
             .uri("https://some.site/foo")
             .body(Bytes::new())?;
-        change_scheme_to_http(&mut request);
+        change_scheme_to_http(&mut request)?;
 
         assert_eq!(
             Scheme::HTTP,
@@ -305,7 +310,7 @@ mod tests {
             .method(Method::GET)
             .uri(uri.clone())
             .body(Bytes::new())?;
-        change_scheme_to_http(&mut request);
+        change_scheme_to_http(&mut request)?;
 
         assert_eq!(&uri, request.uri());
         Ok(())

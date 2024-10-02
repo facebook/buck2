@@ -52,6 +52,12 @@ pub enum HttpError {
         #[source]
         source: http::uri::InvalidUri,
     },
+    #[error("HTTP URI Error: URI parts {uri} is malformed: {source:?}")]
+    InvalidUriParts {
+        uri: String,
+        #[source]
+        source: http::uri::InvalidUriParts,
+    },
     #[error("HTTP: Error building request")]
     BuildRequest(#[source] http::Error),
     #[error("HTTP: Error sending request to {uri}")]
