@@ -450,7 +450,7 @@ impl RemoteExecutionClientImpl {
                     {
                         "BIG_FILES" => RemoteCacheManagerMode::BIG_FILES,
                         "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
-                        "TURBOCACHE" => RemoteCacheManagerMode::TURBOCACHE,
+                        "ALL_FILES_WITH_SYNC" => RemoteCacheManagerMode::ALL_FILES_WITH_SYNC,
                         unknown => {
                             return Err(anyhow::anyhow!(
                                 "Unknown RemoteCacheManagerMode: {}",
@@ -470,7 +470,7 @@ impl RemoteExecutionClientImpl {
                             RemoteFetchPolicy::REMOTE_FETCH,
                             None,
                         ),
-                        RemoteCacheManagerMode::TURBOCACHE => (
+                        RemoteCacheManagerMode::ALL_FILES_WITH_SYNC => (
                             RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
                             RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
                             Some(RemoteCacheSyncConfig {
