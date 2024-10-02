@@ -20,7 +20,6 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::convert::Infallible;
 use std::ops::Deref;
-use std::ops::DerefMut;
 
 use dupe::Dupe;
 use either::Either;
@@ -137,20 +136,6 @@ impl<'v> Deref for DictRef<'v> {
 
     fn deref(&self) -> &Self::Target {
         &self.aref
-    }
-}
-
-impl<'v> Deref for DictMut<'v> {
-    type Target = Dict<'v>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.aref
-    }
-}
-
-impl<'v> DerefMut for DictMut<'v> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.aref
     }
 }
 

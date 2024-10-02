@@ -585,7 +585,7 @@ pub(crate) fn bit_or_assign<'v>(
                 Ok,
             )?;
             for (k, v) in rhs.iter_hashed() {
-                dict.insert_hashed(k, v);
+                dict.aref.insert_hashed(k, v);
             }
         }
         Ok(lhs)

@@ -53,7 +53,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn clear(this: Value) -> anyhow::Result<NoneType> {
         let mut this = DictMut::from_value(this)?;
-        this.clear();
+        this.aref.clear();
         Ok(NoneType)
     }
 
@@ -172,7 +172,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         #[starlark(require = pos)] default: Option<Value<'v>>,
     ) -> starlark::Result<Value<'v>> {
         let mut me = DictMut::from_value(this)?;
-        match me.remove_hashed(key.get_hashed()?) {
+        match me.aref.remove_hashed(key.get_hashed()?) {
             Some(x) => Ok(x),
             None => match default {
                 Some(v) => Ok(v),
@@ -266,7 +266,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     ) -> starlark::Result<Value<'v>> {
         let mut this = DictMut::from_value(this)?;
         let key = key.get_hashed()?;
-        match this.content.entry_hashed(key) {
+        match this.aref.content.entry_hashed(key) {
             starlark_map::small_map::Entry::Occupied(e) => Ok(*e.get()),
             starlark_map::small_map::Entry::Vacant(e) => {
                 let default = default.unwrap_or_else(Value::new_none);
@@ -326,7 +326,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
         if let Some(pairs) = pairs {
             if let Some(dict) = DictRef::from_value(pairs) {
                 for (k, v) in dict.iter_hashed() {
-                    this.insert_hashed(k, v);
+                    this.aref.insert_hashed(k, v);
                 }
             } else {
                 for v in pairs.iterate(heap)? {
@@ -337,13 +337,13 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
                             "dict.update expect a list of pairs or a dictionary as first argument, got a list of non-pairs.",
                         ).into());
                     };
-                    this.insert_hashed(k.get_hashed()?, v);
+                    this.aref.insert_hashed(k.get_hashed()?, v);
                 }
             }
         }
 
         for (k, v) in kwargs.iter_hashed() {
-            this.insert_hashed(k, v);
+            this.aref.insert_hashed(k, v);
         }
         Ok(NoneType)
     }
