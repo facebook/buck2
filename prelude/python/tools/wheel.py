@@ -139,8 +139,8 @@ def main(argv: List[str]) -> None:
                         pkgs_with_init.add(pkg)
                 whl.write(dst, src)
 
-            for dst, src in args.data:
-                whl.write_data(dst, src)
+        for dst, src in args.data:
+            whl.write_data(dst, src)
 
         for pkg in pkgs - pkgs_with_init:
             whl.writestr(os.path.join(pkg, "__init__.py"), "")
