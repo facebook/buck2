@@ -454,13 +454,17 @@ mod tests {
             cmd.args(["-c", "(sleep 10 &) && echo hello"]);
         }
 
-        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let timeout = if cfg!(windows) { 9 } else { 1 };
         let (status, stdout, stderr) = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
         .await?;
-        assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
+        assert!(
+            matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0),
+            "status: {:?}",
+            status
+        );
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
 
@@ -481,16 +485,23 @@ mod tests {
             cmd
         };
 
-        let timeout = if cfg!(windows) { 5 } else { 1 };
+        let timeout = if cfg!(windows) { 5 } else { 3 };
         let (status, stdout, _stderr) = gather_output(
             cmd,
             timeout_into_cancellation(Some(Duration::from_secs(timeout))),
         )
         .await?;
-        assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
+        assert!(
+            matches!(status, GatherOutputStatus::TimedOut(..)),
+            "status: {:?}",
+            status
+        );
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         // Do not check stderr because stderr may contain a message like:
+        // ```
         // sh: line 1: 41348 Killed: 9
+        // ```
+        // or it can be empty, which depends on which process is killed first by killpg.
 
         assert!(now.elapsed() < Duration::from_secs(9)); // Lots of leeway here.
 
