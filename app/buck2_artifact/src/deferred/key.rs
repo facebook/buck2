@@ -33,8 +33,6 @@ use crate::dynamic::DynamicLambdaResultsKey;
 
 pub enum DeferredHolderKey {
     Base(BaseDeferredKey),
-    // While DynamicLambdaResultsKey is Dupe, it has quite a lot of Arc's inside it, so maybe an Arc here makes sense?
-    // Maybe not?
     DynamicLambda(Arc<DynamicLambdaResultsKey>),
 }
 
