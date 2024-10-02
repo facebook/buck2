@@ -32,11 +32,13 @@ use crate::values::set::refs::SetRef;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 
 enum SetFromValue<'v> {
     Set(SmallSet<Value<'v>>),
+    Ref(SetRef<'v>),
 }
 
 impl<'v> SetFromValue<'v> {
@@ -44,22 +46,28 @@ impl<'v> SetFromValue<'v> {
         value: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> crate::Result<Self> {
-        let mut set = SmallSet::default();
-        for elem in value.get().iterate(heap)? {
-            set.insert_hashed(elem.get_hashed()?);
+        if let Some(v) = SetRef::unpack_value_opt(value.get()) {
+            Ok(SetFromValue::Ref(v))
+        } else {
+            let mut set = SmallSet::default();
+            for elem in value.get().iterate(heap)? {
+                set.insert_hashed(elem.get_hashed()?);
+            }
+            Ok(SetFromValue::Set(set))
         }
-        Ok(SetFromValue::Set(set))
     }
 
     fn get(&self) -> &SmallSet<Value<'v>> {
         match self {
             SetFromValue::Set(set) => set,
+            SetFromValue::Ref(set) => &set.aref.content,
         }
     }
 
     fn into_set(self) -> SmallSet<Value<'v>> {
         match self {
             SetFromValue::Set(set) => set,
+            SetFromValue::Ref(set) => set.aref.content.clone(),
         }
     }
 
@@ -118,7 +126,6 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
-        //TODO(romanp) check if other is set
         let other_set = SetFromValue::from_value(other, heap)?;
         let mut data = SetData::default();
         if other_set.is_empty() {
@@ -146,7 +153,6 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
-        //TODO(romanp) check if other is set
         let other_set = SetFromValue::from_value(other, heap)?;
 
         if other_set.is_empty() {
@@ -307,8 +313,6 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
-        //TODO(romanp) check if other is set
-
         if this.aref.content.is_empty() {
             other.get().iterate(heap)?;
             return Ok(SetData::default());
@@ -372,7 +376,6 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
             other.get().iterate(heap)?;
             return Ok(true);
         }
-        //TODO(romanp): check if other is already a set
         let rhs = SetFromValue::from_value(other, heap)?;
         if rhs.is_empty() {
             return Ok(false);
