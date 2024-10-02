@@ -19,6 +19,7 @@
 
 use std::mem;
 
+use either::Either;
 use starlark_derive::starlark_module;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
@@ -348,11 +349,19 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<bool> {
-        let other = other.get().iterate(heap)?;
-        //TODO (romanp) skip if other is larger
+        let other_var;
+        let other = if let Some(other) = SetRef::unpack_value_opt(other.get()) {
+            if this.aref.content.len() < other.aref.content.len() {
+                return Ok(false);
+            }
+            other_var = other;
+            Either::Left(other_var.aref.content.iter_hashed().map(|v| Ok(v.copied())))
+        } else {
+            Either::Right(other.get().iterate(heap)?.map(|v| v.get_hashed()))
+        };
+
         for elem in other {
-            let hashed = elem.get_hashed()?;
-            if !this.aref.contains_hashed(hashed) {
+            if !this.aref.contains_hashed(elem?) {
                 return Ok(false);
             }
         }
