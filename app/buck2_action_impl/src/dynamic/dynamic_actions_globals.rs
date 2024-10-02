@@ -12,7 +12,7 @@ use std::cell::OnceCell;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::typing::StarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
 
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions_callable::DynamicActionsCallable;
@@ -25,14 +25,14 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new dynamic action callable. Returned object will be callable,
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
     fn dynamic_actions<'v>(
-        #[starlark(require = named)] r#impl: StarlarkCallable<
+        #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,
             DynamicActionsCallbackParamSpec,
             DynamicActionsCallbackReturnType,
         >,
     ) -> anyhow::Result<DynamicActionsCallable<'v>> {
         Ok(DynamicActionsCallable {
-            implementation: r#impl,
+            implementation: r#impl.to_unchecked(),
             name: OnceCell::new(),
         })
     }
