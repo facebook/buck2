@@ -83,7 +83,9 @@ impl Display for TyCallable {
             write!(f, "typing.Callable")?;
         } else {
             write!(f, "typing.Callable[")?;
-            if let Some(pos) = self.params().all_required_pos_only() {
+            if self.params().is_any() {
+                write!(f, "...")?;
+            } else if let Some(pos) = self.params().all_required_pos_only() {
                 write!(f, "[")?;
                 for (i, p) in pos.iter().enumerate() {
                     if i != 0 {
