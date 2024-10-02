@@ -59,7 +59,7 @@ def p():
 def test():
     p()(x = 1)
 "#,
-        "Missing parameter `y`",
+        "Missing named-only parameter `y`",
     );
 }
 

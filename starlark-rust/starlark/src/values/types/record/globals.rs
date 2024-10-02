@@ -139,7 +139,7 @@ rec_type(host=1, port=80)
 rec_type = record(host=str, port=int)
 rec_type(port=80)
 "#,
-            &["Missing parameter", "`host`"],
+            &["Missing named-only parameter", "`host`"],
         );
     }
 

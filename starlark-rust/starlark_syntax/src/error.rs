@@ -295,6 +295,12 @@ pub fn value_error_impl(args: fmt::Arguments<'_>) -> Error {
     Error::new_kind(ErrorKind::Value(anyhow::anyhow!("{}", args)))
 }
 
+#[doc(hidden)]
+#[cold]
+pub fn function_error_impl(args: fmt::Arguments<'_>) -> Error {
+    Error::new_kind(ErrorKind::Function(anyhow::anyhow!("{}", args)))
+}
+
 /// Internal error of starlark.
 #[macro_export]
 macro_rules! internal_error {
@@ -323,5 +329,15 @@ macro_rules! value_error {
     };
     ($format:literal, $($args:tt)*) => {
         $crate::error::value_error_impl(format_args!($format, $($args)*))
+    };
+}
+
+#[macro_export]
+macro_rules! function_error {
+    ($format:literal) => {
+        function_error!($format,)
+    };
+    ($format:literal, $($args:tt)*) => {
+        $crate::error::function_error_impl(format_args!($format, $($args)*))
     };
 }

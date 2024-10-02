@@ -26,6 +26,7 @@ use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_map::small_map::SmallMap;
 use starlark_map::Hashed;
+use starlark_syntax::function_error;
 use starlark_syntax::other_error;
 use starlark_syntax::syntax::def::DefParamIndices;
 
@@ -739,11 +740,21 @@ impl<'v> ParametersSpec<Value<'v>> {
             }
             match def {
                 ParameterKind::Required => {
-                    return Err(FunctionError::MissingParameter {
-                        name: self.param_names[index].clone(),
-                        function: self.signature(),
+                    let function_name = &self.function_name;
+                    let param_name = &self.param_names[index];
+                    if index < self.indices.num_positional_only as usize {
+                        return Err(function_error!(
+                            "Missing positional-only parameter `{param_name}` for call to `{function_name}`",
+                        ));
+                    } else if index >= self.indices.num_positional as usize {
+                        return Err(function_error!(
+                            "Missing named-only parameter `{param_name}` for call to `{function_name}`",
+                        ));
+                    } else {
+                        return Err(function_error!(
+                            "Missing parameter `{param_name}` for call to `{function_name}`"
+                        ));
                     }
-                    .into());
                 }
                 ParameterKind::Defaulted(x) => {
                     *slot = Some(x.to_value());

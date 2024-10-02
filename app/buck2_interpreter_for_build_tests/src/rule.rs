@@ -249,10 +249,13 @@ fn udr_rejects_invalid_parameters() {
 
     run(
         missing_name,
-        "Missing parameter `name` for call to foo_binary",
+        "Missing named-only parameter `name` for call to `foo_binary`",
     );
     run(invalid_name, "Invalid target name `bad name`.");
-    run(missing_mandatory, "Missing parameter `mandatory`");
+    run(
+        missing_mandatory,
+        "Missing named-only parameter `mandatory`",
+    );
     run(wrong_type, "coercing attribute `mandatory`");
     run(unknown_param, "Found `unknown` extra named parameter");
     run(

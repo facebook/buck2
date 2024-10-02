@@ -45,8 +45,6 @@ use crate::values::ValueLike;
 
 #[derive(Debug, Clone, Error)]
 pub(crate) enum FunctionError {
-    #[error("Missing parameter `{name}` for call to {function}")]
-    MissingParameter { name: String, function: String },
     #[error("Found {count} extra positional argument(s) for call to {function}")]
     ExtraPositionalArg { count: usize, function: String },
     #[error("Found `{}` extra named parameter(s) for call to {function}", .names.join("` `"))]
