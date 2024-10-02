@@ -12,5 +12,9 @@ RemoteTestExecutionToolchainInfo = provider(
         # A dictionary of string names to pre-registered profiles.  Rules can
         # use the profile name to references these.
         "profiles",
+        # A bool indicating whether the test suites executed by this toolchain
+        # should be run in a bundle. This makes all tests in a suite run in
+        # a single RE action as opposed to one action per test.
+        "default_run_as_bundle",
     ],
 )

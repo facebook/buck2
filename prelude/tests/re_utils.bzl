@@ -9,24 +9,43 @@ load("@prelude//:build_mode.bzl", "BuildModeInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect_non_none")
 
-def _get_re_arg(ctx: AnalysisContext):
+ReArg = record(
+    re_props = field(dict | None),
+    default_run_as_bundle = field(bool | None),
+)
+
+def _get_re_arg(ctx: AnalysisContext) -> ReArg:
     if not hasattr(ctx.attrs, "remote_execution"):
-        return None
+        return ReArg(re_props = None, default_run_as_bundle = False)
 
     if ctx.attrs.remote_execution != None:
-        # If this is a string, look up the profile on the RE toolchain.
+        # If this is a string, look up the re_props on the RE toolchain.
         if type(ctx.attrs.remote_execution) == type(""):
             expect_non_none(ctx.attrs._remote_test_execution_toolchain)
-            return ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution]
+            return ReArg(
+                re_props =
+                    ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution],
+                default_run_as_bundle =
+                    ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].default_run_as_bundle,
+            )
 
-        return ctx.attrs.remote_execution
+        return ReArg(re_props = ctx.attrs.remote_execution, default_run_as_bundle = False)
 
     # Check for a default RE option on the toolchain.
     re_toolchain = ctx.attrs._remote_test_execution_toolchain
     if re_toolchain != None and re_toolchain[RemoteTestExecutionToolchainInfo].default_profile != None:
-        return re_toolchain[RemoteTestExecutionToolchainInfo].default_profile
+        return ReArg(
+            re_props = re_toolchain[RemoteTestExecutionToolchainInfo].default_profile,
+            default_run_as_bundle = re_toolchain[RemoteTestExecutionToolchainInfo].default_run_as_bundle,
+        )
 
-    return None
+    return ReArg(re_props = None, default_run_as_bundle = False)
+
+def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> None:
+    re_arg = _get_re_arg(ctx)
+    run_as_bundle = re_arg.default_run_as_bundle and "re_ignore_default_run_as_bundle" not in ctx.attrs.labels
+    if run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
+        labels.extend(["run_as_bundle"])
 
 def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
     """
@@ -35,7 +54,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     Returns (default_executor, executor_overrides).
     """
 
-    re_props = _get_re_arg(ctx)
+    re_props = _get_re_arg(ctx).re_props
     if re_props == None:
         # If no RE args are set and an RE config is specified
         if bool(read_config("tpx", "force_re_props")):
