@@ -222,7 +222,7 @@ mod tests {
 
     fn paths_to_test_data() -> &'static [&'static str] {
         &[
-            "fbcode/buck2/app/buck2_cmd_completions_client/test_data",
+            "fbcode/buck2/app/buck2_cmd_completion_client/test_data",
             "app/buck2_cmd_completion_client/test_data",
             "test_data",
         ]
