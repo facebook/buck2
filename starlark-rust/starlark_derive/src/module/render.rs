@@ -25,6 +25,8 @@ use quote::quote;
 use quote::ToTokens;
 
 use crate::module::render::fun::render_fun;
+use crate::module::render::fun::render_none;
+use crate::module::render::fun::render_some;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarAttr;
 use crate::module::typ::StarConst;
@@ -97,9 +99,9 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     } = x;
     let name_str = ident_string(&name);
     let name_inner = syn::Ident::new(&format!("{}__inner", name_str), name.span());
-    let docstring = match docstring {
-        Some(d) => quote!(Some(#d.to_owned())),
-        None => quote!(None),
+    let docstring: syn::Expr = match docstring {
+        Some(d) => render_some(syn::parse_quote! { #d.to_owned() }),
+        None => render_none(),
     };
 
     let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
@@ -112,29 +114,36 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
 
     let unpack = this.render_prepare(&this.ident, &this_value);
 
+    let inner: syn::ItemFn = syn::parse_quote! {
+        #( #attrs )*
+        #[allow(non_snake_case)] // Starlark doesn't have this convention
+        fn #name_inner<'v>(
+            #this_value: starlark::values::Value<'v>,
+            #[allow(unused_variables)]
+            __heap: &'v starlark::values::Heap,
+        ) -> #return_type {
+            #[allow(unused_variables)]
+            #unpack
+            #let_heap
+            #body
+        }
+    };
+
+    let outer: syn::ItemFn = syn::parse_quote! {
+        #[allow(non_snake_case)]
+        fn #name<'v>(
+            #[allow(unused_variables)]
+            this: starlark::values::Value<'v>,
+            heap: &'v starlark::values::Heap,
+        ) -> starlark::Result<starlark::values::Value<'v>> {
+            Ok(heap.alloc(#name_inner(this, heap)?))
+        }
+    };
+
     syn::parse_quote! {
         {
-            #( #attrs )*
-            #[allow(non_snake_case)] // Starlark doesn't have this convention
-            fn #name_inner<'v>(
-                #this_value: starlark::values::Value<'v>,
-                #[allow(unused_variables)]
-                __heap: &'v starlark::values::Heap,
-            ) -> #return_type {
-                #[allow(unused_variables)]
-                #unpack
-                #let_heap
-                #body
-            }
-
-            #[allow(non_snake_case)]
-            fn #name<'v>(
-                #[allow(unused_variables)]
-                this: starlark::values::Value<'v>,
-                heap: &'v starlark::values::Heap,
-            ) -> starlark::Result<starlark::values::Value<'v>> {
-                Ok(heap.alloc(#name_inner(this, heap)?))
-            }
+            #inner
+            #outer
 
             globals_builder.set_attribute_fn(
                 #name_str,

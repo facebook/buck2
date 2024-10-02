@@ -79,14 +79,14 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
+    fn eval_param_arg(&self) -> (Option<syn::PatType>, Option<syn::Expr>) {
         if let Some(SpecialParam { ident, ty }) = &self.eval {
             (
                 Some(syn::parse_quote! {
                     #ident: #ty
                 }),
-                Some(quote! {
-                    eval,
+                Some(syn::parse_quote! {
+                    eval
                 }),
             )
         } else {
@@ -95,14 +95,14 @@ impl StarFun {
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(&self) -> (Option<syn::PatType>, Option<TokenStream>) {
+    fn heap_param_arg(&self) -> (Option<syn::PatType>, Option<syn::Expr>) {
         if let Some(SpecialParam { ident, ty }) = &self.heap {
             (
                 Some(syn::parse_quote! {
                     #ident: #ty
                 }),
-                Some(quote! {
-                    eval.heap(),
+                Some(syn::parse_quote! {
+                    eval.heap()
                 }),
             )
         } else {
@@ -119,7 +119,7 @@ impl StarFun {
         // Inner function parameter.
         Option<syn::PatType>,
         Option<syn::Stmt>,
-        Option<TokenStream>,
+        Option<syn::Expr>,
     ) {
         match &self.this {
             Some(this) => {
@@ -129,7 +129,7 @@ impl StarFun {
                     Some(syn::parse_quote! { #outer_param_name: starlark::values::Value<'v> }),
                     Some(this.reconstruct_param()),
                     Some(this.render_prepare(&local_var, &outer_param_name)),
-                    Some(quote! { #local_var, }),
+                    Some(syn::parse_quote! { #local_var }),
                 )
             }
             None => (None, None, None, None),
@@ -161,7 +161,7 @@ impl StarFun {
     }
 
     /// Fields and field initializers for the struct implementing the trait.
-    fn struct_fields(&self) -> syn::Result<(TokenStream, TokenStream)> {
+    fn struct_fields(&self) -> syn::Result<(Vec<syn::Field>, Vec<syn::FieldValue>)> {
         let signature = if let StarFunSource::Signature { .. } = self.source {
             Some(render_signature(self)?)
         } else {
@@ -169,20 +169,20 @@ impl StarFun {
         };
         if let Some(signature) = signature {
             Ok((
-                quote! {
-                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
-                },
-                quote! {
-                    signature: #signature,
-                },
+                vec![syn::parse_quote! {
+                    signature: starlark::eval::ParametersSpec<starlark::values::FrozenValue>
+                }],
+                vec![syn::parse_quote! {
+                    signature: #signature
+                }],
             ))
         } else {
-            Ok((TokenStream::new(), TokenStream::new()))
+            Ok((Vec::new(), Vec::new()))
         }
     }
 
     /// Globals builder call to register the function.
-    fn builder_set(&self, struct_fields_init: TokenStream) -> syn::Result<syn::Stmt> {
+    fn builder_set(&self, struct_fields_init: Vec<syn::FieldValue>) -> syn::Result<syn::Stmt> {
         let name_str = self.name_str();
         let components = render_native_callable_components(self)?;
 
@@ -208,7 +208,7 @@ impl StarFun {
                     #name_str,
                     #components,
                     #struct_name {
-                        #struct_fields_init
+                        #( #struct_fields_init, )*
                     },
                 );
             })
@@ -224,7 +224,7 @@ impl StarFun {
                     #ty_custom,
                     #special_builtin_function,
                     #struct_name {
-                        #struct_fields_init
+                        #( #struct_fields_init, )*
                     },
                 );
             })
@@ -259,64 +259,79 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         .chain(heap_param)
         .collect();
 
+    let invoke_args = iter::empty()
+        .chain(this_arg)
+        .chain(binding_args)
+        .chain(eval_arg)
+        .chain(heap_arg);
+
     let param_types: Vec<_> = invoke_params.iter().map(|p| &p.ty).collect();
 
     let this_outer_param = this_outer_param.into_iter();
 
+    let struct_def: syn::ItemStruct = syn::parse_quote! {
+        struct #struct_name {
+            #( #struct_fields, )*
+        }
+    };
+
+    let impl_struct: syn::ItemImpl = syn::parse_quote! {
+        impl #struct_name {
+            // TODO(nga): copy lifetime parameter from declaration,
+            //   so the warning would be precise.
+            #[allow(clippy::extra_unused_lifetimes)]
+            #( #attrs )*
+            fn invoke_impl<'v>(
+                #( #invoke_params, )*
+            ) -> #return_type {
+                #body
+            }
+
+            // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
+            // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
+            // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
+            // https://github.com/rust-lang/rfcs/pull/2515
+            // Until then we use this hack as a workaround.
+            #[allow(dead_code)] // Function is not used when return type is specified explicitly.
+            fn return_type_starlark_type_repr() -> starlark::typing::Ty {
+                fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
+                    _f: fn(
+                        #( #param_types, )*
+                    ) -> std::result::Result<T, E>,
+                ) -> starlark::typing::Ty {
+                    <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+                }
+                get_impl(Self::invoke_impl)
+            }
+        }
+    };
+
+    let impl_trait: syn::ItemImpl = syn::parse_quote! {
+        impl #trait_name for #struct_name {
+            #[allow(non_snake_case)] // Starlark doesn't have this convention
+            fn invoke<'v>(
+                &self,
+                eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
+                #(#this_outer_param,)*
+                parameters: &starlark::eval::Arguments<'v, '_>,
+            ) -> starlark::Result<starlark::values::Value<'v>> {
+                #this_prepare
+                #prepare
+                match Self::invoke_impl(#( #invoke_args, )*) {
+                    Ok(v) => Ok(eval.heap().alloc(v)),
+                    // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
+                    #[allow(clippy::useless_conversion)]
+                    Err(e) => Err(e.into()),
+                }
+            }
+        }
+    };
+
     Ok(syn::parse_quote! {
         {
-            struct #struct_name {
-                #struct_fields
-            }
-
-            impl #struct_name {
-                // TODO(nga): copy lifetime parameter from declaration,
-                //   so the warning would be precise.
-                #[allow(clippy::extra_unused_lifetimes)]
-                #( #attrs )*
-                fn invoke_impl<'v>(
-                    #( #invoke_params, )*
-                ) -> #return_type {
-                    #body
-                }
-
-                // When function signature declares return type as `anyhow::Result<impl AllocValue>`,
-                // we cannot call `T::starlark_type_repr` to render documentation, because there's no T.
-                // Future Rust will provide syntax `type ReturnType = impl AllocValue`:
-                // https://github.com/rust-lang/rfcs/pull/2515
-                // Until then we use this hack as a workaround.
-                #[allow(dead_code)] // Function is not used when return type is specified explicitly.
-                fn return_type_starlark_type_repr() -> starlark::typing::Ty {
-                    fn get_impl<'v, T: starlark::values::AllocValue<'v>, E>(
-                        _f: fn(
-                            #( #param_types, )*
-                        ) -> std::result::Result<T, E>,
-                    ) -> starlark::typing::Ty {
-                        <T as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
-                    }
-                    get_impl(Self::invoke_impl)
-                }
-            }
-
-            impl #trait_name for #struct_name {
-                #[allow(non_snake_case)] // Starlark doesn't have this convention
-                fn invoke<'v>(
-                    &self,
-                    eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
-                    #(#this_outer_param,)*
-                    parameters: &starlark::eval::Arguments<'v, '_>,
-                ) -> starlark::Result<starlark::values::Value<'v>> {
-                    #this_prepare
-                    #prepare
-                    match Self::invoke_impl(#this_arg #( #binding_args, )* #eval_arg #heap_arg) {
-                        Ok(v) => Ok(eval.heap().alloc(v)),
-                        // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
-                        #[allow(clippy::useless_conversion)]
-                        Err(e) => Err(e.into()),
-                    }
-                }
-            }
-
+            #struct_def
+            #impl_struct
+            #impl_trait
             #builder_set
         }
     })
@@ -520,15 +535,15 @@ fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     }
 }
 
-fn render_none() -> syn::Expr {
+pub(crate) fn render_none() -> syn::Expr {
     syn::parse_quote! { std::option::Option::None }
 }
 
-fn render_some(expr: syn::Expr) -> syn::Expr {
+pub(crate) fn render_some(expr: syn::Expr) -> syn::Expr {
     syn::parse_quote! { std::option::Option::Some(#expr) }
 }
 
-fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
+pub(crate) fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
     match expr {
         Some(x) => render_some(x),
         None => render_none(),
