@@ -9,6 +9,7 @@
 
 use std::cell::OnceCell;
 use std::cell::RefCell;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -56,6 +57,26 @@ use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
 pub(crate) struct DynamicActionsCallbackParamSpec;
 
+pub(crate) struct DynamicActionsCallbackParam {
+    pub(crate) name: &'static str,
+    pub(crate) ty: LazyLock<Ty>,
+}
+
+pub(crate) static P_ARTIFACT_VALUES: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "artifact_values",
+    ty: LazyLock::new(DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr),
+};
+pub(crate) static P_DYNAMIC_VALUES: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "dynamic_values",
+    ty: LazyLock::new(
+        DictType::<StarlarkDynamicValue, StarlarkResolvedDynamicValue>::starlark_type_repr,
+    ),
+};
+pub(crate) static P_OUTPUTS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "outputs",
+    ty: LazyLock::new(DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr),
+};
+
 impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     fn params() -> ParamSpec {
         ParamSpec::new_parts(
@@ -69,19 +90,19 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
                     AnalysisActions::starlark_type_repr(),
                 ),
                 (
-                    ArcStr::new_static("artifact_values"),
+                    ArcStr::new_static(P_ARTIFACT_VALUES.name),
                     ParamIsRequired::Yes,
-                    DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
+                    P_ARTIFACT_VALUES.ty.dupe(),
                 ),
                 (
-                    ArcStr::new_static("dynamic_values"),
+                    ArcStr::new_static(P_DYNAMIC_VALUES.name),
                     ParamIsRequired::Yes,
-                    DictType::<StarlarkDynamicValue, StarlarkResolvedDynamicValue>::starlark_type_repr(),
+                    P_DYNAMIC_VALUES.ty.dupe(),
                 ),
                 (
-                    ArcStr::new_static("outputs"),
+                    ArcStr::new_static(P_OUTPUTS.name),
                     ParamIsRequired::Yes,
-                    DictType::<StarlarkArtifact, StarlarkDeclaredArtifact>::starlark_type_repr(),
+                    P_OUTPUTS.ty.dupe(),
                 ),
                 (ArcStr::new_static("arg"), ParamIsRequired::Yes, Ty::any()),
             ],
@@ -231,9 +252,9 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
         let signature = ParametersSpec::new_named_only(
             &name,
             [
-                ("artifact_values", ParametersSpecParam::Required),
-                ("dynamic_values", ParametersSpecParam::Optional),
-                ("outputs", ParametersSpecParam::Required),
+                (P_ARTIFACT_VALUES.name, ParametersSpecParam::Required),
+                (P_DYNAMIC_VALUES.name, ParametersSpecParam::Optional),
+                (P_OUTPUTS.name, ParametersSpecParam::Required),
                 ("arg", ParametersSpecParam::Required),
             ],
         );

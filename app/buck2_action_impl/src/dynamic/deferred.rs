@@ -65,6 +65,9 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 
 use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
+use crate::dynamic::dynamic_actions_callable::P_ARTIFACT_VALUES;
+use crate::dynamic::dynamic_actions_callable::P_DYNAMIC_VALUES;
+use crate::dynamic::dynamic_actions_callable::P_OUTPUTS;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
 use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
@@ -109,9 +112,9 @@ pub fn invoke_dynamic_output_lambda<'v>(
         } => {
             named = [
                 ("actions", actions.to_value()),
-                ("artifact_values", artifact_values.get()),
-                ("dynamic_values", dynamic_values.get()),
-                ("outputs", outputs.get()),
+                (P_ARTIFACT_VALUES.name, artifact_values.get()),
+                (P_DYNAMIC_VALUES.name, dynamic_values.get()),
+                (P_OUTPUTS.name, outputs.get()),
                 ("arg", arg),
             ];
             (&[], &named)
