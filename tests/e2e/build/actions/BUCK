@@ -6,6 +6,10 @@ buck2_e2e_test(
     name = "test_actions",
     srcs = ["test_actions.py"],
     data_dir = "test_actions_data",
+    env = {
+        # `cpe::x2p` resolves `localhost` incorrectly, and test fails.
+        "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
+    },
     serialize_test_cases = False,
     deps = [
         "fbcode//buck2/tests/e2e_util:assert_occurrences",
