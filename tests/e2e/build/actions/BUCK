@@ -6,10 +6,6 @@ buck2_e2e_test(
     name = "test_actions",
     srcs = ["test_actions.py"],
     data_dir = "test_actions_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
     deps = [
         "fbcode//buck2/tests/e2e_util:assert_occurrences",

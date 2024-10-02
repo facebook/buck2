@@ -209,7 +209,7 @@ def test():
         name = "pretty",
     )
 
-    inputs_content = native.read_config("write_json", "content")
+    inputs_content = read_config("write_json", "content")
     if inputs_content == None:
         fail("config value write_json.content required")
     write_json_with_inputs_rule(
