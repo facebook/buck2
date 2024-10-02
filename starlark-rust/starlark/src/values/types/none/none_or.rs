@@ -51,6 +51,15 @@ impl<T> NoneOr<T> {
         }
     }
 
+    /// Convert a Rust [`Option`] to a [`NoneOr`].
+    #[inline]
+    pub fn from_option(option: Option<T>) -> Self {
+        match option {
+            None => NoneOr::None,
+            Some(x) => NoneOr::Other(x),
+        }
+    }
+
     /// Is the value a [`NoneOr::None`].
     pub fn is_none(&self) -> bool {
         matches!(self, NoneOr::None)
