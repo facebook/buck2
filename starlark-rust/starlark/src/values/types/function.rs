@@ -171,7 +171,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
-        if let Some(s) = self.as_type.as_ref().map(|t| t.as_name()) {
+        if let Some(s) = self.as_type.as_ref().and_then(|t| t.as_name()) {
             if attribute == "type" {
                 return Some(heap.alloc(s));
             }
