@@ -25,6 +25,7 @@ pub(crate) mod file_expr;
 pub(crate) mod file_set;
 pub(crate) mod functions;
 pub(crate) mod globals;
+pub(crate) mod lazy_ctx;
 pub(crate) mod nodes;
 pub(crate) mod providers_expr;
 mod query_util;

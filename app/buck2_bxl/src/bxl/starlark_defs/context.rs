@@ -126,6 +126,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::event::StarlarkUserEventParser;
+use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
@@ -1469,5 +1470,11 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .instant_event(event);
 
         Ok(NoneType)
+    }
+
+    /// Lazy/batch/error handling operations.
+    #[starlark(attribute)]
+    fn lazy<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkLazyCtx> {
+        Ok(StarlarkLazyCtx)
     }
 }

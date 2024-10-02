@@ -12,6 +12,7 @@
 ## bxl.Context.cquery
 ## bxl.Context.fs
 ## bxl.Context.instant\_event
+## bxl.Context.lazy
 ## bxl.Context.output
 ## bxl.Context.resolve
 ## bxl.Context.root
