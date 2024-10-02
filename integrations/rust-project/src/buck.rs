@@ -125,19 +125,19 @@ pub(crate) fn to_json_project(
 
         if relative_paths {
             proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
-            root_module = relative_to(&root_module, &project_root);
+            root_module = root_module.map(|x| relative_to(&x, &project_root));
         } else {
             let path = project_root.join(build_file);
             build_file = path;
         }
 
-        if !root_module.exists() {
-            warn!(
-                ?target,
-                "root module does not exist: {}",
-                root_module.display()
-            );
-        }
+        let root_module = match root_module {
+            Err(e) => {
+                warn!(?target, "root module does not exist: {}", e);
+                continue;
+            }
+            Ok(x) => x,
+        };
 
         let mut env = FxHashMap::default();
 

@@ -14,6 +14,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Context;
 use rustc_hash::FxHashMap;
 use serde::de::Error as _;
 use serde::de::MapAccess;
@@ -24,6 +25,7 @@ use serde::Deserializer;
 use serde::Serialize;
 
 use crate::json_project::Edition;
+use crate::path::canonicalize;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);
@@ -156,8 +158,9 @@ impl TargetInfo {
         name.to_owned()
     }
 
-    pub(crate) fn root_module(&self) -> PathBuf {
-        self.source_folder.join(&self.crate_root)
+    pub(crate) fn root_module(&self) -> anyhow::Result<PathBuf> {
+        let p = self.source_folder.join(&self.crate_root);
+        canonicalize(&p).with_context(|| format!("path={}", p.display()))
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
