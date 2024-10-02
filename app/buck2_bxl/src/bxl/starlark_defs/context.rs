@@ -1274,13 +1274,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
         });
 
         Ok(match res? {
-            Either::Left(single) => {
-                let single = match single {
-                    Some(single) => NoneOr::Other(single),
-                    None => NoneOr::None,
-                };
-                Either::Left(single)
-            }
+            Either::Left(single) => Either::Left(NoneOr::from_option(single)),
             Either::Right(many) => Either::Right(
                 many.into_iter()
                     .map(|(t, v)| {

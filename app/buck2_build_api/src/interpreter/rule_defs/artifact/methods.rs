@@ -102,10 +102,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn owner<'v>(
         this: &'v dyn StarlarkArtifactLike,
     ) -> anyhow::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
-        match this.owner()? {
-            Some(label) => Ok(NoneOr::Other(label)),
-            None => Ok(NoneOr::None),
-        }
+        Ok(NoneOr::from_option(this.owner()?))
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.

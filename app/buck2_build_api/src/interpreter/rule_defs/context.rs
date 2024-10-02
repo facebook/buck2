@@ -324,10 +324,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     fn label<'v>(
         this: RefAnalysisContext,
     ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
-        match this.0.label {
-            Some(label) => Ok(NoneOr::Other(label)),
-            None => Ok(NoneOr::None),
-        }
+        Ok(NoneOr::from_option(this.0.label))
     }
 
     /// An opaque value that can be indexed with a plugin kind to get a list of the available plugin

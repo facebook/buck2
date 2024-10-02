@@ -222,10 +222,7 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     /// unit testing.
     #[starlark(attribute)]
     fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<NoneOr<u64>> {
-        Ok(match this.line {
-            Some(line) => NoneOr::Other(line),
-            None => NoneOr::None,
-        })
+        Ok(NoneOr::from_option(this.line))
     }
 }
 
