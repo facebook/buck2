@@ -104,7 +104,7 @@ mod tests {
     use crate::assert::Assert;
 
     #[test]
-    fn test_record() {
+    fn test_record_pass() {
         assert::pass(
             r#"
 rec_type = record(host=str, port=int)
@@ -117,6 +117,10 @@ assert_eq(rec1.port, 80)
 assert_eq(dir(rec1), ["host", "port"])
 "#,
         );
+    }
+
+    #[test]
+    fn test_record_fail_0() {
         assert::fails(
             r#"
 rec_type = record(host=str, port=int)
@@ -126,6 +130,10 @@ rec_type(host=1, port=80)
                 "Value `1` of type `int` does not match the type annotation `str` for argument `host`",
             ],
         );
+    }
+
+    #[test]
+    fn test_record_fail_1() {
         assert::fails(
             r#"
 rec_type = record(host=str, port=int)
@@ -133,6 +141,10 @@ rec_type(port=80)
 "#,
             &["Missing parameter", "`host`"],
         );
+    }
+
+    #[test]
+    fn test_record_fail_2() {
         assert::fails(
             r#"
 rec_type = record(host=str, port=int)
@@ -140,6 +152,10 @@ rec_type(host="localhost", port=80, mask=255)
 "#,
             &["extra named", "mask"],
         );
+    }
+
+    #[test]
+    fn test_record_fail_3() {
         assert::pass(
             r#"
 rec_type = record(host=str, port=int)
@@ -147,6 +163,10 @@ def foo(x: rec_type) -> rec_type:
     return x
 foo(rec_type(host="localhost", port=80))"#,
         );
+    }
+
+    #[test]
+    fn test_record_fail_4() {
         assert::pass(
             r#"
 v = [record(host=str, port=int)]
@@ -156,6 +176,10 @@ def foo(y: v_0) -> v_0:
     return noop(y)
 foo(v[0](host="localhost", port=80))"#,
         );
+    }
+
+    #[test]
+    fn test_record_fail_5() {
         assert::pass(
             r#"
 rec_type = record(host=str, port=field(int, 80), mask=int)
