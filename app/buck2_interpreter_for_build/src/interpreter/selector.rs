@@ -22,6 +22,7 @@ use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
@@ -84,21 +85,21 @@ impl<'v> StarlarkSelector<'v> {
             selector: Option<StarlarkSelector<'v>>,
             values: &mut I,
             heap: &'v Heap,
-        ) -> Option<StarlarkSelector<'v>>
+        ) -> NoneOr<StarlarkSelector<'v>>
         where
             I: Iterator<Item = Value<'v>>,
         {
             match (selector, values.next()) {
-                (None, None) => None,
+                (None, None) => NoneOr::None,
                 (None, Some(v)) => {
                     if let Some(next_v) = values.next() {
                         let head = StarlarkSelector::Added(v, next_v);
                         values_to_selector(Some(head), values, heap)
                     } else {
-                        Some(StarlarkSelector::new(v))
+                        NoneOr::Other(StarlarkSelector::new(v))
                     }
                 }
-                (Some(s), None) => Some(s),
+                (Some(s), None) => NoneOr::Other(s),
                 (Some(s), Some(v)) => {
                     let head = Some(StarlarkSelector::Added(heap.alloc(s), v));
                     values_to_selector(head, values, heap)

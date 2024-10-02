@@ -221,8 +221,11 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     /// The line of the error location. This is only needed for action error handler
     /// unit testing.
     #[starlark(attribute)]
-    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<Option<u64>> {
-        Ok(this.line)
+    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<NoneOr<u64>> {
+        Ok(match this.line {
+            Some(line) => NoneOr::Other(line),
+            None => NoneOr::None,
+        })
     }
 }
 
@@ -309,8 +312,11 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     /// The optional message associated with this sub error.  This function is only
     /// needed for action error handler unit testing.
     #[starlark(attribute)]
-    fn message<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<Option<&'v str>> {
-        Ok(this.message.as_deref())
+    fn message<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<NoneOr<&'v str>> {
+        Ok(match &this.message {
+            Some(message) => NoneOr::Other(message.as_str()),
+            None => NoneOr::None,
+        })
     }
 
     /// Any locations associated with this sub error.  This function is only needed
@@ -318,11 +324,11 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn locations<'v>(
         this: &'v StarlarkActionSubError,
-    ) -> anyhow::Result<Option<Vec<StarlarkActionErrorLocation>>> {
-        Ok(this
-            .locations
-            .as_ref()
-            .map(|locations| locations.items.cloned()))
+    ) -> anyhow::Result<NoneOr<Vec<StarlarkActionErrorLocation>>> {
+        match &this.locations {
+            None => Ok(NoneOr::None),
+            Some(locations) => Ok(NoneOr::Other(locations.items.cloned())),
+        }
     }
 }
 

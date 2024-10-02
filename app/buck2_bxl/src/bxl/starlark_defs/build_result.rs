@@ -14,6 +14,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
@@ -54,10 +55,12 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn artifacts<'v>(
         this: Value<'v>,
-    ) -> anyhow::Result<Option<StarlarkProvidersArtifactIterable<'v>>> {
+    ) -> anyhow::Result<NoneOr<StarlarkProvidersArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            BxlBuildResult::None => Ok(None),
-            BxlBuildResult::Built { .. } => Ok(Some(StarlarkProvidersArtifactIterableGen(this))),
+            BxlBuildResult::None => Ok(NoneOr::None),
+            BxlBuildResult::Built { .. } => {
+                Ok(NoneOr::Other(StarlarkProvidersArtifactIterableGen(this)))
+            }
         }
     }
 
@@ -70,10 +73,12 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     ///     for target, value in ctx.build(ctx.cli_args.target).items():
     ///         ctx.output.print(value.failures())
     /// ```
-    fn failures<'v>(this: Value<'v>) -> anyhow::Result<Option<StarlarkFailedArtifactIterable<'v>>> {
+    fn failures<'v>(this: Value<'v>) -> anyhow::Result<NoneOr<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
-            BxlBuildResult::None => Ok(None),
-            BxlBuildResult::Built { .. } => Ok(Some(StarlarkFailedArtifactIterableGen(this))),
+            BxlBuildResult::None => Ok(NoneOr::None),
+            BxlBuildResult::Built { .. } => {
+                Ok(NoneOr::Other(StarlarkFailedArtifactIterableGen(this)))
+            }
         }
     }
 }

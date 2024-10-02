@@ -10,6 +10,7 @@
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -43,11 +44,11 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
     /// It is an error to call `oncall` after calling this function.
     fn read_oncall<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Option<StringValue<'v>>> {
+    ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
         let internals = ModuleInternals::from_context(eval, "read_oncall")?;
         match internals.get_oncall() {
-            None => Ok(None),
-            Some(oncall) => Ok(Some(eval.heap().alloc_str(oncall.as_str()))),
+            None => Ok(NoneOr::None),
+            Some(oncall) => Ok(NoneOr::Other(eval.heap().alloc_str(oncall.as_str()))),
         }
     }
 

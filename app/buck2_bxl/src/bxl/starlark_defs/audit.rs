@@ -27,6 +27,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::dict::AllocDict;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -119,7 +120,10 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<Value<'v>>> {
+    ) -> anyhow::Result<
+        // TODO(nga): used precise type.
+        NoneOr<Value<'v>>,
+    > {
         let target_platform = target_platform.parse_target_platforms(
             this.ctx.target_alias_resolver(),
             this.ctx.cell_resolver(),
@@ -130,7 +134,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
 
         this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async move {
-                audit_output(
+                let output = audit_output(
                     output_path,
                     &this.working_dir,
                     &this.cell_resolver,
@@ -140,9 +144,10 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                         cli_modifiers: vec![].into(),
                     },
                 )
-                .await?
-                .map(|result| {
-                    anyhow::Ok(match result {
+                .await?;
+                match output {
+                    None => Ok(NoneOr::None),
+                    Some(result) => anyhow::Ok(NoneOr::Other(match result {
                         AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
                             action
                                 .action()
@@ -152,9 +157,8 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                         AuditOutputResult::MaybeRelevant(label) => {
                             heap.alloc(StarlarkTargetLabel::new(label))
                         }
-                    })
-                })
-                .transpose()
+                    })),
+                }
             }
             .boxed_local()
         })

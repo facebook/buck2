@@ -26,6 +26,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
@@ -132,24 +133,27 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     fn action<'v>(
         this: &StarlarkActionQueryNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkAction>>> {
-        Ok(this
-            .0
-            .action()
-            .map(|a| heap.alloc_typed(StarlarkAction(a.clone()))))
+    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkAction>>> {
+        let action = this.0.action();
+        match action {
+            None => Ok(NoneOr::None),
+            Some(a) => Ok(NoneOr::Other(heap.alloc_typed(StarlarkAction(a.dupe())))),
+        }
     }
 
     /// Gets optional analysis from the action query target node.
     fn analysis<'v>(
         this: &StarlarkActionQueryNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkAnalysisResult>>> {
+    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkAnalysisResult>>> {
         match this.0.analysis_opt() {
-            Some(a) => Ok(Some(heap.alloc_typed(StarlarkAnalysisResult::new(
-                a.analysis_result().clone(),
-                a.target().as_ref().clone(),
-            )?))),
-            None => Ok(None),
+            Some(a) => Ok(NoneOr::Other(heap.alloc_typed(
+                StarlarkAnalysisResult::new(
+                    a.analysis_result().clone(),
+                    a.target().as_ref().clone(),
+                )?,
+            ))),
+            None => Ok(NoneOr::None),
         }
     }
 

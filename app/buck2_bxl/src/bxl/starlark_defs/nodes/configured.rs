@@ -47,7 +47,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::OptionExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -60,6 +59,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::AllocValue;
@@ -153,7 +153,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         #[starlark(require=pos)] key: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<Value<'v>>> {
+    ) -> anyhow::Result<NoneOr<Value<'v>>> {
         NodeAttributeGetter::get_attr(this, key, heap)
     }
 
@@ -447,7 +447,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         path: &str,
         ctx: &BxlContext,
-    ) -> anyhow::Result<Option<StarlarkArtifact>> {
+    ) -> anyhow::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
         let fs = ctx
             .async_ctx
@@ -497,10 +497,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             a.traverse(this.0.label().pkg(), &mut traversal)?;
 
             if let Some(found) = traversal.found {
-                return Ok(Some(found));
+                return Ok(NoneOr::Other(found));
             }
         }
-        Ok(None)
+        Ok(NoneOr::None)
     }
 
     /// Gets the target's special attr `oncall`
@@ -515,8 +515,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn oncall<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<StringValue<'v>>> {
-        Ok(this.0.oncall().map(|oncall| heap.alloc_str_intern(oncall)))
+    ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
+        match this.0.oncall() {
+            Some(oncall) => Ok(NoneOr::Other(heap.alloc_str_intern(oncall))),
+            None => Ok(NoneOr::None),
+        }
     }
 
     /// Gets all deps for this target.
@@ -675,14 +678,14 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &StarlarkLazyAttrs<'v>,
         attr: &str,
-    ) -> anyhow::Result<Option<StarlarkConfiguredAttr>> {
+    ) -> anyhow::Result<NoneOr<StarlarkConfiguredAttr>> {
         Ok(
             match this
                 .configured_target_node
                 .0
                 .get(attr, AttrInspectOptions::All)
             {
-                Some(attr) => Some(StarlarkConfiguredAttr(
+                Some(attr) => NoneOr::Other(StarlarkConfiguredAttr(
                     attr.value,
                     this.configured_target_node.0.label().pkg().dupe(),
                 )),
@@ -693,12 +696,14 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
                         .0
                         .special_attrs()
                         .collect::<HashMap<_, _>>();
-                    special_attrs.get(attr).map(|attr| {
-                        StarlarkConfiguredAttr(
+                    let attr = special_attrs.get(attr);
+                    match attr {
+                        None => NoneOr::None,
+                        Some(attr) => NoneOr::Other(StarlarkConfiguredAttr(
                             attr.clone(),
                             this.configured_target_node.0.label().pkg().dupe(),
-                        )
-                    })
+                        )),
+                    }
                 }
             },
         )
@@ -781,10 +786,10 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &StarlarkLazyResolvedAttrs<'v>,
         attr: &str,
-    ) -> anyhow::Result<Option<Value<'v>>> {
+    ) -> anyhow::Result<NoneOr<Value<'v>>> {
         Ok(
             match this.configured_node.get(attr, AttrInspectOptions::All) {
-                Some(attr) => Some(
+                Some(attr) => NoneOr::Other(
                     attr.value
                         .resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
                 ),
@@ -794,12 +799,14 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         .configured_node
                         .special_attrs()
                         .collect::<HashMap<_, _>>();
-                    special_attrs.get(attr).try_map(|attr| {
-                        attr.resolve_single(
+                    let attr = special_attrs.get(attr);
+                    match attr {
+                        None => NoneOr::None,
+                        Some(attr) => NoneOr::Other(attr.resolve_single(
                             this.configured_node.label().pkg(),
                             &this.resolution_ctx,
-                        )
-                    })?
+                        )?),
+                    }
                 }
             },
         )

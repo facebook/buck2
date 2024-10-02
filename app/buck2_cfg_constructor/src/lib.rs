@@ -47,6 +47,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
+use starlark::values::none::NoneOr;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -100,10 +101,14 @@ async fn eval_pre_constraint_analysis<'v>(
                 Value::new_none()
             };
 
-            let package_cfg_modifiers = eval
-                .heap()
-                .alloc(package_cfg_modifiers.map(|m| m.as_json()));
-            let target_cfg_modifiers = eval.heap().alloc(target_cfg_modifiers.map(|m| m.as_json()));
+            let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
+                Some(v) => NoneOr::Other(v.as_json()),
+                None => NoneOr::None,
+            });
+            let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
+                Some(v) => NoneOr::Other(v.as_json()),
+                None => NoneOr::None,
+            });
             let cli_modifiers = eval.heap().alloc(cli_modifiers);
             let rule_name = eval.heap().alloc(rule_type.name());
             let aliases = match aliases {

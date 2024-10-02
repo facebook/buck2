@@ -31,6 +31,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::typing::Ty;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::structs::StructRef;
@@ -322,8 +323,11 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
         this: RefAnalysisContext,
-    ) -> anyhow::Result<Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
-        Ok(this.0.label)
+    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
+        match this.0.label {
+            Some(label) => Ok(NoneOr::Other(label)),
+            None => Ok(NoneOr::None),
+        }
     }
 
     /// An opaque value that can be indexed with a plugin kind to get a list of the available plugin

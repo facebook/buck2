@@ -1431,7 +1431,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
         action_factory: ValueTyped<'v, AnalysisActions<'v>>,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Option<Value<'v>>> {
+    ) -> anyhow::Result<NoneOr<Value<'v>>> {
         this.via_dice(|dice, this| {
             dice.via(|dice| {
                 action_factory
@@ -1439,7 +1439,10 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
             })
         })?;
-        Ok(promise.get())
+        Ok(match promise.get() {
+            Some(v) => NoneOr::Other(v),
+            None => NoneOr::None,
+        })
     }
 
     /// Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the

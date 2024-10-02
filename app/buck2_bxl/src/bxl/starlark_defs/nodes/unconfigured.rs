@@ -23,6 +23,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::AllocStruct;
 use starlark::values::Heap;
@@ -110,7 +111,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkTargetNode,
         #[starlark(require=pos)] key: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<Value<'v>>> {
+    ) -> anyhow::Result<NoneOr<Value<'v>>> {
         NodeAttributeGetter::get_attr(this, key, heap)
     }
 
@@ -224,8 +225,11 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn oncall<'v>(
         this: &'v StarlarkTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<Option<StringValue<'v>>> {
-        Ok(this.0.oncall().map(|oncall| heap.alloc_str_intern(oncall)))
+    ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
+        match this.0.oncall() {
+            None => Ok(NoneOr::None),
+            Some(oncall) => Ok(NoneOr::Other(heap.alloc_str_intern(oncall))),
+        }
     }
 
     /// Gets all deps for this target.

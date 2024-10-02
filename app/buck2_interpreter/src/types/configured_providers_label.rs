@@ -27,6 +27,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
@@ -131,12 +132,12 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn sub_target<'v>(
         this: &'v StarlarkConfiguredProvidersLabel,
-    ) -> anyhow::Result<Option<Vec<&'v str>>> {
+    ) -> anyhow::Result<NoneOr<Vec<&'v str>>> {
         Ok(match this.label.name() {
-            ProvidersName::Default => None,
+            ProvidersName::Default => NoneOr::None,
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(names) => {
-                    Some(names.iter().map(|p| p.as_str()).collect())
+                    NoneOr::Other(names.iter().map(|p| p.as_str()).collect())
                 }
                 NonDefaultProvidersName::UnrecognizedFlavor(_) => {
                     unreachable!(
@@ -259,12 +260,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<Option<Vec<&'v str>>> {
+    fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<NoneOr<Vec<&'v str>>> {
         Ok(match this.label.name() {
-            ProvidersName::Default => None,
+            ProvidersName::Default => NoneOr::None,
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(names) => {
-                    Some(names.iter().map(|p| p.as_str()).collect())
+                    NoneOr::Other(names.iter().map(|p| p.as_str()).collect())
                 }
                 NonDefaultProvidersName::UnrecognizedFlavor(_) => {
                     unreachable!(

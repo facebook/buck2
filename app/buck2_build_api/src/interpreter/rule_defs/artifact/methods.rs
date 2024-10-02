@@ -13,6 +13,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
 use starlark::values::list::UnpackList;
+use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -100,8 +101,11 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn owner<'v>(
         this: &'v dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
-        this.owner()
+    ) -> anyhow::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
+        match this.owner()? {
+            Some(label) => Ok(NoneOr::Other(label)),
+            None => Ok(NoneOr::None),
+        }
     }
 
     /// The interesting part of the path, relative to somewhere in the output directory.
