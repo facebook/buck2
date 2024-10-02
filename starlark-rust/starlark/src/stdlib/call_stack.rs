@@ -89,10 +89,10 @@ fn stack_frame_methods(builder: &mut MethodsBuilder) {
 
     /// Returns a path of the module from which the entry was called, or [`None`] for native Rust functions.
     #[starlark(attribute)]
-    fn module_path(this: &StackFrame) -> anyhow::Result<Option<String>> {
+    fn module_path(this: &StackFrame) -> anyhow::Result<NoneOr<String>> {
         match this.location {
-            Some(ref location) => Ok(Some(location.file.filename().to_owned())),
-            None => Ok(None),
+            Some(ref location) => Ok(NoneOr::Other(location.file.filename().to_owned())),
+            None => Ok(NoneOr::None),
         }
     }
 }

@@ -96,18 +96,6 @@ impl<'v> AllocValue<'v> for Value<'v> {
     }
 }
 
-impl<'v, T> AllocValue<'v> for Option<T>
-where
-    T: AllocValue<'v>,
-{
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        match self {
-            Some(v) => v.alloc_value(heap),
-            None => Value::new_none(),
-        }
-    }
-}
-
 impl<'v, A: AllocValue<'v>, B: AllocValue<'v>> AllocValue<'v> for Either<A, B> {
     #[inline]
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
