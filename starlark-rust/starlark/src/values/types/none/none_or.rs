@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
 
@@ -32,7 +33,7 @@ use crate::values::Value;
 /// Equivalent of a Rust [`Option`], where `None`
 /// is encoded as [`NoneType`](crate::values::none::NoneType).
 /// Useful for its [`UnpackValue`] instance.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Allocative)]
 pub enum NoneOr<T> {
     /// Starlark `None`.
     None,
