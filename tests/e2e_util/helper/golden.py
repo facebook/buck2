@@ -35,12 +35,12 @@ def _remove_ci_labels(content: str) -> str:
     return "\n".join(new_content)
 
 
-def _replace_windows_newlines(content: str) -> str:
+def _normalize_newlines(content: str) -> str:
     """
     We use golden() with text data so in the interest of being a bit more
     platform independent we just normalize the newlines.
     """
-    return content.replace("\r\n", "\n")
+    return "".join([line + "\n" for line in content.splitlines()])
 
 
 def _test_repo_data_src() -> str:
@@ -102,7 +102,7 @@ def golden(*, output: str, rel_path: str) -> None:
     assert "golden" in rel_path, f"Golden path `{rel_path}` must contain `golden`"
 
     output = _prepend_header(output)
-    output = _replace_windows_newlines(output)
+    output = _normalize_newlines(output)
 
     path_in_src = os.path.join(_test_repo_data_src(), rel_path)
 
