@@ -80,7 +80,7 @@ Console Options:
 
           [env: BUCK_CONSOLE=]
           [default: auto]
-          [possible values: simple, simplenotty, simpletty, super, auto, none]
+          [possible values: auto, none, simple, simplenotty, simpletty, super]
 
       --ui <UI>...
           Configure additional superconsole ui components.

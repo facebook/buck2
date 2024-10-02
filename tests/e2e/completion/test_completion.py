@@ -192,16 +192,7 @@ completion_test(
 completion_test(
     name="test_no_targets_for_required_option_param",
     input="build --console ",
-    # FIXME(JakobDegen): Bug: Should be the same as fish
-    expected=lambda actual: "root//" in actual,
-    shells=["bash", "zsh"],
-)
-
-completion_test(
-    name="test_no_targets_for_required_option_param",
-    input="build --console ",
     expected=["auto", "none", "simple", "simplenotty", "simpletty", "super"],
-    shells=["fish"],
 )
 
 completion_test(

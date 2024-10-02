@@ -63,11 +63,23 @@ __buck2_add_target_completions()
     COMPREPLY=("${completions[@]}")
 }
 
+__buck2_completions_queued()
+{
+    if [[ ${#COMPREPLY[@]} -eq 0 ]]; then
+        return 255
+    elif [[ ${#COMPREPLY[@]} -eq 1 && ${COMPREPLY[1]} = % ]]; then
+        return 255
+    else
+        return 0
+    fi
+}
+
 __buck2_fix()
 {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local prev="${COMP_WORDS[COMP_CWORD-1]}"
     local pprev="${COMP_WORDS[COMP_CWORD-2]}"
+
     # Bash treats `:` as a separate word, so we have to do some work to
     # recover a partial target name
     if [[ $cur = : ]]; then
@@ -85,12 +97,11 @@ __buck2_fix()
     if __buck2_takes_target "$(__buck2_subcommand)"; then
         if [[ $cur =~ ^- ]]; then
             _buck2 "$@"
-        elif [[ -z $cur ]]; then
-            _buck2 "$@"
-            __buck2_add_target_completions "$cur"
         else
-            COMPREPLY=()
-            __buck2_add_target_completions "$cur"
+            _buck2 "$@"
+            if ! __buck2_completions_queued; then
+                __buck2_add_target_completions "$cur"
+            fi
         fi
     else
         _buck2 "$@"

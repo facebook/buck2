@@ -61,14 +61,23 @@ __buck2_add_target_completions()
     compadd -S '' -- "${completions[@]}"
 }
 
+__buck2_completions_queued()
+{
+    if [[ ${compstate[nmatches]} -eq 0 ]]; then
+        return 255
+    else
+        return 0
+    fi
+}
+
 __buck2_fix()
 {
     local cur="${words[CURRENT]}"
     local prev="${words[CURRENT-1]}"
     local pprev="${words[CURRENT-2]}"
+
     # Zsh treats `:` as a separate word, so we have to do some work to
     # recover a partial target name
-
     if [[ $cur = : ]]; then
         if [[ "${BUFFER:0:$CURRENT}" =~ .*$prev: ]]; then
             cur="$prev:"
@@ -85,11 +94,11 @@ __buck2_fix()
         if [[ $cur =~ ^- ]]; then
             _buck2 "$@"
             return
-        elif [[ -z $cur ]]; then
-            _buck2 "$@"
-            __buck2_add_target_completions "$cur"
         else
-            __buck2_add_target_completions "$cur"
+            _buck2 "$@"
+            if ! __buck2_completions_queued; then
+                __buck2_add_target_completions "$cur"
+            fi
         fi
     else
         _buck2 "$@"

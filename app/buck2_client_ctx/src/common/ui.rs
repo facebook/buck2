@@ -27,12 +27,12 @@ use crate::subscribers::superconsole::BUCK_NO_INTERACTIVE_CONSOLE;
 )]
 #[clap(rename_all = "lower")]
 pub enum ConsoleType {
+    Auto,
+    None,
     Simple,
     SimpleNoTty,
     SimpleTty,
     Super,
-    Auto,
-    None,
 }
 
 #[derive(
