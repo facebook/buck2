@@ -682,7 +682,7 @@ impl BxlDynamicOutputEvaluator<'_> {
             let args = match dynamic_lambda_ctx_data.lambda.arg() {
                 None => DynamicLambdaArgs::OldPositional {
                     ctx: ctx.to_value(),
-                    artifacts: dynamic_lambda_ctx_data.artifacts,
+                    artifact_values: dynamic_lambda_ctx_data.artifact_values,
                     outputs: dynamic_lambda_ctx_data.outputs,
                 },
                 Some(_arg) => {

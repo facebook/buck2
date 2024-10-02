@@ -142,7 +142,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         }
 
         // Conversion
-        let dynamic = dynamic
+        let artifact_values = dynamic
             .items
             .iter()
             .map(|x| x.artifact())
@@ -169,7 +169,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             arg: None,
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
-                dynamic,
+                artifact_values,
                 dynamic_values: IndexSet::new(),
                 outputs,
                 execution_platform: this.actions.execution_platform.dupe(),
@@ -193,7 +193,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .take()
             .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
         let StarlarkDynamicActionsData {
-            dynamic,
+            artifact_values,
             dynamic_values,
             outputs,
             arg,
@@ -216,7 +216,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             arg: Some(arg),
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
-                dynamic,
+                artifact_values,
                 dynamic_values,
                 outputs,
                 execution_platform: this.actions.execution_platform.dupe(),

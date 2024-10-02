@@ -38,7 +38,7 @@ pub struct DynamicLambdaStaticFields {
     /// the owner that defined this lambda
     pub owner: BaseDeferredKey,
     /// Input artifacts required to be materialized by the lambda.
-    pub dynamic: IndexSet<Artifact>,
+    pub artifact_values: IndexSet<Artifact>,
     /// Dynamic values I depend on.
     pub dynamic_values: IndexSet<DynamicValue>,
     /// Things I produce

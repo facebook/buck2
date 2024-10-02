@@ -67,7 +67,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
                     AnalysisActions::starlark_type_repr(),
                 ),
                 (
-                    ArcStr::new_static("artifacts"),
+                    ArcStr::new_static("artifact_values"),
                     ParamIsRequired::Yes,
                     DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr(),
                 ),
@@ -172,17 +172,18 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     ) -> starlark::Result<Value<'v>> {
         let me = me.unpack_frozen().internal_error("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
-        let (dynamic, dynamic_values, outputs, arg) =
+        let (artifact_values, dynamic_values, outputs, arg) =
             self.signature.parser(args, eval, |parser, _eval| {
                 // TODO(nga): we are not checking that what we parse here actually matches signature.
-                let dynamic: UnpackList<UnpackArtifactOrDeclaredArtifact> = parser.next()?;
+                let artifact_values: UnpackList<UnpackArtifactOrDeclaredArtifact> =
+                    parser.next()?;
                 let dynamic_values: UnpackList<&StarlarkDynamicValue> =
                     parser.next_opt()?.unwrap_or_default();
                 let outputs: UnpackList<&StarlarkOutputArtifact> = parser.next()?;
                 let arg: Value = parser.next()?;
-                Ok((dynamic, dynamic_values, outputs, arg))
+                Ok((artifact_values, dynamic_values, outputs, arg))
             })?;
-        let dynamic = dynamic
+        let artifact_values = artifact_values
             .into_iter()
             .map(|a| a.artifact())
             .collect::<anyhow::Result<_>>()?;
@@ -197,7 +198,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
             .collect::<anyhow::Result<_>>()?;
         Ok(eval.heap().alloc(StarlarkDynamicActions {
             data: RefCell::new(Some(StarlarkDynamicActionsData {
-                dynamic,
+                artifact_values,
                 dynamic_values,
                 outputs,
                 arg,
@@ -229,7 +230,7 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
         let signature = ParametersSpec::new_named_only(
             &name,
             [
-                ("dynamic", ParametersSpecParam::Required),
+                ("artifact_values", ParametersSpecParam::Required),
                 ("dynamic_values", ParametersSpecParam::Optional),
                 ("outputs", ParametersSpecParam::Required),
                 ("arg", ParametersSpecParam::Required),

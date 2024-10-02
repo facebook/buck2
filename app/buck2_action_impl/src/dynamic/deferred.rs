@@ -71,12 +71,12 @@ use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 pub enum DynamicLambdaArgs<'v> {
     OldPositional {
         ctx: Value<'v>,
-        artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+        artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
         outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
     },
     DynamicActionsNamed {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
-        artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+        artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
         outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
         dynamic_values:
             ValueOfUnchecked<'v, DictType<StarlarkDynamicValue, StarlarkResolvedDynamicValue>>,
@@ -94,22 +94,22 @@ pub fn invoke_dynamic_output_lambda<'v>(
     let (pos, named): (&[_], &[(_, _)]) = match args {
         DynamicLambdaArgs::OldPositional {
             ctx,
-            artifacts,
+            artifact_values,
             outputs,
         } => {
-            pos = [ctx, artifacts.get(), outputs.get()];
+            pos = [ctx, artifact_values.get(), outputs.get()];
             (&pos, &[])
         }
         DynamicLambdaArgs::DynamicActionsNamed {
             actions,
-            artifacts,
+            artifact_values,
             outputs,
             dynamic_values,
             arg,
         } => {
             named = [
                 ("actions", actions.to_value()),
-                ("artifacts", artifacts.get()),
+                ("artifact_values", artifact_values.get()),
                 ("dynamic_values", dynamic_values.get()),
                 ("outputs", outputs.get()),
                 ("arg", arg),
@@ -212,14 +212,14 @@ async fn execute_lambda(
                     let args = match dynamic_lambda_ctx_data.lambda.arg() {
                         None => DynamicLambdaArgs::OldPositional {
                             ctx: ctx.to_value(),
-                            artifacts: dynamic_lambda_ctx_data.artifacts,
+                            artifact_values: dynamic_lambda_ctx_data.artifact_values,
                             outputs: dynamic_lambda_ctx_data.outputs,
                         },
                         Some(arg) => DynamicLambdaArgs::DynamicActionsNamed {
                             // TODO(nga): no need to create `ctx`
                             //   because we only need `actions` here.
                             actions: ctx.actions,
-                            artifacts: dynamic_lambda_ctx_data.artifacts,
+                            artifact_values: dynamic_lambda_ctx_data.artifact_values,
                             outputs: dynamic_lambda_ctx_data.outputs,
                             dynamic_values: dynamic_lambda_ctx_data.dynamic_values,
                             arg,
@@ -279,7 +279,7 @@ pub(crate) async fn prepare_and_execute_lambda(
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
-    ensure_artifacts_built(&lambda.as_ref().static_fields.dynamic, ctx).await?;
+    ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
 
     Ok(span_async_simple(
         buck2_data::DynamicLambdaStart {
@@ -293,7 +293,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                 ctx.try_compute2(
                     |ctx| {
                         Box::pin(materialize_inputs(
-                            &lambda.as_ref().static_fields.dynamic,
+                            &lambda.as_ref().static_fields.artifact_values,
                             ctx,
                         ))
                     },
@@ -404,7 +404,7 @@ async fn resolve_dynamic_values(
 pub struct DynamicLambdaCtxData<'v> {
     pub lambda: &'v FrozenDynamicLambdaParams,
     pub outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>,
-    pub artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+    pub artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     pub dynamic_values:
         ValueOfUnchecked<'v, DictType<StarlarkDynamicValue, StarlarkResolvedDynamicValue>>,
     pub key: &'v BaseDeferredKey,
@@ -449,15 +449,16 @@ pub fn dynamic_lambda_ctx_data<'v>(
     )?;
     registry.set_action_key(Arc::from(action_key));
 
-    let mut artifacts = Vec::with_capacity(dynamic_lambda.static_fields.dynamic.len());
+    let mut artifact_values =
+        Vec::with_capacity(dynamic_lambda.static_fields.artifact_values.len());
     let fs = project_filesystem;
-    for x in &dynamic_lambda.static_fields.dynamic {
+    for x in &dynamic_lambda.static_fields.artifact_values {
         let k = StarlarkArtifact::new(x.dupe());
         let path = materialized_artifacts
             .get(x)
             .internal_error("Missing materialized artifact")?;
         let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
-        artifacts.push((k, v));
+        artifact_values.push((k, v));
     }
 
     for x in &*dynamic_lambda.static_fields.outputs {
@@ -480,14 +481,16 @@ pub fn dynamic_lambda_ctx_data<'v>(
         dynamic_values.push((k, v));
     }
 
-    let artifacts = heap.alloc_typed_unchecked(AllocDict(artifacts)).cast();
+    let artifact_values = heap
+        .alloc_typed_unchecked(AllocDict(artifact_values))
+        .cast();
     let outputs = heap.alloc_typed_unchecked(AllocDict(outputs)).cast();
     let dynamic_values = heap.alloc_typed_unchecked(AllocDict(dynamic_values)).cast();
 
     Ok(DynamicLambdaCtxData {
         lambda: attributes_lambda,
         outputs,
-        artifacts,
+        artifact_values,
         dynamic_values,
         key: &dynamic_lambda.static_fields.owner,
         digest_config,

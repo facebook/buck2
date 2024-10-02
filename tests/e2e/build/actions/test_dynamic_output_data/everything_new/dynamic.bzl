@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _basic_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _basic_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifacts[arg.input].read_string()
+    src = artifact_values[arg.input].read_string()
     assert_eq(src, "42")
     actions.write(outputs[arg.output], src)
     return []
@@ -20,15 +20,15 @@ def _basic(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_basic_f(
-        dynamic = [input],
+        artifact_values = [input],
         outputs = [output.as_output()],
         arg = struct(input = input, output = output),
     ))
     return [DefaultInfo(default_output = output)]
 
-def _two_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _two_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifacts[arg.input].read_string()
+    src = artifact_values[arg.input].read_string()
     actions.write(outputs[arg.output1], "output1_" + src)
     actions.write(outputs[arg.output2], "output2_" + src)
     return []
@@ -42,7 +42,7 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
     output2 = ctx.actions.declare_output("output2")
 
     ctx.actions.dynamic_output_new(_two_f(
-        dynamic = [input],
+        artifact_values = [input],
         outputs = [output1.as_output(), output2.as_output()],
         arg = struct(input = input, output1 = output1, output2 = output2),
     ))
@@ -54,9 +54,9 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     )]
 
-def _nested_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _nested_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifacts[arg.input].read_string()
+    src = artifact_values[arg.input].read_string()
     output1 = actions.declare_output("output1")
     output2 = actions.declare_output("output2")
     actions.write(output1, "output1_" + src)
@@ -68,7 +68,7 @@ def _nested_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs,
     nested_output = actions.declare_output("nested_output")
 
     actions.dynamic_output_new(_nested_f2(
-        dynamic = [output1, output2],
+        artifact_values = [output1, output2],
         outputs = [nested_output.as_output()],
         arg = struct(output1 = output1, output2 = output2, nested_output = nested_output),
     ))
@@ -77,10 +77,10 @@ def _nested_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs,
     actions.symlinked_dir(outputs[arg.symlinked_dir], symlink_tree)
     return []
 
-def _nested_f2_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _nested_f2_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    nested_src1 = artifacts[arg.output1].read_string()
-    nested_src2 = artifacts[arg.output2].read_string()
+    nested_src1 = artifact_values[arg.output1].read_string()
+    nested_src2 = artifact_values[arg.output2].read_string()
     actions.write(outputs[arg.nested_output], [nested_src1, nested_src2])
     return []
 
@@ -93,15 +93,15 @@ def _nested(ctx: AnalysisContext) -> list[Provider]:
     symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir", dir = True)
 
     ctx.actions.dynamic_output_new(_nested_f(
-        dynamic = [input],
+        artifact_values = [input],
         outputs = [symlinked_dir.as_output()],
         arg = struct(input = input, symlinked_dir = symlinked_dir),
     ))
     return [DefaultInfo(default_output = symlinked_dir)]
 
-def _command_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _command_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifacts[arg.hello].read_string().strip()
+    src = artifact_values[arg.hello].read_string().strip()
     assert_eq(src, "Hello")
     actions.run(
         cmd_args(["python3", arg.script, src, outputs[arg.world].as_output(), outputs[arg.universe].as_output()]),
@@ -138,15 +138,15 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
     )
 
     ctx.actions.dynamic_output_new(_command_f(
-        dynamic = [hello],
+        artifact_values = [hello],
         outputs = [world.as_output(), universe.as_output()],
         arg = struct(hello = hello, world = world, universe = universe, script = script),
     ))
     return [DefaultInfo(default_output = world, other_outputs = [universe])]
 
-def _create_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _create_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifacts[arg.input].read_string()
+    src = artifact_values[arg.input].read_string()
     new_file = actions.write("new_file", src)
     actions.copy_file(outputs[arg.output], new_file)
     return []
@@ -159,16 +159,16 @@ def _create(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_create_f(
-        dynamic = [input],
+        artifact_values = [input],
         outputs = [output.as_output()],
         arg = struct(input = input, output = output),
     ))
     return [DefaultInfo(default_output = output)]
 
-def _create_duplicate_f_impl(actions: AnalysisActions, artifacts, dynamic_values, outputs, arg):
+def _create_duplicate_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
     _unused = dynamic_values  # buildifier: disable=unused-variable
 
-    src = artifacts[arg.input].read_string()
+    src = artifact_values[arg.input].read_string()
 
     # Deliberately reuse the names input/output
     new_output = actions.write("output", src)
@@ -190,7 +190,7 @@ def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_create_duplicate_f(
-        dynamic = [input],
+        artifact_values = [input],
         outputs = [output.as_output()],
         arg = struct(input = input, output = output),
     ))
