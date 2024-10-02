@@ -11,7 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "get_apple_toolchain_attr")
+load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
@@ -769,7 +769,6 @@ apple_test = prelude_rule(
             "platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "precompiled_header": attrs.option(attrs.source(), default = None),
             # The test source code and lib dependencies should be built into a shared library.
             "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
             "prefix_header": attrs.option(attrs.source(), default = None),
@@ -799,7 +798,8 @@ apple_test = prelude_rule(
             "xcode_product_type": attrs.option(attrs.string(), default = None),
         } |
         buck.allow_cache_upload_arg() |
-        buck.inject_test_env_arg()
+        buck.inject_test_env_arg() |
+        apple_test_extra_attrs()
     ),
 )
 

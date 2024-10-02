@@ -35,7 +35,6 @@ load(
     "APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME",
     "apple_bundle_extra_attrs",
     "apple_dsymutil_attrs",
-    "apple_test_extra_attrs",
     "apple_xcuitest_extra_attrs",
     "get_apple_toolchain_attr",
     "get_apple_xctoolchain_attr",
@@ -163,7 +162,6 @@ extra_attributes = {
         "dirs": attrs.list(attrs.source(allow_directory = True), default = []),
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
-    "apple_test": apple_test_extra_attrs(),
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
