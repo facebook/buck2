@@ -276,12 +276,13 @@ where
 
     // Set intersection
     fn bit_and(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+        let rhs = SetRef::unpack_value_opt(rhs)
+            .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
+
         let mut items = SmallSet::new();
         if self.0.content().is_empty() {
             return Ok(heap.alloc(SetData { content: items }));
         }
-        let rhs = SetRef::unpack_value_opt(rhs)
-            .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
 
         for h in rhs.aref.iter_hashed() {
             if self.0.content().contains_hashed(h.as_ref()) {
