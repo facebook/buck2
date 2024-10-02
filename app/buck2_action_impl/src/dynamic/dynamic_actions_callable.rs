@@ -52,6 +52,7 @@ use starlark::values::Value;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
+use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
 pub(crate) struct DynamicActionsCallbackParamSpec;
 
@@ -75,7 +76,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
                 (
                     ArcStr::new_static("dynamic_values"),
                     ParamIsRequired::Yes,
-                    DictType::<FrozenValue, FrozenValue>::starlark_type_repr(),
+                    DictType::<StarlarkDynamicValue, StarlarkResolvedDynamicValue>::starlark_type_repr(),
                 ),
                 (
                     ArcStr::new_static("outputs"),
