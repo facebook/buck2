@@ -377,7 +377,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
             return Ok(true);
         }
         let rhs = SetFromValue::from_value(other, heap)?;
-        if rhs.is_empty() {
+        if this.aref.content.len() > rhs.get().len() {
             return Ok(false);
         }
         for elem in this.aref.content.iter_hashed() {
