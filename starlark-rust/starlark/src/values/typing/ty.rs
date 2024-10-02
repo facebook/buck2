@@ -43,10 +43,9 @@ impl<'v> StarlarkValue<'v> for AbstractType {
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        unreachable!(
-            "This is unreachable, but this function is needed \
-            so `TyStarlarkValue` could think this is a type"
-        )
+        // This is unreachable, but this function is needed
+        // so `TyStarlarkValue` could think this is a type".
+        match *self {}
     }
 }
 
