@@ -21,6 +21,7 @@ use std::mem;
 
 use starlark_derive::starlark_module;
 use starlark_map::small_set::SmallSet;
+use starlark_map::Hashed;
 use starlark_syntax::value_error;
 
 use crate as starlark;
@@ -33,6 +34,43 @@ use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+
+enum SetFromValue<'v> {
+    Set(SmallSet<Value<'v>>),
+}
+
+impl<'v> SetFromValue<'v> {
+    fn from_value(
+        value: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> crate::Result<Self> {
+        let mut set = SmallSet::default();
+        for elem in value.get().iterate(heap)? {
+            set.insert_hashed(elem.get_hashed()?);
+        }
+        Ok(SetFromValue::Set(set))
+    }
+
+    fn get(&self) -> &SmallSet<Value<'v>> {
+        match self {
+            SetFromValue::Set(set) => set,
+        }
+    }
+
+    fn into_set(self) -> SmallSet<Value<'v>> {
+        match self {
+            SetFromValue::Set(set) => set,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.get().is_empty()
+    }
+
+    fn contains_hashed(&self, value: Hashed<Value<'v>>) -> bool {
+        self.get().contains_hashed(value.as_ref())
+    }
+}
 
 #[starlark_module]
 pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
@@ -81,18 +119,14 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
         //TODO(romanp) check if other is set
-        let other_it = other.get().iterate(heap)?;
-        let mut other_set = SmallSet::default();
-        for elem in other_it {
-            other_set.insert_hashed(elem.get_hashed()?);
-        }
+        let other_set = SetFromValue::from_value(other, heap)?;
         let mut data = SetData::default();
         if other_set.is_empty() {
             return Ok(data);
         }
 
         for hashed in this.aref.content.iter_hashed() {
-            if other_set.contains_hashed(hashed) {
+            if other_set.contains_hashed(hashed.copied()) {
                 data.content.insert_hashed_unique_unchecked(hashed.copied());
             }
         }
@@ -113,11 +147,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
         //TODO(romanp) check if other is set
-        let other_it = other.get().iterate(heap)?;
-        let mut other_set: SmallSet<Value<'v>> = SmallSet::default();
-        for elem in other_it {
-            other_set.insert_hashed(elem.get_hashed()?);
-        }
+        let other_set = SetFromValue::from_value(other, heap)?;
 
         if other_set.is_empty() {
             return Ok(SetData {
@@ -127,17 +157,19 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
 
         //TODO(romanp) add symmetric_difference to small set and use it here and in xor
         if this.aref.content.is_empty() {
-            return Ok(SetData { content: other_set });
+            return Ok(SetData {
+                content: other_set.into_set(),
+            });
         }
 
         let mut data = SetData::default();
         for elem in this.aref.content.iter_hashed() {
-            if !other_set.contains_hashed(elem) {
+            if !other_set.contains_hashed(elem.copied()) {
                 data.add_hashed(elem.copied());
             }
         }
 
-        for elem in other_set {
+        for elem in other_set.get() {
             let hashed = elem.get_hashed()?;
             if !this.aref.content.contains_hashed(hashed.as_ref()) {
                 data.add_hashed(hashed);
@@ -276,16 +308,13 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
         //TODO(romanp) check if other is set
-        let other_it = other.get().iterate(heap)?;
 
         if this.aref.content.is_empty() {
+            other.get().iterate(heap)?;
             return Ok(SetData::default());
         }
 
-        let mut other_set: SmallSet<Value<'v>> = SmallSet::default();
-        for elem in other_it {
-            other_set.insert_hashed(elem.get_hashed()?);
-        }
+        let other_set = SetFromValue::from_value(other, heap)?;
 
         if other_set.is_empty() {
             return Ok(SetData {
@@ -295,7 +324,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
 
         let mut data = SetData::default();
         for elem in this.aref.content.iter_hashed() {
-            if !other_set.contains_hashed(elem) {
+            if !other_set.contains_hashed(elem.copied()) {
                 data.add_hashed(elem.copied());
             }
         }
@@ -339,20 +368,17 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<bool> {
-        let other = other.get().iterate(heap)?;
         if this.aref.content.is_empty() {
+            other.get().iterate(heap)?;
             return Ok(true);
         }
         //TODO(romanp): check if other is already a set
-        let mut rhs: SmallSet<Value<'v>> = SmallSet::default();
-        for elem in other {
-            rhs.insert_hashed(elem.get_hashed()?);
-        }
+        let rhs = SetFromValue::from_value(other, heap)?;
         if rhs.is_empty() {
             return Ok(false);
         }
         for elem in this.aref.content.iter_hashed() {
-            if !rhs.contains_hashed(elem) {
+            if !rhs.contains_hashed(elem.copied()) {
                 return Ok(false);
             }
         }
