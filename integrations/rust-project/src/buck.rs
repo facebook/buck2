@@ -131,6 +131,14 @@ pub(crate) fn to_json_project(
             build_file = path;
         }
 
+        if !root_module.exists() {
+            warn!(
+                ?target,
+                "root module does not exist: {}",
+                root_module.display()
+            );
+        }
+
         let mut env = FxHashMap::default();
 
         // Populate the environment variables the target configuration's environment variables,

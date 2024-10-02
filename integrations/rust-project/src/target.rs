@@ -24,7 +24,6 @@ use serde::Deserializer;
 use serde::Serialize;
 
 use crate::json_project::Edition;
-use crate::path::canonicalize;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);
@@ -158,15 +157,7 @@ impl TargetInfo {
     }
 
     pub(crate) fn root_module(&self) -> PathBuf {
-        // If provided with a crate_root directly, and it's valid, use it.
-        if let Ok(path) = canonicalize(self.source_folder.join(&self.crate_root)) {
-            return path;
-        }
-
-        panic!(
-            "Invariant broken: rust-project is unable to determine a root module from provided crate_root: {:?}",
-            self.crate_root
-        )
+        self.source_folder.join(&self.crate_root)
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
