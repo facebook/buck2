@@ -291,12 +291,8 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn pop<'v>(this: Value<'v>) -> starlark::Result<Value<'v>> {
         let mut set = SetMut::from_value(this)?;
-        let first = set.aref.iter_hashed().next();
-        match first {
-            Some(x) => {
-                set.aref.remove_hashed(x.as_ref());
-                Ok(x.into_key())
-            }
+        match set.aref.content.shift_remove_index(0) {
+            Some(x) => Ok(x),
             None => Err(value_error!("pop from an empty set")),
         }
     }
