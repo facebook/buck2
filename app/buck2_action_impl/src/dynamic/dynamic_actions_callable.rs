@@ -90,7 +90,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
 }
 
 // TODO(nga): should be list of provider.
-pub(crate) type DynamicActionsCallbackReturnType = ListType<Vec<FrozenValue>>;
+pub(crate) type DynamicActionsCallbackReturnType = ListType<FrozenValue>;
 
 #[derive(Debug, thiserror::Error)]
 enum DynamicActionCallableError {
