@@ -127,9 +127,12 @@ function Attrs(props: {attr: (i: number) => TargetField | null; length: number})
       continue
     }
     const row = (
-      <li key={i}>
-        {attr.name()} = <Attr value={attr.value()} />
-      </li>
+      <tr key={i}>
+        <td>{attr.name()}</td>
+        <td>
+          <Attr value={attr.value()} />
+        </td>
+      </tr>
     )
     items.push(row)
   }
@@ -243,14 +246,38 @@ function TargetRdeps(props: {target: ConfiguredTargetNode}) {
 function TargetAttrs(props: {target: ConfiguredTargetNode}) {
   const {target} = props
   return (
-    <ul className="is-family-monospace ml-4">
-      <li>name = "{target.name()}",</li>
-      <li>type = "{target.type()}",</li>
-      <li>package = "{target.package_()}",</li>
-      <li>oncall = "{target.oncall()}",</li>
-      <li>target_configuration = "{target.targetConfiguration()}",</li>
-      <li>execution_platform = "{target.executionPlatform()}",</li>
-      <Attrs attr={i => target.attrs(i)} length={target.attrsLength()} />
-    </ul>
+    <table className="table ml-4">
+      <tbody>
+        <tr>
+          <th>Attribute</th>
+          <th>Value</th>
+        </tr>
+        <tr>
+          <td>name</td>
+          <td>{target.name()}</td>
+        </tr>
+        <tr>
+          <td>type</td>
+          <td>{target.type()}</td>
+        </tr>
+        <tr>
+          <td>package</td>
+          <td>{target.package_()}</td>
+        </tr>
+        <tr>
+          <td>oncall</td>
+          <td>{target.oncall()}</td>
+        </tr>
+        <tr>
+          <td>target_configuration</td>
+          <td>{target.targetConfiguration()}</td>
+        </tr>
+        <tr>
+          <td>execution_platform</td>
+          <td>{target.executionPlatform()}</td>
+        </tr>
+        <Attrs attr={i => target.attrs(i)} length={target.attrsLength()} />
+      </tbody>
+    </table>
   )
 }
