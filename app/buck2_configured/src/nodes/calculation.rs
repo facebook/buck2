@@ -760,13 +760,11 @@ async fn gather_deps(
         configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
     }
 
-    let dep_results = CycleGuard::<ConfiguredGraphCycleDescriptor>::new(ctx)?
-        .guard_this(ctx.compute_join(traversal.deps.iter(), |ctx, v| {
+    let dep_results = ctx
+        .compute_join(traversal.deps.iter(), |ctx, v| {
             async move { ctx.get_internal_configured_target_node(v.0.target()).await }.boxed()
-        }))
-        .await
-        .into_result(ctx)
-        .await??;
+        })
+        .await;
 
     let mut plugin_lists = traversal.plugin_lists;
     let mut deps = Vec::new();
@@ -1100,13 +1098,7 @@ async fn compute_configured_target_node_no_transition(
     });
 
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
-        CycleGuard::<ConfiguredGraphCycleDescriptor>::new(&ctx)?
-            .guard_this(ctx.compute2(get_toolchain_deps, get_exec_deps))
-            .boxed()
-            .await
-            .into_result(ctx)
-            .boxed()
-            .await??;
+        ctx.compute2(get_toolchain_deps, get_exec_deps).await;
 
     let mut deps = gathered_deps.deps;
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
@@ -1420,7 +1412,11 @@ impl Key for ConfiguredTargetNodeKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let res = compute_configured_target_node(self, ctx).await;
+        let res = CycleGuard::<ConfiguredGraphCycleDescriptor>::new(ctx)?
+            .guard_this(compute_configured_target_node(self, ctx))
+            .await
+            .into_result(ctx)
+            .await??;
         Ok(LookingUpConfiguredNodeContext::add_context(
             res,
             self.0.dupe(),
