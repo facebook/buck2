@@ -28,7 +28,7 @@ export function Header() {
           <span className="icon mr-1">
             <i className="fa fa-bullseye" />
           </span>
-          {rootTarget.configuredTargetLabel()}
+          {rootTarget.configuredTargetLabel()?.split(' ')[0]}
         </Link>
       </div>
       <div className="navbar-menu">
