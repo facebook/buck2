@@ -29,10 +29,10 @@ export function SearchBox() {
     setParams(params.toString())
   }
   return (
-    <div className="is-flex is-flex-direction-row">
+    <>
       <input
         type="text"
-        className="input is-one-fifth column mr-2 is-small"
+        className="input mr-2 is-small"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
         placeholder="Search targets"
@@ -46,6 +46,6 @@ export function SearchBox() {
           <i className="fa fa-search"></i>
         </span>
       </button>
-    </div>
+    </>
   )
 }

@@ -10,7 +10,6 @@
 import React, {useContext} from 'react'
 import {Target} from './Target'
 import {DataContext} from './App'
-import {SearchBox} from './SearchBox'
 
 /**
  * Shows the root target
@@ -18,10 +17,5 @@ import {SearchBox} from './SearchBox'
 export function RootView(props: {view: string}) {
   const {rootTarget} = useContext(DataContext)
 
-  return (
-    <>
-      <SearchBox />
-      {rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} tab={null} />}
-    </>
-  )
+  return rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} tab={null} />
 }

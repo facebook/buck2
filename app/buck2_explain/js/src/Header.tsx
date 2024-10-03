@@ -10,6 +10,7 @@
 import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {Link} from './Router'
+import {SearchBox} from './SearchBox'
 
 /**
  * Header that goes on every view
@@ -22,7 +23,7 @@ export function Header() {
   }
 
   return (
-    <div className="navbar" role="navigation" aria-label="main navigation">
+    <nav className="navbar" role="navigation" aria-label="main navigation">
       <div className="navbar-brand">
         <Link className="bold no-underline navbar-item" to={{}}>
           <span className="icon mr-1">
@@ -32,15 +33,18 @@ export function Header() {
         </Link>
       </div>
       <div className="navbar-menu">
-        <div className="navbar-start">
+        <div className="navbar-end">
           <Link className="bold no-underline navbar-item" to={{graph: ''}}>
             <span className="icon mr-1">
               <i className="fa fa-project-diagram" />
             </span>
             Graph
           </Link>
+          <div className="navbar-item">
+            <SearchBox />
+          </div>
         </div>
       </div>
-    </div>
+    </nav>
   )
 }

@@ -11,7 +11,6 @@ import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
-import {SearchBox} from './SearchBox'
 
 function Checkbox(props: {
   checked: boolean
@@ -79,7 +78,6 @@ export function SearchView(props: {view: QueryKey}) {
 
   return (
     <>
-      <SearchBox />
       <Checkbox checked={universalSearch} onChange={handleChange} />
       <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
       <ul>
