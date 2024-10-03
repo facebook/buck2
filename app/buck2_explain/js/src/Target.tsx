@@ -70,7 +70,11 @@ function ListAttr(props: {
       </li>,
     )
   }
-  return <ul>[{items}]</ul>
+  return (
+    <div className="content">
+      <ul>{items}</ul>
+    </div>
+  )
 }
 
 function DictAttr(props: {
