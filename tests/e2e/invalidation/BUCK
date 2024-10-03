@@ -10,3 +10,15 @@ buck2_e2e_test(
         "fbcode//buck2/tests/e2e_util:utils",
     ],
 )
+
+buck2_e2e_test(
+    name = "test_forward_node",
+    srcs = ["test_forward_node.py"],
+    data_dir = "test_forward_node_data",
+    deps = [
+        "fbsource//third-party/pypi/pyre-extensions:pyre-extensions",
+        "//buck2/tests/e2e_util:utilities",
+        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util/api:api",
+    ],
+)
