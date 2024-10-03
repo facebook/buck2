@@ -42,9 +42,10 @@ def _get_re_arg(ctx: AnalysisContext) -> ReArg:
     return ReArg(re_props = None, default_run_as_bundle = False)
 
 def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> None:
+    if "re_ignore_force_run_as_bundle" in labels:
+        return
     re_arg = _get_re_arg(ctx)
-    run_as_bundle = re_arg.default_run_as_bundle and "re_ignore_default_run_as_bundle" not in ctx.attrs.labels
-    if run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
+    if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
         labels.extend(["run_as_bundle"])
 
 def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
