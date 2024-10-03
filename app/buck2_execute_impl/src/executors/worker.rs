@@ -188,6 +188,7 @@ async fn spawn_worker(
     forkserver: ForkserverClient,
     dispatcher: EventDispatcher,
     graceful_shutdown_timeout_s: Option<u32>,
+    check_child_liveness: bool,
 ) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
@@ -236,7 +237,7 @@ async fn spawn_worker(
     let max_delay = Duration::from_millis(500);
     // Might want to make this configurable, and/or measure impact of worker initialization on critical path
     let timeout = Duration::from_secs(60);
-    let channel = {
+    let (channel, check_exit) = {
         let stdout_path = &stdout_path;
         let stderr_path = &stderr_path;
         let socket_path = &socket_path;
@@ -251,18 +252,20 @@ async fn spawn_worker(
             spawn_fut
                 .await
                 .map_err(|e| WorkerInitError::InternalError(e.into()))?
-        };
+        }
+        .boxed();
         futures::pin_mut!(connect);
-        futures::pin_mut!(check_exit);
 
         match futures::future::select(connect, check_exit).await {
-            futures::future::Either::Left((connection_result, _)) => match connection_result {
-                Ok(channel) => Ok(channel),
-                Err(e) => Err(WorkerInitError::ConnectionTimeout(
-                    timeout.as_secs_f64(),
-                    e.to_string(),
-                )),
-            },
+            futures::future::Either::Left((connection_result, check_exit)) => {
+                match connection_result {
+                    Ok(channel) => Ok((channel, check_exit)),
+                    Err(e) => Err(WorkerInitError::ConnectionTimeout(
+                        timeout.as_secs_f64(),
+                        e.to_string(),
+                    )),
+                }
+            }
             futures::future::Either::Right((command_result, _)) => Err(match command_result {
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
@@ -286,10 +289,21 @@ async fn spawn_worker(
         }?
     };
 
+    let (child_exited_observer, child_exited_guard) = LivelinessGuard::create();
+    tokio::spawn(async move {
+        drop(check_exit.await);
+        if check_child_liveness {
+            drop(child_exited_guard);
+        } else {
+            child_exited_guard.forget();
+        }
+    });
+
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
     let client = WorkerClient::new(channel);
     Ok(WorkerHandle::new(
         client,
+        child_exited_observer,
         stdout_path,
         stderr_path,
         liveliness_guard,
@@ -302,15 +316,17 @@ pub struct WorkerPool {
     workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
     brokers: Arc<parking_lot::Mutex<HashMap<WorkerId, Arc<HostSharingBroker>>>>,
     graceful_shutdown_timeout_s: Option<u32>,
+    check_child_liveness: bool,
 }
 
 impl WorkerPool {
-    pub fn new(graceful_shutdown_timeout_s: Option<u32>) -> WorkerPool {
+    pub fn new(graceful_shutdown_timeout_s: Option<u32>, check_child_liveness: bool) -> WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
             workers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
             brokers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
             graceful_shutdown_timeout_s,
+            check_child_liveness,
         }
     }
 
@@ -346,6 +362,7 @@ impl WorkerPool {
             let root = root.clone();
             let env: Vec<(OsString, OsString)> = env.into_iter().collect();
             let graceful_shutdown_timeout_s = self.graceful_shutdown_timeout_s;
+            let check_child_liveness = self.check_child_liveness;
             let fut = async move {
                 match spawn_worker(
                     &worker_spec,
@@ -354,6 +371,7 @@ impl WorkerPool {
                     forkserver,
                     dispatcher,
                     graceful_shutdown_timeout_s,
+                    check_child_liveness,
                 )
                 .await
                 {
@@ -372,6 +390,7 @@ impl WorkerPool {
 
 pub struct WorkerHandle {
     client: WorkerClient<Channel>,
+    child_exited_observer: Arc<dyn LivelinessObserver>,
     stdout_path: AbsNormPathBuf,
     stderr_path: AbsNormPathBuf,
     _liveliness_guard: LivelinessGuard,
@@ -380,12 +399,14 @@ pub struct WorkerHandle {
 impl WorkerHandle {
     fn new(
         client: WorkerClient<Channel>,
+        child_exited_observer: Arc<dyn LivelinessObserver>,
         stdout_path: AbsNormPathBuf,
         stderr_path: AbsNormPathBuf,
         liveliness_guard: LivelinessGuard,
     ) -> Self {
         Self {
             client,
+            child_exited_observer,
             stdout_path,
             stderr_path,
             _liveliness_guard: liveliness_guard,
@@ -429,36 +450,50 @@ impl WorkerHandle {
             env,
             timeout_s: timeout.map(|v| v.as_secs()),
         };
-        let response = self.client.clone().execute(request).await;
 
-        match response {
-            Ok(response) => {
-                let exec_response: ExecuteResponse = response.into_inner();
-                tracing::info!("Worker response:\n{:?}\n", exec_response);
-                if let Some(timeout) = exec_response.timed_out_after_s {
-                    (
-                        GatherOutputStatus::TimedOut(Duration::from_secs(timeout)),
-                        vec![],
-                        exec_response.stderr.into(),
-                    )
-                } else {
-                    (
-                        GatherOutputStatus::Finished {
-                            exit_code: exec_response.exit_code,
-                            execution_stats: None,
-                        },
-                        vec![],
-                        exec_response.stderr.into(),
-                    )
+        let mut client = self.client.clone();
+        tokio::select! {
+            response = client.execute(request) => {
+                match response {
+                    Ok(response) => {
+                        let exec_response: ExecuteResponse = response.into_inner();
+                        tracing::info!("Worker response:\n{:?}\n", exec_response);
+                        if let Some(timeout) = exec_response.timed_out_after_s {
+                            (
+                                GatherOutputStatus::TimedOut(Duration::from_secs(timeout)),
+                                vec![],
+                                exec_response.stderr.into(),
+                            )
+                        } else {
+                            (
+                                GatherOutputStatus::Finished {
+                                    exit_code: exec_response.exit_code,
+                                    execution_stats: None,
+                                },
+                                vec![],
+                                exec_response.stderr.into(),
+                            )
+                        }
+                    }
+                    Err(err) => {
+                        (
+                            GatherOutputStatus::SpawnFailed(format!(
+                                "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
+                                err, self.stdout_path, self.stderr_path,
+                            )),
+                            // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
+                            vec![],
+                            vec![],
+                        )
+                    }
                 }
             }
-            Err(err) => {
+            _ = self.child_exited_observer.while_alive() => {
                 (
                     GatherOutputStatus::SpawnFailed(format!(
-                        "Error sending ExecuteCommand to worker: {:?}, see worker logs:\n{}\n{}",
-                        err, self.stdout_path, self.stderr_path,
+                        "Worker exited while running command, see worker logs:\n{}\n{}",
+                        self.stdout_path, self.stderr_path,
                     )),
-                    // stdout/stderr logs for worker are for multiple commands, probably do not want to dump contents here
                     vec![],
                     vec![],
                 )

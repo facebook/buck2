@@ -80,6 +80,32 @@ async def test_worker(buck: Buck) -> None:
         buck.build(*worker_args, package + ":gen_worker_init_deadlock"),
         stderr_regex="Worker failed to connect",
     )
+
+    # Check connection error if worker server dies mid-request
+    await expect_failure(
+        buck.build(
+            *worker_args,
+            "-c",
+            "build.persistent_worker_check_child_liveness=true",
+            package + ":gen_worker_init_self_destruct",
+        ),
+        stderr_regex="Worker exited while running command",
+    )
+
+    # TODO(ronmrdechai): this timeout cases the daemon to panic for some reason. Figure out a better
+    # way to test this.
+    # import asyncio
+    # await expect_failure(
+    #     asyncio.wait_for(
+    #         buck.build(
+    #             *worker_args,
+    #             package + ":gen_worker_init_self_destruct",
+    #         ),
+    #         20,
+    #     ),
+    #     exception=asyncio.TimeoutError,
+    # )
+
     # With hybrid execution:
     # 1. Check that building `:gen_slow_worker_fast_fallback` first (as dependency) causes remote to succeed and worker to be cancelled.
     # 2. Check that `:gen_fast_worker_slow_fallback` worker execution succeeds, using same worker initialized by 1.

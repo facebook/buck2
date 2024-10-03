@@ -12,7 +12,7 @@ import platform
 import re
 import stat
 from pathlib import Path
-from typing import Awaitable, Optional, Type, Union
+from typing import Awaitable, Optional, Type, TypeVar, Union
 
 import pytest
 from buck2.tests.e2e_util.api.buck_result import (
@@ -21,6 +21,9 @@ from buck2.tests.e2e_util.api.buck_result import (
     ExitCode,
     ExitCodeV2,
 )
+
+
+E = TypeVar("E", bound=BaseException)
 
 
 def assert_executable(output: Path) -> None:
@@ -40,11 +43,11 @@ def assert_not_executable(output: Path) -> None:
 async def expect_failure(
     process: Awaitable[BuckResult],
     *,
-    exception: Type[BuckException] = BuckException,
+    exception: Type[E] = BuckException,
     exit_code: Union[ExitCode, ExitCodeV2, None] = None,
     stdout_regex: Optional[str] = None,
     stderr_regex: Optional[str] = None,
-) -> BuckException:
+) -> E:
     """
     Asserts that the process raises a BuckException.
 
@@ -67,6 +70,8 @@ async def expect_failure(
     with pytest.raises(exception) as execinfo:  # type: ignore
         await process
     failure = execinfo.value
+    if not isinstance(failure, BuckException):
+        return failure
     if exit_code is not None:
         actual_exit_code = (
             failure.get_exit_code()
