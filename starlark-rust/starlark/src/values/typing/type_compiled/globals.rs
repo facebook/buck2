@@ -36,6 +36,21 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
     }
 
     /// Check if a value matches the given type.
+    ///
+    /// This operation can be very fast or very slow depending on how it is used.
+    ///
+    /// `isinstance(x, list)` is very fast,
+    /// because it is compiled to a special bytecode instruction.
+    ///
+    /// `isinstance(x, list[str])` is `O(N)` operation
+    /// because it checks every element in this list.
+    ///
+    /// `L = list; [isinstance(x, L) for x in y]` is slow when `L` is not a constant:
+    /// `isinstance()` first converts `list` to a type in a loop, which is slow.
+    ///
+    /// But last operation can be optimized like this:
+    /// `L = eval_type(list); [isinstance(x, L) for x in y]`:
+    /// `eval_type()` converts `list` value into prepared type matcher.
     fn isinstance<'v>(
         #[starlark(require = pos)] value: Value<'v>,
         #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
