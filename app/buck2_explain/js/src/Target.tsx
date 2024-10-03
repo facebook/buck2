@@ -148,8 +148,8 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   const targetLabel = target.configuredTargetLabel()?.split(' ')[0]
 
   return (
-    <div className="mt-4">
-      <div className="ml-4 my-6">
+    <div>
+      <div className="ml-4 mt-4 mb-6">
         <a href={codePointer}>(codehub) </a>
         <h4 className="title is-4">{targetLabel}</h4>
         <ul>

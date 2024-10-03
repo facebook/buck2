@@ -22,5 +22,6 @@ export function TargetView(props: {view: QueryKey}) {
 
   const tab = urlParams.get(QueryKey.TargetTab)
 
-  return target == null ? <p>No target found</p> : <Target target={target} tab={tab} />
+  const view = target == null ? <p>No target found</p> : <Target target={target} tab={tab} />
+  return <div className="mx-4">{view}</div>
 }

@@ -17,5 +17,7 @@ import {DataContext} from './App'
 export function RootView(props: {view: string}) {
   const {rootTarget} = useContext(DataContext)
 
-  return rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} tab={null} />
+  const view =
+    rootTarget == null ? <p>No root target</p> : <Target target={rootTarget} tab={null} />
+  return <div className="mx-4">{view}</div>
 }

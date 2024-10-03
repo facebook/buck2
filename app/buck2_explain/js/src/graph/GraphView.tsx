@@ -123,12 +123,14 @@ export function GraphView(props: {view: QueryKey}) {
   })
 
   return (
-    <GraphImpl
-      nodes={nodeMap}
-      build={build}
-      categoryOptions={categoryOptions}
-      allTargets={allTargets}
-      maxSrcs={maxSrcs}
-    />
+    <div className="mx-4">
+      <GraphImpl
+        nodes={nodeMap}
+        build={build}
+        categoryOptions={categoryOptions}
+        allTargets={allTargets}
+        maxSrcs={maxSrcs}
+      />
+    </div>
   )
 }

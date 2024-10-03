@@ -63,32 +63,31 @@ export function SearchView(props: {view: QueryKey}) {
     }
   }
 
-  if (res == null || res.length == 0) {
-    return (
+  // Not sure where the dups are coming from, but we want to dedup to prevent
+  // undefined behavior in React
+  const deduped = dedupeArray((res ?? []).map(v => v.toString()))
+
+  const view =
+    res == null || res.length == 0 ? (
       <>
         <Checkbox checked={universalSearch} onChange={handleChange} />
         <p>No results for search</p>
       </>
+    ) : (
+      <>
+        <Checkbox checked={universalSearch} onChange={handleChange} />
+        <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
+        <ul>
+          {deduped.map(label => (
+            <li key={label} className="mt-3">
+              <Link to={{target: label}}>{label}</Link>
+            </li>
+          ))}
+        </ul>
+      </>
     )
-  }
 
-  // Not sure where the dups are coming from, but we want to dedup to prevent
-  // undefined behavior in React
-  const deduped = dedupeArray(res.map(v => v.toString()))
-
-  return (
-    <>
-      <Checkbox checked={universalSearch} onChange={handleChange} />
-      <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
-      <ul>
-        {deduped.map(label => (
-          <li key={label} className="mt-3">
-            <Link to={{target: label}}>{label}</Link>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
+  return <div className="mx-4">{view}</div>
 }
 
 function dedupeArray(res: string[]): string[] {
