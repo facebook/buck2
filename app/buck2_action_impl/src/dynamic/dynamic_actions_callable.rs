@@ -62,6 +62,10 @@ pub(crate) struct DynamicActionsCallbackParam {
     pub(crate) ty: LazyLock<Ty>,
 }
 
+pub(crate) static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "actions",
+    ty: LazyLock::new(AnalysisActions::starlark_type_repr),
+};
 pub(crate) static P_ARTIFACT_VALUES: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
     name: "artifact_values",
     ty: LazyLock::new(DictType::<StarlarkArtifact, StarlarkArtifactValue>::starlark_type_repr),
@@ -85,9 +89,9 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
             None,
             [
                 (
-                    ArcStr::new_static("actions"),
+                    ArcStr::new_static(P_ACTIONS.name),
                     ParamIsRequired::Yes,
-                    AnalysisActions::starlark_type_repr(),
+                    P_ACTIONS.ty.dupe(),
                 ),
                 (
                     ArcStr::new_static(P_ARTIFACT_VALUES.name),
