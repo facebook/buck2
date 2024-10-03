@@ -27,6 +27,7 @@ rust_library(
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:parking_lot",
+        "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:scopeguard",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:slab",

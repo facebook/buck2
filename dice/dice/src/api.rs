@@ -14,6 +14,7 @@ pub mod computations;
 pub mod cycles;
 pub mod data;
 pub mod dice;
+pub mod dyn_key;
 pub mod error;
 pub mod events;
 pub mod injected;

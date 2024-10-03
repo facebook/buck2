@@ -25,6 +25,7 @@ itertools = "0.10.0"
 lock_free_hashtable = { workspace = true }
 lock_free_vec = { workspace = true }
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
+ref-cast = { workspace = true }
 scopeguard = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 slab = "0.4.7"

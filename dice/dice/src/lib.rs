@@ -217,6 +217,7 @@ pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
+pub use crate::api::dyn_key::DynKey;
 pub use crate::api::error::DiceError;
 pub use crate::api::error::DiceResult;
 pub use crate::api::events::DiceEvent;
