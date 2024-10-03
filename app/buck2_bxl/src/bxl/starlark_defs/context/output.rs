@@ -39,6 +39,7 @@ use starlark::collections::SmallSet;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
@@ -69,6 +70,7 @@ use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGroup;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 #[derive(
     ProvidesStaticType,
@@ -82,7 +84,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 #[display("{:?}", self)]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
-pub(crate) struct OutputStream<'v> {
+pub(crate) struct OutputStream {
     #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
@@ -93,10 +95,6 @@ pub(crate) struct OutputStream<'v> {
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
     pub(crate) artifact_fs: ArtifactFs,
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    pub(crate) async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
 }
 
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
@@ -108,19 +106,17 @@ pub(crate) enum EnsuredArtifactOrGroup {
     ArtifactGroup(ArtifactGroup),
 }
 
-impl<'v> OutputStream<'v> {
+impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: RefCell<Box<dyn Write>>,
-        async_ctx: Rc<RefCell<dyn BxlDiceComputations + 'v>>,
     ) -> Self {
         Self {
             sink,
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,
             artifact_fs,
-            async_ctx,
         }
     }
 
@@ -130,14 +126,14 @@ impl<'v> OutputStream<'v> {
 }
 
 #[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for OutputStream<'v> {
+impl<'v> StarlarkValue<'v> for OutputStream {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(output_stream_methods)
     }
 }
 
-impl<'v> AllocValue<'v> for OutputStream<'v> {
+impl<'v> AllocValue<'v> for OutputStream {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
@@ -170,9 +166,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print("test")
     /// ```
     fn print<'v>(
-        this: &'v OutputStream<'v>,
+        this: &'v OutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         let mut first = true;
         let mut write = |d: &dyn Display| -> anyhow::Result<()> {
@@ -197,22 +194,25 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             } else if let Some(ensured) =
                 <&EnsuredArtifactGroup>::unpack_value(arg).into_anyhow_result()?
             {
-                this.async_ctx.borrow_mut().via(|dice| {
-                    ensured
-                        .visit_artifact_path_without_associated_deduped(
-                            |artifact_path, abs| {
-                                let path = get_artifact_path_display(
-                                    artifact_path,
-                                    abs,
-                                    &this.project_fs,
-                                    &this.artifact_fs,
-                                )?;
-                                write(&path)
-                            },
-                            dice,
-                        )
-                        .boxed_local()
-                })?;
+                BxlEvalExtra::from_context(eval)?
+                    .dice
+                    .borrow_mut()
+                    .via(|dice| {
+                        ensured
+                            .visit_artifact_path_without_associated_deduped(
+                                |artifact_path, abs| {
+                                    let path = get_artifact_path_display(
+                                        artifact_path,
+                                        abs,
+                                        &this.project_fs,
+                                        &this.artifact_fs,
+                                    )?;
+                                    write(&path)
+                                },
+                                dice,
+                            )
+                            .boxed_local()
+                    })?;
             } else {
                 write(&arg.to_str())?;
             }
@@ -239,9 +239,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print_json("test")
     /// ```
     fn print_json<'v>(
-        this: &'v OutputStream<'v>,
+        this: &'v OutputStream,
         value: Value<'v>,
         #[starlark(require=named, default=true)] pretty: bool,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v, 'd> {
@@ -336,7 +337,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 value,
                 artifact_fs: &this.artifact_fs,
                 project_fs: &this.project_fs,
-                async_ctx: &this.async_ctx,
+                async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
             },
         )
         .context("Error writing to JSON for `write_json`")?;
@@ -387,7 +388,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print_json(outputs)
     /// ```
     fn ensure_multiple<'v>(
-        this: &'v OutputStream<'v>,
+        this: &'v OutputStream,
         // TODO(nga): must be either positional or named.
         artifacts: EnsureMultipleArtifactsArg<'v>,
         heap: &'v Heap,

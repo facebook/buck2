@@ -169,8 +169,8 @@ struct UnconfiguredTargetInAnalysis;
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) struct RootBxlContextData<'v> {
-    output_stream: ValueTyped<'v, OutputStream<'v>>,
-    error_stream: ValueTyped<'v, OutputStream<'v>>,
+    output_stream: ValueTyped<'v, OutputStream>,
+    error_stream: ValueTyped<'v, OutputStream>,
     cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
 }
 
@@ -330,13 +330,11 @@ impl<'v> BxlContext<'v> {
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
                 output_sink,
-                async_ctx.dupe(),
             )),
             error_stream: heap.alloc_typed(OutputStream::new(
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
                 error_sink,
-                async_ctx.dupe(),
             )),
         };
         let context_type = BxlContextType::Root(root_data);
@@ -758,7 +756,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     #[starlark(attribute)]
-    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<ValueTyped<'v, OutputStream<'v>>> {
+    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<ValueTyped<'v, OutputStream>> {
         let output_stream = this
             .data
             .context_type
