@@ -13,7 +13,13 @@ def _impl_tr(platform, refs, attrs):
     }
 
     watchos = refs.watchos[ConstraintValueInfo]
-    constraints[watchos.setting.label] = watchos
+    iphoneos = refs.iphoneos[ConstraintValueInfo]
+    if attrs.device == "watch":
+        constraints[watchos.setting.label] = watchos
+    elif attrs.device == "phone":
+        constraints[iphoneos.setting.label] = iphoneos
+    else:
+        fail()
     new_cfg = ConfigurationInfo(
         constraints = constraints,
         values = platform.configuration.values,
@@ -23,22 +29,24 @@ def _impl_tr(platform, refs, attrs):
         configuration = new_cfg,
     )
 
-iphone_to_watch_transition = transition(
+iphone_or_watch_transition = transition(
     impl = _impl_tr,
     refs = {
+        "iphoneos": "root//:iphoneos",
         "os": "root//:os",
         "watchos": "root//:watchos",
     },
     attrs = [
         "device",
+        "extra",
     ],
 )
 
 def _impl(_ctx):
     return [DefaultInfo()]
 
-test_rule = rule(impl = _impl, attrs = {"device": attrs.string()}, cfg = iphone_to_watch_transition)
+test_rule = rule(impl = _impl, attrs = {"device": attrs.string(), "extra": attrs.string(default = "")}, cfg = iphone_or_watch_transition)
 
-test_rule_with_transition_dep = rule(impl = _impl, attrs = {"attr_with_transition": attrs.transition_dep(cfg = iphone_to_watch_transition), "device": attrs.string()})
+test_rule_with_transition_dep = rule(impl = _impl, attrs = {"attr_with_transition": attrs.transition_dep(cfg = iphone_or_watch_transition), "device": attrs.string(), "extra": attrs.string(default = "")})
 
 any_rule = rule(impl = _impl, attrs = {"another_device": attrs.string()})

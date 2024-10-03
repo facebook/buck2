@@ -26,9 +26,19 @@ test_rule(
 test_rule(
     name = "target_where_transition_changes_attr",
     default_target_platform = ":iphone",
-    device = select({
+    device = "watch",
+    extra = select({
         ":iphoneos": "phone",
         ":watchos": "watch",
+    }),
+)
+
+test_rule(
+    name = "target_where_transition_cycles_via_changed_attrs",
+    default_target_platform = ":iphone",
+    device = select({
+        ":iphoneos": "watch",
+        ":watchos": "phone",
     }),
 )
 
