@@ -26,13 +26,9 @@ function PossibleLink(props: {value: string}) {
 
   let res = null
   if (allTargets.hasOwnProperty(value)) {
-    res = (
-      <>
-        "<Link to={{target: value}}>{value}</Link>",
-      </>
-    )
+    res = <Link to={{target: value}}>{value}</Link>
   } else {
-    res = <>"{value}",</>
+    res = <>{value}</>
   }
   return res
 }
@@ -46,11 +42,15 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
   for (let i = 0; i < props.length; i++) {
     items.push(
       <li key={i}>
-        <PossibleLink value={props.attr(i)} />
+        <PossibleLink value={props.attr(i).trim()} />
       </li>,
     )
   }
-  return <ul>{items}</ul>
+  return (
+    <div className="content">
+      <ul>{items}</ul>
+    </div>
+  )
 }
 
 function ListAttr(props: {
@@ -205,11 +205,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
 
 function TargetDeps(props: {target: ConfiguredTargetNode}) {
   const {target} = props
-  return (
-    <div className="is-family-monospace">
-      deps = [<List attr={i => target.deps(i)} length={target.depsLength()} />]
-    </div>
-  )
+  return <List attr={i => target.deps(i)} length={target.depsLength()} />
 }
 
 function TargetRdeps(props: {target: ConfiguredTargetNode}) {
@@ -235,12 +231,7 @@ function TargetRdeps(props: {target: ConfiguredTargetNode}) {
     }
   })
 
-  return (
-    <div className="is-family-monospace">
-      rdeps = [
-      <List attr={i => rdeps[i]} length={rdeps.length} />]
-    </div>
-  )
+  return <List attr={i => rdeps[i]} length={rdeps.length} />
 }
 
 function TargetAttrs(props: {target: ConfiguredTargetNode}) {
