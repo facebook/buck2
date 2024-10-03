@@ -33,6 +33,7 @@ use crate::impls::dice::DiceModern;
 use crate::versions::VersionNumber;
 use crate::Dice;
 use crate::DiceData;
+use crate::DynKey;
 use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
 
@@ -369,10 +370,7 @@ struct CycleDetectorGuard {
 }
 
 impl UserCycleDetector for CycleDetector {
-    fn start_computing_key(
-        &self,
-        key: &dyn std::any::Any,
-    ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
+    fn start_computing_key(&self, key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -384,7 +382,7 @@ impl UserCycleDetector for CycleDetector {
         }))
     }
 
-    fn finished_computing_key(&self, key: &dyn std::any::Any) {
+    fn finished_computing_key(&self, key: &DynKey) {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -394,7 +392,7 @@ impl UserCycleDetector for CycleDetector {
 }
 
 impl UserCycleDetectorGuard for CycleDetectorGuard {
-    fn add_edge(&self, key: &dyn std::any::Any) {
+    fn add_edge(&self, key: &DynKey) {
         let f = key.downcast_ref::<Fib>().unwrap();
         self.events
             .lock()
@@ -630,18 +628,15 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
     struct AccessCycleDetectorGuard;
 
     impl UserCycleDetector for AccessCycleDetector {
-        fn start_computing_key(
-            &self,
-            _key: &dyn std::any::Any,
-        ) -> Option<Arc<dyn UserCycleDetectorGuard>> {
+        fn start_computing_key(&self, _key: &DynKey) -> Option<Arc<dyn UserCycleDetectorGuard>> {
             Some(Arc::new(AccessCycleDetectorGuard))
         }
 
-        fn finished_computing_key(&self, _key: &dyn std::any::Any) {}
+        fn finished_computing_key(&self, _key: &DynKey) {}
     }
 
     impl UserCycleDetectorGuard for AccessCycleDetectorGuard {
-        fn add_edge(&self, _key: &dyn std::any::Any) {}
+        fn add_edge(&self, _key: &DynKey) {}
 
         fn type_name(&self) -> &'static str {
             std::any::type_name::<Self>()

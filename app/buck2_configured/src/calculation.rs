@@ -25,6 +25,7 @@ use buck2_node::target_calculation::CONFIGURED_TARGET_CALCULATION;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DynKey;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -161,7 +162,7 @@ impl CycleDescriptor for ConfiguredGraphCycleDescriptor {
 }
 
 impl CycleAdapterDescriptor for ConfiguredGraphCycleDescriptor {
-    fn to_key(key: &dyn std::any::Any) -> Option<Self::Key> {
+    fn to_key(key: &DynKey) -> Option<Self::Key> {
         if let Some(v) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
             return Some(ConfiguredGraphCycleKeys::ConfiguredTargetNode(v.dupe()));
         }

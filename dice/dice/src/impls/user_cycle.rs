@@ -19,6 +19,7 @@ use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
+use crate::DynKey;
 
 pub(crate) struct UserCycleDetectorData(());
 
@@ -31,7 +32,7 @@ impl UserCycleDetectorData {
     ) -> KeyComputingUserCycleDetectorData {
         if let Some(detector) = detector {
             let k_erased = key_index.get(k);
-            if let Some(guard) = detector.start_computing_key(k_erased.as_any()) {
+            if let Some(guard) = detector.start_computing_key(DynKey::ref_cast(k_erased)) {
                 debug!("cycles start key {:?}", k);
                 return KeyComputingUserCycleDetectorData::Detecting(Arc::new(DetectingData {
                     k_erased: k_erased.dupe(),
@@ -68,7 +69,7 @@ impl KeyComputingUserCycleDetectorData {
     pub(crate) fn subrequest(&self, k: DiceKey, key_index: &DiceKeyIndex) -> UserCycleDetectorData {
         match self {
             KeyComputingUserCycleDetectorData::Detecting(data) => {
-                data.guard.add_edge(key_index.get(k).as_any());
+                data.guard.add_edge(DynKey::ref_cast(key_index.get(k)));
             }
             KeyComputingUserCycleDetectorData::Untracked => {}
         }
@@ -97,6 +98,7 @@ impl KeyComputingUserCycleDetectorData {
 impl Drop for DetectingData {
     fn drop(&mut self) {
         debug!("cycles finish key {:?}", self.k);
-        self.detector.finished_computing_key(self.k_erased.as_any())
+        self.detector
+            .finished_computing_key(DynKey::ref_cast(&self.k_erased))
     }
 }

@@ -39,7 +39,6 @@ impl DynKey {
     }
 
     #[ref_cast_custom]
-    #[allow(unused)] // TODO(cjhopman): Use this
     pub(crate) const fn ref_cast(erased: &DiceKeyErased) -> &Self;
 }
 
