@@ -26,6 +26,7 @@ use crate::typing::TyBasic;
 use crate::values::StarlarkValue;
 
 /// Type of type.
+#[doc(hidden)]
 #[derive(
     Debug,
     derive_more::Display,

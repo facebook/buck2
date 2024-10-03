@@ -38,6 +38,7 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::ty::AbstractType;
+use crate::values::typing::TypeType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
@@ -153,10 +154,10 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
 }
 
 impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
-    type Canonical = <AbstractType as StarlarkTypeRepr>::Canonical;
+    type Canonical = <TypeType as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        AbstractType::starlark_type_repr()
+        <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()
     }
 }
 
