@@ -140,9 +140,15 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   const target = props.target
   const tab = props.tab ?? TARGET_ATTRS
 
+  const filePath = target.codePointer()?.filePath()
+  const lineNumber = (target.codePointer()?.line() ?? 0) + 1
+  // TODO iguridi: make it work outside of fbsource
+  const codePointer = `https://www.internalfb.com/code/fbsource/${filePath}?lines=${lineNumber}`
+
   return (
     <div className="mt-4">
       <h4 className="title is-4">{target.configuredTargetLabel()}</h4>
+      <a href={codePointer}>Open in codehub </a>
 
       <div className="tabs">
         <ul>
