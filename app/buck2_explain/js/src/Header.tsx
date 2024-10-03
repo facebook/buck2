@@ -25,7 +25,7 @@ export function Header() {
   return (
     <nav className="navbar" role="navigation" aria-label="main navigation">
       <div className="navbar-brand">
-        <Link className="bold no-underline navbar-item" to={{}}>
+        <Link className="bold has-text-info-bold no-underline navbar-item" to={{}}>
           <span className="icon mr-1">
             <i className="fa fa-bullseye" />
           </span>
@@ -34,13 +34,13 @@ export function Header() {
       </div>
       <div className="navbar-menu">
         <div className="navbar-end">
-          <Link className="bold no-underline navbar-item" to={{graph: ''}}>
+          <Link className="bold no-underline navbar-item has-text-info-bold" to={{graph: ''}}>
             <span className="icon mr-1">
               <i className="fa fa-project-diagram" />
             </span>
             Graph
           </Link>
-          <div className="navbar-item">
+          <div className="navbar-item has-text-info-bold">
             <SearchBox />
           </div>
         </div>
