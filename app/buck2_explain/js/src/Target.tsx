@@ -145,11 +145,20 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   // TODO iguridi: make it work outside of fbsource
   const codePointer = `https://www.internalfb.com/code/fbsource/${filePath}?lines=${lineNumber}`
 
+  const targetLabel = target.configuredTargetLabel()?.split(' ')[0]
+
   return (
     <div className="mt-4">
-      <h4 className="title is-4">{target.configuredTargetLabel()}</h4>
-      <a href={codePointer}>Open in codehub </a>
-
+      <div className="ml-4 my-6">
+        <a href={codePointer}>(codehub) </a>
+        <h4 className="title is-4">{targetLabel}</h4>
+        <ul>
+          <li>
+            <b>Rule type</b>
+            <p className="mb-2 is-family-monospace">{target.type()}</p>
+          </li>
+        </ul>
+      </div>
       <div className="tabs">
         <ul>
           <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
