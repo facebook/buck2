@@ -53,7 +53,7 @@ impl StreamingCommand for ExplainCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        _matches: &ArgMatches,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         if cfg!(windows) {
@@ -124,7 +124,7 @@ impl StreamingCommand for ExplainCommand {
             None
         };
 
-        let context = ctx.client_context(matches, &self)?;
+        let context = ctx.empty_client_context("explain")?;
         buckd
             .with_flushing()
             .new_generic(
