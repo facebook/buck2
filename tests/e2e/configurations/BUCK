@@ -54,3 +54,9 @@ buck2_e2e_test(
     srcs = ["test_toolchain_overconfiguration.py"],
     data_dir = "test_toolchain_overconfiguration_data",
 )
+
+buck2_e2e_test(
+    name = "test_select_concat",
+    srcs = ["test_select_concat.py"],
+    data_dir = "test_select_concat_data",
+)
