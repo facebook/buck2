@@ -14,6 +14,102 @@ use crate::Tier;
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
 
+macro_rules! rank {
+    ( $tier:ident ) => {
+        match stringify!($tier) {
+            "environment" => (Some(Tier::Environment), line!()),
+            "tier0" => (Some(Tier::Tier0), line!()),
+            "input" => (Some(Tier::Input), line!()),
+            "unspecified" => (None, line!()),
+            _ => unreachable!(),
+        }
+    };
+}
+
+/// Ordering determines tag rank, more interesting tags first
+pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
+    match tag {
+        ErrorTag::ServerJemallocAssert => rank!(tier0),
+        ErrorTag::ServerStackOverflow => rank!(tier0),
+        ErrorTag::ServerPanicked => rank!(tier0),
+        ErrorTag::ServerSegv => rank!(tier0),
+        ErrorTag::InternalError => rank!(tier0),
+        // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
+        // happens, it's probably because the user tried to shut down with Ctrl+C and something
+        // about that didn't work
+        ErrorTag::InterruptedByDaemonShutdown => rank!(input),
+        ErrorTag::DaemonWontDieFromKill => rank!(tier0),
+        ErrorTag::DaemonIsBusy => rank!(input),
+        ErrorTag::DaemonPreempted => rank!(input),
+        ErrorTag::DaemonConnect => rank!(unspecified),
+        ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
+        ErrorTag::ClientGrpc => rank!(tier0),
+        ErrorTag::NoValidCerts => rank!(environment),
+        ErrorTag::ReUnknownTcode => rank!(tier0),
+        ErrorTag::ReCancelled => rank!(tier0),
+        ErrorTag::ReUnknown => rank!(tier0),
+        ErrorTag::ReInvalidArgument => rank!(tier0),
+        ErrorTag::ReDeadlineExceeded => rank!(tier0),
+        ErrorTag::ReNotFound => rank!(tier0),
+        ErrorTag::ReAlreadyExists => rank!(tier0),
+        ErrorTag::RePermissionDenied => rank!(tier0),
+        ErrorTag::ReResourceExhausted => rank!(tier0),
+        ErrorTag::ReFailedPrecondition => rank!(tier0),
+        ErrorTag::ReAborted => rank!(tier0),
+        ErrorTag::ReOutOfRange => rank!(tier0),
+        ErrorTag::ReUnimplemented => rank!(tier0),
+        ErrorTag::ReInternal => rank!(tier0),
+        ErrorTag::ReUnavailable => rank!(tier0),
+        ErrorTag::ReDataLoss => rank!(tier0),
+        ErrorTag::ReUnauthenticated => rank!(tier0),
+        ErrorTag::IoBrokenPipe => rank!(unspecified),
+        ErrorTag::IoConnectionAborted => rank!(tier0),
+        ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
+        ErrorTag::IoExecutableFileBusy => rank!(input),
+        ErrorTag::IoStorageFull => rank!(input),
+        ErrorTag::IoTimeout => rank!(tier0),
+        ErrorTag::IoMaterializerFileBusy => rank!(environment),
+        ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
+        ErrorTag::IoPermissionDenied => rank!(input),
+        ErrorTag::IoNotFound => rank!(unspecified),
+        ErrorTag::IoSource => rank!(unspecified),
+        ErrorTag::IoSystem => rank!(unspecified),
+        ErrorTag::IoEden => rank!(unspecified),
+        ErrorTag::IoEdenConnectionError => rank!(unspecified),
+        ErrorTag::IoEdenRequestError => rank!(unspecified),
+        ErrorTag::IoEdenMountDoesNotExist => rank!(input),
+        ErrorTag::IoEdenMountNotReady => rank!(tier0),
+        // TODO(minglunli): Check how often Win32 Errors are actually hit, potentially do the same as POSIX
+        ErrorTag::IoEdenWin32Error => rank!(tier0),
+        ErrorTag::IoEdenHresultError => rank!(tier0),
+        ErrorTag::IoEdenArgumentError => rank!(tier0),
+        ErrorTag::IoEdenGenericError => rank!(tier0),
+        ErrorTag::IoEdenMountGenerationChanged => rank!(tier0),
+        ErrorTag::IoEdenJournalTruncated => rank!(tier0),
+        ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
+        ErrorTag::IoEdenOutOfDateParent => rank!(tier0),
+        ErrorTag::IoEdenUnknownField => rank!(unspecified),
+        ErrorTag::IoClientBrokenPipe => rank!(environment),
+        ErrorTag::MaterializationError => rank!(unspecified),
+        ErrorTag::ProjectMissingPath => rank!(input),
+        ErrorTag::StarlarkFail => rank!(input),
+        ErrorTag::StarlarkStackOverflow => rank!(input),
+        ErrorTag::Visibility => rank!(input),
+        ErrorTag::WatchmanTimeout => rank!(tier0),
+        ErrorTag::WatchmanRequestError => rank!(tier0),
+        ErrorTag::HttpServer => rank!(tier0),
+        ErrorTag::HttpClient => rank!(input),
+        ErrorTag::Http => rank!(unspecified),
+        ErrorTag::ServerStderrUnknown => rank!(unspecified),
+        ErrorTag::ServerStderrEmpty => rank!(unspecified),
+        ErrorTag::Install => rank!(unspecified),
+        ErrorTag::Analysis => rank!(input),
+        ErrorTag::AnyActionExecution => rank!(unspecified),
+        ErrorTag::AnyStarlarkEvaluation => rank!(unspecified),
+        ErrorTag::UnusedDefaultTag => rank!(unspecified),
+    }
+}
+
 pub trait ErrorLike {
     fn best_tag(&self) -> Option<ErrorTag>;
 }
@@ -43,166 +139,12 @@ pub fn best_tag(tags: impl IntoIterator<Item = ErrorTag>) -> Option<ErrorTag> {
 
 /// Tag rank: smaller is more interesting.
 fn tag_rank(tag: ErrorTag) -> u32 {
-    match tag {
-        ErrorTag::ServerJemallocAssert => line!(),
-        ErrorTag::ServerStackOverflow => line!(),
-        ErrorTag::ServerPanicked => line!(),
-        ErrorTag::ServerSegv => line!(),
-        ErrorTag::InternalError => line!(),
-        ErrorTag::InterruptedByDaemonShutdown => line!(),
-        ErrorTag::DaemonWontDieFromKill => line!(),
-        ErrorTag::DaemonIsBusy => line!(),
-        ErrorTag::DaemonPreempted => line!(),
-        ErrorTag::DaemonConnect => line!(),
-        ErrorTag::GrpcResponseMessageTooLarge => line!(),
-        ErrorTag::ClientGrpc => line!(),
-        ErrorTag::NoValidCerts => line!(),
-        ErrorTag::ReUnknownTcode => line!(),
-        ErrorTag::ReCancelled => line!(),
-        ErrorTag::ReUnknown => line!(),
-        ErrorTag::ReInvalidArgument => line!(),
-        ErrorTag::ReDeadlineExceeded => line!(),
-        ErrorTag::ReNotFound => line!(),
-        ErrorTag::ReAlreadyExists => line!(),
-        ErrorTag::RePermissionDenied => line!(),
-        ErrorTag::ReResourceExhausted => line!(),
-        ErrorTag::ReFailedPrecondition => line!(),
-        ErrorTag::ReAborted => line!(),
-        ErrorTag::ReOutOfRange => line!(),
-        ErrorTag::ReUnimplemented => line!(),
-        ErrorTag::ReInternal => line!(),
-        ErrorTag::ReUnavailable => line!(),
-        ErrorTag::ReDataLoss => line!(),
-        ErrorTag::ReUnauthenticated => line!(),
-        ErrorTag::IoBrokenPipe => line!(),
-        ErrorTag::IoConnectionAborted => line!(),
-        ErrorTag::IoNotConnected => line!(),
-        ErrorTag::IoExecutableFileBusy => line!(),
-        ErrorTag::IoStorageFull => line!(),
-        ErrorTag::IoTimeout => line!(),
-        ErrorTag::IoMaterializerFileBusy => line!(),
-        ErrorTag::IoWindowsSharingViolation => line!(),
-        ErrorTag::IoPermissionDenied => line!(),
-        ErrorTag::IoNotFound => line!(),
-        ErrorTag::IoSource => line!(),
-        ErrorTag::IoSystem => line!(),
-        ErrorTag::IoEden => line!(),
-        ErrorTag::IoEdenConnectionError => line!(),
-        ErrorTag::IoEdenRequestError => line!(),
-        ErrorTag::IoEdenMountDoesNotExist => line!(),
-        ErrorTag::IoEdenMountNotReady => line!(),
-        ErrorTag::IoEdenWin32Error => line!(),
-        ErrorTag::IoEdenHresultError => line!(),
-        ErrorTag::IoEdenArgumentError => line!(),
-        ErrorTag::IoEdenGenericError => line!(),
-        ErrorTag::IoEdenMountGenerationChanged => line!(),
-        ErrorTag::IoEdenJournalTruncated => line!(),
-        ErrorTag::IoEdenCheckoutInProgress => line!(),
-        ErrorTag::IoEdenOutOfDateParent => line!(),
-        ErrorTag::IoEdenUnknownField => line!(),
-        ErrorTag::IoClientBrokenPipe => line!(),
-        ErrorTag::MaterializationError => line!(),
-        ErrorTag::ProjectMissingPath => line!(),
-        ErrorTag::StarlarkFail => line!(),
-        ErrorTag::StarlarkStackOverflow => line!(),
-        ErrorTag::Visibility => line!(),
-        ErrorTag::WatchmanTimeout => line!(),
-        ErrorTag::WatchmanRequestError => line!(),
-        ErrorTag::HttpServer => line!(),
-        ErrorTag::HttpClient => line!(),
-        ErrorTag::Http => line!(),
-        ErrorTag::ServerStderrUnknown => line!(),
-        ErrorTag::ServerStderrEmpty => line!(),
-        ErrorTag::Install => line!(),
-        ErrorTag::Analysis => line!(),
-        ErrorTag::AnyActionExecution => line!(),
-        ErrorTag::AnyStarlarkEvaluation => line!(),
-        ErrorTag::UnusedDefaultTag => line!(),
-    }
+    category_and_rank(tag).1
 }
 
 /// Some tags are known to be either infrastructure or user errors.
 pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
-    match tag {
-        ErrorTag::ServerJemallocAssert => Some(Tier::Tier0),
-        ErrorTag::ServerStackOverflow => Some(Tier::Tier0),
-        ErrorTag::ServerPanicked => Some(Tier::Tier0),
-        ErrorTag::ServerSegv => Some(Tier::Tier0),
-        ErrorTag::DaemonWontDieFromKill => Some(Tier::Tier0),
-        ErrorTag::DaemonConnect => None,
-        ErrorTag::DaemonIsBusy => Some(Tier::Input),
-        ErrorTag::DaemonPreempted => Some(Tier::Input),
-        ErrorTag::InternalError => Some(Tier::Tier0),
-        // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
-        // happens, it's probably because the user tried to shut down with Ctrl+C and something
-        // about that didn't work
-        ErrorTag::InterruptedByDaemonShutdown => Some(Tier::Input),
-        ErrorTag::GrpcResponseMessageTooLarge => Some(Tier::Tier0),
-        ErrorTag::ClientGrpc => Some(Tier::Tier0),
-        ErrorTag::NoValidCerts => Some(Tier::Input),
-        ErrorTag::IoBrokenPipe => None,
-        ErrorTag::IoConnectionAborted => Some(Tier::Tier0),
-        ErrorTag::IoNotConnected => Some(Tier::Input), // This typically means eden is not mounted
-        ErrorTag::IoExecutableFileBusy => Some(Tier::Input),
-        ErrorTag::IoStorageFull => Some(Tier::Input),
-        ErrorTag::IoTimeout => Some(Tier::Tier0),
-        ErrorTag::IoMaterializerFileBusy => Some(Tier::Environment),
-        ErrorTag::IoWindowsSharingViolation => None,
-        ErrorTag::IoPermissionDenied => Some(Tier::Input),
-        ErrorTag::IoNotFound => None,
-        ErrorTag::IoSource => None,
-        ErrorTag::IoSystem => None,
-        ErrorTag::IoEden => None,
-        ErrorTag::IoEdenConnectionError => None,
-        ErrorTag::IoEdenRequestError => None,
-        ErrorTag::IoEdenMountDoesNotExist => Some(Tier::Input),
-        ErrorTag::IoEdenMountNotReady => Some(Tier::Tier0),
-        // TODO(minglunli): Check how often Win32 Errors are actually hit, potentially do the same as POSIX
-        ErrorTag::IoEdenWin32Error => Some(Tier::Tier0),
-        ErrorTag::IoEdenHresultError => Some(Tier::Tier0),
-        ErrorTag::IoEdenArgumentError => Some(Tier::Tier0),
-        ErrorTag::IoEdenGenericError => Some(Tier::Tier0),
-        ErrorTag::IoEdenMountGenerationChanged => Some(Tier::Tier0),
-        ErrorTag::IoEdenJournalTruncated => Some(Tier::Tier0),
-        ErrorTag::IoEdenCheckoutInProgress => Some(Tier::Input), // User switching branches during Eden operation
-        ErrorTag::IoEdenOutOfDateParent => Some(Tier::Tier0),
-        ErrorTag::IoEdenUnknownField => None,
-        ErrorTag::IoClientBrokenPipe => Some(Tier::Environment),
-        ErrorTag::ProjectMissingPath => Some(Tier::Input),
-        ErrorTag::StarlarkFail => Some(Tier::Input),
-        ErrorTag::StarlarkStackOverflow => Some(Tier::Input),
-        ErrorTag::Visibility => Some(Tier::Input),
-        ErrorTag::Analysis => Some(Tier::Input),
-        ErrorTag::WatchmanTimeout => Some(Tier::Tier0),
-        ErrorTag::WatchmanRequestError => Some(Tier::Tier0),
-        ErrorTag::HttpServer => Some(Tier::Tier0),
-        ErrorTag::HttpClient => Some(Tier::Input),
-        ErrorTag::Http => None,
-        ErrorTag::AnyActionExecution => None,
-        ErrorTag::AnyStarlarkEvaluation => None,
-        ErrorTag::ServerStderrUnknown => None,
-        ErrorTag::ServerStderrEmpty => None,
-        ErrorTag::UnusedDefaultTag => None,
-        ErrorTag::Install => None,
-        ErrorTag::MaterializationError => None,
-        ErrorTag::ReUnknownTcode => Some(Tier::Tier0),
-        ErrorTag::ReCancelled => Some(Tier::Tier0),
-        ErrorTag::ReUnknown => Some(Tier::Tier0),
-        ErrorTag::ReInvalidArgument => Some(Tier::Tier0),
-        ErrorTag::ReDeadlineExceeded => Some(Tier::Tier0),
-        ErrorTag::ReNotFound => Some(Tier::Tier0),
-        ErrorTag::ReAlreadyExists => Some(Tier::Tier0),
-        ErrorTag::RePermissionDenied => Some(Tier::Tier0),
-        ErrorTag::ReResourceExhausted => Some(Tier::Tier0),
-        ErrorTag::ReFailedPrecondition => Some(Tier::Tier0),
-        ErrorTag::ReAborted => Some(Tier::Tier0),
-        ErrorTag::ReOutOfRange => Some(Tier::Tier0),
-        ErrorTag::ReUnimplemented => Some(Tier::Tier0),
-        ErrorTag::ReInternal => Some(Tier::Tier0),
-        ErrorTag::ReUnavailable => Some(Tier::Tier0),
-        ErrorTag::ReDataLoss => Some(Tier::Tier0),
-        ErrorTag::ReUnauthenticated => Some(Tier::Tier0),
-    }
+    category_and_rank(tag).0
 }
 
 #[cfg(test)]
@@ -216,6 +158,14 @@ mod tests {
         assert_eq!(
             Some(ErrorTag::ServerPanicked),
             best_tag([ErrorTag::ServerPanicked, ErrorTag::WatchmanTimeout])
+        )
+    }
+
+    #[test]
+    fn test_rank() {
+        assert!(
+            super::tag_rank(ErrorTag::ServerJemallocAssert)
+                < super::tag_rank(ErrorTag::UnusedDefaultTag)
         )
     }
 }
