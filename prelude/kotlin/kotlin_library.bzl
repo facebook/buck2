@@ -392,7 +392,7 @@ def build_kotlin_library(
                 ),
                 "bootclasspath_entries": bootclasspath_entries,
                 "debug_port": getattr(ctx.attrs, "debug_port", None),
-                "deps": deps,
+                "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
                 "friend_paths": ctx.attrs.friend_paths,
                 "incremental": ctx.attrs.incremental,
