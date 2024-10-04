@@ -8,6 +8,7 @@
 # pyre-strict
 
 
+import asyncio
 import glob
 import json
 from typing import Any, Dict, List, Tuple
@@ -19,16 +20,18 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import read_what_ran
 
 
+package = "fbcode//buck2/tests/targets/rules/worker_grpc"
+
+worker_args = [
+    "-c",
+    "build.require_persistent_workers=True",
+    "--no-remote-cache",
+]
+
+
 # disabled on mac due to Python GRPC issues
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_worker(buck: Buck) -> None:
-    worker_args = [
-        "-c",
-        "build.require_persistent_workers=True",
-        "--no-remote-cache",
-    ]
-    package = "fbcode//buck2/tests/targets/rules/worker_grpc"
-
     async def read_what_ran_for_executor(
         buck: Buck, executor: str
     ) -> List[Dict[str, Any]]:
@@ -81,31 +84,6 @@ async def test_worker(buck: Buck) -> None:
         stderr_regex="Worker failed to connect",
     )
 
-    # Check connection error if worker server dies mid-request
-    await expect_failure(
-        buck.build(
-            *worker_args,
-            "-c",
-            "build.persistent_worker_check_child_liveness=true",
-            package + ":gen_worker_init_self_destruct",
-        ),
-        stderr_regex="Worker exited while running command",
-    )
-
-    # TODO(ronmrdechai): this timeout cases the daemon to panic for some reason. Figure out a better
-    # way to test this.
-    # import asyncio
-    # await expect_failure(
-    #     asyncio.wait_for(
-    #         buck.build(
-    #             *worker_args,
-    #             package + ":gen_worker_init_self_destruct",
-    #         ),
-    #         20,
-    #     ),
-    #     exception=asyncio.TimeoutError,
-    # )
-
     # With hybrid execution:
     # 1. Check that building `:gen_slow_worker_fast_fallback` first (as dependency) causes remote to succeed and worker to be cancelled.
     # 2. Check that `:gen_fast_worker_slow_fallback` worker execution succeeds, using same worker initialized by 1.
@@ -115,7 +93,6 @@ async def test_worker(buck: Buck) -> None:
         "-c",
         "build.use_limited_hybrid=False",
     ]
-    package = "fbcode//buck2/tests/targets/rules/worker_grpc"
     await buck.build(*hybrid_args, package + ":gen_fast_worker_slow_fallback")
     assert len(await read_what_ran_for_executor(buck, "WorkerInit")) == 1
 
@@ -148,6 +125,34 @@ async def test_worker(buck: Buck) -> None:
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_worker_exit_handled(buck: Buck) -> None:
+    # Check connection error if worker server dies mid-request
+    await expect_failure(
+        buck.build(
+            *worker_args,
+            "-c",
+            "build.persistent_worker_check_child_liveness=true",
+            package + ":gen_worker_init_self_destruct",
+        ),
+        stderr_regex="Worker exited while running command",
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_worker_exit_not_handled(buck: Buck) -> None:
+    await expect_failure(
+        asyncio.wait_for(
+            buck.build(
+                *worker_args,
+                package + ":gen_worker_init_self_destruct",
+            ),
+            20,
+        ),
+        exception=asyncio.TimeoutError,
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_worker_thread_limit(buck: Buck) -> None:
     worker_args = [
         "-c",
@@ -155,7 +160,6 @@ async def test_worker_thread_limit(buck: Buck) -> None:
         "--local-only",
         "--no-remote-cache",
     ]
-    package = "fbcode//buck2/tests/targets/rules/worker_grpc"
     await expect_failure(
         buck.build(*worker_args, package + ":gen_worker_concurrent_fail"),
         stderr_regex="Concurrency check failed",
