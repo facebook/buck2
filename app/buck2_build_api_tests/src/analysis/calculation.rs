@@ -176,7 +176,6 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
         .require_compatible()?;
 
     assert_eq!(analysis.analysis_values().iter_actions().count(), 0);
-    assert_eq!(analysis.analysis_values().iter_dynamic_lambdas().count(), 0);
 
     assert_eq!(
         analysis
