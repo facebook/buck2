@@ -55,6 +55,25 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyCtx {
 
 #[starlark_module]
 fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
+    /// Join two lazy operations into a single operation that can be evaluated.
+    ///
+    /// Example:
+    /// ```text
+    /// def _impl(ctx):
+    ///     ...
+    ///     joined = ctx.lazy.join(ctx.lazy.analysis(t1), ctx.lazy.analysis(t2))
+    ///     (res1, res2) = joined.resolve()
+    ///     ctx.output.print(res1)
+    ///     ctx.output.print(res2)
+    /// ```
+    fn join<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] lazy0: &'v StarlarkLazy,
+        #[starlark(require = pos)] lazy1: &'v StarlarkLazy,
+    ) -> anyhow::Result<StarlarkLazy> {
+        Ok(StarlarkLazy::new_join(lazy0.dupe(), lazy1.dupe()))
+    }
+
     /// Join a list of lazy operations into a single operation that can be evaluated.
     /// This is useful when you want to evaluate multiple operations in parallel.
     /// Using `.try_resolve()` can catch errors for the individual operations.

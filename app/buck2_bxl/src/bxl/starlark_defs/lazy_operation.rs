@@ -42,6 +42,7 @@ use crate::bxl::starlark_defs::result::StarlarkResultGen;
 #[derive(Derivative, Debug, Clone, Allocative)]
 pub(crate) enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
+    Join(Arc<LazyOperation>, Arc<LazyOperation>),
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
 }
@@ -49,6 +50,7 @@ pub(crate) enum LazyOperation {
 #[derive(Allocative)]
 pub(crate) enum LazyResult {
     Analysis(StarlarkAnalysisResult),
+    Join(Box<(LazyResult, LazyResult)>),
     Batch(Vec<LazyResult>),
     Catch(Box<anyhow::Result<LazyResult>>),
 }
@@ -57,6 +59,7 @@ impl LazyResult {
     fn into_value<'v>(self, heap: &'v Heap) -> Value<'v> {
         match self {
             LazyResult::Analysis(analysis_res) => heap.alloc(analysis_res),
+            LazyResult::Join(res) => heap.alloc((res.0.into_value(heap), res.1.into_value(heap))),
             LazyResult::Batch(res) => {
                 heap.alloc(AllocList(res.into_iter().map(|v| v.into_value(heap))))
             }
@@ -74,6 +77,16 @@ impl LazyOperation {
         match self {
             LazyOperation::Analysis(label) => {
                 Ok(LazyResult::Analysis(analysis(dice, label).await?))
+            }
+            LazyOperation::Join(lazy0, lazy1) => {
+                let compute0 = DiceComputations::declare_closure(|dice| {
+                    async move { lazy0.resolve(dice).await }.boxed()
+                });
+                let compute1 = DiceComputations::declare_closure(|dice| {
+                    async move { lazy1.resolve(dice).await }.boxed()
+                });
+                let (res0, res1) = dice.try_compute2(compute0, compute1).await?;
+                Ok(LazyResult::Join(Box::new((res0, res1))))
             }
             LazyOperation::Batch(lazies) => {
                 let res = dice
@@ -123,6 +136,12 @@ impl StarlarkLazy {
             lazy: Arc::new(LazyOperation::Batch(
                 lazies.into_iter().map(|v| v.lazy).collect(),
             )),
+        }
+    }
+
+    pub(crate) fn new_join(lazy0: StarlarkLazy, lazy1: StarlarkLazy) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::Join(lazy0.lazy, lazy1.lazy)),
         }
     }
 }
