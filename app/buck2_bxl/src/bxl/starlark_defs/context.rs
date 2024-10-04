@@ -1466,7 +1466,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// Lazy/batch/error handling operations.
     #[starlark(attribute)]
-    fn lazy<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkLazyCtx> {
-        Ok(StarlarkLazyCtx)
+    fn lazy<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkLazyCtx<'v>> {
+        Ok(StarlarkLazyCtx::new(this))
     }
 }

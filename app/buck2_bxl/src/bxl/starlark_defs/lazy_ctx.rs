@@ -16,14 +16,18 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::starlark_simple_value;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
+use starlark::values::AllocValue;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::lazy_operation::StarlarkLazy;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
 
@@ -41,12 +45,26 @@ use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("bxl.LazyContext")]
-pub(crate) struct StarlarkLazyCtx;
+#[allocative(skip)]
+pub(crate) struct StarlarkLazyCtx<'v> {
+    #[derivative(Debug = "ignore")]
+    ctx: ValueTyped<'v, BxlContext<'v>>,
+}
 
-starlark_simple_value!(StarlarkLazyCtx);
+impl<'v> AllocValue<'v> for StarlarkLazyCtx<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
 
-#[starlark_value(type = "bxl.LazyContext")]
-impl<'v> StarlarkValue<'v> for StarlarkLazyCtx {
+impl<'v> StarlarkLazyCtx<'v> {
+    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> Self {
+        Self { ctx }
+    }
+}
+
+#[starlark_value(type = "bxl.LazyContext", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkLazyCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(lazy_ctx_methods)
