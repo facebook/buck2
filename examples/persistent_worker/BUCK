@@ -1,6 +1,11 @@
 load("defs.bzl", "demo", "worker")
 
 python_binary(
+    name = "one_shot",
+    main = "one_shot.py",
+)
+
+python_binary(
     name = "worker_py",
     main = "persistent_worker.py",
     deps = [
