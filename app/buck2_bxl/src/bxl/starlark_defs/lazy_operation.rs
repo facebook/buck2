@@ -36,6 +36,7 @@ use starlark::values::Value;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::result::StarlarkResultGen;
 
@@ -73,17 +74,21 @@ impl LazyResult {
 
 impl LazyOperation {
     #[async_recursion]
-    async fn resolve(&self, dice: &mut DiceComputations<'_>) -> anyhow::Result<LazyResult> {
+    async fn resolve(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        _core_data: &BxlContextCoreData,
+    ) -> anyhow::Result<LazyResult> {
         match self {
             LazyOperation::Analysis(label) => {
                 Ok(LazyResult::Analysis(analysis(dice, label).await?))
             }
             LazyOperation::Join(lazy0, lazy1) => {
                 let compute0 = DiceComputations::declare_closure(|dice| {
-                    async move { lazy0.resolve(dice).await }.boxed()
+                    async move { lazy0.resolve(dice, _core_data).await }.boxed()
                 });
                 let compute1 = DiceComputations::declare_closure(|dice| {
-                    async move { lazy1.resolve(dice).await }.boxed()
+                    async move { lazy1.resolve(dice, _core_data).await }.boxed()
                 });
                 let (res0, res1) = dice.try_compute2(compute0, compute1).await?;
                 Ok(LazyResult::Join(Box::new((res0, res1))))
@@ -91,13 +96,13 @@ impl LazyOperation {
             LazyOperation::Batch(lazies) => {
                 let res = dice
                     .try_compute_join(lazies, |dice, lazy| {
-                        async move { lazy.resolve(dice).await }.boxed()
+                        async move { lazy.resolve(dice, _core_data).await }.boxed()
                     })
                     .await?;
                 Ok(LazyResult::Batch(res))
             }
             LazyOperation::Catch(lazy) => {
-                let res = lazy.resolve(dice).await;
+                let res = lazy.resolve(dice, _core_data).await;
                 Ok(LazyResult::Catch(Box::new(res)))
             }
         }
@@ -182,8 +187,9 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<Value<'v>> {
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
         let lazy = this.lazy.clone();
-        let res = bxl_eval_extra
-            .via_dice(|dice| dice.via(|dice| async { lazy.resolve(dice).await }.boxed_local()));
+        let res = bxl_eval_extra.via_dice(|dice, core_data| {
+            dice.via(|dice| async { lazy.resolve(dice, core_data).await }.boxed_local())
+        });
 
         let heap = eval.heap();
         res.map(|v| v.into_value(heap))

@@ -136,6 +136,7 @@ impl BxlInnerEvaluator {
         } = self;
         let bxl_dice = BxlSafeDiceComputations::new(dice, liveness);
         let bxl_dice = Rc::new(RefCell::new(bxl_dice));
+        let data = Rc::new(data);
 
         let env = Module::new();
         let key = data.key().dupe();
@@ -174,7 +175,7 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
-            let extra = BxlEvalExtra::new(bxl_dice.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();

@@ -13,14 +13,15 @@ use std::rc::Rc;
 use starlark::eval::Evaluator;
 use starlark::values::ProvidesStaticType;
 
-use super::context::starlark_async::BxlDiceComputations;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 
 /// A tag that is only available when running in Bxl, to guard Bxl
 /// functions from a non-Bxl context.
 #[derive(ProvidesStaticType)]
 pub(crate) struct BxlEvalExtra<'e> {
-    #[allow(unused)]
     pub(crate) dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
+    core: Rc<BxlContextCoreData>,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -30,8 +31,11 @@ pub(crate) enum BxlContextError {
 }
 
 impl<'e> BxlEvalExtra<'e> {
-    pub(crate) fn new(dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>) -> Self {
-        Self { dice }
+    pub(crate) fn new(
+        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
+        core: Rc<BxlContextCoreData>,
+    ) -> Self {
+        Self { dice, core }
     }
 
     pub(crate) fn from_context<'v, 'a>(
@@ -41,10 +45,14 @@ impl<'e> BxlEvalExtra<'e> {
         f().ok_or_else(|| BxlContextError::UnavailableOutsideBxl.into())
     }
 
-    pub(crate) fn via_dice<T>(
-        &self,
-        f: impl for<'x> FnOnce(&'x mut dyn BxlDiceComputations) -> anyhow::Result<T>,
+    pub(crate) fn via_dice<'a, T>(
+        &'a self,
+        f: impl for<'x> FnOnce(
+            &'x mut dyn BxlDiceComputations,
+            &'a BxlContextCoreData,
+        ) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        f(&mut *self.dice.borrow_mut())
+        let core = &self.core;
+        f(&mut *self.dice.borrow_mut(), core)
     }
 }

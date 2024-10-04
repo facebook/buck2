@@ -244,9 +244,9 @@ impl<'v> Deref for BxlContext<'v> {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlContextNoDice<'v> {
-    pub(crate) state: ValueTyped<'v, AnalysisActions<'v>>,
-    pub(crate) context_type: BxlContextType<'v>,
-    core: BxlContextCoreData,
+    state: ValueTyped<'v, AnalysisActions<'v>>,
+    context_type: BxlContextType<'v>,
+    core: Rc<BxlContextCoreData>,
 }
 
 impl Deref for BxlContextNoDice<'_> {
@@ -317,7 +317,7 @@ impl BxlContextCoreData {
 impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
-        core: BxlContextCoreData,
+        core: Rc<BxlContextCoreData>,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         output_sink: RefCell<Box<dyn Write>>,
@@ -356,7 +356,7 @@ impl<'v> BxlContext<'v> {
 
     pub(crate) fn new_dynamic(
         heap: &'v Heap,
-        core: BxlContextCoreData,
+        core: Rc<BxlContextCoreData>,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
@@ -650,7 +650,8 @@ impl BxlDynamicOutputEvaluator<'_> {
         )));
 
         let analysis_registry = {
-            let extra = BxlEvalExtra::new(bxl_dice.dupe());
+            let data = Rc::new(self.data);
+            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe());
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
@@ -669,7 +670,7 @@ impl BxlDynamicOutputEvaluator<'_> {
 
             let bxl_dynamic_ctx = BxlContext::new_dynamic(
                 env.heap(),
-                self.data,
+                data,
                 bxl_dice,
                 self.digest_config,
                 dynamic_lambda_ctx_data.registry,
