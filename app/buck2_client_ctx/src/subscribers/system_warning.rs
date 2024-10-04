@@ -149,3 +149,14 @@ fn inner_check_download_speed(
         None
     }
 }
+
+pub(crate) fn is_vpn_enabled() -> bool {
+    if !cfg!(target_os = "macos") {
+        // TODO(rajneeshl): Add support for Windows
+        return false;
+    }
+
+    // Brittle check based on Cisco client's current behaviour.
+    // Small section copied from https://fburl.com/code/g7ttsdz3
+    std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
+}

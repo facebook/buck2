@@ -68,6 +68,7 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::system_warning::is_vpn_enabled;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
@@ -551,6 +552,9 @@ impl<'a> InvocationRecorder<'a> {
                 self.re_avg_download_speed.avg_per_second(),
             ) {
                 self.tags.push("slow_network_speed".to_owned());
+            }
+            if is_vpn_enabled() {
+                self.tags.push("vpn_enabled".to_owned());
             }
         }
 
