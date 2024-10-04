@@ -1013,7 +1013,6 @@ swift_toolchain = prelude_rule(
             "runtime_paths_for_bundling": attrs.list(attrs.string(), default = []),
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),
             "runtime_run_paths": attrs.list(attrs.string(), default = []),
-            "sdk_dependencies_path": attrs.option(attrs.string(), default = None),
             "sdk_path": attrs.source(),
             "static_runtime_paths": attrs.list(attrs.string(), default = []),
             "supports_relative_resource_dir": attrs.bool(default = False),
