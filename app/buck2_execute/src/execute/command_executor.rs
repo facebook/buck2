@@ -11,6 +11,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
@@ -184,14 +185,23 @@ impl CommandExecutor {
                 CommandExecutionInput::ScratchPath(_) => None,
             });
             let mut platform = self.0.re_platform.clone();
-            if self.0.options.use_remote_persistent_workers && let Some(worker) = request.worker() && let Some(key) = worker.remote_key.as_ref() {
+            let args = if self.0.options.use_remote_persistent_workers && let Some(worker) = request.worker() && let Some(key) = worker.remote_key.as_ref() {
                 platform.properties.push(RE::Property {
                     name: "persistentWorkerKey".to_owned(),
                     value: key.to_string(),
                 });
-            }
+                // TODO[AH] Ideally, Buck2 could generate an argfile on the fly.
+                for arg in request.args() {
+                    if !(arg.starts_with("@") || arg.starts_with("-flagfile") || arg.starts_with("--flagfile")) {
+                        return Err(anyhow!("Remote persistent worker arguments must be passed as `@argfile`, `-flagfile=argfile`, or `--flagfile=argfile`."));
+                    }
+                }
+                worker.exe.iter().chain(request.args().iter()).cloned().collect()
+            } else {
+                request.all_args_vec()
+            };
             let action = re_create_action(
-                request.all_args_vec(),
+                args,
                 request.paths().output_paths(),
                 request.working_directory().map(|p| p.as_str().to_owned()),
                 request.env(),
