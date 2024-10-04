@@ -30,6 +30,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -702,10 +703,11 @@ impl RecordedAnalysisValues {
     }
 
     /// Iterates over the declared dynamic_output/actions.
-    pub fn iter_dynamic_lambdas(&self) -> impl Iterator<Item = &FrozenDynamicLambdaParams> {
+    pub fn iter_dynamic_lambda_outputs(&self) -> impl Iterator<Item = BuildArtifact> + '_ {
         self.analysis_storage
             .iter()
             .flat_map(|v| v.value.lambda_params.values())
+            .flat_map(|v| v.static_fields.outputs.iter().duped())
     }
 
     pub fn provider_collection(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {

@@ -83,8 +83,7 @@ async fn find_matching_action(
 
         for build_artifact in analysis
             .analysis_values()
-            .iter_dynamic_lambdas()
-            .flat_map(|v| v.static_fields.outputs.iter().duped())
+            .iter_dynamic_lambda_outputs()
             .chain(analysis.analysis_values().iter_actions().flat_map(
                 |v| match v.action().outputs() {
                     Cow::Borrowed(v) => Either::Left(v.iter().duped()),
