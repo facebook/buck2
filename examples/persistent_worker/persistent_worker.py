@@ -2,7 +2,6 @@
 """Buck2 local and remote persistent worker and action runner.
 
 This script can:
-- Execute build requests in one-shot mode for builds without persistent workers enabled.
 - Execute build requests as a Buck2 local persistent worker.
 - Execute build requests as a remote persistent worker through Bazel protocol.
 """
@@ -86,9 +85,7 @@ class Buck2Servicer(buck2_pb2_grpc.WorkerServicer):
         _ = context
         print("BUCK2", request, file=sys.stderr)
         # Decode arguments as UTF-8 strings.
-        # Drop the first argument, which is the worker binary.
-        # The first argument is needed for Bazel remote execution persistent workers.
-        argv = [arg.decode("utf-8") for arg in request.argv[1:]]
+        argv = [arg.decode("utf-8") for arg in request.argv]
         response = self.impl.execute(Request(argv = argv))
         host = socket.gethostname()
         pid = os.getpid()
@@ -158,13 +155,8 @@ def main():
             proto.serialize_length_prefixed(response, sys.stdout.buffer)
             sys.stdout.flush()
     else:
-        # One-shot execution mode
-        print("ONE-SHOT START", file=sys.stderr)
-        servicer = Implementation()
-        request = Request(argv = rest)
-        response = servicer.execute(request)
-        print(response.stderr, file=sys.stderr)
-        sys.exit(response.exit_code)
+        print("Expected either 'WORKER_SOCKET' environment variable or '--persistent_worker' argument.", file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
