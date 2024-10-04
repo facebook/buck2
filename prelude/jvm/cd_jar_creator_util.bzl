@@ -288,16 +288,20 @@ def encode_base_jar_command(
         manifest_file: Artifact | None,
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
-        track_class_usage: bool) -> struct:
+        track_class_usage: bool,
+        is_incremental: bool = False) -> struct:
     library_jar_params = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
         compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])
+        compiling_classpath_snapshot = {}
     else:
         expect(len(source_only_abi_compiling_deps) == 0)
+        compiling_deps_list = filter(None, list(compiling_deps_tset.traverse())) if compiling_deps_tset else []
         compiling_classpath = classpath_jars_tag.tag_artifacts(
-            compiling_deps_tset.project_as_json("javacd_json") if compiling_deps_tset else None,
+            [dep.abi for dep in compiling_deps_list],
         )
+        compiling_classpath_snapshot = {dep.abi: dep.abi_jar_snapshot for dep in compiling_deps_list if dep.abi_jar_snapshot} if is_incremental else {}
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -328,6 +332,7 @@ def encode_base_jar_command(
     return struct(
         outputPathsValue = encode_output_paths(label, output_paths, target_type),
         compileTimeClasspathPaths = compiling_classpath,
+        compileTimeClasspathSnapshotPaths = compiling_classpath_snapshot,
         javaSrcs = srcs,
         # TODO(cjhopman): populate jar infos. I think these are only used for unused dependencies (and appear to be broken in buck1 w/javacd anyway).
         fullJarInfos = [],

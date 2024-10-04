@@ -105,6 +105,9 @@ def create_jar_artifact_kotlincd(
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
+    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
+    incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True) if should_kotlinc_run_incrementally else None
+
     def encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir = None):
         kosabiPluginOptionsMap = {}
         if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
@@ -147,7 +150,7 @@ def create_jar_artifact_kotlincd(
             shouldRemoveKotlinCompilerFromClassPath = True,
             depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
             shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
-            shouldKotlincRunIncrementally = incremental_state_dir != None,
+            shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
             incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
             shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
         )
@@ -183,6 +186,7 @@ def create_jar_artifact_kotlincd(
             extra_arguments = cmd_args(extra_arguments),
             source_only_abi_compiling_deps = [],
             track_class_usage = track_class_usage,
+            is_incremental = should_kotlinc_run_incrementally,
         )
 
         return struct(
@@ -359,10 +363,6 @@ def create_jar_artifact_kotlincd(
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
-    incremental_state_dir = None
-    shouldKotlincRunIncrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    if shouldKotlincRunIncrementally:
-        incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True)
     command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag, incremental_state_dir)
     define_kotlincd_action(
         category_prefix = "",
