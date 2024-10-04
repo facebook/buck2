@@ -41,7 +41,15 @@ use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAt
 
 pub(crate) mod attribute;
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkDocs,
+    Clone,
+    Dupe
+)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display("{:?}", self)]
 #[starlark_docs(directory = "bxl")]

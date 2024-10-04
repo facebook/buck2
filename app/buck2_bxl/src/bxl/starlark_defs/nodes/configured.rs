@@ -81,7 +81,15 @@ use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrR
 
 mod attr_resolution_ctx;
 
-#[derive(Debug, Display, ProvidesStaticType, StarlarkDocs, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    StarlarkDocs,
+    Allocative,
+    Clone,
+    Dupe
+)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display("configured_target_node(name = {}, ...)", self.0.label())]
 #[starlark_docs(directory = "bxl")]

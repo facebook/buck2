@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use derivative::Derivative;
@@ -39,10 +40,16 @@ use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::result::StarlarkResultGen;
+use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::SingleOrCompatibleConfiguredTargets;
 
-#[derive(Derivative, Debug, Clone, Allocative)]
+#[derive(Derivative, Debug, Allocative)]
 pub(crate) enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
+    ConfiguredTargetNode {
+        arg: OwnedConfiguredTargetNodeArg,
+        global_cfg_options: buck2_error::Result<GlobalCfgOptions>,
+    },
     Join(Arc<LazyOperation>, Arc<LazyOperation>),
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
@@ -51,22 +58,36 @@ pub(crate) enum LazyOperation {
 #[derive(Allocative)]
 pub(crate) enum LazyResult {
     Analysis(StarlarkAnalysisResult),
+    ConfiguredTargetNode(SingleOrCompatibleConfiguredTargets),
     Join(Box<(LazyResult, LazyResult)>),
     Batch(Vec<LazyResult>),
     Catch(Box<anyhow::Result<LazyResult>>),
 }
 
 impl LazyResult {
-    fn into_value<'v>(self, heap: &'v Heap) -> Value<'v> {
+    fn into_value<'v>(
+        self,
+        heap: &'v Heap,
+        bxl_eval_extra: &BxlEvalExtra,
+    ) -> anyhow::Result<Value<'v>> {
         match self {
-            LazyResult::Analysis(analysis_res) => heap.alloc(analysis_res),
-            LazyResult::Join(res) => heap.alloc((res.0.into_value(heap), res.1.into_value(heap))),
-            LazyResult::Batch(res) => {
-                heap.alloc(AllocList(res.into_iter().map(|v| v.into_value(heap))))
-            }
+            LazyResult::Analysis(analysis_res) => Ok(heap.alloc(analysis_res)),
+            LazyResult::ConfiguredTargetNode(res) => res.into_value(heap, bxl_eval_extra),
+            LazyResult::Join(res) => Ok(heap.alloc((
+                res.0.into_value(heap, bxl_eval_extra)?,
+                res.1.into_value(heap, bxl_eval_extra)?,
+            ))),
+            LazyResult::Batch(res) => Ok(heap.alloc(AllocList(
+                res.into_iter()
+                    .map(|v| v.into_value(heap, bxl_eval_extra))
+                    .collect::<anyhow::Result<Vec<_>>>()?,
+            ))),
             LazyResult::Catch(res) => {
-                let val = (*res).map(|res| res.into_value(heap));
-                heap.alloc(StarlarkResultGen::from_result(val))
+                let val = match *res {
+                    Ok(res) => Ok(res.into_value(heap, bxl_eval_extra)?),
+                    Err(e) => Err(e),
+                };
+                Ok(heap.alloc(StarlarkResultGen::from_result(val)))
             }
         }
     }
@@ -77,18 +98,28 @@ impl LazyOperation {
     async fn resolve(
         &self,
         dice: &mut DiceComputations<'_>,
-        _core_data: &BxlContextCoreData,
+        core_data: &BxlContextCoreData,
     ) -> anyhow::Result<LazyResult> {
         match self {
             LazyOperation::Analysis(label) => {
                 Ok(LazyResult::Analysis(analysis(dice, label).await?))
             }
+            LazyOperation::ConfiguredTargetNode {
+                arg,
+                global_cfg_options,
+            } => {
+                let global_cfg_options = global_cfg_options.as_ref().map_err(|e| e.clone())?;
+                let res = arg
+                    .to_configured_target_node(global_cfg_options, core_data, dice)
+                    .await?;
+                Ok(LazyResult::ConfiguredTargetNode(res))
+            }
             LazyOperation::Join(lazy0, lazy1) => {
                 let compute0 = DiceComputations::declare_closure(|dice| {
-                    async move { lazy0.resolve(dice, _core_data).await }.boxed()
+                    async move { lazy0.resolve(dice, core_data).await }.boxed()
                 });
                 let compute1 = DiceComputations::declare_closure(|dice| {
-                    async move { lazy1.resolve(dice, _core_data).await }.boxed()
+                    async move { lazy1.resolve(dice, core_data).await }.boxed()
                 });
                 let (res0, res1) = dice.try_compute2(compute0, compute1).await?;
                 Ok(LazyResult::Join(Box::new((res0, res1))))
@@ -96,13 +127,13 @@ impl LazyOperation {
             LazyOperation::Batch(lazies) => {
                 let res = dice
                     .try_compute_join(lazies, |dice, lazy| {
-                        async move { lazy.resolve(dice, _core_data).await }.boxed()
+                        async move { lazy.resolve(dice, core_data).await }.boxed()
                     })
                     .await?;
                 Ok(LazyResult::Batch(res))
             }
             LazyOperation::Catch(lazy) => {
-                let res = lazy.resolve(dice, _core_data).await;
+                let res = lazy.resolve(dice, core_data).await;
                 Ok(LazyResult::Catch(Box::new(res)))
             }
         }
@@ -133,6 +164,18 @@ impl StarlarkLazy {
     pub(crate) fn new_analysis(label: ConfiguredProvidersLabel) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::Analysis(label)),
+        }
+    }
+
+    pub(crate) fn new_configured_target_node(
+        arg: OwnedConfiguredTargetNodeArg,
+        global_cfg_options: anyhow::Result<GlobalCfgOptions>,
+    ) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::ConfiguredTargetNode {
+                arg,
+                global_cfg_options: global_cfg_options.map_err(buck2_error::Error::from),
+            }),
         }
     }
 
@@ -192,7 +235,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
         });
 
         let heap = eval.heap();
-        res.map(|v| v.into_value(heap))
+        res.and_then(|v| v.into_value(heap, bxl_eval_extra))
     }
 
     /// Make `Lazy` can be resolved later by catching the error.

@@ -2,5 +2,6 @@
 
 # `bxl.LazyContext` type
 ## bxl.LazyContext.analysis
+## bxl.LazyContext.configured\_target\_node
 ## bxl.LazyContext.join
 ## bxl.LazyContext.join\_all

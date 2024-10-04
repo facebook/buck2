@@ -10,6 +10,7 @@
 use std::borrow::Cow;
 use std::iter;
 
+use allocative::Allocative;
 use anyhow::Context;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
@@ -40,11 +41,15 @@ use futures::FutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::Heap;
 use starlark::values::UnpackValue;
+use starlark::values::Value;
 use starlark::values::ValueOf;
 
+use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
+use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -571,6 +576,167 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                 }
                 Ok(Self::Iterable(resolved))
             }
+        }
+    }
+}
+
+#[derive(Debug, Allocative)]
+pub(crate) enum SingleOrCompatibleConfiguredTargets {
+    Single(ConfiguredTargetNode),
+    Compatibles(Vec<MaybeCompatible<ConfiguredTargetNode>>),
+}
+
+impl SingleOrCompatibleConfiguredTargets {
+    pub(crate) fn into_value<'v>(
+        self,
+        heap: &'v Heap,
+        bxl_eval_extra: &BxlEvalExtra,
+    ) -> anyhow::Result<Value<'v>> {
+        match self {
+            SingleOrCompatibleConfiguredTargets::Single(node) => {
+                Ok(heap.alloc(StarlarkConfiguredTargetNode(node)))
+            }
+            SingleOrCompatibleConfiguredTargets::Compatibles(compatibles) => {
+                let target_set = filter_incompatible(compatibles, bxl_eval_extra)?;
+                Ok(heap.alloc(StarlarkTargetSet(target_set)))
+            }
+        }
+    }
+}
+
+async fn unpack_string_literal<'v>(
+    val: &str,
+    global_cfg_options: &GlobalCfgOptions,
+    ctx: &BxlContextCoreData,
+    dice: &mut DiceComputations<'_>,
+) -> anyhow::Result<SingleOrCompatibleConfiguredTargets> {
+    match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+        ctx.target_alias_resolver(),
+        // TODO(nga): Parse relaxed relative to cell root is incorrect.
+        CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+        val,
+        ctx.cell_resolver(),
+        ctx.cell_alias_resolver(),
+    )? {
+        ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+            let label = dice
+                .get_configured_target(&TargetLabel::new(pkg, name.as_ref()), global_cfg_options)
+                .await?;
+            let compatible_node = dice.get_configured_target_node(&label).await?;
+            compatible_node
+                .require_compatible()
+                .map(SingleOrCompatibleConfiguredTargets::Single)
+        }
+        pattern => {
+            let loaded_patterns =
+                load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+
+            let maybe_compatible = get_maybe_compatible_targets(
+                dice,
+                loaded_patterns.iter_loaded_targets_by_package(),
+                global_cfg_options,
+                true,
+            )
+            .await?;
+
+            let maybe_compatible = maybe_compatible.collect::<anyhow::Result<_>>()?;
+            Ok(SingleOrCompatibleConfiguredTargets::Compatibles(
+                maybe_compatible,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Allocative)]
+pub(crate) enum OwnedTargetNodeOrTargetLabel {
+    TargetNode(StarlarkTargetNode),
+    TargetLabel(StarlarkTargetLabel),
+}
+
+impl OwnedTargetNodeOrTargetLabel {
+    pub(crate) fn from_ref(reference: TargetNodeOrTargetLabel<'_>) -> Self {
+        match reference {
+            TargetNodeOrTargetLabel::TargetNode(node) => {
+                OwnedTargetNodeOrTargetLabel::TargetNode(node.dupe())
+            }
+            TargetNodeOrTargetLabel::TargetLabel(label) => {
+                OwnedTargetNodeOrTargetLabel::TargetLabel(label.dupe())
+            }
+        }
+    }
+
+    fn label(&self) -> &TargetLabel {
+        match self {
+            OwnedTargetNodeOrTargetLabel::TargetNode(node) => node.0.label(),
+            OwnedTargetNodeOrTargetLabel::TargetLabel(label) => label.label(),
+        }
+    }
+
+    pub(crate) async fn to_configured_target_node(
+        &self,
+        global_cfg_options: &GlobalCfgOptions,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<ConfiguredTargetNode> {
+        let configured_label = dice
+            .get_configured_target(self.label(), global_cfg_options)
+            .await?;
+        dice.get_configured_target_node(&configured_label)
+            .await?
+            .require_compatible()
+    }
+}
+
+#[derive(Debug, Clone, Allocative)]
+pub(crate) enum OwnedConfiguredTargetNodeArg {
+    ConfiguredTargetNode(StarlarkConfiguredTargetNode),
+    ConfiguredTargetLabel(StarlarkConfiguredTargetLabel),
+    String(String),
+    Unconfigured(OwnedTargetNodeOrTargetLabel),
+}
+
+impl OwnedConfiguredTargetNodeArg {
+    pub(crate) fn from_ref(reference: ConfiguredTargetNodeArg<'_>) -> Self {
+        match reference {
+            ConfiguredTargetNodeArg::ConfiguredTargetNode(node) => {
+                OwnedConfiguredTargetNodeArg::ConfiguredTargetNode(node.dupe())
+            }
+            ConfiguredTargetNodeArg::ConfiguredTargetLabel(label) => {
+                OwnedConfiguredTargetNodeArg::ConfiguredTargetLabel(label.dupe())
+            }
+            ConfiguredTargetNodeArg::Str(str) => {
+                OwnedConfiguredTargetNodeArg::String(str.to_owned())
+            }
+            ConfiguredTargetNodeArg::Unconfigured(unconfigured) => {
+                OwnedConfiguredTargetNodeArg::Unconfigured(OwnedTargetNodeOrTargetLabel::from_ref(
+                    unconfigured,
+                ))
+            }
+        }
+    }
+
+    pub(crate) async fn to_configured_target_node(
+        &self,
+        global_cfg_options: &GlobalCfgOptions,
+        ctx: &BxlContextCoreData,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<SingleOrCompatibleConfiguredTargets> {
+        match self {
+            OwnedConfiguredTargetNodeArg::ConfiguredTargetNode(node) => {
+                Ok(SingleOrCompatibleConfiguredTargets::Single(node.0.dupe()))
+            }
+            OwnedConfiguredTargetNodeArg::ConfiguredTargetLabel(label) => {
+                let compatible = dice.get_configured_target_node(label.label()).await?;
+                compatible
+                    .require_compatible()
+                    .map(SingleOrCompatibleConfiguredTargets::Single)
+            }
+            OwnedConfiguredTargetNodeArg::String(str) => {
+                unpack_string_literal(str, global_cfg_options, ctx, dice).await
+            }
+            OwnedConfiguredTargetNodeArg::Unconfigured(unconfigured) => unconfigured
+                .to_configured_target_node(global_cfg_options, dice)
+                .await
+                .map(SingleOrCompatibleConfiguredTargets::Single),
         }
     }
 }

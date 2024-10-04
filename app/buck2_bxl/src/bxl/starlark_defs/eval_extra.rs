@@ -20,10 +20,7 @@ use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 
 enum BxlEvalExtraType {
-    Root {
-        #[allow(dead_code)]
-        error_sink: Rc<RefCell<dyn Write>>,
-    },
+    Root { error_sink: Rc<RefCell<dyn Write>> },
     Dynamic,
 }
 
@@ -33,7 +30,6 @@ enum BxlEvalExtraType {
 pub(crate) struct BxlEvalExtra<'e> {
     pub(crate) dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
     core: Rc<BxlContextCoreData>,
-    #[allow(dead_code)]
     eval_extra_type: BxlEvalExtraType,
 }
 

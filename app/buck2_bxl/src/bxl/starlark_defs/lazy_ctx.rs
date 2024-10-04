@@ -7,7 +7,10 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
 use allocative::Allocative;
+use buck2_common::global_cfg_options::GlobalCfgOptions;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -30,6 +33,9 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::lazy_operation::StarlarkLazy;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
+use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 /// Context for lazy/batch/error handling operations.
 /// Available as `ctx.lazy`, has type `bxl.LazyContext`.
@@ -129,5 +135,65 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkLazy> {
         let configured_providers_label = label.configured_providers_label();
         Ok(StarlarkLazy::new_analysis(configured_providers_label))
+    }
+
+    /// Gets the configured target node for the `expr`.
+    /// If given a string target pattern, it will resolve to a target set of configured target nodes.
+    /// it also accepts an optional `target_platform` and an optional modifers list which is used
+    /// to resolve configurations of any unconfigured target nodes.
+    /// The `target_platform` is either a string that can be parsed as a target label, or a
+    /// target label.
+    ///
+    /// The given `expr` is either:
+    ///     - a single string that is a target ot a target pattern.
+    ///     - a single target node or label, configured or unconfigured
+    ///
+    /// Note that this function does not accept `ConfiguredProviderLabel` (which is a configured provider label), since this
+    /// is the label of a subtarget. You can get the underlying configured target label on the `Label`
+    /// using `configured_targets()` (ex: `my_label.configured_target()`).
+    ///
+    /// This returns either a single `target_node` if the given `labels`
+    /// is "singular", a dict keyed by target labels of `target_node` if the
+    /// given `labels` is list-like
+    /// This returns either a target set of `ConfiguredTargetNode`s if the given `expr` is a target pattern string,
+    /// else a single `ConfiguredTargetNode`.
+    ///
+    /// When the given a target pattern (returns the target set), for the incompatible targets, it will print the warning message of these incompatible targets.
+    /// Else (returns a single `ConfiguredTargetNode`), it will raise an error if incompatible when resolve. Use `Lazy.catch()` to catch the error.
+    ///
+    /// Example:
+    /// ```text
+    /// def _impl(ctx):
+    ///     # returns a single `ConfiguredTargetNode`
+    ///     node = ctx.lazy.configured_target_node("cell//path/to:target").resolve()
+    ///
+    ///     # returns a target set of `ConfiguredTargetNode`s
+    ///     target_set = ctx.lazy.configured_target_node("cell//path/to:").resolve()
+    /// ```
+    fn configured_target_node<'v>(
+        #[starlark(this)] this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] expr: ConfiguredTargetNodeArg<'v>,
+        #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
+        #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let bxl_ctx = this.ctx;
+        let target_platform = target_platform.parse_target_platforms(
+            bxl_ctx.target_alias_resolver(),
+            bxl_ctx.cell_resolver(),
+            bxl_ctx.cell_alias_resolver(),
+            bxl_ctx.cell_name(),
+            &bxl_ctx.global_cfg_options().target_platform,
+        );
+        let cli_modifiers = modifiers.items;
+        let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
+            target_platform,
+            cli_modifiers: Arc::new(cli_modifiers),
+        });
+        let owned = OwnedConfiguredTargetNodeArg::from_ref(expr);
+        Ok(StarlarkLazy::new_configured_target_node(
+            owned,
+            global_cfg_options,
+        ))
     }
 }
