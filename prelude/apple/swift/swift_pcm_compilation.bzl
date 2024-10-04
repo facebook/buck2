@@ -299,8 +299,9 @@ def _get_base_pcm_flags(
         hidden = uncompiled_pcm_info.exported_preprocessor.modular_args,
     )
 
+    cmd.add(swift_cxx_args)
+
     additional_cmd = cmd_args(
-        swift_cxx_args,
         "-o",
         pcm_output.as_output(),
         modulemap_path,
