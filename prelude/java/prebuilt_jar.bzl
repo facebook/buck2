@@ -43,12 +43,11 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.copy_file(gwt_output, ctx.attrs.source_jar if ctx.attrs.source_jar else ctx.attrs.binary_jar)
 
     abi = None
-    jar_snapshot = None
     prebuilt_jar_toolchain = ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo]
     if not prebuilt_jar_toolchain.is_bootstrap_toolchain:
         if ctx.attrs.generate_abi:
             abi = create_abi(ctx.actions, prebuilt_jar_toolchain.class_abi_generator, output)
-        jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].cp_snapshot_generator, abi or output, "")
+    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].cp_snapshot_generator, abi or output, "")
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,
