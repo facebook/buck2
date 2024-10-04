@@ -13,6 +13,7 @@ load(
     "JavaClasspathEntry",
     "create_abi",
     "create_java_library_providers",
+    "generate_java_classpath_snapshot",
 )
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 
@@ -73,13 +74,14 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     abi = None if java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, all_classes_jar)
+    abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, abi or all_classes_jar, "")
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = all_classes_jar,
         abi = abi or all_classes_jar,
         abi_as_dir = None,
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
-        abi_jar_snapshot = None,
+        abi_jar_snapshot = abi_jar_snapshot,
     )
 
     java_library_info, java_packaging_info, global_code_info, shared_library_info, linkable_graph, cxx_resource_info, template_placeholder_info, java_library_intellij_info = create_java_library_providers(
