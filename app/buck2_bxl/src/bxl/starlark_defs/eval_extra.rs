@@ -40,4 +40,11 @@ impl<'e> BxlEvalExtra<'e> {
         let f = || eval.extra?.downcast_ref::<BxlEvalExtra>();
         f().ok_or_else(|| BxlContextError::UnavailableOutsideBxl.into())
     }
+
+    pub(crate) fn via_dice<T>(
+        &self,
+        f: impl for<'x> FnOnce(&'x mut dyn BxlDiceComputations) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        f(&mut *self.dice.borrow_mut())
+    }
 }

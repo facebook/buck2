@@ -22,6 +22,9 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::StarlarkDocs;
 
+use crate::bxl::starlark_defs::lazy_operation::StarlarkLazy;
+use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
+
 /// Context for lazy/batch/error handling operations.
 /// Available as `ctx.lazy`, has type `bxl.LazyContext`.
 #[derive(
@@ -49,4 +52,22 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyCtx {
 }
 
 #[starlark_module]
-fn lazy_ctx_methods(builder: &mut MethodsBuilder) {}
+fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
+    /// Analyze a target lazily. This will return a lazy operation that can be evaluated later.
+    /// The target should be a ConfiguredTargetLabel, a ConfiguredProvidersLabel, or a ConfiguredTargetNode.
+    ///
+    /// Example:
+    /// ```text
+    /// def _impl(ctx):
+    ///     target = ctx.configured_targets("cell//path/to:target")
+    ///     analysis_result = ctx.lazy.analysis(target).resolve()
+    ///     (analysis_result, err) = ctx.lazy.analysis(target).try_resolve()
+    /// ```
+    fn analysis<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] label: ConfiguredProvidersLabelArg<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let configured_providers_label = label.configured_providers_label();
+        Ok(StarlarkLazy::new_analysis(configured_providers_label))
+    }
+}

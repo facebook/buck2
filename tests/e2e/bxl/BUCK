@@ -110,6 +110,19 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_bxl_lazy_analysis",
+    srcs = ["test_bxl_lazy_analysis.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_bxl_ensure",
     srcs = ["test_bxl_ensure.py"],
     data = "//buck2/tests/targets:isolated_targets",
