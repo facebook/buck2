@@ -78,7 +78,6 @@ enum NodeKey {
     AnalysisKey(AnalysisKey),
     EnsureProjectedArtifactKey(EnsureProjectedArtifactKey),
     EnsureTransitiveSetProjectionKey(EnsureTransitiveSetProjectionKey),
-    // todo!()
     ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
     PackageListingKey(PackageListingKey),
