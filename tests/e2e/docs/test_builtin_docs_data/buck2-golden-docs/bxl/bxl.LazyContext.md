@@ -2,3 +2,4 @@
 
 # `bxl.LazyContext` type
 ## bxl.LazyContext.analysis
+## bxl.LazyContext.join\_all

@@ -10,12 +10,14 @@
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
+use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -53,6 +55,27 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyCtx {
 
 #[starlark_module]
 fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
+    /// Join a list of lazy operations into a single operation that can be evaluated.
+    /// This is useful when you want to evaluate multiple operations in parallel.
+    /// Using `.try_resolve()` can catch errors for the individual operations.
+    ///
+    /// Example:
+    /// ```text
+    /// def _impl(ctx):
+    ///     ...
+    ///     joined = ctx.lazy.join_all([ctx.lazy.analysis(t) for t in targets])
+    ///     analysis_results = joined.resolve()
+    ///     ctx.output.print(analysis_results)
+    /// ```
+    fn join_all<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] operations: UnpackList<&StarlarkLazy>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        Ok(StarlarkLazy::new_batch(
+            operations.into_iter().map(|o| o.dupe()),
+        ))
+    }
+
     /// Analyze a target lazily. This will return a lazy operation that can be evaluated later.
     /// The target should be a ConfiguredTargetLabel, a ConfiguredProvidersLabel, or a ConfiguredTargetNode.
     ///

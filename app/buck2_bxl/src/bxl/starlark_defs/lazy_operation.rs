@@ -42,7 +42,6 @@ use crate::bxl::starlark_defs::result::StarlarkResultGen;
 #[derive(Derivative, Debug, Clone, Allocative)]
 pub(crate) enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
-    #[allow(dead_code)]
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
 }
@@ -99,7 +98,9 @@ impl LazyOperation {
     Trace,
     NoSerialize,
     Allocative,
-    StarlarkDocs
+    StarlarkDocs,
+    Clone,
+    Dupe
 )]
 #[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
@@ -114,6 +115,14 @@ impl StarlarkLazy {
     pub(crate) fn new_analysis(label: ConfiguredProvidersLabel) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::Analysis(label)),
+        }
+    }
+
+    pub(crate) fn new_batch<I: IntoIterator<Item = StarlarkLazy>>(lazies: I) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::Batch(
+                lazies.into_iter().map(|v| v.lazy).collect(),
+            )),
         }
     }
 }
