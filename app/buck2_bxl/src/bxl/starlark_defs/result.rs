@@ -160,7 +160,6 @@ fn result_methods(builder: &mut MethodsBuilder) {
 }
 
 impl<T> StarlarkResultGen<T> {
-    #[allow(dead_code)]
     pub(crate) fn from_result(res: anyhow::Result<T>) -> Self {
         match res {
             Ok(val) => Self::Ok(val),

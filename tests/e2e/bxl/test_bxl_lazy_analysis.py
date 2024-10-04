@@ -25,3 +25,17 @@ async def test_lazy_analysis_resolve_error(buck: Buck) -> None:
         buck.bxl("//bxl/lazy_analysis.bxl:lazy_analysis_resolve_error"),
         stderr_regex="requested sub target named `missing_subtarget` .* is not available",
     )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_lazy_analysis_try_resolve(buck: Buck) -> None:
+    await buck.bxl(
+        "//bxl/lazy_analysis.bxl:lazy_analysis_try_resolve",
+    )
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_lazy_analysis_try_resolve_error(buck: Buck) -> None:
+    await buck.bxl(
+        "//bxl/lazy_analysis.bxl:lazy_analysis_try_resolve_error",
+    )

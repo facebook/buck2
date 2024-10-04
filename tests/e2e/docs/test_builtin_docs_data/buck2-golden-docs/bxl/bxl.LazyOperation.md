@@ -2,3 +2,4 @@
 
 # `bxl.LazyOperation` type
 ## bxl.LazyOperation.resolve
+## bxl.LazyOperation.try\_resolve

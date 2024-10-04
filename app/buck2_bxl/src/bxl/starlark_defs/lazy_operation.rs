@@ -37,18 +37,21 @@ use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
+use crate::bxl::starlark_defs::result::StarlarkResultGen;
 
 #[derive(Derivative, Debug, Clone, Allocative)]
 pub(crate) enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
     #[allow(dead_code)]
     Batch(Vec<Arc<LazyOperation>>),
+    Catch(Arc<LazyOperation>),
 }
 
 #[derive(Allocative)]
 pub(crate) enum LazyResult {
     Analysis(StarlarkAnalysisResult),
     Batch(Vec<LazyResult>),
+    Catch(Box<anyhow::Result<LazyResult>>),
 }
 
 impl LazyResult {
@@ -57,6 +60,10 @@ impl LazyResult {
             LazyResult::Analysis(analysis_res) => heap.alloc(analysis_res),
             LazyResult::Batch(res) => {
                 heap.alloc(AllocList(res.into_iter().map(|v| v.into_value(heap))))
+            }
+            LazyResult::Catch(res) => {
+                let val = (*res).map(|res| res.into_value(heap));
+                heap.alloc(StarlarkResultGen::from_result(val))
             }
         }
     }
@@ -76,6 +83,10 @@ impl LazyOperation {
                     })
                     .await?;
                 Ok(LazyResult::Batch(res))
+            }
+            LazyOperation::Catch(lazy) => {
+                let res = lazy.resolve(dice).await;
+                Ok(LazyResult::Catch(Box::new(res)))
             }
         }
     }
@@ -148,5 +159,18 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
 
         let heap = eval.heap();
         res.map(|v| v.into_value(heap))
+    }
+
+    /// Make `Lazy` can be resolved later by catching the error.
+    ///
+    /// Example:
+    /// ```text
+    /// def _impl(ctx):
+    ///     target = ctx.configured_targets("cell//path/to:target")
+    ///     analysis_result = ctx.lazy.analysis(target).catch().resolve()
+    /// ```
+    fn catch(this: &StarlarkLazy) -> anyhow::Result<StarlarkLazy> {
+        let lazy = Arc::new(LazyOperation::Catch(this.lazy.dupe()));
+        Ok(StarlarkLazy { lazy })
     }
 }
