@@ -147,7 +147,7 @@ impl BxlInnerEvaluator {
             .buck_out_path_resolver()
             .resolve_gen(&output_stream);
 
-        let file = RefCell::new(Box::new(
+        let file = Rc::new(RefCell::new(
             data.project_fs()
                 .create_file(&file_path, false)
                 .context("Failed to create output cache for BXL")?,
@@ -159,7 +159,7 @@ impl BxlInnerEvaluator {
             .buck_out_path_resolver()
             .resolve_gen(&error_stream);
 
-        let error_file = RefCell::new(Box::new(
+        let error_file = Rc::new(RefCell::new(
             data.project_fs()
                 .create_file(&error_file_path, false)
                 .context("Failed to create error cache for BXL")?,
@@ -175,7 +175,7 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
-            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), error_file.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();

@@ -320,8 +320,8 @@ impl<'v> BxlContext<'v> {
         core: Rc<BxlContextCoreData>,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
-        output_sink: RefCell<Box<dyn Write>>,
-        error_sink: RefCell<Box<dyn Write>>,
+        output_sink: Rc<RefCell<dyn Write>>,
+        error_sink: Rc<RefCell<dyn Write>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<Self> {
         let root_data = RootBxlContextData {
@@ -463,9 +463,13 @@ impl<'v> BxlContext<'v> {
     }
 }
 
-impl<'v> BxlContextNoDice<'v> {
+pub(crate) trait ErrorPrinter {
+    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()>;
+}
+
+impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
-    pub(crate) fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
+    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
         match &self.context_type {
             BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
             BxlContextType::Dynamic(_) => console_message(msg),
@@ -651,7 +655,7 @@ impl BxlDynamicOutputEvaluator<'_> {
 
         let analysis_registry = {
             let data = Rc::new(self.data);
-            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe());
+            let extra = BxlEvalExtra::new_dynamic(bxl_dice.dupe(), data.dupe());
             let (mut eval, _) = provider.make(&env)?;
             eval.set_print_handler(&self.print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);

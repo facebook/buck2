@@ -8,13 +8,24 @@
  */
 
 use std::cell::RefCell;
+use std::io::Write;
 use std::rc::Rc;
 
+use buck2_events::dispatch::console_message;
 use starlark::eval::Evaluator;
 use starlark::values::ProvidesStaticType;
 
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
+use crate::bxl::starlark_defs::context::ErrorPrinter;
+
+enum BxlEvalExtraType {
+    Root {
+        #[allow(dead_code)]
+        error_sink: Rc<RefCell<dyn Write>>,
+    },
+    Dynamic,
+}
 
 /// A tag that is only available when running in Bxl, to guard Bxl
 /// functions from a non-Bxl context.
@@ -22,6 +33,8 @@ use crate::bxl::starlark_defs::context::BxlContextCoreData;
 pub(crate) struct BxlEvalExtra<'e> {
     pub(crate) dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
     core: Rc<BxlContextCoreData>,
+    #[allow(dead_code)]
+    eval_extra_type: BxlEvalExtraType,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -34,8 +47,24 @@ impl<'e> BxlEvalExtra<'e> {
     pub(crate) fn new(
         dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
         core: Rc<BxlContextCoreData>,
+        error_sink: Rc<RefCell<dyn Write>>,
     ) -> Self {
-        Self { dice, core }
+        Self {
+            dice,
+            core,
+            eval_extra_type: BxlEvalExtraType::Root { error_sink },
+        }
+    }
+
+    pub(crate) fn new_dynamic(
+        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
+        core: Rc<BxlContextCoreData>,
+    ) -> Self {
+        Self {
+            dice,
+            core,
+            eval_extra_type: BxlEvalExtraType::Dynamic,
+        }
     }
 
     pub(crate) fn from_context<'v, 'a>(
@@ -54,5 +83,15 @@ impl<'e> BxlEvalExtra<'e> {
     ) -> anyhow::Result<T> {
         let core = &self.core;
         f(&mut *self.dice.borrow_mut(), core)
+    }
+}
+
+impl<'e> ErrorPrinter for BxlEvalExtra<'e> {
+    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
+        match &self.eval_extra_type {
+            BxlEvalExtraType::Root { error_sink } => writeln!(error_sink.borrow_mut(), "{}", msg)?,
+            BxlEvalExtraType::Dynamic => console_message(msg),
+        }
+        Ok(())
     }
 }

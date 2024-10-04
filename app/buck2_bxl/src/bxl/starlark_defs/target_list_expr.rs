@@ -44,6 +44,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueOf;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::target_expr::TargetExpr;
@@ -60,9 +61,9 @@ pub(crate) enum TargetListExpr<'v, Node: QueryTarget> {
 }
 
 // Filters out incompatible targets and emits the error message
-pub(crate) fn filter_incompatible(
+pub(crate) fn filter_incompatible<T: ErrorPrinter>(
     targets: impl IntoIterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
-    bxl_ctx: &BxlContextNoDice,
+    error_printer: &T,
 ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
     let mut incompatible_targets = SmallSet::new();
@@ -79,7 +80,7 @@ pub(crate) fn filter_incompatible(
     }
 
     if !incompatible_targets.is_empty() {
-        bxl_ctx.print_to_error_stream(
+        error_printer.print_to_error_stream(
             IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
         )?;
     }
