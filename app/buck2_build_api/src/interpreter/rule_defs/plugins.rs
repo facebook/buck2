@@ -35,12 +35,7 @@ use starlark_map::small_map::SmallMap;
     Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Freeze, Trace
 )]
 #[repr(transparent)]
-struct PluginKindWrapper(
-    #[freeze(identity)]
-    // SAFETY: `PluginKind` does not contain any starlark values
-    #[trace(unsafe_ignore)]
-    PluginKind,
-);
+struct PluginKindWrapper(#[freeze(identity)] PluginKind);
 
 // SAFETY: Trivial coercion is always correct
 unsafe impl Coerce<PluginKindWrapper> for PluginKindWrapper {}
