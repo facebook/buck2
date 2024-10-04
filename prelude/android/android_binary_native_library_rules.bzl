@@ -230,6 +230,7 @@ def get_android_binary_native_library_info(
             abi = mergemap_gencode_jar,
             abi_as_dir = None,
             required_for_source_only_abi = False,
+            abi_jar_snapshot = None,
         )
         generated_java_code.append(
             JavaLibraryInfo(

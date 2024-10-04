@@ -195,6 +195,7 @@ def get_compiling_deps_tset(
                 abi = entry,
                 abi_as_dir = None,
                 required_for_source_only_abi = True,
+                abi_jar_snapshot = None,
             )))
         compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)
 

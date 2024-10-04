@@ -79,6 +79,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         abi = abi or all_classes_jar,
         abi_as_dir = None,
         required_for_source_only_abi = ctx.attrs.required_for_source_only_abi,
+        abi_jar_snapshot = None,
     )
 
     java_library_info, java_packaging_info, global_code_info, shared_library_info, linkable_graph, cxx_resource_info, template_placeholder_info, java_library_intellij_info = create_java_library_providers(

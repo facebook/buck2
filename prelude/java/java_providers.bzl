@@ -92,6 +92,7 @@ JavaClasspathEntry = record(
     # .class level granularity for javacd and kotlincd dep-files.
     abi_as_dir = field(Artifact | None),
     required_for_source_only_abi = field(bool),
+    abi_jar_snapshot = field(Artifact | None),
 )
 
 def _args_for_ast_dumper(entry: JavaClasspathEntry):
@@ -272,7 +273,8 @@ def make_compile_outputs(
         classpath_abi_dir: Artifact | None = None,
         required_for_source_only_abi: bool = False,
         annotation_processor_output: Artifact | None = None,
-        incremental_state_dir: Artifact | None = None) -> JavaCompileOutputs:
+        incremental_state_dir: Artifact | None = None,
+        abi_jar_snapshot: Artifact | None = None) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -284,6 +286,7 @@ def make_compile_outputs(
             abi = classpath_abi or class_abi or full_library,
             abi_as_dir = classpath_abi_dir,
             required_for_source_only_abi = required_for_source_only_abi,
+            abi_jar_snapshot = abi_jar_snapshot,
         ),
         annotation_processor_output = annotation_processor_output,
         preprocessed_library = preprocessed_library,
@@ -306,6 +309,26 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
         identifier = library.short_path,
     )
     return class_abi
+
+def generate_java_classpath_snapshot(actions: AnalysisActions, snapshot_generator: Dependency | None, library: Artifact, action_identifier: str | None) -> Artifact | None:
+    if not snapshot_generator:
+        return None
+    identifier = (
+        "{}_".format(action_identifier) if action_identifier else ""
+    ) + library.short_path.replace("/", "_").split(".")[0]
+    output = actions.declare_output("{}_jar_snapshot.bin".format(identifier))
+    actions.run(
+        [
+            snapshot_generator[RunInfo],
+            "--input-jar",
+            library,
+            "--output-snapshot",
+            output.as_output(),
+        ],
+        category = "jar_snapshot",
+        identifier = identifier,
+    )
+    return output
 
 # Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
 def derive_compiling_deps(

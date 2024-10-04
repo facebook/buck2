@@ -18,6 +18,7 @@ load(
     "create_java_library_providers",
     "create_native_providers",
     "derive_compiling_deps",
+    "generate_java_classpath_snapshot",
     "make_compile_outputs",
     "to_list",
 )
@@ -440,12 +441,14 @@ def _create_jar_artifact(
     has_postprocessor = hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor
     final_jar = postprocess_jar(ctx.actions, ctx.attrs.jar_postprocessor[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
 
+    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, abi or final_jar, actions_identifier)
     return make_compile_outputs(
         full_library = final_jar,
         preprocessed_library = jar_out,
         class_abi = abi,
         required_for_source_only_abi = required_for_source_only_abi,
         annotation_processor_output = generated_sources_dir,
+        abi_jar_snapshot = jar_snapshot,
     )
 
 def _check_dep_types(deps: list[Dependency]):
