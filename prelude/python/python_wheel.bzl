@@ -152,6 +152,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 opts = link_options(
                     links = [
                         LinkArgs(flags = python_toolchain.extension_linker_flags),
+                        LinkArgs(flags = python_toolchain.wheel_linker_flags),
                         LinkArgs(infos = inputs),
                     ],
                     category_suffix = "native_extension",
