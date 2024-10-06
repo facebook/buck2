@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_data::CommandExecutionDetails;
+use buck2_data::{action_error_diagnostics, ActionError, ActionErrorDiagnostics, CommandExecutionDetails};
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -621,7 +621,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
         let mut lines = vec![];
         let display_platform = self.state.config.display_platform;
-
+        Self::write_diagnostics(&error, &mut lines);
         let display::ActionErrorDisplay {
             action_id,
             reason,
@@ -650,10 +650,37 @@ impl StatefulSuperConsoleImpl {
         if let Some(command) = command {
             lines_for_command_details(&command, self.verbosity, &mut lines);
         }
-
         self.super_console.emit(Lines(lines));
-
         Ok(())
+    }
+
+    fn write_diagnostics(error: &ActionError, lines: &mut Vec<Line>) {
+        if let Some(ActionErrorDiagnostics {data: Some(data)} ) = &error.error_diagnostics {
+            match data {
+                action_error_diagnostics::Data::SubErrors(action_sub_errors) => {
+                    for sub_error in &action_sub_errors.sub_errors {
+                        if let Some(message) = &sub_error.message {
+                            lines.push(Line::from_iter([Span::new_styled_lossy(StyledContent::new(
+                                ContentStyle {
+                                    foreground_color: Some(Color::Yellow),
+                                    ..Default::default()
+                                },
+                                format!("{}: {:?}", sub_error.category, message),
+                            ))]));
+                        }
+                    }
+                },
+                action_error_diagnostics::Data::HandlerInvocationError(handler_error) => {
+                    lines.push(Line::from_iter([Span::new_styled_lossy(StyledContent::new(
+                        ContentStyle {
+                            foreground_color: Some(Color::Yellow),
+                            ..Default::default()
+                        },
+                        format!("{:?}", handler_error),
+                    ))]));
+                }
+            }
+        }
     }
 
     async fn handle_test_result(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {

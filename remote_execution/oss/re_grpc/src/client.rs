@@ -664,6 +664,7 @@ impl REClient {
                             },
                             cached_result: execute_response_grpc.cached_result,
                             action_digest: Default::default(), // Filled in below.
+                            message: execute_response_grpc.message,
                         };
 
                         ExecuteWithProgressResponse {

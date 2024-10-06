@@ -176,6 +176,7 @@ pub struct ExecuteResponse {
     pub action_digest: TDigest,
     pub action_result_digest: TDigest,
     pub action_result_ttl: i64,
+    pub message: String,
 }
 
 #[derive(Clone, Default)]
