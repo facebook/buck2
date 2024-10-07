@@ -39,6 +39,10 @@ def _run_command_impl(ctx):
         declared = ctx.actions.declare_output(ctx.attrs.out)
         ctx.actions.run(_platform_args([ctx.attrs.script, declared.as_output()]), local_only = True, category = "local")
         return [DefaultInfo(default_output = declared)]
+    elif test == "runs_simple_script_remote":
+        declared = ctx.actions.declare_output(ctx.attrs.out)
+        ctx.actions.run(_platform_args([ctx.attrs.script, declared.as_output()]), local_only = False, category = "remote")
+        return [DefaultInfo(default_output = declared)]
     elif test == "rejects_zero_outputs":
         ctx.actions.run(_platform_args([ctx.attrs.script, "foo"]), category = "rejects_zero_outputs")
     elif test == "rejects_bad_args":

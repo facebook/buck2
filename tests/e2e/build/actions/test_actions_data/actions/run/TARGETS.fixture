@@ -33,3 +33,8 @@ run_command(
     name = "runs_script_locally_outputs_symlink",
     script = "create_symlink.bat" if is_windows else "create_symlink.sh",
 )
+
+run_command(
+    name = "runs_simple_script_remote",
+    script = "hostname.bat" if is_windows else "hostname.sh",
+)

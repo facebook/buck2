@@ -374,3 +374,36 @@ async def test_failure_has_wall_time(buck: Buck) -> None:
     assert wall_time
     for time in wall_time:
         assert time > 0
+
+
+@buck_test(inplace=False, data_dir="actions")
+async def test_local_action_has_input_size(buck: Buck) -> None:
+    await buck.build("//run:runs_script_locally")
+    input_size = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "input_files_bytes",
+    )
+    # TODO(rajneeshl): Presently we don't publish input_files_bytes. Assert empty for now.
+    assert input_size == []
+
+
+@buck_test(inplace=False, data_dir="actions")
+async def test_remote_action_has_input_size(buck: Buck) -> None:
+    await buck.build("//run:runs_simple_script_remote")
+    input_size = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "input_files_bytes",
+    )
+
+    # TODO(rajneeshl): Presently we don't publish input_files_bytes. Assert empty for now.
+    assert input_size == []
