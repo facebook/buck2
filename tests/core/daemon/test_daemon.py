@@ -20,7 +20,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
 async def test_inactivity_timeout(buck: Buck) -> None:
     #######################################################
@@ -45,7 +45,7 @@ async def test_inactivity_timeout(buck: Buck) -> None:
     raise AssertionError("Server did not die in 20 seconds")
 
 
-@buck_test(inplace=False)
+@buck_test()
 @pytest.mark.parametrize(
     "corrupt",
     ["not-json", '{"valid-json", "but-not-valid-data"}'],
@@ -69,7 +69,7 @@ async def test_corrupted_buckd_info(buck: Buck, corrupt: str) -> None:
     await buck.targets("//:rule")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_process_title(buck: Buck) -> None:
     await buck.build()  # Start the daemon
     status = await buck.status()
@@ -89,7 +89,7 @@ async def test_process_title(buck: Buck) -> None:
         raise Exception("Unknown platform")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_status_fields(buck: Buck) -> None:
     await buck.build()  # Start the daemon
     status = await buck.status()
@@ -98,7 +98,7 @@ async def test_status_fields(buck: Buck) -> None:
     assert status["valid_buck_out_mount"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_status_all(buck: Buck) -> None:
     # this will start the daemons
     await buck.server()
@@ -117,7 +117,7 @@ async def test_status_all(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_client_ctx::daemon::client::kill=debug")
 async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
     await buck.audit("cell")  # Start the daemon
@@ -125,7 +125,7 @@ async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
     assert "Killing daemon with PID" in result.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_buck_out_is_cache_dir(buck: Buck) -> None:
     await buck.targets(":")  # Start a daemon
     root = await buck.root()

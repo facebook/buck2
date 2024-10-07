@@ -75,12 +75,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_daemon",
-    srcs = ["test_daemon.py"],
-    data_dir = "test_daemon_data",
-)
-
-buck2_e2e_test(
     name = "test_cpp_gen_cdb",
     srcs = ["test_cpp_gen_cdb.py"],
 )
