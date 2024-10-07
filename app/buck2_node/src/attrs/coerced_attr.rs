@@ -85,12 +85,6 @@ enum SelectError {
     DuplicateKey(String),
 }
 
-#[derive(Debug, buck2_error::Error)]
-enum CoercedAttrError {
-    #[error("Inconsistent number of elements in tuple")]
-    InconsistentTupleLength,
-}
-
 pub enum CoercedSelectorKeyRef<'a> {
     Target(&'a ConfigurationSettingKey),
     Default,
@@ -447,7 +441,7 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(CoercedAttrError::InconsistentTupleLength.into());
+                    return Err(internal_error!("Inconsistent number of elements in tuple"));
                 }
 
                 for (v, vt) in list.iter().zip(&t.xs) {
@@ -637,7 +631,7 @@ impl CoercedAttr {
             )),
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(CoercedAttrError::InconsistentTupleLength.into());
+                    return Err(internal_error!("Inconsistent number of elements in tuple"));
                 }
                 ConfiguredAttr::Tuple(TupleLiteral(
                     list.iter()
