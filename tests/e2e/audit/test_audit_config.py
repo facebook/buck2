@@ -38,7 +38,7 @@ async def test_audit_config_json(buck: Buck) -> None:
     assert result_json is not None
 
 
-@buck_test(inplace=False, data_dir="cells")
+@buck_test(inplace=False)
 async def test_audit_config_cell_json(buck: Buck) -> None:
     out = await buck.audit_config(
         "--style",
@@ -63,7 +63,7 @@ async def test_audit_config_cell_json(buck: Buck) -> None:
     assert out_json.get("test.is_root") is None
 
 
-@buck_test(inplace=False, setup_eden=True, data_dir="cells")
+@buck_test(inplace=False, setup_eden=True)
 async def test_audit_config_all_cells(buck: Buck) -> None:
     out = await buck.audit_config(
         "--all-cells",
@@ -156,7 +156,7 @@ async def test_audit_config_with_cell_syntax(buck: Buck) -> None:
     assert result_file_json.get("fbcode//project.buck_out") == "buck-out/dev"
 
 
-@buck_test(inplace=False, data_dir="cells")
+@buck_test(inplace=False)
 async def test_cell_relative_configs(buck: Buck) -> None:
     result_root_cell = await buck.audit_config(
         "--config",

@@ -1,0 +1,14 @@
+[bar]
+  a = 2
+[foo]
+  a = $(config bar.a)
+  b = $(config foo.a)
+[test]
+  is_code = yes
+
+[repositories]
+fbsource = ../fbs
+buck = ../buck
+fbcode = .
+self = .
+other = ../fbs

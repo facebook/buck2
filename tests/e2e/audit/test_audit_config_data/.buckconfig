@@ -1,0 +1,18 @@
+[bar]
+  a = 1
+[foo]
+  a = $(config bar.a)
+  b = $(config foo.a)
+[test]
+  is_root = yes
+
+[repositories]
+source = fbs
+code = fbc
+b = buck
+root = .
+prelude = prelude
+
+[repository_aliases]
+a = b
+z = b

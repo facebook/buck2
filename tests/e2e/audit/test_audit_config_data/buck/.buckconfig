@@ -1,0 +1,6 @@
+[repositories]
+buck = .
+fbsource = ../fbs
+fbcode = ../fbc
+self = .
+other = ../fbs
