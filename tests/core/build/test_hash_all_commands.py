@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_action_impl::actions::impls::run::dep_files=trace")
 @pytest.mark.parametrize(
     "local_only",
@@ -50,7 +50,7 @@ async def test_hash_all_commands(buck: Buck, local_only: str) -> None:
     assert "Command line and directory have not changed" in res.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_hash_all_commands_key_change(buck: Buck) -> None:
     # Expecting a rebuild since the command wasn't hashed previously.
     await buck.build(
@@ -87,7 +87,7 @@ async def test_hash_all_commands_key_change(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_hash_all_commands_key_change_deps(buck: Buck) -> None:
     # Expecting a rebuild since the command wasn't hashed previously.
     await buck.build(

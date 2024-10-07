@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import replace_hashes
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_report_format(buck: Buck) -> None:
     await buck.build(
         "//:rule1",
@@ -73,7 +73,7 @@ async def test_build_report_format(buck: Buck) -> None:
         assert rule2_configured["configured_graph_size"] == 3
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_report_format_skip_unconfigured(buck: Buck) -> None:
     await buck.build(
         "//:rule1",
@@ -102,7 +102,7 @@ async def test_build_report_format_skip_unconfigured(buck: Buck) -> None:
         assert rule1_configured["other_outputs"] == {}
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_report_package_project_relative_path(buck: Buck) -> None:
     await buck.build(
         "//:rule1",

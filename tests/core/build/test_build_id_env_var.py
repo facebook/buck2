@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_id_env_var_is_set_locally(buck: Buck) -> None:
     result = await buck.build(
         "root//:top",
@@ -29,7 +29,7 @@ async def test_build_id_env_var_is_set_locally(buck: Buck) -> None:
         assert f.read().strip() == result.buck_build_id
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_id_env_var_is_set_remotely(buck: Buck) -> None:
     result = await buck.build(
         "root//:top",

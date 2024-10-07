@@ -103,7 +103,7 @@ def touch(buck: Buck, name: str) -> None:
 
 # Flaky because of watchman on mac (and maybe windows)
 # Skipping on windows due to gcc dependency
-@buck_test(inplace=False, data_dir="dep_files", skip_for_os=["darwin", "windows"])
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
 async def test_dep_files(buck: Buck) -> None:
     # We query cache before we query dep file. Disable remote cache to make
     # sure that for the last build what-ran doesn't return cached entry.
@@ -150,9 +150,7 @@ async def check_cache_query(buck: Buck) -> None:
 
 
 # Skipping on windows due to gcc dependency
-@buck_test(
-    inplace=False, setup_eden=True, data_dir="dep_files", skip_for_os=["windows"]
-)
+@buck_test(setup_eden=True, data_dir="dep_files", skip_for_os=["windows"])
 async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     # For actions that have dep files, buck will query the local dep file cache to see
     # if an identical action is stored there. Otherwise, it will fall back to an action cache
@@ -195,7 +193,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
 # Flaky because of watchman on mac (and maybe windows)
 # Skipping on windows due to gcc dependency
 # This test tombstones the hash of the dep file produced by this action.
-@buck_test(inplace=False, data_dir="dep_files", skip_for_os=["darwin", "windows"])
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
 @env(
     "BUCK2_TEST_TOMBSTONED_DIGESTS",
     "ed34019d42934db589d9678e6e2d0cdff739e7e2:78",
@@ -223,7 +221,7 @@ async def test_dep_files_ignore_missing_digests(buck: Buck, tmp_path: Path) -> N
     await expect_exec_count(buck, 1)
 
 
-@buck_test(inplace=False, data_dir="invalid_dep_files")
+@buck_test(data_dir="invalid_dep_files")
 async def test_invalid_dep_files(buck: Buck) -> None:
     await buck.build(
         "//:lazy",
@@ -253,7 +251,7 @@ async def test_invalid_dep_files(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="mismatched_outputs_dep_files")
+@buck_test(data_dir="mismatched_outputs_dep_files")
 async def test_mismatched_outputs_dep_files(buck: Buck) -> None:
     await buck.build("//:test", "-c", "test.prefix=foo", "-c", "test.suffix=bar")
     # Different output now, even though the command has not changed.
@@ -289,7 +287,7 @@ async def _check_uploaded_dep_file_key(buck: Buck, dep_file_key: str) -> None:
     assert dep_file_key == uploaded_key
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_uploads_same_key(buck: Buck) -> None:
@@ -326,7 +324,7 @@ async def test_re_dep_file_uploads_same_key(buck: Buck) -> None:
     assert key == key_tagged_input_change
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
@@ -387,7 +385,7 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
     keys_seen.append(key_untagged_input_change)
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
@@ -411,7 +409,7 @@ async def test_dep_file_does_not_upload_when_allow_cache_upload_is_true(
     assert len(uploads) == 0
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 @env("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", "true")
@@ -449,7 +447,7 @@ async def test_only_do_cache_lookup_when_dep_file_upload_is_enabled(
     await check_cache_query(buck)
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_remote_upload(buck: Buck) -> None:
@@ -468,7 +466,7 @@ async def test_re_dep_file_remote_upload(buck: Buck) -> None:
     await _check_uploaded_dep_file_key(buck, key)
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env("BUCK_LOG", "buck2_action_impl=debug,buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
@@ -523,7 +521,7 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     assert len(uploads) == 0
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 async def test_re_dep_file_uploads_failed_action(buck: Buck) -> None:
     # If the action failed, we should not attempt to upload to cache even if it's configured to
     target = [
@@ -551,7 +549,7 @@ async def check_remote_dep_file_cache_query_took_place(buck: Buck) -> str:
     return what_ran[0]["reproducer"]["details"]["digest"]
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env(
     "BUCK_LOG",
     "buck2_execute_impl::executors::caching=debug,buck2_execute_impl::executors::action_cache=debug,buck2_action_impl=debug",
@@ -630,7 +628,7 @@ async def test_re_dep_file_query_change_tagged_unused_file(buck: Buck) -> None:
         await check_match_dep_files(buck, expected_dep_file_match)
 
 
-@buck_test(inplace=False, data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files")
 @env(
     "BUCK_LOG",
     "buck2_execute_impl::executors::caching=debug,buck2_execute_impl::executors::action_cache=debug,buck2_action_impl=debug",

@@ -17,7 +17,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_executor_with_dependencies(buck: Buck) -> None:
     # Smoke test: run on RE and correctly pass the `remote_execution_dependencies` parameter specified in the platform
     # The RE external dependency (https://fburl.com/wiki/e55nloow) is purposefully wrong as the smc_tier is non existent,
@@ -35,7 +35,7 @@ async def test_executor_with_dependencies(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_good_target_with_dependencies(buck: Buck) -> None:
     result = await buck.build(
         ":good_target_with_dependencies",
@@ -64,7 +64,7 @@ async def test_good_target_with_dependencies(buck: Buck) -> None:
     assert executors == expected
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bad_target_with_dependencies(buck: Buck) -> None:
     await expect_failure(
         buck.build(

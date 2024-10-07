@@ -1,0 +1,214 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_build_output_file_hashes",
+    srcs = ["test_build_output_file_hashes.py"],
+    data_dir = "test_build_output_file_hashes_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_build_skip_incompatible_targets",
+    srcs = ["test_build_skip_incompatible_targets.py"],
+    data_dir = "test_build_skip_incompatible_targets_data",
+)
+
+buck2_e2e_test(
+    name = "test_build_root_executable",
+    srcs = ["test_build_root_executable.py"],
+    data_dir = "test_build_root_executable_data",
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_plugins",
+    srcs = ["test_plugins.py"],
+    data_dir = "test_plugins_data",
+    serialize_test_cases = False,
+)
+
+buck2_e2e_test(
+    name = "test_uncategorized",
+    srcs = ["test_uncategorized.py"],
+    data_dir = "test_uncategorized_data",
+    env = {
+        "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+    },
+    serialize_test_cases = False,
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_hash_all_commands",
+    srcs = ["test_hash_all_commands.py"],
+    data_dir = "test_hash_all_commands_data",
+    # These tests heavily depend on watchman, which is flakey on non-Linux systems
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_dep_files",
+    srcs = ["test_dep_files.py"],
+    data_dir = "test_dep_files_data",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_target_aliases",
+    srcs = ["test_target_aliases.py"],
+    data_dir = "test_target_aliases_data",
+)
+
+buck2_e2e_test(
+    name = "test_symlinks",
+    srcs = ["test_symlinks.py"],
+    data_dir = "test_symlinks_data",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_out_flag",
+    srcs = ["test_out_flag.py"],
+    data_dir = "test_out_flag_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_nested_subtargets",
+    srcs = ["test_nested_subtargets.py"],
+    data_dir = "test_nested_subtargets_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+)
+
+buck2_e2e_test(
+    name = "test_build_report",
+    srcs = ["test_build_report.py"],
+    data_dir = "test_build_report_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_report_errors",
+    srcs = ["test_build_report_errors.py"],
+    data_dir = "test_build_report_errors_data",
+    deps = [
+        "fbcode//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_id_env_var",
+    srcs = ["test_build_id_env_var.py"],
+    data_dir = "test_build_id_env_var_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_cancellation",
+    srcs = ["test_cancellation.py"],
+    data_dir = "test_cancellation_data",
+    skip_for_os = ["windows"],
+)
+
+buck2_e2e_test(
+    name = "test_critical_path",
+    srcs = ["test_critical_path.py"],
+    data_dir = "test_critical_path_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_response",
+    srcs = ["test_build_response.py"],
+    data_dir = "test_build_response_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_rule_type_name_logging",
+    srcs = ["test_build_rule_type_name_logging.py"],
+    data_dir = "test_build_rule_type_name_logging_data",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_executor_with_dependencies",
+    srcs = ["test_executor_with_dependencies.py"],
+    data_dir = "test_executor_with_dependencies_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_action_error_handler_types",
+    srcs = ["test_action_error_handler_types.py"],
+    data_dir = "test_action_error_handler_types_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_build_system_info",
+    srcs = ["test_build_system_info.py"],
+    data_dir = "test_build_system_info_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_remote_execution",
+    srcs = ["test_remote_execution.py"],
+    data_dir = "test_remote_execution_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)

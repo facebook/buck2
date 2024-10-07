@@ -92,7 +92,7 @@ def build_report_test(name: str, command: List[str]) -> None:
 
     globals()[name] = impl
 
-    return buck_test(inplace=False)(impl)
+    return buck_test()(impl)
 
 
 build_report_test(
@@ -149,7 +149,7 @@ if not running_on_windows() and not running_on_mac():
         ["//fail_action:fail_one_with_error_handler_no_op"],
     )
 
-    @buck_test(inplace=False)
+    @buck_test()
     async def test_stderr_with_empty_error_diagnostics(buck: Buck) -> None:
         result = await expect_failure(
             buck.build("//fail_action:fail_one_with_error_handler_no_op")
@@ -160,7 +160,7 @@ if not running_on_windows() and not running_on_mac():
             rel_path="fixtures/test_stderr_with_empty_error_diagnostics.golden.txt",
         )
 
-    @buck_test(inplace=False)
+    @buck_test()
     async def test_stderr_with_error_diagnostics(buck: Buck) -> None:
         result = await expect_failure(
             buck.build("//fail_action:error_handler_produced_multiple_categories")
@@ -171,7 +171,7 @@ if not running_on_windows() and not running_on_mac():
             rel_path="fixtures/test_stderr_with_error_diagnostics.golden.txt",
         )
 
-    @buck_test(inplace=False)
+    @buck_test()
     async def test_stderr_with_no_error_diagnostics(buck: Buck) -> None:
         result = await expect_failure(buck.build("//fail_action:fail_script"))
 
@@ -180,7 +180,7 @@ if not running_on_windows() and not running_on_mac():
             rel_path="fixtures/test_stderr_with_no_error_diagnostics.golden.txt",
         )
 
-    @buck_test(inplace=False)
+    @buck_test()
     async def test_stderr_could_not_produce_error_diagnostics(buck: Buck) -> None:
         result = await expect_failure(buck.build("//fail_action:error_handler_failed"))
 
@@ -251,7 +251,7 @@ build_report_test(
 )
 
 
-@buck_test(inplace=False, setup_eden=True)
+@buck_test(setup_eden=True)
 async def test_two_action_dep_failures(buck: Buck, tmp_path: Path) -> None:
     # When we pass `--keep-going`, we should get error reports for both dependencies of the action.
     # However, we don't. Instead, we just get one error non-deterministically. This is also why we
@@ -279,7 +279,7 @@ async def test_two_action_dep_failures(buck: Buck, tmp_path: Path) -> None:
     assert "fail_two_deps" in errors[0]["action_error"]["key"]["owner"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_error_handler_failed(buck: Buck, tmp_path: Path) -> None:
     # Starlark error messages change across different modes for some reason (ex: opt-asan vs opt).
     # We have a fair amount of coverage for other functionalities of error handler/build report,
@@ -302,7 +302,7 @@ async def test_error_handler_failed(buck: Buck, tmp_path: Path) -> None:
     assert "fail: something went wrong" in report
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_error_handler_wrong_return_type(buck: Buck, tmp_path: Path) -> None:
     # Starlark error messages change across different modes for some reason (ex: opt-asan vs opt).
     # We have a fair amount of coverage for other functionalities of error handler/build report,
@@ -328,7 +328,7 @@ async def test_error_handler_wrong_return_type(buck: Buck, tmp_path: Path) -> No
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_missing_report_on_wrong_package(buck: Buck, tmp_path: Path) -> None:
     # If we specify a non-existent package, we don't get an error report
     report = tmp_path / "build-report.json"

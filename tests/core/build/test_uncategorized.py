@@ -27,7 +27,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import json_get, read_what_ran
 
 
-@buck_test(inplace=False, data_dir="anon_exec_deps")
+@buck_test(data_dir="anon_exec_deps")
 async def test_anon_target_exec_deps(buck: Buck) -> None:
     await buck.build("//tests:exec_dep_good", "--remote-only")
 
@@ -42,7 +42,7 @@ async def test_anon_target_exec_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="args")
+@buck_test(data_dir="args")
 async def test_args(buck: Buck) -> None:
     result = await buck.build("//:bin")
     output = result.get_build_report().output_for_target("//:bin")
@@ -52,7 +52,7 @@ async def test_args(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="prelude_import")
+@buck_test(data_dir="prelude_import")
 async def test_prelude_imported_once(buck: Buck) -> None:
     # See the comments in the relevant targets files: they explain how this
     # test works.
@@ -71,7 +71,7 @@ def read_all_outputs(buck: Buck, report: str) -> typing.List[str]:
     return ret
 
 
-@buck_test(inplace=False, data_dir="build_providers")
+@buck_test(data_dir="build_providers")
 async def test_build_providers(buck: Buck) -> None:
     await buck.build(
         "//:target",
@@ -122,7 +122,7 @@ async def test_build_providers(buck: Buck) -> None:
     assert any("/test" in o for o in outputs)
 
 
-@buck_test(inplace=False, data_dir="projected_artifacts")
+@buck_test(data_dir="projected_artifacts")
 @pytest.mark.parametrize(
     "target",
     [
@@ -137,7 +137,7 @@ async def test_projected_artifacts(buck: Buck, target: str) -> None:
     await buck.build(target)
 
 
-@buck_test(inplace=False, data_dir="upload_all_actions")
+@buck_test(data_dir="upload_all_actions")
 async def test_upload_all_actions(buck: Buck) -> None:
     with open(buck.cwd / "src", "w") as src:
         src.write(random_string())
@@ -159,13 +159,13 @@ async def test_upload_all_actions(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="buckroot")
+@buck_test(data_dir="buckroot")
 async def test_buckroot(buck: Buck) -> None:
     # Test that .buckroot files work
     await buck.build(":inner", rel_cwd=Path("rooted/cell"))
 
 
-@buck_test(inplace=False, data_dir="cell_delete")
+@buck_test(data_dir="cell_delete")
 async def test_cell_deletion(buck: Buck) -> None:
     """
     This is a regression test for https://github.com/facebook/buck2/pull/43,
@@ -179,7 +179,6 @@ async def test_cell_deletion(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="invalid_file_invalidation",
     skip_for_os=["windows"],
     # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
@@ -228,7 +227,7 @@ async def test_invalid_file_invalidation(buck: Buck) -> None:
     await buck.build(":root")
 
 
-@buck_test(inplace=False, data_dir="concurrency")
+@buck_test(data_dir="concurrency")
 async def test_concurrency(buck: Buck) -> None:
     await buck.build("//:weight", "--local-only", "--no-remote-cache")
 
@@ -279,7 +278,7 @@ async def test_concurrency(buck: Buck) -> None:
     assert execs_done == 10
 
 
-@buck_test(inplace=False, data_dir="fail_fast")
+@buck_test(data_dir="fail_fast")
 async def test_fail_fast(buck: Buck) -> None:
     with pytest.raises(BuckException) as exc:
         await buck.build(
@@ -307,7 +306,7 @@ async def test_fail_fast(buck: Buck) -> None:
     assert "slow_other_output" not in exc.value.stderr
 
 
-@buck_test(inplace=False, data_dir="keep_going_build")
+@buck_test(data_dir="keep_going_build")
 async def test_keep_going(buck: Buck) -> None:
     with pytest.raises(BuckException) as exc:
         await buck.build(
@@ -332,7 +331,7 @@ async def test_keep_going(buck: Buck) -> None:
     assert "slow_action" in exc.value.stderr
 
 
-@buck_test(inplace=False, data_dir="cleanup")
+@buck_test(data_dir="cleanup")
 async def test_cleanup(buck: Buck) -> None:
     # Test for T85589819 - broken cleanup
     target_pattern = "//:cleanup"
@@ -354,7 +353,7 @@ async def test_cleanup(buck: Buck) -> None:
     await buck.build(target_pattern)
 
 
-@buck_test(inplace=False, data_dir="log_action_keys")
+@buck_test(data_dir="log_action_keys")
 async def test_log_action_keys(buck: Buck) -> None:
     async def read_action_keys() -> List[Tuple[str, str]]:
         out = await read_what_ran(buck)
@@ -385,7 +384,7 @@ async def test_log_action_keys(buck: Buck) -> None:
     assert await read_action_keys() == [("Cache", action_key)]
 
 
-@buck_test(inplace=False, data_dir="roots")
+@buck_test(data_dir="roots")
 async def test_roots(buck: Buck) -> None:
     res = await buck.build("root//:test", "other//:test")
 
@@ -418,12 +417,12 @@ async def test_roots(buck: Buck) -> None:
         assert j["project_relative_to_fixture"] == platformify("../../../../../../..")
 
 
-@buck_test(inplace=False, data_dir="tmpdir")
+@buck_test(data_dir="tmpdir")
 async def test_tmpdir(buck: Buck) -> None:
     await buck.build("root//:")
 
 
-@buck_test(inplace=False, data_dir="materialize_inputs_for_failed_actions")
+@buck_test(data_dir="materialize_inputs_for_failed_actions")
 async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
     await expect_failure(
         buck.build(
@@ -480,7 +479,7 @@ def random_string() -> str:
     return "".join(random.choice(string.ascii_lowercase) for i in range(256))
 
 
-@buck_test(inplace=False, data_dir="artifact_consistency")
+@buck_test(data_dir="artifact_consistency")
 async def test_artifact_consistency(buck: Buck) -> None:
     out = await buck.build_without_report(
         ":gen[file3]",

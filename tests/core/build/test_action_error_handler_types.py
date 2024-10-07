@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_action_error_handler_types(buck: Buck) -> None:
     await buck.bxl(
         "//:test_action_error_handler_types.bxl:test_action_error_handler_types"

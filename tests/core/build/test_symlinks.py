@@ -18,7 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_symlinks(buck: Buck) -> None:
     # We want to check in a symlink but given Buck is running this and symlinks
     # do not exist we need to put it back and make it be an actual symlink.
@@ -49,7 +49,6 @@ async def test_symlinks(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
     extra_buck_config={"buck2": {"file_watcher": "watchman"}},
 )
@@ -80,7 +79,6 @@ async def test_symlinks_redirection(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
     extra_buck_config={"buck2": {"file_watcher": "watchman"}},
 )

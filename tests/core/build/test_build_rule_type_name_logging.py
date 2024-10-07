@@ -32,7 +32,7 @@ async def check_rule_type_names(
             assert actual["target_rule_type_name"] == expected
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_nested_subtargets(buck: Buck) -> None:
     await buck.build(
         "//:nested[sub][nested_sub]",
@@ -40,7 +40,7 @@ async def test_build_nested_subtargets(buck: Buck) -> None:
     await check_rule_type_names(buck, ["nested_subtargets"])
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_single_dep_touch(buck: Buck) -> None:
     await buck.build(
         "//:rule1",
@@ -48,7 +48,7 @@ async def test_build_single_dep_touch(buck: Buck) -> None:
     await check_rule_type_names(buck, ["one"])
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_two_out_of_order(buck: Buck) -> None:
     await buck.build(
         "//:rule1",
@@ -57,7 +57,7 @@ async def test_build_two_out_of_order(buck: Buck) -> None:
     await check_rule_type_names(buck, ["nested_subtargets", "one"])
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_all_in_target(buck: Buck) -> None:
     await buck.build(
         "//:",
@@ -65,7 +65,7 @@ async def test_build_all_in_target(buck: Buck) -> None:
     await check_rule_type_names(buck, ["two", "nested_subtargets", "one", "one"])
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_all_recursive(buck: Buck) -> None:
     await buck.build(
         "//...",

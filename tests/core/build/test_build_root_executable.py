@@ -18,11 +18,11 @@ lookup for them.
 """
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_root_executable_local(buck: Buck) -> None:
     await buck.build(":top", "--local-only")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_root_executable_remote(buck: Buck) -> None:
     await buck.build(":top", "--remote-only")

@@ -41,7 +41,7 @@ async def check_targets(
             assert expected in actual_msg["message"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_one_fails(buck: Buck, tmp_path: Path) -> None:
     report = tmp_path / "build-report.json"
     await expect_failure(

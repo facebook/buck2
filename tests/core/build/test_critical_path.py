@@ -72,12 +72,12 @@ async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
         assert s.name == e[1]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path(buck: Buck) -> None:
     await do_critical_path(buck, False)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_longest_path_graph(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig", "a") as f:
         f.write("[buck2]\n")
@@ -85,7 +85,7 @@ async def test_critical_path_longest_path_graph(buck: Buck) -> None:
     await do_critical_path(buck, True)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_json(buck: Buck) -> None:
     import json
 
@@ -137,7 +137,7 @@ async def test_critical_path_json(buck: Buck) -> None:
             assert "execution_kind" not in critical
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_metadata(buck: Buck) -> None:
     await buck.build(
         "//:step_0",
@@ -178,7 +178,7 @@ async def critical_path_helper(buck: Buck) -> typing.List[typing.Dict[str, typin
     return critical_path_actions[0]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_execution_kind(buck: Buck) -> None:
     await buck.build("//:step_3", "--no-remote-cache")
 
@@ -197,7 +197,7 @@ async def test_critical_path_execution_kind(buck: Buck) -> None:
     assert has_action_execution
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_rule_type(buck: Buck) -> None:
     await buck.build("//:step_0", "--no-remote-cache")
 
@@ -213,7 +213,7 @@ async def test_critical_path_rule_type(buck: Buck) -> None:
             )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_critical_path_action_digest(buck: Buck) -> None:
     await buck.build("//:step_3", "--no-remote-cache")
 

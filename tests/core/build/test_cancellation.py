@@ -63,14 +63,14 @@ async def _test_cancellation_helper(
             raise Exception(f"PID existed: {pid}")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cancellation(buck: Buck, tmp_path: Path) -> None:
     await _test_cancellation_helper(
         buck, tmp_path, lambda buck, opts: buck.build(*opts, ":slow")
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cancellation_bxl(buck: Buck, tmp_path: Path) -> None:
     await _test_cancellation_helper(
         buck, tmp_path, lambda buck, opts: buck.bxl(*opts, "//build.bxl:build")

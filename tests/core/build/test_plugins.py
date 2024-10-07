@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_deps_in_cquery_not_uquery(buck: Buck) -> None:
     # Check that plugin deps appear as deps in uquery but not in cquery
     result = await buck.uquery("deps(//tests:reg_a)")
@@ -33,7 +33,7 @@ async def test_deps_in_cquery_not_uquery(buck: Buck) -> None:
     }
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery(buck: Buck) -> None:
     ###### Check that everything is correctly configured as reported by cquery
     result = await buck.cquery(
@@ -84,7 +84,7 @@ async def test_cquery(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_analysis(buck: Buck) -> None:
     # Check that we can properly identify all the different plugin deps in analysis
     result = await buck.build("root//tests:b", "root//tests:l")
@@ -110,7 +110,7 @@ async def test_analysis(buck: Buck) -> None:
     }
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_plugin_dep_errors(buck: Buck) -> None:
     # Tests are explained in the file
     await buck.build("//test_errors:recursive_target_1")
@@ -128,7 +128,7 @@ async def test_plugin_dep_errors(buck: Buck) -> None:
     assert "The rule did not declare that it uses plugins of kind A" in result.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_repeated_insertion(buck: Buck) -> None:
     result = await buck.cquery(
         "-a", "buck.plugins", "//repeated_insertion:different_deps_alias"
@@ -138,7 +138,7 @@ async def test_repeated_insertion(buck: Buck) -> None:
     )[0]["buck.plugins"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_visibility(buck: Buck) -> None:
     result = await expect_failure(buck.build("//visibility:missing_access"))
     assert (

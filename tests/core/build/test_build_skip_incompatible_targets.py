@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_skip_incompatible(buck: Buck) -> None:
     targetA = "root//:compatible-with-A"
     targetB = "root//:compatible-with-B"
