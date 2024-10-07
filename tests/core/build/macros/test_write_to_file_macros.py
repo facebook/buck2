@@ -31,7 +31,7 @@ def _find_file(dir, name: str):
     return f
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_xxx(buck: Buck) -> None:
     result = await buck.build("//:test_rule")
     out = result.get_build_report().output_for_target("root//:test_rule")

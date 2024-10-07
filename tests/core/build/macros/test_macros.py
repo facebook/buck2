@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_run_with_source_macros(buck: Buck) -> None:
     sep = "\\" if platform.system() == "Windows" else "/"
     result = await buck.run("//source:echo_file")
@@ -31,7 +31,7 @@ async def test_run_with_source_macros(buck: Buck) -> None:
     assert result.stdout == "bar file\n"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_no_dep_in_source(buck: Buck) -> None:
     await expect_failure(
         buck.build("//dep_as_source:uses_dep"),
