@@ -89,9 +89,6 @@ async def test_audit_output_nonexistent_cell(buck: Buck) -> None:
 
 @buck_test(inplace=False)
 async def test_audit_output_in_root_directory(buck: Buck) -> None:
-    # FIXME(JakobDegen): Root directory appears broken
-    if True:
-        return
     target = "root//:dummy"
     config_hash = await _get_config_hash(buck, target)
     result = await buck.audit_output(
@@ -107,9 +104,6 @@ async def test_audit_output_in_root_directory(buck: Buck) -> None:
 
 @buck_test(inplace=False)
 async def test_non_root_cell(buck: Buck) -> None:
-    # FIXME(JakobDegen): Root directory appears broken
-    if True:
-        return
     target = "cell1//:dummy2"
     config_hash = await _get_config_hash(buck, target)
     result = await buck.audit_output(

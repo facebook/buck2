@@ -153,50 +153,36 @@ fn get_cell_path<'v>(
     // Get cell relative path and construct the cell path
     let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
 
-    while let Some(part) = iter.next() {
-        cell_relative_path = cell_relative_path.join(part).to_owned();
-
-        let Some(maybe_target_name) = iter.peek() else {
+    while let Some(maybe_target_name) = iter.peek() {
+        if !maybe_target_name.as_str().starts_with("__") {
+            cell_relative_path.push(maybe_target_name);
+            iter.next();
             continue;
+        }
+        // Intentionally leave the target label on the iterator
+
+        // If it's an anonymous target, then the last part before the target name is actually the
+        // hash, and not part of the cell relative path.
+        let (cell_relative_path, anon_hash) = if is_anon {
+            let path = cell_relative_path
+                .parent()
+                .with_context(|| "Invalid path for anonymous target")?
+                .to_buf();
+            let anon_hash = cell_relative_path.file_name().unwrap().as_str().to_owned();
+            (path, Some(anon_hash))
+        } else {
+            (cell_relative_path.to_buf(), None)
+        };
+        let cell_path = CellPath::new(cell_name, cell_relative_path);
+
+        let buck_out_path_data = BuckOutPathData {
+            cell_path,
+            config_hash: config_hash.to_string(),
+            anon_hash,
+            raw_path_to_output: raw_path_to_output.to_buf(),
         };
 
-        let maybe_target_name = maybe_target_name.as_str();
-        // TODO(@wendyy) We assume that the first string that we find that starts with "__"
-        // is the target name. There is a small risk of naming collisions (ex: if there's a directory
-        // name that follows this convention that contains a build file), but I will fix this at a
-        // later date.
-        if (*maybe_target_name).starts_with("__") {
-            // If it's an anonymous target, then the last part before the target name is actually the
-            // hash, and not part of the cell relative path.
-            let cell_path = if is_anon {
-                CellPath::new(
-                    cell_name,
-                    cell_relative_path
-                        .parent()
-                        .with_context(|| "Invalid path for anonymous target")?
-                        .to_buf(),
-                )
-            } else {
-                CellPath::new(cell_name, cell_relative_path.to_buf())
-            };
-
-            let anon_hash = if is_anon {
-                // Iterator is pointing to the part right before the target name, aka the attr
-                // hash for the anonymous target.
-                Some(part.to_string())
-            } else {
-                None
-            };
-
-            let buck_out_path_data = BuckOutPathData {
-                cell_path,
-                config_hash: config_hash.to_string(),
-                anon_hash,
-                raw_path_to_output: raw_path_to_output.to_buf(),
-            };
-
-            return Ok(buck_out_path_data);
-        }
+        return Ok(buck_out_path_data);
     }
 
     if is_test {
@@ -753,6 +739,28 @@ mod tests {
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_empty_package_path() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
+
+        let target_path = format!(
+            "buck-out/v2/gen/bar/{}/__target_name__/output",
+            expected_config_hash
+        );
+
+        let BuckOutPathType::RuleOutput {
+            path, target_label, ..
+        } = buck_out_parser.parse(&target_path)?
+        else {
+            panic!("Should have parsed buck-out path successfully")
+        };
+
+        assert!(path.path().is_empty());
+        assert_eq!(target_label.name().as_str(), "target_name");
 
         Ok(())
     }
