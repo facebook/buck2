@@ -130,91 +130,85 @@ fn get_cell_path<'v>(
     let is_anon = generated_prefix == "gen-anon";
     let is_test = generated_prefix == "test";
     // Get cell name and validate it exists
-    match iter.next() {
-        Some(cell_name) => {
-            let cell_name = CellName::unchecked_new(cell_name.as_str())?;
-            let mut raw_path_to_output = ForwardRelativePath::new(cell_name.as_str())?.to_buf();
+    let Some(cell_name) = iter.next() else {
+        return Err(anyhow::anyhow!("Invalid cell name"));
+    };
 
-            cell_resolver.get(cell_name)?;
+    let cell_name = CellName::unchecked_new(cell_name.as_str())?;
+    let mut raw_path_to_output = ForwardRelativePath::new(cell_name.as_str())?.to_buf();
 
-            // Advance iterator to the config hash
-            let config_hash = match iter.next() {
-                Some(config_hash) => config_hash,
-                None => {
-                    return Err(anyhow::anyhow!(
-                        "Path does not have a platform configuration"
-                    ));
-                }
+    cell_resolver.get(cell_name)?;
+
+    // Advance iterator to the config hash
+    let Some(config_hash) = iter.next() else {
+        return Err(anyhow::anyhow!(
+            "Path does not have a platform configuration"
+        ));
+    };
+
+    iter.clone().for_each(|f| {
+        raw_path_to_output.push(f);
+    });
+
+    // Get cell relative path and construct the cell path
+    let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
+
+    while let Some(part) = iter.next() {
+        cell_relative_path = cell_relative_path.join(part).to_owned();
+
+        let Some(maybe_target_name) = iter.peek() else {
+            continue;
+        };
+
+        let maybe_target_name = maybe_target_name.as_str();
+        // TODO(@wendyy) We assume that the first string that we find that starts with "__"
+        // is the target name. There is a small risk of naming collisions (ex: if there's a directory
+        // name that follows this convention that contains a build file), but I will fix this at a
+        // later date.
+        if (*maybe_target_name).starts_with("__") {
+            // If it's an anonymous target, then the last part before the target name is actually the
+            // hash, and not part of the cell relative path.
+            let cell_path = if is_anon {
+                CellPath::new(
+                    cell_name,
+                    cell_relative_path
+                        .parent()
+                        .with_context(|| "Invalid path for anonymous target")?
+                        .to_buf(),
+                )
+            } else {
+                CellPath::new(cell_name, cell_relative_path.to_buf())
             };
 
-            iter.clone().for_each(|f| {
-                raw_path_to_output.push(f);
-            });
-
-            // Get cell relative path and construct the cell path
-            let mut cell_relative_path = CellRelativePath::unchecked_new("").to_owned();
-
-            while let Some(part) = iter.next() {
-                cell_relative_path = cell_relative_path.join(part).to_owned();
-
-                // We make sure not to consume the target name part via the iterator.
-                match iter.peek() {
-                    Some(maybe_target_name) => {
-                        let maybe_target_name = maybe_target_name.as_str();
-                        // TODO(@wendyy) We assume that the first string that we find that starts with "__"
-                        // is the target name. There is a small risk of naming collisions (ex: if there's a directory
-                        // name that follows this convention that contains a build file), but I will fix this at a
-                        // later date.
-                        if (*maybe_target_name).starts_with("__") {
-                            // If it's an anonymous target, then the last part before the target name is actually the
-                            // hash, and not part of the cell relative path.
-                            let cell_path = if is_anon {
-                                CellPath::new(
-                                    cell_name,
-                                    cell_relative_path
-                                        .parent()
-                                        .with_context(|| "Invalid path for anonymous target")?
-                                        .to_buf(),
-                                )
-                            } else {
-                                CellPath::new(cell_name, cell_relative_path.to_buf())
-                            };
-
-                            let anon_hash = if is_anon {
-                                // Iterator is pointing to the part right before the target name, aka the attr
-                                // hash for the anonymous target.
-                                Some(part.to_string())
-                            } else {
-                                None
-                            };
-
-                            let buck_out_path_data = BuckOutPathData {
-                                cell_path,
-                                config_hash: config_hash.to_string(),
-                                anon_hash,
-                                raw_path_to_output: raw_path_to_output.to_buf(),
-                            };
-
-                            return Ok(buck_out_path_data);
-                        }
-                    }
-                    None => (),
-                }
-            }
-
-            if is_test {
-                let buck_out_path_data = BuckOutPathData {
-                    cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
-                    config_hash: config_hash.to_string(),
-                    anon_hash: None,
-                    raw_path_to_output: raw_path_to_output.to_buf(),
-                };
-                Ok(buck_out_path_data)
+            let anon_hash = if is_anon {
+                // Iterator is pointing to the part right before the target name, aka the attr
+                // hash for the anonymous target.
+                Some(part.to_string())
             } else {
-                Err(anyhow::anyhow!("Invalid target name"))
-            }
+                None
+            };
+
+            let buck_out_path_data = BuckOutPathData {
+                cell_path,
+                config_hash: config_hash.to_string(),
+                anon_hash,
+                raw_path_to_output: raw_path_to_output.to_buf(),
+            };
+
+            return Ok(buck_out_path_data);
         }
-        None => Err(anyhow::anyhow!("Invalid cell name")),
+    }
+
+    if is_test {
+        let buck_out_path_data = BuckOutPathData {
+            cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
+            config_hash: config_hash.to_string(),
+            anon_hash: None,
+            raw_path_to_output: raw_path_to_output.to_buf(),
+        };
+        Ok(buck_out_path_data)
+    } else {
+        Err(anyhow::anyhow!("Invalid target name"))
     }
 }
 
