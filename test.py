@@ -154,6 +154,7 @@ def list_starlark_files(git: bool):
     ]
     excludes = [
         "starlark-rust/starlark/testcases/",
+        "tests/core/**/test_*_data/**",
         "tests/e2e/**/test_*_data/**",
         "**.rs",
         "**.fixture",
