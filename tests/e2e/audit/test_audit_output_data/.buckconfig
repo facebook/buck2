@@ -1,0 +1,13 @@
+[cells]
+  root = .
+  cell1 = cell1
+  nano_prelude = nano_prelude
+
+[cell_aliases]
+  prelude = nano_prelude
+
+[external_cells]
+  nano_prelude = bundled
+
+[buildfile]
+  name = TARGETS.fixture

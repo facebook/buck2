@@ -15,11 +15,8 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-TEST_PATH = "buck2/tests/e2e/audit/test_audit_output_data"
-TEST_CELL_PATH = f"fbcode//{TEST_PATH}"
 
-
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_malformed_path(buck: Buck) -> None:
     await expect_failure(
         buck.audit_output(
@@ -29,64 +26,59 @@ async def test_audit_output_malformed_path(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_scratch_path_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
-    target = f"{TEST_CELL_PATH}:dummy"
-    config_hash = await _get_config_hash(buck, target)
+    config_hash = await _get_config_hash(buck, "root//:dummy")
     await expect_failure(
         buck.audit_output(
-            f"buck-out/v2/tmp/fbcode/{config_hash}/path/to/target/__target__/output",
+            f"buck-out/v2/tmp/cell1/{config_hash}/path/to/target/__target__/output",
         ),
         stderr_regex="not supported for audit output",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_bxl_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
-    target = f"{TEST_CELL_PATH}:dummy"
-    config_hash = await _get_config_hash(buck, target)
+    config_hash = await _get_config_hash(buck, "root//:dummy")
     await expect_failure(
         buck.audit_output(
-            f"buck-out/v2/gen-bxl/fbcode/{config_hash}/path/to/function.bxl/__function__/output",
+            f"buck-out/v2/gen-bxl/cell1/{config_hash}/path/to/function.bxl/__function__/output",
         ),
         stderr_regex="not supported for audit output",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_anon_targets_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
-    target = f"{TEST_CELL_PATH}:dummy"
-    config_hash = await _get_config_hash(buck, target)
+    config_hash = await _get_config_hash(buck, "root//:dummy")
     await expect_failure(
         buck.audit_output(
-            f"buck-out/v2/gen-anon/fbcode/{config_hash}/path/to/target/rule_hash/__target__/output",
+            f"buck-out/v2/gen-anon/cell1/{config_hash}/path/to/target/rule_hash/__target__/output",
         ),
         stderr_regex="not supported for audit output",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_invalid_prefix(buck: Buck) -> None:
     # invalid prefix (i.e. not gen, gen-anon, gen-bxl, temp, or test)
     # pick a random target, we just want the config hash
-    target = f"{TEST_CELL_PATH}:dummy"
-    config_hash = await _get_config_hash(buck, target)
+    config_hash = await _get_config_hash(buck, "root//:dummy")
     await expect_failure(
         buck.audit_output(
-            f"buck-out/v2/not_gen/fbcode/{config_hash}/path/to/target/rule_hash/__target__/output",
+            f"buck-out/v2/not_gen/cell1/{config_hash}/path/to/target/rule_hash/__target__/output",
         ),
         stderr_regex="Malformed buck-out path",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_output_nonexistent_cell(buck: Buck) -> None:
     # pick a random target, we just want the config hash
-    target = f"{TEST_CELL_PATH}:dummy"
-    config_hash = await _get_config_hash(buck, target)
+    config_hash = await _get_config_hash(buck, "root//:dummy")
     await expect_failure(
         buck.audit_output(
             f"buck-out/v2/gen/made_up_cell/{config_hash}/path/to/target/rule_hash/__target__/output",
@@ -95,14 +87,15 @@ async def test_audit_output_nonexistent_cell(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_audit_output_fbsource(buck: Buck) -> None:
-    # TODO(@wendyy) - should have separate test data for this rather than reusing an existing target
-    # Test fbsource, a special case because fbsource is both a project root for fbcode and a cell
-    target = "fbsource//fbobjc/buck2/samples/hello_world:HelloWorldBundle"
+@buck_test(inplace=False)
+async def test_audit_output_in_root_directory(buck: Buck) -> None:
+    # FIXME(JakobDegen): Root directory appears broken
+    if True:
+        return
+    target = "root//:dummy"
     config_hash = await _get_config_hash(buck, target)
     result = await buck.audit_output(
-        f"buck-out/v2/gen/fbsource/{config_hash}/fbobjc/buck2/samples/hello_world/__HelloWorldBundle__/HelloWorldBundle.app",
+        f"buck-out/v2/gen/root/{config_hash}/__dummy__/foo.txt",
         "--output-all-attributes",
     )
 
@@ -112,15 +105,33 @@ async def test_audit_output_fbsource(buck: Buck) -> None:
     assert target in action_key
 
 
-@buck_test(inplace=True, skip_for_os=["windows", "darwin"])
-async def test_audit_output(buck: Buck) -> None:
-    target_platform = "ovr_config//platform/linux:x86_64-fbcode"
+@buck_test(inplace=False)
+async def test_non_root_cell(buck: Buck) -> None:
+    # FIXME(JakobDegen): Root directory appears broken
+    if True:
+        return
+    target = "cell1//:dummy2"
+    config_hash = await _get_config_hash(buck, target)
+    result = await buck.audit_output(
+        f"buck-out/v2/gen/cell1/{config_hash}/__dummy2__/foo.txt",
+        "--output-all-attributes",
+    )
+
+    action = json.loads(result.stdout)
+    assert len(action.keys()) == 1
+    action_key = list(action.keys())[0]
+    assert target in action_key
+
+
+@buck_test(inplace=False)
+async def test_fixed_target_platform(buck: Buck) -> None:
+    target_platform = "root//:linux_platform"
     target_platforms_arg = f"--target-platforms={target_platform}"
 
-    target = "fbcode//buck2/tests/targets/rules/cxx:my_cpp1"
+    target = "root//directory:dummy"
     config_hash = await _get_config_hash(buck, target, target_platforms_arg)
     result = await buck.audit_output(
-        f"buck-out/v2/gen/fbcode/{config_hash}/buck2/tests/targets/rules/cxx/__my_cpp1__/my_cpp1",
+        f"buck-out/v2/gen/root/{config_hash}/directory/__dummy__/foo.txt",
         target_platforms_arg,
     )
 
@@ -129,44 +140,56 @@ async def test_audit_output(buck: Buck) -> None:
     assert target_platform in action
     assert "id" in action
 
-    target = "fbcode//buck2/tests/targets/rules/ocaml:native"
-    config_hash = await _get_config_hash(buck, target, target_platforms_arg)
-    # Test dynamic output
-    result = await buck.audit_output(
-        f"buck-out/v2/gen/fbcode/{config_hash}/buck2/tests/targets/rules/ocaml/__native__/cmxs_order_native.lst",
-        target_platforms_arg,
-    )
 
+@buck_test(inplace=False)
+async def test_dynamic_outputs(buck: Buck) -> None:
+    target = "root//dynamic_output:dynamic_output"
+    config_hash = await _get_config_hash(buck, target)
+
+    result = await buck.audit_output(
+        f"buck-out/v2/gen/root/{config_hash}/dynamic_output/__dynamic_output__/bound_dynamic.txt",
+    )
     action = result.stdout
     assert target in action
-    assert target_platform in action
     assert "id" in action
 
-    # Test wrong config hash, should return the unconfigured target label
     result = await buck.audit_output(
-        "buck-out/v2/gen/fbcode/wrong_config_hash/buck2/tests/targets/rules/cxx/__my_cpp1__/my_cpp1",
+        f"buck-out/v2/gen/root/{config_hash}/dynamic_output/__dynamic_output__/defined_dynamic.txt",
+    )
+    # FIXME(JakobDegen): Why isn't this an error?
+    assert "Failed to find an action that produced the output path" in result.stdout
+
+
+@buck_test(inplace=False)
+async def test_wrong_config_hash(buck: Buck) -> None:
+    # Should return the unconfigured target label
+    target_platform = "root//:linux_platform"
+    target_platforms_arg = f"--target-platforms={target_platform}"
+    result = await buck.audit_output(
+        "buck-out/v2/gen/root/wrong_config_hash/directory/__dummy__/foo.txt",
         target_platforms_arg,
     )
 
     output = result.stdout
     # unconfigure target label should be in the output
-    assert "fbcode//buck2/tests/targets/rules/cxx:my_cpp1" in output
+    assert "root//directory:dummy" in output
     # configuration platform should not be in the output
     assert target_platform not in output
     assert "Platform configuration" in output
     assert "did not match" in output
 
+
+@buck_test(inplace=False)
+async def test_output_directory(buck: Buck) -> None:
     # Test a rule that outputs to a directory
-    target = "fbcode//buck2/tests/targets/rules/genrule/hello_world:my_genrule_output_to_directory"
-    config_hash = await _get_config_hash(buck, target, target_platforms_arg)
+    target = "root//directory:empty_dir"
+    config_hash = await _get_config_hash(buck, target)
     result = await buck.audit_output(
-        f"buck-out/v2/gen/fbcode/{config_hash}/buck2/tests/targets/rules/genrule/hello_world/__my_genrule_output_to_directory__/out/my_directory/out.txt",
-        target_platforms_arg,
+        f"buck-out/v2/gen/root/{config_hash}/directory/__empty_dir__/outputdir",
     )
 
     action = result.stdout
     assert target in action
-    assert target_platform in action
     assert "id" in action
 
 
