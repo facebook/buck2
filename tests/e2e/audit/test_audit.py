@@ -16,20 +16,6 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="cells")
-async def test_cell_ordering(buck: Buck) -> None:
-    res = await buck.audit("cell")
-    # The repository should be in the list, not the alias
-    assert "b:" in res.stdout
-    assert "a:" not in res.stdout
-    assert "z:" not in res.stdout
-
-    res = await buck.audit("cell", "--aliases")
-    assert "b:" in res.stdout
-    assert "a:" in res.stdout
-    assert "z:" in res.stdout
-
-
 def _classpath_jars(classpaths: Iterable[str]) -> Set[str]:
     return {Path(p).name for p in classpaths}
 

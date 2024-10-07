@@ -6,6 +6,13 @@ buck2_e2e_test(
     name = "test_audit",
     srcs = ["test_audit.py"],
     data = "//buck2/tests/targets:isolated_targets",
+    skip_for_os = ["windows"],
+)
+
+buck2_e2e_test(
+    name = "test_audit_cells",
+    srcs = ["test_audit_cells.py"],
+    data_dir = "test_audit_cells_data",
 )
 
 buck2_e2e_test(

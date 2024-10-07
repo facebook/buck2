@@ -7,11 +7,6 @@
 
 # pyre-strict
 
-
-import json
-import platform
-from pathlib import Path
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -46,28 +41,3 @@ async def test_bxl_audit_output(buck: Buck) -> None:
         ),
         stderr_regex="Malformed buck-out path",
     )
-
-
-@buck_test(inplace=False, data_dir="cells")
-async def test_bxl_audit_cell(buck: Buck) -> None:
-    result = await buck.bxl("//test_audit.bxl:audit_cell")
-
-    # specify single cell
-    outputs = result.stdout.splitlines()
-    single_result = json.loads(outputs[0])
-    assert single_result["b"] == str(buck.cwd / Path("buck"))
-
-    # don't specify cell - should return all cell aliases
-    all_result = json.loads(outputs[1])
-    assert all_result["a"] == str(buck.cwd / Path("buck"))
-    assert all_result["b"] == str(buck.cwd / Path("buck"))
-    assert all_result["z"] == str(buck.cwd / Path("buck"))
-    assert all_result["prelude"] == str(buck.cwd / Path("prelude"))
-    assert all_result["code"] == str(buck.cwd / Path("fbc"))
-    assert all_result["source"] == str(buck.cwd / Path("fbs"))
-    if platform.system() == "Windows":
-        all_result["ovr_config"] = str(
-            buck.cwd / Path("arvr\\tools\\build_defs\\config")
-        )
-    else:
-        all_result["ovr_config"] = str(buck.cwd / Path("arvr/tools/build_defs/config"))
