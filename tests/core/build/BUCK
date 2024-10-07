@@ -6,10 +6,6 @@ buck2_e2e_test(
     name = "test_build_output_file_hashes",
     srcs = ["test_build_output_file_hashes.py"],
     data_dir = "test_build_output_file_hashes_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
 )
 
@@ -88,30 +84,18 @@ buck2_e2e_test(
     name = "test_out_flag",
     srcs = ["test_out_flag.py"],
     data_dir = "test_out_flag_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
 )
 
 buck2_e2e_test(
     name = "test_nested_subtargets",
     srcs = ["test_nested_subtargets.py"],
     data_dir = "test_nested_subtargets_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
 )
 
 buck2_e2e_test(
     name = "test_build_report",
     srcs = ["test_build_report.py"],
     data_dir = "test_build_report_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],
@@ -155,10 +139,6 @@ buck2_e2e_test(
     name = "test_build_response",
     srcs = ["test_build_response.py"],
     data_dir = "test_build_response_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],
@@ -168,10 +148,6 @@ buck2_e2e_test(
     name = "test_build_rule_type_name_logging",
     srcs = ["test_build_rule_type_name_logging.py"],
     data_dir = "test_build_rule_type_name_logging_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],

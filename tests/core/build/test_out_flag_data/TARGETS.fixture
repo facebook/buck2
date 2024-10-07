@@ -1,4 +1,4 @@
-load(":defs.bzl", "out_library")
+load(":defs.bzl", "export_file", "out_library")
 
 export_file(
     name = "a.txt",
