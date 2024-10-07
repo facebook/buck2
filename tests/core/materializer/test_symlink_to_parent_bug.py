@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_symlink_to_parent_bug(buck: Buck) -> None:
     result = await buck.build("//:whistle", "--prefer-local", "--no-remote-cache")
     out = result.get_build_report().output_for_target("//:whistle")
@@ -22,7 +22,7 @@ async def test_symlink_to_parent_bug(buck: Buck) -> None:
     assert os.path.islink(out)
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_symlink_to_self(buck: Buck) -> None:
     result = await buck.build("//:flute", "--prefer-local", "--no-remote-cache")
     out = result.get_build_report().output_for_target("//:flute")
@@ -31,6 +31,6 @@ async def test_symlink_to_self(buck: Buck) -> None:
     assert os.path.islink(out)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_noop(buck: Buck) -> None:
     return

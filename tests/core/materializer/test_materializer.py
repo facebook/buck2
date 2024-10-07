@@ -27,7 +27,7 @@ def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> 
         f.write(file_content)
 
 
-@buck_test(inplace=False, data_dir="modify_deferred_materialization")
+@buck_test(data_dir="modify_deferred_materialization")
 async def test_modify_input_source(buck: Buck) -> None:
     await buck.build("//:urandom_dep")
 
@@ -40,7 +40,6 @@ async def test_modify_input_source(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="modify_deferred_materialization_deps",
     skip_for_os=["windows"],  # TODO(marwhal): Fix and enable on Windows
 )
@@ -75,7 +74,6 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
@@ -110,7 +108,6 @@ async def test_matching_artifact_optimization(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 async def test_cache_directory_cleanup(buck: Buck) -> None:
@@ -136,7 +133,6 @@ async def test_cache_directory_cleanup(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
@@ -171,7 +167,6 @@ async def test_sqlite_materializer_state_matching_artifact_optimization(
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
@@ -193,7 +188,6 @@ async def test_download_file_sqlite_matching_artifact_optimization(
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
@@ -216,7 +210,6 @@ async def test_sqlite_materializer_state_disabled(
 
 
 @buck_test(
-    inplace=False,
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
@@ -252,7 +245,6 @@ def disable_sqlite_materializer_state(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     data_dir="modify_deferred_materialization_deps",
     skip_for_os=["windows"],  # TODO(marwhal): Fix and enable on Windows
 )

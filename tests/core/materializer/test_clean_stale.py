@@ -36,7 +36,7 @@ def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> 
         f.write(file_content)
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_artifact_access_time(buck: Buck) -> None:
     # drop microseconds to match 1s precision from materializer
@@ -85,7 +85,7 @@ async def test_artifact_access_time(buck: Buck) -> None:
     assert access_time > materialized_time
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_artifact_access_time_flushing(buck: Buck) -> None:
     # Create artifact
@@ -102,7 +102,7 @@ async def test_artifact_access_time_flushing(buck: Buck) -> None:
     assert data[0] == "0"
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_artifact_access_time_flushing_disabled(buck: Buck) -> None:
     modify_acess_times_updates(buck, "disabled")
@@ -119,7 +119,7 @@ async def test_artifact_access_time_flushing_disabled(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "2")
 async def test_artifact_access_time_flushing_partial(buck: Buck) -> None:
     modify_acess_times_updates(buck, "partial")
@@ -139,7 +139,7 @@ async def test_artifact_access_time_flushing_partial(buck: Buck) -> None:
     assert data[0] == "1"
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_artifacts(buck: Buck) -> None:
@@ -186,7 +186,7 @@ async def test_clean_stale_artifacts(buck: Buck) -> None:
     assert not output_2.exists()
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_clean_stale_artifact_dir(buck: Buck) -> None:
     target_1 = "root//:copy_dir"
@@ -207,14 +207,14 @@ async def test_clean_stale_artifact_dir(buck: Buck) -> None:
     assert output_parent.parts[-3:] == ("buck-out", "v2", "gen")
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_buck_out_empty(buck: Buck) -> None:
     output = await buck.clean("--stale")
     assert "Nothing to clean" in output.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_actions(buck: Buck) -> None:
@@ -238,7 +238,7 @@ async def test_clean_stale_actions(buck: Buck) -> None:
         assert output.exists()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_clean_stale_declared(buck: Buck) -> None:
     await buck.build("//declared:declared")
     await buck.kill()
@@ -252,7 +252,7 @@ async def test_clean_stale_declared(buck: Buck) -> None:
     await buck.build("//declared:local")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_clean_stale_scheduled(buck: Buck) -> None:
     # Need to write to .buckconfig instead of passing cmd line args because
     # the config used when creating daemon state does not include cmd line args (but maybe it should).

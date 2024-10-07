@@ -16,7 +16,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 #   This is a known limitation of at least our RE implementation. It reads through symlinks.
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_symlink_preserves_empty_directory_local(buck: Buck) -> None:
     result = await buck.build("//:dog_and_bone", "--prefer-local", "--no-remote-cache")
     out = result.get_build_report().output_for_target("//:dog_and_bone")
@@ -24,7 +24,7 @@ async def test_symlink_preserves_empty_directory_local(buck: Buck) -> None:
     assert os.path.isfile(out)
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_symlink_preserves_empty_directory_remote(buck: Buck) -> None:
     result = await buck.build("//:dog_and_bone", "--prefer-remote")
     out = result.get_build_report().output_for_target("//:dog_and_bone")
@@ -33,6 +33,6 @@ async def test_symlink_preserves_empty_directory_remote(buck: Buck) -> None:
     assert os.path.isfile(out)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_noop(buck: Buck) -> None:
     return
