@@ -23,7 +23,7 @@ def _parse_audit_configurations(output: str) -> List[str]:
     return [x.rstrip(":") for x in output.splitlines() if not x.startswith(" ")]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_configurations_all(buck: Buck) -> None:
     # Evaluate a target to make sure configuration is loaded.
     await buck.cquery("//:genrule")
@@ -34,7 +34,7 @@ async def test_audit_configurations_all(buck: Buck) -> None:
     assert "root//:p#<HASH>" in configurations
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_configurations_specific(buck: Buck) -> None:
     # Evaluate a target to make sure configuration is loaded.
     await buck.cquery("//:genrule")

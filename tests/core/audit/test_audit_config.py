@@ -14,7 +14,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(
-    inplace=False,
     extra_buck_config={
         "test": {
             "foo": "bar",
@@ -30,14 +29,14 @@ async def test_extra_buck_config(buck: Buck) -> None:
     assert cfg.get("test.foo") == "bar"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_json(buck: Buck) -> None:
     result = await buck.audit_config("--style=json")
     result_json = result.get_json()
     assert result_json is not None
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_cell_json(buck: Buck) -> None:
     out = await buck.audit_config(
         "--style",
@@ -62,7 +61,7 @@ async def test_audit_config_cell_json(buck: Buck) -> None:
     assert out_json.get("test.is_root") is None
 
 
-@buck_test(inplace=False, setup_eden=True)
+@buck_test(setup_eden=True)
 async def test_audit_config_all_cells(buck: Buck) -> None:
     out = await buck.audit_config(
         "--all-cells",
@@ -92,7 +91,7 @@ async def test_audit_config_all_cells(buck: Buck) -> None:
     assert "# Cell: source\n[bar]\n    a = 1\n" in out.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_with_config_value(buck: Buck) -> None:
     result_config = await buck.audit_config(
         "python",
@@ -105,7 +104,7 @@ async def test_audit_config_with_config_value(buck: Buck) -> None:
     assert result_config_json.get("python.helpers") == "true"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_with_config_file(buck: Buck, tmp_path: Path) -> None:
     configfile = tmp_path / "config.bcfg"
     configfile.write_text("[python]\n  helpers = true\n")
@@ -120,7 +119,7 @@ async def test_audit_config_with_config_file(buck: Buck, tmp_path: Path) -> None
     assert result_file.get_json().get("python.helpers") == "true"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_location_extended(buck: Buck) -> None:
     result = await buck.audit_config(
         "bar.a",
@@ -130,7 +129,7 @@ async def test_audit_config_location_extended(buck: Buck) -> None:
     assert "included.bcfg:2" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_config_with_cell_syntax(buck: Buck) -> None:
     result_file = await buck.audit_config(
         "code//test.is_code",
@@ -142,7 +141,7 @@ async def test_audit_config_with_cell_syntax(buck: Buck) -> None:
     assert result_file_json.get("code//test.is_code") == "yes"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cell_relative_configs(buck: Buck) -> None:
     result_root_cell = await buck.audit_config(
         "--config",

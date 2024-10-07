@@ -28,7 +28,7 @@ def _includes(output: BuckResult) -> List[str]:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_includes(buck: Buck, tmp_path: Path) -> None:
     # Using project relative path.
     output = await buck.audit("includes", "TARGETS.fixture")

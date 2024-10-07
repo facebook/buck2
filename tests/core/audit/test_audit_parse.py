@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_parse(buck: Buck) -> None:
     # random config hash
     config_hash = "3f794b0267173c8e"

@@ -16,7 +16,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_malformed_path(buck: Buck) -> None:
     await expect_failure(
         buck.audit_output(
@@ -26,7 +26,7 @@ async def test_audit_output_malformed_path(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_scratch_path_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
     config_hash = await _get_config_hash(buck, "root//:dummy")
@@ -38,7 +38,7 @@ async def test_audit_output_scratch_path_unsupported(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_bxl_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
     config_hash = await _get_config_hash(buck, "root//:dummy")
@@ -50,7 +50,7 @@ async def test_audit_output_bxl_unsupported(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_anon_targets_unsupported(buck: Buck) -> None:
     # pick a random target, we just want the config hash
     config_hash = await _get_config_hash(buck, "root//:dummy")
@@ -62,7 +62,7 @@ async def test_audit_output_anon_targets_unsupported(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_invalid_prefix(buck: Buck) -> None:
     # invalid prefix (i.e. not gen, gen-anon, gen-bxl, temp, or test)
     # pick a random target, we just want the config hash
@@ -75,7 +75,7 @@ async def test_audit_output_invalid_prefix(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_nonexistent_cell(buck: Buck) -> None:
     # pick a random target, we just want the config hash
     config_hash = await _get_config_hash(buck, "root//:dummy")
@@ -87,7 +87,7 @@ async def test_audit_output_nonexistent_cell(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_output_in_root_directory(buck: Buck) -> None:
     target = "root//:dummy"
     config_hash = await _get_config_hash(buck, target)
@@ -102,7 +102,7 @@ async def test_audit_output_in_root_directory(buck: Buck) -> None:
     assert target in action_key
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_non_root_cell(buck: Buck) -> None:
     target = "cell1//:dummy2"
     config_hash = await _get_config_hash(buck, target)
@@ -117,7 +117,7 @@ async def test_non_root_cell(buck: Buck) -> None:
     assert target in action_key
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_fixed_target_platform(buck: Buck) -> None:
     target_platform = "root//:linux_platform"
     target_platforms_arg = f"--target-platforms={target_platform}"
@@ -135,7 +135,7 @@ async def test_fixed_target_platform(buck: Buck) -> None:
     assert "id" in action
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_dynamic_outputs(buck: Buck) -> None:
     target = "root//dynamic_output:dynamic_output"
     config_hash = await _get_config_hash(buck, target)
@@ -154,7 +154,7 @@ async def test_dynamic_outputs(buck: Buck) -> None:
     assert "Failed to find an action that produced the output path" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_wrong_config_hash(buck: Buck) -> None:
     # Should return the unconfigured target label
     target_platform = "root//:linux_platform"
@@ -173,7 +173,7 @@ async def test_wrong_config_hash(buck: Buck) -> None:
     assert "did not match" in output
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_output_directory(buck: Buck) -> None:
     # Test a rule that outputs to a directory
     target = "root//directory:empty_dir"

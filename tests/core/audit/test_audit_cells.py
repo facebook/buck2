@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cell_ordering(buck: Buck) -> None:
     res = await buck.audit("cell")
     # The repository should be in the list, not the alias
@@ -27,7 +27,7 @@ async def test_cell_ordering(buck: Buck) -> None:
     assert "z:" in res.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_audit_cell(buck: Buck) -> None:
     result = await buck.bxl("//test_audit.bxl:audit_cell")
 

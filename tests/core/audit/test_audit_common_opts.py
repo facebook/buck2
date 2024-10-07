@@ -17,7 +17,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 # Test them if necessary.
 
 
-@buck_test(inplace=False)
+@buck_test()
 @pytest.mark.parametrize(  # type: ignore
     "cmd",
     [
@@ -32,7 +32,7 @@ async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
     await cmd_call("--config", "client.id=placeholder_id")
 
 
-@buck_test(inplace=False)
+@buck_test()
 @pytest.mark.parametrize(  # type: ignore
     "cmd",
     [

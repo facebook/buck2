@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_subtargets_basic(buck: Buck) -> None:
     result = await buck.audit("subtargets", "//:no_subtargets")
     assert result.stdout == ""
@@ -25,7 +25,7 @@ async def test_audit_subtargets_basic(buck: Buck) -> None:
     ] == result.stdout.splitlines()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_subtargets_of_subtarget(buck: Buck) -> None:
     result = await buck.audit("subtargets", "//:nested[sub1]")
     assert [
@@ -37,7 +37,7 @@ async def test_audit_subtargets_of_subtarget(buck: Buck) -> None:
     assert result.stdout == ""
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_subtargets_shallow(buck: Buck) -> None:
     result = await buck.audit("subtargets", "//:deeply_nested", "--shallow")
     assert [
@@ -68,7 +68,7 @@ async def test_audit_subtargets_shallow(buck: Buck) -> None:
     ] == result.stdout.splitlines()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_subtargets_json(buck: Buck) -> None:
     result = await buck.audit("subtargets", "//:no_subtargets", "--json")
     golden(output=result.stdout, rel_path="json/golden.has_no_subtargets.json")

@@ -11,7 +11,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_deferred_materializer_list(buck: Buck) -> None:
     res = await buck.audit("deferred-materializer", "list")
     assert res.stdout.strip() == ""
