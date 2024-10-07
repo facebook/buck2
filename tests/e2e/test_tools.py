@@ -32,7 +32,7 @@ if fbcode_linux_only():
     @env("BUCK2_KEEP_DEP_FILE_DIRECTORIES", "true")
     async def test_arvr_cuda_dep_files(buck: Buck) -> None:
         target = "fbsource//arvr/tools/buck/tests/cuda:test_cuda_arvr"
-        mode_file = "@fbsource//arvr/mode/platform010/cuda11-latest/opt"
+        mode_file = "@fbsource//arvr/mode/platform010/cuda12_5/opt"
         await buck.build(mode_file, target)
         res = await buck.audit_dep_files(target, "cuda_compile", "main.cu", mode_file)
         out = res.stdout
