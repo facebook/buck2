@@ -388,8 +388,13 @@ async def test_local_action_has_input_size(buck: Buck) -> None:
         "ActionExecution",
         "input_files_bytes",
     )
-    # TODO(rajneeshl): Presently we don't publish input_files_bytes. Assert empty for now.
-    assert input_size == []
+
+    assert input_size
+
+    if platform.system() == "Windows":
+        assert input_size[0] == 370
+    else:
+        assert input_size[0] == 342
 
 
 @buck_test(inplace=False, data_dir="actions")
@@ -405,5 +410,9 @@ async def test_remote_action_has_input_size(buck: Buck) -> None:
         "input_files_bytes",
     )
 
-    # TODO(rajneeshl): Presently we don't publish input_files_bytes. Assert empty for now.
-    assert input_size == []
+    assert input_size
+
+    if platform.system() == "Windows":
+        assert input_size[0] == 370
+    else:
+        assert input_size[0] == 342

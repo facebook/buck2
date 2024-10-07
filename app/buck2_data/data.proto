@@ -1301,6 +1301,8 @@ message ActionExecutionEnd {
 
   // Additional diagnostics, if an action error handler was provided
   optional ActionErrorDiagnostics error_diagnostics = 38;
+
+  optional uint64 input_files_bytes = 39;
 }
 
 message ActionError {

@@ -195,7 +195,7 @@ async fn build_action_no_redirect(
         let mut buck2_revision = None;
         let mut buck2_build_time = None;
         let mut hostname = None;
-
+        let mut input_files_bytes = None;
         let error_diagnostics = match execute_result {
             Ok((outputs, meta)) => {
                 output_size = outputs.calc_output_count_and_bytes().bytes;
@@ -203,6 +203,7 @@ async fn build_action_no_redirect(
                 execution_kind = Some(meta.execution_kind.as_enum());
                 wall_time = Some(meta.timing.wall_time);
                 error = None;
+                input_files_bytes = meta.input_files_bytes;
 
                 if let Some(command) = meta.execution_kind.command() {
                     prefers_local = Some(command.prefers_local);
@@ -311,6 +312,7 @@ async fn build_action_no_redirect(
                 buck2_build_time,
                 hostname,
                 error_diagnostics,
+                input_files_bytes,
             }),
         )
     };
