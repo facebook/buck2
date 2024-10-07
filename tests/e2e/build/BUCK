@@ -26,11 +26,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_build_configured",
-    srcs = ["test_build_configured.py"],
-)
-
-buck2_e2e_test(
     name = "test_build_inplace",
     srcs = ["test_build_inplace.py"],
     require_nano_prelude = True,

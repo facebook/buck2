@@ -23,6 +23,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_build_configured",
+    srcs = ["test_build_configured.py"],
+    data_dir = "test_build_configured_data",
+)
+
+buck2_e2e_test(
     name = "test_plugins",
     srcs = ["test_plugins.py"],
     data_dir = "test_plugins_data",
