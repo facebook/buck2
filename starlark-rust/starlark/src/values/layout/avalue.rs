@@ -556,9 +556,7 @@ unsafe fn try_freeze_static<'v, A>(me: *mut AValueRepr<A::StarlarkValue>) -> Opt
 where
     A: AValue<'v>,
 {
-    let Some(f) = (*me).payload.try_freeze_static() else {
-        return None;
-    };
+    let f = (*me).payload.try_freeze_static()?;
 
     drop(AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
         me,
