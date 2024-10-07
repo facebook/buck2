@@ -29,7 +29,7 @@ def buck_e2e_test(
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True,
+        serialize_test_cases = None,
         require_nano_prelude = None,
         cfg_modifiers = ()):
     """
@@ -42,10 +42,6 @@ def buck_e2e_test(
         # Running multiple bucks are expensive. This limits tpx to parallelism of 4.
         "heavyweight",
     ]
-    if serialize_test_cases:
-        # This lets us pass stress runs by making all test cases inside of a test file serial
-        # Test cases in different files can still run in parallel.
-        tags.append("serialize_test_cases")
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
     env["TEST_EXECUTABLE_TYPE"] = executable_type
@@ -63,8 +59,15 @@ def buck_e2e_test(
 
     if read_package_value("buck2_e2e_test.flavor") == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
+        serialize_test_cases = serialize_test_cases or False
     else:
         env["BUCK2_E2E_TEST_FLAVOR"] = "any"
+        serialize_test_cases = serialize_test_cases if serialize_test_cases != None else True
+
+    if serialize_test_cases:
+        # This lets us pass stress runs by making all test cases inside of a test file serial
+        # Test cases in different files can still run in parallel.
+        tags.append("serialize_test_cases")
 
     if data and data_dir:
         fail("`data` and `data_dir` cannot be used together")
@@ -155,7 +158,7 @@ def buck2_e2e_test(
         pytest_marks = None,
         pytest_expr = None,
         pytest_confcutdir = None,
-        serialize_test_cases = True,
+        serialize_test_cases = None,
         require_nano_prelude = None):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
