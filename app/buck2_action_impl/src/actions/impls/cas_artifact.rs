@@ -157,6 +157,7 @@ impl CasArtifactAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Deferred,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }
@@ -319,6 +320,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Deferred,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }

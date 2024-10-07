@@ -244,6 +244,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         result: CommandExecutionResult,
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
+        input_files_bytes: Option<u64>,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 
     /// Clean up all the output directories for this action. This requires a mutable reference

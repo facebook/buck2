@@ -112,6 +112,7 @@ struct ActionOutputsData {
 pub struct ActionExecutionMetadata {
     pub execution_kind: ActionExecutionKind,
     pub timing: ActionExecutionTimingData,
+    pub input_files_bytes: Option<u64>,
 }
 
 /// The *way* that a particular action was executed.
@@ -416,6 +417,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         result: CommandExecutionResult,
         allows_cache_upload: bool,
         allows_dep_file_cache_upload: bool,
+        input_files_bytes: Option<u64>,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let CommandExecutionResult {
             outputs,
@@ -453,6 +455,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                             eligible_for_full_hybrid,
                         },
                         timing: report.timing.into(),
+                        input_files_bytes,
                     },
                 );
                 Ok(result)
@@ -861,7 +864,13 @@ mod tests {
                     ctx.fs().fs().write_file(&dest_path, "", false)?
                 }
 
-                ctx.unpack_command_execution_result(req.executor_preference, res, false, false)?;
+                ctx.unpack_command_execution_result(
+                    req.executor_preference,
+                    res,
+                    false,
+                    false,
+                    None,
+                )?;
                 let outputs = self
                     .outputs
                     .iter()
@@ -877,6 +886,7 @@ mod tests {
                     ActionExecutionMetadata {
                         execution_kind: ActionExecutionKind::Simple,
                         timing: ActionExecutionTimingData::default(),
+                        input_files_bytes: None,
                     },
                 ))
             }

@@ -222,6 +222,7 @@ impl IncrementalActionExecutable for WriteAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
+                input_files_bytes: None,
             },
         ))
     }

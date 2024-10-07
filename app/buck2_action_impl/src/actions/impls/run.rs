@@ -270,6 +270,7 @@ pub(crate) struct RunAction {
     starlark_values: OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     outputs: BoxSliceSet<BuildArtifact>,
     error_handler: Option<OwnedFrozenValue>,
+    input_files_bytes: u64,
 }
 
 enum ExecuteResult {
@@ -279,6 +280,7 @@ enum ExecuteResult {
         dep_file_bundle: Option<DepFileBundle>,
         executor_preference: ExecutorPreference,
         prepared_action: PreparedAction,
+        input_files_bytes: u64,
     },
 }
 
@@ -401,6 +403,7 @@ impl RunAction {
             starlark_values,
             outputs: BoxSliceSet::from(outputs),
             error_handler,
+            input_files_bytes: 0,
         })
     }
 
@@ -544,7 +547,7 @@ impl RunAction {
             (prepared, Some(visitor))
         };
         let cmdline_digest = prepared_run_action.expanded.fingerprint();
-
+        let input_files_bytes = prepared_run_action.paths.input_files_bytes();
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
@@ -639,6 +642,7 @@ impl RunAction {
             // Dropping rest of req to avoid holding paths longer than necessary.
             executor_preference: req.executor_preference,
             prepared_action,
+            input_files_bytes,
         })
     }
 }
@@ -776,23 +780,30 @@ impl IncrementalActionExecutable for RunAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
-        let (mut result, mut dep_file_bundle, executor_preference, prepared_action) =
-            match self.execute_inner(ctx).await? {
-                ExecuteResult::LocalDepFileHit(outputs, metadata) => {
-                    return Ok((outputs, metadata));
-                }
-                ExecuteResult::ExecutedOrReHit {
-                    result,
-                    dep_file_bundle,
-                    executor_preference,
-                    prepared_action,
-                } => (
-                    result,
-                    dep_file_bundle,
-                    executor_preference,
-                    prepared_action,
-                ),
-            };
+        let (
+            mut result,
+            mut dep_file_bundle,
+            executor_preference,
+            prepared_action,
+            input_files_bytes,
+        ) = match self.execute_inner(ctx).await? {
+            ExecuteResult::LocalDepFileHit(outputs, metadata) => {
+                return Ok((outputs, metadata));
+            }
+            ExecuteResult::ExecutedOrReHit {
+                result,
+                dep_file_bundle,
+                executor_preference,
+                prepared_action,
+                input_files_bytes,
+            } => (
+                result,
+                dep_file_bundle,
+                executor_preference,
+                prepared_action,
+                input_files_bytes,
+            ),
+        };
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
@@ -825,6 +836,7 @@ impl IncrementalActionExecutable for RunAction {
             result,
             self.inner.allow_cache_upload,
             self.inner.allow_dep_file_cache_upload,
+            Some(input_files_bytes),
         )?;
 
         if let Some(dep_file_bundle) = dep_file_bundle {

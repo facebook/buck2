@@ -216,6 +216,7 @@ impl DownloadFileAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }
@@ -342,6 +343,7 @@ impl IncrementalActionExecutable for DownloadFileAction {
             ActionExecutionMetadata {
                 execution_kind,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }

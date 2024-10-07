@@ -454,6 +454,7 @@ impl DepFileBundle {
                 ActionExecutionMetadata {
                     execution_kind: ActionExecutionKind::LocalDepFile,
                     timing: Default::default(),
+                    input_files_bytes: None,
                 },
             )
         });
@@ -489,6 +490,7 @@ impl DepFileBundle {
                 ActionExecutionMetadata {
                     execution_kind: ActionExecutionKind::LocalDepFile,
                     timing: Default::default(),
+                    input_files_bytes: None,
                 },
             )
         });

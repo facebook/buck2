@@ -263,6 +263,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
+                input_files_bytes: None,
             },
         ))
     }
