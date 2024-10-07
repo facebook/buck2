@@ -21,7 +21,7 @@ async def test_lint_buck2(buck: Buck) -> None:
         "lint",
         "buck2",
         "-c",
-        "project.ignore=buck2/tests/e2e,buck2/tests/isolated",
+        "project.ignore=buck2/tests/e2e,buck2/tests/core",
     )
 
 
