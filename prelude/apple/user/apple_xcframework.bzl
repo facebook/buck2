@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
 
     xcframework_dir = ctx.actions.declare_output(ctx.attrs.framework_name + ".xcframework", dir = True)
@@ -168,7 +168,7 @@ framework_split_transition = transition(
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_xcframework",
-    impl = _impl,
+    impl = _apple_xcframework_impl,
     attrs = {
         "framework": attrs.split_transition_dep(cfg = framework_split_transition),
         "framework_name": attrs.string(),

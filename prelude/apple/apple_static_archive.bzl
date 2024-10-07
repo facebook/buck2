@@ -16,7 +16,7 @@ load("@prelude//linking:linkables.bzl", "linkables")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     libtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].libtool
     archive_name = ctx.attrs.name if ctx.attrs.archive_name == None else ctx.attrs.archive_name
     output = ctx.actions.declare_output(archive_name)
@@ -106,7 +106,7 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_static_archive",
-    impl = _impl,
+    impl = _apple_static_archive_impl,
     attrs = {
         "archive_name": attrs.option(attrs.string(), default = None),
         "deps": attrs.list(attrs.dep(), default = []),

@@ -60,7 +60,7 @@ _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
     # process inputs and provide them up the graph with typing
@@ -221,7 +221,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_selective_debugging",
-    impl = _impl,
+    impl = _apple_selective_debugging_impl,
     attrs = {
         "exclude_build_target_patterns": attrs.list(attrs.string(), default = []),
         "exclude_regular_expressions": attrs.list(attrs.string(), default = []),

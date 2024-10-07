@@ -14,7 +14,7 @@ Transforms both OS and SDK constraints.
 Only sanity check for source configuration is done.
 """
 
-def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+def _macos_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     # This functions operates in the following way:
     #  - Start with all the constraints from the platform and filter out the constraints for OS and SDK.
     #  - Always set the new OS constraint to macOS.
@@ -43,7 +43,7 @@ def _impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
         configuration = new_cfg,
     )
 
-macos_transition = transition(impl = _impl, refs = {
+macos_transition = transition(impl = _macos_transition_impl, refs = {
     "maccatalyst_sdk": "config//os/sdk/apple/constraints:maccatalyst",
     "macos": "config//os/constraints:macos",
     "macos_sdk": "config//os/sdk/apple/constraints:macosx",

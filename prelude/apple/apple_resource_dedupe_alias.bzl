@@ -9,12 +9,12 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//apple/user/apple_resource_transition.bzl", "apple_resource_transition")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_resource_dedupe_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.actual.providers
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_resource_dedupe_alias",
-    impl = _impl,
+    impl = _apple_resource_dedupe_alias_impl,
     attrs = {
         "actual": attrs.transition_dep(cfg = apple_resource_transition),
     } | apple_common.skip_universal_resource_dedupe_arg(),

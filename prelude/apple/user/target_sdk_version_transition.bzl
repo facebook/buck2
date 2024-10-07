@@ -12,7 +12,7 @@ This overrides any existing target_sdk_version select.
 
 load("@prelude//apple:versions.bzl", "TARGET_SDK_VERSIONS")
 
-def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
+def _target_sdk_version_transition_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
     target_sdk_version = attrs.propagated_target_sdk_version
     if not target_sdk_version:
         return platform
@@ -39,7 +39,7 @@ def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
     )
 
 target_sdk_version_transition = transition(
-    impl = _impl,
+    impl = _target_sdk_version_transition_impl,
     refs = dict(
         [("version", "@config//version:constraint-setting-target-sdk-version")] + {
             version: "@config//version:constraint-value-target-sdk-version-" + version

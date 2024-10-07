@@ -28,7 +28,7 @@ load(
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:utils.bzl", "flatten")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _resource_group_map_impl(ctx: AnalysisContext) -> list[Provider]:
     resource_groups = parse_groups_definitions(ctx.attrs.map, lambda root: root.label)
 
     resource_group_to_implicit_deps_mapping = {
@@ -98,7 +98,7 @@ def _fixup_mapping_to_only_include_roots_in_the_map(mapping: GroupMapping, node_
 
 registration_spec = RuleRegistrationSpec(
     name = "resource_group_map",
-    impl = _impl,
+    impl = _resource_group_map_impl,
     attrs = {
         "map": attrs.list(
             attrs.tuple(

@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
-def _impl(ctx: AnalysisContext) -> list[Provider]:
+def _apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         AppleToolsInfo(
@@ -31,7 +31,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 # toolchain/SDK specific, they're just internal helper tools.
 registration_spec = RuleRegistrationSpec(
     name = "apple_tools",
-    impl = _impl,
+    impl = _apple_tools_impl,
     attrs = {
         "adhoc_codesign_tool": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "assemble_bundle": attrs.dep(providers = [RunInfo]),
