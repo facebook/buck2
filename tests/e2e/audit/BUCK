@@ -9,6 +9,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_audit_deferred_materializer",
+    srcs = ["test_audit_deferred_materializer.py"],
+    data_dir = "test_audit_deferred_materializer_data",
+)
+
+buck2_e2e_test(
     name = "test_audit_includes",
     srcs = ["test_audit_includes.py"],
     data_dir = "test_audit_includes_data",

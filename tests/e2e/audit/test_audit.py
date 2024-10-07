@@ -16,17 +16,6 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="deferred_materializer")
-async def test_audit_deferred_materializer_list(buck: Buck) -> None:
-    res = await buck.audit("deferred-materializer", "list")
-    assert res.stdout.strip() == ""
-
-    await buck.build("//:simple")
-
-    res = await buck.audit("deferred-materializer", "list")
-    assert "__simple__" in res.stdout.strip()
-
-
 @buck_test(inplace=False, data_dir="cells")
 async def test_cell_ordering(buck: Buck) -> None:
     res = await buck.audit("cell")
