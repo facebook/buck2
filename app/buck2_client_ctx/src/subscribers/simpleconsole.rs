@@ -44,6 +44,8 @@ use superconsole::SuperConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
+use crate::subscribers::system_warning::cache_misses_msg;
+use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
@@ -646,6 +648,11 @@ where
                             SystemWarningTypes::SlowDownloadSpeed,
                             &slow_download_speed_msg(avg_re_download_speed),
                         )?;
+                    }
+                    let cache_hit_percent =
+                        self.observer().action_stats().total_cache_hit_percentage();
+                    if check_cache_misses(cache_hit_percent, sysinfo) {
+                        echo!("{}", cache_misses_msg(cache_hit_percent))?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }

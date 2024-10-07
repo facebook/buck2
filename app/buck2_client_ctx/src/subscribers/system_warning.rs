@@ -27,8 +27,8 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
-
 pub const DOWNLOAD_SPEED_LOW_LINK: &str = "https://fburl.com/buck2_slow_download";
+pub const CACHE_MISS_LINK: &str = "https://fburl.com/buck2_cache_miss";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -70,6 +70,18 @@ pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> Str
         format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")
     } else {
         msg
+    }
+}
+
+pub(crate) fn cache_misses_msg(cache_hit_percent: u8) -> String {
+    let msg = format!(
+        "Low cache hits detected: {}%. This may significantly impact build speed.",
+        cache_hit_percent
+    );
+    if !is_open_source() {
+        format!("{msg} See {CACHE_MISS_LINK} for more details")
+    } else {
+        format!("{msg} Try rebasing to a stable revision with warmed caches.")
     }
 }
 
@@ -159,4 +171,11 @@ pub(crate) fn is_vpn_enabled() -> bool {
     // Brittle check based on Cisco client's current behaviour.
     // Small section copied from https://fburl.com/code/g7ttsdz3
     std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
+}
+
+pub(crate) fn check_cache_misses(
+    cache_hit_percent: u8,
+    system_info: &buck2_data::SystemInfo,
+) -> bool {
+    cache_hit_percent < system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8
 }
