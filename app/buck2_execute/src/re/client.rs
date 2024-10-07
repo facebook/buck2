@@ -652,6 +652,9 @@ impl RemoteExecutionClientImpl {
                     .to_owned();
 
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
+
+                re_client_config.execute_over_thrift = static_metadata.execute_over_thrift;
+
                 // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
                 let logger = slog::Logger::root(slog::Discard, slog::o!());
                 // TODO T179215751: If RE client fails we don't get the RE session ID and we can't find the RE logs.

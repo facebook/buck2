@@ -75,6 +75,7 @@ mod fbcode {
 
         pub disable_fallocate: bool,
         pub respect_file_symlinks: bool,
+        pub execute_over_thrift: bool,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -222,6 +223,13 @@ mod fbcode {
                     })?
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
+                execute_over_thrift: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "execute_over_thrift",
+                    })?
+                    // TODO: Change to true (T203734691)
+                    .unwrap_or(false),
             })
         }
 
