@@ -49,7 +49,7 @@ def fixture(buck: Buck, path: Path) -> Fixture:
     return fixture
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_lsp_starts(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         # Will fail if the initialize response is not received
@@ -57,7 +57,7 @@ async def test_lsp_starts(buck: Buck) -> None:
 
 
 # TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_lints_on_open(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
@@ -71,7 +71,7 @@ async def test_lints_on_open(buck: Buck) -> None:
 
 
 # TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_goto_definition(buck: Buck) -> None:
     src_targets_path = Path("dir/TARGETS.fixture")
     dest_targets_path = Path("cell/sub/TARGETS.fixture")
@@ -148,7 +148,7 @@ async def test_goto_definition(buck: Buck) -> None:
         )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
@@ -164,7 +164,7 @@ async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
 
 
 # TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_goto_definition_for_globals(buck: Buck) -> None:
     globals_bzl_path = Path("globals.bzl")
 
@@ -205,7 +205,7 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
 
 
 # TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_supports_bxl_files(buck: Buck) -> None:
     src_bxl_path = Path("query.bxl")
 
