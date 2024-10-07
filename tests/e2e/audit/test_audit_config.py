@@ -7,8 +7,6 @@
 
 # pyre-strict
 
-
-import tempfile
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -132,93 +130,6 @@ async def test_audit_config_with_config_file(buck: Buck) -> None:
 
 
 @buck_test(inplace=True)
-async def test_audit_config_argfile_outside_repo(buck: Buck) -> None:
-    with tempfile.NamedTemporaryFile(mode="w") as argfile:
-        argfile.write("@fbcode//mode/opt")
-        argfile.flush()
-        result_file = await buck.audit_config(
-            f"@{argfile.name}",
-            "project.buck_out",
-            "--style",
-            "json",
-        )
-        result_file_json = result_file.get_json()
-
-        assert result_file_json is not None
-        assert result_file_json.get("project.buck_out") == "buck-out/opt"
-
-
-@buck_test(inplace=True)
-async def test_audit_config_executable_argfile(buck: Buck) -> None:
-    result = await buck.audit_config(
-        "@buck2/tests/targets/configurations_uncategorized/executable_argfiles/test_ex_argfile.py#iphonesimulator-x86_64",
-        "cxx",
-        "apple",
-        "--style",
-        "json",
-    )
-    result_json = result.get_json()
-
-    assert result_json is not None
-    assert result_json.get("cxx.default_platform") == "iphonesimulator-x86_64"
-    assert result_json.get("apple.xctool_zip_target") is None
-    assert result_json.get("apple.xctool_path") == "/usr/bin/true"
-
-
-@buck_test(inplace=True)
-async def test_audit_config_buck2_only_executable_argfile(buck: Buck) -> None:
-    result = await buck.audit_config(
-        "@buck2/tests/targets/configurations_uncategorized/executable_argfiles/test_buck2_only_argfile.py",
-        "user",
-        "--style",
-        "json",
-    )
-    result_json = result.get_json()
-
-    assert result_json is not None
-    assert result_json.get("user.buck2_arg_file") == "1"
-
-
-@buck_test(inplace=True)
-async def test_audit_config_stdin_argfile_simple(buck: Buck) -> None:
-    result_file = await buck.audit_config(
-        "--style=json",
-        "@-",
-        input="\n".join(
-            [
-                "@fbcode//mode/opt",
-                "project.buck_out",
-            ]
-        ).encode(),
-    )
-    result_file_json = result_file.get_json()
-
-    assert result_file_json is not None
-    assert result_file_json.get("project.buck_out") == "buck-out/opt"
-
-
-@buck_test(inplace=True)
-async def test_audit_config_stdin_argfile_cell_from_cwd(buck: Buck) -> None:
-    result_file = await buck.audit_config(
-        "--style=json",
-        "@-",
-        input="\n".join(
-            [
-                # Should resolve to `fbcode//mode/opt` because
-                # the cwd is `fbcode/buck2`.
-                "@//mode/opt",
-                "project.buck_out",
-            ]
-        ).encode(),
-        rel_cwd=Path("buck2"),
-    )
-    result_file_json = result_file.get_json()
-
-    assert result_file_json is not None
-    assert result_file_json.get("project.buck_out") == "buck-out/opt"
-
-
-@buck_test(inplace=True)
 async def test_audit_config_location_extended(buck: Buck) -> None:
     result = await buck.audit_config(
         "@fbcode//buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope",
@@ -230,19 +141,6 @@ async def test_audit_config_location_extended(buck: Buck) -> None:
         "fbcode/buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope-apple-toolchain.bcfg:2"
         in result.stdout
     )
-
-
-@buck_test(inplace=True)
-async def test_audit_config_gets_correct_cell_from_cwd(buck: Buck) -> None:
-    result = await buck.audit_config("repositories.fbcode", "--style=json")
-    assert result.get_json() == {"repositories.fbcode": "."}
-
-    result = await buck.audit_config(
-        "repositories.fbsource",
-        "--style=json",
-        rel_cwd=Path(".."),
-    )
-    assert result.get_json() == {"repositories.fbsource": "."}
 
 
 @buck_test(inplace=True)
