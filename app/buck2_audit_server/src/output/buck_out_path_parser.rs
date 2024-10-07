@@ -79,8 +79,8 @@ pub(crate) enum BuckOutPathType {
     },
 }
 
-pub(crate) struct BuckOutPathParser<'v> {
-    cell_resolver: &'v CellResolver,
+pub(crate) struct BuckOutPathParser {
+    cell_resolver: CellResolver,
 }
 
 fn validate_buck_out_and_isolation_prefix<'v>(
@@ -264,8 +264,8 @@ fn get_bxl_function_label<'v>(
     Ok(bxl_function_label)
 }
 
-impl<'v> BuckOutPathParser<'v> {
-    pub(crate) fn new(cell_resolver: &'v CellResolver) -> BuckOutPathParser {
+impl BuckOutPathParser {
+    pub(crate) fn new(cell_resolver: CellResolver) -> BuckOutPathParser {
         BuckOutPathParser { cell_resolver }
     }
 
@@ -300,7 +300,7 @@ impl<'v> BuckOutPathParser<'v> {
                 let result = match part.as_str() {
                     "tmp" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, self.cell_resolver, "tmp")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, "tmp")?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
 
@@ -317,7 +317,7 @@ impl<'v> BuckOutPathParser<'v> {
                     }
                     "test" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, self.cell_resolver, "test")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, "test")?;
 
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
@@ -331,7 +331,7 @@ impl<'v> BuckOutPathParser<'v> {
                     }
                     "gen" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, self.cell_resolver, "gen")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, "gen")?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let path_after_target_name =
@@ -350,7 +350,7 @@ impl<'v> BuckOutPathParser<'v> {
                     }
                     "gen-anon" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, self.cell_resolver, "gen-anon")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, "gen-anon")?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let common_attrs = BuckOutPathTypeCommon {
@@ -369,7 +369,7 @@ impl<'v> BuckOutPathParser<'v> {
                     }
                     "gen-bxl" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, self.cell_resolver, "gen-bxl")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, "gen-bxl")?;
                         let bxl_function_label =
                             get_bxl_function_label(&mut iter, buck_out_path_data.cell_path)?;
                         let common_attrs = BuckOutPathTypeCommon {
@@ -417,23 +417,19 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_core::target::name::TargetNameRef;
     use buck2_interpreter::paths::bxl::BxlFilePath;
+    use dupe::Dupe;
 
     use crate::output::buck_out_path_parser::BuckOutPathParser;
     use crate::output::buck_out_path_parser::BuckOutPathType;
 
-    fn get_parse_test_cell_resolver() -> anyhow::Result<CellResolver> {
-        let cell_path = CellRootPath::new(ProjectRelativePath::new("foo/bar")?);
-
+    fn get_test_data() -> (BuckOutPathParser, String, TargetLabel, CellPath) {
+        let cell_path = CellRootPath::new(ProjectRelativePath::new("foo/bar").unwrap());
         let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("bar"),
             cell_path.to_buf(),
         );
+        let parser = BuckOutPathParser::new(cell_resolver);
 
-        Ok(cell_resolver)
-    }
-
-    #[test]
-    fn test_buck_path_parser_validation() -> anyhow::Result<()> {
         let configuration = ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
             ConfigurationDataData {
@@ -441,8 +437,30 @@ mod tests {
             },
         )
         .unwrap();
-        let cell_resolver = get_parse_test_cell_resolver()?;
-        let buck_out_parser = BuckOutPathParser::new(&cell_resolver);
+        let config_hash = configuration.output_hash().to_string();
+
+        let pkg = PackageLabel::new(
+            CellName::testing_new("bar"),
+            CellRelativePath::unchecked_new("path/to/target"),
+        );
+        let expected_target_label =
+            TargetLabel::new(pkg, TargetNameRef::new("target_name").unwrap());
+        let expected_cell_path = CellPath::new(
+            CellName::testing_new("bar"),
+            CellRelativePath::unchecked_new("path/to/target").to_owned(),
+        );
+
+        (
+            parser,
+            config_hash,
+            expected_target_label,
+            expected_cell_path,
+        )
+    }
+
+    #[test]
+    fn test_validation() -> anyhow::Result<()> {
+        let (buck_out_parser, config_hash, _, _) = get_test_data();
 
         let malformed_path1 = "does/not/start/with/buck-out/blah/blah";
         let malformed_path2 = "buck-out/v2/invalid_buck_prefix/blah/blah/blah/blah";
@@ -471,7 +489,6 @@ mod tests {
         let res = buck_out_parser.parse(cell_does_not_exist);
         assert!(res.err().unwrap().to_string().contains("Malformed"));
 
-        let config_hash = configuration.output_hash();
         let no_artifacts_after_target_name = &format!(
             "buck-out/v2/gen/bar/{}/path/to/target/__target_name__",
             config_hash
@@ -483,30 +500,9 @@ mod tests {
     }
 
     #[test]
-    fn test_buck_path_parser() -> anyhow::Result<()> {
-        let configuration = ConfigurationData::from_platform(
-            "cfg_for//:testing_exec".to_owned(),
-            ConfigurationDataData {
-                constraints: BTreeMap::new(),
-            },
-        )
-        .unwrap();
-        let cell_resolver = get_parse_test_cell_resolver()?;
-        let buck_out_parser = BuckOutPathParser::new(&cell_resolver);
-
-        let pkg = PackageLabel::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target"),
-        );
-
-        let expected_target_label = TargetLabel::new(pkg, TargetNameRef::new("target_name")?);
-
-        let expected_cell_path = CellPath::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target").to_owned(),
-        );
-
-        let expected_config_hash = configuration.output_hash();
+    fn test_target_output() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
 
         let rule_path = format!(
             "buck-out/v2/gen/bar/{}/path/to/target/__target_name__/output",
@@ -537,6 +533,14 @@ mod tests {
             _ => panic!("Should have parsed buck-out path successfully"),
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_target_output_with_slashes() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
+
         let rule_path_target_label_with_slashes = format!(
             "buck-out/v2/gen/bar/{}/path/to/target/__target_name_start/target_name_end__/output",
             expected_config_hash
@@ -545,7 +549,7 @@ mod tests {
         let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
 
         let expected_target_label_with_slashes = TargetLabel::new(
-            pkg,
+            expected_target_label.pkg().dupe(),
             TargetNameRef::new("target_name_start/target_name_end")?,
         );
 
@@ -571,6 +575,14 @@ mod tests {
             _ => panic!("Should have parsed buck-out path successfully"),
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_target_output_with_eq_sign() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
+
         let rule_path_with_equal_sign = format!(
             "buck-out/v2/gen/bar/{}/path/to/target/__target_name_eqsb_out__/output",
             expected_config_hash
@@ -578,8 +590,10 @@ mod tests {
 
         let res = buck_out_parser.parse(&rule_path_with_equal_sign)?;
 
-        let expected_target_label_with_equal_sign =
-            TargetLabel::new(pkg, TargetNameRef::new("target_name=out")?);
+        let expected_target_label_with_equal_sign = TargetLabel::new(
+            expected_target_label.pkg(),
+            TargetNameRef::new("target_name=out")?,
+        );
 
         match res {
             BuckOutPathType::RuleOutput {
@@ -602,6 +616,14 @@ mod tests {
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tmp_output() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
 
         let tmp_path = format!(
             "buck-out/v2/tmp/bar/{}/path/to/target/__target_name__/output",
@@ -627,6 +649,13 @@ mod tests {
             _ => panic!("Should have parsed buck-out path successfully"),
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_test_output() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
+
         let test_path = format!(
             "buck-out/v2/test/bar/{}/path/to/target/test/output",
             expected_config_hash
@@ -650,6 +679,14 @@ mod tests {
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_anon_output() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
+            get_test_data();
 
         let anon_path = format!(
             "buck-out/v2/gen-anon/bar/{}/path/to/target/anon_hash/__target_name__/output",
@@ -676,6 +713,13 @@ mod tests {
             }
             _ => panic!("Should have parsed buck-out path successfully"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_bxl_output() -> anyhow::Result<()> {
+        let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let path = format!(
             "buck-out/v2/gen-bxl/bar/{}/path/to/function.bxl/__function_name__/output",

@@ -27,6 +27,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::output::buck_out_path_parser::BuckOutPathParser;
 use crate::output::buck_out_path_parser::BuckOutPathType;
@@ -43,7 +44,7 @@ pub(crate) enum AuditOutputError {
 async fn audit_output<'v>(
     output_path: &'v str,
     working_dir: &'v ProjectRelativePath,
-    cell_resolver: &'v CellResolver,
+    cell_resolver: CellResolver,
     dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
 ) -> anyhow::Result<Option<AuditOutputResult>> {
@@ -100,7 +101,7 @@ pub(crate) fn init_audit_output() {
             Box::pin(audit_output(
                 output_path,
                 working_dir,
-                cell_resolver,
+                cell_resolver.dupe(),
                 dice_ctx,
                 global_cfg_options,
             ))
@@ -135,7 +136,7 @@ impl ServerAuditSubcommand for AuditOutputCommand {
                 )
                 .await?;
 
-                let result = audit_output(&self.output_path, working_dir, &cell_resolver, &mut dice_ctx, &global_cfg_options).await?;
+                let result = audit_output(&self.output_path, working_dir, cell_resolver.dupe(), &mut dice_ctx, &global_cfg_options).await?;
 
                 let mut stdout = stdout.as_writer();
 
