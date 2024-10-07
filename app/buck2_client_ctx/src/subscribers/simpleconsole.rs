@@ -8,9 +8,11 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Write as _;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -35,6 +37,7 @@ use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
 
@@ -51,6 +54,16 @@ use crate::subscribers::system_warning::system_memory_exceeded_msg;
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
+
+#[derive(Eq, PartialEq, Hash)]
+enum SystemWarningTypes {
+    MemoryPressure,
+    LowDiskSpace,
+    SlowDownloadSpeed,
+}
+
+static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
@@ -89,10 +102,42 @@ macro_rules! echo {
     };
 }
 
+// Report only if at least double time has passed since reporting interval
+fn echo_system_warning_exponential(warning: SystemWarningTypes, msg: &str) -> anyhow::Result<()> {
+    if let Some((last_reported, every_x)) =
+        ELAPSED_SYSTEM_WARNING_MAP.lock().unwrap().get_mut(&warning)
+    {
+        let now = Instant::now();
+        let elapsed = now.duration_since(*last_reported);
+        let new_every_double: u64 = 2 * *every_x;
+        if elapsed > Duration::from_secs(new_every_double) {
+            echo!("{}", msg)?;
+            *every_x = new_every_double;
+            *last_reported = now;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Copy, Clone, Dupe, Debug, PartialEq)]
 enum TtyMode {
     Enabled,
     Disabled,
+}
+
+fn init_remaining_system_warning_count() {
+    ELAPSED_SYSTEM_WARNING_MAP
+        .lock()
+        .unwrap()
+        .insert(SystemWarningTypes::MemoryPressure, (Instant::now(), 1));
+    ELAPSED_SYSTEM_WARNING_MAP
+        .lock()
+        .unwrap()
+        .insert(SystemWarningTypes::LowDiskSpace, (Instant::now(), 1));
+    ELAPSED_SYSTEM_WARNING_MAP
+        .lock()
+        .unwrap()
+        .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -112,6 +157,7 @@ where
     E: EventObserverExtra,
 {
     pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+        init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
@@ -124,6 +170,7 @@ where
     }
 
     pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+        init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
@@ -577,11 +624,17 @@ where
                     let avg_re_download_speed =
                         self.observer().re_avg_download_speed().avg_per_second();
                     if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
-                        echo!("{}", system_memory_exceeded_msg(&memory_pressure))?;
+                        echo_system_warning_exponential(
+                            SystemWarningTypes::MemoryPressure,
+                            &system_memory_exceeded_msg(&memory_pressure),
+                        )?;
                     }
                     if let Some(low_disk_space) = check_remaining_disk_space(last_snapshot, sysinfo)
                     {
-                        echo!("{}", low_disk_space_msg(&low_disk_space))?;
+                        echo_system_warning_exponential(
+                            SystemWarningTypes::LowDiskSpace,
+                            &low_disk_space_msg(&low_disk_space),
+                        )?;
                     }
                     if check_download_speed(
                         first_snapshot,
@@ -589,7 +642,10 @@ where
                         sysinfo,
                         avg_re_download_speed,
                     ) {
-                        echo!("{}", slow_download_speed_msg(avg_re_download_speed))?;
+                        echo_system_warning_exponential(
+                            SystemWarningTypes::SlowDownloadSpeed,
+                            &slow_download_speed_msg(avg_re_download_speed),
+                        )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
