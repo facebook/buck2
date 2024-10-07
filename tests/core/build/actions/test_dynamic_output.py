@@ -12,16 +12,16 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="everything")
+@buck_test(data_dir="everything")
 async def test_dynamic_output(buck: Buck) -> None:
     await buck.build("root//:")
 
 
-@buck_test(inplace=False, data_dir="everything_new")
+@buck_test(data_dir="everything_new")
 async def test_dynamic_output_new(buck: Buck) -> None:
     await buck.build("root//:")
 
 
-@buck_test(inplace=False, data_dir="empty_dynamic_list")
+@buck_test(data_dir="empty_dynamic_list")
 async def test_empty_dynamic_list(buck: Buck) -> None:
     await buck.build("root//:empty_test")

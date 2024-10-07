@@ -24,7 +24,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_write_json(buck: Buck) -> None:
     result = await buck.build("//write_json:", "-c", "write_json.content=default")
 
@@ -37,7 +37,7 @@ async def test_write_json(buck: Buck) -> None:
     await buck.build("//write_json:with_inputs", "-c", "write_json.content=other")
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_copies_files(buck: Buck) -> None:
     result = await buck.build(
         "//copy:file_uses_declared_output",
@@ -68,7 +68,7 @@ async def test_copies_files(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_symlink_dir(buck: Buck) -> None:
     result = await buck.build("//symlinked_dir:")
     build_report = result.get_build_report()
@@ -111,7 +111,7 @@ async def test_symlink_dir(buck: Buck) -> None:
     assert dest4.read_text().strip() == "dep contents"
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_simple_run(buck: Buck) -> None:
     result = await buck.build("//run:runs_simple_script")
     output = result.get_build_report().output_for_target("//run:runs_simple_script")
@@ -150,7 +150,7 @@ async def test_simple_run(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_anon_targets(buck: Buck) -> None:
     await buck.build("//anon:")
 
@@ -185,7 +185,7 @@ async def test_anon_targets(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_download_file(buck: Buck) -> None:
     routes = web.RouteTableDef()
 
@@ -225,7 +225,7 @@ async def test_download_file(buck: Buck) -> None:
     assert attempt == 3
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_download_file_timeout_after_retries(buck: Buck) -> None:
     routes = web.RouteTableDef()
 
@@ -292,7 +292,7 @@ async def test_download_file_timeout_after_retries(buck: Buck) -> None:
     await runner.cleanup()
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_cas_artifact(buck: Buck) -> None:
     # The digests in `//cas_artifact:` require the buckconfig.
     # NB: cannot use `extra_buck_config` attrib of `@buck_test()``
@@ -314,7 +314,7 @@ async def test_cas_artifact(buck: Buck) -> None:
     assert (tree / "y").read_text() == "hi\n"
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_invalid_command(buck: Buck) -> None:
     await expect_failure(
         buck.build("//run_bad:run_invalid_command_local"),
@@ -326,7 +326,7 @@ async def test_invalid_command(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_exit_code(buck: Buck) -> None:
     await expect_failure(
         buck.build("//run_bad:run_odd_exit_code"),
@@ -340,7 +340,7 @@ async def test_exit_code(buck: Buck) -> None:
         )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_artifact_cycle(buck: Buck) -> None:
     await expect_failure(
         buck.build("//run_invalid:artifact_cycle"),
@@ -348,12 +348,12 @@ async def test_artifact_cycle(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_associated_artifacts(buck: Buck) -> None:
     await buck.build("//associated_artifacts:check")
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_failure_has_wall_time(buck: Buck) -> None:
     await expect_failure(
         buck.build("//run_bad:run_odd_exit_code"),

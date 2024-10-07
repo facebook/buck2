@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_dynamic_value(buck: Buck) -> None:
     result = await buck.build("//:test_rule")
     out = result.get_build_report().output_for_target("//:test_rule")

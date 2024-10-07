@@ -18,7 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test(inplace=False, data_dir="write")
+@buck_test(data_dir="write")
 async def test_write_files(buck: Buck) -> None:
     result = await buck.build(
         "//:simple",
@@ -71,7 +71,7 @@ async def test_write_files(buck: Buck) -> None:
     assert os.path.isabs(output.read_text().strip())
 
 
-@buck_test(inplace=False, data_dir="write_fails")
+@buck_test(data_dir="write_fails")
 async def test_write_files_fails_invalid_content(buck: Buck) -> None:
     await expect_failure(
         buck.build("//:fails_on_invalid_contents"),
@@ -79,7 +79,7 @@ async def test_write_files_fails_invalid_content(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="write_fails")
+@buck_test(data_dir="write_fails")
 async def test_write_files_fails_invalid_output(buck: Buck) -> None:
     await expect_failure(
         buck.build("//:fails_on_invalid_output"),
@@ -87,7 +87,7 @@ async def test_write_files_fails_invalid_output(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="write")
+@buck_test(data_dir="write")
 async def test_output_size(buck: Buck) -> None:
     await buck.build("//:simple")
 
