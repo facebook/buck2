@@ -1,8 +1,0 @@
-load("@fbsource//tools/build_defs/buck2:is_buck2.bzl", "is_buck2")
-load(":defs.bzl?v2_only", "my_rule")
-
-oncall("build_infra")
-
-# No-op in Buck1.
-# buildifier: disable=no-effect
-my_rule(name = "my") if is_buck2() else None

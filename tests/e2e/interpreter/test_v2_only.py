@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_v2_only(buck: Buck) -> None:
     # Just check it works.
-    await buck.build("fbcode//buck2/tests/e2e/interpreter/test_v2_only_data:")
+    await buck.build("root//:")

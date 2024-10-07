@@ -5,6 +5,7 @@ oncall("build_infra")
 buck2_e2e_test(
     name = "test_v2_only",
     srcs = ["test_v2_only.py"],
+    data_dir = "test_v2_only_data",
 )
 
 buck2_e2e_test(
