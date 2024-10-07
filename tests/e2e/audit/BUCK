@@ -62,3 +62,9 @@ buck2_e2e_test(
     srcs = ["test_audit_visibility.py"],
     data_dir = "test_audit_visibility_data",
 )
+
+buck2_e2e_test(
+    name = "test_audit_parse",
+    srcs = ["test_audit_parse.py"],
+    data_dir = "test_audit_parse_data",
+)
