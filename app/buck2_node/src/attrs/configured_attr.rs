@@ -65,9 +65,6 @@ enum ConfiguredAttrError {
     ExpectingList(String),
     #[error("expecting configuration dep, got `{0}`")]
     ExpectingConfigurationDep(String),
-    #[error("Inconsistent attr value (`{}`) and attr type (`{}`) (internal error)",
-            _0.as_display_no_ctx(), _1)]
-    InconsistentAttrValueAndAttrType(ConfiguredAttr, AttrType),
 }
 
 #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
@@ -249,11 +246,11 @@ impl ConfiguredAttr {
                 let oneof_type = match &attr_type.0.inner {
                     AttrTypeInner::OneOf(oneof_type) => oneof_type,
                     _ => {
-                        return Err(ConfiguredAttrError::InconsistentAttrValueAndAttrType(
-                            ConfiguredAttr::OneOf(Box::new(first), first_i),
-                            attr_type.dupe(),
-                        )
-                        .into());
+                        return Err(internal_error!(
+                            "Inconsistent attr value (`{}`) and attr type (`{}`)",
+                            ConfiguredAttr::OneOf(Box::new(first), first_i).as_display_no_ctx(),
+                            attr_type
+                        ));
                     }
                 };
 
