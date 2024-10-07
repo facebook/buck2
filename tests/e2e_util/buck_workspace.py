@@ -431,7 +431,7 @@ SKIPPABLE_PLATFORMS = ["darwin", "linux", "windows"]
 
 
 def buck_test(
-    inplace: bool,
+    inplace: bool | None = None,
     data_dir: Optional[str] = "",
     # Accepted values are specified in SKIPPABLE_PLATFORMS
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
@@ -471,6 +471,17 @@ def buck_test(
 
     if inplace and data_dir == "":
         data_dir = None
+
+    if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+        if inplace is not None:
+            raise Exception(
+                "Don't set `inplace` in `tests/core` - these tests are always isolated"
+            )
+
+        inplace = False
+    else:
+        if inplace is None:
+            raise Exception("`inplace` must be set for `buck_test()`")
 
     # Set up arguments to use for the buck fixture.
 

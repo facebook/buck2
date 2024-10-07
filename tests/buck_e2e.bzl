@@ -61,6 +61,11 @@ def buck_e2e_test(
     # --no-summary disables pytest summary printed after each test run on output
     env["PYTEST_ADDOPTS"] = "-vv --tb=native --no-header --no-summary"
 
+    if read_package_value("buck2_e2e_test.flavor") == "isolated":
+        env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
+    else:
+        env["BUCK2_E2E_TEST_FLAVOR"] = "any"
+
     if data and data_dir:
         fail("`data` and `data_dir` cannot be used together")
 
