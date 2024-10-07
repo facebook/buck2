@@ -60,7 +60,7 @@ def _setup_buckconfig_digest_algorithms(buck: Buck) -> None:
 
 
 # Tracing I/O not implemented for Windows.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_simple_binary_build(buck: Buck) -> None:
     # Since this is an inplace test, we need to fake an hg repo so that export-manifest
     # can extract the repo revision.
@@ -81,7 +81,7 @@ async def test_simple_binary_build(buck: Buck) -> None:
     assert_path_in_manifest("hello_world/main.cpp", manifest["paths"])
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_external_buckconfig_path_included_in_manifest(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
 
@@ -104,7 +104,7 @@ async def test_external_buckconfig_path_included_in_manifest(buck: Buck) -> None
 
 
 # More complicated example with binary depending on multiple libraries.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_binary_with_deps(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
 
@@ -127,7 +127,7 @@ async def test_binary_with_deps(buck: Buck) -> None:
 
 
 # Multiple builds should be logical union of all input files of all builds.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_multiple_builds(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
 
@@ -144,7 +144,7 @@ async def test_multiple_builds(buck: Buck) -> None:
 
 
 # Symlinks should show up in the *_symlinks attributes of the manifest.
-@buck_test(inplace=False, setup_eden=True, skip_for_os=["windows"])
+@buck_test(setup_eden=True, skip_for_os=["windows"])
 async def test_symlinks(buck: Buck) -> None:
     def symlink(link: str, target: str) -> None:
         """
@@ -202,7 +202,7 @@ async def test_symlinks(buck: Buck) -> None:
 
 
 # Validate that manifest includes downloaded http_archive path in buck-out.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_includes_http_archive_in_manifest(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
 
@@ -221,7 +221,7 @@ async def test_includes_http_archive_in_manifest(buck: Buck) -> None:
 
 
 # Ensure offline-cache buck-out dir is _not_ created when not doing I/O tracing.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_no_tracing_does_not_write_offline_cache_for_http_archive(
     buck: Buck,
 ) -> None:
@@ -233,7 +233,7 @@ async def test_no_tracing_does_not_write_offline_cache_for_http_archive(
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
 # offline-cache action output instead of fetching from the network.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
@@ -277,7 +277,7 @@ async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
     assert http_download_path.exists(), "http download output path should exist"
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_includes_cas_artifact_in_manifest(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
 
@@ -300,7 +300,7 @@ async def test_includes_cas_artifact_in_manifest(buck: Buck) -> None:
 
 
 # Ensure offline-cache buck-out dir is _not_ created when not doing I/O tracing.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_no_tracing_does_not_write_offline_cache_for_cas_artifact(
     buck: Buck,
 ) -> None:
@@ -314,7 +314,7 @@ async def test_no_tracing_does_not_write_offline_cache_for_cas_artifact(
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
 # offline-cache action output instead of fetching from the network.
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     hg_init(cwd=buck.cwd)
@@ -360,6 +360,6 @@ async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
 
 
 # No-op test for windows.
-@buck_test(inplace=True)
+@buck_test()
 async def test_noop(buck: Buck) -> None:
     return
