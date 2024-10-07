@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.helper.assert_occurrences import assert_occurrences
 
 
 @buck_test(
-    inplace=True,
+    inplace=False,
     extra_buck_config={
         "test": {
             "foo": "bar",
@@ -31,7 +31,7 @@ async def test_extra_buck_config(buck: Buck) -> None:
     assert cfg.get("test.foo") == "bar"
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_config_json(buck: Buck) -> None:
     result = await buck.audit_config("--style=json")
     result_json = result.get_json()
@@ -56,7 +56,7 @@ async def test_audit_config_cell_json(buck: Buck) -> None:
     out = await buck.audit_config(
         "--style",
         "json",
-        rel_cwd=Path("fbc"),
+        rel_cwd=Path("code"),
     )
     out_json = out.get_json() or {}
     assert out_json.get("test.is_code") == "yes"
@@ -93,7 +93,7 @@ async def test_audit_config_all_cells(buck: Buck) -> None:
     assert "# Cell: source\n[bar]\n    a = 1\n" in out.stdout
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_config_with_config_value(buck: Buck) -> None:
     result_config = await buck.audit_config(
         "python",
@@ -102,58 +102,45 @@ async def test_audit_config_with_config_value(buck: Buck) -> None:
         "-cpython.helpers=true",
     )
     result_config_json = result_config.get_json()
-    result_override = await buck.audit_config(
-        "python",
-        "--style",
-        "json",
-    )
-    result_override_json = result_override.get_json()
-
-    assert result_config_json is not None
-    assert result_override_json is not None
 
     assert result_config_json.get("python.helpers") == "true"
 
 
-@buck_test(inplace=True)
-async def test_audit_config_with_config_file(buck: Buck) -> None:
+@buck_test(inplace=False)
+async def test_audit_config_with_config_file(buck: Buck, tmp_path: Path) -> None:
+    configfile = tmp_path / "config.bcfg"
+    configfile.write_text("[python]\n  helpers = true\n")
+
     result_file = await buck.audit_config(
-        "@fbcode//mode/opt",
-        "project.buck_out",
+        "--config-file",
+        str(configfile),
         "--style",
         "json",
     )
-    result_file_json = result_file.get_json()
 
-    assert result_file_json is not None
-    assert result_file_json.get("project.buck_out") == "buck-out/opt"
+    assert result_file.get_json().get("python.helpers") == "true"
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_config_location_extended(buck: Buck) -> None:
     result = await buck.audit_config(
-        "@fbcode//buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope",
-        "apple.xctool_path",
+        "bar.a",
         "--location=extended",
     )
-    assert "xctool_path = /usr/bin/true" in result.stdout
-    assert (
-        "fbcode/buck2/tests/targets/configurations_uncategorized/executable_argfiles/jackalope-apple-toolchain.bcfg:2"
-        in result.stdout
-    )
+    assert "a = 1" in result.stdout
+    assert "included.bcfg:2" in result.stdout
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_config_with_cell_syntax(buck: Buck) -> None:
     result_file = await buck.audit_config(
-        "fbcode//project.buck_out",
+        "code//test.is_code",
         "--style",
         "json",
     )
     result_file_json = result_file.get_json()
 
-    assert result_file_json is not None
-    assert result_file_json.get("fbcode//project.buck_out") == "buck-out/dev"
+    assert result_file_json.get("code//test.is_code") == "yes"
 
 
 @buck_test(inplace=False)
