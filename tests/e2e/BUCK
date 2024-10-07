@@ -47,16 +47,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_common_opts",
-    srcs = ["test_common_opts.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
-)
-
-buck2_e2e_test(
     name = "test_errors",
     srcs = ["test_errors.py"],
     data_dir = "test_errors_data",

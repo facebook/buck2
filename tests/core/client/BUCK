@@ -7,3 +7,9 @@ buck2_e2e_test(
     srcs = ["test_argfiles.py"],
     data_dir = "test_argfiles_data",
 )
+
+buck2_e2e_test(
+    name = "test_common_opts",
+    srcs = ["test_common_opts.py"],
+    data_dir = "test_common_opts_data",
+)
