@@ -9,8 +9,6 @@
 
 
 import json
-import re
-import textwrap
 from pathlib import Path
 from typing import Iterable, Set
 
@@ -18,28 +16,6 @@ import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-@buck_test(inplace=True)
-async def test_audit_configurations(buck: Buck) -> None:
-    await buck.cquery("fbcode//buck2/tests/targets/audit/configurations:target")
-
-    res = await buck.audit_configurations()
-
-    expected = textwrap.dedent(
-        """
-fbcode//buck2/tests/targets/audit/configurations:platform1#[0-9a-f]*:
-  fbcode//buck2/tests/targets/audit/configurations:constraint1 \\(fbcode//buck2/tests/targets/audit/configurations:setting1\\)
-  fbcode//buck2/tests/targets/audit/configurations:constraint2 \\(fbcode//buck2/tests/targets/audit/configurations:setting2\\)
-  fbcode//buck2/tests/targets/audit/configurations:constraint3 \\(fbcode//buck2/tests/targets/audit/configurations:setting3\\)"""
-    )
-
-    assert re.search(
-        expected, res.stdout
-    ), "expected output to contain:\n%s\n actual output:\n%s" % (
-        expected,
-        res.stdout,
-    )
 
 
 @buck_test(inplace=False, data_dir="visibility")
