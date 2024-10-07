@@ -7,3 +7,9 @@ buck2_e2e_test(
     srcs = ["test_daemon.py"],
     data_dir = "test_daemon_data",
 )
+
+buck2_e2e_test(
+    name = "test_daemon_buster",
+    srcs = ["test_daemon_buster.py"],
+    data_dir = "test_daemon_buster_data",
+)
