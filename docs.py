@@ -124,10 +124,8 @@ def generate_help_docs_subcommand(buck, args):
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
     root = res.stdout.decode()
-    title = "\n\n#" + ("#" * len(args)) + " " + " ".join(["buck"] + args) + "\n\n"
     return (
-        (title if args else "")
-        + "\n\n```text\n"
+        "\n\n```text\n"
         + root
         + "\n```"
         + "\n\n".join(
