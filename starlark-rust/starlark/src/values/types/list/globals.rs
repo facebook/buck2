@@ -53,7 +53,7 @@ static LIST: Lazy<TyFunction> = Lazy::new(|| {
 });
 
 impl TyCustomFunctionImpl for ListType {
-    fn has_type_attr(&self) -> bool {
+    fn is_type(&self) -> bool {
         true
     }
 

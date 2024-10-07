@@ -39,7 +39,7 @@ use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 pub trait TyCustomFunctionImpl:
     Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
-    fn has_type_attr(&self) -> bool {
+    fn is_type(&self) -> bool {
         false
     }
 
@@ -104,7 +104,7 @@ impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     ) -> Result<Ty, TypingNoContextOrInternalError> {
         match bin_op {
             // `str | list`.
-            TypingBinOp::BitOr if self.0.has_type_attr() => Ok(Ty::basic(TyBasic::Type)),
+            TypingBinOp::BitOr if self.0.is_type() => Ok(Ty::basic(TyBasic::Type)),
             _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
@@ -161,7 +161,7 @@ impl TyFunction {
 }
 
 impl TyCustomFunctionImpl for TyFunction {
-    fn has_type_attr(&self) -> bool {
+    fn is_type(&self) -> bool {
         self.type_attr.is_some()
     }
 
