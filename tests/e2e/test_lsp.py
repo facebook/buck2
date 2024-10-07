@@ -56,13 +56,6 @@ async def test_lsp_starts(buck: Buck) -> None:
         await lsp.init_connection()
 
 
-@buck_test(inplace=True)
-async def test_lsp_starts_fbsource(buck: Buck) -> None:
-    async with await buck.lsp() as lsp:
-        # Will fail if the initialize response is not received
-        await lsp.init_connection()
-
-
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=False, skip_for_os=["windows"])
 async def test_lints_on_open(buck: Buck) -> None:
