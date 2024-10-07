@@ -8,20 +8,12 @@
 # pyre-strict
 
 
-import os
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_package_file_alt_name(buck: Buck) -> None:
-    output = await buck.build("//:")
-    assert "AAA from BUCK_TREE" in output.stderr
-    assert "AAA from PACKAGE" not in output.stderr
+@buck_test()
+async def test_no_package_call_does_not_reset_visibility(buck: Buck) -> None:
+    # Test that PACKAGE file without package() call does not reset visibility inherited from parent PACKAGE file.
 
-    os.unlink(buck.cwd / "BUCK_TREE")
-
-    output = await buck.build("//:")
-    assert "AAA from BUCK_TREE" not in output.stderr
-    assert "AAA from PACKAGE" in output.stderr
+    await buck.build("root//b:top")

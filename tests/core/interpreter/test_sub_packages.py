@@ -10,13 +10,13 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
-async def test_package_values_missing_buck_file(buck: Buck) -> None:
-    stdout = (await buck.audit("package-values", "//")).stdout
-    golden(
-        output=stdout,
-        rel_path="audit-package-values-missing-buck-file.golden.json",
-    )
+@buck_test()
+async def test_sub_packages(buck: Buck) -> None:
+    res = await buck.targets("root//:")
+    assert 'Pkgs: ["cat/x", "dog"]' in res.stderr
+    res = await buck.targets("root//dog:")
+    assert 'Pkgs: ["y"]' in res.stderr
+    res = await buck.targets("root//cat/x:")
+    assert "Pkgs: []" in res.stderr

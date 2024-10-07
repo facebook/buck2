@@ -8,15 +8,20 @@
 # pyre-strict
 
 
+import os
+
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_unstable_typecheck(buck: Buck) -> None:
-    await buck.cquery("//:x")
-    await expect_failure(
-        buck.cquery("//:x", "--unstable-typecheck"),
-        stderr_regex="Expected type `int` but got `str`",
-    )
+@buck_test()
+async def test_package_file_alt_name(buck: Buck) -> None:
+    output = await buck.build("//:")
+    assert "AAA from BUCK_TREE" in output.stderr
+    assert "AAA from PACKAGE" not in output.stderr
+
+    os.unlink(buck.cwd / "BUCK_TREE")
+
+    output = await buck.build("//:")
+    assert "AAA from BUCK_TREE" not in output.stderr
+    assert "AAA from PACKAGE" in output.stderr

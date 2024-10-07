@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_read_root_config(buck: Buck) -> None:
     output = await buck.build("//:")
     assert "<<root=regular>>" in output.stderr

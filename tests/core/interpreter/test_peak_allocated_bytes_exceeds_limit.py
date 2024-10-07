@@ -13,9 +13,9 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_peak_allocated_bytes_exceeds_soft_limit(buck: Buck) -> None:
+@buck_test()
+async def test_peak_allocated_bytes_exceeds_limit(buck: Buck) -> None:
     await expect_failure(
         buck.uquery("//:EEE"),
-        stderr_regex="Starlark peak memory usage for prelude//:TARGETS.fixture is .*MiB which is over 50% of the limit  10MiB! Consider investigating what takes too much memory.",
+        stderr_regex="Starlark peak memory usage for prelude//:TARGETS.fixture is .*MiB which exceeds the limit 1.0KiB!",
     )

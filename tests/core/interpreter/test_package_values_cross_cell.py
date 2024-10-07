@@ -10,9 +10,13 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
-async def test_v2_only(buck: Buck) -> None:
-    # Just check it works.
-    await buck.build("root//:")
+@buck_test()
+async def test_audit_package_values_cross_cell(buck: Buck) -> None:
+    stdout = (await buck.audit("package-values", "other//")).stdout
+    golden(
+        output=stdout,
+        rel_path="audit-package-values-cross-cell.golden.json",
+    )

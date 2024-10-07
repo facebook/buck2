@@ -16,14 +16,14 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_package_file_package_values(buck: Buck) -> None:
     # Build file does all the assertions.
     output = await buck.build("//:")
     assert "TEST PASSED" in output.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_audit_package_values(buck: Buck) -> None:
     stdout = (await buck.audit("package-values", "//")).stdout
     golden(
@@ -32,7 +32,7 @@ async def test_audit_package_values(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_targets_package_values(buck: Buck) -> None:
     stdout = (await buck.targets("--package-values", "//...")).stdout
     golden(
@@ -41,7 +41,7 @@ async def test_targets_package_values(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_targets_package_values_regex(buck: Buck) -> None:
     # Empty string as regex.
     out = (await buck.targets("--package-values-regex", "", "//...")).stdout
@@ -84,7 +84,7 @@ async def test_targets_package_values_regex(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_targets_streaming_package_values(buck: Buck) -> None:
     stdout = (await buck.targets("--streaming", "--package-values", "//...")).stdout
     golden(

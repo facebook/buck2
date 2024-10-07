@@ -13,9 +13,14 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_peak_allocated_bytes_exceeds_limit(buck: Buck) -> None:
+@buck_test()
+async def test_stack_overflow(buck: Buck) -> None:
     await expect_failure(
-        buck.uquery("//:EEE"),
-        stderr_regex="Starlark peak memory usage for prelude//:TARGETS.fixture is .*MiB which exceeds the limit 1.0KiB!",
+        buck.uquery("bad//:"), stderr_regex="Starlark call stack overflow"
     )
+
+
+@buck_test()
+async def test_callstack_size(buck: Buck) -> None:
+    output = await buck.uquery("good//:")
+    assert "TEST PASSED" in output.stderr

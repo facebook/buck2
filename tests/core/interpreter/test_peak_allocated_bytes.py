@@ -8,16 +8,14 @@
 # pyre-strict
 
 
-import platform
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test(inplace=False)
-async def test_cpu_instruction_count(buck: Buck) -> None:
-    await buck.uquery("//:")
+@buck_test()
+async def test_peak_allocated_bytes(buck: Buck) -> None:
+    await buck.uquery("//:EEE")
     span_end_load_event = await filter_events(
         buck,
         "Event",
@@ -27,11 +25,10 @@ async def test_cpu_instruction_count(buck: Buck) -> None:
         "Load",
     )
     assert len(span_end_load_event) == 1
-
-    cpu_instruction_count = span_end_load_event[0]["cpu_instruction_count"]
-
-    # We only populate counters on Linux
-    if platform.system() == "Linux":
-        assert cpu_instruction_count >= 1000
-    else:
-        assert cpu_instruction_count is None
+    starlark_peak_allocated_bytes = span_end_load_event[0][
+        "starlark_peak_allocated_bytes"
+    ]
+    # list occupies pointer size (8) * number of elements (~10MB) + some extra overhead for bookkeeping
+    assert starlark_peak_allocated_bytes >= (8 * 10 * 1 << 20)
+    # check that it is no more than +10%
+    assert starlark_peak_allocated_bytes < (8 * 11 * 1 << 20)
