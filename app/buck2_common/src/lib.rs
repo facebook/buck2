@@ -20,6 +20,7 @@
 
 pub mod argv;
 pub mod buckd_connection;
+pub mod build_count;
 pub mod buildfiles;
 pub mod cas_digest;
 pub mod chunk_reader;

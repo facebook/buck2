@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::Context;
-use buck2_common::client_utils;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
@@ -19,6 +18,8 @@ use buck2_data::ParsedTargetPatterns;
 use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
+
+use crate::client_utils;
 
 // Version for serialized BuildCount on disk.
 // Update if changing BuildCount to allow building with deployed and compiled buck on the same rev.
@@ -76,7 +77,7 @@ impl BuildCountMap {
             return Default::default();
         }
 
-        // If the target has never been succesfully built it won't be in the map, in that case its count is 0.
+        // If the target has never been successfully built it won't be in the map, in that case its count is 0.
         return patterns
             .target_patterns
             .iter()

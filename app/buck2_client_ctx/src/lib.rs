@@ -19,7 +19,6 @@
 #![feature(extract_if)]
 
 pub mod argfiles;
-pub mod build_count;
 pub mod client_cpu_tracker;
 pub mod client_ctx;
 pub mod client_metadata;
