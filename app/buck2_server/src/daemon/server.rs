@@ -419,6 +419,7 @@ impl BuckdServer {
             min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold: system_warning_config
                 .avg_re_download_bytes_per_sec_threshold,
+            min_cache_hit_threshold_percent: system_warning_config.min_cache_hit_threshold_percent,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here

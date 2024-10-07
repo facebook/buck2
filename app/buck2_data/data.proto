@@ -2356,6 +2356,7 @@ message SystemInfo {
   optional uint64 remaining_disk_space_threshold_gb = 4;
   optional uint64 min_re_download_bytes_threshold = 5;
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
+  optional uint64 min_cache_hit_threshold_percent = 7;
 }
 
 message CpuCounter {

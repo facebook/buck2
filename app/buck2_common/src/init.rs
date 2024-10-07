@@ -144,6 +144,11 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
     pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
+    /// A threshold that is used to determine if cache hit rate is too low and display a warning.
+    /// If None, we don't warn the user.
+    /// The corresponding buckconfig is `buck2_system_warning.min_cache_hit_threshold_percent`.
+    /// The value is in the range of [0, 100].
+    pub min_cache_hit_threshold_percent: Option<u64>,
 }
 
 impl SystemWarningConfig {
@@ -164,11 +169,16 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "avg_re_download_bytes_per_sec_threshold",
         })?;
+        let min_cache_hit_threshold_percent = config.parse(BuckconfigKeyRef {
+            section: "buck2_system_warning",
+            property: "min_cache_hit_threshold_percent",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
+            min_cache_hit_threshold_percent,
         })
     }
 
