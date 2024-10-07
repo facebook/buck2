@@ -30,7 +30,7 @@ pub struct EnvInfoEntry {
 
 impl EnvInfoEntry {
     pub fn ty_short(&self) -> &'static str {
-        self.ty.rfind(':').map_or(self.ty, |i| &self.ty[i + 1..])
+        self.ty.rfind(':').map_or(self.ty, |i| &self.ty[i + 2..])
     }
 }
 
@@ -53,7 +53,7 @@ mod tests {
         assert_eq!(
             &EnvInfoEntry {
                 name: "TEST_VAR_1",
-                ty: "std::string::String",
+                ty: "std :: string :: String",
                 default: None,
                 applicability: Applicability::Internal,
             },

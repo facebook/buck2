@@ -11,7 +11,6 @@
 
 //! Common core components of buck2
 
-#![feature(fs_try_exists)]
 #![feature(io_error_more)]
 #![feature(is_sorted)]
 #![feature(map_try_insert)]

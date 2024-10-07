@@ -853,7 +853,7 @@ fn verify_abs_path_windows_part(path: &str) -> bool {
     // TODO(nga): behavior of UNC paths is under-specified in `AbsPath`.
     let path = path.strip_prefix("\\\\.\\").unwrap_or(path);
 
-    for component in path.split(|c| c == '/' || c == '\\') {
+    for component in path.split(['/', '\\']) {
         if component == "." || component == ".." {
             return false;
         }

@@ -9,7 +9,6 @@
 
 #![feature(error_generic_member_access)]
 #![feature(decl_macro)]
-#![feature(fs_try_exists)]
 #![feature(never_type)]
 #![feature(pattern)]
 #![feature(box_patterns)]

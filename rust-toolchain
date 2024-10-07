@@ -9,6 +9,6 @@
 #   * NOTE: You may have to change this file in a follow up commit as ocamlrep
 #     has a dependency on buck2 git trunk.
 
-# @rustc_version: rustc 1.80.0-nightly (804421dff 2024-06-07)
-channel = "nightly-2024-06-08"
+# @rustc_version: rustc 1.81.0-nightly (506985649 2024-07-20)
+channel = "nightly-2024-07-21"
 components = ["llvm-tools-preview","rustc-dev","rust-src"]

@@ -82,7 +82,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for SetType<T> {
     }
 }
 
-impl<'v, T: StarlarkValue<'v> + ?Sized> StarlarkTypeRepr for T {
+impl<'v, T: StarlarkValue<'v>> StarlarkTypeRepr for T {
     type Canonical = Self;
 
     fn starlark_type_repr() -> Ty {

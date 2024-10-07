@@ -1093,7 +1093,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         let mut s = this;
         let mut lines: Vec<StringValue> = Vec::new();
         loop {
-            if let Some(x) = s.find(|x| x == '\n' || x == '\r') {
+            if let Some(x) = s.find(['\n', '\r']) {
                 let y = x;
                 let x = match s.get(y..y + 2) {
                     Some("\r\n") => y + 2,

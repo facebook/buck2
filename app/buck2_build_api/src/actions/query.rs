@@ -417,14 +417,12 @@ pub fn iter_action_inputs<'a>(
         type Item = &'a SetProjectionInputs;
 
         fn next(&mut self) -> Option<Self::Item> {
-            self.queue.pop_front().map(|node| {
+            self.queue.pop_front().inspect(|node| {
                 for child in &*node.node.children {
                     if self.visited.insert(child) {
                         self.queue.push_back(child);
                     }
                 }
-
-                node
             })
         }
     }

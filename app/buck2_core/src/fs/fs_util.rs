@@ -318,7 +318,7 @@ pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> Result<Option<ReadD
 pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> Result<bool, IoError> {
     let _guard = IoCounterKey::Stat.guard();
     make_error!(
-        fs::try_exists(path.as_ref().as_maybe_relativized()),
+        path.as_ref().as_maybe_relativized().try_exists(),
         format!("try_exists({})", P::as_ref(&path).display())
     )
 }
@@ -1060,7 +1060,7 @@ mod tests {
         let dir_path = root.join("dir");
         create_dir_all(AbsPath::new(&dir_path)?)?;
         assert_matches!(remove_file(&dir_path), Err(..));
-        assert!(fs::try_exists(&dir_path)?);
+        assert!(dir_path.try_exists()?);
         Ok(())
     }
 
@@ -1102,7 +1102,7 @@ mod tests {
         let path = root.join("file");
         fs::write(&path, b"regular")?;
         remove_all(&path)?;
-        assert!(!fs::try_exists(&path)?);
+        assert!(!path.try_exists()?);
         Ok(())
     }
 
@@ -1114,7 +1114,7 @@ mod tests {
         fs::create_dir(&path)?;
         fs::write(path.join("file"), b"regular file in a dir")?;
         remove_all(&path)?;
-        assert!(!fs::try_exists(&path)?);
+        assert!(!path.try_exists()?);
         Ok(())
     }
 
@@ -1163,7 +1163,7 @@ mod tests {
         let file_path = root.join("file");
         fs::write(&file_path, b"File content")?;
         assert!(remove_dir_all(&file_path).is_err());
-        assert!(fs::try_exists(&file_path)?);
+        assert!(file_path.try_exists()?);
         Ok(())
     }
 

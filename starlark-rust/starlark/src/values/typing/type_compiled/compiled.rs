@@ -350,13 +350,10 @@ impl<'v, V: ValueLike<'v>> Hash for TypeCompiled<V> {
 impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
     #[allow(clippy::manual_unwrap_or)]
     fn eq(&self, other: &Self) -> bool {
-        match self.0.to_value().equals(other.0.to_value()) {
-            Ok(b) => b,
-            Err(_) => {
-                // Unreachable, but we should not panic in `PartialEq`.
-                false
-            }
-        }
+        self.0
+            .to_value()
+            .equals(other.0.to_value())
+            .unwrap_or_default()
     }
 }
 

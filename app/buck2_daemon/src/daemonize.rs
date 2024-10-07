@@ -200,6 +200,7 @@ type Errno = libc::c_int;
 
 /// This error type for `Daemonize` `start` method.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Dupe)]
+#[allow(dead_code)]
 struct Error {
     kind: ErrorKind,
 }

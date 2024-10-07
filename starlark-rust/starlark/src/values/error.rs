@@ -100,10 +100,7 @@ impl ValueError {
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupported) error.
     #[cold]
-    pub fn unsupported<'v, T, V: StarlarkValue<'v> + ?Sized>(
-        _left: &V,
-        op: &str,
-    ) -> crate::Result<T> {
+    pub fn unsupported<'v, T, V: StarlarkValue<'v>>(_left: &V, op: &str) -> crate::Result<T> {
         Self::unsupported_owned(V::TYPE, op, None)
     }
 
@@ -114,7 +111,7 @@ impl ValueError {
 
     /// Helper to create an [`OperationNotSupported`](ValueError::OperationNotSupportedBinary) error.
     #[cold]
-    pub fn unsupported_with<'v, T, V: StarlarkValue<'v> + ?Sized>(
+    pub fn unsupported_with<'v, T, V: StarlarkValue<'v>>(
         _left: &V,
         op: &str,
         right: Value,

@@ -14,6 +14,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[allow(dead_code)]
 pub(crate) struct RcStr(Rc<str>);
 
 impl<'a> From<&'a str> for RcStr {

@@ -134,9 +134,9 @@ pub(crate) struct AValueVTable {
     allocative: unsafe fn(StarlarkValueRawPtr) -> *const dyn Allocative,
 }
 
-struct GetTypeId<'v, T: StarlarkValue<'v> + ?Sized>(PhantomData<&'v T>);
+struct GetTypeId<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
 
-impl<'v, T: StarlarkValue<'v> + ?Sized> GetTypeId<'v, T> {
+impl<'v, T: StarlarkValue<'v>> GetTypeId<'v, T> {
     const TYPE_ID: ConstTypeId = ConstTypeId::of::<<T as ProvidesStaticType>::StaticType>();
     const STARLARK_TYPE_ID: StarlarkTypeId = StarlarkTypeId::of::<T>();
 }

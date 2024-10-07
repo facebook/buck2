@@ -75,14 +75,14 @@ mod tests {
         let temp_path = TempPath::new().unwrap();
         let path = temp_path.path().to_path_buf();
 
-        assert!(!fs::try_exists(&path).unwrap());
+        assert!(!path.try_exists().unwrap());
 
         fs::write(&path, "hello").unwrap();
 
-        assert!(fs::try_exists(&path).unwrap(), "Sanity check");
+        assert!(path.try_exists().unwrap(), "Sanity check");
 
         temp_path.close().unwrap();
 
-        assert!(!fs::try_exists(&path).unwrap());
+        assert!(!path.try_exists().unwrap());
     }
 }

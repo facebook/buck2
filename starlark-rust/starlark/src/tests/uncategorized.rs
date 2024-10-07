@@ -956,7 +956,7 @@ fn test_fuzzer_59102() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]
@@ -966,7 +966,7 @@ fn test_fuzzer_59371() {
     let res: Result<AstModule, crate::Error> =
         AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard);
     // The panic actually only happens when we format the result
-    format!("{:?}", res);
+    let _unused = format!("{:?}", res);
 }
 
 #[test]

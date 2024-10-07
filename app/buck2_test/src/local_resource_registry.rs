@@ -65,7 +65,7 @@ impl<'a> LocalResourceRegistry<'a> {
             futures::future::join_all(futs)
                 .await
                 .into_iter()
-                .collect::<Result<_, _>>()?;
+                .collect::<Result<(), _>>()?;
 
             Ok::<(), anyhow::Error>(())
         };
