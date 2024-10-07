@@ -22,3 +22,10 @@ buck2_e2e_test(
     srcs = ["test_buckconfig_paths.py"],
     data_dir = "test_buckconfig_paths_data",
 )
+
+buck2_e2e_test(
+    name = "test_reuse_current_config",
+    srcs = ["test_reuse_current_config.py"],
+    data_dir = "test_reuse_current_config_data",
+    deps = ["//buck2/tests/e2e_util:assert_occurrences"],
+)

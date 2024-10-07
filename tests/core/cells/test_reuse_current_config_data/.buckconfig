@@ -1,0 +1,5 @@
+[cells]
+  root = .
+
+[test]
+  key = val

@@ -43,9 +43,6 @@ buck2_e2e_test(
     name = "test_audit_config",
     srcs = ["test_audit_config.py"],
     data_dir = "test_audit_config_data",
-    deps = [
-        "fbcode//buck2/tests/e2e_util:assert_occurrences",
-    ],
 )
 
 buck2_e2e_test(
