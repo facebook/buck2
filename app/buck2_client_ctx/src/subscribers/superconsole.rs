@@ -202,6 +202,12 @@ impl<'s> Component for BuckRootComponent<'s> {
             .observer
             .re_avg_download_speed()
             .avg_per_second();
+        let cache_hit_percent = self
+            .state
+            .simple_console
+            .observer
+            .action_stats()
+            .total_cache_hit_percentage();
         let system_info = &self.state.simple_console.observer.system_info();
         {
             draw.draw(
@@ -210,6 +216,7 @@ impl<'s> Component for BuckRootComponent<'s> {
                     first_snapshot,
                     system_info,
                     avg_re_download_speed,
+                    cache_hit_percent,
                 },
                 mode,
             )?;

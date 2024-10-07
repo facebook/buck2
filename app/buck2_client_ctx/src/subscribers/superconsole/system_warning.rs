@@ -15,6 +15,8 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 
+use crate::subscribers::system_warning::cache_misses_msg;
+use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
@@ -28,6 +30,7 @@ pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) last_snapshot: Option<&'a buck2_data::Snapshot>,
     pub(crate) system_info: &'a buck2_data::SystemInfo,
     pub(crate) avg_re_download_speed: Option<u64>,
+    pub(crate) cache_hit_percent: u8,
 }
 
 fn warning_styled(text: &str) -> anyhow::Result<Line> {
@@ -59,6 +62,9 @@ impl<'a> Component for SystemWarningComponent<'a> {
             lines.push(warning_styled(&slow_download_speed_msg(
                 self.avg_re_download_speed,
             ))?);
+        }
+        if check_cache_misses(self.cache_hit_percent, self.system_info) {
+            lines.push(warning_styled(&cache_misses_msg(self.cache_hit_percent))?);
         }
         Ok(Lines(lines))
     }
