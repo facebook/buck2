@@ -23,39 +23,26 @@ def _parse_audit_configurations(output: str) -> List[str]:
     return [x.rstrip(":") for x in output.splitlines() if not x.startswith(" ")]
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_configurations_all(buck: Buck) -> None:
     # Evaluate a target to make sure configuration is loaded.
-    await buck.cquery(
-        "fbcode//buck2/tests/e2e/audit/test_audit_configurations_data:genrule"
-    )
+    await buck.cquery("//:genrule")
 
     result = await buck.audit("configurations")
     configurations = _parse_audit_configurations(result.stdout)
     configurations = [_replace_hash(x) for x in configurations]
-    assert (
-        "fbcode//buck2/tests/e2e/audit/test_audit_configurations_data:p#<HASH>"
-        in configurations
-    )
+    assert "root//:p#<HASH>" in configurations
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_audit_configurations_specific(buck: Buck) -> None:
     # Evaluate a target to make sure configuration is loaded.
-    await buck.cquery(
-        "fbcode//buck2/tests/e2e/audit/test_audit_configurations_data:genrule"
-    )
+    await buck.cquery("//:genrule")
 
     # Load configurations so we can learn the hash.
     result = await buck.audit("configurations")
     configurations = _parse_audit_configurations(result.stdout)
-    [configuration] = [
-        c
-        for c in configurations
-        if c.startswith(
-            "fbcode//buck2/tests/e2e/audit/test_audit_configurations_data:p#"
-        )
-    ]
+    [configuration] = [c for c in configurations if c.startswith("root//:p#")]
 
     # Now audit the specific configuration.
     result = await buck.audit("configurations", configuration)
