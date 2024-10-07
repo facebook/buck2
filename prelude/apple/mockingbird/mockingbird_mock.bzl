@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo")
 
@@ -81,6 +82,7 @@ def _attrs():
         "srcs": attrs.set(attrs.source(), sorted = True, default = []),
         "_mockingbird_bin": attrs.exec_dep(providers = [RunInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:mockingbird-binary"),
         "_mockingbird_support": attrs.dep(providers = [DefaultInfo], default = "fbsource//fbobjc/VendorLib/Mockingbird:MockingbirdSupport"),
+        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     }
     return attribs
 
