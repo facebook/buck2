@@ -361,7 +361,7 @@ impl<'a> InvocationRecorder<'a> {
                     Some(v) => {
                         return self
                             .build_count_manager
-                            .min_build_count(merge_base, v, is_success)
+                            .increment(merge_base, v, is_success)
                             .await
                             .context("Error recording build count");
                     }
