@@ -33,5 +33,4 @@ async def test_forward_node_supports_cutoff(buck: Buck) -> None:
 
     assert len(loads) > 0
     # TODO(cjhopman): fix
-    assert len(analyses) > 0, "expected bug to cause extra analysis"
-    # assert len(analyses) == 0, "should not have loaded anything"
+    assert len(analyses) == 0, "should not have analysed anything"

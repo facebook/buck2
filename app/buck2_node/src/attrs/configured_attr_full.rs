@@ -15,6 +15,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 /// Full configured attribute: name, type, value.
+#[derive(Debug)]
 pub struct ConfiguredAttrFull<'a> {
     pub name: &'a str,
     pub attr: &'a Attribute,

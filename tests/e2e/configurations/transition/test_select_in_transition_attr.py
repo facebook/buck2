@@ -42,12 +42,9 @@ async def test_transition_failed_if_attr_value_has_changed(buck: Buck) -> None:
 @buck_test(inplace=False)
 async def test_transition_failed_if_attr_value_cycle(buck: Buck) -> None:
     err_msg = (
-        r"Target root//:target_where_transition_cycles_via_changed_attrs configuration transitioned\n"
-        r"\s+old: root//:iphone#.*\n"
-        r"\s+new: <transitioned-from-watch>#.*\n"
-        r"\s+but attribute: device\n"
-        r"\s+resolved with old configuration to: \"watch\"\n"
-        r"\s+resolved with new configuration to: \"phone\""
+        r"Configured target cycle detected \(`->` means \"depends on\"\):\n"
+        r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
+        r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
     )
 
     await expect_failure(

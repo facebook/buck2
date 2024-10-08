@@ -78,6 +78,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
+use itertools::Itertools;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -111,6 +112,20 @@ enum NodeCalculationError {
         String,
         String,
         String,
+    ),
+
+    #[error(
+        "Target {0} configuration transition is not idempotent
+         in initial configuration  `{1}`
+         first transitioned to cfg `{2}`
+         then transitions to cfg   `{3}`
+         Use `buck2 audit configurations {1} {2} {3}` to see the configurations."
+    )]
+    TransitionNotIdempotent(
+        TargetLabel,
+        ConfigurationData,
+        ConfigurationData,
+        ConfigurationData,
     ),
 }
 
@@ -923,9 +938,11 @@ fn verify_transitioned_attrs<'a>(
             .get(attr, AttrInspectOptions::All)
             .with_internal_error(|| {
                 format!(
-                    "Attr {} was not found in transition for target {}",
+                    "Attr {} was not found in transition for target {} ({})",
                     attr,
                     node.label(),
+                    node.attrs(AttrInspectOptions::All)
+                        .format_with(", ", |v, f| f(&format_args!("{:?}", v)))
                 )
             })?;
         if &transition_configured_attr.value != attr_value.as_ref() {
@@ -1137,34 +1154,6 @@ async fn compute_configured_target_node_no_transition(
     )))
 }
 
-/// Compute configured target node after transition is applied to the target.
-///
-/// This function creates two node: transitioned node and a forward node.
-/// Forward node is returned.
-async fn compute_configured_target_node_with_transition(
-    key: &ConfiguredTransitionedNodeKey,
-    ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
-    assert_eq!(
-        key.forward.unconfigured(),
-        key.transitioned.unconfigured(),
-        "Transition can be done only to the nodes with different configuration; \
-               this valid case was ruled out earlier"
-    );
-    assert_ne!(
-        key.forward, key.transitioned,
-        "Transition can only happen to a node with the same unconfigured target"
-    );
-
-    let target_node = ctx.get_target_node(key.transitioned.unconfigured()).await?;
-    let transitioned_node =
-        compute_configured_target_node_no_transition(&key.transitioned, target_node.dupe(), ctx)
-            .await?;
-    transitioned_node.try_map(|transitioned_node| {
-        ConfiguredTargetNode::new_forward(key.forward.dupe(), transitioned_node)
-    })
-}
-
 async fn compute_configured_target_node(
     key: &ConfiguredTargetNodeKey,
     ctx: &mut DiceComputations<'_>,
@@ -1201,29 +1190,6 @@ async fn compute_configured_target_node(
         // We are not caching `ConfiguredTransitionedNodeKey` because this is cheap,
         // and no need to fetch `target_node` again.
         compute_configured_target_node_no_transition(&key.0.dupe(), target_node, ctx).await
-    }
-}
-
-#[async_trait]
-impl Key for ConfiguredTransitionedNodeKey {
-    type Value = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
-        compute_configured_target_node_with_transition(self, ctx)
-            .await
-            .map_err(buck2_error::Error::from)
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        if let (Ok(x), Ok(y)) = (x, y) {
-            x == y
-        } else {
-            false
-        }
     }
 }
 
@@ -1284,25 +1250,41 @@ async fn compute_configured_forward_target_node(
         .boxed()
         .await
     } else {
-        let configured_target_node = ctx
-            .compute(&ConfiguredTransitionedNodeKey {
-                forward: target_label_before_transition.dupe(),
-                transitioned: target_label_after_transition,
-            })
-            .boxed()
-            .await??;
+        // This must call through dice to get the configured target node so that it is the correct
+        // instance (because ConfiguredTargetNode uses reference equality on its deps).
+        // This also helps further verify idempotence (as we will get the real result with the any transition applied again).
+        let transitioned_node = ctx
+            .get_configured_target_node(&target_label_after_transition)
+            .await?;
 
-        if let MaybeCompatible::Compatible(configured_target_node) = &configured_target_node {
-            let forward_target_node = configured_target_node
-                .forward_target()
-                .internal_error("must be forward node")?;
+        // In apply_transition() above we've checked that the transition is idempotent when applied again with the same attrs (but the
+        // transitioned cfg) we don't know if it causes an attr change (and then a subsequent change in the transition
+        // result). We verify that here. If we're in a case where it is changing the attr in a way that causes the transition
+        // to introduce a cycle, we depend on the dice cycle detection to identify it. Alternatively we could directly recompute
+        // the node and check the attrs, but we'd still need to request the real node from dice and it doesn't seem worth
+        // that extra cost just for a slightly improved error message.
+        if let MaybeCompatible::Compatible(node) = &transitioned_node {
+            // check that the attrs weren't changed first. This should be the only way that we can hit non-idempotence
+            // here and gives a better error than if we just give the general idempotence error.
+            verify_transitioned_attrs(&attrs, resolved_configuration.cfg().cfg(), node)?;
 
-            verify_transitioned_attrs(
-                &attrs,
-                resolved_configuration.cfg().cfg(),
-                forward_target_node,
-            )?;
+            if let Some(forward) = node.forward_target() {
+                return Err(NodeCalculationError::TransitionNotIdempotent(
+                    target_label_before_transition.unconfigured().dupe(),
+                    target_label_before_transition.cfg().dupe(),
+                    target_label_after_transition.cfg().dupe(),
+                    forward.label().cfg().dupe(),
+                ))
+                .internal_error("idempotence should have been enforced by transition idempotence and attr change checks");
+            }
         }
+
+        let configured_target_node = transitioned_node.try_map(|transitioned_node| {
+            ConfiguredTargetNode::new_forward(
+                target_label_before_transition.dupe(),
+                transitioned_node,
+            )
+        })?;
 
         Ok(configured_target_node)
     }
@@ -1310,17 +1292,6 @@ async fn compute_configured_forward_target_node(
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct ConfiguredTargetNodeKey(pub ConfiguredTargetLabel);
-
-/// Similar to [`ConfiguredTargetNodeKey`], but used when the target
-/// is transitioned to different configuration because rule definition requires it.
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display("ConfiguredTransitionedNodeKey({}, {})", forward, transitioned)]
-pub struct ConfiguredTransitionedNodeKey {
-    /// Forward node label.
-    forward: ConfiguredTargetLabel,
-    /// Transitional node label.
-    transitioned: ConfiguredTargetLabel,
-}
 
 struct ConfiguredTargetNodeCalculationInstance;
 
