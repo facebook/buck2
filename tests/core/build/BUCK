@@ -29,6 +29,15 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_error_categorization",
+    srcs = ["test_error_categorization.py"],
+    data_dir = "test_error_categorization_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_skip_missing",
     srcs = ["test_skip_missing.py"],
     data_dir = "test_skip_missing_data",

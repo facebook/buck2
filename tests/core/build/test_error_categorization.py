@@ -29,7 +29,7 @@ STARLARK_FAIL_TAG = 1
 ANY_STARKLARK_EVALUATION_TAG = 2001
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_action_error(buck: Buck) -> None:
     await expect_failure(
         buck.build("//:action_fail"), stderr_regex="Failed to build 'root//:action_fail"
@@ -54,7 +54,7 @@ async def test_action_error(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_missing_outputs(buck: Buck) -> None:
     # FIXME(JakobDegen): This doesn't work with non-local-only actions
     await expect_failure(
@@ -75,7 +75,7 @@ async def test_missing_outputs(buck: Buck) -> None:
     assert errors[0]["typ"] is None
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bad_url(buck: Buck) -> None:
     await expect_failure(
         buck.build("//:bad_url"),
@@ -97,7 +97,7 @@ async def test_bad_url(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_attr_coercion(buck: Buck) -> None:
     await expect_failure(
         buck.build("//attr_coercion:int_rule"),
@@ -117,7 +117,7 @@ async def test_attr_coercion(buck: Buck) -> None:
     assert "CoercionError::TypeError" in errors[0]["source_location"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_buck2_fail(buck: Buck) -> None:
     await expect_failure(
         buck.build("//buck2_fail:foobar"),
@@ -141,7 +141,7 @@ async def test_buck2_fail(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_starlark_error_categorization(buck: Buck) -> None:
     await expect_failure(
         buck.build("//starlark_fail:foobar"),
@@ -161,7 +161,7 @@ async def test_starlark_error_categorization(buck: Buck) -> None:
     assert errors[0]["tier"] == USER_ERROR
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_targets_error_categorization(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//starlark_fail:foobar"),
@@ -180,7 +180,7 @@ async def test_targets_error_categorization(buck: Buck) -> None:
     assert errors[0]["tier"] == USER_ERROR
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     await buck.build()
 
@@ -215,7 +215,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
         assert category_key[4].startswith("crash("), category_key[4]
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCKD_STARTUP_TIMEOUT", "0")
 async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
@@ -235,7 +235,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["best_error_tag"] == "DAEMON_CONNECT"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     await buck.build()
 
@@ -269,7 +269,7 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
         assert category_key[4].startswith("crash("), category_key[4]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
     target = "//file_busy:file"
     # first build
