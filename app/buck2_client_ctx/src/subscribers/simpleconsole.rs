@@ -19,6 +19,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -158,26 +159,36 @@ impl<E> SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn with_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        build_count_dir: Option<AbsNormPathBuf>,
+    ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
             expect_spans,
-            observer: EventObserver::new(trace_id),
+            observer: EventObserver::new(trace_id, build_count_dir),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
         }
     }
 
-    pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn without_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        build_count_dir: Option<AbsNormPathBuf>,
+    ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
             expect_spans,
-            observer: EventObserver::new(trace_id),
+            observer: EventObserver::new(trace_id, build_count_dir.clone()),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
@@ -185,10 +196,15 @@ where
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn autodetect(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        build_count_dir: Option<AbsNormPathBuf>,
+    ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, verbosity, expect_spans),
-            false => Self::without_tty(trace_id, verbosity, expect_spans),
+            true => Self::with_tty(trace_id, verbosity, expect_spans, build_count_dir),
+            false => Self::without_tty(trace_id, verbosity, expect_spans, build_count_dir),
         }
     }
 

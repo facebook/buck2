@@ -50,6 +50,10 @@ fn default_subscribers<'a, T: StreamingCommand>(
     // and log it in another (invocation_recorder)
     let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
 
+    let build_count_dir = match ctx.paths() {
+        Ok(paths) => Some(paths.build_count_dir()),
+        Err(_) => None,
+    };
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
@@ -58,6 +62,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
+        build_count_dir,
     )?);
 
     if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?

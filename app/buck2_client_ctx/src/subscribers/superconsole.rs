@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -302,6 +303,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
+        build_count_dir: Option<AbsNormPathBuf>,
     ) -> anyhow::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
@@ -315,6 +317,7 @@ impl StatefulSuperConsole {
             expect_spans,
             replay_speed,
             config,
+            build_count_dir,
         )
     }
 
@@ -325,6 +328,7 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
+        build_count_dir: Option<AbsNormPathBuf>,
     ) -> anyhow::Result<Option<Self>> {
         match Self::console_builder().build()? {
             None => Ok(None),
@@ -336,6 +340,7 @@ impl StatefulSuperConsole {
                 expect_spans,
                 replay_speed,
                 config,
+                build_count_dir,
             )?)),
         }
     }
@@ -348,11 +353,19 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
+        build_count_dir: Option<AbsNormPathBuf>,
     ) -> anyhow::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
-            state: SuperConsoleState::new(replay_speed, trace_id, verbosity, expect_spans, config)?,
+            state: SuperConsoleState::new(
+                replay_speed,
+                trace_id,
+                verbosity,
+                expect_spans,
+                config,
+                build_count_dir,
+            )?,
             super_console,
             verbosity,
         }))
@@ -423,11 +436,17 @@ impl SuperConsoleState {
         verbosity: Verbosity,
         expect_spans: bool,
         config: SuperConsoleConfig,
+        build_count_dir: Option<AbsNormPathBuf>,
     ) -> anyhow::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
-            simple_console: SimpleConsole::with_tty(trace_id, verbosity, expect_spans),
+            simple_console: SimpleConsole::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                build_count_dir,
+            ),
             config,
         })
     }
@@ -975,7 +994,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_transfer_state_to_simpleconsole() {
+    async fn test_transfer_state_to_simpleconsole() -> anyhow::Result<()> {
         let trace_id = TraceId::new();
         let mut console = StatefulSuperConsole::new_with_root_forced(
             trace_id.dupe(),
@@ -985,6 +1004,7 @@ mod tests {
             None,
             None,
             Default::default(),
+            None,
         )
         .unwrap();
 
@@ -1037,6 +1057,7 @@ mod tests {
             }),
         ));
         assert!(console.handle_event(&event).await.is_ok());
+        Ok(())
     }
 
     #[tokio::test]
@@ -1053,6 +1074,7 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
+            None,
         )?;
 
         console
@@ -1209,6 +1231,7 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
+            None,
         )?;
 
         console.handle_tailer_stderr("some stderr output").await?;

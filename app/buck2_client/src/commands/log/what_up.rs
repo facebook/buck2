@@ -61,6 +61,10 @@ impl WhatUpCommand {
             let mut super_console = StatefulSuperConsole::console_builder()
                 .build_forced(StatefulSuperConsole::FALLBACK_SIZE)?;
 
+            let build_count_dir = match ctx.paths() {
+                Ok(paths) => Some(paths.build_count_dir()),
+                Err(_) => None,
+            };
             let mut super_console_state = SuperConsoleState::new(
                 None,
                 invocation.trace_id,
@@ -70,6 +74,7 @@ impl WhatUpCommand {
                     max_lines: 1000000,
                     ..Default::default()
                 },
+                build_count_dir,
             )?;
             let mut first_timestamp = None;
             // Ignore any events that are truncated, hence unreadable

@@ -11,11 +11,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_events::BuckEvent;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
+use crate::cold_build_detector::ColdBuildDetector;
 use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
 use crate::progress::BuildProgressStateTracker;
@@ -36,6 +38,7 @@ pub struct EventObserver<E> {
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
     re_avg_download_speed: NetworkSpeedAverage,
+    pub cold_build_detector: Option<ColdBuildDetector>,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -45,7 +48,8 @@ impl<E> EventObserver<E>
 where
     E: EventObserverExtra,
 {
-    pub fn new(trace_id: TraceId) -> Self {
+    pub fn new(trace_id: TraceId, build_count_dir: Option<AbsNormPathBuf>) -> Self {
+        let cold_build_detector = build_count_dir.map(ColdBuildDetector::new);
         Self {
             span_tracker: BuckEventSpanTracker::new(),
             action_stats: ActionStats::default(),
@@ -60,6 +64,7 @@ where
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
             re_avg_download_speed: NetworkSpeedAverage::default(),
+            cold_build_detector,
             extra: E::new(),
         }
     }
