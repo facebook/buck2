@@ -57,6 +57,8 @@ pub enum CriticalPathBackendName {
     LongestPathGraph,
     #[display("default")]
     Default,
+    #[display("logging")]
+    Logging,
 }
 
 impl FromStr for CriticalPathBackendName {
@@ -69,6 +71,10 @@ impl FromStr for CriticalPathBackendName {
 
         if s == "default" {
             return Ok(Self::Default);
+        }
+
+        if s == "logging" {
+            return Ok(Self::Logging);
         }
 
         Err(anyhow::anyhow!("Invalid backend name: `{}`", s))

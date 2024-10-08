@@ -8,11 +8,13 @@
 # pyre-strict
 
 
+import json
 import typing
 from dataclasses import dataclass
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden
 
 from buck2.tests.e2e_util.helper.utils import filter_events
 
@@ -135,6 +137,82 @@ async def test_critical_path_json(buck: Buck) -> None:
             assert critical["execution_kind"] != "ACTION_EXECUTION_NOTSET"
         else:
             assert "execution_kind" not in critical
+
+
+# Test that verifies the dicekey->node+deps graph that we produce for critical path
+# calculations. It can be a lot easier to understand bugs and behavior here than
+# only inspecting the final critical path output (like other tests).
+@buck_test()
+async def test_dynamic_input_events(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as f:
+        f.write("[buck2]\n")
+        f.write("critical_path_backend2 = logging\n")
+
+    await buck.build("//:check_dynamic_input", "--no-remote-cache")
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "UnstableE2eData",
+    )
+
+    events = [
+        json.loads(ev["data"])
+        for ev in events
+        if ev["key"] == "critical_path_logging_node"
+    ]
+
+    golden(
+        output=json.dumps(events, sort_keys=True, indent=2),
+        rel_path="events.golden.json",
+    )
+
+
+# Test that we can compute critical paths that include edges as inputs of dynamic_output/actions.
+@buck_test()
+async def test_dynamic_input(buck: Buck) -> None:
+    import json
+
+    await buck.build("//:check_dynamic_input", "--no-remote-cache")
+    critical_path = (
+        await buck.log("critical-path", "--format", "json")
+    ).stdout.splitlines()
+    critical_path = [json.loads(e) for e in critical_path]
+
+    assert len(critical_path) > 0
+    transformed = []
+    for critical in critical_path:
+        assert "kind" in critical
+        t = critical["kind"]
+
+        if critical["kind"] == "compute-critical-path":
+            assert "name" not in critical
+        else:
+            assert "name" in critical
+            name = critical["name"].split(" ")[0]
+            t = "{} {}".format(t, name)
+
+        if critical["kind"] == "action":
+            assert "execution_kind" in critical
+            assert critical["execution_kind"] != ""
+            assert critical["execution_kind"] != "ACTION_EXECUTION_NOTSET"
+        else:
+            assert "execution_kind" not in critical
+
+        # there's nondeterminism in critical path here because step1 action
+        # depends on both step0 action and step1 analysis, both of those depend
+        # on step0 analysis.
+        if t in ["analysis root//:step_1", "action root//:step_0"]:
+            continue
+
+        transformed.append(t)
+
+    golden(
+        output=json.dumps(transformed, indent=2),
+        rel_path="dynamic_input.golden.json",
+    )
 
 
 @buck_test()

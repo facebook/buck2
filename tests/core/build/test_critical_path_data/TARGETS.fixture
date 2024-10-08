@@ -9,3 +9,5 @@ dynamic_cp(name = "step_2", dep = ":step_1")
 # dependencies induced by the *inputs* of `dynamic_output`: they're only aware
 # of the inputs used by the actions declared in `dynamic_output`.
 cp(name = "step_3", dep = ":step_2", sleep = 5)
+
+dynamic_cp2(name = "check_dynamic_input", dep = ":step_1")

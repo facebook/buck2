@@ -52,3 +52,19 @@ def _dynamic_cp(ctx: AnalysisContext) -> list[Provider]:
 dynamic_cp = rule(impl = _dynamic_cp, attrs = {
     "dep": attrs.dep(),
 })
+
+def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
+    dummy = ctx.actions.write("dummy", "")
+
+    inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
+    out = ctx.actions.declare_output("out")
+
+    def f(ctx: AnalysisContext, artifacts, outputs):
+        ctx.actions.write(outputs[out].as_output(), artifacts[inp].read_string())
+
+    ctx.actions.dynamic_output(dynamic = [inp], inputs = [], outputs = [out.as_output()], f = f)
+    return [DefaultInfo(default_output = out)]
+
+dynamic_cp2 = rule(impl = _dynamic_cp2, attrs = {
+    "dep": attrs.dep(),
+})

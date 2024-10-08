@@ -164,6 +164,7 @@ buck2_e2e_test(
     srcs = ["test_critical_path.py"],
     data_dir = "test_critical_path_data",
     deps = [
+        "//buck2/tests/e2e_util:golden",
         "//buck2/tests/e2e_util:utils",
     ],
 )
