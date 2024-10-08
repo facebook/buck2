@@ -282,8 +282,6 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &mut self,
         package: PackageLabel,
     ) -> anyhow::Result<Option<(PackageFilePath, AstModule, ModuleDeps)>> {
-        // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-        let dir = DiceFileComputations::read_dir(self.ctx, package.as_cell_path()).await?;
         // Note:
         // * we are using `read_dir` instead of `read_path_metadata` because
         //   * it is an extra IO, and `read_dir` is likely already cached.
@@ -291,22 +289,67 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         //     and not `package` on case-insensitive filesystems.
         //     We do case-sensitive comparison for `BUCK` files, so we do the same here.
         //   * we fail here if `PACKAGE` (but not `package`) exists, and it is not a file.
-        for package_file_path in PackageFilePath::for_dir(package.as_cell_path()) {
-            if !dir.contains(
-                package_file_path
-                    .path()
-                    .path()
-                    .file_name()
-                    .internal_error("Must have name")?,
-            ) {
-                continue;
+
+        // package file results capture starlark values and so cannot be checked for equality. This means we
+        // can't get early cutoff for the consumers, and so we need to be careful to ensure our deps are precise.
+        // Otherwise noop package value recomputations can lead to large recompute costs.
+        //
+        // Here we put the package file check behind an additional dice key so that we don't recompute on irrelevant
+        // changes to the directory contents.
+        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
+        struct PackageFileLookupKey(PackageLabel);
+
+        #[async_trait]
+        impl Key for PackageFileLookupKey {
+            type Value = buck2_error::Result<Option<Arc<PackageFilePath>>>;
+
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellation: &CancellationContext,
+            ) -> Self::Value {
+                // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
+                let dir = DiceFileComputations::read_dir(ctx, self.0.as_cell_path()).await?;
+                for package_file_path in PackageFilePath::for_dir(self.0.as_cell_path()) {
+                    if !dir.contains(
+                        package_file_path
+                            .path()
+                            .path()
+                            .file_name()
+                            .internal_error("Must have name")?,
+                    ) {
+                        continue;
+                    }
+                    return Ok(Some(Arc::new(package_file_path)));
+                }
+                Ok(None)
             }
-            let (module, deps) = self
-                .prepare_eval(StarlarkPath::PackageFile(&package_file_path))
-                .await?;
-            return Ok(Some((package_file_path, module, deps)));
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                match (x, y) {
+                    (Ok(x), Ok(y)) => x == y,
+                    _ => false,
+                }
+            }
+
+            fn validity(x: &Self::Value) -> bool {
+                x.is_ok()
+            }
         }
-        Ok(None)
+
+        match self
+            .ctx
+            .compute(&PackageFileLookupKey(package.dupe()))
+            .await??
+        {
+            Some(package_file_path) => {
+                let (module, deps) = self
+                    .prepare_eval(StarlarkPath::PackageFile(&package_file_path))
+                    .await?;
+                Ok(Some(((*package_file_path).clone(), module, deps)))
+            }
+            None => Ok(None),
+        }
     }
 
     async fn eval_package_file_uncached(

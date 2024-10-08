@@ -25,7 +25,7 @@ async def test_no_dice_invalidation_on_root_directory_changes(buck: Buck) -> Non
     log = (await buck.log("show")).stdout.splitlines()
 
     for line in log:
-        json_get(
+        e = json_get(
             line,
             "Event",
             "data",
@@ -33,5 +33,4 @@ async def test_no_dice_invalidation_on_root_directory_changes(buck: Buck) -> Non
             "data",
             "Load",
         )
-        # FIXME(JakobDegen): Bug
-        # assert e is None, "Should not have loaded anything"
+        assert e is None, "Should not have loaded anything"
