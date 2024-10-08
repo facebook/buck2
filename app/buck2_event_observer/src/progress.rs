@@ -369,16 +369,16 @@ impl BuildProgressStateTracker {
                         stage: Some(re_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_local = true;
-                            self.stats.running_local += 1;
+                            data.running_remote = true;
+                            self.stats.running_remote += 1;
                         }
                     }
                     executor_stage_start::Stage::Local(LocalStage {
                         stage: Some(local_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_remote = true;
-                            self.stats.running_remote += 1;
+                            data.running_local = true;
+                            self.stats.running_local += 1;
                         }
                     }
                     _ => {}
