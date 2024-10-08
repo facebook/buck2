@@ -123,7 +123,7 @@ impl BuildCountManager {
         async_fs_util::write(path, &serde_json::to_vec(build_count)?).await
     }
 
-    async fn lock_with_timeout(&mut self, timeout: Duration) -> anyhow::Result<FileLockGuard> {
+    async fn lock_with_timeout(&self, timeout: Duration) -> anyhow::Result<FileLockGuard> {
         self.ensure_dir().await?;
         let file = std::fs::File::create(self.base_dir.join(FileName::new(Self::LOCK_FILE_NAME)?))?;
         let fileref = &file;
@@ -139,7 +139,7 @@ impl BuildCountManager {
 
     /// Updates the build counts for set of targets (on success) and returns the min.
     pub async fn increment(
-        &mut self,
+        &self,
         merge_base: &str,
         target_patterns: &ParsedTargetPatterns,
         is_success: bool,
@@ -156,7 +156,7 @@ impl BuildCountManager {
 
     /// Returns the existing min build count for the set of targets.
     pub async fn min_count(
-        &mut self,
+        &self,
         merge_base: &str,
         target_patterns: &ParsedTargetPatterns,
     ) -> anyhow::Result<BuildCount> {
@@ -165,7 +165,7 @@ impl BuildCountManager {
     }
 
     async fn mutate(
-        &mut self,
+        &self,
         merge_base: &str,
         target_patterns: &ParsedTargetPatterns,
         mutation: Option<impl FnOnce(&mut BuildCountMap)>,
@@ -352,7 +352,7 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(1, 1),
@@ -371,7 +371,7 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(1, 1),
@@ -390,7 +390,7 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{}").await?;
         let target_patterns = make_patterns(vec![]);
-        let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(0, 0),
@@ -405,7 +405,7 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let mut bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
         let _ = bcm.increment(file_name, &target_patterns, true).await?;
         assert_eq!(
             bcm.min_count(file_name, &target_patterns).await?,
