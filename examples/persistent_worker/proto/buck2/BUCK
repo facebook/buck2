@@ -1,32 +1,7 @@
 load("//proto:defs.bzl", "proto_python_library")
 
 proto_python_library(
-    name = "worker",
-    src = "worker.proto",
-    visibility = ["PUBLIC"],
-)
-
-genrule(
-    name = "build-pb2",
-    cmd = r"""
-        $(exe //proto:protoc) \
-            -Iproto/buck2=${SRCDIR} \
-            --python_out=${OUT} \
-            --pyi_out=${OUT} \
-            --grpc_python_out=${OUT} \
-            ${SRCS}
-        mv ${OUT}/proto/buck2/* ${OUT}/
-    """,
-    srcs = ["worker.proto"],
-    outs = {"pb2": [
-        "worker_pb2.py",
-        "worker_pb2.pyi",
-        "worker_pb2_grpc.py",
-    ]},
-)
-
-python_library(
     name = "worker_pb2",
-    srcs = [":build-pb2[pb2]"],
+    src = "worker.proto",
     visibility = ["PUBLIC"],
 )
