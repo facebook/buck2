@@ -113,7 +113,7 @@ kotlin_library = prelude_rule(
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.plugins() |
-        buck.labels_arg() |
+        jvm_common.javac() | buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
@@ -123,7 +123,6 @@ kotlin_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -204,6 +203,7 @@ kotlin_test = prelude_rule(
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.test_env() |
+        jvm_common.javac() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
@@ -222,7 +222,6 @@ kotlin_test = prelude_rule(
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),

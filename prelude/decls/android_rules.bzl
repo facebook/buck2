@@ -121,7 +121,6 @@ android_aar = prelude_rule(
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -150,7 +149,7 @@ android_aar = prelude_rule(
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.plugins(),
+    ) | jvm_common.plugins() | jvm_common.javac(),
 )
 
 android_app_modularity = prelude_rule(
@@ -723,12 +722,6 @@ android_library = prelude_rule(
                  Overrides the value in "target\\_level" in the "java" section
                  of `.buckconfig`.
             """),
-            "javac": attrs.option(attrs.source(), default = None, doc = """
-                Specifies the Java compiler program to use for this rule.
-                 The value is a source path (e.g., //foo/bar:bar).
-                 Overrides the value in "javac" in the "tools" section
-                 of `.buckconfig`.
-            """),
             "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
@@ -754,6 +747,7 @@ android_library = prelude_rule(
         jvm_common.k2() |
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
+        jvm_common.javac() |
         {
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
                 List of classes to remove from the output jar. It only removes classes from the target's own
@@ -1436,7 +1430,6 @@ robolectric_test = prelude_rule(
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1476,7 +1469,12 @@ robolectric_test = prelude_rule(
             "used_as_dependency_deprecated_do_not_use": attrs.bool(default = False),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
-        } | jvm_common.k2() | jvm_common.incremental() | jvm_common.plugins() | jvm_common.kotlin_compiler_plugins() |
+        } |
+        jvm_common.k2() |
+        jvm_common.incremental() |
+        jvm_common.plugins() |
+        jvm_common.kotlin_compiler_plugins() |
+        jvm_common.javac() |
         re_test_common.test_args()
     ),
 )

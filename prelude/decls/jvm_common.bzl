@@ -186,7 +186,7 @@ def _kotlin_compiler_plugins():
                  E.g.
 
                 ```
-
+fbcode/buck2/prelude/decls/jvm_common.bzl
                 kotlin_compiler_plugins = {
                     "somePluginSourcePath": {
                         "plugin:somePluginId:somePluginOptionKey": "somePluginOptionValue",
@@ -235,6 +235,16 @@ def _kotlin_compiler_plugins():
             """),
     }
 
+def _javac():
+    return {
+        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None, doc = """
+            Specifies the Java compiler program to use for this rule.
+                The value is a source path or an execution dep (e.g., //foo/bar:bar).
+                Overrides the value in "javac" in the "tools" section
+                of `.buckconfig`.
+            """),
+    }
+
 jvm_common = struct(
     test_env = _test_env,
     resources_arg = _resources_arg,
@@ -250,4 +260,5 @@ jvm_common = struct(
     incremental = _incremental,
     plugins = _plugins,
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
+    javac = _javac,
 )

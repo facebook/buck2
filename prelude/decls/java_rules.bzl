@@ -257,12 +257,6 @@ java_library = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None, doc = """
                 Equivalent to setting both `source` and `target`  to the given value. Setting this and `source` or `target` (or both!) is an error.
             """),
-            "javac": attrs.option(attrs.source(), default = None, doc = """
-                Specifies the Java compiler program to use for this rule.
-                 The value is a source path (e.g., //foo/bar:bar).
-                 Overrides the value in "javac" in the "tools" section
-                 of `.buckconfig`.
-            """),
             "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
@@ -277,6 +271,7 @@ java_library = prelude_rule(
         jvm_common.required_for_source_only_abi() |
         jvm_common.on_unused_dependencies() |
         jvm_common.plugins() |
+        jvm_common.javac() |
         {
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
             "annotation_processor_params": attrs.list(attrs.string(), default = []),
@@ -407,7 +402,6 @@ java_test = prelude_rule(
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -427,7 +421,7 @@ java_test = prelude_rule(
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.plugins(),
+    ) | jvm_common.plugins() | jvm_common.javac(),
 )
 
 java_test_runner = prelude_rule(
@@ -449,7 +443,6 @@ java_test_runner = prelude_rule(
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "javac": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "main_class": attrs.string(default = ""),
@@ -469,7 +462,7 @@ java_test_runner = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-        } | jvm_common.plugins()
+        } | jvm_common.plugins() | jvm_common.javac()
     ),
 )
 

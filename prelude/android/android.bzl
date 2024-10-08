@@ -83,7 +83,6 @@ extra_attributes = {
         "compress_asset_libraries": attrs.default_only(attrs.bool(default = False)),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
@@ -199,7 +198,6 @@ extra_attributes = {
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
-        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
         "_android_toolchain": toolchains_common.android(),
@@ -261,7 +259,6 @@ extra_attributes = {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "android_optional_jars": attrs.option(attrs.list(attrs.source()), default = None),
         "java_agents": attrs.list(attrs.source(), default = []),
-        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
         "test_class_names_file": attrs.option(attrs.source(), default = None),
