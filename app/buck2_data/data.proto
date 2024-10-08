@@ -305,7 +305,18 @@ message InstantEvent {
     VersionControlRevision version_control_revision = 42;
 
     TargetCfg target_cfg = 43;
+
+    // Just something for us to be able to easily propagate out internal
+    // information. Used for testing.
+    QuickUnstableE2eData unstable_e2e_data = 44;
   }
+}
+
+// This should only be used as a mechanism to easily get information into the
+// event log for e2e tests.
+message QuickUnstableE2eData {
+  string key = 1;
+  string data = 2;
 }
 
 message DebugAdapterStoppedEval {
