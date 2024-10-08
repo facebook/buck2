@@ -1,16 +1,3 @@
-# Update the Docker image for remote execution whenever you make a change to the Nix package set.
-#
-#   nix run path:.#dockerBuild \
-#     | gzip --fast --no-name \
-#     | nix run nixpkgs#skopeo -- copy \
-#         --insecure-policy \
-#         --digestfile image.digest \
-#         --preserve-digests docker-archive:/dev/stdin \
-#         docker://ghcr.io/$GITHUB_USER/buck2-remote-persistent-worker:latest
-#
-# NOTE, Change to a container registry that you have access to.
-image = "docker://ghcr.io/aherrmann/buck2-remote-persistent-worker@sha256:23832b49492ef77601111218661b8fcc6eafbcc49cb9abffd08d79988dda540e"
-
 def _platforms(ctx):
     constraints = dict()
     constraints.update(ctx.attrs.cpu_configuration[ConfigurationInfo].constraints)
@@ -30,8 +17,6 @@ def _platforms(ctx):
             use_remote_persistent_workers = ctx.attrs.use_persistent_workers,
             remote_execution_properties = {
                 "OSFamily": "Linux",
-                "container-image": image,
-                "workload-isolation-type": "podman",
                 "recycle-runner": True,  # required for remote persistent workers
                 "nonroot-workspace": True,
             },
