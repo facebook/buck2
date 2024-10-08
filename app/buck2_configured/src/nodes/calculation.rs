@@ -46,6 +46,7 @@ use buck2_core::soft_error;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
@@ -85,7 +86,6 @@ use starlark_map::small_set::SmallSet;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::calculation::ConfigurationCalculation;
-use crate::target::TargetConfiguredTargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum NodeCalculationError {

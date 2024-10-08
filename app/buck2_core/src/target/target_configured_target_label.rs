@@ -7,10 +7,12 @@
  * of this source tree.
  */
 
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
+
+use crate::configuration::data::ConfigurationData;
+use crate::package::PackageLabel;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
+use crate::target::label::label::TargetLabel;
 
 /// A wrapper around a configured target label.
 ///
@@ -51,7 +53,7 @@ impl TargetConfiguredTargetLabel {
         self.0.cfg()
     }
 
-    pub fn pkg(&self) -> buck2_core::package::PackageLabel {
+    pub fn pkg(&self) -> PackageLabel {
         self.0.pkg()
     }
 

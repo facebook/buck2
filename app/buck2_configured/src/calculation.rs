@@ -15,6 +15,7 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -33,7 +34,6 @@ use crate::configuration::calculation::ConfigurationCalculation;
 use crate::configuration::calculation::ExecutionPlatformResolutionKey;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
-use crate::target::TargetConfiguredTargetLabel;
 
 struct ConfiguredTargetCalculationInstance;
 
