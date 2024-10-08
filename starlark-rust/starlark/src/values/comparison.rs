@@ -64,9 +64,10 @@ where
     Ok(true)
 }
 
-pub(crate) fn equals_small_set<K1: Eq, K2: Eq>(xs: &SmallSet<K1>, ys: &SmallSet<K2>) -> bool
+pub(crate) fn equals_small_set<K1, K2>(xs: &SmallSet<K1>, ys: &SmallSet<K2>) -> bool
 where
-    K1: Equivalent<K2>,
+    K1: Equivalent<K2> + Eq,
+    K2: Eq,
 {
     if xs.len() != ys.len() {
         return false;
