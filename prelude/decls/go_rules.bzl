@@ -369,7 +369,10 @@ go_bootstrap_binary = prelude_rule(
     name = "go_bootstrap_binary",
     attrs = (
         go_common.srcs_arg() |
-        {"entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names""")}
+        {
+            "entrypoints": attrs.list(attrs.string(), default = [], doc = """Package name or file names"""),
+            "workdir": attrs.string(default = "", doc = """Change to subdir before running the command"""),
+        }
     ),
 )
 

@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
+
 GoBootstrapToolchainInfo = provider(
     fields = {
         "env_go_arch": provider_field(str),
@@ -30,7 +32,7 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     # Copy files, because go:embed doesn't work with symlinks
     srcs_dir = ctx.actions.copied_dir(
         "__srcs_dir__",
-        {src.short_path: src for src in ctx.attrs.srcs},
+        {paths.relativize(src.short_path, ctx.attrs.workdir): src for src in ctx.attrs.srcs},
     )
 
     cmd = cmd_args([
