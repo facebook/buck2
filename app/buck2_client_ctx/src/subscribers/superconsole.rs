@@ -209,6 +209,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             .observer
             .action_stats()
             .total_cache_hit_percentage();
+        let first_build_since_rebase = self
+            .state
+            .simple_console
+            .observer
+            .cold_build_detector
+            .as_ref()
+            .and_then(|cbd| cbd.first_build_since_rebase())
+            .unwrap_or(false);
         let system_info = &self.state.simple_console.observer.system_info();
         {
             draw.draw(
@@ -218,6 +226,7 @@ impl<'s> Component for BuckRootComponent<'s> {
                     system_info,
                     avg_re_download_speed,
                     cache_hit_percent,
+                    first_build_since_rebase,
                 },
                 mode,
             )?;

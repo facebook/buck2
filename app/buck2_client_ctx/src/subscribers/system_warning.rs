@@ -176,6 +176,8 @@ pub(crate) fn is_vpn_enabled() -> bool {
 pub(crate) fn check_cache_misses(
     cache_hit_percent: u8,
     system_info: &buck2_data::SystemInfo,
+    first_build_since_rebase: bool,
 ) -> bool {
-    cache_hit_percent < system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8
+    let threshold = system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8;
+    first_build_since_rebase && cache_hit_percent < threshold
 }

@@ -667,7 +667,13 @@ where
                     }
                     let cache_hit_percent =
                         self.observer().action_stats().total_cache_hit_percentage();
-                    if check_cache_misses(cache_hit_percent, sysinfo) {
+                    let first_build_since_rebase = self
+                        .observer
+                        .cold_build_detector
+                        .as_ref()
+                        .and_then(|cbd| cbd.first_build_since_rebase())
+                        .unwrap_or(false);
+                    if check_cache_misses(cache_hit_percent, sysinfo, first_build_since_rebase) {
                         echo!("{}", cache_misses_msg(cache_hit_percent))?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
