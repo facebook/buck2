@@ -19,13 +19,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_output_cleanup",
-    srcs = ["test_output_cleanup.py"],
-    data_dir = "test_output_cleanup_data",
-    serialize_test_cases = False,
-)
-
-buck2_e2e_test(
     name = "test_build_inplace",
     srcs = ["test_build_inplace.py"],
     require_nano_prelude = True,

@@ -26,7 +26,7 @@ output_cleanup_targets = [
 ]
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 @pytest.mark.parametrize(
     "materializations",
     [
@@ -81,6 +81,6 @@ async def test_output_cleanup(
 
 
 # TODO(marwhal): Add this back one at least one test in this file passes on Windows
-@buck_test(inplace=True)
+@buck_test()
 async def test_noop(buck: Buck) -> None:
     return
