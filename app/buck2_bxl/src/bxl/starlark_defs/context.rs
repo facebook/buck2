@@ -956,7 +956,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
     /// if the input labels is a single target pattern as a string literal.
     fn target_universe<'v>(
-        this: &'v BxlContext<'v>,
+        this: ValueTyped<'v, BxlContext<'v>>,
         labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
@@ -1009,7 +1009,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns the `uqueryctx` that holds all uquery functions.
-    fn uquery<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
+    fn uquery<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
         StarlarkUQueryCtx::new(this)
     }
 
@@ -1019,7 +1019,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// The `target_platform` is a target label, or a string that is a target label.
     fn cquery<'v>(
-        this: &'v BxlContext<'v>,
+        this: ValueTyped<'v, BxlContext<'v>>,
         // TODO(nga): parameter should be either positional or named, not both.
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
@@ -1033,7 +1033,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// The `target_platform` is a target label, or a string that is a target label.
     fn aquery<'v>(
-        this: &'v BxlContext<'v>,
+        this: ValueTyped<'v, BxlContext<'v>>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
@@ -1355,7 +1355,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// Returns the `bxl.Filesystem` for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
-    fn fs<'v>(this: &BxlContext<'v>) -> anyhow::Result<BxlFilesystem<'v>> {
+    fn fs<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(this))
     }
 
@@ -1384,7 +1384,7 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns the `audit_ctx` that holds all the audit functions.
-    fn audit<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
+    fn audit<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkAuditCtx<'v>> {
         let (working_dir, cell_resolver) = this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async move {

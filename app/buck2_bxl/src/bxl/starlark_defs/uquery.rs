@@ -39,6 +39,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use super::file_set::StarlarkFileSet;
@@ -64,9 +65,8 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkUQueryCtx<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 #[starlark_value(type = "bxl.UqueryContext", StarlarkTypeRepr, UnpackValue)]
@@ -95,7 +95,7 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkUQueryCtx<'v> {
-    pub(crate) fn new(ctx: &'v BxlContext<'v>) -> anyhow::Result<Self> {
+    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<Self> {
         Ok(Self { ctx })
     }
 }

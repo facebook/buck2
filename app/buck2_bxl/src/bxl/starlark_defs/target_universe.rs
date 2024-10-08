@@ -56,10 +56,9 @@ pub(crate) struct StarlarkTargetUniverse<'v> {
     target_set: TargetSet<ConfiguredTargetNode>,
     // Trace/Allocative are implemented for BxlContext, but we take a reference here.
     // This is used in unpacking target expressions for lookups.
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 #[starlark_value(type = "bxl.TargetUniverse", StarlarkTypeRepr, UnpackValue)]
@@ -78,7 +77,7 @@ impl<'v> AllocValue<'v> for StarlarkTargetUniverse<'v> {
 
 impl<'v> StarlarkTargetUniverse<'v> {
     pub(crate) async fn new(
-        ctx: &'v BxlContext<'v>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
         target_set: TargetSet<ConfiguredTargetNode>,
     ) -> anyhow::Result<Self> {
         let target_universe = CqueryUniverse::build(&target_set)?;

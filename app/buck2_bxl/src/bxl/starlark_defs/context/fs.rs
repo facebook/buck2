@@ -69,13 +69,12 @@ use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct BxlFilesystem<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
 impl<'v> BxlFilesystem<'v> {
-    pub(crate) fn new(ctx: &'v BxlContext<'v>) -> Self {
+    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> Self {
         Self { ctx }
     }
 

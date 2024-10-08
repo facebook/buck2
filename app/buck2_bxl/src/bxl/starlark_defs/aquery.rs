@@ -42,6 +42,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -71,9 +72,8 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkAQueryCtx<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
     #[derivative(Debug = "ignore")]
     // Overrides the GlobalCfgOptions in the BxlContext
     global_cfg_options_override: GlobalCfgOptions,
@@ -95,7 +95,7 @@ impl<'v> AllocValue<'v> for StarlarkAQueryCtx<'v> {
 
 impl<'v> StarlarkAQueryCtx<'v> {
     pub(crate) fn new(
-        ctx: &'v BxlContext<'v>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
         global_target_platform: ValueAsStarlarkTargetLabel<'v>,
         default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {

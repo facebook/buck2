@@ -35,6 +35,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -55,9 +56,8 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct StarlarkAuditCtx<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    ctx: &'v BxlContext<'v>,
+    ctx: ValueTyped<'v, BxlContext<'v>>,
     #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
     working_dir: ProjectRelativePathBuf,
@@ -82,7 +82,7 @@ impl<'v> AllocValue<'v> for StarlarkAuditCtx<'v> {
 
 impl<'v> StarlarkAuditCtx<'v> {
     pub(crate) fn new(
-        ctx: &'v BxlContext<'v>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
         working_dir: ProjectRelativePathBuf,
         cell_resolver: CellResolver,
     ) -> anyhow::Result<Self> {
