@@ -1,3 +1,11 @@
+load("//proto:defs.bzl", "proto_python_library")
+
+proto_python_library(
+    name = "worker",
+    src = "worker.proto",
+    visibility = ["PUBLIC"],
+)
+
 genrule(
     name = "build-pb2",
     cmd = r"""
