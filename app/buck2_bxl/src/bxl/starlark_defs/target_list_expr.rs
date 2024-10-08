@@ -29,6 +29,7 @@ use buck2_node::load_patterns::load_patterns;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::environment::QueryTarget;
@@ -37,6 +38,7 @@ use buck2_util::truncate::truncate;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use either::Either;
 use futures::FutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::list::UnpackList;
@@ -684,6 +686,19 @@ impl OwnedTargetNodeOrTargetLabel {
             .await?
             .require_compatible()
     }
+
+    pub(crate) async fn to_unconfigured_target_node(
+        &self,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<TargetNode> {
+        match self {
+            OwnedTargetNodeOrTargetLabel::TargetNode(node) => Ok(node.0.dupe()),
+            OwnedTargetNodeOrTargetLabel::TargetLabel(label) => dice
+                .get_target_node(label.label())
+                .await
+                .map(|node| node.dupe()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Allocative)]
@@ -737,6 +752,64 @@ impl OwnedConfiguredTargetNodeArg {
                 .to_configured_target_node(global_cfg_options, dice)
                 .await
                 .map(SingleOrCompatibleConfiguredTargets::Single),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Allocative)]
+pub(crate) enum OwnedTargetNodeArg {
+    Unconfigured(OwnedTargetNodeOrTargetLabel),
+    String(String),
+}
+
+impl OwnedTargetNodeArg {
+    pub(crate) fn from_ref(expr: &TargetNodeOrTargetLabelOrStr<'_>) -> Self {
+        match *expr {
+            TargetNodeOrTargetLabelOrStr::TargetNode(node) => OwnedTargetNodeArg::Unconfigured(
+                OwnedTargetNodeOrTargetLabel::TargetNode(node.dupe()),
+            ),
+            TargetNodeOrTargetLabelOrStr::TargetLabel(label) => OwnedTargetNodeArg::Unconfigured(
+                OwnedTargetNodeOrTargetLabel::TargetLabel(label.dupe()),
+            ),
+            TargetNodeOrTargetLabelOrStr::Str(str) => OwnedTargetNodeArg::String(str.to_owned()),
+        }
+    }
+
+    pub(crate) async fn to_unconfigured_target_node(
+        &self,
+        ctx: &BxlContextCoreData,
+        dice: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
+        match self {
+            OwnedTargetNodeArg::Unconfigured(unconfigured) => unconfigured
+                .to_unconfigured_target_node(dice)
+                .await
+                .map(|node| Either::Left(StarlarkTargetNode(node))),
+            OwnedTargetNodeArg::String(str) => {
+                match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                    ctx.target_alias_resolver(),
+                    CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
+                    &str,
+                    ctx.cell_resolver(),
+                    ctx.cell_alias_resolver(),
+                )? {
+                    ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
+                        let label = TargetLabel::new(pkg, name.as_ref());
+                        dice.get_target_node(&label)
+                            .await
+                            .map(|node| Either::Left(StarlarkTargetNode(node)))
+                    }
+                    pattern => {
+                        let loaded_patterns =
+                            load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
+                        let mut target_set = TargetSet::new();
+                        for (_package, results) in loaded_patterns.into_iter() {
+                            target_set.extend(results?.into_values());
+                        }
+                        Ok(Either::Right(StarlarkTargetSet(target_set)))
+                    }
+                }
+            }
         }
     }
 }

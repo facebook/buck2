@@ -35,6 +35,8 @@ use crate::bxl::starlark_defs::lazy_operation::StarlarkLazy;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 /// Context for lazy/batch/error handling operations.
@@ -195,5 +197,21 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
             owned,
             global_cfg_options,
         ))
+    }
+
+    /// Gets the unconfigured target node(s) for the `expr`
+    ///
+    /// The given `expr` is either:
+    ///     - a single string that is a target ot a target pattern.
+    ///     - a single unconfigured target node or label
+    ///
+    /// This returns either a target set of `UnconfiguredTargetNode`s if the given `expr` is a target pattern string,
+    /// else a single `UnconfiguredTargetNode`.
+    fn unconfigured_target_node<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = pos)] expr: TargetNodeOrTargetLabelOrStr<'v>,
+    ) -> anyhow::Result<StarlarkLazy> {
+        let expr = OwnedTargetNodeArg::from_ref(&expr);
+        Ok(StarlarkLazy::new_unconfigured_target_node(expr))
     }
 }

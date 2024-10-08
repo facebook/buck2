@@ -15,10 +15,12 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use either::Either;
 use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -39,9 +41,12 @@ use starlark::StarlarkDocs;
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
+use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkResultGen;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
+use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::SingleOrCompatibleConfiguredTargets;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[derive(Derivative, Debug, Allocative)]
 pub(crate) enum LazyOperation {
@@ -50,6 +55,7 @@ pub(crate) enum LazyOperation {
         arg: OwnedConfiguredTargetNodeArg,
         global_cfg_options: buck2_error::Result<GlobalCfgOptions>,
     },
+    UnconfiguredTargetNode(OwnedTargetNodeArg),
     Join(Arc<LazyOperation>, Arc<LazyOperation>),
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
@@ -59,6 +65,7 @@ pub(crate) enum LazyOperation {
 pub(crate) enum LazyResult {
     Analysis(StarlarkAnalysisResult),
     ConfiguredTargetNode(SingleOrCompatibleConfiguredTargets),
+    UnconfiguredTargetNode(Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>),
     Join(Box<(LazyResult, LazyResult)>),
     Batch(Vec<LazyResult>),
     Catch(Box<anyhow::Result<LazyResult>>),
@@ -73,6 +80,7 @@ impl LazyResult {
         match self {
             LazyResult::Analysis(analysis_res) => Ok(heap.alloc(analysis_res)),
             LazyResult::ConfiguredTargetNode(res) => res.into_value(heap, bxl_eval_extra),
+            LazyResult::UnconfiguredTargetNode(node) => Ok(heap.alloc(node)),
             LazyResult::Join(res) => Ok(heap.alloc((
                 res.0.into_value(heap, bxl_eval_extra)?,
                 res.1.into_value(heap, bxl_eval_extra)?,
@@ -113,6 +121,10 @@ impl LazyOperation {
                     .to_configured_target_node(global_cfg_options, core_data, dice)
                     .await?;
                 Ok(LazyResult::ConfiguredTargetNode(res))
+            }
+            LazyOperation::UnconfiguredTargetNode(expr) => {
+                let node = expr.to_unconfigured_target_node(core_data, dice).await?;
+                Ok(LazyResult::UnconfiguredTargetNode(node))
             }
             LazyOperation::Join(lazy0, lazy1) => {
                 let compute0 = DiceComputations::declare_closure(|dice| {
@@ -176,6 +188,12 @@ impl StarlarkLazy {
                 arg,
                 global_cfg_options: global_cfg_options.map_err(buck2_error::Error::from),
             }),
+        }
+    }
+
+    pub(crate) fn new_unconfigured_target_node(expr: OwnedTargetNodeArg) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::UnconfiguredTargetNode(expr)),
         }
     }
 
