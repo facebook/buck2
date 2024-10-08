@@ -1,0 +1,6 @@
+load(":write.bzl", "write")
+
+write(
+    name = "file",
+    src = read_config("test", "cache_buster", default = "1"),
+)

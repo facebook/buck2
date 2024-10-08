@@ -7,15 +7,11 @@
 
 # pyre-strict
 
-
-import asyncio
 from pathlib import Path
-
-import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 from buck2.tests.e2e_util.helper.utils import (
     filter_events,
@@ -273,47 +269,32 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
         assert category_key[4].startswith("crash("), category_key[4]
 
 
-@buck_test(inplace=True, skip_for_os=["darwin", "linux"])
-@pytest.mark.parametrize(
-    "remote_or_local",
-    [
-        "--remote-only",
-        "--local-only",
-    ],
-)
-async def test_build_file_race(
-    buck: Buck, tmp_path: Path, remote_or_local: str
-) -> None:
-    mode = get_mode_from_platform()
-    target = "fbcode//buck2/tests/targets/file_race:file_race_test"
-
+@buck_test(inplace=False)
+async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
+    target = "//file_busy:file"
     # first build
-    exe_path = (
-        (await buck.build(target, mode, remote_or_local))
-        .get_build_report()
-        .output_for_target(target)
-    )
+    file_path = (await buck.build(target)).get_build_report().output_for_target(target)
 
-    # start run command, don't wait for finish
-    proc = await asyncio.create_subprocess_exec(exe_path)
+    # Open the file for writing and keep it open
+    f = open(file_path, "w")
     # build again, source code has changed, binary must be rebuilt
     record = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            target,
-            mode,
-            "--show-output",
-            "-c",
-            "test.cache_buster=2",
-            remote_or_local,
-            "--unstable-write-invocation-record",
-            str(record),
-        )
+    build = buck.build(
+        target,
+        "--show-output",
+        "-c",
+        "test.cache_buster=2",
+        "--unstable-write-invocation-record",
+        str(record),
     )
-    # kill the executing binary
-    proc.kill()
-    await proc.wait()
 
-    invocation_record = read_invocation_record(record)
-    assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
-    assert invocation_record["errors"][0]["tier"] == ENVIRONMENT_ERROR
+    if is_running_on_windows():
+        await expect_failure(build)
+
+        invocation_record = read_invocation_record(record)
+        assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
+        assert invocation_record["errors"][0]["tier"] == ENVIRONMENT_ERROR
+    else:
+        await build
+
+    f.close()
