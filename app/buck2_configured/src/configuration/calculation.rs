@@ -49,7 +49,9 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
+use crate::nodes::calculation::ExecutionPlatformConstraints;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -758,6 +760,23 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
         ctx.compute(&ExecutionPlatformsKey).await?
+    }
+
+    async fn execution_platform_resolution_one_for_cell(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        exec_deps: Arc<[TargetLabel]>,
+        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
+        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
+        cell: CellName,
+    ) -> buck2_error::Result<ExecutionPlatformResolution> {
+        ExecutionPlatformConstraints::new_constraints(
+            exec_deps,
+            toolchain_deps,
+            exec_compatible_with,
+        )
+        .one_for_cell(dice, cell)
+        .await
     }
 }
 

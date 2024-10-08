@@ -196,14 +196,14 @@ pub async fn find_execution_platform_by_configuration(
     }
 }
 
-pub struct ExecutionPlatformConstraints {
+pub(crate) struct ExecutionPlatformConstraints {
     exec_deps: Arc<[TargetLabel]>,
     toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
 }
 
 impl ExecutionPlatformConstraints {
-    pub fn new_constraints(
+    pub(crate) fn new_constraints(
         exec_deps: Arc<[TargetLabel]>,
         toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
@@ -285,7 +285,7 @@ impl ExecutionPlatformConstraints {
         .await
     }
 
-    pub async fn one_for_cell(
+    pub(crate) async fn one_for_cell(
         self,
         ctx: &mut DiceComputations<'_>,
         cell: CellName,

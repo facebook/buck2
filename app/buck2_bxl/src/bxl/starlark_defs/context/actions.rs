@@ -16,7 +16,6 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_configured::configuration::calculation::ConfigurationCalculation;
-use buck2_configured::nodes::calculation::ExecutionPlatformConstraints;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -29,6 +28,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
+use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -107,19 +107,22 @@ pub(crate) async fn resolve_bxl_execution_platform(
         .map(|t| configuration_ctx.configure_toolchain_target(t))
         .collect();
 
-    let execution_constraints = ExecutionPlatformConstraints::new_constraints(
-        exec_deps
-            .iter()
-            .map(|label| label.target().dupe())
-            .collect(),
-        toolchain_deps_configured
-            .iter()
-            .map(|dep| TargetConfiguredTargetLabel::new_without_exec_cfg(dep.target().dupe()))
-            .collect(),
-        exec_compatible_with,
-    );
-
-    let resolved_execution = execution_constraints.one_for_cell(ctx, cell).await?;
+    let resolved_execution = GET_EXECUTION_PLATFORMS
+        .get()?
+        .execution_platform_resolution_one_for_cell(
+            ctx,
+            exec_deps
+                .iter()
+                .map(|label| label.target().dupe())
+                .collect(),
+            toolchain_deps_configured
+                .iter()
+                .map(|dep| TargetConfiguredTargetLabel::new_without_exec_cfg(dep.target().dupe()))
+                .collect(),
+            exec_compatible_with,
+            cell,
+        )
+        .await?;
 
     let exec_deps_configured = exec_deps.try_map(|e| {
         let label =
