@@ -95,7 +95,9 @@ impl WhatUpCommand {
                             _ => (),
                         }
 
-                        super_console_state.update_event_observer(&Arc::new(e))?;
+                        super_console_state
+                            .update_event_observer(&Arc::new(e))
+                            .await?;
                     }
                     StreamValue::PartialResult(..) => {}
                     StreamValue::Result(result) => {

@@ -451,8 +451,8 @@ impl SuperConsoleState {
         })
     }
 
-    pub fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.simple_console.update_event_observer(event)
+    pub async fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+        self.simple_console.update_event_observer(event).await
     }
 
     pub fn session_info(&self) -> &SessionInfo {
@@ -480,7 +480,7 @@ impl StatefulSuperConsoleImpl {
     }
 
     async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.state.update_event_observer(event)?;
+        self.state.update_event_observer(event).await?;
 
         self.handle_inner_event(event)
             .await

@@ -468,8 +468,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_remaining_with_pending() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_remaining_with_pending() -> anyhow::Result<()> {
         let tick = Tick::now();
 
         let mut state = SuperConsoleState::new(
@@ -487,77 +487,85 @@ mod tests {
         state.time_speed = fake_time_speed();
         state.current_tick = tick.clone();
 
-        state.simple_console.observer.observe(
-            fake_time(&tick, 10),
-            &Arc::new(BuckEvent::new(
-                UNIX_EPOCH,
-                TraceId::new(),
-                Some(SpanId::next()),
-                None,
-                SpanStartEvent {
-                    data: Some(
-                        buck2_data::ActionExecutionStart {
-                            key: Some(buck2_data::ActionKey {
-                                id: Default::default(),
-                                owner: Some(buck2_data::action_key::Owner::TargetLabel(
-                                    buck2_data::ConfiguredTargetLabel {
-                                        label: Some(buck2_data::TargetLabel {
-                                            package: "pkg".into(),
-                                            name: "target".into(),
-                                        }),
-                                        configuration: Some(buck2_data::Configuration {
-                                            full_name: "conf".into(),
-                                        }),
-                                        execution_configuration: None,
-                                    },
-                                )),
-                                key: "".to_owned(),
-                            }),
-                            name: Some(buck2_data::ActionName {
-                                category: "category".into(),
-                                identifier: "identifier".into(),
-                            }),
-                            kind: buck2_data::ActionKind::NotSet as i32,
-                        }
-                        .into(),
-                    ),
-                }
-                .into(),
-            )),
-        )?;
+        state
+            .simple_console
+            .observer
+            .observe(
+                fake_time(&tick, 10),
+                &Arc::new(BuckEvent::new(
+                    UNIX_EPOCH,
+                    TraceId::new(),
+                    Some(SpanId::next()),
+                    None,
+                    SpanStartEvent {
+                        data: Some(
+                            buck2_data::ActionExecutionStart {
+                                key: Some(buck2_data::ActionKey {
+                                    id: Default::default(),
+                                    owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                                        buck2_data::ConfiguredTargetLabel {
+                                            label: Some(buck2_data::TargetLabel {
+                                                package: "pkg".into(),
+                                                name: "target".into(),
+                                            }),
+                                            configuration: Some(buck2_data::Configuration {
+                                                full_name: "conf".into(),
+                                            }),
+                                            execution_configuration: None,
+                                        },
+                                    )),
+                                    key: "".to_owned(),
+                                }),
+                                name: Some(buck2_data::ActionName {
+                                    category: "category".into(),
+                                    identifier: "identifier".into(),
+                                }),
+                                kind: buck2_data::ActionKind::NotSet as i32,
+                            }
+                            .into(),
+                        ),
+                    }
+                    .into(),
+                )),
+            )
+            .await?;
 
-        state.simple_console.observer.observe(
-            fake_time(&tick, 1),
-            &Arc::new(BuckEvent::new(
-                UNIX_EPOCH,
-                TraceId::new(),
-                None,
-                None,
-                buck2_data::InstantEvent {
-                    data: Some(
-                        buck2_data::DiceStateSnapshot {
-                            key_states: {
-                                let mut map = HashMap::new();
-                                map.insert(
-                                    "BuildKey".to_owned(),
-                                    buck2_data::DiceKeyState {
-                                        started: 5,
-                                        finished: 2,
-                                        check_deps_started: 2,
-                                        check_deps_finished: 1,
-                                        compute_started: 4,
-                                        compute_finished: 2,
-                                    },
-                                );
-                                map
-                            },
-                        }
-                        .into(),
-                    ),
-                }
-                .into(),
-            )),
-        )?;
+        state
+            .simple_console
+            .observer
+            .observe(
+                fake_time(&tick, 1),
+                &Arc::new(BuckEvent::new(
+                    UNIX_EPOCH,
+                    TraceId::new(),
+                    None,
+                    None,
+                    buck2_data::InstantEvent {
+                        data: Some(
+                            buck2_data::DiceStateSnapshot {
+                                key_states: {
+                                    let mut map = HashMap::new();
+                                    map.insert(
+                                        "BuildKey".to_owned(),
+                                        buck2_data::DiceKeyState {
+                                            started: 5,
+                                            finished: 2,
+                                            check_deps_started: 2,
+                                            check_deps_finished: 1,
+                                            compute_started: 4,
+                                            compute_finished: 2,
+                                        },
+                                    );
+                                    map
+                                },
+                            }
+                            .into(),
+                        ),
+                    }
+                    .into(),
+                )),
+            )
+            .await?;
 
         {
             let output = TimedList::new(&CUTOFFS, &state).draw(

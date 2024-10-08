@@ -17,7 +17,6 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_event_observer::display;
@@ -212,10 +211,11 @@ where
         &self.observer
     }
 
-    pub(crate) fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.observer
-            .observe(Instant::now(), event)
-            .context("Error tracking event")
+    pub(crate) async fn update_event_observer(
+        &mut self,
+        event: &Arc<BuckEvent>,
+    ) -> anyhow::Result<()> {
+        self.observer.observe(Instant::now(), event).await
     }
 
     fn notify_printed(&mut self) {
@@ -305,7 +305,7 @@ where
     }
 
     pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
-        self.update_event_observer(event)?;
+        self.update_event_observer(event).await?;
 
         self.handle_event_inner(event).await?;
 

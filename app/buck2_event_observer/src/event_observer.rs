@@ -69,7 +69,11 @@ where
         }
     }
 
-    pub fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub async fn observe(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> anyhow::Result<()> {
         self.span_tracker.handle_event(receive_time, event)?;
 
         {
@@ -82,6 +86,11 @@ where
                     match end.data.as_ref().context("Missing `data` in SpanEnd")? {
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
+                        }
+                        buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
+                                cold_build_detector.update_merge_base(file_watcher).await?;
+                            }
                         }
                         _ => {}
                     }
@@ -133,6 +142,13 @@ where
                         }
                         SystemInfo(system_info) => {
                             self.system_info = system_info.clone();
+                        }
+                        TargetPatterns(tag) => {
+                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
+                                cold_build_detector
+                                    .update_parsed_target_patterns(tag)
+                                    .await?;
+                            }
                         }
                         _ => {}
                     }
