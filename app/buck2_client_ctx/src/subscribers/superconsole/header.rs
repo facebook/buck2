@@ -421,6 +421,12 @@ impl<'s> Component for ProgressHeader<'s> {
 
         let elapsed = format!("Time elapsed: {}", &self.time_elapsed);
 
+        // During normal drawing, the elapsed time is in the last row at the end. In the final rendering it gets its own line and is on the left.
+        let inline_elapsed = match mode {
+            DrawMode::Normal => &elapsed,
+            DrawMode::Final => "",
+        };
+
         let long_middle_len = "111222333 actions, 111222333 artifacts declared  ".len();
 
         let style = if header_width + long_middle_len < dimensions.width {
@@ -491,8 +497,10 @@ impl<'s> Component for ProgressHeader<'s> {
         let extra_preferred_width = long_middle_len + 20;
         let extra_width = extra.iter().map(String::len).max().unwrap();
         // need to append elapsed time to the final line
-        let extra_min_width =
-            2 + std::cmp::max(extra_width, extra.last().unwrap().len() + elapsed.len() + 2);
+        let extra_min_width = 2 + std::cmp::max(
+            extra_width,
+            extra.last().unwrap().len() + inline_elapsed.len() + 2,
+        );
         let extra_max_width = dimensions.width.saturating_sub(main_width + 2);
 
         // If there's not actually enough space to draw them both, we'll prefer for the extra column to be truncated.
@@ -511,7 +519,7 @@ impl<'s> Component for ProgressHeader<'s> {
             let mut line = format!("{:<pad_to$}{}", main[i], extra[i], pad_to = pad_to);
 
             if i == main.len() - 1 {
-                let wanted_len = dimensions.width.saturating_sub(elapsed.len() + 2);
+                let wanted_len = dimensions.width.saturating_sub(inline_elapsed.len() + 2);
                 if line.len() > wanted_len {
                     // If we're going to have to truncate the extra column for the elapsed time, just drop it in this row.
                     line = main[i].to_owned();
@@ -523,10 +531,14 @@ impl<'s> Component for ProgressHeader<'s> {
                     line.truncate(wanted_len);
                 }
                 line += "  ";
-                line += &elapsed;
+                line += inline_elapsed;
             }
 
             lines.push(Line::unstyled(&line)?);
+        }
+
+        if let DrawMode::Final = mode {
+            lines.push(Line::unstyled(&elapsed)?);
         }
 
         Ok(Lines(lines))
@@ -652,6 +664,14 @@ mod tests {
             )?;
         }
 
+        for width in [60, 140] {
+            writeln!(
+                &mut all_output,
+                "{}",
+                draw(width, false, &phase_stats())?.fmt_for_test()
+            )?;
+        }
+
         let expected = indoc::indoc!(
             r#"
                 Loading targets.   Remaining 1
@@ -698,6 +718,18 @@ mod tests {
                 Analyzing targets. Remaining 22000/22222 (running:    22)                                  3333333 actions, 4444444 artifacts declared
                 Executing actions. Remaining 33000/33333 (running:    55 local,    66 remote)              2:09:37.0s exec time total
                 header             Finished 100 local, 122 remote, 133 cache (37% hit)                     11:06.0s exec time cached (8%)                    Time elapsed: 1234s
+
+                Loading targets.   Remaining 0/11111
+                Analyzing targets. Remaining 0/22222
+                Executing actions. Remaining 0/33333
+                header             Cache hits 37%
+                Time elapsed: 1234s
+
+                Loading targets.   Remaining     0/11111                                111 dirs read, 22222 targets declared
+                Analyzing targets. Remaining     0/22222                                3333333 actions, 4444444 artifacts declared
+                Executing actions. Remaining     0/33333                                2:09:37.0s exec time total
+                header             Finished 100 local, 122 remote, 133 cache (37% hit)  11:06.0s exec time cached (8%)
+                Time elapsed: 1234s
 
         "#
         );
