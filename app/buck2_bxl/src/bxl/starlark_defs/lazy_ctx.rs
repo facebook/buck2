@@ -154,9 +154,6 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// is the label of a subtarget. You can get the underlying configured target label on the `Label`
     /// using `configured_targets()` (ex: `my_label.configured_target()`).
     ///
-    /// This returns either a single `target_node` if the given `labels`
-    /// is "singular", a dict keyed by target labels of `target_node` if the
-    /// given `labels` is list-like
     /// This returns either a target set of `ConfiguredTargetNode`s if the given `expr` is a target pattern string,
     /// else a single `ConfiguredTargetNode`.
     ///
