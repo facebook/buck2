@@ -53,6 +53,7 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use derive_more::From;
 use dice::ActivationData;
 use dice::ActivationTracker;
+use dice::DynKey;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
@@ -103,7 +104,7 @@ assert_eq_size!(BuildArtifact, [usize; 6]);
 assert_eq_size!(NodeKey, [usize; 7]);
 
 impl NodeKey {
-    fn from_any(key: &dyn Any) -> Option<Self> {
+    fn from_dyn_key(key: &DynKey) -> Option<Self> {
         let key = if let Some(key) = key.downcast_ref::<BuildKey>() {
             Self::BuildKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<AnalysisKey>() {
@@ -231,11 +232,11 @@ impl ActivationTracker for BuildSignalSender {
     /// (if any).
     fn key_activated(
         &self,
-        key: &dyn Any,
-        deps: &mut dyn Iterator<Item = &dyn Any>,
+        key: &DynKey,
+        deps: &mut dyn Iterator<Item = &DynKey>,
         activation_data: ActivationData,
     ) {
-        let key = match NodeKey::from_any(key) {
+        let key = match NodeKey::from_dyn_key(key) {
             Some(key) => key,
             None => return,
         };
@@ -244,7 +245,7 @@ impl ActivationTracker for BuildSignalSender {
             key,
             action_with_extra_data: None,
             duration: NodeDuration::zero(),
-            dep_keys: deps.into_iter().filter_map(NodeKey::from_any).collect(),
+            dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
             spans: Default::default(),
             load_result: None,
         };

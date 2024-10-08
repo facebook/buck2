@@ -31,6 +31,7 @@ use crate::result::CancellableResult;
 use crate::result::Cancelled;
 use crate::ActivationData;
 use crate::ActivationTracker;
+use crate::DynKey;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
@@ -325,8 +326,8 @@ impl<'a, 'b> DiceWorkerStateFinished<'a, 'b> {
 
         if let Some(activation_info) = activation_info {
             activation_info.activation_tracker.key_activated(
-                activation_info.key.as_any(),
-                &mut activation_info.deps.iter().map(|k| k.as_any()),
+                DynKey::ref_cast(&activation_info.key),
+                &mut activation_info.deps.iter().map(DynKey::ref_cast),
                 activation_info.activation_data,
             )
         }
