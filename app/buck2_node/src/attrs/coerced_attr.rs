@@ -15,18 +15,18 @@ use std::hash::Hash;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::configuration::config_setting::ConfigSettingData;
-use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_data::error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use serde::Serialize;
@@ -66,25 +66,6 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(buck2_error::Error, Debug)]
-enum SelectError {
-    #[error("None of {} conditions matched configuration `{}` and no default was set:\n{}",
-        .1.len(),
-        .0,
-        .1.iter().map(| s | format ! ("  {}", s)).join("\n"),
-    )]
-    #[buck2(input)]
-    MissingDefault(ConfigurationData, Vec<ConfigurationSettingKey>),
-    #[error(
-        "Both select keys `{0}` and `{1}` match the configuration, but neither is more specific"
-    )]
-    #[buck2(input)]
-    TwoKeysDoNotRefineEachOther(String, String),
-    #[error("duplicate key `{0}` in `select()`")]
-    #[buck2(input)]
-    DuplicateKey(String),
-}
-
 pub enum CoercedSelectorKeyRef<'a> {
     Target(&'a ConfigurationSettingKey),
     Default,
@@ -117,6 +98,10 @@ impl CoercedSelector {
     fn check_all_keys_unique(
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> anyhow::Result<()> {
+        fn duplicate_key(key: &ConfigurationSettingKey) -> anyhow::Error {
+            buck2_error!([], "duplicate key `{key}` in `select()`")
+        }
+
         // This is possible when select keys are specified like:
         // ```
         // select({
@@ -133,7 +118,7 @@ impl CoercedSelector {
             for i in 0..entries.len() {
                 for j in i + 1..entries.len() {
                     if entries[i].0 == entries[j].0 {
-                        return Err(SelectError::DuplicateKey(entries[i].0.to_string()).into());
+                        return Err(duplicate_key(&entries[i].0));
                     }
                 }
             }
@@ -142,7 +127,7 @@ impl CoercedSelector {
                 HashSet::with_capacity_and_hasher(entries.len(), StarlarkHasherBuilder);
             for (k, _) in entries {
                 if !visited_keys.insert(k) {
-                    return Err(SelectError::DuplicateKey(k.to_string()).into());
+                    return Err(duplicate_key(k));
                 }
             }
         }
@@ -553,9 +538,10 @@ impl CoercedAttr {
                 "no entries after slow select the most specific"
             )),
             [(.., x)] => Ok(Some(x)),
-            [(x, ..), (y, ..), ..] => {
-                Err(SelectError::TwoKeysDoNotRefineEachOther(x.to_string(), y.to_string()).into())
-            }
+            [(x, ..), (y, ..), ..] => Err(buck2_error!(
+                [],
+                "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
+            )),
         }
     }
 
@@ -574,11 +560,13 @@ impl CoercedAttr {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {
-                SelectError::MissingDefault(
-                    ctx.cfg().cfg().dupe(),
-                    entries.iter().map(|(k, _)| k).duped().collect(),
+                buck2_error!(
+                    [],
+                    "None of {} conditions matched configuration `{}` and no default was set:\n{}",
+                    entries.len(),
+                    ctx.cfg().cfg(),
+                    entries.iter().map(|(s, _)| format!("  {}", s)).join("\n"),
                 )
-                .into()
             })
         }
     }
@@ -588,6 +576,14 @@ impl CoercedAttr {
     /// the actual attr type for handling any appropriate configuration-time
     /// processing.
     pub fn configure(
+        &self,
+        ty: &AttrType,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> anyhow::Result<ConfiguredAttr> {
+        self.configure_inner(ty, ctx).tag(ErrorTag::ConfigureAttr)
+    }
+
+    fn configure_inner(
         &self,
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,

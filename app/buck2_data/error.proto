@@ -177,4 +177,7 @@ enum ErrorTag {
   RE_UNAVAILABLE = 1314;
   RE_DATA_LOSS = 1315;
   RE_UNAUTHENTICATED = 1316;
+
+  // Error during attribute configuration during target configuration.
+  CONFIGURE_ATTR = 3001;
 }

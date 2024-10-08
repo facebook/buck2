@@ -44,6 +44,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DaemonConnect => rank!(unspecified),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
         ErrorTag::ClientGrpc => rank!(tier0),
+        ErrorTag::ConfigureAttr => rank!(input),
         ErrorTag::NoValidCerts => rank!(environment),
         ErrorTag::ReUnknownTcode => rank!(tier0),
         ErrorTag::ReCancelled => rank!(tier0),

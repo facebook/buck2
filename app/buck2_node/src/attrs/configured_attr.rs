@@ -16,9 +16,9 @@ use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
-use dupe::Dupe;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::ordered_map::OrderedMap;
@@ -48,24 +48,6 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
-
-#[derive(Debug, buck2_error::Error)]
-enum ConfiguredAttrError {
-    #[error("addition not supported for this attribute type `{0}`.")]
-    ConcatNotSupported(String),
-    #[error("addition not supported for these attribute type `{0}` and value `{1}`.")]
-    ConcatNotSupportedValues(&'static str, String),
-    #[error("got same key in both sides of dictionary concat (key `{0}`).")]
-    DictConcatDuplicateKeys(String),
-    #[error(
-        "Cannot concatenate values coerced/configured to different oneof variants: `{0}` and `{1}`"
-    )]
-    ConcatDifferentOneofVariants(AttrType, AttrType),
-    #[error("expecting a list, got `{0}`")]
-    ExpectingList(String),
-    #[error("expecting configuration dep, got `{0}`")]
-    ExpectingConfigurationDep(String),
-}
 
 #[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
 pub enum ConfiguredAttr {
@@ -221,6 +203,15 @@ impl ConfiguredAttr {
         }
     }
 
+    fn concat_not_supported(&self, attr_ty: &'static str) -> anyhow::Error {
+        buck2_error!(
+            [],
+            "addition not supported for these attribute type `{}` and value `{}`",
+            attr_ty,
+            self.as_display_no_ctx()
+        )
+    }
+
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
     /// should be unreachable as concat-ability is checked during coercion and the type would've returned false from `AttrType::supports_concat`).
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
@@ -229,14 +220,6 @@ impl ConfiguredAttr {
         attr_type: &AttrType,
         items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
     ) -> anyhow::Result<Self> {
-        let mismatch = |ty, attr: ConfiguredAttr| {
-            Err(ConfiguredAttrError::ConcatNotSupportedValues(
-                ty,
-                attr.as_display_no_ctx().to_string(),
-            )
-            .into())
-        };
-
         match self {
             ConfiguredAttr::OneOf(box first, first_i) => {
                 // Becaise if attr type if `option(oneof([list(string), ...])`,
@@ -262,11 +245,11 @@ impl ConfiguredAttr {
                         ConfiguredAttr::OneOf(box next, next_i) => {
                             let next_t = oneof_type.get(next_i)?;
                             if first_i != next_i {
-                                return Err(ConfiguredAttrError::ConcatDifferentOneofVariants(
-                                    first_t.dupe(),
-                                    next_t.dupe(),
-                                )
-                                .into());
+                                return Err(buck2_error!(
+                                    [],
+                                    "Cannot concatenate values coerced/configured \
+                                    to different oneof variants: `{first_t}` and `{next_t}`"
+                                ));
                             }
                             Ok(next)
                         }
@@ -283,7 +266,7 @@ impl ConfiguredAttr {
                         ConfiguredAttr::List(list2) => {
                             res.extend(list2.iter().cloned());
                         }
-                        attr => return mismatch("list", attr),
+                        attr => return Err(attr.concat_not_supported("list")),
                     }
                 }
                 Ok(ConfiguredAttr::List(ListLiteral(res.into())))
@@ -302,15 +285,16 @@ impl ConfiguredAttr {
                                         e.insert(v);
                                     }
                                     small_map::Entry::Occupied(e) => {
-                                        return Err(ConfiguredAttrError::DictConcatDuplicateKeys(
-                                            e.key().as_display_no_ctx().to_string(),
-                                        )
-                                        .into());
+                                        return Err(buck2_error!(
+                                            [],
+                                            "got same key in both sides of dictionary concat (key `{}`)",
+                                            e.key().as_display_no_ctx()
+                                        ));
                                     }
                                 }
                             }
                         }
-                        attr => return mismatch("dict", attr),
+                        attr => return Err(attr.concat_not_supported("dict")),
                     }
                 }
                 Ok(ConfiguredAttr::Dict(res.into_iter().collect()))
@@ -324,42 +308,38 @@ impl ConfiguredAttr {
                     for x in items {
                         match x? {
                             ConfiguredAttr::String(right) => res.push_str(&right.0),
-                            attr => return mismatch("string", attr),
+                            attr => return Err(attr.concat_not_supported("string")),
                         }
                     }
                     Ok(ConfiguredAttr::String(StringLiteral(ArcStr::from(res))))
                 }
             }
             ConfiguredAttr::Arg(left) => {
-                let res = left.string_with_macros.concat(items.map(|x| {
-                    match x? {
-                        ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
-                        attr => Err(ConfiguredAttrError::ConcatNotSupportedValues(
-                            "arg",
-                            attr.as_display_no_ctx().to_string(),
-                        )
-                        .into()),
-                    }
+                let res = left.string_with_macros.concat(items.map(|x| match x? {
+                    ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
+                    attr => Err(attr.concat_not_supported("arg")),
                 }))?;
                 Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
                     string_with_macros: res,
                     anon_target_compatible: left.anon_target_compatible,
                 }))
             }
-            val => Err(ConfiguredAttrError::ConcatNotSupported(
-                val.as_display_no_ctx().to_string(),
-            )
-            .into()),
+            val => Err(buck2_error!(
+                [],
+                "addition not supported for this attribute type `{}`",
+                val.as_display_no_ctx()
+            )),
         }
     }
 
     pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<ConfigurationSettingKey> {
         match self {
             ConfiguredAttr::ConfigurationDep(d) => Ok(d),
-            a => Err(ConfiguredAttrError::ExpectingConfigurationDep(
-                a.as_display_no_ctx().to_string(),
-            )
-            .into()),
+            s => Err(buck2_error!(
+                [],
+                "expecting configuration dep, got `{0}`",
+                s.as_display_no_ctx()
+            )),
         }
     }
 
@@ -373,7 +353,11 @@ impl ConfiguredAttr {
     pub(crate) fn try_into_list(self) -> anyhow::Result<Vec<ConfiguredAttr>> {
         match self {
             ConfiguredAttr::List(list) => Ok(list.to_vec()),
-            a => Err(ConfiguredAttrError::ExpectingList(a.as_display_no_ctx().to_string()).into()),
+            a => Err(buck2_error!(
+                [],
+                "expecting a list, got `{0}`",
+                a.as_display_no_ctx()
+            )),
         }
     }
 }
