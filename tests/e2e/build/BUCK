@@ -46,11 +46,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_build_skip_missing",
-    srcs = ["test_build_skip_missing.py"],
-)
-
-buck2_e2e_test(
     name = "test_paranoid",
     srcs = ["test_paranoid.py"],
     data = "//buck2/tests/targets:isolated_targets",

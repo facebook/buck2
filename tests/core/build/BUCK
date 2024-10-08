@@ -29,6 +29,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_skip_missing",
+    srcs = ["test_skip_missing.py"],
+    data_dir = "test_skip_missing_data",
+)
+
+buck2_e2e_test(
     name = "test_plugins",
     srcs = ["test_plugins.py"],
     data_dir = "test_plugins_data",

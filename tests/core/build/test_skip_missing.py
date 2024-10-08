@@ -14,35 +14,26 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-_DATA_PATTERN_PREFIX: str = "fbcode//buck2/tests/e2e/build/test_build_missing_data"
-
-
-@buck_test(inplace=True)
+@buck_test()
 async def test_build_skip_missing(buck: Buck) -> None:
     result = await buck.build(
-        f"{_DATA_PATTERN_PREFIX}:existing",
-        f"{_DATA_PATTERN_PREFIX}:missing",
-        f"--target-platforms={_DATA_PATTERN_PREFIX}:p",
+        "//:existing",
+        "//:missing",
         "--skip-missing-targets",
     )
 
-    out = (
-        result.get_build_report()
-        .output_for_target(f"{_DATA_PATTERN_PREFIX}:existing")
-        .read_text()
-    )
-    assert "existing" == out.strip()
+    out = result.get_build_report().output_for_target("//:existing").read_text()
+    assert "abcd" == out.strip()
     assert "Skipped 1 missing targets:" in result.stderr
 
 
-@buck_test(inplace=True)
+@buck_test()
 async def test_build_skip_missing_fails_on_missing_package(buck: Buck) -> None:
     await expect_failure(
         buck.build(
-            f"{_DATA_PATTERN_PREFIX}:existing",
-            f"{_DATA_PATTERN_PREFIX}/bad-package:existing",
-            f"--target-platforms={_DATA_PATTERN_PREFIX}:p",
+            "//:existing",
+            "//bad-package:existing",
             "--skip-missing-targets",
         ),
-        stderr_regex=f"`{_DATA_PATTERN_PREFIX}/bad-package`",
+        stderr_regex="`root//bad-package`",
     )
