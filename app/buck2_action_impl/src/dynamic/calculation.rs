@@ -32,54 +32,54 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
         dice: &mut DiceComputations<'_>,
         key: &DynamicLambdaResultsKey,
     ) -> anyhow::Result<Arc<DynamicLambdaResult>> {
-        #[derive(
-            Debug,
-            derive_more::Display,
-            Dupe,
-            Clone,
-            Allocative,
-            Hash,
-            Eq,
-            PartialEq
-        )]
-        struct DynamicLambdaDiceKey(DynamicLambdaResultsKey);
-
-        #[async_trait]
-        impl Key for DynamicLambdaDiceKey {
-            type Value = buck2_error::Result<Arc<DynamicLambdaResult>>;
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                cancellation: &CancellationContext,
-            ) -> Self::Value {
-                let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
-                let lambda = deferred_holder.lookup_lambda(&self.0)?;
-
-                let analysis_values = prepare_and_execute_lambda(
-                    ctx,
-                    cancellation,
-                    lambda,
-                    self.0.dupe(),
-                    self.0.action_key(),
-                )
-                .await?;
-                Ok(Arc::new(DynamicLambdaResult { analysis_values }))
-            }
-
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
-            }
-
-            fn validity(x: &Self::Value) -> bool {
-                x.is_ok()
-            }
-        }
-
         Ok(dice.compute(&DynamicLambdaDiceKey(key.dupe())).await??)
     }
 }
 
 pub(crate) fn init_dynamic_lambda_calculation() {
     DYNAMIC_LAMBDA_CALCULATION_IMPL.init(&DynamicLambdaCalculationImpl)
+}
+
+#[derive(
+    Debug,
+    derive_more::Display,
+    Dupe,
+    Clone,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq
+)]
+pub struct DynamicLambdaDiceKey(DynamicLambdaResultsKey);
+
+#[async_trait]
+impl Key for DynamicLambdaDiceKey {
+    type Value = buck2_error::Result<Arc<DynamicLambdaResult>>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
+        let lambda = deferred_holder.lookup_lambda(&self.0)?;
+
+        let analysis_values = prepare_and_execute_lambda(
+            ctx,
+            cancellation,
+            lambda,
+            self.0.dupe(),
+            self.0.action_key(),
+        )
+        .await?;
+        Ok(Arc::new(DynamicLambdaResult { analysis_values }))
+    }
+
+    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+        false
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
 }

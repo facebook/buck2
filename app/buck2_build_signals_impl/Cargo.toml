@@ -10,6 +10,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }

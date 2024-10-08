@@ -19,10 +19,10 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
+use buck2_action_impl::dynamic::calculation::DynamicLambdaDiceKey;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
@@ -82,7 +82,7 @@ enum NodeKey {
     ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
     PackageListingKey(PackageListingKey),
-    DynamicLambda(DynamicLambdaResultsKey),
+    DynamicLambda(DynamicLambdaDiceKey),
 
     // This one is not a DICE key.
     Materialization(BuildArtifact),
@@ -98,7 +98,7 @@ assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
 assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(PackageListingKey, [usize; 1]);
-assert_eq_size!(DynamicLambdaResultsKey, [usize; 4]);
+assert_eq_size!(DynamicLambdaDiceKey, [usize; 4]);
 assert_eq_size!(BuildArtifact, [usize; 6]);
 assert_eq_size!(NodeKey, [usize; 7]);
 
@@ -118,7 +118,7 @@ impl NodeKey {
             Self::InterpreterResultsKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<PackageListingKey>() {
             Self::PackageListingKey(key.dupe())
-        } else if let Some(key) = key.downcast_ref::<DynamicLambdaResultsKey>() {
+        } else if let Some(key) = key.downcast_ref::<DynamicLambdaDiceKey>() {
             Self::DynamicLambda(key.dupe())
         } else {
             return None;

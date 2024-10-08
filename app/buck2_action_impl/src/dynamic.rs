@@ -8,7 +8,7 @@
  */
 
 pub mod bxl;
-pub(crate) mod calculation;
+pub mod calculation;
 pub mod deferred;
 pub(crate) mod dynamic_actions;
 pub(crate) mod dynamic_actions_callable;
