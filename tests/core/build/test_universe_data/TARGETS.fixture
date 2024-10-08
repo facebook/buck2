@@ -1,0 +1,37 @@
+load(":write.bzl", "write")
+
+write(
+    name = "test",
+    data = select({
+        ":cat": "cat",
+        "DEFAULT": "default",
+    }),
+    default_target_platform = ":p_default",
+)
+
+stub(
+    name = "universe",
+    deps = [":test"],
+    default_target_platform = ":p_cat",
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+platform(
+    name = "p_cat",
+    constraint_values = [
+        ":cat",
+    ],
+)
+
+platform(
+    name = "p_default",
+    constraint_values = [],
+)

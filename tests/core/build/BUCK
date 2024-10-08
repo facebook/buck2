@@ -55,6 +55,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_universe",
+    srcs = ["test_universe.py"],
+    data_dir = "test_universe_data",
+)
+
+buck2_e2e_test(
     name = "test_hash_all_commands",
     srcs = ["test_hash_all_commands.py"],
     data_dir = "test_hash_all_commands_data",
