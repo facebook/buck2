@@ -25,4 +25,5 @@ BANNED_DEP_PATHS = [
     (_app("buck2_build_api"), _app("buck2_execute_impl")),
     (_app("buck2_build_api"), _app("buck2_interpreter_for_build")),
     (_app("buck2_server"), _app("buck2_server_commands")),
+    (_app("buck2_bxl"), _app("buck2_configured")),
 ]
