@@ -9,9 +9,9 @@
 
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_test_api::data::ConfiguredTargetHandle;
@@ -37,7 +37,7 @@ pub struct TestSession {
     /// The prefix to assign to all paths for this test session. This isn't used to provide any
     /// uniqueness (at least not at this time), but it's helpful to group outputs in a way that
     /// more-or-less matches a given test session.
-    prefix: ForwardRelativePathBuf,
+    prefix: Arc<ForwardRelativePathBuf>,
     /// Options overriding the behavior of tests executed in this session. This is primarily
     /// intended for unstable or debugging features.
     options: TestSessionOptions,
@@ -55,7 +55,7 @@ impl TestSession {
         Self {
             next_id: AtomicU64::new(0),
             labels: DashMap::new(),
-            prefix,
+            prefix: Arc::new(prefix),
             options,
         }
     }
@@ -64,8 +64,8 @@ impl TestSession {
         self.options
     }
 
-    pub fn prefix(&self) -> &ForwardRelativePath {
-        self.prefix.as_ref()
+    pub fn prefix(&self) -> Arc<ForwardRelativePathBuf> {
+        self.prefix.dupe()
     }
 
     /// Insert a new provider and retrieve the matching handle.

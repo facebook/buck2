@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+// https://github.com/rust-lang/rust-clippy/issues/12806
+#![allow(clippy::unnecessary_to_owned)]
+
 //! Implementation of the `TestOrchestrator` from `buck2_test_api`.
 
 use std::borrow::Cow;
@@ -137,6 +140,7 @@ use crate::local_resource_setup::LocalResourceSetupContext;
 use crate::local_resource_setup::TestStageSimple;
 use crate::remote_storage;
 use crate::session::TestSession;
+use crate::session::TestSessionOptions;
 use crate::translations;
 
 const MAX_SUFFIX_LEN: usize = 1024;
@@ -224,82 +228,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         let test_target = self.session.get(test_target)?;
 
         let fs = self.dice.clone().get_artifact_fs().await?;
-
-        let test_info = self.get_test_info(&test_target).await?;
-        let test_executor = self
-            .get_test_executor(&test_target, &test_info, executor_override, &fs)
-            .await?;
-        let test_executable_expanded = self
-            .expand_test_executable(
-                &test_target,
-                &test_info,
-                cmd,
-                env,
-                pre_create_dirs.clone(),
-                &test_executor.executor_fs(),
-            )
-            .boxed()
-            .await?;
-
-        let ExpandedTestExecutable {
-            cwd,
-            cmd: expanded_cmd,
-            env: expanded_env,
-            inputs,
-            supports_re,
-            declared_outputs,
-            worker,
-        } = test_executable_expanded;
-
-        // Test worker requests do not support RE or hybrid execution, make request local only if worker is set.
-        let supports_re = supports_re && worker.is_none();
-        let executor_preference = self.executor_preference(supports_re)?;
-
-        let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
-            let setup_local_resources_executor = self.get_local_executor(&fs).await?;
-
-            let setup_contexts = {
-                let executor_fs = setup_local_resources_executor.executor_fs();
-                required_local_resources_setup_contexts(
-                    &self.dice,
-                    &executor_fs,
-                    &test_info,
-                    &required_local_resources,
-                    &match stage {
-                        TestStage::Listing(_) => TestStageSimple::Listing,
-                        TestStage::Testing { .. } => TestStageSimple::Testing,
-                    },
-                )
-                .await?
-            };
-            // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
-            let resources = self
-                .setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
-                .await?;
-
-            self.require_alive().await?;
-
-            resources
-        } else {
-            vec![]
-        };
-
-        let execution_request = self
-            .create_command_execution_request(
-                cwd,
-                expanded_cmd,
-                expanded_env,
-                inputs,
-                declared_outputs,
-                &fs,
-                Some(timeout),
-                Some(host_sharing_requirements),
-                Some(executor_preference),
-                required_resources,
-                worker,
-            )
-            .boxed()
-            .await?;
+        let pre_create_dirs = Arc::new(pre_create_dirs);
 
         let ExecuteData {
             stdout,
@@ -309,8 +238,19 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_kind,
             outputs,
         } = self
-            .execute_request(&test_target, stage, &test_executor, execution_request)
-            .boxed()
+            .prepare_and_execute(TestExecutionKey {
+                test_target,
+                cmd: Arc::new(cmd),
+                env: Arc::new(env),
+                executor_override: executor_override.map(Arc::new),
+                required_local_resources: Arc::new(required_local_resources),
+                pre_create_dirs: pre_create_dirs.dupe(),
+                stage: Arc::new(stage),
+                options: self.session.options(),
+                prefix: self.session.prefix(),
+                timeout,
+                host_sharing_requirements,
+            })
             .await?;
 
         self.require_alive().await?;
@@ -385,6 +325,111 @@ impl<'a> BuckTestOrchestrator<'a> {
             },
         })
     }
+
+    async fn prepare_and_execute(
+        &self,
+        key: TestExecutionKey,
+    ) -> Result<ExecuteData, ExecuteError> {
+        let TestExecutionKey {
+            test_target,
+            cmd,
+            env,
+            executor_override,
+            required_local_resources,
+            pre_create_dirs,
+            stage,
+            options: _,
+            prefix: _,
+            timeout,
+            host_sharing_requirements,
+        } = key;
+        let fs = self.dice.clone().get_artifact_fs().await?;
+        let test_info = self.get_test_info(&test_target).await?;
+        let test_executor = self
+            .get_test_executor(&test_target, &test_info, executor_override, &fs)
+            .await?;
+        let test_executable_expanded = self
+            .expand_test_executable(
+                &test_target,
+                &test_info,
+                Cow::Borrowed(&cmd),
+                Cow::Borrowed(&env),
+                Cow::Borrowed(&pre_create_dirs),
+                &test_executor.executor_fs(),
+            )
+            .boxed()
+            .await?;
+        let ExpandedTestExecutable {
+            cwd,
+            cmd: expanded_cmd,
+            env: expanded_env,
+            inputs,
+            supports_re,
+            declared_outputs,
+            worker,
+        } = test_executable_expanded;
+        let executor_preference = self.executor_preference(supports_re)?;
+        let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
+            let setup_local_resources_executor = self.get_local_executor(&fs).await?;
+            let simple_stage = match stage.as_ref() {
+                TestStage::Listing(_) => TestStageSimple::Listing,
+                TestStage::Testing { .. } => TestStageSimple::Testing,
+            };
+
+            let setup_contexts = {
+                let executor_fs = setup_local_resources_executor.executor_fs();
+                required_local_resources_setup_contexts(
+                    &self.dice,
+                    &executor_fs,
+                    &test_info,
+                    &required_local_resources,
+                    &simple_stage,
+                )
+                .await?
+            };
+            // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
+            self.setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
+                .await?
+        } else {
+            vec![]
+        };
+        let execution_request = self
+            .create_command_execution_request(
+                cwd,
+                expanded_cmd,
+                expanded_env,
+                inputs,
+                declared_outputs,
+                &fs,
+                Some(timeout),
+                Some(host_sharing_requirements),
+                Some(executor_preference),
+                required_resources,
+                worker,
+            )
+            .boxed()
+            .await?;
+        let result = self
+            .execute_request(&test_target, &stage, &test_executor, execution_request)
+            .boxed()
+            .await?;
+        Ok(result)
+    }
+}
+
+#[allow(dead_code)]
+struct TestExecutionKey {
+    test_target: ConfiguredProvidersLabel,
+    cmd: Arc<Vec<ArgValue>>,
+    env: Arc<SortedVectorMap<String, ArgValue>>,
+    executor_override: Option<Arc<ExecutorConfigOverride>>,
+    required_local_resources: Arc<RequiredLocalResources>,
+    pre_create_dirs: Arc<Vec<DeclaredOutput>>,
+    stage: Arc<TestStage>,
+    options: TestSessionOptions,
+    prefix: Arc<ForwardRelativePathBuf>,
+    timeout: Duration,
+    host_sharing_requirements: HostSharingRequirements,
 }
 
 struct PreparedLocalResourceSetupContext {
@@ -534,9 +579,9 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .expand_test_executable(
                 &test_target,
                 &test_info,
-                cmd,
-                env,
-                pre_create_dirs,
+                Cow::Owned(cmd),
+                Cow::Owned(env),
+                Cow::Owned(pre_create_dirs),
                 &executor.executor_fs(),
             )
             .await?;
@@ -646,7 +691,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     async fn execute_request(
         &self,
         test_target: &ConfiguredProvidersLabel,
-        stage: TestStage,
+        stage: &TestStage,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
     ) -> Result<ExecuteData, ExecuteError> {
@@ -704,7 +749,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                     .span_async(start, async move {
                         let result = command.await;
                         let end = TestDiscoveryEnd {
-                            suite_name: listing,
+                            suite_name: listing.clone(),
                             command_report: Some(
                                 result
                                     .report
@@ -718,8 +763,8 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             TestStage::Testing { suite, testcases } => {
                 let test_suite = Some(TestSuite {
-                    suite_name: suite,
-                    test_names: testcases,
+                    suite_name: suite.clone(),
+                    test_names: testcases.clone(),
                     target_label: Some(test_target.target.as_proto()),
                 });
                 let start = TestRunStart {
@@ -914,7 +959,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         &self,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
-        executor_override: Option<ExecutorConfigOverride>,
+        executor_override: Option<Arc<ExecutorConfigOverride>>,
         fs: &ArtifactFs,
     ) -> anyhow::Result<CommandExecutor> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
@@ -926,7 +971,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .await?
             .require_compatible()?;
 
-        let resolved_executor_override = match executor_override.as_ref() {
+        let resolved_executor_override = match executor_override {
             Some(executor_override) => Some(
                 &test_info
                     .executor_override(&executor_override.name)
@@ -951,13 +996,13 @@ impl<'b> BuckTestOrchestrator<'b> {
         .context("Error constructing CommandExecutor")
     }
 
-    async fn expand_test_executable(
+    async fn expand_test_executable<'a>(
         &self,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
-        cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
-        pre_create_dirs: Vec<DeclaredOutput>,
+        cmd: Cow<'a, Vec<ArgValue>>,
+        env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+        pre_create_dirs: Cow<'a, Vec<DeclaredOutput>>,
         executor_fs: &ExecutorFs<'_>,
     ) -> anyhow::Result<ExpandedTestExecutable> {
         let output_root = self
@@ -1008,7 +1053,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         let (expanded_cmd, expanded_env, inputs, expanded_worker) = expanded;
 
-        for output in pre_create_dirs {
+        for output in pre_create_dirs.into_owned() {
             let test_path = BuckOutTestPath::new(output_root.clone(), output.name.into());
             declared_outputs.insert(test_path, OutputCreationBehavior::Create);
         }
@@ -1258,8 +1303,8 @@ struct Execute2RequestExpander<'a> {
     output_root: &'a ForwardRelativePath,
     declared_outputs: &'a mut IndexMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
-    cmd: Vec<ArgValue>,
-    env: SortedVectorMap<String, ArgValue>,
+    cmd: Cow<'a, Vec<ArgValue>>,
+    env: Cow<'a, SortedVectorMap<String, ArgValue>>,
 }
 
 impl<'a> Execute2RequestExpander<'a> {
@@ -1275,8 +1320,15 @@ impl<'a> Execute2RequestExpander<'a> {
     where
         B: CommandLineContextExt<'a>,
     {
-        let cli_args_for_interpolation = self
-            .test_info
+        let Execute2RequestExpander {
+            test_info,
+            output_root,
+            declared_outputs,
+            fs,
+            cmd,
+            env,
+        } = self;
+        let cli_args_for_interpolation = test_info
             .command()
             .filter_map(|c| match c {
                 TestCommandMember::Literal(..) => None,
@@ -1284,7 +1336,7 @@ impl<'a> Execute2RequestExpander<'a> {
             })
             .collect::<Vec<_>>();
 
-        let env_for_interpolation = self.test_info.env().collect::<HashMap<_, _>>();
+        let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
 
         let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
@@ -1319,12 +1371,8 @@ impl<'a> Execute2RequestExpander<'a> {
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path =
-                        BuckOutTestPath::new(self.output_root.to_owned(), output.name.into());
-                    let path = self
-                        .fs
-                        .fs()
-                        .buck_out_path_resolver()
-                        .resolve_test(&test_path);
+                        BuckOutTestPath::new(output_root.to_owned(), output.name.into());
+                    let path = fs.fs().buck_out_path_resolver().resolve_test(&test_path);
                     let path = ctx.resolve_project_path(path)?.into_string();
                     cli.push_arg(path);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
@@ -1338,34 +1386,34 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let mut expanded_cmd = Vec::<String>::new();
         let mut ctx = B::new(self.fs);
-        for var in self.cmd {
+        for var in cmd.into_owned() {
             expand_arg_value(
                 &mut expanded_cmd,
                 &mut ctx,
                 &mut artifact_visitor,
-                self.declared_outputs,
+                declared_outputs,
                 var,
             )?;
         }
 
-        let expanded_env = self
-            .env
+        let expanded_env = env
+            .into_owned()
             .into_iter()
             .map(|(k, v)| {
-                let mut env = String::new();
-                let mut ctx = B::new(self.fs);
+                let mut curr_env = String::new();
+                let mut ctx = B::new(fs);
                 expand_arg_value(
-                    &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                    &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut curr_env),
                     &mut ctx,
                     &mut artifact_visitor,
-                    self.declared_outputs,
+                    declared_outputs,
                     v,
                 )?;
-                anyhow::Ok((k, env))
+                anyhow::Ok((k, curr_env))
             })
             .collect::<Result<SortedVectorMap<_, _>, _>>()?;
 
-        let expanded_worker = match self.test_info.worker() {
+        let expanded_worker = match test_info.worker() {
             Some(worker) => {
                 let mut worker_rendered = Vec::<String>::new();
                 let worker_exe = worker.exe_command_line();
