@@ -9,7 +9,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//linking:lto.bzl", "LtoMode")
-load("@prelude//utils:set.bzl", "set")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -213,7 +212,7 @@ def get_source_extension(src: CxxSrcWithFlags, default_for_headers: CxxExtension
     else:
         return CxxExtension(src.file.extension)
 
-def collect_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
+def collect_extensions(srcs: list[CxxSrcWithFlags]) -> set[CxxExtension]:
     """
     Collect extensions of source files while doing light normalization.
     """
@@ -225,7 +224,7 @@ def collect_extensions(srcs: list[CxxSrcWithFlags]) -> list[CxxExtension]:
     }
 
     extensions = set([CxxExtension(duplicates.get(src.file.extension, src.file.extension)) for src in srcs])
-    return extensions.list()
+    return extensions
 
 def default_source_extension_for_plain_header(rule_type: str) -> CxxExtension:
     """
@@ -235,47 +234,45 @@ def default_source_extension_for_plain_header(rule_type: str) -> CxxExtension:
     # Default to (Objective-)C++ instead of plain (Objective-)C as it is more likely to be compatible with both.
     return CxxExtension(".mm") if rule_type.startswith("apple_") else CxxExtension(".cpp")
 
-def detect_source_extension_for_plain_headers(exts: list[CxxExtension], rule_type: str) -> CxxExtension:
+def detect_source_extension_for_plain_headers(exts: set[CxxExtension], rule_type: str) -> CxxExtension:
     """
     For a given list source files determine which source file extension
     to use to get compiler flags for plain .h headers.
     """
 
-    exts = set(exts)
-
     # Assembly doesn't need any special handling as included files tend to have .asm extension themselves.
     # And the presence of assembly in the target doesn't tell us anything about the language of .h files.
     for asm_ext in AsmExtensions:
-        exts.remove(asm_ext)
+        exts.discard(asm_ext)
 
-    if exts.size() == 0:
+    if len(exts) == 0:
         return default_source_extension_for_plain_header(rule_type)
 
-    if exts.size() == 1:
-        return exts.list()[0]
-    if exts.contains(CxxExtension(".hip")):
+    if len(exts) == 1:
+        return exts.pop()
+    if CxxExtension(".hip") in exts:
         return CxxExtension(".hip")
-    if exts.contains(CxxExtension(".cu")):
+    if CxxExtension(".cu") in exts:
         return CxxExtension(".cu")
-    if exts.contains(CxxExtension(".mm")):
+    if CxxExtension(".mm") in exts:
         return CxxExtension(".mm")
-    if exts.contains(CxxExtension(".cpp")) and exts.contains(CxxExtension(".m")):
+    if CxxExtension(".cpp") in exts and CxxExtension(".m") in exts:
         return CxxExtension(".mm")
-    if exts.contains(CxxExtension(".cpp")):
+    if CxxExtension(".cpp") in exts:
         return CxxExtension(".cpp")
-    if exts.contains(CxxExtension(".m")):
+    if CxxExtension(".m") in exts:
         return CxxExtension(".m")
     return CxxExtension(".c")
 
 def collect_source_extensions(
         srcs: list[CxxSrcWithFlags],
-        default_for_headers: CxxExtension) -> list[CxxExtension]:
+        default_for_headers: CxxExtension) -> set[CxxExtension]:
     """
     Return unique source extensions from a list of source and header files where
     header extensions are mapped to corresponding source extensions.
     """
     source_extensions = set([get_source_extension(src, default_for_headers) for src in srcs])
-    return source_extensions.list()
+    return source_extensions
 
 def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     """
