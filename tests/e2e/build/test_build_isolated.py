@@ -39,6 +39,13 @@ def eden_linux_only() -> bool:
     return sys.platform == "linux"
 
 
+############################################################################################
+### NOTE(JakobDegen): Do not add new tests to this file. Instead:
+###  1. Use or make a file in `tests/core` with a name that explains what you're testing.
+###  2. Give that file its own data directory, not one shared with other tests.
+############################################################################################
+
+
 @buck_test(inplace=False, data_dir="pass")
 async def test_pass(buck: Buck) -> None:
     results = await buck.build("//:abc")
@@ -1065,3 +1072,10 @@ async def test_symlink_output(buck: Buck) -> None:
         "-c",
         f"test.cache_buster={random_string()}",
     )
+
+
+############################################################################################
+### NOTE(JakobDegen): Do not add new tests to this file. Instead:
+###  1. Use or make a different test file with a name that explains what you're testing.
+###  2. Give that file its own data directory, not one shared with other tests.
+############################################################################################
