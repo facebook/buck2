@@ -18,7 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import random_string
 
 
-@buck_test(inplace=False, data_dir="modify")
+@buck_test(data_dir="modify")
 async def test_modify_genrule(buck: Buck) -> None:
     result = await buck.build("//:writer")
     output = result.get_build_report().output_for_target("root//:writer")
@@ -34,7 +34,7 @@ async def test_modify_genrule(buck: Buck) -> None:
     assert Path(output).read_text() == "GOODBYE\n"
 
 
-@buck_test(inplace=False, data_dir="modify")
+@buck_test(data_dir="modify")
 async def test_modify_src(buck: Buck) -> None:
     result = await buck.build("//:mysrcrule")
     output = result.get_build_report().output_for_target("root//:mysrcrule")
@@ -46,7 +46,7 @@ async def test_modify_src(buck: Buck) -> None:
     assert Path(output).read_text() == "GOODBYE\n"
 
 
-@buck_test(inplace=False, data_dir="modify")
+@buck_test(data_dir="modify")
 async def test_modify_genrule_notify(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig", "a") as buckconfig:
         buckconfig.write("\n[buck2]\nfile_watcher = notify")
@@ -54,7 +54,7 @@ async def test_modify_genrule_notify(buck: Buck) -> None:
     await test_modify_genrule(buck)
 
 
-@buck_test(inplace=False, data_dir="modify")
+@buck_test(data_dir="modify")
 async def test_modify_directory(buck: Buck) -> None:
     # Test for the bug reported in T99593442
     os.mkdir(buck.cwd / "a_dir")
@@ -68,7 +68,7 @@ async def test_modify_directory(buck: Buck) -> None:
     await buck.build("//:writer")
 
 
-@buck_test(inplace=False, data_dir="modify_file_during_build")
+@buck_test(data_dir="modify_file_during_build")
 async def test_modify_file_during_build(buck: Buck) -> None:
     # We need to write some random stuff to the file first so that Buck will
     # have to attempt to upload it to RE (which will fail because by that time
@@ -82,7 +82,7 @@ async def test_modify_file_during_build(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="modify_file_during_build")
+@buck_test(data_dir="modify_file_during_build")
 async def test_file_notify(buck: Buck) -> None:
     # We need to write some random stuff to the file first so that Buck will
     # have to attempt to upload it to RE (which will fail because by that time

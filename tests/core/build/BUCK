@@ -38,6 +38,15 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_modify",
+    srcs = ["test_modify.py"],
+    data_dir = "test_modify_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_output_cleanup",
     srcs = ["test_output_cleanup.py"],
     data_dir = "test_output_cleanup_data",
