@@ -689,7 +689,8 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
 
     msg = (
         "Cannot package hidden srcs/resources in a standalone python_binary. " +
-        'Eliminate resources in non-Python dependencies of this python binary, use `package_style = "inplace"`, ' +
+        'Eliminate resources in non-Python dependencies of this python binary, set `package_style = "inplace"` on ' +
+        str(current_target.raw_target()) + ", " +
         'use `strip_mode="full"` or turn off Split DWARF `-c fbcode.split-dwarf=false` on C++ binary resources.\n'
     )
 
