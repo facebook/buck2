@@ -18,7 +18,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False, data_dir="deprecated_correct")
+@buck_test(data_dir="deprecated_correct")
 async def test_owner_without_universe_correct(buck: Buck) -> None:
     # TODO(nga): there should be a warning.
     result = await buck.cquery(
@@ -31,7 +31,7 @@ async def test_owner_without_universe_correct(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="deprecated_correct")
+@buck_test(data_dir="deprecated_correct")
 async def test_owner_with_auto_universe_correct(buck: Buck) -> None:
     result = await buck.cquery(
         "deps(//:test) intersect owner(bin.sh)",

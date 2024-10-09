@@ -18,7 +18,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery_transition_without_target_universe(buck: Buck) -> None:
     result = await buck.cquery(
         "root//:buck",
@@ -62,7 +62,7 @@ async def test_cquery_transition_without_target_universe(buck: Buck) -> None:
     assert _replace_hash(lines[3]) == "root//:moose (transitioned-to-reindeer#<HASH>)"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery_transition_with_target_universe(buck: Buck) -> None:
     result = await buck.cquery(
         "root//:buck",

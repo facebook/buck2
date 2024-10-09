@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_allbuildfiles(buck: Buck) -> None:
     target1 = "root//load:abc"
     target2 = "root//transitive_load:def"
@@ -58,7 +58,7 @@ async def test_allbuildfiles(buck: Buck) -> None:
     assert out4 == expected4
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_rbuildfiles(buck: Buck) -> None:
     target_file = "transitive_load/TARGETS.fixture"
     out1 = (

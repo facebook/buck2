@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden, golden_replace_cfg_hash
 
 
-@buck_test(inplace=False)
+@buck_test()
 # Test `target_deps()` function does not include toolchain deps.
 async def test_cquery_target_deps(buck: Buck) -> None:
     result = await buck.cquery("deps(tests/..., 1, target_deps())")
@@ -24,7 +24,7 @@ async def test_cquery_target_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 # Test `target_deps()` function does not include toolchain deps.
 async def test_uquery_target_deps(buck: Buck) -> None:
     # TODO(nga): output includes `platform_windows` target, which is probably not meant to be there.
@@ -36,7 +36,7 @@ async def test_uquery_target_deps(buck: Buck) -> None:
 
 
 # Test `configuration_deps()` function does include configuration deps.
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery_configuration_deps(buck: Buck) -> None:
     q = "deps(tests/..., 1, configuration_deps())"
     result = await buck.cquery(q)
@@ -49,7 +49,7 @@ async def test_cquery_configuration_deps(buck: Buck) -> None:
 
 
 # Test `configuration_deps()` function does include configuration deps.
-@buck_test(inplace=False)
+@buck_test()
 async def test_uquery_configuration_deps(buck: Buck) -> None:
     q = "deps(tests/..., 1, configuration_deps())"
     result = await buck.uquery(q)
@@ -60,7 +60,7 @@ async def test_uquery_configuration_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery_toolchain_deps(buck: Buck) -> None:
     q = "deps(tests:python_and_asic, 1, toolchain_deps())"
     out = await buck.cquery(q)
@@ -70,7 +70,7 @@ async def test_cquery_toolchain_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_uquery_toolchain_deps(buck: Buck) -> None:
     q = "deps(tests:python_and_asic, 1, toolchain_deps())"
     out = await buck.uquery(q)

@@ -18,7 +18,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cquery_filter_should_not_include_configuration(buck: Buck) -> None:
 
     # First, self-check.

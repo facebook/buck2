@@ -7,26 +7,22 @@
 
 # pyre-strict
 
+import re
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
-async def test_target_call_stacks_default(buck: Buck) -> None:
-    result = await buck.uquery(
-        "--stack",
-        "root//:test",
-    )
-    golden(
-        output=result.stdout,
-        rel_path="golden/uquery.stdout",
-    )
+def _replace_hash(s: str) -> str:
+    return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
+
+
+@buck_test(data_dir="simple")
+async def test_query_owner(buck: Buck) -> None:
     result = await buck.cquery(
-        "--stack",
-        "root//:test",
+        "--target-universe=root//bin:the_binary", """owner(bin/TARGETS.fixture)"""
     )
-    golden(
-        output=result.stdout,
-        rel_path="golden/cquery.stdout",
+    assert (
+        _replace_hash(result.stdout)
+        == "root//bin:the_binary (root//platforms:platform1#<HASH>)\n"
     )

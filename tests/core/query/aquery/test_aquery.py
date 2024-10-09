@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_target(buck: Buck) -> None:
     stdout = (await buck.aquery("//:test", "-a", "identifier")).stdout
 
@@ -23,7 +23,7 @@ async def test_target(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_all_outputs(buck: Buck) -> None:
     stdout = (await buck.aquery("all_outputs(//:test)", "-a", "identifier")).stdout
 
@@ -33,7 +33,7 @@ async def test_all_outputs(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_all_actions(buck: Buck) -> None:
     stdout = (await buck.aquery("all_actions(//:test)", "-a", "identifier")).stdout
 
@@ -43,7 +43,7 @@ async def test_all_actions(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_all_outputs_subtarget(buck: Buck) -> None:
     stdout = (
         await buck.aquery("all_outputs('//:test[sub]')", "-a", "identifier")
@@ -55,7 +55,7 @@ async def test_all_outputs_subtarget(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_filter(buck: Buck) -> None:
     stdout = (
         await buck.aquery(
@@ -71,7 +71,7 @@ async def test_filter(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_deps(buck: Buck) -> None:
     stdout = (await buck.aquery("deps(//:test)", "-a", "identifier")).stdout
 
@@ -81,7 +81,7 @@ async def test_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_target(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:target")).stdout
     golden(
@@ -90,7 +90,7 @@ async def test_bxl_aquery_target(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_all_outputs(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:all_outputs")).stdout
 
@@ -100,7 +100,7 @@ async def test_bxl_aquery_all_outputs(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_all_actions(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:all_actions")).stdout
 
@@ -110,7 +110,7 @@ async def test_bxl_aquery_all_actions(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_all_outputs_subtarget(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:all_outputs_subtarget")).stdout
 
@@ -120,7 +120,7 @@ async def test_bxl_aquery_all_outputs_subtarget(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_attrfilter(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:attrfilter")).stdout
 
@@ -130,7 +130,7 @@ async def test_bxl_aquery_attrfilter(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_deps(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:deps")).stdout
 
@@ -140,7 +140,7 @@ async def test_bxl_aquery_deps(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_eval(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:eval")).stdout
 
@@ -150,6 +150,6 @@ async def test_bxl_aquery_eval(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_aquery_action_query_node(buck: Buck) -> None:
     await buck.bxl("//:aquery.bxl:action_query_node")

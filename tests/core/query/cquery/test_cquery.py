@@ -27,13 +27,13 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_inputs(buck: Buck) -> None:
     result = await buck.cquery("""inputs(set(root//bin:the_binary //lib:file1))""")
     assert result.stdout == "bin/TARGETS.fixture\n"
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_cell(buck: Buck) -> None:
     result = await buck.cquery("""//stuff:magic""", rel_cwd=Path("special"))
     assert (
@@ -42,7 +42,7 @@ async def test_query_cell(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_relative(buck: Buck) -> None:
     result = await buck.cquery("""...""", rel_cwd=Path("special"))
     assert (
@@ -51,7 +51,7 @@ async def test_query_relative(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_provider_names(buck: Buck) -> None:
     await expect_failure(
         buck.cquery("'root//bin:the_binary[provider_name]'"),
@@ -64,7 +64,7 @@ async def test_query_provider_names(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_print_provider_text(buck: Buck) -> None:
     out = await buck.cquery("%s", "root//bin:the_binary", "--show-providers")
     golden_replace_cfg_hash(
@@ -73,7 +73,7 @@ async def test_query_print_provider_text(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_print_provider_json(buck: Buck) -> None:
     out = await buck.cquery("%s", "root//bin:the_binary", "--show-providers", "--json")
     golden_replace_cfg_hash(
@@ -82,7 +82,7 @@ async def test_query_print_provider_json(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_query_chunked_stream(buck: Buck) -> None:
     q = "deps(root//bin:the_binary)"
     result1 = await buck.cquery(q)
@@ -91,7 +91,7 @@ async def test_query_chunked_stream(buck: Buck) -> None:
     assert result1.stdout == result2.stdout
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_attributes(buck: Buck) -> None:
     attrs_out = await buck.cquery(
         "--output-attribute",
@@ -142,7 +142,7 @@ async def test_attributes(buck: Buck) -> None:
 
 
 # Tests for "%Ss" uses
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_args_as_set(buck: Buck) -> None:
     out = await buck.cquery("%Ss", "root//bin:the_binary", "//lib:file1")
     assert (
@@ -151,7 +151,7 @@ async def test_args_as_set(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_multi_query(buck: Buck) -> None:
     out = await buck.cquery("%s", "root//bin:the_binary", "//lib:file1")
     assert (
@@ -160,7 +160,7 @@ async def test_multi_query(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="multi_query_universe")
+@buck_test(data_dir="multi_query_universe")
 async def test_multi_query_universe(buck: Buck) -> None:
     out = await buck.cquery(
         "deps(%s)", "root//:macos-bin", "//:common-dep", "--output-format=json"
@@ -174,7 +174,7 @@ async def test_multi_query_universe(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_multi_query_print_provider_text(buck: Buck) -> None:
     out = await buck.cquery(
         "%s", "root//bin:the_binary", "//lib:lib1", "--show-providers"
@@ -185,7 +185,7 @@ async def test_multi_query_print_provider_text(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="unsorted")
+@buck_test(data_dir="unsorted")
 async def test_multi_query_print_provider_json(buck: Buck) -> None:
     out = await buck.cquery(
         "%s", "root//bin:the_binary", "//lib:lib1", "--show-providers", "--json"
@@ -197,7 +197,7 @@ async def test_multi_query_print_provider_json(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="visibility")
+@buck_test(data_dir="visibility")
 async def test_visibility(buck: Buck) -> None:
     for good in [
         "self//:pass1",
@@ -219,7 +219,7 @@ async def test_visibility(buck: Buck) -> None:
         assert "not visible to `%s`" % bad in failure.stderr
 
 
-@buck_test(inplace=False, data_dir="testsof")
+@buck_test(data_dir="testsof")
 async def test_testsof(buck: Buck) -> None:
     out = await buck.cquery(
         "testsof(//:foo_lib)",
@@ -249,7 +249,7 @@ async def test_testsof(buck: Buck) -> None:
 # TODO(scottcao): Disabling execution platforms is a hack that we need to get rid of
 # because it's not how buck2 should be used. Get rid of this test case once fbcode TD
 # stops disabling execution platforms
-@buck_test(inplace=False, data_dir="toolchain_deps")
+@buck_test(data_dir="toolchain_deps")
 async def test_disabling_of_execution_platforms(buck: Buck) -> None:
     # Run these commands 10x such that a stress run of 10 on continuous CI would run these commands 100x.
     # If there is a regression then the stress run would for sure detect it.
