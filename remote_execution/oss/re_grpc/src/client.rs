@@ -114,6 +114,7 @@ fn check_status(status: Status) -> Result<(), REClientError> {
     Err(REClientError {
         code: TCode(status.code),
         message: status.message,
+        group: TCodeReasonGroup::UNKNOWN,
     })
 }
 
@@ -639,6 +640,7 @@ impl REClient {
                         return Err(REClientError {
                             code: TCode(rpc_status.code),
                             message: rpc_status.message,
+                            group: TCodeReasonGroup::UNKNOWN,
                         }
                         .into());
                     }

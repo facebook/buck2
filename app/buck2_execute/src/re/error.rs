@@ -12,6 +12,7 @@ use buck2_error::ErrorTag;
 use buck2_error::TypedContext;
 use remote_execution::REClientError;
 use remote_execution::TCode;
+use remote_execution::TCodeReasonGroup;
 
 pub fn get_re_error_tag(tcode: TCode) -> ErrorTag {
     match tcode {
@@ -43,6 +44,8 @@ pub struct RemoteExecutionError {
     pub message: String,
     #[allocative(skip)]
     pub code: TCode,
+    #[allocative(skip)]
+    pub group: TCodeReasonGroup,
 }
 
 impl TypedContext for RemoteExecutionError {
@@ -63,16 +66,21 @@ fn re_error(
     re_session_id: &str,
     message: String,
     code: TCode,
+    group: TCodeReasonGroup,
 ) -> buck2_error::Error {
     let err = RemoteExecutionError {
         re_action: re_action.to_owned(),
         re_session_id: re_session_id.to_owned(),
         message,
         code,
+        group,
     };
     let buck2_error: buck2_error::Error = err.clone().into();
 
-    buck2_error.context(err).tag([get_re_error_tag(code)])
+    buck2_error
+        .context(err)
+        .tag([get_re_error_tag(code)])
+        .context_for_key(&group.to_string())
 }
 
 pub(crate) async fn with_error_handler<T>(
@@ -83,12 +91,12 @@ pub(crate) async fn with_error_handler<T>(
     match result {
         Ok(val) => Ok(val),
         Err(e) => {
-            let code = e
+            let (code, group) = e
                 .downcast_ref::<REClientError>()
-                .map(|e| e.code)
-                .unwrap_or(TCode::UNKNOWN);
+                .map(|e| (e.code, e.group))
+                .unwrap_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN));
 
-            Err(re_error(re_action, re_session_id, format!("{:#}", e), code).into())
+            Err(re_error(re_action, re_session_id, format!("{:#}", e), code, group).into())
         }
     }
 }
@@ -99,7 +107,13 @@ mod tests {
 
     #[test]
     fn test_extract_re_error() {
-        let error: buck2_error::Error = re_error("test", "test", "test".to_owned(), TCode::UNKNOWN);
+        let error: buck2_error::Error = re_error(
+            "test",
+            "test",
+            "test".to_owned(),
+            TCode::UNKNOWN,
+            TCodeReasonGroup::UNKNOWN,
+        );
 
         let err = error.find_typed_context::<RemoteExecutionError>().unwrap();
         assert_eq!(err.code, TCode::UNKNOWN);
