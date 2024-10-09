@@ -20,8 +20,8 @@ async def test_discovery_cached(buck: Buck) -> None:
         "buck2.cache_test_listings=true",
         "//:ok",
     ]
-    await check_discovery_is_not_executed(buck, False, args)
-    await check_discovery_is_not_executed(
+    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(
         buck, False, args
     )  # will be true once the implementation is done
 
@@ -31,20 +31,20 @@ async def test_discovery_cache_turned_off(buck: Buck) -> None:
     args = [
         "//:ok",
     ]
-    await check_discovery_is_not_executed(buck, False, args)
-    await check_discovery_is_not_executed(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, False, args)
 
 
-async def check_discovery_is_not_executed(
+async def run_test_and_check_discovery_presence(
     buck: Buck,
-    cached: bool,
+    is_present: bool,
     args: List[str],
 ) -> None:
     await buck.test(*args)
     stdout = (await buck.log("what-ran")).stdout
 
     assert "test.run" in stdout
-    if cached:
+    if is_present:
         assert "test.discovery" not in stdout
     else:
         assert "test.discovery" in stdout
