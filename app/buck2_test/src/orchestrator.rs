@@ -203,8 +203,10 @@ impl<'a> BuckTestOrchestrator<'a> {
         }
     }
 
-    async fn require_alive(&self) -> Result<(), Cancelled> {
-        if !self.liveliness_observer.is_alive().await {
+    async fn require_alive(
+        liveliness_observer: Arc<dyn LivelinessObserver>,
+    ) -> Result<(), Cancelled> {
+        if !liveliness_observer.is_alive().await {
             return Err(Cancelled);
         }
 
@@ -223,7 +225,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
     ) -> Result<ExecutionResult2, ExecuteError> {
-        self.require_alive().await?;
+        Self::require_alive(self.liveliness_observer.dupe()).await?;
 
         let test_target = self.session.get(test_target)?;
 
@@ -253,7 +255,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             })
             .await?;
 
-        self.require_alive().await?;
+        Self::require_alive(self.liveliness_observer.dupe()).await?;
 
         let mut output_map = HashMap::new();
         let mut paths_to_materialize = vec![];
@@ -388,8 +390,13 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .await?
             };
             // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
-            self.setup_local_resources(setup_contexts, setup_local_resources_executor, timeout)
-                .await?
+            self.setup_local_resources(
+                setup_contexts,
+                setup_local_resources_executor,
+                timeout,
+                self.liveliness_observer.dupe(),
+            )
+            .await?
         } else {
             vec![]
         };
@@ -410,7 +417,13 @@ impl<'a> BuckTestOrchestrator<'a> {
             .boxed()
             .await?;
         let result = self
-            .execute_request(&test_target, &stage, &test_executor, execution_request)
+            .execute_request(
+                &test_target,
+                &stage,
+                &test_executor,
+                execution_request,
+                self.liveliness_observer.dupe(),
+            )
             .boxed()
             .await?;
         Ok(result)
@@ -694,11 +707,12 @@ impl<'b> BuckTestOrchestrator<'b> {
         stage: &TestStage,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<ExecuteData, ExecuteError> {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             self.events.dupe(),
-            self.liveliness_observer.dupe(),
+            liveliness_observer.dupe(),
         );
 
         let mut action_key_suffix = match &stage {
@@ -1128,6 +1142,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
         default_timeout: Duration,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands =
             buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
@@ -1135,7 +1150,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }))
             .await?;
 
-        self.require_alive().await?;
+        Self::require_alive(liveliness_observer.dupe()).await?;
         let local_resource_state_registry = self.dice.get_local_resource_registry();
 
         let resource_futs = setup_commands.into_iter().map(|context| {
@@ -1146,7 +1161,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .or_insert_with(|| {
                     let setup = Self::start_local_resource(
                         self.events.dupe(),
-                        self.liveliness_observer.dupe(),
+                        liveliness_observer.dupe(),
                         self.digest_config.dupe(),
                         executor.dupe(),
                         context,
