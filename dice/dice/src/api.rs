@@ -9,19 +9,19 @@
 
 //! Public DICE API
 
-pub mod activation_tracker;
-pub mod computations;
-pub mod cycles;
-pub mod data;
-pub mod dice;
-pub mod dyn_key;
-pub mod error;
-pub mod events;
-pub mod injected;
-pub mod key;
-pub mod opaque;
-pub mod projection;
-pub mod storage_type;
-pub mod transaction;
-pub mod user_data;
-pub mod which;
+pub(crate) mod activation_tracker;
+pub(crate) mod computations;
+pub(crate) mod cycles;
+pub(crate) mod data;
+pub(crate) mod dice;
+pub(crate) mod dyn_key;
+pub(crate) mod error;
+pub(crate) mod events;
+pub(crate) mod injected;
+pub(crate) mod key;
+pub(crate) mod opaque;
+pub(crate) mod projection;
+pub(crate) mod storage_type;
+pub(crate) mod transaction;
+pub(crate) mod user_data;
+pub(crate) mod which;
