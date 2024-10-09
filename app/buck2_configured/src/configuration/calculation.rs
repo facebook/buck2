@@ -50,6 +50,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_in
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_node::configuration::calculation::{ConfigurationCalculationDyn, CONFIGURATION_CALCULATION};
 use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
 use crate::nodes::calculation::ExecutionPlatformConstraints;
 
@@ -363,7 +364,7 @@ struct ResolvedConfigurationKey {
 }
 
 #[async_trait]
-pub trait ConfigurationCalculation {
+pub(crate) trait ConfigurationCalculation {
     async fn get_default_platform(
         &mut self,
         target: &TargetLabel,
@@ -406,6 +407,34 @@ pub trait ConfigurationCalculation {
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
+}
+
+struct ConfigurationCalculationDynImpl;
+
+#[async_trait]
+impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
+    async fn get_platform_configuration(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        target: &TargetLabel,
+    ) -> anyhow::Result<ConfigurationData> {
+        ctx.get_platform_configuration(target).await
+    }
+
+    async fn get_resolved_configuration(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        target_cfg: &ConfigurationData,
+        target_node_cell: CellName,
+        configuration_deps: &[ConfigurationSettingKey],
+    ) -> buck2_error::Result<ResolvedConfiguration> {
+        ctx.get_resolved_configuration(target_cfg, target_node_cell, configuration_deps)
+            .await
+    }
+}
+
+pub(crate) fn init_configuration_calculation() {
+    CONFIGURATION_CALCULATION.init(&ConfigurationCalculationDynImpl);
 }
 
 async fn compute_platform_configuration_no_label_check(

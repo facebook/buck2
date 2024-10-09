@@ -15,7 +15,6 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
-use buck2_configured::configuration::calculation::ConfigurationCalculation;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -27,6 +26,7 @@ use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLa
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use derivative::Derivative;
@@ -78,15 +78,17 @@ pub(crate) async fn resolve_bxl_execution_platform(
 
     let platform_configuration = match target_platform.as_ref() {
         Some(global_target_platform) => {
-            ctx.get_platform_configuration(global_target_platform)
+            CONFIGURATION_CALCULATION
+                .get()?
+                .get_platform_configuration(ctx, global_target_platform)
                 .await?
         }
         None => ConfigurationData::unspecified(),
     };
-    let resolved_configuration = {
-        ctx.get_resolved_configuration(&platform_configuration, cell, &*exec_compatible_with)
-            .await?
-    };
+    let resolved_configuration = CONFIGURATION_CALCULATION
+        .get()?
+        .get_resolved_configuration(ctx, &platform_configuration, cell, &exec_compatible_with)
+        .await?;
 
     // there is not explicit configured deps, so platforms is empty
     let platform_cfgs = OrderedMap::new();
