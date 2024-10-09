@@ -34,13 +34,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_paranoid",
-    srcs = ["test_paranoid.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    serialize_test_cases = False,
-)
-
-buck2_e2e_test(
     name = "test_worker",
     srcs = ["test_worker.py"],
     tags = ["long_running"],

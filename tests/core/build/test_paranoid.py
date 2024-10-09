@@ -19,11 +19,11 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
+# FIXME(JakobDegen): Give these tests their own data dir, instead of sharing one
 
 # TODO(T184317763): either those tests are flaky or paranoid mode is broken,
 # to repro uncomment and run `buck2 test '@fbcode//mode/opt-asan' fbcode//buck2/tests/e2e/build:test_paranoid -- --exact 'buck2/tests/e2e/build:test_paranoid - test_paranoid.py::test_paranoid_allows_fallback_after_re_failure' --run-disabled`
 # @buck_test(
-#     inplace=False,
 #     data_dir="execution_platforms",
 #     skip_for_os=["windows"],
 # )
@@ -59,7 +59,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(
-    inplace=False,
     data_dir="execution_platforms",
     skip_for_os=["windows"],
 )
@@ -87,7 +86,6 @@ async def test_paranoid_ignores_preferences(
 # TODO(T184317763): either those tests are flaky or paranoid mode is broken,
 # to repro uncomment and run `buck2 test '@fbcode//mode/opt-asan' fbcode//buck2/tests/e2e/build:test_paranoid -- --exact 'buck2/tests/e2e/build:test_paranoid - test_paranoid.py::test_paranoid_forces_fallback_on_failure' --run-disabled`
 # @buck_test(
-#     inplace=False,
 #     data_dir="execution_platforms",
 #     skip_for_os=["windows"],
 # )
@@ -113,7 +111,6 @@ async def test_paranoid_ignores_preferences(
 
 
 @buck_test(
-    inplace=False,
     data_dir="execution_platforms",
     skip_for_os=["windows"],
 )
@@ -141,7 +138,6 @@ async def test_paranoid_ignores_low_pass_filter(
 
 
 @buck_test(
-    inplace=False,
     data_dir="execution_platforms",
 )
 async def test_paranoid_enable_disable(
@@ -186,7 +182,7 @@ async def test_paranoid_enable_disable(
     assert not (await config())["paranoid"]
 
 
-@buck_test(inplace=True)
+@buck_test(data_dir="execution_platforms")
 async def test_noop(buck: Buck) -> None:
     return
 
