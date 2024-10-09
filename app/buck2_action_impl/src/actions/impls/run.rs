@@ -255,6 +255,7 @@ struct UnpackedWorkerValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     id: WorkerId,
     concurrency: Option<usize>,
+    remote: bool,
 }
 
 struct UnpackedRunActionValues<'v> {
@@ -310,6 +311,7 @@ impl RunAction {
             exe: worker.exe_command_line(),
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),
+            remote: worker.remote(),
         });
 
         Ok(UnpackedRunActionValues {
@@ -325,6 +327,7 @@ impl RunAction {
         &self,
         fs: &ExecutorFs,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
+        actx: &dyn ActionExecutionCtx,
     ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values)?;
@@ -341,10 +344,27 @@ impl RunAction {
                 .exe
                 .add_to_command_line(&mut worker_rendered, &mut ctx)?;
             worker.exe.visit_artifacts(artifact_visitor)?;
+            let worker_key = if worker.remote {
+                let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
+                worker.exe.visit_artifacts(&mut worker_visitor)?;
+                if !worker_visitor.outputs.is_empty() {
+                    // TODO[AH] create appropriate error enum value.
+                    return Err(anyhow::anyhow!("remote persistent worker command should not produce an output"));
+                }
+                let worker_inputs: Vec<&ArtifactGroupValues> = worker_visitor
+                    .inputs()
+                    .map(|group| actx.artifact_values(group))
+                    .collect();
+                let (_, worker_digest) = metadata_content(fs.fs(), &worker_inputs, actx.digest_config())?;
+                Some(worker_digest)
+            } else {
+                None
+            };
             Some(WorkerSpec {
                 exe: worker_rendered,
                 id: worker.id,
                 concurrency: worker.concurrency,
+                remote_key: worker_key,
             })
         } else {
             None
@@ -416,7 +436,7 @@ impl RunAction {
         let fs = executor_fs.fs();
 
         let (expanded, worker) =
-            self.expand_command_line_and_worker(&ctx.executor_fs(), visitor)?;
+            self.expand_command_line_and_worker(&ctx.executor_fs(), visitor, ctx)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
         // those things in a HashMap is just not very useful.
