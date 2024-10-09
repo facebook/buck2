@@ -11,7 +11,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:derive_more",
-        "fbsource//third-party/rust:futures",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_events:buck2_events",

@@ -16,4 +16,3 @@ buck2_events = { workspace = true }
 derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
-futures = { workspace = true }

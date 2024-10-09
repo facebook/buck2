@@ -10,6 +10,7 @@
 #![feature(error_generic_member_access)]
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -21,7 +22,6 @@ use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
 use dice::UserComputationData;
 use dupe::Dupe;
-use futures::future::Future;
 
 #[derive(Copy, Clone, Dupe)]
 pub struct NodeDuration {
