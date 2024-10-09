@@ -68,7 +68,16 @@ async def test_incompatible_target_with_incompatible_dep(buck: Buck) -> None:
 
 @buck_test(inplace=False)
 async def test_exec_dep_transitive_incompatible(buck: Buck) -> None:
-    await buck.cquery("//exec_dep:one_exec_platform_transitive_incompatible")
+    await buck.cquery(
+        "//exec_dep:one_exec_platform_transitive_incompatible",
+    )
+
+
+@buck_test(inplace=False)
+async def test_exec_dep_transitive_incompatible_post_transition(buck: Buck) -> None:
+    await buck.cquery(
+        "//exec_dep:one_exec_platform_transitive_incompatible_post_transition",
+    )
 
 
 @pytest.mark.parametrize(

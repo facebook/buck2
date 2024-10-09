@@ -1254,7 +1254,7 @@ async fn compute_configured_forward_target_node(
         // instance (because ConfiguredTargetNode uses reference equality on its deps).
         // This also helps further verify idempotence (as we will get the real result with the any transition applied again).
         let transitioned_node = ctx
-            .get_configured_target_node(&target_label_after_transition)
+            .get_internal_configured_target_node(&target_label_after_transition)
             .await?;
 
         // In apply_transition() above we've checked that the transition is idempotent when applied again with the same attrs (but the

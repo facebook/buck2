@@ -1,3 +1,5 @@
+load("@//:defs.bzl", "transitioned_stub")
+
 constraint_setting(name = "exec_setting")
 
 constraint_value(
@@ -47,4 +49,15 @@ stub(
     name = "one_exec_platform_transitive_incompatible",
     default_target_platform = "//:platform",
     exec_deps = [":exec_compatible_B"],
+)
+
+transitioned_stub(
+    name = "exec_compatible_B_transitioned",
+    stub = ":exec_compatible_B",
+)
+
+stub(
+    name = "one_exec_platform_transitive_incompatible_post_transition",
+    default_target_platform = "//:platform",
+    exec_deps = [":exec_compatible_B_transitioned"],
 )
