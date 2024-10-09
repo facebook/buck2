@@ -86,7 +86,7 @@ pub(crate) fn validate_module(stmt: &AstStmt, parser_state: &mut ParserState) {
             }
         }
         if let Err(e) = DefParams::unpack(params, parser_state.codemap) {
-            parser_state.errors.push(e.into());
+            parser_state.errors.push(e);
         }
     }
 
