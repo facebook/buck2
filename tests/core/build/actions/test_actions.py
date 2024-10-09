@@ -375,7 +375,7 @@ async def test_failure_has_wall_time(buck: Buck) -> None:
         assert time > 0
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_local_action_has_input_size(buck: Buck) -> None:
     await buck.build("//run:runs_script_locally")
     input_size = await filter_events(
@@ -396,7 +396,7 @@ async def test_local_action_has_input_size(buck: Buck) -> None:
         assert input_size[0] == 342
 
 
-@buck_test(inplace=False, data_dir="actions")
+@buck_test(data_dir="actions")
 async def test_remote_action_has_input_size(buck: Buck) -> None:
     await buck.build("//run:runs_simple_script_remote")
     input_size = await filter_events(
