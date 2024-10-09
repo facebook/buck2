@@ -41,8 +41,11 @@ use starlark::values::tuple::UnpackTuple;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueOf;
+use starlark::values::ValueTypedComplex;
 use starlark::StarlarkDocs;
 use tracing::error;
 
@@ -51,6 +54,7 @@ use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::attrs::starlark_attribute::register_attr_type;
 use crate::attrs::starlark_attribute::StarlarkAttribute;
 use crate::interpreter::build_context::BuildContext;
+use crate::interpreter::selector::StarlarkSelector;
 use crate::plugins::AllPlugins;
 use crate::plugins::PluginKindArg;
 
@@ -486,14 +490,21 @@ fn attr_module(registry: &mut MethodsBuilder) {
     fn r#enum<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
-        #[starlark(require = named)] default: Option<Value<'v>>,
+        #[starlark(require = named)] default: Option<
+            ValueOf<'v, Either<StringValue<'v>, ValueTypedComplex<'v, StarlarkSelector<'v>>>>,
+        >,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAttribute> {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
         // it ends up being `Type` which doesn't match the data we see.
-        Attribute::attr(eval, default, doc, AttrType::enumeration(variants.items)?)
+        Attribute::attr(
+            eval,
+            default.map(|v| v.value),
+            doc,
+            AttrType::enumeration(variants.items)?,
+        )
     }
 
     fn configuration_label<'v>(
