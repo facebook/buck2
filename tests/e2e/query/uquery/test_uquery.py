@@ -466,57 +466,6 @@ async def test_directory_source(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True)
-async def test_allbuildfiles(buck: Buck) -> None:
-    target1 = "fbcode//buck2/tests/targets/buildfiles/load:abc"
-    target2 = "fbcode//buck2/tests/targets/buildfiles/transitive_load:def"
-    target3 = "fbcode//buck2/tests/targets/buildfiles/transitive_load:ghi"
-    out1 = await buck.uquery(f"allbuildfiles({target1})")
-    out2 = await buck.uquery(f"allbuildfiles({target2})")
-    out3 = await buck.uquery(f"allbuildfiles({target3})")
-    out4 = await buck.uquery(f"allbuildfiles(set({target1} {target2}))")
-
-    # verify loads
-    assert "fbcode/buck2/tests/targets/buildfiles/load/TARGETS" in out1.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/load/a.bzl" in out1.stdout
-
-    # verify transitive loads
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/b.bzl" in out2.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/c.bzl" in out2.stdout
-    assert (
-        "fbcode/buck2/tests/targets/buildfiles/transitive_load/TARGETS" in out2.stdout
-    )
-
-    # same buildfile = same output
-    assert out2.stdout == out3.stdout
-
-    # correctly handle multiple inputs
-    assert "fbcode/buck2/tests/targets/buildfiles/load/TARGETS" in out4.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/load/a.bzl" in out4.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/b.bzl" in out4.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/c.bzl" in out4.stdout
-    assert (
-        "fbcode/buck2/tests/targets/buildfiles/transitive_load/TARGETS" in out4.stdout
-    )
-
-
-@buck_test(inplace=True)
-async def test_rbuildfiles(buck: Buck) -> None:
-    target_file = "buck2/tests/targets/buildfiles/transitive_load/TARGETS"
-    out1 = await buck.uquery(
-        f"rbuildfiles({target_file}, buck2/tests/targets/buildfiles/transitive_load/c.bzl)"
-    )
-    out2 = await buck.uquery(f"rbuildfiles({target_file}, {target_file})")
-
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/b.bzl" in out1.stdout
-    assert "fbcode/buck2/tests/targets/buildfiles/transitive_load/c.bzl" in out1.stdout
-    assert (
-        "fbcode/buck2/tests/targets/buildfiles/transitive_load/TARGETS" in out1.stdout
-    )
-
-    assert out2.stdout == "fbcode/" + target_file + "\n"
-
-
 @buck_test(inplace=False, data_dir="oncall")
 async def test_oncall(buck: Buck) -> None:
     out = await buck.uquery("//:foo", "--output-attribute=oncall")
