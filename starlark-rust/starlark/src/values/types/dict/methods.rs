@@ -374,6 +374,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
 #[cfg(test)]
 mod tests {
     use crate::assert;
+    use crate::assert::Assert;
 
     #[test]
     fn test_error_codes() {
@@ -393,5 +394,42 @@ mod tests {
         assert::fails("{40+2: 2, 6*7: 3}", &["key repeated", "42"]);
         // Also check we fail if the entire dictionary is static (a different code path).
         assert::fails("{42: 2, 42: 3}", &["key repeated", "42"]);
+    }
+
+    #[test]
+    fn test_dict_update_with_self_pos() {
+        assert::eq("{3: 4, 1: 2}", "d = {3: 4, 1: 2}; d.update(d); d");
+    }
+
+    #[test]
+    fn test_dict_update_with_self_as_kwargs() {
+        assert::eq("{'a': 1, 'b': 2}", "d = {'a': 1, 'b': 2}; d.update(**d); d");
+    }
+
+    #[test]
+    fn test_frozen_dict_cannot_be_updated_with_self_pos() {
+        let mut a = Assert::new();
+        a.module("d.star", "D = {7: 8, 9: 0}");
+        a.fail(
+            r#"
+load('d.star', 'D')
+
+D.update(D)
+"#,
+            "Immutable",
+        );
+    }
+
+    #[test]
+    fn test_frozen_dict_cannot_be_updated_with_self_as_kwargs() {
+        let mut a = Assert::new();
+        a.module("d.star", "D = {'x': 17, 'y': 19}");
+        a.fail(
+            r#"
+load('d.star', 'D')
+D.update(**D)
+"#,
+            "Immutable",
+        );
     }
 }
