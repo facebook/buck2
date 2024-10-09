@@ -17,33 +17,12 @@ DEFAULT_PY_VERSION = "3.10"
 def _create_batched_type_check(
         ctx: AnalysisContext,
         executable: RunInfo,
-        srcs: ManifestInfo | None,
-        deps: list[PythonLibraryInfo],
-        typeshed: ManifestInfo | None,
-        py_version: str | None) -> Artifact:
+        typeshed_manifest: Artifact,
+        py_version: str | None,
+        source_manifests: list[Artifact],
+        dep_manifests: typing.Any,
+        hidden: typing.Any) -> Artifact:
     cmd = [executable]
-    hidden = []
-
-    # Source artifacts
-    source_manifests = []
-    if srcs != None:
-        source_manifests = [srcs.manifest]
-        hidden.extend([a for a, _ in srcs.artifacts])
-
-    # Dep artifacts
-    dep_manifest_tset = ctx.actions.tset(
-        PythonLibraryManifestsTSet,
-        children = [d.manifests for d in deps],
-    )
-    dep_manifests = dep_manifest_tset.project_as_args("source_type_manifests")
-    hidden.append(dep_manifest_tset.project_as_args("source_type_artifacts"))
-
-    # Typeshed artifacts
-    if typeshed != None:
-        hidden.extend([a for a, _ in typeshed.artifacts])
-        typeshed_manifest = typeshed.manifest
-    else:
-        typeshed_manifest = None
 
     # Create input configs
     input_config = {
@@ -79,13 +58,37 @@ def create_per_target_type_check(
         output_file = ctx.actions.write_json("type_check_result.json", {})
         return DefaultInfo(default_output = output_file)
 
+    hidden = []
+
+    # Dep artifacts
+    dep_manifest_tset = ctx.actions.tset(
+        PythonLibraryManifestsTSet,
+        children = [d.manifests for d in deps],
+    )
+    dep_manifests = dep_manifest_tset.project_as_args("source_type_manifests")
+    hidden.append(dep_manifest_tset.project_as_args("source_type_artifacts"))
+
+    # Typeshed artifacts
+    if typeshed != None:
+        hidden.extend([a for a, _ in typeshed.artifacts])
+        typeshed_manifest = typeshed.manifest
+    else:
+        typeshed_manifest = None
+
+    # Source artifacts
+    source_manifests = []
+    if srcs != None:
+        source_manifests.append(srcs.manifest)
+        hidden.extend([a for a, _ in srcs.artifacts])
+
     return DefaultInfo(
         default_output = _create_batched_type_check(
             ctx,
             executable,
-            srcs,
-            deps,
-            typeshed,
+            typeshed_manifest,
             py_version,
+            source_manifests,
+            dep_manifests,
+            hidden,
         ),
     )
