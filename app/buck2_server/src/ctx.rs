@@ -98,6 +98,7 @@ use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::stderr_output_guard::StderrOutputWriter;
 use buck2_server_starlark_debug::create_debugger_handle;
 use buck2_server_starlark_debug::BuckStarlarkDebuggerHandle;
+use buck2_test::local_resource_registry::InitLocalResourceRegistry;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
@@ -747,6 +748,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         );
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
+        data.init_local_resource_registry();
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
 
         let tags = vec![

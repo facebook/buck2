@@ -95,7 +95,7 @@ use crate::executor_launcher::ExecutorLaunch;
 use crate::executor_launcher::ExecutorLauncher;
 use crate::executor_launcher::OutOfProcessTestExecutor;
 use crate::executor_launcher::TestExecutorClientWrapper;
-use crate::local_resource_registry::LocalResourceRegistry;
+use crate::local_resource_registry::HasLocalResourceRegistry;
 use crate::orchestrator::BuckTestOrchestrator;
 use crate::orchestrator::ExecutorMessage;
 use crate::session::TestSession;
@@ -522,7 +522,6 @@ async fn test_targets(
             // NOTE: This is will cancel if the liveliness guard indicates we should.
             async move {
                 // Spawn our server to listen to the test runner's requests for execution.
-                let local_resource_registry = Arc::new(LocalResourceRegistry::new());
 
                 // Keep wrapper alive for the lifetime of the executor to ensure it stays registered.
                 let _test_executor_wrapper = test_executor_wrapper;
@@ -533,7 +532,6 @@ async fn test_targets(
                     liveliness_observer.dupe(),
                     test_status_sender,
                     CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
-                    local_resource_registry.dupe(),
                 )
                 .await
                 .context("Failed to create a BuckTestOrchestrator")?;
@@ -592,6 +590,8 @@ async fn test_targets(
                     .shutdown()
                     .await
                     .context("Failed to shutdown orchestrator")?;
+
+                let local_resource_registry = ctx.get_local_resource_registry();
 
                 local_resource_registry
                     .release_all_resources()

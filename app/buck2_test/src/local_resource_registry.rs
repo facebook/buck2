@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -17,6 +18,9 @@ use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
 use buck2_events::dispatch::span_async_simple;
 use dashmap::DashMap;
+use dice::DiceComputations;
+use dice::UserComputationData;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
@@ -76,5 +80,31 @@ impl<'a> LocalResourceRegistry<'a> {
         span_async_simple(start, cleanup(), end).await?;
 
         Ok::<(), anyhow::Error>(())
+    }
+}
+
+pub trait InitLocalResourceRegistry {
+    fn init_local_resource_registry(&mut self);
+}
+
+pub trait HasLocalResourceRegistry<'a> {
+    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry<'a>>;
+}
+
+impl InitLocalResourceRegistry for UserComputationData {
+    fn init_local_resource_registry(&mut self) {
+        self.data.set(Arc::new(LocalResourceRegistry::new()));
+    }
+}
+
+impl HasLocalResourceRegistry<'static> for DiceComputations<'static> {
+    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry<'static>> {
+        let data = self
+            .per_transaction_data()
+            .data
+            .get::<Arc<LocalResourceRegistry<'static>>>()
+            .expect("LocalResourceRegistry should be set");
+
+        data.dupe()
     }
 }

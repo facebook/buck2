@@ -131,7 +131,7 @@ use starlark::values::FrozenRef;
 use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
-use crate::local_resource_registry::LocalResourceRegistry;
+use crate::local_resource_registry::HasLocalResourceRegistry;
 use crate::local_resource_setup::required_local_resources_setup_contexts;
 use crate::local_resource_setup::LocalResourceSetupContext;
 use crate::local_resource_setup::TestStageSimple;
@@ -148,7 +148,7 @@ pub enum ExecutorMessage {
     InfoMessage(String),
 }
 
-pub struct BuckTestOrchestrator<'a> {
+pub struct BuckTestOrchestrator<'a: 'static> {
     dice: DiceTransaction,
     session: Arc<TestSession>,
     results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
@@ -156,7 +156,6 @@ pub struct BuckTestOrchestrator<'a> {
     liveliness_observer: Arc<dyn LivelinessObserver>,
     digest_config: DigestConfig,
     cancellations: &'a CancellationContext<'a>,
-    local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -166,7 +165,6 @@ impl<'a> BuckTestOrchestrator<'a> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         cancellations: &'a CancellationContext<'a>,
-        local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let digest_config = dice.global_data().get_digest_config();
@@ -178,7 +176,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             events,
             digest_config,
             cancellations,
-            local_resource_state_registry,
         ))
     }
 
@@ -190,7 +187,6 @@ impl<'a> BuckTestOrchestrator<'a> {
         events: EventDispatcher,
         digest_config: DigestConfig,
         cancellations: &'a CancellationContext,
-        local_resource_state_registry: Arc<LocalResourceRegistry<'a>>,
     ) -> BuckTestOrchestrator<'a> {
         Self {
             dice,
@@ -200,7 +196,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer,
             digest_config,
             cancellations,
-            local_resource_state_registry,
         }
     }
 
@@ -1096,10 +1091,11 @@ impl<'b> BuckTestOrchestrator<'b> {
             .await?;
 
         self.require_alive().await?;
+        let local_resource_state_registry = self.dice.get_local_resource_registry();
 
         let resource_futs = setup_commands.into_iter().map(|context| {
             let local_resource_target = context.target.dupe();
-            self.local_resource_state_registry
+            local_resource_state_registry
                 .0
                 .entry(local_resource_target.dupe())
                 .or_insert_with(|| {
@@ -1645,7 +1641,6 @@ mod tests {
                 EventDispatcher::null(),
                 DigestConfig::testing_default(),
                 CancellationContext::testing(),
-                Arc::new(LocalResourceRegistry::new()),
             ),
             receiver,
         ))
