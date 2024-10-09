@@ -266,6 +266,11 @@ def _cxx_python_extension_attrs():
     })
     return res
 
+def _constraint_overrides_attr():
+    return {
+        "constraint_overrides": attrs.list(attrs.string(), default = []),
+    }
+
 # Attrs common between python binary/test
 def _python_executable_attrs():
     cxx_binary_attrs = {k: v for k, v in cxx_rules.cxx_binary.attrs.items()}
@@ -279,6 +284,8 @@ def _python_executable_attrs():
         if key not in python_executable_attrs
     }
 
+    updated_attrs.update(_constraint_overrides_attr())
+
     # allow non-default value for the args below
     updated_attrs.update({
         "anonymous_link_groups": attrs.bool(default = False),
@@ -286,7 +293,6 @@ def _python_executable_attrs():
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "compiler_flags": attrs.list(attrs.arg(), default = []),
-        "constraint_overrides": attrs.list(attrs.string(), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
@@ -356,7 +362,7 @@ def _python_test_attrs():
     return test_attrs
 
 def _cxx_binary_and_test_attrs():
-    return {
+    ret = {
         "anonymous_link_groups": attrs.bool(default = False),
         "auto_link_groups": attrs.bool(default = False),
         # Linker flags that only apply to the executable link, used for link
@@ -365,7 +371,6 @@ def _cxx_binary_and_test_attrs():
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_flags": attrs.list(attrs.arg(), default = []),
         "bolt_profile": attrs.option(attrs.source(), default = None),
-        "constraint_overrides": attrs.list(attrs.string(), default = []),
         # These flags will only be used to instrument a target
         # when coverage for that target is enabled by a header
         # selected for coverage either in the target or in one
@@ -385,6 +390,8 @@ def _cxx_binary_and_test_attrs():
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
     }
+    ret.update(_constraint_overrides_attr())
+    return ret
 
 NativeLinkStrategy = ["separate", "native", "merged"]
 StripLibparStrategy = ["full", "extract", "none"]
@@ -641,7 +648,7 @@ inlined_extra_attributes = {
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
     "rust_test": {},
-    "sh_test": {},
+    "sh_test": _constraint_overrides_attr(),
     "windows_resource": {
         "_cxx_toolchain": toolchains_common.cxx(),
     },
@@ -681,6 +688,7 @@ transitions = {
     "go_test": go_test_transition,
     "python_binary": constraint_overrides_transition,
     "python_test": constraint_overrides_transition,
+    "sh_test": constraint_overrides_transition,
 }
 
 toolchain_rule_names = [
