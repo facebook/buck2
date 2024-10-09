@@ -26,7 +26,8 @@ impl ContextValue {
     /// Returns whether the context should be included in the error message
     pub(crate) fn should_display(&self) -> bool {
         match self {
-            Self::Dyn(..) | Self::Typed(..) => true,
+            Self::Dyn(..) => true,
+            Self::Typed(e) => e.should_display(),
             // Displaying the category in the middle of an error message doesn't seem useful
             Self::Tier(_) => false,
             Self::Tags(_) => false,
@@ -114,6 +115,10 @@ pub trait TypedContext:
     allocative::Allocative + Send + Sync + std::fmt::Display + std::any::Any + 'static
 {
     fn eq(&self, other: &dyn TypedContext) -> bool;
+
+    fn should_display(&self) -> bool {
+        true
+    }
 }
 
 impl<T: TypedContext> From<T> for ContextValue {

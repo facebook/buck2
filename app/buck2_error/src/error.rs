@@ -226,6 +226,19 @@ impl Error {
             .flatten()
     }
 
+    pub fn find_typed_context<T: TypedContext>(&self) -> Option<Arc<T>> {
+        self.iter_context().find_map(|kind| match kind {
+            ContextValue::Typed(v) => {
+                if let Ok(typed) = Arc::downcast(v.clone()) {
+                    Some(typed)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+    }
+
     /// Get all the tags that have been added to this error
     pub fn tags(&self) -> Vec<crate::ErrorTag> {
         let mut tags: Vec<_> = self.tags_unsorted().collect();
