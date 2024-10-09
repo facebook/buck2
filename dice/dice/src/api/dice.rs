@@ -24,7 +24,7 @@
 //!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
-//! use buck2_futures::cancellation::CancellationContext;
+//!     use buck2_futures::cancellation::CancellationContext;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute, 'd>(&'compute mut DiceComputations<'d>);
