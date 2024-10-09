@@ -603,16 +603,19 @@ impl CoercedAttr {
                 }
             }
 
-            CoercedAttrWithType::AnyList(list) => {
-                ConfiguredAttr::List(ListLiteral(list.try_map(|v| v.configure(ty, ctx))?.into()))
-            }
+            CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
+                list.try_map(|v| v.configure(AttrType::any_ref(), ctx))?
+                    .into(),
+            )),
             CoercedAttrWithType::AnyTuple(tuple) => ConfiguredAttr::Tuple(TupleLiteral(
-                tuple.try_map(|v| v.configure(ty, ctx))?.into(),
+                tuple
+                    .try_map(|v| v.configure(AttrType::any_ref(), ctx))?
+                    .into(),
             )),
             CoercedAttrWithType::AnyDict(dict) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = k.configure(ty, ctx)?;
-                    let v2 = v.configure(ty, ctx)?;
+                    let k2 = k.configure(AttrType::any_ref(), ctx)?;
+                    let v2 = v.configure(AttrType::any_ref(), ctx)?;
                     anyhow::Ok((k2, v2))
                 })?
                 .into(),

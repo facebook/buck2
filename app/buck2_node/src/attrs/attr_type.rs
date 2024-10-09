@@ -16,6 +16,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use dupe::Dupe;
+use once_cell::sync::Lazy;
 
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;
@@ -156,6 +157,11 @@ impl AttrType {
             inner: AttrTypeInner::Any(AnyAttrType),
             may_have_queries: false,
         }))
+    }
+
+    pub(crate) fn any_ref() -> &'static Self {
+        static ANY: Lazy<AttrType> = Lazy::new(AttrType::any);
+        &ANY
     }
 
     /// An arg attribute. Args are similar to strings, but have built in support
