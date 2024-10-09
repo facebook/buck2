@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(":packages.bzl", "GoStdlib")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
@@ -29,9 +30,10 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
     if cgo_enabled and cxx_toolchain != None:
         c_compiler = cxx_toolchain.c_compiler_info
-
+        cflags = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
+        cflags.add(cmd_args(get_target_sdk_version_flags(ctx), delimiter = "\t"))
         env["CC"] = cmd_args(c_compiler.compiler, delimiter = "\t", absolute_prefix = "%cwd%/")
-        env["CGO_CFLAGS"] = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
+        env["CGO_CFLAGS"] = cflags
         env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
 
     importcfg = ctx.actions.declare_output("stdlib.importcfg")
