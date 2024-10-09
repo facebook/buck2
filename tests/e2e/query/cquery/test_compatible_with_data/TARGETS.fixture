@@ -1,0 +1,75 @@
+constraint_setting(
+    name = "constraint",
+)
+
+constraint_value(
+    name = "value1",
+    constraint_setting = ":constraint",
+)
+
+constraint_value(
+    name = "value2",
+    constraint_setting = ":constraint",
+)
+
+constraint_setting(
+    name = "other_constraint",
+)
+
+constraint_value(
+    name = "other_value1",
+    constraint_setting = ":other_constraint",
+)
+
+constraint_value(
+    name = "other_value2",
+    constraint_setting = ":other_constraint",
+)
+
+platform(
+    name = "platform1",
+    constraint_values = [
+        ":other_value1",
+        ":value1",
+    ],
+)
+
+platform(
+    name = "platform2",
+    constraint_values = [
+        ":other_value2",
+        ":value2",
+    ],
+)
+
+stub(
+    name = "pass",
+    default_target_platform = ":platform1",
+    target_compatible_with = [":value1"],
+)
+
+stub(
+    name = "fail",
+    default_target_platform = ":platform1",
+    target_compatible_with = [":value2"],
+)
+
+stub(
+    name = "fail2",
+    default_target_platform = ":platform1",
+    # value1 should match, but not other_value2. target_compatible_with requires that all match
+    target_compatible_with = [
+        ":other_value2",
+        ":value1",
+    ],
+)
+
+stub(
+    name = "pass2",
+    # value1 should match, and compatible_with (unlike target_compatible_with) only requires one match
+    compatible_with = [
+        ":other_value2",
+        ":value1",
+    ],
+    default_target_platform = ":platform1",
+)

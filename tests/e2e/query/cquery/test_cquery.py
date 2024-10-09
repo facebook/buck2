@@ -197,26 +197,6 @@ async def test_multi_query_print_provider_json(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True)
-async def test_compatible_with(buck: Buck) -> None:
-    for good in [
-        "fbcode//buck2/tests/targets/configurations_uncategorized:compatible_with_pass",
-        "fbcode//buck2/tests/targets/configurations_uncategorized:compatible_with_pass2",
-    ]:
-        out = await buck.cquery(good)
-        assert re.match(
-            "{} \\(.*\\)\n".format(good),
-            out.stdout,
-        )
-
-    for bad in [
-        "fbcode//buck2/tests/targets/configurations_uncategorized:compatible_with_fail",
-        "fbcode//buck2/tests/targets/configurations_uncategorized:compatible_with_fail2",
-    ]:
-        out = await buck.cquery(bad)
-        assert out.stdout == ""
-
-
 @buck_test(inplace=False, data_dir="visibility")
 async def test_visibility(buck: Buck) -> None:
     for good in [
