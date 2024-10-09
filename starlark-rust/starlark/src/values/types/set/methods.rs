@@ -271,27 +271,27 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// Removes and returns the first element of a set.
+    /// Removes and returns the **last** element of a set.
     ///
-    /// `S.pop()` removes and returns the first element of the set S.
+    /// `S.pop()` removes and returns the last element of the set S.
     ///
     /// `pop` fails if the set is empty, or if the set is frozen or has active iterators.
-    /// Time complexity of this operation is *O(N)* where *N* is the number of entries in the set.
+    /// Time complexity of this operation is *O(1)*.
     ///
     /// ```
     /// # starlark::assert::is_true(r#"
     /// x = set([1, 2, 3])
     /// # (
-    /// x.pop() == 1
+    /// x.pop() == 3
     /// # and
     /// x.pop() == 2
     /// # and
-    /// x == set([3])
+    /// x == set([1])
     /// # )"#);
     /// ```
     fn pop<'v>(this: Value<'v>) -> starlark::Result<Value<'v>> {
         let mut set = SetMut::from_value(this)?;
-        match set.aref.content.shift_remove_index(0) {
+        match set.aref.content.pop() {
             Some(x) => Ok(x),
             None => Err(value_error!("pop from an empty set")),
         }
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_pop() {
-        assert::is_true("x = set([1, 0]); (x.pop() == 1 and x.pop() == 0 and x == set())");
+        assert::is_true("x = set([1, 0]); (x.pop() == 0 and x.pop() == 1 and x == set())");
     }
 
     #[test]

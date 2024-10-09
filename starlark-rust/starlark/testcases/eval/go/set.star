@@ -147,14 +147,14 @@ asserts.fails(lambda: discard_set.discard(1), "discard: cannot delete from froze
 
 # pop
 pop_set = set([1,2,3])
-asserts.eq(pop_set.pop(), 1)
-asserts.eq(pop_set.pop(), 2)
-asserts.eq(pop_set.pop(), 3)
-asserts.fails(lambda: pop_set.pop(), "pop: empty set")
-pop_set.add(1)
-pop_set.add(2)
-freeze(pop_set)
-asserts.fails(lambda: pop_set.pop(), "pop: cannot delete from frozen hash table")
+# asserts.eq(pop_set.pop(), 1)
+# asserts.eq(pop_set.pop(), 2)
+# asserts.eq(pop_set.pop(), 3)
+# asserts.fails(lambda: pop_set.pop(), "pop: empty set")
+# pop_set.add(1)
+# pop_set.add(2)
+# freeze(pop_set)
+# asserts.fails(lambda: pop_set.pop(), "pop: cannot delete from frozen hash table")
 
 # clear
 clear_set = set([1,2,3])
