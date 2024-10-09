@@ -15,8 +15,5 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test(inplace=False)
 async def test_oneof_concat(buck: Buck) -> None:
-    # TODO(T199609145): Fix the issue
-    await expect_failure(
-        buck.cquery("//:foo"),
-        stderr_regex="while concat, LHS is oneof, expecting RHS to also be oneof",
-    )
+    res = await buck.cquery("//:foo")
+    assert res.stdout.startswith("root//:foo ")

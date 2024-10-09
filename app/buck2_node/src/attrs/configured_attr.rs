@@ -31,6 +31,7 @@ use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
+use crate::attrs::attr_type::one_of::OneOfAttrType;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::split_transition_dep::ConfiguredSplitTransitionDep;
 use crate::attrs::attr_type::string::StringLiteral;
@@ -212,6 +213,43 @@ impl ConfiguredAttr {
         )
     }
 
+    fn unpack_oneof(self) -> anyhow::Result<(Self, u32)> {
+        match self {
+            ConfiguredAttr::OneOf(first, first_i) => Ok((*first, first_i)),
+            t => Err(internal_error!(
+                "expecting oneof variant, got: {}`",
+                t.as_display_no_ctx(),
+            )),
+        }
+    }
+
+    fn unpack_oneof_i(self, expected_i: u32, oneof: &OneOfAttrType) -> anyhow::Result<Self> {
+        let (first, i) = self.unpack_oneof()?;
+        if i != expected_i {
+            let first_t = oneof.get(expected_i)?;
+            let next_t = oneof.get(i)?;
+            return Err(buck2_error!(
+                [],
+                "Cannot concatenate values coerced/configured \
+                to different oneof variants: `{first_t}` and `{next_t}`"
+            ));
+        }
+        Ok(first)
+    }
+
+    fn concat_oneof(
+        self,
+        items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
+        oneof: &OneOfAttrType,
+    ) -> anyhow::Result<Self> {
+        let (first, first_i) = self.unpack_oneof()?;
+        let attr = first.concat(
+            &oneof.xs[first_i as usize],
+            &mut items.map(|v| v?.unpack_oneof_i(first_i, oneof)),
+        )?;
+        Ok(ConfiguredAttr::OneOf(Box::new(attr), first_i))
+    }
+
     /// Used for concatting the configured result of concatted selects. For most types this isn't allowed (it
     /// should be unreachable as concat-ability is checked during coercion and the type would've returned false from `AttrType::supports_concat`).
     /// This is used when a select() is added to another value, like `select(<...>) + select(<...>)` or `select(<...>) + [...]`.
@@ -220,115 +258,90 @@ impl ConfiguredAttr {
         attr_type: &AttrType,
         items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
     ) -> anyhow::Result<Self> {
-        match self {
-            ConfiguredAttr::OneOf(box first, first_i) => {
-                // Becaise if attr type if `option(oneof([list(string), ...])`,
+        match &attr_type.0.inner {
+            AttrTypeInner::OneOf(xs) => self.concat_oneof(items, xs),
+            AttrTypeInner::Option(opt) => {
+                // Because if attr type is `option(oneof([list(string), ...])`,
                 // value type is `oneof(list(...))`, without indication it is an option.
-                let attr_type = attr_type.unwrap_if_option();
-
-                let oneof_type = match &attr_type.0.inner {
-                    AttrTypeInner::OneOf(oneof_type) => oneof_type,
-                    _ => {
-                        return Err(internal_error!(
-                            "Inconsistent attr value (`{}`) and attr type (`{}`)",
-                            ConfiguredAttr::OneOf(Box::new(first), first_i).as_display_no_ctx(),
-                            attr_type
-                        ));
-                    }
-                };
-
-                let first_t = oneof_type.get(first_i)?;
-
-                first.concat(
-                    first_t,
-                    &mut items.map(|next| match next? {
-                        ConfiguredAttr::OneOf(box next, next_i) => {
-                            let next_t = oneof_type.get(next_i)?;
-                            if first_i != next_i {
-                                return Err(buck2_error!(
-                                    [],
-                                    "Cannot concatenate values coerced/configured \
-                                    to different oneof variants: `{first_t}` and `{next_t}`"
-                                ));
+                self.concat(&opt.inner, items)
+            }
+            _ => match self {
+                ConfiguredAttr::OneOf(..) => Err(internal_error!(
+                    "Inconsistent attr value (`{}`) and attr type (`{}`)",
+                    self.as_display_no_ctx(),
+                    attr_type
+                )),
+                ConfiguredAttr::List(list) => {
+                    let mut res = list.to_vec();
+                    for x in items {
+                        match x? {
+                            ConfiguredAttr::List(list2) => {
+                                res.extend(list2.iter().cloned());
                             }
-                            Ok(next)
+                            attr => return Err(attr.concat_not_supported("list")),
                         }
-                        _ => Err(internal_error!(
-                            "while concat, LHS is oneof, expecting RHS to also be oneof"
-                        )),
-                    }),
-                )
-            }
-            ConfiguredAttr::List(list) => {
-                let mut res = list.to_vec();
-                for x in items {
-                    match x? {
-                        ConfiguredAttr::List(list2) => {
-                            res.extend(list2.iter().cloned());
-                        }
-                        attr => return Err(attr.concat_not_supported("list")),
                     }
+                    Ok(ConfiguredAttr::List(ListLiteral(res.into())))
                 }
-                Ok(ConfiguredAttr::List(ListLiteral(res.into())))
-            }
-            ConfiguredAttr::Dict(left) => {
-                let mut res = OrderedMap::new();
-                for (k, v) in left.iter().cloned() {
-                    res.insert(k, v);
-                }
-                for x in items {
-                    match x? {
-                        ConfiguredAttr::Dict(right) => {
-                            for (k, v) in right.iter().cloned() {
-                                match res.entry(k) {
-                                    small_map::Entry::Vacant(e) => {
-                                        e.insert(v);
-                                    }
-                                    small_map::Entry::Occupied(e) => {
-                                        return Err(buck2_error!(
-                                            [],
-                                            "got same key in both sides of dictionary concat (key `{}`)",
-                                            e.key().as_display_no_ctx()
-                                        ));
+                ConfiguredAttr::Dict(left) => {
+                    let mut res = OrderedMap::new();
+                    for (k, v) in left.iter().cloned() {
+                        res.insert(k, v);
+                    }
+                    for x in items {
+                        match x? {
+                            ConfiguredAttr::Dict(right) => {
+                                for (k, v) in right.iter().cloned() {
+                                    match res.entry(k) {
+                                        small_map::Entry::Vacant(e) => {
+                                            e.insert(v);
+                                        }
+                                        small_map::Entry::Occupied(e) => {
+                                            return Err(buck2_error!(
+                                                [],
+                                                "got same key in both sides of dictionary concat (key `{}`)",
+                                                e.key().as_display_no_ctx()
+                                            ));
+                                        }
                                     }
                                 }
                             }
-                        }
-                        attr => return Err(attr.concat_not_supported("dict")),
-                    }
-                }
-                Ok(ConfiguredAttr::Dict(res.into_iter().collect()))
-            }
-            ConfiguredAttr::String(res) => {
-                let mut items = items.peekable();
-                if items.peek().is_none() {
-                    Ok(ConfiguredAttr::String(res))
-                } else {
-                    let mut res = str::to_owned(&res.0);
-                    for x in items {
-                        match x? {
-                            ConfiguredAttr::String(right) => res.push_str(&right.0),
-                            attr => return Err(attr.concat_not_supported("string")),
+                            attr => return Err(attr.concat_not_supported("dict")),
                         }
                     }
-                    Ok(ConfiguredAttr::String(StringLiteral(ArcStr::from(res))))
+                    Ok(ConfiguredAttr::Dict(res.into_iter().collect()))
                 }
-            }
-            ConfiguredAttr::Arg(left) => {
-                let res = left.string_with_macros.concat(items.map(|x| match x? {
-                    ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
-                    attr => Err(attr.concat_not_supported("arg")),
-                }))?;
-                Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
-                    string_with_macros: res,
-                    anon_target_compatible: left.anon_target_compatible,
-                }))
-            }
-            val => Err(buck2_error!(
-                [],
-                "addition not supported for this attribute type `{}`",
-                val.as_display_no_ctx()
-            )),
+                ConfiguredAttr::String(res) => {
+                    let mut items = items.peekable();
+                    if items.peek().is_none() {
+                        Ok(ConfiguredAttr::String(res))
+                    } else {
+                        let mut res = str::to_owned(&res.0);
+                        for x in items {
+                            match x? {
+                                ConfiguredAttr::String(right) => res.push_str(&right.0),
+                                attr => return Err(attr.concat_not_supported("string")),
+                            }
+                        }
+                        Ok(ConfiguredAttr::String(StringLiteral(ArcStr::from(res))))
+                    }
+                }
+                ConfiguredAttr::Arg(left) => {
+                    let res = left.string_with_macros.concat(items.map(|x| match x? {
+                        ConfiguredAttr::Arg(x) => Ok(x.string_with_macros),
+                        attr => Err(attr.concat_not_supported("arg")),
+                    }))?;
+                    Ok(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
+                        string_with_macros: res,
+                        anon_target_compatible: left.anon_target_compatible,
+                    }))
+                }
+                val => Err(buck2_error!(
+                    [],
+                    "addition not supported for this attribute type `{}`",
+                    val.as_display_no_ctx()
+                )),
+            },
         }
     }
 
