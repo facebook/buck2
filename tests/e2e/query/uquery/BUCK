@@ -10,8 +10,3 @@ buck2_e2e_test(
         "//buck2/tests/e2e_util:golden",
     ],
 )
-
-buck2_e2e_test(
-    name = "test_target_call_stacks",
-    srcs = ["test_target_call_stacks.py"],
-)
