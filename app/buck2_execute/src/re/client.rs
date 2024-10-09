@@ -132,10 +132,11 @@ impl RemoteExecutionClient {
             match Self::new(re_config).await {
                 Ok(v) => return Ok(v),
                 Err(e) => {
-                    if e.downcast_ref::<RemoteExecutionError>().is_none() {
+                    let e: buck2_error::Error = e.into();
+                    if e.find_typed_context::<RemoteExecutionError>().is_none() {
                         // If we cannot connect to RE due to some non-RE error, we should not retry
                         // And should just return the error immediately as it's unlikely to be flakey
-                        return Err(e);
+                        return Err(e.into());
                     }
 
                     tracing::warn!(
@@ -738,10 +739,13 @@ impl RemoteExecutionClientImpl {
 
         match res {
             Ok(r) => Ok(Some(r)),
-            Err(e) => match e.downcast_ref::<RemoteExecutionError>() {
-                Some(e) if e.code == TCode::NOT_FOUND => Ok(None),
-                _ => Err(e),
-            },
+            Err(e) => {
+                let e: buck2_error::Error = e.into();
+                match e.find_typed_context::<RemoteExecutionError>() {
+                    Some(e) if e.code == TCode::NOT_FOUND => Ok(None),
+                    _ => Err(e.into()),
+                }
+            }
         }
     }
 

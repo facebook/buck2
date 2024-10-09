@@ -78,10 +78,13 @@ impl ActionCacheUploadPermissionChecker {
             .await;
         match result {
             Ok(_) => Ok(Ok(())),
-            Err(e) => match e.downcast_ref::<RemoteExecutionError>() {
-                Some(e) if e.code == TCode::PERMISSION_DENIED => Ok(Err(e.message.clone())),
-                _ => Err(e),
-            },
+            Err(e) => {
+                let e: buck2_error::Error = e.into();
+                match e.find_typed_context::<RemoteExecutionError>() {
+                    Some(e) if e.code == TCode::PERMISSION_DENIED => Ok(Err(e.message.clone())),
+                    _ => Err(e.into()),
+                }
+            }
         }
     }
 

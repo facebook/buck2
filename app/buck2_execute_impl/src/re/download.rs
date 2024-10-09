@@ -214,11 +214,13 @@ impl CasDownloader<'_> {
                 match artifacts {
                     Ok(artifacts) => artifacts,
                     Err(e) => {
-                        let error = e.context(format!("action_digest={}", details.action_digest));
+                        let error: buck2_error::Error = e
+                            .context(format!("action_digest={}", details.action_digest))
+                            .into();
                         let is_storage_resource_exhausted = error
-                            .downcast_ref::<RemoteExecutionError>()
+                            .find_typed_context::<RemoteExecutionError>()
                             .map_or(false, |re_client_error| {
-                                is_storage_resource_exhausted(re_client_error)
+                                is_storage_resource_exhausted(re_client_error.as_ref())
                             });
                         let error_type = if is_storage_resource_exhausted {
                             CommandExecutionErrorType::StorageResourceExhausted

@@ -181,6 +181,7 @@ impl CacheUploader {
                     Ok(CacheUploadOutcome::Success(result_for_dep_file))
                 }
                 .await
+                .map_err(|e: anyhow::Error| buck2_error::Error::from(e))
                 .unwrap_or_else(CacheUploadOutcome::Failed);
 
                 let cache_upload_end_event = buck2_data::CacheUploadEnd {
@@ -471,7 +472,7 @@ impl CacheUploader {
 enum CacheUploadOutcome {
     Success(Option<TActionResult2>),
     Rejected(CacheUploadRejectionReason),
-    Failed(anyhow::Error),
+    Failed(buck2_error::Error),
 }
 
 impl CacheUploadOutcome {
@@ -500,7 +501,7 @@ impl CacheUploadOutcome {
                     Some(TCode::PERMISSION_DENIED.to_string())
                 }
             },
-            CacheUploadOutcome::Failed(e) => match e.downcast_ref::<RemoteExecutionError>() {
+            CacheUploadOutcome::Failed(e) => match e.find_typed_context::<RemoteExecutionError>() {
                 Some(e) => Some(e.code.to_string()),
                 _ => Some("OTHER_ERRORS".to_owned()),
             },

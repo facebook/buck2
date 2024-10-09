@@ -227,18 +227,26 @@ impl DefaultIoHandler {
                 re_client
                     .materialize_files(files, info.re_use_case)
                     .await
-                    .map_err(|e| match e.downcast_ref::<RemoteExecutionError>() {
-                        Some(e) if e.code == TCode::NOT_FOUND => MaterializeEntryError::NotFound {
-                            info: info.dupe(),
-                            debug: Arc::from(e.message.as_str()),
-                            directory: entry,
-                        },
-                        _ => MaterializeEntryError::Error(e.context({
-                            format!(
-                                "Error materializing files declared by action: {}",
-                                info.origin
-                            )
-                        })),
+                    .map_err(|e| {
+                        let e: buck2_error::Error = e.into();
+                        match e.find_typed_context::<RemoteExecutionError>() {
+                            Some(e) if e.code == TCode::NOT_FOUND => {
+                                MaterializeEntryError::NotFound {
+                                    info: info.dupe(),
+                                    debug: Arc::from(e.message.as_str()),
+                                    directory: entry,
+                                }
+                            }
+                            _ => MaterializeEntryError::Error(
+                                e.context({
+                                    format!(
+                                        "Error materializing files declared by action: {}",
+                                        info.origin
+                                    )
+                                })
+                                .into(),
+                            ),
+                        }
                     })?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {

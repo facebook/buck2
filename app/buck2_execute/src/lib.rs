@@ -13,6 +13,7 @@
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
 #![feature(used_with_arg)]
+#![feature(trait_upcasting)]
 
 pub mod artifact;
 pub mod artifact_utils;

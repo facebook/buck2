@@ -122,10 +122,11 @@ impl ReExecutor {
         match upload_response {
             Ok(()) => {}
             Err(e) => {
+                let e: buck2_error::Error = e.into();
                 let is_storage_resource_exhausted = e
-                    .downcast_ref::<RemoteExecutionError>()
+                    .find_typed_context::<RemoteExecutionError>()
                     .map_or(false, |re_client_error| {
-                        is_storage_resource_exhausted(re_client_error)
+                        is_storage_resource_exhausted(re_client_error.as_ref())
                     });
                 let error_type = if is_storage_resource_exhausted {
                     CommandExecutionErrorType::StorageResourceExhausted
