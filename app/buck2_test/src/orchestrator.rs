@@ -372,7 +372,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = test_executable_expanded;
         let executor_preference = self.executor_preference(supports_re)?;
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
-            let setup_local_resources_executor = self.get_local_executor(&fs).await?;
+            let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
             let simple_stage = match stage.as_ref() {
                 TestStage::Listing(_) => TestStageSimple::Listing,
                 TestStage::Testing { .. } => TestStageSimple::Testing,
@@ -562,7 +562,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
-        let setup_local_resources_executor = self.get_local_executor(&fs).await?;
+        let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
         let setup_contexts = {
             let executor_fs = setup_local_resources_executor.executor_fs();
             required_local_resources_setup_contexts(
@@ -923,7 +923,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         Ok(executor)
     }
 
-    async fn get_local_executor(&self, fs: &ArtifactFs) -> anyhow::Result<CommandExecutor> {
+    async fn get_local_executor(
+        dice: &DiceTransaction,
+        fs: &ArtifactFs,
+    ) -> anyhow::Result<CommandExecutor> {
         let executor_config = CommandExecutorConfig {
             executor: Executor::Local(LocalExecutorOptions::default()),
             options: CommandGenerationOptions {
@@ -936,8 +939,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             platform,
             cache_checker: _,
             cache_uploader: _,
-        } = self
-            .dice
+        } = dice
             .clone()
             .get_command_executor_from_dice(&executor_config)
             .await?;
