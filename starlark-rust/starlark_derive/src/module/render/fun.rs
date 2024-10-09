@@ -28,6 +28,7 @@ use syn::Lit;
 use crate::module::param_spec::ParamSpec;
 use crate::module::render::render_starlark_return_type;
 use crate::module::render::render_starlark_type;
+use crate::module::simple_param::SimpleParam;
 use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
@@ -35,7 +36,6 @@ use crate::module::typ::StarArgSource;
 use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::util::ident_string;
-use crate::module::util::pat_type;
 
 impl StarFun {
     fn ty_custom_expr(&self) -> syn::Expr {
@@ -79,12 +79,10 @@ impl StarFun {
     }
 
     /// Evaluator function parameter and call argument.
-    fn eval_param_arg(&self) -> (Option<syn::PatType>, Option<syn::Expr>) {
-        if let Some(SpecialParam { ident, ty }) = &self.eval {
+    fn eval_param_arg(&self) -> (Option<SimpleParam>, Option<syn::Expr>) {
+        if let Some(SpecialParam { param }) = &self.eval {
             (
-                Some(syn::parse_quote! {
-                    #ident: #ty
-                }),
+                Some(param.clone()),
                 Some(syn::parse_quote! {
                     eval
                 }),
@@ -95,12 +93,10 @@ impl StarFun {
     }
 
     /// Heap function parameter and call argument.
-    fn heap_param_arg(&self) -> (Option<syn::PatType>, Option<syn::Expr>) {
-        if let Some(SpecialParam { ident, ty }) = &self.heap {
+    fn heap_param_arg(&self) -> (Option<SimpleParam>, Option<syn::Expr>) {
+        if let Some(SpecialParam { param }) = &self.heap {
             (
-                Some(syn::parse_quote! {
-                    #ident: #ty
-                }),
+                Some(param.clone()),
                 Some(syn::parse_quote! {
                     eval.heap()
                 }),
@@ -117,7 +113,7 @@ impl StarFun {
         // Outer function parameter.
         Option<syn::FnArg>,
         // Inner function parameter.
-        Option<syn::PatType>,
+        Option<SimpleParam>,
         Option<syn::Stmt>,
         Option<syn::Expr>,
     ) {
@@ -127,7 +123,7 @@ impl StarFun {
                 let local_var: syn::Ident = syn::parse_quote! { s_this_typed };
                 (
                     Some(syn::parse_quote! { #outer_param_name: starlark::values::Value<'v> }),
-                    Some(this.reconstruct_param()),
+                    Some(this.param.clone()),
                     Some(this.render_prepare(&local_var, &outer_param_name)),
                     Some(syn::parse_quote! { #local_var }),
                 )
@@ -137,7 +133,7 @@ impl StarFun {
     }
 
     /// Non-special params.
-    fn binding_params_arg(&self) -> syn::Result<(Vec<syn::PatType>, TokenStream, Vec<syn::Expr>)> {
+    fn binding_params_arg(&self) -> syn::Result<(Vec<SimpleParam>, TokenStream, Vec<syn::Expr>)> {
         let Bindings { prepare, bindings } = render_binding(self)?;
         let binding_params: Vec<_> = bindings.iter().map(|b| b.param.clone()).collect();
         let binding_args: Vec<_> = bindings.iter().map(|b| b.render_arg()).collect();
@@ -252,7 +248,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         ..
     } = x;
 
-    let invoke_params: Vec<syn::PatType> = iter::empty()
+    let invoke_params: Vec<SimpleParam> = iter::empty()
         .chain(this_inner_param)
         .chain(binding_params)
         .chain(eval_param)
@@ -349,7 +345,7 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
         (RegularParams::Arguments(arguments), StarFunSource::Arguments) => Ok(Bindings {
             prepare: TokenStream::new(),
             bindings: vec![BindingArg {
-                param: arguments.reconstruct_param(),
+                param: arguments.param.clone(),
                 expr: syn::parse_quote! { parameters },
             }],
         }),
@@ -418,7 +414,7 @@ fn render_binding(x: &StarFun) -> syn::Result<Bindings> {
 
 struct BindingArg {
     expr: syn::Expr,
-    param: syn::PatType,
+    param: SimpleParam,
 }
 
 impl BindingArg {
@@ -433,7 +429,7 @@ fn render_unpack_value(value: syn::Expr, arg: &StarArg) -> syn::Expr {
         // If we already have a `Value`, no need to unpack it.
         value
     } else {
-        let name_str = ident_string(&arg.name);
+        let name_str = ident_string(&arg.param.ident);
         syn::parse_quote! {
             starlark::__derive_refs::parse_args::check_unpack(#name_str, #value)?
         }
@@ -442,7 +438,7 @@ fn render_unpack_value(value: syn::Expr, arg: &StarArg) -> syn::Expr {
 
 /// Convert an expression of type `Option<Value>` to an expression of type of parameter.
 fn render_unpack_option_value(option_value: syn::Expr, arg: &StarArg) -> syn::Expr {
-    let name_str = ident_string(&arg.name);
+    let name_str = ident_string(&arg.param.ident);
     if arg.is_option_value() {
         // If we already have a `Option<Value>`, no need to unpack it.
         option_value
@@ -490,7 +486,7 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
 
     Ok(BindingArg {
         expr: next,
-        param: pat_type(&arg.attrs, arg.mutable, &arg.name, &arg.ty),
+        param: arg.param.clone(),
     })
 }
 
@@ -552,7 +548,7 @@ pub(crate) fn render_option(expr: Option<syn::Expr>) -> syn::Expr {
 
 fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr> {
     let ty = render_starlark_type(arg.without_option());
-    let name_str = ident_string(&arg.name);
+    let name_str = ident_string(&arg.param.ident);
     let required: syn::Expr = match (&arg.default, arg.is_option()) {
         (Some(_), true) => {
             return Err(syn::Error::new(
@@ -625,8 +621,8 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
                 .map(render_regular_native_callable_param)
                 .collect::<syn::Result<Vec<_>>>()?;
             let args: Option<syn::Expr> = args.map(|arg| {
-                let name_str = ident_string(&arg.name);
-                let ty = render_starlark_type(&arg.ty);
+                let name_str = ident_string(&arg.param.ident);
+                let ty = render_starlark_type(&arg.param.ty);
                 syn::parse_quote! {
                     starlark::__derive_refs::param_spec::NativeCallableParam::args(#name_str, #ty)
                 }
@@ -637,8 +633,8 @@ fn render_native_callable_components(x: &StarFun) -> syn::Result<TokenStream> {
                 .map(render_regular_native_callable_param)
                 .collect::<syn::Result<Vec<_>>>()?;
             let kwargs: Option<syn::Expr> = kwargs.map(|arg| {
-                let name_str = ident_string(&arg.name);
-                let ty = render_starlark_type(&arg.ty);
+                let name_str = ident_string(&arg.param.ident);
+                let ty = render_starlark_type(&arg.param.ty);
                 syn::parse_quote! {
                     starlark::__derive_refs::param_spec::NativeCallableParam::kwargs(#name_str, #ty)
                 }
@@ -709,7 +705,7 @@ struct SignatureRegularArg {
 impl SignatureRegularArg {
     fn from_star_arg(arg: &StarArg) -> SignatureRegularArg {
         SignatureRegularArg {
-            name: ident_string(&arg.name),
+            name: ident_string(&arg.param.ident),
             mode: SignatureRegularArgMode::from_star_arg(arg),
         }
     }

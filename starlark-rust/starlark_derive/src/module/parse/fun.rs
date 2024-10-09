@@ -27,8 +27,6 @@ use syn::GenericArgument;
 use syn::Generics;
 use syn::ItemFn;
 use syn::Lifetime;
-use syn::Pat;
-use syn::PatType;
 use syn::PathArguments;
 use syn::ReturnType;
 use syn::Token;
@@ -39,6 +37,7 @@ use crate::module::parse::is_mut_something;
 use crate::module::parse::is_ref_something;
 use crate::module::parse::parse_visibility;
 use crate::module::parse::ModuleKind;
+use crate::module::simple_param::SimpleParam;
 use crate::module::typ::RegularParams;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarArg;
@@ -72,7 +71,6 @@ struct FnParamAttrs {
     named_only: bool,
     args: bool,
     kwargs: bool,
-    unused_attrs: Vec<Attribute>,
 }
 
 impl FnParamAttrs {
@@ -84,15 +82,8 @@ impl FnParamAttrs {
             named_only,
             args,
             kwargs,
-            unused_attrs,
         } = self;
-        default.is_none()
-            && !*this
-            && !*pos_only
-            && !*named_only
-            && !*args
-            && !*kwargs
-            && unused_attrs.is_empty()
+        default.is_none() && !*this && !*pos_only && !*named_only && !*args && !*kwargs
     }
 }
 
@@ -155,16 +146,31 @@ fn parse_starlark_fn_param_attr(
 }
 
 /// Parse fn param attributes: parse `#[starlark(...)]` and take others as is.
-fn parse_fn_param_attrs(attrs: Vec<Attribute>) -> syn::Result<FnParamAttrs> {
+fn parse_fn_param_attrs(attrs: SimpleParam) -> syn::Result<(FnParamAttrs, SimpleParam)> {
+    let SimpleParam {
+        attrs,
+        mutability,
+        ident,
+        ty,
+    } = attrs;
     let mut param_attrs = FnParamAttrs::default();
+    let mut other_attrs = Vec::new();
     for attr in attrs {
         if attr.path().is_ident("starlark") {
             parse_starlark_fn_param_attr(&attr, &mut param_attrs)?;
         } else {
-            param_attrs.unused_attrs.push(attr);
+            other_attrs.push(attr);
         }
     }
-    Ok(param_attrs)
+    Ok((
+        param_attrs,
+        SimpleParam {
+            attrs: other_attrs,
+            mutability,
+            ident,
+            ty,
+        },
+    ))
 }
 
 /// Parse `#[starlark(...)]` fn attribute.
@@ -583,18 +589,17 @@ enum StarArgOrSpecial {
 }
 
 /// Function parameter is `eval: &mut Evaluator`.
-fn is_eval(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
-    if is_mut_something(ty, "Evaluator") {
+fn is_eval(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
+    if is_mut_something(&param.ty, "Evaluator") {
         if !attrs.is_empty() {
-            return Err(syn::Error::new(
-                ident.span(),
+            return Err(syn::Error::new_spanned(
+                &param.ident,
                 "`&mut Evaluator` parameter cannot have attributes",
             ));
         }
 
         Ok(Some(SpecialParam {
-            ident: ident.clone(),
-            ty: ty.clone(),
+            param: param.clone(),
         }))
     } else {
         Ok(None)
@@ -602,30 +607,23 @@ fn is_eval(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option
 }
 
 /// Function parameter is `heap: &Heap`.
-fn is_heap(ident: &Ident, ty: &Type, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
-    if is_ref_something(ty, "Heap") {
+fn is_heap(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
+    if is_ref_something(&param.ty, "Heap") {
         if !attrs.is_empty() {
-            return Err(syn::Error::new(
-                ident.span(),
+            return Err(syn::Error::new_spanned(
+                &param.ident,
                 "`&Heap` parameter cannot have attributes",
             ));
         }
         Ok(Some(SpecialParam {
-            ident: ident.clone(),
-            ty: ty.clone(),
+            param: param.clone(),
         }))
     } else {
         Ok(None)
     }
 }
 
-fn parse_this_param(
-    span: Span,
-    mutable: Option<Token![mut]>,
-    ident: &Ident,
-    ty: &syn::Type,
-    attrs: FnParamAttrs,
-) -> syn::Result<ThisParam> {
+fn parse_this_param(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<ThisParam> {
     let FnParamAttrs {
         default,
         this,
@@ -633,60 +631,50 @@ fn parse_this_param(
         named_only,
         args,
         kwargs,
-        unused_attrs,
     } = attrs;
 
-    if !this && ident != "this" {
-        return Err(syn::Error::new(
-            span,
+    if !this && &param.ident != "this" {
+        return Err(syn::Error::new_spanned(
+            param,
             "Receiver parameter must be named `this` \
                             or have `#[starlark(this)]` annotation",
         ));
     }
 
-    if default.is_some() || pos_only || named_only || args || kwargs {
-        return Err(syn::Error::new(
-            span,
+    if default.is_some() || *pos_only || *named_only || *args || *kwargs {
+        return Err(syn::Error::new_spanned(
+            param,
             "Attributes are not compatible with receiver parameter",
         ));
     }
 
     Ok(ThisParam {
-        mutable,
-        ident: ident.clone(),
-        ty: ty.clone(),
-        attrs: unused_attrs,
+        param: param.clone(),
     })
 }
 
-fn parse_arguments_param(
-    span: Span,
-    mutability: Option<Token![mut]>,
-    ident: &Ident,
-    ty: &syn::Type,
-    attrs: FnParamAttrs,
-) -> syn::Result<StarArguments> {
-    let FnParamAttrs {
-        default,
-        this,
-        pos_only,
-        named_only,
-        args,
-        kwargs,
-        unused_attrs,
-    } = attrs;
-    if default.is_some() || this || pos_only || named_only || args || kwargs {
-        return Err(syn::Error::new(
-            span,
-            "Attributes are not compatible with `&Arguments` parameter",
-        ));
+fn is_arguments(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option<StarArguments>> {
+    if is_ref_something(&param.ty, "Arguments") {
+        let FnParamAttrs {
+            default,
+            this,
+            pos_only,
+            named_only,
+            args,
+            kwargs,
+        } = attrs;
+        if default.is_some() || *this || *pos_only || *named_only || *args || *kwargs {
+            return Err(syn::Error::new_spanned(
+                param,
+                "Attributes are not compatible with `&Arguments` parameter",
+            ));
+        }
+        Ok(Some(StarArguments {
+            param: param.clone(),
+        }))
+    } else {
+        Ok(None)
     }
-    Ok(StarArguments {
-        other_attrs: unused_attrs,
-        mutability,
-        ident: ident.clone(),
-        ty: ty.clone(),
-    })
 }
 
 #[allow(clippy::collapsible_else_if)]
@@ -700,127 +688,85 @@ fn parse_arg(
     let this = module_kind == ModuleKind::Methods && param_index == 0;
 
     let span = x.span();
-    match x {
-        FnArg::Typed(PatType { attrs, pat, ty, .. }) => {
-            let ident = if let Pat::Ident(ident) = *pat {
-                ident
-            } else {
-                return Err(syn::Error::new(
-                    pat.span(),
-                    "Function parameter pattern must be identifier",
-                ));
-            };
 
-            if ident.subpat.is_some() {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Function arguments cannot use patterns",
-                ));
-            }
+    let param = SimpleParam::from_fn_arg(x)?;
 
-            if ident.by_ref.is_some() {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "Function arguments cannot have `ref` modifier",
-                ));
-            }
+    check_lifetimes_in_type(&param.ty, has_v)?;
+    let (param_attrs, param) = parse_fn_param_attrs(param)?;
 
-            check_lifetimes_in_type(&ty, has_v)?;
-            let param_attrs = parse_fn_param_attrs(attrs)?;
-
-            if let Some(heap) = is_heap(&ident.ident, &ty, &param_attrs)? {
-                if this {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter cannot be `&Heap`",
-                    ));
-                }
-                return Ok(StarArgOrSpecial::Heap(heap));
-            } else if let Some(eval) = is_eval(&ident.ident, &ty, &param_attrs)? {
-                if this {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter cannot be `&mut Evaluator`",
-                    ));
-                }
-                return Ok(StarArgOrSpecial::Eval(eval));
-            }
-
-            if this {
-                return Ok(StarArgOrSpecial::This(parse_this_param(
-                    span,
-                    ident.mutability,
-                    &ident.ident,
-                    &ty,
-                    param_attrs,
-                )?));
-            } else {
-                if param_attrs.this {
-                    return Err(syn::Error::new(
-                        span,
-                        "Receiver parameter can be only first",
-                    ));
-                }
-            }
-
-            let arguments = is_ref_something(&ty, "Arguments");
-
-            if arguments {
-                return Ok(StarArgOrSpecial::Arguments(parse_arguments_param(
-                    span,
-                    ident.mutability,
-                    &ident.ident,
-                    &ty,
-                    param_attrs,
-                )?));
-            }
-
-            let pass_style = match (
-                param_attrs.args,
-                param_attrs.kwargs,
-                seen_star_args,
-                param_attrs.pos_only,
-                param_attrs.named_only,
-            ) {
-                (true, _, _, _, _) => StarArgPassStyle::Args,
-                (_, true, _, _, _) => StarArgPassStyle::Kwargs,
-                (_, _, true, true, _) => {
-                    return Err(syn::Error::new(
-                        span,
-                        "Positional-only arguments cannot follow *args",
-                    ));
-                }
-                (false, false, true, false, _) => StarArgPassStyle::NamedOnly,
-                // TODO(nga): currently, without `#[starlark(require = named)]`
-                //   and without `#[starlark(require = pos)]`, parameter is positional-or-named.
-                //   We want to change that: either make it positional by default,
-                //   or require explicit `#[starlark(pos, named)]`.
-                //   Discussion there:
-                //   https://fb.workplace.com/groups/1267349253953900/posts/1299495914072567
-                (false, false, false, false, false) => StarArgPassStyle::Default,
-                (false, false, false, true, false) => StarArgPassStyle::PosOnly,
-                (false, false, false, false, true) => StarArgPassStyle::NamedOnly,
-                (false, false, false, true, true) => {
-                    return Err(syn::Error::new(
-                        span,
-                        "Function parameter cannot be both positional-only and named-only",
-                    ));
-                }
-            };
-            Ok(StarArgOrSpecial::StarArg(StarArg {
+    if let Some(heap) = is_heap(&param, &param_attrs)? {
+        if this {
+            return Err(syn::Error::new(
                 span,
-                attrs: param_attrs.unused_attrs,
-                mutable: ident.mutability,
-                name: ident.ident,
-                pass_style,
-                ty: *ty,
-                default: param_attrs.default,
-                source: StarArgSource::Unknown,
-            }))
+                "Receiver parameter cannot be `&Heap`",
+            ));
         }
-        FnArg::Receiver(..) => Err(syn::Error::new(
-            span,
-            "Function cannot have `self` parameters",
-        )),
+        return Ok(StarArgOrSpecial::Heap(heap));
+    } else if let Some(eval) = is_eval(&param, &param_attrs)? {
+        if this {
+            return Err(syn::Error::new(
+                span,
+                "Receiver parameter cannot be `&mut Evaluator`",
+            ));
+        }
+        return Ok(StarArgOrSpecial::Eval(eval));
     }
+
+    if this {
+        return Ok(StarArgOrSpecial::This(parse_this_param(
+            &param,
+            &param_attrs,
+        )?));
+    } else {
+        if param_attrs.this {
+            return Err(syn::Error::new(
+                span,
+                "Receiver parameter can be only first",
+            ));
+        }
+    }
+
+    if let Some(arguments) = is_arguments(&param, &param_attrs)? {
+        return Ok(StarArgOrSpecial::Arguments(arguments));
+    }
+
+    let pass_style = match (
+        param_attrs.args,
+        param_attrs.kwargs,
+        seen_star_args,
+        param_attrs.pos_only,
+        param_attrs.named_only,
+    ) {
+        (true, _, _, _, _) => StarArgPassStyle::Args,
+        (_, true, _, _, _) => StarArgPassStyle::Kwargs,
+        (_, _, true, true, _) => {
+            return Err(syn::Error::new(
+                span,
+                "Positional-only arguments cannot follow *args",
+            ));
+        }
+        (false, false, true, false, _) => StarArgPassStyle::NamedOnly,
+        // TODO(nga): currently, without `#[starlark(require = named)]`
+        //   and without `#[starlark(require = pos)]`, parameter is positional-or-named.
+        //   We want to change that: either make it positional by default,
+        //   or require explicit `#[starlark(pos, named)]`.
+        //   Discussion there:
+        //   https://fb.workplace.com/groups/1267349253953900/posts/1299495914072567
+        (false, false, false, false, false) => StarArgPassStyle::Default,
+        (false, false, false, true, false) => StarArgPassStyle::PosOnly,
+        (false, false, false, false, true) => StarArgPassStyle::NamedOnly,
+        (false, false, false, true, true) => {
+            return Err(syn::Error::new(
+                span,
+                "Function parameter cannot be both positional-only and named-only",
+            ));
+        }
+    };
+    Ok(StarArgOrSpecial::StarArg(StarArg {
+        span,
+        param,
+        pass_style,
+        default: param_attrs.default,
+        source: StarArgSource::Unknown,
+    }))
 }

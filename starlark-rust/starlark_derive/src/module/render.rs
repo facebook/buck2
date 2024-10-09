@@ -27,6 +27,7 @@ use quote::ToTokens;
 use crate::module::render::fun::render_fun;
 use crate::module::render::fun::render_none;
 use crate::module::render::fun::render_some;
+use crate::module::simple_param::SimpleParam;
 use crate::module::typ::SpecialParam;
 use crate::module::typ::StarAttr;
 use crate::module::typ::StarConst;
@@ -104,7 +105,10 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
         None => render_none(),
     };
 
-    let let_heap = if let Some(SpecialParam { ident, ty }) = heap {
+    let let_heap = if let Some(SpecialParam {
+        param: SimpleParam { ident, ty, .. },
+    }) = heap
+    {
         Some(quote! { let #ident: #ty = __heap; })
     } else {
         None
@@ -112,7 +116,7 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
 
     let this_value: syn::Ident = syn::parse_quote! { s_this_value };
 
-    let unpack = this.render_prepare(&this.ident, &this_value);
+    let unpack = this.render_prepare(&this.param.ident, &this_value);
 
     let inner: syn::ItemFn = syn::parse_quote! {
         #( #attrs )*

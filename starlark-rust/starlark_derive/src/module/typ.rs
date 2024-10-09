@@ -26,8 +26,8 @@ use syn::Type;
 use syn::Visibility;
 
 use crate::module::parse::ModuleKind;
+use crate::module::simple_param::SimpleParam;
 use crate::module::util::is_type_name;
-use crate::module::util::pat_type;
 use crate::module::util::unpack_option;
 
 #[derive(Debug)]
@@ -60,8 +60,7 @@ pub(crate) struct StarConst {
 
 #[derive(Debug)]
 pub(crate) struct SpecialParam {
-    pub(crate) ident: Ident,
-    pub(crate) ty: Type,
+    pub(crate) param: SimpleParam,
 }
 
 #[derive(Debug)]
@@ -131,35 +130,23 @@ pub(crate) enum StarArgPassStyle {
 /// Method `this` parameter, always first.
 #[derive(Debug, Clone)]
 pub(crate) struct ThisParam {
-    pub(crate) mutable: Option<syn::Token![mut]>,
-    pub(crate) ident: syn::Ident,
-    pub(crate) ty: syn::Type,
-    pub(crate) attrs: Vec<Attribute>,
+    pub(crate) param: SimpleParam,
 }
 
 impl ThisParam {
     pub(crate) fn render_prepare(&self, target: &syn::Ident, value: &syn::Ident) -> syn::Stmt {
-        let ty = &self.ty;
+        let ty = &self.param.ty;
         syn::parse_quote! {
             let #target: #ty = starlark::__derive_refs::parse_args::check_this(#value)?;
         }
-    }
-
-    // TODO(nga): this is not used for `#[starlark(attribute)]`,
-    //   so non-starlark attributes are ignored.
-    pub(crate) fn reconstruct_param(&self) -> syn::PatType {
-        pat_type(&self.attrs, self.mutable, &self.ident, &self.ty)
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct StarArg {
     pub span: Span,
-    pub attrs: Vec<Attribute>,
-    pub mutable: Option<syn::Token![mut]>,
+    pub(crate) param: SimpleParam,
     pub pass_style: StarArgPassStyle,
-    pub name: Ident,
-    pub ty: Type,
     pub default: Option<Expr>,
     pub source: StarArgSource,
 }
@@ -167,16 +154,7 @@ pub(crate) struct StarArg {
 /// `&Arguments` parameter.
 #[derive(Debug)]
 pub(crate) struct StarArguments {
-    pub(crate) other_attrs: Vec<syn::Attribute>,
-    pub(crate) mutability: Option<syn::Token![mut]>,
-    pub(crate) ident: syn::Ident,
-    pub(crate) ty: syn::Type,
-}
-
-impl StarArguments {
-    pub(crate) fn reconstruct_param(&self) -> syn::PatType {
-        pat_type(&self.other_attrs, self.mutability, &self.ident, &self.ty)
-    }
+    pub(crate) param: SimpleParam,
 }
 
 /// How we handle `&Arguments`.
@@ -214,16 +192,16 @@ pub(crate) enum StarFunSource {
 
 impl StarArg {
     pub fn is_option(&self) -> bool {
-        is_type_name(&self.ty, "Option")
+        is_type_name(&self.param.ty, "Option")
     }
 
     /// Remove the `Option` if it exists, otherwise return the real type.
     pub fn without_option(&self) -> &Type {
-        unpack_option(&self.ty).unwrap_or(&self.ty)
+        unpack_option(&self.param.ty).unwrap_or(&self.param.ty)
     }
 
     pub fn is_value(&self) -> bool {
-        is_type_name(&self.ty, "Value")
+        is_type_name(&self.param.ty, "Value")
     }
 
     /// Parameter type is `Option<Value>`.

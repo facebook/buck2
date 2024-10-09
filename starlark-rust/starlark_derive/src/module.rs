@@ -18,6 +18,7 @@
 pub(crate) mod param_spec;
 pub(crate) mod parse;
 mod render;
+pub(crate) mod simple_param;
 mod typ;
 mod util;
 
