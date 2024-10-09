@@ -71,6 +71,9 @@ jobs:
     - uses: ./.github/actions/build_example_no_prelude
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
+    - uses: ./.github/actions/build_buck2_nativelink
+      with:
+        NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
   windows-build-examples:
     runs-on: windows-latest
     steps:
