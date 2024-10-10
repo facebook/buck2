@@ -23,6 +23,7 @@ use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -259,6 +260,10 @@ impl Key for ReadFileKey {
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         false
     }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::High
+    }
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -333,6 +338,10 @@ impl Key for PathMetadataKey {
 
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
+    }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::High
     }
 }
 

@@ -20,6 +20,7 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
+use dice::InvalidationSourcePriority;
 use dice::Key;
 use dupe::Dupe;
 
@@ -62,6 +63,10 @@ impl InjectedKey for CellResolverKey {
             (None, None) => true,
             (_, _) => false,
         }
+    }
+
+    fn invalidation_source_priority() -> InvalidationSourcePriority {
+        InvalidationSourcePriority::Ignored
     }
 }
 
