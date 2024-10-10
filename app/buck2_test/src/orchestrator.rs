@@ -418,16 +418,17 @@ impl<'a> BuckTestOrchestrator<'a> {
         )
         .boxed()
         .await?;
-        let result = self
-            .execute_request(
-                &test_target,
-                &stage,
-                &test_executor,
-                execution_request,
-                self.liveliness_observer.dupe(),
-            )
-            .boxed()
-            .await?;
+        let result = Self::execute_request(
+            &self.dice,
+            &self.cancellations,
+            &test_target,
+            &stage,
+            &test_executor,
+            execution_request,
+            self.liveliness_observer.dupe(),
+        )
+        .boxed()
+        .await?;
         Ok(result)
     }
 }
@@ -709,18 +710,21 @@ impl<'b> BuckTestOrchestrator<'b> {
 
     /// Core request execution logic.
     async fn execute_request(
-        &self,
+        dice: &DiceTransaction,
+        cancellation: &CancellationContext<'_>,
         test_target: &ConfiguredProvidersLabel,
         stage: &TestStage,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<ExecuteData, ExecuteError> {
+        let events = dice.per_transaction_data().get_dispatcher().dupe();
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
-            self.events.dupe(),
+            events.dupe(),
             liveliness_observer.dupe(),
         );
+        let digest_config = dice.global_data().get_digest_config();
 
         let mut action_key_suffix = match &stage {
             TestStage::Listing(_) => "listing".to_owned(),
@@ -739,14 +743,14 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         // For test execution, we currently do not do any cache queries
 
-        let prepared_action = executor.prepare_action(&request, self.digest_config)?;
+        let prepared_action = executor.prepare_action(&request, digest_config)?;
         let prepared_command = PreparedCommand {
             target: &test_target as _,
             request: &request,
             prepared_action: &prepared_action,
-            digest_config: self.digest_config,
+            digest_config,
         };
-        let command = executor.exec_cmd(manager, &prepared_command, self.cancellations);
+        let command = executor.exec_cmd(manager, &prepared_command, cancellation);
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
@@ -766,7 +770,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 let start = TestDiscoveryStart {
                     suite_name: listing.clone(),
                 };
-                self.events
+                events
                     .span_async(start, async move {
                         let result = command.await;
                         let end = TestDiscoveryEnd {
@@ -791,7 +795,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 let start = TestRunStart {
                     suite: test_suite.clone(),
                 };
-                self.events
+                events
                     .span_async(start, async move {
                         let result = command.await;
                         let end = TestRunEnd {
