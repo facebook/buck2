@@ -41,6 +41,12 @@ def get_enable_library_evolution():
         "config//features/apple:swift_library_evolution_enabled": True,
     }))
 
+def _get_enable_dsym_uses_parallel_linker():
+    return attrs.bool(default = select({
+        "DEFAULT": False,
+        "config//features/apple:dsym_uses_parallel_linker_enabled": True,
+    }))
+
 def _strict_provisioning_profile_search_default_attr():
     default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
     return attrs.bool(default = select({
@@ -66,7 +72,7 @@ APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default 
 
 def apple_dsymutil_attrs():
     return {
-        "dsym_uses_parallel_linker": attrs.bool(default = False),
+        "dsym_uses_parallel_linker": _get_enable_dsym_uses_parallel_linker(),
         "_dsymutil_extra_flags": attrs.list(attrs.string()),
         "_dsymutil_verify_dwarf": attrs.string(),
     }
