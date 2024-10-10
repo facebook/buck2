@@ -13,10 +13,12 @@
 ## bxl.Context.fs
 ## bxl.Context.instant\_event
 ## bxl.Context.lazy
+## bxl.Context.modifiers
 ## bxl.Context.output
 ## bxl.Context.resolve
 ## bxl.Context.root
 ## bxl.Context.target\_exists
+## bxl.Context.target\_platform
 ## bxl.Context.target\_universe
 ## bxl.Context.unconfigured\_sub\_targets
 ## bxl.Context.unconfigured\_targets

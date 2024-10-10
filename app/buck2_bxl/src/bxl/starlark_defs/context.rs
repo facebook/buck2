@@ -72,6 +72,7 @@ use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -1473,5 +1474,24 @@ fn bxl_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn lazy<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkLazyCtx<'v>> {
         Ok(StarlarkLazyCtx::new(this))
+    }
+
+    /// The target_platform from the bxl invocation. It is from the `--target-platforms` flag.
+    #[starlark(attribute)]
+    fn target_platform<'v>(
+        this: &'v BxlContext<'v>,
+    ) -> anyhow::Result<NoneOr<StarlarkTargetLabel>> {
+        Ok(NoneOr::from_option(
+            this.global_cfg_options()
+                .target_platform
+                .dupe()
+                .map(StarlarkTargetLabel::new),
+        ))
+    }
+
+    /// The modfiers from the bxl invocation. It is from the `--modifier` flag.
+    #[starlark(attribute)]
+    fn modifiers<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<Vec<String>> {
+        Ok((*this.global_cfg_options().cli_modifiers).clone())
     }
 }
