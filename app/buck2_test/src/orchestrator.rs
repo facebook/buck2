@@ -340,7 +340,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             required_local_resources,
             pre_create_dirs,
             stage,
-            options: _,
+            options,
             prefix: _,
             timeout,
             host_sharing_requirements,
@@ -370,7 +370,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             declared_outputs,
             worker,
         } = test_executable_expanded;
-        let executor_preference = self.executor_preference(supports_re)?;
+        let executor_preference = Self::executor_preference(options, supports_re)?;
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
             let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
             let simple_stage = match stage.as_ref() {
@@ -683,10 +683,13 @@ struct ExecuteData {
 }
 
 impl<'b> BuckTestOrchestrator<'b> {
-    fn executor_preference(&self, test_supports_re: bool) -> anyhow::Result<ExecutorPreference> {
+    fn executor_preference(
+        opts: TestSessionOptions,
+        test_supports_re: bool,
+    ) -> anyhow::Result<ExecutorPreference> {
         let mut executor_preference = ExecutorPreference::Default;
 
-        if !self.session.options().allow_re {
+        if !opts.allow_re {
             // We don't ban RE (we only prefer not to use it) if the session doesn't allow it, so
             // that executor overrides or default executor can still route executions to RE.
             executor_preference = executor_preference.and(ExecutorPreference::LocalPreferred)?;
