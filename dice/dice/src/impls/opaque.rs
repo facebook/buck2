@@ -14,6 +14,7 @@ use derivative::Derivative;
 use crate::api::key::Key;
 use crate::impls::key::DiceKey;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::value::TrackedInvalidationPaths;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -21,6 +22,7 @@ pub(crate) struct OpaqueValueModern<K: Key> {
     pub(crate) derive_from_key: DiceKey,
     #[derivative(Debug = "ignore")]
     pub(crate) derive_from: MaybeValidDiceValue,
+    pub(crate) invalidation_paths: TrackedInvalidationPaths,
     ty: PhantomData<K>,
 }
 
@@ -28,10 +30,15 @@ impl<K> OpaqueValueModern<K>
 where
     K: Key,
 {
-    pub(crate) fn new(derive_from_key: DiceKey, derive_from: MaybeValidDiceValue) -> Self {
+    pub(crate) fn new(
+        derive_from_key: DiceKey,
+        derive_from: MaybeValidDiceValue,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> Self {
         Self {
             derive_from_key,
             derive_from,
+            invalidation_paths,
             ty: Default::default(),
         }
     }
@@ -55,6 +62,7 @@ mod tests {
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidity;
     use crate::impls::value::MaybeValidDiceValue;
+    use crate::impls::value::TrackedInvalidationPaths;
     use crate::DiceComputations;
     use crate::HashSet;
 
@@ -87,6 +95,7 @@ mod tests {
         let opaque = OpaqueValueModern::<K>::new(
             DiceKey { index: 0 },
             MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid),
+            TrackedInvalidationPaths::clean(),
         );
 
         assert_eq!(ctx.dep_trackers().recorded_deps(), HashSet::default());

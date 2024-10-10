@@ -26,6 +26,7 @@ use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::result::CancellableResult;
@@ -78,6 +79,7 @@ impl AsyncEvaluator {
                         value: MaybeValidDiceValue::new(value, recorded_deps.deps_validity),
                         deps: recorded_deps.deps,
                         storage: key_dyn.storage_type(),
+                        invalidation_paths: recorded_deps.invalidation_paths,
                     },
                     evaluation_data.into_activation_data(),
                 )
@@ -106,6 +108,7 @@ impl AsyncEvaluator {
                         value: MaybeValidDiceValue::new(value, base.value().validity()),
                         deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
                         storage: proj.proj().storage_type(),
+                        invalidation_paths: base.invalidation_paths().for_dependent(key),
                     },
                     ActivationData::Evaluated(None), // Projection keys can't set this.
                 )
@@ -120,6 +123,7 @@ pub(crate) struct SyncEvaluator {
     user_data: Arc<UserComputationData>,
     dice: Arc<DiceModern>,
     base: MaybeValidDiceValue,
+    base_invalidation_paths: TrackedInvalidationPaths,
 }
 
 impl SyncEvaluator {
@@ -127,11 +131,13 @@ impl SyncEvaluator {
         user_data: Arc<UserComputationData>,
         dice: Arc<DiceModern>,
         base: MaybeValidDiceValue,
+        base_invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
         Self {
             user_data,
             dice,
             base,
+            base_invalidation_paths,
         }
     }
 
@@ -153,6 +159,7 @@ impl SyncEvaluator {
                     value: MaybeValidDiceValue::new(value, self.base.validity()),
                     deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
                     storage: proj.proj().storage_type(),
+                    invalidation_paths: self.base_invalidation_paths.for_dependent(key),
                 }
             }
         }
@@ -163,4 +170,5 @@ pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
     pub(crate) deps: SeriesParallelDeps,
     pub(crate) storage: StorageType,
+    pub(crate) invalidation_paths: TrackedInvalidationPaths,
 }

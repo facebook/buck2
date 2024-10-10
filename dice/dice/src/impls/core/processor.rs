@@ -77,6 +77,7 @@ impl StateProcessor {
                 storage,
                 value,
                 deps,
+                invalidation_paths,
                 resp,
                 ..
             } => {
@@ -88,6 +89,7 @@ impl StateProcessor {
                     value,
                     ValueReusable::EqualityBased,
                     deps,
+                    invalidation_paths,
                 )));
             }
             StateRequest::UpdateMismatchAsUnchanged {
@@ -95,6 +97,7 @@ impl StateProcessor {
                 epoch,
                 storage,
                 previous,
+                invalidation_paths,
                 resp,
                 ..
             } => {
@@ -106,6 +109,7 @@ impl StateProcessor {
                     previous.entry,
                     ValueReusable::VersionBased(previous.prev_verified_version),
                     previous.deps_to_validate,
+                    invalidation_paths,
                 )));
             }
             StateRequest::GetTasksPendingCancellation { resp } => {

@@ -22,6 +22,7 @@ use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::ctx::LinearRecomputeDiceComputationsImpl;
+use crate::DiceKeyTrackedInvalidationPaths;
 use crate::ProjectionKey;
 use crate::UserCycleDetectorGuard;
 
@@ -305,6 +306,11 @@ impl<'d> DiceComputations<'d> {
     pub fn store_evaluation_data<T: Send + Sync + 'static>(&self, value: T) -> DiceResult<()> {
         self.0.store_evaluation_data(value)
     }
+
+    /// Returns the current tracked invalidation paths for this computation node.
+    pub fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
+        self.0.get_invalidation_paths()
+    }
 }
 
 pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeDiceComputationsImpl<'a>);
@@ -345,6 +351,6 @@ fn _assert_dice_compute_future_sizes() {
     }
     let k: K = panic!();
     let v = ctx.compute(&k);
-    let e = [0u8; 512 / 8];
+    let e = [0u8; 704 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 }

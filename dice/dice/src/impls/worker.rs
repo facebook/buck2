@@ -33,6 +33,7 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::evaluator::AsyncEvaluator;
+use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
@@ -45,6 +46,7 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
@@ -185,8 +187,9 @@ impl DiceTaskWorker {
                 };
 
                 match check_deps_result {
-                    CheckDependenciesResult::NoChange => {
-                        drop(check_deps_result);
+                    CheckDependenciesResult::NoChange { .. } => {
+                        let invalidation_paths =
+                            check_deps_result.unwrap_no_change_invalidation_paths();
 
                         let task_state = task_state.deps_match()?;
 
@@ -201,6 +204,7 @@ impl DiceTaskWorker {
                                 self.version_epoch,
                                 self.eval.storage_type(self.k),
                                 mismatch,
+                                invalidation_paths,
                             )
                             .await;
 
@@ -229,7 +233,7 @@ impl DiceTaskWorker {
             result,
         } = self.compute(task_state, &cycles).await?;
 
-        // explicitly drop this here to make it explicit that its important that we hold onto it, it
+        // explicitly drop this here to make it clear that its important that we hold onto it, it
         // otherwise appears unused, but we don't want to cancel anything that it has started requesting
         // before compute finishes.
         // TODO(cjhopman): we could be polling this future, it might eagerly request deps more quickly than
@@ -249,12 +253,14 @@ impl DiceTaskWorker {
                             result.storage,
                             value,
                             Arc::new(result.deps),
+                            result.invalidation_paths,
                         )
                         .await
                 }
                 Err(value) => Ok(DiceComputedValue::new(
                     value,
                     Arc::new(VersionRange::begins_with(v).into_ranges()),
+                    result.invalidation_paths,
                 )),
             }
         };
@@ -331,13 +337,16 @@ pub(crate) async fn check_dependencies<'a>(
         version: VersionNumber,
         cycles: &'a KeyComputingUserCycleDetectorData,
     ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
+        let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
                 match v {
                     SeriesParallelDepsIteratorItem::Key(k) => {
                         match check_dependency(eval, parent_key, *k, cycles, version).await {
-                            Ok(true) => {}
-                            Ok(false) => {
+                            Ok(CheckDependencyResult::NoChange(dep_paths)) => {
+                                invalidation_paths.update(dep_paths);
+                            }
+                            Ok(CheckDependencyResult::Changed) => {
                                 return Ok(CheckDependenciesResult::Changed {
                                     continuables: std::future::ready(Ok(())).boxed(),
                                 });
@@ -357,8 +366,12 @@ pub(crate) async fn check_dependencies<'a>(
 
                         while let Some(v) = futures.next().await {
                             match v? {
-                                CheckDependenciesResult::NoChange
-                                | CheckDependenciesResult::NoDeps => {}
+                                CheckDependenciesResult::NoChange {
+                                    invalidation_paths: deps_paths,
+                                } => {
+                                    invalidation_paths.update(deps_paths);
+                                }
+                                CheckDependenciesResult::NoDeps => {}
                                 CheckDependenciesResult::Changed { continuables } => {
                                     return Ok(CheckDependenciesResult::Changed {
                                         continuables: drain_continuables(continuables, futures)
@@ -370,7 +383,7 @@ pub(crate) async fn check_dependencies<'a>(
                     }
                 }
             }
-            Ok(CheckDependenciesResult::NoChange)
+            Ok(CheckDependenciesResult::NoChange { invalidation_paths })
         }
         .boxed()
     }
@@ -384,14 +397,19 @@ pub(crate) async fn check_dependencies<'a>(
     check_dependencies_series(eval, parent_key, deps.iter(), version, cycles).await
 }
 
+enum CheckDependencyResult {
+    Changed,
+    NoChange(TrackedInvalidationPaths),
+}
+
 async fn check_dependency(
     eval: &AsyncEvaluator,
     parent_key: ParentKey,
     dep: DiceKey,
     cycles: &KeyComputingUserCycleDetectorData,
     version: VersionNumber,
-) -> CancellableResult<bool> {
-    Ok(eval
+) -> CancellableResult<CheckDependencyResult> {
+    let dep_result = eval
         .per_live_version_ctx
         .compute_opaque(
             dep,
@@ -399,15 +417,21 @@ async fn check_dependency(
             &eval,
             cycles.subrequest(dep, &eval.dice.key_index),
         )
-        .await?
-        .versions()
-        .contains(version))
+        .await?;
+
+    if dep_result.versions().contains(version) {
+        Ok(CheckDependencyResult::NoChange(dep_result.into_parts().1))
+    } else {
+        Ok(CheckDependencyResult::Changed)
+    }
 }
 
 #[derive(VariantName)]
 enum CheckDependenciesResult<'a> {
     NoDeps,
-    NoChange,
+    NoChange {
+        invalidation_paths: TrackedInvalidationPaths,
+    },
     Changed {
         /// If any dep has changed, the deps checking doesn't need to be stopped, when something has
         /// changed in a dep in a parallel series we can continue to request and compute the other
@@ -417,6 +441,14 @@ enum CheckDependenciesResult<'a> {
         /// and polling it will continue that deps check process.
         continuables: BoxFuture<'a, CancellableResult<()>>,
     },
+}
+impl CheckDependenciesResult<'_> {
+    fn unwrap_no_change_invalidation_paths(self) -> TrackedInvalidationPaths {
+        match self {
+            Self::NoChange { invalidation_paths } => invalidation_paths,
+            _ => panic!(),
+        }
+    }
 }
 
 #[cfg_attr(debug_assertions, instrument(
@@ -442,16 +474,23 @@ pub(crate) fn project_for_key(
 
         debug!(msg = "projection finished. updating caches");
 
-        let (res, future) = {
+        let (res, invalidation_paths, future) = {
+            let KeyEvaluationResult {
+                value,
+                deps,
+                storage,
+                invalidation_paths,
+            } = eval_result;
             // send the update but don't wait for it
-            let state_future = match eval_result.value.dupe().into_valid_value() {
+            let state_future = match value.dupe().into_valid_value() {
                 Ok(value) => {
                     let rx = state.update_computed(
                         VersionedGraphKey::new(v, k),
                         version_epoch,
-                        eval_result.storage,
+                        storage,
                         value,
-                        Arc::new(eval_result.deps),
+                        Arc::new(deps),
+                        invalidation_paths.dupe(),
                     );
 
                     Some(rx.map(|res| res.map_err(|_channel_drop| Cancelled)).boxed())
@@ -463,14 +502,17 @@ pub(crate) fn project_for_key(
                 }
             };
 
-            (eval_result.value, state_future)
+            (value, invalidation_paths, state_future)
         };
 
         debug!(msg = "update future completed");
         event_dispatcher.finished(k);
 
-        let computed_value =
-            DiceComputedValue::new(res, Arc::new(VersionRange::begins_with(v).into_ranges()));
+        let computed_value = DiceComputedValue::new(
+            res,
+            Arc::new(VersionRange::begins_with(v).into_ranges()),
+            invalidation_paths,
+        );
         let state_future =
             future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
 
@@ -494,7 +536,7 @@ pub(crate) mod testing {
         fn is_changed(&self) -> bool {
             match self {
                 CheckDependenciesResult::Changed { .. } => true,
-                CheckDependenciesResult::NoChange => false,
+                CheckDependenciesResult::NoChange { .. } => false,
                 CheckDependenciesResult::NoDeps => false,
             }
         }

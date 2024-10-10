@@ -205,6 +205,7 @@ mod tests {
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
+    use crate::impls::value::TrackedInvalidationPaths;
     use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
@@ -235,6 +236,7 @@ mod tests {
                         DiceKeyValue::<K>::new(val),
                     )),
                     Arc::new(VersionRanges::new()),
+                    TrackedInvalidationPaths::clean(),
                 ));
 
                 Box::new(()) as Box<dyn Any + Send>

@@ -47,6 +47,10 @@ impl VersionNumber {
     pub(crate) fn dec(&mut self) {
         self.0 = self.0.checked_sub(1).expect("shouldn't underflow");
     }
+
+    pub fn value(&self) -> usize {
+        self.0
+    }
 }
 
 impl Sub for VersionNumber {

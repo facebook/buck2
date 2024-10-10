@@ -17,6 +17,7 @@ use tokio::sync::oneshot::Receiver;
 use tokio::sync::oneshot::Sender;
 use tokio::sync::oneshot::{self};
 
+use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
@@ -35,6 +36,7 @@ use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::metrics::Metrics;
 use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
@@ -63,7 +65,7 @@ impl CoreStateHandle {
     /// Updates the core state with the given set of changes. The new VersionNumber is returned
     pub(crate) fn update_state(
         &self,
-        changes: Vec<(DiceKey, ChangeType)>,
+        changes: Vec<(DiceKey, ChangeType, InvalidationSourcePriority)>,
     ) -> impl Future<Output = VersionNumber> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::UpdateState { changes, resp }, recv)
@@ -114,6 +116,7 @@ impl CoreStateHandle {
         storage: StorageType,
         value: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
+        invalidation_paths: TrackedInvalidationPaths,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         let (resp, recv) = oneshot::channel();
         self.call(
@@ -123,6 +126,7 @@ impl CoreStateHandle {
                 storage,
                 value,
                 deps,
+                invalidation_paths,
                 resp,
             },
             recv,
@@ -136,6 +140,7 @@ impl CoreStateHandle {
         epoch: VersionEpoch,
         storage: StorageType,
         previous: VersionedGraphResultMismatch,
+        invalidation_paths: TrackedInvalidationPaths,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
         let (resp, recv) = oneshot::channel();
         self.call(
@@ -145,6 +150,7 @@ impl CoreStateHandle {
                 storage,
                 previous,
                 resp,
+                invalidation_paths,
             },
             recv,
         )
@@ -217,7 +223,7 @@ pub(super) enum StateRequest {
     /// Updates the core state with the given set of changes. The new VersionNumber that should be
     /// used is sent back via the channel provided
     UpdateState {
-        changes: Vec<(DiceKey, ChangeType)>,
+        changes: Vec<(DiceKey, ChangeType, InvalidationSourcePriority)>,
         resp: Sender<VersionNumber>,
     },
     /// Gets the current version number
@@ -245,6 +251,7 @@ pub(super) enum StateRequest {
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
         deps: Arc<SeriesParallelDeps>,
+        invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<CancellableResult<DiceComputedValue>>,
@@ -257,6 +264,7 @@ pub(super) enum StateRequest {
         storage: StorageType,
         /// The previous value sent for verification
         previous: VersionedGraphResultMismatch,
+        invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<CancellableResult<DiceComputedValue>>,

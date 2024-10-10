@@ -245,25 +245,25 @@ fn _assert_ensure_artifact_group_future_size() {
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_artifact_group_staged(&mut ctx, panic!());
-    let e = [0u8; 896 / 8];
+    let e = [0u8; 1088 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     // The rest of these are to help understand how changes are impacting the important ones above. Regressing these
     // is generally okay if the above don't regress.
     let v = ensure_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 896 / 8];
+    let e = [0u8; 1088 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_base_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 896 / 8];
+    let e = [0u8; 1088 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_build_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 896 / 8];
+    let e = [0u8; 1088 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ActionCalculation::build_action(&mut ctx, panic!());
-    let e = [0u8; 512 / 8];
+    let e = [0u8; 704 / 8];
     static_assertions::assert_eq_size_ptr!(&v, &e);
 
     let v = ensure_source_artifact_staged(&mut ctx, panic!());

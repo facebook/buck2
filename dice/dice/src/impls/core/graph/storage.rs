@@ -168,6 +168,7 @@
 
 use allocative::Allocative;
 
+use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::impls::core::graph::nodes::ForceDirtyHistory;
@@ -182,6 +183,7 @@ use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -228,6 +230,7 @@ impl VersionedGraph {
         reusable: ValueReusable,
         deps: Arc<SeriesParallelDeps>,
         storage_type: StorageType,
+        invalidation_paths: TrackedInvalidationPaths,
     ) -> (DiceComputedValue, bool) {
         if let StorageType::Injected = storage_type {
             unreachable!(
@@ -244,12 +247,28 @@ impl VersionedGraph {
             node.intersect_valid_versions_at(key.v, &mut valid_deps_versions);
         }
 
+        let invalidation_paths = invalidation_paths.for_dependent(key.k);
+
         // Update entry.
         match self.nodes.get_mut(&key.k) {
-            Some(entry) => entry.on_computed(key, value, valid_deps_versions, reusable, deps),
+            Some(entry) => entry.on_computed(
+                key,
+                value,
+                valid_deps_versions,
+                reusable,
+                deps,
+                invalidation_paths,
+            ),
 
             None => (
-                self.update_empty(key.k, key.v, value, valid_deps_versions, deps),
+                self.update_empty(
+                    key.k,
+                    key.v,
+                    value,
+                    valid_deps_versions,
+                    deps,
+                    invalidation_paths,
+                ),
                 true,
             ),
         }
@@ -261,13 +280,19 @@ impl VersionedGraph {
         &mut self,
         key: VersionedGraphKey,
         invalidate: InvalidateKind,
+        invalidation_priority: InvalidationSourcePriority,
     ) -> bool {
         let entry = match self.nodes.get_mut(&key.k) {
             Some(entry) => entry,
             _ => {
                 let new_entry = match invalidate {
                     InvalidateKind::Update(value, StorageType::Injected) => {
-                        VersionedGraphNode::Injected(InjectedGraphNode::new(key.k, key.v, value))
+                        VersionedGraphNode::Injected(InjectedGraphNode::new(
+                            key.k,
+                            key.v,
+                            value,
+                            invalidation_priority,
+                        ))
                     }
                     InvalidateKind::Update(value, StorageType::Normal) => {
                         VersionedGraphNode::Occupied(OccupiedGraphNode::new(
@@ -276,12 +301,13 @@ impl VersionedGraph {
                             Arc::new(SeriesParallelDeps::None),
                             VersionRange::begins_with(key.v).into_ranges(),
                             ForceDirtyHistory::new(),
+                            TrackedInvalidationPaths::new(invalidation_priority, key.k, key.v),
                         ))
                     }
                     _ => {
-                        let mut node = VacantGraphNode::new(key.k);
+                        let mut node = VacantGraphNode::new(key.k, invalidation_priority);
                         // invalidated and force_dirty for a vacant node are going to have the same behavior in practice.
-                        node.force_dirty(key.v);
+                        node.force_dirty(key.v, invalidation_priority);
                         VersionedGraphNode::Vacant(node)
                     }
                 };
@@ -293,9 +319,13 @@ impl VersionedGraph {
 
         let queue = {
             let res = match invalidate {
-                InvalidateKind::Invalidate => entry.mark_invalidated(key.v),
-                InvalidateKind::ForceDirty => entry.force_dirty(key.v),
-                InvalidateKind::Update(value, _) => entry.on_injected(key.v, value),
+                InvalidateKind::Invalidate => {
+                    entry.mark_invalidated(key.v, Some(invalidation_priority))
+                }
+                InvalidateKind::ForceDirty => entry.force_dirty(key.v, invalidation_priority),
+                InvalidateKind::Update(value, _) => {
+                    entry.on_injected(key.v, value, invalidation_priority)
+                }
             };
 
             if let InvalidateResult::Changed(rdeps) = res {
@@ -321,6 +351,7 @@ impl VersionedGraph {
         value: DiceValidValue,
         mut valid_deps_versions: VersionRanges,
         deps: Arc<SeriesParallelDeps>,
+        invalidation_paths: TrackedInvalidationPaths,
     ) -> DiceComputedValue {
         debug!("making new graph entry because previously empty");
         valid_deps_versions.insert(VersionRange::bounded(v, VersionNumber::new(v.0 + 1)));
@@ -330,9 +361,10 @@ impl VersionedGraph {
             deps,
             valid_deps_versions,
             ForceDirtyHistory::new(),
+            invalidation_paths,
         );
 
-        let res = entry.computed_val();
+        let res = entry.computed_val(v);
         self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
         res
     }
@@ -342,7 +374,8 @@ impl VersionedGraph {
 
         while let Some(rdep) = queue.pop() {
             if let Some(node) = self.nodes.get_mut(&rdep) {
-                if let InvalidateResult::Changed(Some(rdeps)) = node.mark_invalidated(version) {
+                if let InvalidateResult::Changed(Some(rdeps)) = node.mark_invalidated(version, None)
+                {
                     for dep in rdeps.into_iter() {
                         if queued.insert(dep) {
                             queue.push(dep);
@@ -456,6 +489,7 @@ mod tests {
     use dupe::Dupe;
 
     use crate::api::computations::DiceComputations;
+    use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
     use crate::arc::Arc;
     use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
@@ -468,6 +502,7 @@ mod tests {
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;
+    use crate::impls::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
@@ -497,6 +532,7 @@ mod tests {
                 DiceValidValue::testing_new(DiceKeyValue::<K>::new(value)),
                 StorageType::Injected,
             ),
+            InvalidationSourcePriority::Normal,
         );
     }
 
@@ -519,7 +555,8 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -537,7 +574,8 @@ mod tests {
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -575,7 +613,8 @@ mod tests {
                     res3,
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -613,6 +652,7 @@ mod tests {
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
                     StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -655,7 +695,11 @@ mod tests {
 
         let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
 
-        cache.invalidate(key7, InvalidateKind::ForceDirty);
+        cache.invalidate(
+            key7,
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
         cache.get(key7.dupe()).assert_compute()
     }
 
@@ -667,7 +711,8 @@ mod tests {
 
         assert!(cache.invalidate(
             key,
-            InvalidateKind::Update(res.dupe(), StorageType::Injected)
+            InvalidateKind::Update(res.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         ));
 
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
@@ -677,7 +722,8 @@ mod tests {
 
         assert!(cache.invalidate(
             key2,
-            InvalidateKind::Update(res2.dupe(), StorageType::Injected)
+            InvalidateKind::Update(res2.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         ));
 
         assert!(
@@ -695,7 +741,8 @@ mod tests {
         let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         assert!(cache.invalidate(
             key3,
-            InvalidateKind::Update(res3.dupe(), StorageType::Injected)
+            InvalidateKind::Update(res3.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         ));
 
         assert!(
@@ -747,13 +794,21 @@ mod tests {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
-        let existing = cache.invalidate(key_a(0), InvalidateKind::ForceDirty);
+        let existing = cache.invalidate(
+            key_a(0),
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
         assert!(existing);
 
         cache.get(key_a(0).dupe()).assert_compute();
         cache.get(key_a(1).dupe()).assert_compute();
 
-        let existing = cache.invalidate(key_a(2), InvalidateKind::ForceDirty);
+        let existing = cache.invalidate(
+            key_a(2),
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
         assert!(existing);
 
         cache.get(key_a(0).dupe()).assert_compute();
@@ -766,6 +821,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
         assert!(
             cache
@@ -805,6 +861,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         inject(&mut cache, 2, dep_key, 200);
@@ -818,6 +875,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         inject(&mut cache, 3, dep_key, 300);
@@ -830,6 +888,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         // should have created a new entry because of key2
@@ -865,7 +924,8 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -888,7 +948,8 @@ mod tests {
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -913,7 +974,8 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -943,7 +1005,8 @@ mod tests {
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -992,7 +1055,8 @@ mod tests {
                     // there's nothing in the cache to be reused.
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -1015,7 +1079,8 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber(1)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -1041,7 +1106,8 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -1071,7 +1137,8 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::VersionBased(VersionNumber::new(5)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -1101,7 +1168,8 @@ mod tests {
                     res_fake.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
@@ -1121,6 +1189,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 1 });
@@ -1132,6 +1201,7 @@ mod tests {
                 index: 0,
             }])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         let key2 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 2 });
@@ -1143,11 +1213,13 @@ mod tests {
                 index: 0,
             }])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         assert!(cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
-            InvalidateKind::ForceDirty
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
         ));
 
         assert_eq!(
@@ -1190,11 +1262,13 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         assert!(!cache.invalidate(
             VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
-            InvalidateKind::Update(res.dupe(), StorageType::Normal)
+            InvalidateKind::Update(res.dupe(), StorageType::Normal),
+            InvalidationSourcePriority::Normal,
         ));
 
         let key = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
@@ -1204,6 +1278,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         assert!(cache.invalidate(
@@ -1211,7 +1286,8 @@ mod tests {
             InvalidateKind::Update(
                 DiceValidValue::testing_new(DiceKeyValue::<K>::new(30)),
                 StorageType::Normal
-            )
+            ),
+            InvalidationSourcePriority::Normal,
         ));
 
         Ok(())
@@ -1238,14 +1314,17 @@ mod tests {
             cache.invalidate(
                 key_a0,
                 InvalidateKind::Update(res.dupe(), StorageType::Injected),
+                InvalidationSourcePriority::Normal,
             );
             cache.invalidate(
                 key_a1,
                 InvalidateKind::Update(res2.dupe(), StorageType::Injected),
+                InvalidationSourcePriority::Normal,
             );
             cache.invalidate(
                 key_a2,
                 InvalidateKind::Update(res.dupe(), StorageType::Injected),
+                InvalidationSourcePriority::Normal,
             );
 
             cache.update(
@@ -1254,6 +1333,7 @@ mod tests {
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
                 StorageType::Normal,
+                TrackedInvalidationPaths::clean(),
             );
 
             // deferred dirty propagation should have b invalidated at v1.
@@ -1265,6 +1345,7 @@ mod tests {
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
                 StorageType::Normal,
+                TrackedInvalidationPaths::clean(),
             );
 
             cache.get(key_b0).assert_match();
@@ -1285,6 +1366,7 @@ mod tests {
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
                 StorageType::Normal,
+                TrackedInvalidationPaths::clean(),
             );
 
             cache.get(key_c0).assert_match();
@@ -1314,6 +1396,7 @@ mod tests {
         cache.invalidate(
             key_b0,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         );
 
         cache.update(
@@ -1322,9 +1405,14 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
-        cache.invalidate(key_a1, InvalidateKind::ForceDirty);
+        cache.invalidate(
+            key_a1,
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
 
         cache.get(key_a1).assert_compute();
         cache.get(key_a2).assert_compute();
@@ -1351,15 +1439,21 @@ mod tests {
         cache.invalidate(
             key_b0,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         );
 
-        cache.invalidate(key_a2, InvalidateKind::ForceDirty);
+        cache.invalidate(
+            key_a2,
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
         cache.update(
             key_a3,
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         cache.get(key_a0).assert_compute();
@@ -1388,10 +1482,15 @@ mod tests {
         cache.invalidate(
             key_b0,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         );
 
         // a force-dirtied at v1
-        cache.invalidate(key_a1, InvalidateKind::ForceDirty);
+        cache.invalidate(
+            key_a1,
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
 
         // a computed at v2, since deps haven't changed it should be valid at v1 but due to force dirty not at v0
         cache.update(
@@ -1400,6 +1499,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         cache.get(key_a0).assert_compute();
@@ -1411,6 +1511,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         cache.get(key_a0).assert_compute();
@@ -1437,6 +1538,7 @@ mod tests {
         cache.invalidate(
             key_b0,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
         );
 
         let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
@@ -1445,6 +1547,7 @@ mod tests {
             cache.invalidate(
                 VersionedGraphKey::new(VersionNumber(i), key_a),
                 InvalidateKind::ForceDirty,
+                InvalidationSourcePriority::Normal,
             );
         }
 
@@ -1454,6 +1557,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         cache.update(
@@ -1462,6 +1566,7 @@ mod tests {
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
             StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
 
         // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the

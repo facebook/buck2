@@ -28,6 +28,7 @@ use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::error::DiceResult;
+use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
@@ -56,7 +57,7 @@ use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
-use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::project_for_key;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
@@ -203,7 +204,8 @@ impl<'d> ModernComputeCtx<'d> {
     {
         ctx_data.compute_opaque(key).map(move |cancellable_result| {
             let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                OpaqueValueModern::new(dice_key, dice_value.value().dupe())
+                let (value, invalidation_paths) = dice_value.into_parts();
+                OpaqueValueModern::new(dice_key, value, invalidation_paths)
             });
 
             cancellable.map_err(|_| DiceError::cancelled())
@@ -255,7 +257,10 @@ impl<'d> ModernComputeCtx<'d> {
         func: impl FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut + 'a,
     ) -> impl Future<Output = T> + 'a {
         let (ctx_data, self_dep_trackers) = self.unpack();
-        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new()));
+        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new(
+            // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
+            TrackedInvalidationPaths::clean(),
+        )));
         let fut = func(LinearRecomputeDiceComputations(
             LinearRecomputeDiceComputationsImpl::Modern(LinearRecomputeModern {
                 ctx_data,
@@ -271,8 +276,9 @@ impl<'d> ModernComputeCtx<'d> {
                 .collect_deps();
             let validity = dep_trackers.deps_validity;
             for k in dep_trackers.deps.iter_keys() {
-                self_dep_trackers.record(k, validity)
+                self_dep_trackers.record(k, validity, TrackedInvalidationPaths::clean())
             }
+            self_dep_trackers.update_invalidation_paths(dep_trackers.invalidation_paths.dupe());
             v
         })
     }
@@ -285,14 +291,33 @@ impl<'d> ModernComputeCtx<'d> {
         deps: DepsTrackerHolder,
         opaque: OpaqueValueModern<K>,
     ) -> K::Value {
-        deps.lock()
-            .record(opaque.derive_from_key, opaque.derive_from.validity());
+        let OpaqueValueModern {
+            derive_from_key,
+            derive_from,
+            invalidation_paths,
+            ..
+        } = opaque;
 
-        opaque
-            .derive_from
+        deps.lock()
+            .record(derive_from_key, derive_from.validity(), invalidation_paths);
+
+        derive_from
             .downcast_maybe_transient::<K::Value>()
             .expect("type mismatch")
             .dupe()
+    }
+
+    pub(crate) fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
+        let (normal, high) = {
+            let mut dep_trackers = self.dep_trackers();
+            let paths = dep_trackers.invalidation_paths();
+            (paths.get_normal(), paths.get_high())
+        };
+        DiceKeyTrackedInvalidationPaths::new(
+            self.ctx_data().async_evaluator.dice.dupe(),
+            normal,
+            high,
+        )
     }
 }
 
@@ -326,6 +351,7 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
     Normal {
         ctx_data: &'a CoreCtx,
         tracker_arena: &'a Arena<RecordedDeps>,
+        invalidation_paths: &'a TrackedInvalidationPaths,
     },
     Linear {
         ctx_data: &'a CoreCtx,
@@ -341,12 +367,13 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
             ModernComputeCtxParallelBuilder::Normal {
                 ctx_data,
                 tracker_arena,
+                invalidation_paths,
             } => OwningFuture::new(
                 (
                     tracker_arena.alloc(RecordedDeps::new()),
                     ModernComputeCtx::Parallel {
                         ctx_data,
-                        dep_trackers: RecordingDepsTracker::new(),
+                        dep_trackers: RecordingDepsTracker::new((*invalidation_paths).dupe()),
                     }
                     .into(),
                 ),
@@ -457,7 +484,7 @@ impl ModernComputeCtx<'_> {
         async_evaluator: AsyncEvaluator,
     ) -> ModernComputeCtx<'static> {
         ModernComputeCtx::Owned {
-            dep_trackers: RecordingDepsTracker::new(),
+            dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
             ctx_data: CoreCtx {
                 async_evaluator,
                 parent_key,
@@ -472,17 +499,25 @@ impl ModernComputeCtx<'_> {
             ModernComputeCtx::Owned {
                 ctx_data,
                 dep_trackers,
-            } => ModernComputeCtxParallelBuilder::Normal {
-                ctx_data,
-                tracker_arena: dep_trackers.push_parallel(size_hint),
-            },
+            } => {
+                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
+                ModernComputeCtxParallelBuilder::Normal {
+                    ctx_data,
+                    tracker_arena,
+                    invalidation_paths,
+                }
+            }
             ModernComputeCtx::Parallel {
                 ctx_data,
                 dep_trackers,
-            } => ModernComputeCtxParallelBuilder::Normal {
-                ctx_data,
-                tracker_arena: dep_trackers.push_parallel(size_hint),
-            },
+            } => {
+                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
+                ModernComputeCtxParallelBuilder::Normal {
+                    ctx_data,
+                    tracker_arena,
+                    invalidation_paths,
+                }
+            }
             ModernComputeCtx::Linear {
                 ctx_data,
                 dep_trackers,
@@ -528,12 +563,7 @@ impl ModernComputeCtx<'_> {
         key: &P,
     ) -> DiceResult<P::Value> {
         let (ctx_data, dep_trackers) = self.unpack();
-        ctx_data.project(
-            key,
-            derive_from.derive_from_key,
-            derive_from.derive_from.dupe(),
-            dep_trackers,
-        )
+        ctx_data.project(key, derive_from, dep_trackers)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
@@ -602,21 +632,17 @@ impl CoreCtx {
     }
 
     /// Compute "projection" based on deriving value
-    fn project<K>(
+    fn project<B: Key, K: ProjectionKey<DeriveFromKey = B>>(
         &self,
         key: &K,
-        base_key: DiceKey,
-        base: MaybeValidDiceValue,
+        base: &OpaqueValueModern<B>,
         dep_trackers: DepsTrackerHolder,
-    ) -> DiceResult<K::Value>
-    where
-        K: ProjectionKey,
-    {
+    ) -> DiceResult<K::Value> {
         let dice_key = self
             .async_evaluator
             .dice
             .key_index
-            .index(CowDiceKeyHashed::proj_ref(base_key, key));
+            .index(CowDiceKeyHashed::proj_ref(base.derive_from_key, key));
 
         let r = self
             .async_evaluator
@@ -628,7 +654,8 @@ impl CoreCtx {
                 SyncEvaluator::new(
                     self.async_evaluator.user_data.dupe(),
                     self.async_evaluator.dice.dupe(),
-                    base,
+                    base.derive_from.dupe(),
+                    base.invalidation_paths.dupe(),
                 ),
                 DiceEventDispatcher::new(
                     self.async_evaluator.user_data.tracker.dupe(),
@@ -641,7 +668,11 @@ impl CoreCtx {
             Err(_cancelled) => return Err(DiceError::cancelled()),
         };
 
-        dep_trackers.lock().record(dice_key, r.value().validity());
+        dep_trackers.lock().record(
+            dice_key,
+            r.value().validity(),
+            r.invalidation_paths().dupe(),
+        );
 
         Ok(r.value()
             .downcast_maybe_transient::<K::Value>()

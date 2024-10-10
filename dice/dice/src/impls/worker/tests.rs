@@ -32,6 +32,7 @@ use tokio::sync::Semaphore;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
+use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
@@ -57,6 +58,7 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::MaybeValidDiceValue;
+use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::check_dependencies;
 use crate::impls::worker::testing::CheckDependenciesResultExt;
 use crate::impls::worker::CheckDependenciesResult;
@@ -148,6 +150,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
     let eval = AsyncEvaluator {
@@ -174,6 +177,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(1)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
 
@@ -204,6 +208,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         DiceComputedValue::new(
             MaybeValidDiceValue::transient(std::sync::Arc::new(DiceKeyValue::<K>::new(1))),
             Arc::new(VersionRange::begins_with(VersionNumber::new(2)).into_ranges()),
+            TrackedInvalidationPaths::clean(),
         ),
     );
 
@@ -307,7 +312,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let v = dice
         .state_handle
-        .update_state(vec![(key.dupe(), ChangeType::Invalidate)])
+        .update_state(vec![(
+            key.dupe(),
+            ChangeType::Invalidate,
+            InvalidationSourcePriority::Normal,
+        )])
         .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
@@ -808,6 +817,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
                 Arc::new(dep_history),
+                TrackedInvalidationPaths::clean(),
             ),
         );
 
@@ -894,7 +904,11 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
 async fn soft_dirty(dice: &std::sync::Arc<DiceModern>, key: DiceKey) -> VersionNumber {
     dice.state_handle
-        .update_state(vec![(key.dupe(), ChangeType::TestingSoftDirty)])
+        .update_state(vec![(
+            key.dupe(),
+            ChangeType::TestingSoftDirty,
+            InvalidationSourcePriority::Normal,
+        )])
         .await
 }
 
@@ -912,6 +926,7 @@ fn update_computed_value(
         StorageType::Normal,
         value,
         deps,
+        TrackedInvalidationPaths::clean(),
     )
 }
 
@@ -1074,32 +1089,72 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
     *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
 
-    let mut deps = RecordingDepsTracker::new();
-    deps.record(keys[0], DiceValidity::Valid);
-    deps.record(keys[1], DiceValidity::Valid);
-    deps.record(keys[2], DiceValidity::Valid);
+    let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+    deps.record(
+        keys[0],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[1],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[2],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
     {
-        let parallel = deps.push_parallel(0);
+        let parallel = deps.push_parallel(0).0;
         for i in 0..3 {
             let offset = i * 5;
-            let mut deps = RecordingDepsTracker::new();
-            deps.record(keys[3 + offset], DiceValidity::Valid);
-            deps.record(keys[4 + offset], DiceValidity::Valid);
+            let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+            deps.record(
+                keys[3 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
+            deps.record(
+                keys[4 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
             {
-                let parallel = deps.push_parallel(2);
-                let mut deps = RecordingDepsTracker::new();
-                deps.record(keys[5 + offset], DiceValidity::Valid);
+                let parallel = deps.push_parallel(2).0;
+                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                deps.record(
+                    keys[5 + offset],
+                    DiceValidity::Valid,
+                    TrackedInvalidationPaths::clean(),
+                );
                 parallel.alloc(deps.collect_deps());
-                let mut deps = RecordingDepsTracker::new();
-                deps.record(keys[6 + offset], DiceValidity::Valid);
+                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                deps.record(
+                    keys[6 + offset],
+                    DiceValidity::Valid,
+                    TrackedInvalidationPaths::clean(),
+                );
                 parallel.alloc(deps.collect_deps());
             }
-            deps.record(keys[7 + offset], DiceValidity::Valid);
+            deps.record(
+                keys[7 + offset],
+                DiceValidity::Valid,
+                TrackedInvalidationPaths::clean(),
+            );
             parallel.alloc(deps.collect_deps());
         }
     }
-    deps.record(keys[18], DiceValidity::Valid);
-    deps.record(keys[19], DiceValidity::Valid);
+    deps.record(
+        keys[18],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
+    deps.record(
+        keys[19],
+        DiceValidity::Valid,
+        TrackedInvalidationPaths::clean(),
+    );
 
     let deps = deps.collect_deps();
     let cycles = KeyComputingUserCycleDetectorData::Untracked;

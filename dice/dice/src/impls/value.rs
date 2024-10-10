@@ -14,7 +14,10 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
+use crate::impls::key::DiceKey;
+use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 use crate::Key;
 use crate::ProjectionKey;
@@ -123,19 +126,140 @@ impl DiceValidity {
     }
 }
 
-#[derive(Allocative, Clone)]
+#[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceComputedValue {
     value: MaybeValidDiceValue,
     valid: Arc<VersionRanges>,
+    invalidation_paths: TrackedInvalidationPaths,
 }
 
-impl Dupe for DiceComputedValue {
-    // triomphe Arc is dupe
+#[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
+pub(crate) enum InvalidationPath {
+    Clean,
+    Unknown,
+    Invalidated(Arc<InvalidationPathNode>),
+}
+impl InvalidationPath {
+    fn for_dependent(&self, key: DiceKey) -> InvalidationPath {
+        match self {
+            InvalidationPath::Clean => InvalidationPath::Clean,
+            InvalidationPath::Unknown => InvalidationPath::Unknown,
+            InvalidationPath::Invalidated(v) => {
+                InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+                    key,
+                    version: v.version,
+                    cause: self.dupe(),
+                }))
+            }
+        }
+    }
+
+    fn at_version(&self, v: VersionNumber) -> InvalidationPath {
+        match self {
+            InvalidationPath::Invalidated(t) if t.version > v => InvalidationPath::Unknown,
+            _ => self.dupe(),
+        }
+    }
+
+    fn update(&mut self, other: InvalidationPath) {
+        if let InvalidationPath::Invalidated(other) = other {
+            match self {
+                InvalidationPath::Invalidated(this) if this.version > other.version => {}
+                InvalidationPath::Unknown => {}
+                InvalidationPath::Clean | InvalidationPath::Invalidated(..) => {
+                    *self = InvalidationPath::Invalidated(other);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
+pub(crate) struct InvalidationPathNode {
+    /// The key at this node in the path.
+    pub(crate) key: DiceKey,
+    pub(crate) version: VersionNumber,
+    pub(crate) cause: InvalidationPath,
+}
+
+#[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
+pub(crate) struct TrackedInvalidationPaths {
+    /// The path to a normal or high priority invalidation source.
+    normal: InvalidationPath,
+    /// The path to a high priority invalidation source.
+    high: InvalidationPath,
+}
+
+impl TrackedInvalidationPaths {
+    pub(crate) fn for_dependent(&self, key: DiceKey) -> TrackedInvalidationPaths {
+        TrackedInvalidationPaths {
+            normal: self.normal.for_dependent(key),
+            high: self.high.for_dependent(key),
+        }
+    }
+
+    pub(crate) fn clean() -> TrackedInvalidationPaths {
+        TrackedInvalidationPaths {
+            normal: InvalidationPath::Clean,
+            high: InvalidationPath::Clean,
+        }
+    }
+
+    pub(crate) fn at_version(&self, v: VersionNumber) -> TrackedInvalidationPaths {
+        TrackedInvalidationPaths {
+            normal: self.normal.at_version(v),
+            high: self.high.at_version(v),
+        }
+    }
+
+    pub(crate) fn new(
+        priority: InvalidationSourcePriority,
+        key: DiceKey,
+        version: VersionNumber,
+    ) -> Self {
+        let path = InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+            key,
+            version,
+            cause: InvalidationPath::Clean,
+        }));
+        match priority {
+            InvalidationSourcePriority::Ignored => Self::clean(),
+            InvalidationSourcePriority::Normal => Self {
+                normal: path,
+                high: InvalidationPath::Clean,
+            },
+            InvalidationSourcePriority::High => Self {
+                normal: path.dupe(),
+                high: path,
+            },
+        }
+    }
+
+    pub(crate) fn update(&mut self, new_paths: TrackedInvalidationPaths) {
+        self.normal.update(new_paths.normal);
+        self.high.update(new_paths.high);
+    }
+
+    pub(crate) fn get_normal(&self) -> InvalidationPath {
+        self.normal.dupe()
+    }
+
+    pub(crate) fn get_high(&self) -> InvalidationPath {
+        self.high.dupe()
+    }
 }
 
 impl DiceComputedValue {
-    pub(crate) fn new(value: MaybeValidDiceValue, valid: Arc<VersionRanges>) -> Self {
-        Self { value, valid }
+    pub(crate) fn new(
+        value: MaybeValidDiceValue,
+        valid: Arc<VersionRanges>,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> Self {
+        Self {
+            value,
+            valid,
+            invalidation_paths,
+        }
     }
 
     pub(crate) fn value(&self) -> &MaybeValidDiceValue {
@@ -144,6 +268,14 @@ impl DiceComputedValue {
 
     pub(crate) fn versions(&self) -> &VersionRanges {
         &self.valid
+    }
+
+    pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
+        &self.invalidation_paths
+    }
+
+    pub(crate) fn into_parts(self) -> (MaybeValidDiceValue, TrackedInvalidationPaths) {
+        (self.value, self.invalidation_paths)
     }
 }
 
@@ -231,12 +363,16 @@ where
 }
 
 #[cfg(test)]
-mod testing {
-    use std::sync::Arc;
-
+pub mod testing {
+    use crate::arc::Arc;
+    use crate::impls::key::DiceKey;
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::DiceValueDyn;
+    use crate::impls::value::InvalidationPath;
+    use crate::impls::value::InvalidationPathNode;
     use crate::impls::value::MaybeValidDiceValue;
+    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::versions::VersionNumber;
 
     impl DiceValidValue {
         pub(crate) fn testing_new<V: DiceValueDyn>(value: V) -> Self {
@@ -245,8 +381,100 @@ mod testing {
     }
 
     impl MaybeValidDiceValue {
-        pub(crate) fn testing_value(&self) -> &Arc<dyn DiceValueDyn> {
+        pub(crate) fn testing_value(&self) -> &std::sync::Arc<dyn DiceValueDyn> {
             &self.value
         }
+    }
+
+    pub struct MakeInvalidationPaths {
+        pub normal: (DiceKey, usize),
+        pub high: Option<(DiceKey, usize)>,
+    }
+
+    impl MakeInvalidationPaths {
+        pub fn into(self) -> TrackedInvalidationPaths {
+            TrackedInvalidationPaths {
+                normal: InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+                    key: self.normal.0,
+                    version: VersionNumber(self.normal.1),
+                    cause: InvalidationPath::Clean,
+                })),
+                high: self.high.map_or(InvalidationPath::Clean, |(k, v)| {
+                    InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+                        key: k,
+                        version: VersionNumber(v),
+                        cause: InvalidationPath::Clean,
+                    }))
+                }),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::impls::value::testing::MakeInvalidationPaths;
+
+    #[test]
+
+    fn test_invalidation_paths() -> anyhow::Result<()> {
+        let key0 = DiceKey { index: 0 };
+        let key1 = DiceKey { index: 1 };
+        let key2 = DiceKey { index: 2 };
+        let mut paths = TrackedInvalidationPaths::clean();
+
+        paths.update(
+            MakeInvalidationPaths {
+                normal: (key0, 2),
+                high: None,
+            }
+            .into(),
+        );
+
+        assert_eq!(
+            paths,
+            MakeInvalidationPaths {
+                normal: (key0, 2),
+                high: None,
+            }
+            .into()
+        );
+
+        paths.update(
+            MakeInvalidationPaths {
+                normal: (key1, 3),
+                high: Some((key1, 3)),
+            }
+            .into(),
+        );
+
+        assert_eq!(
+            paths,
+            MakeInvalidationPaths {
+                normal: (key1, 3),
+                high: Some((key1, 3)),
+            }
+            .into()
+        );
+
+        paths.update(
+            MakeInvalidationPaths {
+                normal: (key2, 4),
+                high: None,
+            }
+            .into(),
+        );
+
+        assert_eq!(
+            paths,
+            MakeInvalidationPaths {
+                normal: (key2, 4),
+                high: Some((key1, 3))
+            }
+            .into()
+        );
+
+        Ok(())
     }
 }

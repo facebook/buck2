@@ -15,6 +15,7 @@ use dupe::Dupe;
 
 use crate::api::error::DiceError;
 use crate::api::error::DiceResult;
+use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -122,7 +123,13 @@ impl TransactionUpdater {
         let v = self
             .dice
             .state_handle
-            .update_state(self.scheduled_changes.changes.into_iter().collect())
+            .update_state(
+                self.scheduled_changes
+                    .changes
+                    .into_iter()
+                    .map(|(k, (t, p))| (k, t, p))
+                    .collect(),
+            )
             .await;
 
         let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
@@ -157,7 +164,7 @@ impl Drop for ActiveTransactionGuardInner {
 
 #[derive(Allocative)]
 struct Changes {
-    changes: HashMap<DiceKey, ChangeType>,
+    changes: HashMap<DiceKey, (ChangeType, InvalidationSourcePriority)>,
     dice: Arc<DiceModern>,
 }
 
@@ -176,7 +183,11 @@ impl Changes {
             }
             (change, _) => {
                 let key = self.dice.key_index.index_key(key);
-                if self.changes.insert(key, change).is_some() {
+                if self
+                    .changes
+                    .insert(key, (change, K::invalidation_source_priority()))
+                    .is_some()
+                {
                     Err(DiceError::duplicate(
                         self.dice.key_index.get(key).dupe().downcast::<K>().unwrap(),
                     ))
@@ -215,6 +226,7 @@ mod tests {
 
     use crate::api::computations::DiceComputations;
     use crate::api::data::DiceData;
+    use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
     use crate::impls::dice::DiceModern;
     use crate::impls::key::CowDiceKeyHashed;
@@ -255,14 +267,14 @@ mod tests {
                 .scheduled_changes
                 .changes
                 .get(&dice.key_index.index(CowDiceKeyHashed::key(K(1)))),
-            Some(ChangeType::Invalidate)
+            Some((ChangeType::Invalidate, InvalidationSourcePriority::Normal))
         );
         assert_matches!(
             updater
                 .scheduled_changes
                 .changes
                 .get(&dice.key_index.index(CowDiceKeyHashed::key(K(2)))),
-            Some(ChangeType::Invalidate)
+            Some((ChangeType::Invalidate, InvalidationSourcePriority::Normal))
         );
 
         assert_matches!(
@@ -270,7 +282,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(3)))),
-        Some(ChangeType::UpdateValue(x, _)) if *x.downcast_ref::<usize>().unwrap() == 3
+        Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 3
             );
 
         assert_matches!(
@@ -278,7 +290,7 @@ mod tests {
             .scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(4)))),
-        Some(ChangeType::UpdateValue(x, _)) if *x.downcast_ref::<usize>().unwrap() == 4
+        Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 4
             );
 
         assert!(updater.changed(vec![K(1)]).is_err());
