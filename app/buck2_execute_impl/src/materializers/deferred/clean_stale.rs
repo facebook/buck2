@@ -356,14 +356,29 @@ fn create_clean_fut<T: IoHandler>(
         })
         .collect();
 
-    let existing_futs =
+    let existing_clean_futs =
         tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
+    let mut existing_materialization_futs = vec![];
+    for data in tree.iter_without_paths() {
+        match &data.processing {
+            super::Processing::Active {
+                future: super::ProcessingFuture::Materializing(future),
+                ..
+            } => existing_materialization_futs.push(future.clone()),
+            _ => (),
+        };
+    }
 
     let fut = async move {
         let start_time = Instant::now();
         // Wait for all in-progress operations to finish on the paths we are about to
         // remove from disk.
-        join_all_existing_futs(existing_futs).await?;
+        join_all_existing_futs(existing_clean_futs).await?;
+        // Untracked artifacts can be produced during materialization that should not be cleaned while materialization is in progress.
+        // Wait for all materializations since the path for the future may not be associated with the untracked path.
+        for fut in existing_materialization_futs.into_iter() {
+            fut.await.ok();
+        }
 
         // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
         // do this to get parallelism.
