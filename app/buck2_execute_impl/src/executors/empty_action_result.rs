@@ -7,13 +7,11 @@
  * of this source tree.
  */
 
-use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
-use once_cell::sync::OnceCell;
 use remote_execution as RE;
 use remote_execution::TActionResult2;
 use remote_execution::TExecutedActionMetadata;
@@ -23,11 +21,8 @@ use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 /// Create an empty action result for permission check.
 pub(crate) fn empty_action_result(
     platform: &RePlatformFields,
+    digest_config: DigestConfig,
 ) -> anyhow::Result<(ActionDigestAndBlobs, TActionResult2)> {
-    static DIGEST_CONFIG: OnceCell<DigestConfig> = OnceCell::new();
-    let digest_config = *DIGEST_CONFIG
-        .get_or_try_init(|| DigestConfig::leak_new(vec![DigestAlgorithm::Sha1], None))?;
-
     let mut blobs = ActionDigestAndBlobsBuilder::new(digest_config);
 
     let command = blobs.add_command(&RE::Command {
