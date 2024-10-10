@@ -11,7 +11,6 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps", "generate_java_classpath_snapshot")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
-load("@prelude//utils:set.bzl", "set")
 
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = Artifact,
@@ -116,7 +115,7 @@ def _generate_r_dot_java_source_code(
 
     r_dot_txt_info = cmd_args()
     deduped_android_resources = set([(android_resource.text_symbols, android_resource.r_dot_java_package, android_resource.raw_target) for android_resource in android_resources])
-    for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources.list():
+    for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources:
         r_dot_txt_info.add(cmd_args([text_symbols, r_dot_java_package, raw_target], delimiter = " "))
 
     r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info)
