@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import json_get
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_no_dice_invalidation_on_root_directory_changes(buck: Buck) -> None:
     await buck.build("root//dir:")
 

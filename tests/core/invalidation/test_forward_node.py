@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_forward_node_supports_cutoff(buck: Buck) -> None:
     await buck.targets("--show-output", "root//:main")
     # Add a file to the root directory
