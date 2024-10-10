@@ -17,7 +17,6 @@ load(
 )
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten")
 
 # "Voltron" gives us the ability to split our Android APKs into different "modules". These
@@ -192,8 +191,8 @@ def _get_base_cmd_and_output(
     used_by_wrap_script_libs = [str(shared_lib.label.raw_target()) for shared_lib in shared_libraries if shared_lib.for_primary_apk]
     prebuilt_native_library_dirs = flatten([list(android_packageable_info.prebuilt_native_library_dirs.traverse()) if android_packageable_info.prebuilt_native_library_dirs else [] for android_packageable_info in android_packageable_infos])
     prebuilt_native_library_targets_for_primary_apk = dedupe([str(native_lib_dir.raw_target) for native_lib_dir in prebuilt_native_library_dirs if native_lib_dir.for_primary_apk])
-    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or primary_apk_deps.size() > 0:
-        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + primary_apk_deps.list()
+    if application_module_blocklist or used_by_wrap_script_libs or prebuilt_native_library_targets_for_primary_apk or len(primary_apk_deps) > 0:
+        all_blocklisted_deps = used_by_wrap_script_libs + prebuilt_native_library_targets_for_primary_apk + list(primary_apk_deps)
         if application_module_blocklist:
             all_blocklisted_deps.extend([str(blocklisted_dep.label.raw_target()) for blocklisted_dep in application_module_blocklist])
 
@@ -245,10 +244,6 @@ def get_root_module_only_apk_module_graph_info() -> APKModuleGraphInfo:
         get_deps_debug_data = root_module_deps,
     )
 
-def find_intersection(list1, list2):
-    out = [value for value in list1 if value in list2]
-    return out
-
 def get_apk_module_graph_info(
         ctx: AnalysisContext,
         apk_module_graph_file: Artifact,
@@ -287,19 +282,20 @@ def get_apk_module_graph_info(
         queue = [d for d in deps]
         for _ in range(1, 1000):  # represents a while loop since while loops dont exist in starlark
             if len(queue) == 0:
-                transitive_module_deps_map[module] = visited_modules.list()
+                transitive_module_deps_map[module] = visited_modules
                 continue
             node = queue.pop()
             visited_modules.add(node)
             for d in module_to_module_deps_map[node]:
-                if not visited_modules.contains(d):
+                if d not in visited_modules:
                     queue.append(d)
     for shared_module, rdeps in shared_module_rdeps.items():
-        rdeps_list = rdeps.list()
-        intersection = transitive_module_deps_map[rdeps_list[0]]
+        rdeps_list = list(rdeps)
+        head = rdeps_list[0]
+        intersection = transitive_module_deps_map[head]
         for rdep in rdeps_list[1:]:
-            intersection = find_intersection(intersection, transitive_module_deps_map[rdep])
-        calculated_deps_map[shared_module] = (intersection if intersection else []) + rdeps_list
+            intersection = intersection & transitive_module_deps_map[rdep]
+        calculated_deps_map[shared_module] = intersection | rdeps
 
     def target_to_module_mapping_function(raw_target: str) -> str:
         mapped_module = target_to_module_mapping.get(raw_target)
@@ -312,11 +308,11 @@ def get_apk_module_graph_info(
     def module_to_module_deps_function(voltron_module: str) -> list:
         return module_to_module_deps_map.get(voltron_module)
 
-    def transitive_module_deps_function(voltron_module: str) -> list:
+    def transitive_module_deps_function(voltron_module: str) -> set[str]:
         return transitive_module_deps_map.get(voltron_module)
 
-    def calculated_deps_function(voltron_module: str) -> list:
-        return calculated_deps_map.get(voltron_module) if voltron_module in calculated_deps_map else []
+    def calculated_deps_function(voltron_module: str) -> set[str]:
+        return calculated_deps_map.get(voltron_module) if voltron_module in calculated_deps_map else set()
 
     def get_deps_debug_data() -> str:
         return "tdeps - {} \n calculated deps - {}".format(transitive_module_deps_map, calculated_deps_map)
