@@ -25,3 +25,13 @@ test_rule(
     ],
     default_target_platform = ":my_platform",
 )
+
+test_rule(
+    name = "test3",
+    modifiers = [
+        "root//:A_1"
+    ],
+    metadata = {
+        "buck.cfg_modifiers": ["root//:A_1"]
+    },
+)

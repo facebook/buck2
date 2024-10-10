@@ -36,3 +36,10 @@ async def test_cfg_modifiers_attr_ctargets(buck: Buck) -> None:
         "root//:test2",
     )
     assert ":A_1" not in result  # TODO rm not after impl
+
+
+@buck_test(inplace=False)
+async def test_cfg_modifiers_attr_and_metadata_together_fails(buck: Buck) -> None:
+    await buck.ctargets(
+        "root//:test3",
+    ),  # this should fail
