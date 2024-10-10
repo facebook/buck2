@@ -200,9 +200,6 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             callable,
         } = dynamic_actions;
 
-        let attributes = this.attributes;
-        let plugins = this.plugins;
-
         let mut this = this.state();
 
         let key = this.analysis_value_storage.next_dynamic_actions_key()?;
@@ -210,8 +207,8 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
 
         // Registration
         let lambda_params = DynamicLambdaParams {
-            attributes,
-            plugins,
+            attributes: None,
+            plugins: None,
             lambda: callable.implementation.erase().to_callable(),
             arg: Some(arg),
             static_fields: DynamicLambdaStaticFields {
