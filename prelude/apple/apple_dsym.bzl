@@ -21,27 +21,30 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
 def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
     output = ctx.actions.declare_output(output_path, dir = True)
-
     cmd = cmd_args(
         [
             dsymutil,
             "--verify-dwarf={}".format(ctx.attrs._dsymutil_verify_dwarf),
             # Reproducers are not useful, we can reproduce from the action digest.
             "--reproducer=Off",
-        ] + ctx.attrs._dsymutil_extra_flags + [
-            "-o",
-            output.as_output(),
         ],
-        executable,
         # Mach-O executables don't contain DWARF data.
         # Instead, they contain paths to the object files which themselves contain DWARF data.
-        #
         # So, those object files are needed for dsymutil to be to create the dSYM bundle.
         hidden = debug_info,
     )
+    if ctx.attrs.dsym_uses_parallel_linker:
+        cmd.add("--linker=parallel")
 
+    cmd.add(ctx.attrs._dsymutil_extra_flags)
+    cmd.add(
+        [
+            "-o",
+            output.as_output(),
+            executable,
+        ],
+    )
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
-
     return output
 
 def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> dict[str, typing.Any]:

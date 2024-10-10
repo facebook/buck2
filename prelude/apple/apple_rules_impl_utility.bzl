@@ -66,6 +66,7 @@ APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default 
 
 def apple_dsymutil_attrs():
     return {
+        "dsym_uses_parallel_linker": attrs.bool(default = False),
         "_dsymutil_extra_flags": attrs.list(attrs.string()),
         "_dsymutil_verify_dwarf": attrs.string(),
     }
