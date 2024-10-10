@@ -66,7 +66,7 @@ def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
 
     globals()[name] = impl
 
-    return buck_test(inplace=False)(impl)
+    return buck_test()(impl)
 
 
 build_report_test(

@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env(
     "BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1"
 )  # needed to avoid failure on missing buck2-tpx in buck-out

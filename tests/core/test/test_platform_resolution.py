@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
 async def test_platform_resolution(buck: Buck) -> None:
     # Setup is such that test target is incompatible with testee's default

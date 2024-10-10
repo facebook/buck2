@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_discovery_cached(buck: Buck) -> None:
     args = [
         "-c",
@@ -26,7 +26,7 @@ async def test_discovery_cached(buck: Buck) -> None:
     )  # will be true once the implementation is done
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_discovery_cache_turned_off(buck: Buck) -> None:
     args = [
         "//:ok",

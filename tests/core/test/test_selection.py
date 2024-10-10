@@ -13,24 +13,24 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_ok(buck: Buck) -> None:
     await buck.test("//:ok")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_fail(buck: Buck) -> None:
     await expect_failure(buck.test("//:fail"), stderr_regex="Fail: root//:fail - main")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_tests_attribute(buck: Buck) -> None:
     await expect_failure(
         buck.test("//:noop_references_fail"), stderr_regex="Fail: root//:fail - main"
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_tests_attribute_transitive(buck: Buck) -> None:
     await expect_failure(
         buck.test(
@@ -40,14 +40,14 @@ async def test_tests_attribute_transitive(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_tests_attribute_cycle(buck: Buck) -> None:
     buck.test(
         "//:noop_cycle1",
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_tests_attribute_self_transition(buck: Buck) -> None:
     await expect_failure(
         buck.test("//:noop_self_transition_references_fail"),
