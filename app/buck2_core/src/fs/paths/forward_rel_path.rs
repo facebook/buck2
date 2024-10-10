@@ -262,6 +262,16 @@ impl ForwardRelativePath {
         }
     }
 
+    pub fn join_cow<'a>(&'a self, path: &'a ForwardRelativePath) -> Cow<'a, ForwardRelativePath> {
+        if self.is_empty() {
+            Cow::Borrowed(path)
+        } else if path.is_empty() {
+            Cow::Borrowed(self)
+        } else {
+            Cow::Owned(self.join(path))
+        }
+    }
+
     /// Returns a relative path of the parent directory
     ///
     /// ```

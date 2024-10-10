@@ -143,7 +143,7 @@ impl Artifact {
 
         ArtifactPath {
             base_path,
-            projected_path,
+            projected_path: projected_path.unwrap_or(ForwardRelativePath::empty()),
             hidden_components_count: self.0.hidden_components_count,
         }
     }
@@ -259,7 +259,8 @@ impl BoundBuildArtifact {
             projected_path: self
                 .projected_path
                 .as_ref()
-                .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p)),
+                .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p))
+                .unwrap_or(ForwardRelativePath::empty()),
             hidden_components_count: self.hidden_components_count,
         }
     }
@@ -331,7 +332,8 @@ impl DeclaredArtifact {
         let projected_path = self
             .projected_path
             .as_ref()
-            .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p));
+            .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p))
+            .unwrap_or(ForwardRelativePath::empty());
 
         let base_path = Ref::map(borrow, |a| match &a {
             DeclaredArtifactKind::Bound(a) => a.get_path(),

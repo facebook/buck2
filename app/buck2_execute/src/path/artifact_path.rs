@@ -26,7 +26,7 @@ use gazebo::eq_chain;
 #[derive(Debug)]
 pub struct ArtifactPath<'a> {
     pub base_path: Either<ARef<'a, BuckOutPath>, SourcePathRef<'a>>,
-    pub projected_path: Option<&'a ForwardRelativePath>,
+    pub projected_path: &'a ForwardRelativePath,
     /// The number of components at the prefix of that path that are internal details to the rule,
     /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
     pub hidden_components_count: usize,
@@ -37,9 +37,9 @@ impl<'a> ArtifactPath<'a> {
     where
         for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
     {
-        let file_name = match self.projected_path.as_ref() {
-            Some(projected_path) => projected_path,
-            None => match self.base_path.as_ref() {
+        let file_name = match self.projected_path.is_empty() {
+            false => self.projected_path,
+            true => match self.base_path.as_ref() {
                 Either::Left(buck_out) => buck_out.path(),
                 Either::Right(buck) => buck.path().as_ref(),
             },
@@ -59,10 +59,7 @@ impl<'a> ArtifactPath<'a> {
             Either::Right(buck) => buck.path().as_ref(),
         };
 
-        let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_short_path.join(projected_path)),
-            None => Cow::Borrowed(base_short_path),
-        };
+        let path = base_short_path.join_cow(self.projected_path);
 
         let path = match path.strip_prefix_components(self.hidden_components_count) {
             Some(p) => p,
@@ -86,10 +83,7 @@ impl<'a> ArtifactPath<'a> {
             ),
         };
 
-        let path = match self.projected_path.as_ref() {
-            Some(projected_path) => Cow::Owned(base_path.join(projected_path)),
-            None => base_path,
-        };
+        let path = base_path.join_cow(self.projected_path);
 
         f(&path)
     }
@@ -106,17 +100,14 @@ impl<'a> ArtifactPath<'a> {
             Either::Right(source) => artifact_fs.resolve_source(*source)?,
         };
 
-        Ok(match projected_path {
-            Some(projected_path) => base_path.join(projected_path),
-            None => base_path,
-        })
+        Ok(base_path.join(projected_path))
     }
 }
 
 impl Hash for ArtifactPath<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.base_path.hash(state);
-        self.projected_path.as_ref().hash(state);
+        self.projected_path.hash(state);
     }
 }
 
@@ -124,7 +115,7 @@ impl PartialEq for ArtifactPath<'_> {
     fn eq(&self, other: &Self) -> bool {
         eq_chain! {
             self.base_path == other.base_path,
-            self.projected_path.as_ref() == other.projected_path.as_ref()
+            self.projected_path == other.projected_path,
         }
     }
 }
