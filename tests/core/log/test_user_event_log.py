@@ -23,7 +23,7 @@ def _replace_timestamp(s: str) -> str:
     return re.sub(r"\b[0-9]+\b", "<NUMBER>", s)
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_user_event_log_custom_output(buck: Buck, tmp_path: Path) -> None:
     local_log = tmp_path / "test.json"
 
@@ -44,7 +44,7 @@ async def test_user_event_log_custom_output(buck: Buck, tmp_path: Path) -> None:
         json.loads(results[2])["StarlarkUserEvent"]
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_user_event_log_with_actions(buck: Buck, tmp_path: Path) -> None:
     local_log = tmp_path / "test.json-lines"
 
@@ -76,7 +76,7 @@ async def test_user_event_log_with_actions(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_user_event_with_log_show_user(buck: Buck) -> None:
     await buck.bxl(
         "root//:test.bxl:instant_event",
@@ -93,7 +93,7 @@ async def test_user_event_with_log_show_user(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 @pytest.mark.parametrize(
     "file_extension", [".json-lines", ".json-lines.gz", ".json-lines.zst"]
 )
@@ -126,6 +126,6 @@ async def test_user_event_log_with_log_show_user_compatibility(
 
 
 # Placeholder for tests to be listed successfully on Windows.
-@buck_test(inplace=False)
+@buck_test()
 async def test_noop(buck: Buck) -> None:
     return

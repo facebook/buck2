@@ -20,7 +20,7 @@ def with_buck2_args(output: str) -> typing.List[str]:
     ]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_no_action_divergence_command(buck: Buck) -> None:
     await buck.build("//:simple", *with_buck2_args("foo"))
     out1 = await buck.log("last")
@@ -35,7 +35,7 @@ async def test_no_action_divergence_command(buck: Buck) -> None:
     assert "No divergent actions found." in out.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_action_divergence_command(buck: Buck) -> None:
     await buck.build("//:non_det", *with_buck2_args("foo"))
     await buck.build("//:non_det", *with_buck2_args("bar"))

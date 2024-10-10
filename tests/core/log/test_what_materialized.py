@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_materialized_csv(buck: Buck) -> None:
     await buck.build("//:my_rule")
     out = await buck.log("what-materialized", "--format", "csv")
@@ -33,7 +33,7 @@ async def test_what_materialized_csv(buck: Buck) -> None:
     ), "should have materialized main test file"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_materialized_sorted(buck: Buck) -> None:
     await buck.build("//:my_rule")
     out = await buck.log("what-materialized", "--format", "json", "--sort-by-size")
@@ -44,7 +44,7 @@ async def test_what_materialized_sorted(buck: Buck) -> None:
     ), "should be sorted by size"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_materialized_aggregated(buck: Buck) -> None:
     await buck.build("//:my_rule")
     # buck2 log what-materialized --aggregate-by-ext has the following output:

@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_uploaded_csv(buck: Buck) -> None:
     # Use a random content on every test invocation to make sure we actually get uploads
     content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
@@ -34,7 +34,7 @@ async def test_what_uploaded_csv(buck: Buck) -> None:
     assert int(out[1]["digests_uploaded"]) > 0, "second entry should be upload digests"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_uploaded_aggregated(buck: Buck) -> None:
     # Use a random content on every test invocation to make sure we actually get uploads
     content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
