@@ -33,10 +33,12 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
 use crate::attrs::internal::METADATA_ATTRIBUTE_FIELD;
+use crate::attrs::internal::TARGET_MODIFIERS_ATTRIBUTE_FIELD;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
 use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
+use crate::attrs::values::TargetModifiersValue;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -496,6 +498,18 @@ impl<'a> TargetNodeRef<'a> {
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
+            })
+            .transpose()
+    }
+
+    pub fn target_modifiers(self) -> anyhow::Result<Option<&'a TargetModifiersValue>> {
+        self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+            .map(|attr| match attr.value {
+                CoercedAttr::TargetModifiers(m) => Ok(m),
+                x => Err(internal_error!(
+                    "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
+                    x
+                )),
             })
             .transpose()
     }
