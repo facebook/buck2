@@ -578,7 +578,8 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         };
         let setup_commands: Vec<PreparedLocalResourceSetupContext> =
             buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
-                self.prepare_local_resource(
+                Self::prepare_local_resource(
+                    &self.dice,
                     context,
                     setup_local_resources_executor.fs(),
                     Duration::default(),
@@ -1152,7 +1153,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands =
             buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
-                self.prepare_local_resource(context, executor.fs(), default_timeout)
+                Self::prepare_local_resource(&self.dice, context, executor.fs(), default_timeout)
             }))
             .await?;
 
@@ -1196,21 +1197,23 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn prepare_local_resource(
-        &self,
+        dice: &DiceTransaction,
         context: LocalResourceSetupContext,
         fs: &ArtifactFs,
         default_timeout: Duration,
     ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
+        let digest_config = dice.global_data().get_digest_config();
+
         let futs = context
             .input_artifacts
             .iter()
-            .map(|group| async move { self.dice.clone().ensure_artifact_group(group).await });
+            .map(|group| async move { dice.clone().ensure_artifact_group(group).await });
         let inputs = buck2_util::future::try_join_all(futs).await?;
         let inputs = inputs
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
             .collect();
-        let paths = CommandExecutionPaths::new(inputs, indexset![], fs, self.digest_config)?;
+        let paths = CommandExecutionPaths::new(inputs, indexset![], fs, digest_config)?;
         let mut execution_request =
             CommandExecutionRequest::new(vec![], context.cmd, paths, Default::default());
         execution_request =
