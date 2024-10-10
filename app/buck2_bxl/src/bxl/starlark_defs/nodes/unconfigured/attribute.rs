@@ -164,6 +164,9 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             CoercedAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             CoercedAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
+            CoercedAttr::TargetModifiers(..) => {
+                Ok(OpaqueMetadata::get_type_value_static().as_str())
+            }
             // TODO(@wendyy) - should return the starlark selector type.
             CoercedAttr::Selector(_) => Ok("selector"),
             // TODO(@wendyy) - starlark concat is not implemented.
@@ -226,6 +229,7 @@ impl CoercedAttrExt for CoercedAttr {
                 SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
             ))),
             CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
+            CoercedAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
             CoercedAttr::Selector(selector) => {
                 let map: SmallMap<String, Value> = selector
                     .all_entries()

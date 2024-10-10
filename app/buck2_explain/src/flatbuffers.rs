@@ -309,6 +309,7 @@ fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
         ConfiguredAttr::Query(v) => AttrField::String(name, v.query.query),
         ConfiguredAttr::SourceFile(v) => AttrField::String(name, v.path().to_string()),
         ConfiguredAttr::Metadata(v) => AttrField::String(name, v.to_string()),
+        ConfiguredAttr::TargetModifiers(v) => AttrField::String(name, v.to_string()),
     }
 }
 

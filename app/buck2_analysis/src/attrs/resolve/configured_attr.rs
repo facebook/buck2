@@ -167,6 +167,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 SourcePath::new(pkg, s.path().dupe()),
             )),
             ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
+            ConfiguredAttr::TargetModifiers(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
         }
     }
 
@@ -206,6 +207,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
             ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
             ConfiguredAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
+            ConfiguredAttr::TargetModifiers(..) => {
+                Ok(OpaqueMetadata::get_type_value_static().as_str())
+            }
         }
     }
 
@@ -296,6 +300,7 @@ fn configured_attr_to_value<'v>(
             }
         },
         ConfiguredAttr::Metadata(data) => heap.alloc(data.to_value()),
+        ConfiguredAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
     })
 }
 

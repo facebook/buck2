@@ -36,6 +36,7 @@ pub mod query;
 pub mod source;
 pub mod split_transition_dep;
 mod string;
+mod target_modifiers;
 mod tuple;
 pub(crate) mod ty_maybe_select;
 mod visibility;
@@ -124,6 +125,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             Self::Visibility(x) => x.coerce_item(configurable, ctx, value),
             Self::WithinView(x) => x.coerce_item(configurable, ctx, value),
             Self::Metadata(x) => x.coerce_item(configurable, ctx, value),
+            Self::TargetModifiers(x) => x.coerce_item(configurable, ctx, value),
         }
     }
 
@@ -153,6 +155,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
             AttrTypeInner::Visibility(x) => x.starlark_type(),
             AttrTypeInner::WithinView(x) => x.starlark_type(),
             AttrTypeInner::Metadata(x) => x.starlark_type(),
+            AttrTypeInner::TargetModifiers(x) => x.starlark_type(),
         }
     }
 }

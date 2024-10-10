@@ -45,6 +45,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::attrs::values::TargetModifiersValue;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
@@ -93,6 +94,7 @@ pub enum ConfiguredAttr {
     Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
+    TargetModifiers(TargetModifiersValue),
 }
 
 // For `ConfiguredAttr` size is not as important as for `CoercedAttr`,
@@ -141,6 +143,7 @@ impl AttrDisplayWithContext for ConfiguredAttr {
             ConfiguredAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             ConfiguredAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
             ConfiguredAttr::Metadata(m) => write!(f, "{}", m),
+            ConfiguredAttr::TargetModifiers(m) => write!(f, "{}", m),
         }
     }
 }
@@ -201,6 +204,7 @@ impl ConfiguredAttr {
                 Ok(())
             }
             ConfiguredAttr::Metadata(..) => Ok(()),
+            ConfiguredAttr::TargetModifiers(..) => Ok(()),
         }
     }
 

@@ -38,6 +38,7 @@ use crate::attrs::attr_type::query::QueryAttrType;
 use crate::attrs::attr_type::source::SourceAttrType;
 use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use crate::attrs::attr_type::string::StringAttrType;
+use crate::attrs::attr_type::target_modifiers::TargetModifiersAttrType;
 use crate::attrs::attr_type::tuple::TupleAttrType;
 use crate::attrs::attr_type::visibility::VisibilityAttrType;
 use crate::attrs::attr_type::within_view::WithinViewAttrType;
@@ -66,6 +67,7 @@ pub mod query;
 pub mod source;
 pub mod split_transition_dep;
 pub mod string;
+pub mod target_modifiers;
 pub mod tuple;
 pub mod visibility;
 pub mod within_view;
@@ -109,6 +111,7 @@ pub enum AttrTypeInner {
     Visibility(VisibilityAttrType),
     WithinView(WithinViewAttrType),
     Metadata(MetadataAttrType),
+    TargetModifiers(TargetModifiersAttrType),
 }
 
 impl AttrType {
@@ -149,6 +152,7 @@ impl AttrType {
             AttrTypeInner::Visibility(_) => attr("visibility"),
             AttrTypeInner::WithinView(_) => attr("within_view"),
             AttrTypeInner::Metadata(_) => attr("metadata"),
+            AttrTypeInner::TargetModifiers(_) => attr("modifiers"),
         }
     }
 
@@ -416,6 +420,7 @@ impl AttrType {
             | AttrTypeInner::Enum(_)
             | AttrTypeInner::Visibility(_)
             | AttrTypeInner::WithinView(_)
+            | AttrTypeInner::TargetModifiers(_)
             | AttrTypeInner::Metadata(_) => false,
             AttrTypeInner::Any(_)
             | AttrTypeInner::Arg(_)

@@ -35,6 +35,7 @@ use serde_json::to_value;
 use smallvec::SmallVec;
 use starlark_map::StarlarkHasherBuilder;
 
+use super::values::TargetModifiersValue;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::attr_config::source_file_display;
@@ -207,6 +208,7 @@ pub enum CoercedAttr {
     Query(Box<QueryAttr<ProvidersLabel>>),
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
+    TargetModifiers(TargetModifiersValue),
 }
 
 // This is just to help understand any impact that changes have to the size of this.
@@ -270,6 +272,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
             CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
             CoercedAttr::Metadata(m) => write!(f, "{}", m),
+            CoercedAttr::TargetModifiers(m) => write!(f, "{}", m),
         }
     }
 }
@@ -351,6 +354,7 @@ impl CoercedAttr {
             CoercedAttr::Query(e) => Ok(to_value(&e.query.query)?),
             CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
             CoercedAttr::Metadata(m) => Ok(m.to_value()),
+            CoercedAttr::TargetModifiers(m) => Ok(m.to_value()),
         }
     }
 
@@ -471,6 +475,7 @@ impl CoercedAttr {
                 Ok(())
             }
             CoercedAttrWithType::Metadata(..) => Ok(()),
+            CoercedAttrWithType::TargetModifiers(..) => Ok(()),
         }
     }
 
@@ -680,6 +685,7 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::SourceFile(s, _) => ConfiguredAttr::SourceFile(s.clone()),
             CoercedAttrWithType::Metadata(m, _) => ConfiguredAttr::Metadata(m.clone()),
+            CoercedAttrWithType::TargetModifiers(m, _) => ConfiguredAttr::TargetModifiers(m.dupe()),
         })
     }
 
@@ -728,6 +734,7 @@ impl CoercedAttr {
             CoercedAttr::Query(e) => filter(&e.query.query),
             CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
             CoercedAttr::Metadata(e) => e.any_matches(filter),
+            CoercedAttr::TargetModifiers(e) => e.any_matches(filter),
         }
     }
 }
