@@ -132,7 +132,6 @@ load(
     "CxxSrcCompileCommand",
     "compile_cxx",
     "create_compile_cmds",
-    "create_precompile_cmd",
     "cxx_objects_sub_targets",
     "precompile_cxx",
 )
@@ -209,7 +208,6 @@ load(
     "CPreprocessor",  # @unused Used as a type
     "CPreprocessorForTestsInfo",
     "CPreprocessorInfo",  # @unused Used as a type
-    "HeaderUnit",  # @unused Used as a type
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
@@ -329,8 +327,7 @@ _CxxCompiledSourcesOutput = record(
     # Non PIC compile outputs
     non_pic = field([_CxxLibraryCompileOutput, None]),
     # Header unit outputs
-    header_unit = field([HeaderUnit, None]),
-    header_unit_preprocessor = field([CPreprocessor, None]),
+    header_unit_preprocessors = field(list[CPreprocessor]),
 )
 
 # The outputs of a cxx_library_parameterized rule.
@@ -695,17 +692,35 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     # Header unit PCM.
     if impl_params.generate_sub_targets.header_unit:
-        if compiled_srcs.header_unit and compiled_srcs.header_unit_preprocessor:
+        if compiled_srcs.header_unit_preprocessors:
+            header_unit_preprocessors = []
+            header_unit_sub_targets = []
+            for x in compiled_srcs.header_unit_preprocessors:
+                header_unit_preprocessors.append(x)
+                header_unit_sub_targets.append([
+                    DefaultInfo(default_outputs = [h.module for h in x.header_units]),
+                    cxx_merge_cpreprocessors(
+                        ctx,
+                        own_exported_preprocessors + header_unit_preprocessors,
+                        propagated_preprocessor_merge_list,
+                    ),
+                ])
             sub_targets["header-unit"] = [
-                DefaultInfo(default_output = compiled_srcs.header_unit.module),
-                cxx_merge_cpreprocessors(
-                    ctx,
-                    own_exported_preprocessors + [compiled_srcs.header_unit_preprocessor],
-                    propagated_preprocessor_merge_list,
+                DefaultInfo(
+                    default_outputs = [
+                        h.module
+                        for x in header_unit_preprocessors
+                        for h in x.header_units
+                    ],
+                    sub_targets = {
+                        str(i): x
+                        for i, x in enumerate(header_unit_sub_targets)
+                    },
                 ),
+                header_unit_sub_targets[-1][1],
             ]
             if impl_params.export_header_unit:
-                own_exported_preprocessors.append(compiled_srcs.header_unit_preprocessor)
+                own_exported_preprocessors.extend(header_unit_preprocessors)
         else:
             sub_targets["header-unit"] = [
                 DefaultInfo(),
@@ -1086,18 +1101,7 @@ def cxx_compile_srcs(
     )
 
     # Define header unit.
-    precompile_cmd = create_precompile_cmd(
-        ctx = ctx,
-        preprocessors = own_exported_preprocessors,
-        include_headers = impl_params.export_header_unit_filter,
-        compile_cmd_output = compile_cmd_output,
-    )
-    if precompile_cmd:
-        header_unit = precompile_cxx(ctx, impl_params, precompile_cmd)
-        header_unit_preprocessor = CPreprocessor(header_units = [header_unit])
-    else:
-        header_unit = None
-        header_unit_preprocessor = None
+    header_unit_preprocessors = precompile_cxx(ctx, impl_params, own_exported_preprocessors, compile_cmd_output)
 
     # Define object files.
     pic_cxx_outs = compile_cxx(
@@ -1154,8 +1158,7 @@ def cxx_compile_srcs(
         pic = pic,
         pic_optimized = pic_optimized,
         non_pic = non_pic,
-        header_unit = header_unit,
-        header_unit_preprocessor = header_unit_preprocessor,
+        header_unit_preprocessors = header_unit_preprocessors,
     )
 
 def _form_library_outputs(

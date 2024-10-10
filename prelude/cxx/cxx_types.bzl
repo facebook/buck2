@@ -234,6 +234,6 @@ CxxRuleConstructorParams = record(
     use_header_units = field(bool, False),
     # Whether to export a header unit to all dependents.
     export_header_unit = field([str, None], None),
-    # Filter what headers to include in the header unit.
-    export_header_unit_filter = field([str, None], None),
+    # Filter what headers to include in header units.
+    export_header_unit_filter = field(list[str], []),
 )

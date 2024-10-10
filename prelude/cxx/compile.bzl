@@ -141,6 +141,18 @@ CxxSrcCompileCommand = record(
     error_handler = field([typing.Callable, None], None),
 )
 
+_CxxSrcPrecompileCommand = record(
+    # Source file to compile.
+    src = field(Artifact),
+    # The CxxCompileCommand to use to compile this file.
+    cxx_compile_cmd = field(_CxxCompileCommand),
+    # Arguments specific to the source file.
+    args = field(list[typing.Any]),
+    # Extra argsfile to include after any other header units argsfile but before the
+    # main argsfiles.
+    extra_argsfile = field([CompileArgsfile, None], None),
+)
+
 # Output of creating compile commands for Cxx source files.
 CxxCompileCommandOutput = record(
     # List of compile commands for each source file.
@@ -700,17 +712,17 @@ def _compiler_supports_header_units(compiler_info: typing.Any):
     return (compiler_info.compiler_type == "clang" and
             compiler_info.supports_two_phase_compilation)
 
-def _get_module_name(ctx: AnalysisContext) -> str:
+def _get_module_name(ctx: AnalysisContext, group_name: str) -> str:
     return paths.normalize(paths.join(
         "__header_units__",
         ctx.label.package,
-        "{}.h".format(ctx.label.name),
+        "{}{}.h".format(ctx.label.name, group_name),
     ))
 
-def _get_import_filename(ctx: AnalysisContext) -> str:
+def _get_import_filename(ctx: AnalysisContext, group_name: str) -> str:
     return paths.normalize(paths.join(
         ctx.label.package,
-        "__import__{}.h".format(ctx.label.name),
+        "__import__{}{}.h".format(ctx.label.name, group_name),
     ))
 
 def _is_standalone_header(header: CHeader) -> bool:
@@ -746,24 +758,14 @@ def _convert_raw_header(
         named = False,
     )
 
-def create_precompile_cmd(
+def _create_precompile_cmd(
         ctx: AnalysisContext,
+        compiler_info: typing.Any,
         preprocessors: list[CPreprocessor],
-        include_headers: str | None,
-        compile_cmd_output: CxxCompileCommandOutput) -> CxxSrcCompileCommand | None:
-    """
-    Forms the CxxSrcCompileCommand to use for all headers. Returns CxxCompileCommandOutput
-    containing a pair of the generated compile command and argsfile output.
-    """
-    toolchain = get_cxx_toolchain_info(ctx)
-    if not _compiler_supports_header_units(toolchain.cxx_compiler_info):
-        return None
-
-    ext = CxxExtension(".cpp")
-    if ext not in compile_cmd_output.base_compile_cmds:
-        return None
-    cmd = compile_cmd_output.base_compile_cmds[ext]
-
+        header_group: str | None,
+        group_name: str,
+        extra_preprocessors: list[CPreprocessor],
+        cmd: _CxxCompileCommand) -> _CxxSrcPrecompileCommand:
     include_dirs = flatten([x.include_dirs for x in preprocessors])
     converted_headers = [
         _convert_raw_header(ctx, raw_header, include_dirs)
@@ -772,13 +774,11 @@ def create_precompile_cmd(
     headers = [
         header
         for header in flatten([x.headers for x in preprocessors]) + converted_headers
-        if (_is_standalone_header(header) if include_headers == None else regex_match(include_headers, header.name))
+        if (_is_standalone_header(header) if header_group == None else regex_match(header_group, header.name))
     ]
-    if not headers:
-        return None
 
-    module_name = _get_module_name(ctx)
-    import_name = _get_import_filename(ctx)
+    module_name = _get_module_name(ctx, group_name)
+    import_name = _get_import_filename(ctx, group_name)
     input_header = ctx.actions.write(module_name, "")
 
     import_stub = ctx.actions.write(
@@ -804,10 +804,10 @@ module "{}" {{
   export *
 }}
 """.format(module_name, module_name)
-    modulemap_file = ctx.actions.write("module.modulemap", modulemap_content)
+    modulemap_file = ctx.actions.write("module.modulemap" + group_name, modulemap_content)
 
     src_dir = ctx.actions.symlinked_dir(
-        "header-unit",
+        "header-unit" + group_name,
         symlinked_files | {
             module_name: input_header,
             import_name: import_stub,
@@ -825,6 +825,16 @@ module "{}" {{
         "-Wno-c++98-compat-extra-semi",
     ])
 
+    extra_argsfile = None
+    if extra_preprocessors:
+        extra_argsfile = _mk_header_units_argsfile(
+            ctx = ctx,
+            compiler_info = compiler_info,
+            preprocessor = cxx_merge_cpreprocessors(ctx, extra_preprocessors, []),
+            name = "export" + group_name,
+            ext = CxxExtension(".cpp"),
+        )
+
     for header in headers:
         args.extend(["-include", paths.join(header.namespace, header.name)])
     args.extend(["-xc++-user-header", "-fmodule-header"])
@@ -832,24 +842,28 @@ module "{}" {{
     args.extend(["-Xclang", cmd_args(input_header, format = "-fmodules-embed-file={}")])
     args.extend(["--precompile", input_header])
 
-    return CxxSrcCompileCommand(
+    return _CxxSrcPrecompileCommand(
         src = src_dir,
         cxx_compile_cmd = cmd,
         args = args,
-        is_header = True,
+        extra_argsfile = extra_argsfile,
     )
 
-def precompile_cxx(
+def _precompile_single_cxx(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
-        src_compile_cmd: CxxSrcCompileCommand) -> HeaderUnit:
+        group_name: str,
+        src_compile_cmd: _CxxSrcPrecompileCommand) -> HeaderUnit:
     identifier = src_compile_cmd.src.short_path
 
     filename = "{}.pcm".format(identifier)
     module = ctx.actions.declare_output("__pcm_files__", filename)
 
     cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
-    cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+    if src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+    if src_compile_cmd.extra_argsfile:
+        cmd.add(src_compile_cmd.extra_argsfile.cmd_form)
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
     cmd.add(["-o", module.as_output()])
@@ -890,11 +904,65 @@ def precompile_cxx(
     )
 
     return HeaderUnit(
-        name = _get_module_name(ctx),
+        name = _get_module_name(ctx, group_name),
         module = module,
         include_dir = src_compile_cmd.src,
-        import_include = _get_import_filename(ctx) if impl_params.export_header_unit == "preload" else None,
+        import_include = _get_import_filename(ctx, group_name) if impl_params.export_header_unit == "preload" else None,
     )
+
+def precompile_cxx(
+        ctx: AnalysisContext,
+        impl_params: CxxRuleConstructorParams,
+        preprocessors: list[CPreprocessor],
+        compile_cmd_output: CxxCompileCommandOutput) -> list[CPreprocessor]:
+    """
+    Produces header units for the target and returns a list of preprocessors enabling
+    them; depending on those preprocessors will allow the corresponding module to load.
+    """
+    toolchain = get_cxx_toolchain_info(ctx)
+    if not _compiler_supports_header_units(toolchain.cxx_compiler_info):
+        return []
+
+    ext = CxxExtension(".cpp")
+    if ext not in compile_cmd_output.base_compile_cmds:
+        return []
+    cmd = compile_cmd_output.base_compile_cmds[ext]
+
+    header_unit_preprocessors = []
+    if len(impl_params.export_header_unit_filter) <= 1:
+        group = None
+        if impl_params.export_header_unit_filter:
+            group = impl_params.export_header_unit_filter[0]
+        precompile_cmd = _create_precompile_cmd(
+            ctx = ctx,
+            compiler_info = toolchain.cxx_compiler_info,
+            preprocessors = preprocessors,
+            header_group = group,
+            group_name = "",
+            extra_preprocessors = [],
+            cmd = cmd,
+        )
+        header_unit = _precompile_single_cxx(ctx, impl_params, "", precompile_cmd)
+        header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
+    else:
+        # Chain preprocessors in order.
+        i = 0
+        for header_group in impl_params.export_header_unit_filter:
+            name = ".{}".format(i)
+            precompile_cmd = _create_precompile_cmd(
+                ctx = ctx,
+                compiler_info = toolchain.cxx_compiler_info,
+                preprocessors = preprocessors,
+                header_group = header_group,
+                group_name = name,
+                extra_preprocessors = header_unit_preprocessors,
+                cmd = cmd,
+            )
+            header_unit = _precompile_single_cxx(ctx, impl_params, name, precompile_cmd)
+            header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
+            i += 1
+
+    return header_unit_preprocessors
 
 def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Provider]]:
     objects_sub_targets = {}
@@ -1146,8 +1214,8 @@ def _mk_header_units_argsfile(
         ctx: AnalysisContext,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
-        ext: CxxExtension,
-        private: bool) -> CompileArgsfile | None:
+        name: str,
+        ext: CxxExtension) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -1159,7 +1227,7 @@ def _mk_header_units_argsfile(
     if not _compiler_supports_header_units(compiler_info):
         return None
 
-    file_name = "{}.{}header_units.argsfile".format(ext.value, "private_" if private else "")
+    file_name = "{}.{}.header_units_args".format(ext.value, name)
     args = cmd_args()
     args.add([
         # TODO(nml): We only support Clang 17+, which don't need/want the extra -f
@@ -1228,8 +1296,8 @@ def _generate_base_compile_command(
 
     argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
     xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
-    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, header_pre, ext, False)
-    private_header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, True)
+    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, header_pre, "public", ext)
+    private_header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, "private", ext)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return _CxxCompileCommand(

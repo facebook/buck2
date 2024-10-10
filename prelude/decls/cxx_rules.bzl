@@ -593,7 +593,7 @@ cxx_library = prelude_rule(
             "weak_framework_names": attrs.list(attrs.string(), default = []),
             "use_header_units": attrs.bool(default = False),
             "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None),
-            "export_header_unit_filter": attrs.option(attrs.string(), default = None),
+            "export_header_unit_filter": attrs.list(attrs.string(), default = []),
         } |
         buck.allow_cache_upload_arg()
     ),
