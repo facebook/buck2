@@ -33,6 +33,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
+        ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::InternalError => rank!(tier0),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something

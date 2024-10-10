@@ -86,6 +86,8 @@ enum ErrorTag {
   SERVER_STACK_OVERFLOW = 13;
   // SEGV.
   SERVER_SEGV = 14;
+  // Server received SIGTERM
+  SERVER_SIGTERM = 400;
   // Jemalloc assertion failure.
   SERVER_JEMALLOC_ASSERT = 15;
   // The reason for server failure is unknown.

@@ -33,11 +33,18 @@ pub(crate) fn classify_server_stderr(
     } else if stderr.contains("Signal 11 (SIGSEGV)") {
         // P1180289404
         ErrorTag::ServerSegv
+    } else if stderr.contains("Signal 15 (SIGTERM)") {
+        ErrorTag::ServerSigterm
     } else {
         ErrorTag::ServerStderrUnknown
     };
 
-    let trace_key = find_trace_key(stderr);
+    let trace_key = if tag != ErrorTag::ServerSigterm {
+        find_trace_key(stderr)
+    } else {
+        None
+    };
+
     if let Some(trace_key) = trace_key {
         error.context_for_key(&format!("crash({})", trace_key))
     } else {
