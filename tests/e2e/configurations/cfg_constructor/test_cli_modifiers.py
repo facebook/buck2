@@ -8,6 +8,7 @@
 # pyre-strict
 
 
+from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -18,16 +19,6 @@ DATA_DIR = (
 TARGET = f"{DATA_DIR}:test_target"
 CONSTRAINT_A = f"{DATA_DIR}:A_1"
 CONSTRAINT_B = f"{DATA_DIR}:B_1"
-
-
-async def get_cfg(buck: Buck, *args: str) -> str:
-    result = await buck.ctargets(*args)
-
-    # Assuming ctargets output is `target (cfg)`
-    cfg = result.stdout.split()[1].strip("()")
-
-    result = await buck.audit_configurations(cfg)
-    return result.stdout
 
 
 @buck_test(inplace=True)

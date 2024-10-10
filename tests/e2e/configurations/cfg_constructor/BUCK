@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
 load("@fbsource//tools/build_defs/buck2/cfg:validation.bzl", "CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY")
 load("@prelude//cfg/modifier:name.bzl", "NAMED_CONSTRAINT_SETTINGS")
 load(":constraint_setting_group.bzl", "constraint_setting_group")
@@ -8,6 +9,7 @@ oncall("buck2")
 buck2_e2e_test(
     name = "test_cli_modifiers.py",
     srcs = ["test_cli_modifiers.py"],
+    deps = [":modifiers_util"],
 )
 
 buck2_e2e_test(
@@ -51,4 +53,10 @@ buck2_e2e_test(
     name = "test_cfg_modifiers_attr",
     srcs = ["test_cfg_modifiers_attr.py"],
     data_dir = "test_cfg_modifiers_attr_data",
+)
+
+python_library(
+    name = "modifiers_util",
+    srcs = ["modifiers_util.py"],
+    deps = ["//buck2/tests/e2e_util/api:api"],
 )
