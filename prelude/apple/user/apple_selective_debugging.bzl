@@ -24,7 +24,6 @@ load(
     "parse_build_target_pattern",
 )
 load("@prelude//utils:lazy.bzl", "lazy")
-load("@prelude//utils:set.bzl", "set")
 
 _SelectionCriteria = record(
     include_build_target_patterns = field(list[BuildTargetPattern], []),
@@ -113,7 +112,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
         #
         # See `_maybe_scrub_binary()` in apple_bundle.bzl
         if json_type != _SelectiveDebuggingJsonType("targets"):
-            return inner_ctx.actions.write(output_name, sorted(set(package_names).list()))
+            return inner_ctx.actions.write(output_name, sorted(set(package_names)))
 
         def scrub_selected_debug_paths_action(dynamic_ctx: AnalysisContext, artifacts, outputs):
             packages = [
@@ -123,7 +122,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             ]
             dynamic_ctx.actions.write(
                 outputs.values()[0],
-                sorted(set(filter(lambda p: p in packages, package_names)).list()),
+                sorted(set(filter(lambda p: p in packages, package_names))),
             )
 
         output = inner_ctx.actions.declare_output(output_name)
