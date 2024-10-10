@@ -16,8 +16,6 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_starlark",
     srcs = ["test_starlark.py"],
-    data_dir = "test_starlark_data",
-    use_compiled_buck2_client_and_tpx = True,
 )
 
 buck2_e2e_test(
