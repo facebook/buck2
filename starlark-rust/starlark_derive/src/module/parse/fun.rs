@@ -309,11 +309,12 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
     let mut eval = None;
     let mut heap = None;
 
-    let mut seen_star_args = false;
+    // Seen an equivalent of `*` or `*args`. Meaning default parameters are named-only after this.
+    let mut seen_star = false;
     let mut args: Option<RegularParams> = None;
     for (i, arg) in func.sig.inputs.into_iter().enumerate() {
         let span = arg.span();
-        let parsed_arg = parse_arg(arg, has_v, seen_star_args, module_kind, i)?;
+        let parsed_arg = parse_arg(arg, has_v, seen_star, module_kind, i)?;
         match parsed_arg {
             StarArgOrSpecial::Heap(special) => {
                 if heap.is_some() {
@@ -328,8 +329,10 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
                 eval = Some(special);
             }
             StarArgOrSpecial::StarArg(arg) => {
-                if arg.pass_style == StarArgPassStyle::Args {
-                    seen_star_args = true;
+                if arg.pass_style == StarArgPassStyle::Args
+                    || arg.pass_style == StarArgPassStyle::NamedOnly
+                {
+                    seen_star = true;
                 }
                 let args = args.get_or_insert_with(|| RegularParams::Unpack(Vec::new()));
                 match args {
@@ -681,7 +684,7 @@ fn is_arguments(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option
 fn parse_arg(
     x: FnArg,
     has_v: bool,
-    seen_star_args: bool,
+    seen_star: bool,
     module_kind: ModuleKind,
     param_index: usize,
 ) -> syn::Result<StarArgOrSpecial> {
@@ -733,7 +736,7 @@ fn parse_arg(
     let pass_style = match (
         param_attrs.args,
         param_attrs.kwargs,
-        seen_star_args,
+        seen_star,
         param_attrs.pos_only,
         param_attrs.named_only,
     ) {
@@ -745,6 +748,12 @@ fn parse_arg(
                 "Positional-only arguments cannot follow *args",
             ));
         }
+        (_, _, _, true, true) => {
+            return Err(syn::Error::new(
+                span,
+                "Function parameter cannot be both positional-only and named-only",
+            ));
+        }
         (false, false, true, false, _) => StarArgPassStyle::NamedOnly,
         // TODO(nga): currently, without `#[starlark(require = named)]`
         //   and without `#[starlark(require = pos)]`, parameter is positional-or-named.
@@ -752,15 +761,9 @@ fn parse_arg(
         //   or require explicit `#[starlark(pos, named)]`.
         //   Discussion there:
         //   https://fb.workplace.com/groups/1267349253953900/posts/1299495914072567
-        (false, false, false, false, false) => StarArgPassStyle::Default,
+        (false, false, false, false, false) => StarArgPassStyle::PosOrNamed,
         (false, false, false, true, false) => StarArgPassStyle::PosOnly,
         (false, false, false, false, true) => StarArgPassStyle::NamedOnly,
-        (false, false, false, true, true) => {
-            return Err(syn::Error::new(
-                span,
-                "Function parameter cannot be both positional-only and named-only",
-            ));
-        }
     };
     Ok(StarArgOrSpecial::StarArg(StarArg {
         span,

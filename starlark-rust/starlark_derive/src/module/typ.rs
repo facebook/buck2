@@ -116,9 +116,8 @@ pub(crate) struct StarAttr {
 pub(crate) enum StarArgPassStyle {
     /// Parameter can be filled only positionally.
     PosOnly,
-    /// Parameter can filled both positionally and by name by default,
-    /// or named only if followed by `*args` or named only.
-    Default,
+    /// Parameter can be filled positionally or by name.
+    PosOrNamed,
     /// Parameter can be filled by name.
     NamedOnly,
     /// `*args`.
