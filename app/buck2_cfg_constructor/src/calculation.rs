@@ -16,6 +16,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -29,6 +30,14 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+
+#[derive(Debug, buck2_error::Error)]
+enum CalculationCfgConstructorError {
+    #[error(
+        "Usage of both `modifiers` attribute and modifiers in metadata is not allowed for target `{0}`"
+    )]
+    TargetModifiersAttrAndMetadataNotAllowed(TargetLabel),
+}
 
 pub struct CfgConstructorCalculationInstance;
 
@@ -136,7 +145,23 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             .package_values()
             .get_package_value_json(modifier_key)?
             .map(MetadataValue::new);
-        let target_cfg_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key)).duped();
+
+        let metadata_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key));
+        let target_modifiers = target.target_modifiers()?;
+        let target_cfg_modifiers = match (metadata_modifiers, target_modifiers) {
+            (None, Some(t)) if !t.is_empty() => Some(MetadataValue(t.as_json())),
+            (Some(_), Some(t)) if !t.is_empty() => {
+                return Err(
+                    CalculationCfgConstructorError::TargetModifiersAttrAndMetadataNotAllowed(
+                        target.label().dupe(),
+                    )
+                    .into(),
+                );
+            }
+            (Some(m), _) => Some(m.dupe()),
+            _ => None,
+        };
+
         // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out
         if package_cfg_modifiers.is_none()

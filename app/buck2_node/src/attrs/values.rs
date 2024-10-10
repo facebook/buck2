@@ -93,6 +93,21 @@ impl TargetModifiersValue {
     pub fn to_value(&self) -> serde_json::Value {
         (*self.0).clone()
     }
+
+    pub fn as_json(&self) -> Arc<serde_json::Value> {
+        self.0.dupe()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self.0.as_ref() {
+            serde_json::Value::Null => true,
+            serde_json::Value::Bool(_) => false,
+            serde_json::Value::Number(_) => false,
+            serde_json::Value::String(_) => false,
+            serde_json::Value::Array(vec) => vec.is_empty(),
+            serde_json::Value::Object(map) => map.is_empty(),
+        }
+    }
 }
 
 impl AnyMatches for TargetModifiersValue {
