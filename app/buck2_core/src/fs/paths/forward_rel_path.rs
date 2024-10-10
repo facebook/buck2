@@ -136,7 +136,7 @@ impl<'a> Clone for ForwardRelativePathIter<'a> {
 
 impl ForwardRelativePath {
     #[ref_cast_custom]
-    fn ref_cast(s: &str) -> &ForwardRelativePath;
+    const fn ref_cast(s: &str) -> &ForwardRelativePath;
 
     #[inline]
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
@@ -152,8 +152,8 @@ impl ForwardRelativePath {
     }
 
     #[inline]
-    pub fn empty() -> &'static Self {
-        ForwardRelativePath::unchecked_new("")
+    pub const fn empty() -> &'static Self {
+        ForwardRelativePath::ref_cast("")
     }
 
     /// Creates an 'ForwardRelativePath' if the given path represents a forward,
