@@ -102,6 +102,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::Http => rank!(unspecified),
+        ErrorTag::DownloadFileHeadRequest => rank!(environment),
         ErrorTag::ServerStderrUnknown => rank!(unspecified),
         ErrorTag::ServerStderrEmpty => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),

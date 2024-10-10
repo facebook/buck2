@@ -182,4 +182,6 @@ enum ErrorTag {
 
   // Error during attribute configuration during target configuration.
   CONFIGURE_ATTR = 3001;
+  // Action execution
+  DOWNLOAD_FILE_HEAD_REQUEST = 4001;
 }

@@ -30,6 +30,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
+use buck2_error::ErrorTag;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -166,7 +167,9 @@ impl DownloadFileAction {
         };
 
         let url = self.url(client);
-        let head = http_head(client, url).await?;
+        let head = http_head(client, url)
+            .await
+            .map_err(|e| buck2_error::Error::from(e).tag([ErrorTag::DownloadFileHeadRequest]))?;
 
         let content_length = head
             .headers()
