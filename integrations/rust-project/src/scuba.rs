@@ -15,11 +15,12 @@ use std::time::Duration;
 use crate::cli::Input;
 
 #[cfg(fbcode_build)]
-pub(crate) fn log_develop(duration: Duration, input: Input) {
+pub(crate) fn log_develop(duration: Duration, input: Input, invoked_by_ra: bool) {
     let mut sample = new_sample("develop");
     sample.add("duration_ms", duration.as_millis() as i64);
     sample.add("input", format!("{:?}", input));
     sample.add("revision", get_sl_revision());
+    sample.add("invoked_by_ra", invoked_by_ra);
     sample.log();
 }
 
@@ -34,7 +35,7 @@ fn get_sl_revision() -> String {
 }
 
 #[cfg(not(fbcode_build))]
-pub(crate) fn log_develop(_duration: Duration, _input: Input) {}
+pub(crate) fn log_develop(_duration: Duration, _input: Input, _invoked_by_ra: bool) {}
 
 #[cfg(fbcode_build)]
 pub(crate) fn log_check(duration: Duration, saved_file: &Path, use_clippy: bool) {

@@ -219,7 +219,7 @@ impl Develop {
             }
         }
 
-        crate::scuba::log_develop(start.elapsed(), input);
+        crate::scuba::log_develop(start.elapsed(), input, self.invoked_by_ra);
 
         Ok(())
     }
