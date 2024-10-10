@@ -158,7 +158,6 @@ pub struct BuckTestOrchestrator<'a: 'static> {
     results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
-    digest_config: DigestConfig,
     cancellations: &'a CancellationContext<'a>,
 }
 
@@ -171,14 +170,12 @@ impl<'a> BuckTestOrchestrator<'a> {
         cancellations: &'a CancellationContext<'a>,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
-        let digest_config = dice.global_data().get_digest_config();
         Ok(Self::from_parts(
             dice,
             session,
             liveliness_observer,
             results_channel,
             events,
-            digest_config,
             cancellations,
         ))
     }
@@ -189,7 +186,6 @@ impl<'a> BuckTestOrchestrator<'a> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         events: EventDispatcher,
-        digest_config: DigestConfig,
         cancellations: &'a CancellationContext,
     ) -> BuckTestOrchestrator<'a> {
         Self {
@@ -198,7 +194,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             results_channel,
             events,
             liveliness_observer,
-            digest_config,
             cancellations,
         }
     }
@@ -392,7 +387,9 @@ impl<'a> BuckTestOrchestrator<'a> {
                 .await?
             };
             // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
-            self.setup_local_resources(
+            Self::setup_local_resources(
+                &self.dice,
+                &self.cancellations,
                 setup_contexts,
                 setup_local_resources_executor,
                 timeout,
@@ -1147,7 +1144,8 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn setup_local_resources(
-        &self,
+        dice: &DiceTransaction,
+        cancellation: &'b CancellationContext<'b>,
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
         default_timeout: Duration,
@@ -1155,26 +1153,30 @@ impl<'b> BuckTestOrchestrator<'b> {
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands =
             buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
-                Self::prepare_local_resource(&self.dice, context, executor.fs(), default_timeout)
+                Self::prepare_local_resource(dice, context, executor.fs(), default_timeout)
             }))
             .await?;
 
         Self::require_alive(liveliness_observer.dupe()).await?;
-        let local_resource_state_registry = self.dice.get_local_resource_registry();
+        let events = dice.per_transaction_data().get_dispatcher().dupe();
+        let digest_config = dice.global_data().get_digest_config();
+
+        let local_resource_state_registry = dice.get_local_resource_registry();
 
         let resource_futs = setup_commands.into_iter().map(|context| {
             let local_resource_target = context.target.dupe();
             local_resource_state_registry
+                .dupe()
                 .0
                 .entry(local_resource_target.dupe())
                 .or_insert_with(|| {
                     let setup = Self::start_local_resource(
-                        self.events.dupe(),
+                        events.dupe(),
                         liveliness_observer.dupe(),
-                        self.digest_config.dupe(),
+                        digest_config.dupe(),
                         executor.dupe(),
                         context,
-                        self.cancellations,
+                        cancellation,
                     );
                     async move {
                         setup
@@ -1713,7 +1715,6 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 sender,
                 EventDispatcher::null(),
-                DigestConfig::testing_default(),
                 CancellationContext::testing(),
             ),
             receiver,
