@@ -201,10 +201,9 @@ impl StarlarkArtifactLike for StarlarkArtifact {
 
     fn project<'v>(
         &'v self,
-        path: &str,
+        path: &ForwardRelativePath,
         hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
-        let path = ForwardRelativePath::new(path)?;
         Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe().project(path, hide_prefix),
             associated_artifacts: self.associated_artifacts.dupe(),

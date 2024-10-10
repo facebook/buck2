@@ -204,10 +204,9 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
 
     fn project<'v>(
         &'v self,
-        path: &str,
+        path: &ForwardRelativePath,
         hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
-        let path = ForwardRelativePath::new(path)?;
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
         Ok(EitherStarlarkArtifact::DeclaredArtifact(
             StarlarkDeclaredArtifact {

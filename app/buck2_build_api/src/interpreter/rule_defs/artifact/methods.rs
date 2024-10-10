@@ -9,6 +9,7 @@
 
 use std::convert::Infallible;
 
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
@@ -134,6 +135,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] path: &str,
         #[starlark(require = named, default = false)] hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
+        let path = ForwardRelativePath::new(path)?;
         this.project(path, hide_prefix)
     }
 

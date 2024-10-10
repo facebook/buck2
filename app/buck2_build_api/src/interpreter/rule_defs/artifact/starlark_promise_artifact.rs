@@ -228,7 +228,7 @@ impl StarlarkArtifactLike for StarlarkPromiseArtifact {
 
     fn project<'v>(
         &'v self,
-        path: &str,
+        path: &ForwardRelativePath,
         hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact> {
         let _ = (path, hide_prefix);

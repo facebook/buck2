@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::collections::StarlarkHasher;
@@ -108,7 +109,7 @@ pub trait StarlarkArtifactLike: Display {
 
     fn project<'v>(
         &'v self,
-        path: &str,
+        path: &ForwardRelativePath,
         hide_prefix: bool,
     ) -> anyhow::Result<EitherStarlarkArtifact>;
 
