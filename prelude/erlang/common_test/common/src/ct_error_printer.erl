@@ -98,7 +98,7 @@ maybe_custom_format({{Type, Props = #{formatter := Formatter}}, _StackTrace}) wh
                     "~s~n",
                     [erl_error:format_exception(E, R, ST)]
                 ),
-                io_lib:format("original assertion: ~n" "~p~n", {Type, Props})
+                io_lib:format("original assertion: ~n" "~p~n", [{Type, Props}])
             ]}
     end;
 maybe_custom_format(_Reason) ->
