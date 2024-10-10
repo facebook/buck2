@@ -45,7 +45,6 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build_params.bzl",
@@ -1177,12 +1176,12 @@ def crate_root(
         if filename in default_roots or filename == crate_with_suffix:
             candidates.add(src)
 
-    if candidates.size() == 1:
-        return candidates.list()[0]
+    if len(candidates) == 1:
+        return candidates.pop()
 
     fail("Could not infer crate_root." +
          "\nMake sure you have one of {} in your `srcs` attribute.".format(default_roots) +
-         "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates.list()))
+         "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates))
 
 def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, infallible_diagnostics: bool) -> str:
     if emit == Emit("metadata-full"):
