@@ -45,18 +45,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_errors",
-    srcs = ["test_errors.py"],
-    data_dir = "test_errors_data",
-    env = {
-        "BUCK2_HARD_ERROR": "1",
-    },
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-    ],
-)
-
-buck2_e2e_test(
     name = "test_lsp_fbsource",
     srcs = ["test_lsp_fbsource.py"],
 )

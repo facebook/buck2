@@ -14,14 +14,14 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_soft_error(buck: Buck) -> None:
     await expect_failure(
         buck.targets(":"), stderr_regex="starlark_raised_soft_error.*Will be reported"
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK2_HARD_ERROR", "false")
 async def test_soft_error_quiet(buck: Buck) -> None:
     res = await buck.targets("quiet:", ":")
@@ -29,7 +29,7 @@ async def test_soft_error_quiet(buck: Buck) -> None:
     assert "starlark_quiet_soft_error" not in res.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 @env("BUCK2_HARD_ERROR", "false")
 async def test_soft_error_no_stack(buck: Buck) -> None:
     res = await buck.targets(":")
@@ -40,7 +40,6 @@ async def test_soft_error_no_stack(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     # windows errors are slightly different, just skip for now
     skip_for_os=["windows"],
 )
@@ -75,7 +74,6 @@ async def test_package_listing_errors(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     # windows errors are slightly different, just skip for now
     skip_for_os=["windows"],
 )
