@@ -409,6 +409,7 @@ fn test_package_import() -> anyhow::Result<()> {
                     "exec_compatible_with": [],
                     "name": "DEFAULT",
                     "target_compatible_with": [],
+                    "modifiers": [],
                     "tests": [],
                     "visibility": [],
                     "within_view": ["PUBLIC"],

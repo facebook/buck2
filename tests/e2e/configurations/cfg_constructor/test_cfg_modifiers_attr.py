@@ -7,19 +7,21 @@
 
 # pyre-strict
 
-# import json
+import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(inplace=False)
 async def test_cfg_modifiers_attr(buck: Buck) -> None:
-    await expect_failure(
-        buck.targets(
-            "root//:test",
-            "--output-attribute=modifiers",
-        ),
-        stderr_regex=r"Found `modifiers` extra named parameter\(s\) for call to test_rule",
+    result = await buck.targets(
+        "root//:test",
+        "--output-attribute=modifiers",
     )
+
+    targets = json.loads(result.stdout)
+    assert len(targets) == 1
+    target = targets[0]
+    target_modifiers = target["modifiers"]
+    assert target_modifiers == ["root//:A_1"]
