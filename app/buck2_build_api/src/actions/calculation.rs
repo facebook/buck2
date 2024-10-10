@@ -57,9 +57,12 @@ use crate::actions::error_handler::ActionErrorHandlerError;
 use crate::actions::error_handler::ActionSubErrorResult;
 use crate::actions::error_handler::StarlarkActionErrorContext;
 use crate::actions::execute::action_executor::ActionOutputs;
+use crate::actions::execute::action_executor::BuckActionExecutor;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
+use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::deferred::calculation::ActionLookup;
 use crate::keep_going::KeepGoing;
@@ -151,171 +154,14 @@ async fn build_action_no_redirect(
         None => None,
     };
 
-    let ctx = &*ctx;
-    let fut = async move {
-        let (execute_result, command_reports) = executor
-            .execute(materialized_inputs, action, cancellation)
-            .await;
-
-        let allow_omit_details = execute_result.is_ok();
-
-        let commands = future::join_all(
-            command_reports
-                .iter()
-                .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
-        )
-        .await;
-
-        let action_digest = get_action_digest(&commands);
-
-        let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
-
-        let action_key = action.key().as_proto();
-
-        let action_name = buck2_data::ActionName {
-            category: action.category().as_str().to_owned(),
-            identifier: action.identifier().unwrap_or("").to_owned(),
-        };
-
-        let action_result;
-        let execution_kind;
-        let wall_time;
-        let error;
-        let output_size;
-
-        let mut prefers_local = None;
-        let mut requires_local = None;
-        let mut allows_cache_upload = None;
-        let mut did_cache_upload = None;
-        let mut allows_dep_file_cache_upload = None;
-        let mut did_dep_file_cache_upload = None;
-        let mut dep_file_key = None;
-        let mut eligible_for_full_hybrid = None;
-
-        let mut buck2_revision = None;
-        let mut buck2_build_time = None;
-        let mut hostname = None;
-        let mut input_files_bytes = None;
-        let error_diagnostics = match execute_result {
-            Ok((outputs, meta)) => {
-                output_size = outputs.calc_output_count_and_bytes().bytes;
-                action_result = Ok(outputs);
-                execution_kind = Some(meta.execution_kind.as_enum());
-                wall_time = Some(meta.timing.wall_time);
-                error = None;
-                input_files_bytes = meta.input_files_bytes;
-
-                if let Some(command) = meta.execution_kind.command() {
-                    prefers_local = Some(command.prefers_local);
-                    requires_local = Some(command.requires_local);
-                    allows_cache_upload = Some(command.allows_cache_upload);
-                    did_cache_upload = Some(command.did_cache_upload);
-                    allows_dep_file_cache_upload = Some(command.allows_dep_file_cache_upload);
-                    did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
-                    dep_file_key = *command.dep_file_key;
-                    eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
-                }
-
-                None
-            }
-            Err(e) => {
-                // TODO (torozco): Remove (see protobuf file)?
-                execution_kind = command_reports
-                    .last()
-                    .and_then(|r| r.status.execution_kind())
-                    .map(|e| e.as_enum());
-                wall_time = command_reports.last().map(|r| r.timing.wall_time);
-                output_size = 0;
-                // We define the below fields only in the instance of an action error
-                // so as to reduce Scribe traffic and log it in buck2_action_errors
-                buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
-                buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
-                hostname = buck2_events::metadata::hostname();
-
-                let last_command = commands.last().cloned();
-
-                let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
-
-                let e = ActionError::new(
-                    e,
-                    action_name.clone(),
-                    action_key.clone(),
-                    last_command.clone(),
-                    error_diagnostics.clone(),
-                );
-
-                error = Some(e.as_proto_field());
-
-                ctx.per_transaction_data()
-                    .get_dispatcher()
-                    .instant_event(e.as_proto_event());
-
-                action_result = Err(buck2_error::Error::from(e)
-                    // Make sure to mark the error as emitted so that it is not printed out to console
-                    // again in this command. We still need to keep it around for the build report (and
-                    // in the future) other commands
-                    .mark_emitted({
-                        let owner = action.owner().dupe();
-                        Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
-                    })
-                    .into());
-
-                error_diagnostics
-            }
-        };
-
-        let outputs = action_result
-            .as_ref()
-            .map(|outputs| {
-                outputs
-                    .iter()
-                    .filter_map(|(_artifact, value)| {
-                        Some(buck2_data::ActionOutput {
-                            tiny_digest: value.digest()?.tiny_digest().to_string(),
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        (
-            ActionExecutionData {
-                action_result,
-                wall_time,
-                queue_duration,
-                execution_kind,
-                target_rule_type_name,
-                action_digest,
-            },
-            Box::new(buck2_data::ActionExecutionEnd {
-                key: Some(action_key),
-                kind: action.kind().into(),
-                name: Some(action_name),
-                failed: error.is_some(),
-                error,
-                always_print_stderr: action.always_print_stderr(),
-                wall_time: wall_time.and_then(|d| d.try_into().ok()),
-                execution_kind: execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet)
-                    as i32,
-                output_size,
-                commands,
-                outputs,
-                prefers_local: prefers_local.unwrap_or_default(),
-                requires_local: requires_local.unwrap_or_default(),
-                allows_cache_upload: allows_cache_upload.unwrap_or_default(),
-                did_cache_upload: did_cache_upload.unwrap_or_default(),
-                allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
-                did_dep_file_cache_upload: did_dep_file_cache_upload.unwrap_or_default(),
-                dep_file_key: dep_file_key.map(|d| d.to_string()),
-                eligible_for_full_hybrid,
-                buck2_revision,
-                buck2_build_time,
-                hostname,
-                error_diagnostics,
-                input_files_bytes,
-            }),
-        )
-    };
+    let fut = build_action_inner(
+        ctx,
+        cancellation,
+        &executor,
+        materialized_inputs,
+        action,
+        target_rule_type_name,
+    );
 
     // boxed() the future so that we don't need to allocate space for it while waiting on input dependencies.
     let (action_execution_data, spans) =
@@ -339,6 +185,178 @@ async fn build_action_no_redirect(
     })?;
 
     action_execution_data.action_result
+}
+
+async fn build_action_inner(
+    ctx: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext<'_>,
+    executor: &BuckActionExecutor,
+    materialized_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    action: &Arc<RegisteredAction>,
+    target_rule_type_name: Option<String>,
+) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
+    let (execute_result, command_reports) = executor
+        .execute(materialized_inputs, action, cancellation)
+        .await;
+
+    let allow_omit_details = execute_result.is_ok();
+
+    let commands = future::join_all(
+        command_reports
+            .iter()
+            .map(|r| command_execution_report_to_proto(r, allow_omit_details)),
+    )
+    .await;
+
+    let action_digest = get_action_digest(&commands);
+
+    let queue_duration = command_reports.last().and_then(|r| r.timing.queue_duration);
+
+    let action_key = action.key().as_proto();
+
+    let action_name = buck2_data::ActionName {
+        category: action.category().as_str().to_owned(),
+        identifier: action.identifier().unwrap_or("").to_owned(),
+    };
+
+    let action_result;
+    let execution_kind;
+    let wall_time;
+    let error;
+    let output_size;
+
+    let mut prefers_local = None;
+    let mut requires_local = None;
+    let mut allows_cache_upload = None;
+    let mut did_cache_upload = None;
+    let mut allows_dep_file_cache_upload = None;
+    let mut did_dep_file_cache_upload = None;
+    let mut dep_file_key = None;
+    let mut eligible_for_full_hybrid = None;
+
+    let mut buck2_revision = None;
+    let mut buck2_build_time = None;
+    let mut hostname = None;
+    let mut input_files_bytes = None;
+    let error_diagnostics = match execute_result {
+        Ok((outputs, meta)) => {
+            output_size = outputs.calc_output_count_and_bytes().bytes;
+            action_result = Ok(outputs);
+            execution_kind = Some(meta.execution_kind.as_enum());
+            wall_time = Some(meta.timing.wall_time);
+            error = None;
+            input_files_bytes = meta.input_files_bytes;
+
+            if let Some(command) = meta.execution_kind.command() {
+                prefers_local = Some(command.prefers_local);
+                requires_local = Some(command.requires_local);
+                allows_cache_upload = Some(command.allows_cache_upload);
+                did_cache_upload = Some(command.did_cache_upload);
+                allows_dep_file_cache_upload = Some(command.allows_dep_file_cache_upload);
+                did_dep_file_cache_upload = Some(command.did_dep_file_cache_upload);
+                dep_file_key = *command.dep_file_key;
+                eligible_for_full_hybrid = Some(command.eligible_for_full_hybrid);
+            }
+
+            None
+        }
+        Err(e) => {
+            // TODO (torozco): Remove (see protobuf file)?
+            execution_kind = command_reports
+                .last()
+                .and_then(|r| r.status.execution_kind())
+                .map(|e| e.as_enum());
+            wall_time = command_reports.last().map(|r| r.timing.wall_time);
+            output_size = 0;
+            // We define the below fields only in the instance of an action error
+            // so as to reduce Scribe traffic and log it in buck2_action_errors
+            buck2_revision = buck2_build_info::revision().map(|s| s.to_owned());
+            buck2_build_time = buck2_build_info::time_iso8601().map(|s| s.to_owned());
+            hostname = buck2_events::metadata::hostname();
+
+            let last_command = commands.last().cloned();
+
+            let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
+
+            let e = ActionError::new(
+                e,
+                action_name.clone(),
+                action_key.clone(),
+                last_command.clone(),
+                error_diagnostics.clone(),
+            );
+
+            error = Some(e.as_proto_field());
+
+            ctx.per_transaction_data()
+                .get_dispatcher()
+                .instant_event(e.as_proto_event());
+
+            action_result = Err(buck2_error::Error::from(e)
+                // Make sure to mark the error as emitted so that it is not printed out to console
+                // again in this command. We still need to keep it around for the build report (and
+                // in the future) other commands
+                .mark_emitted({
+                    let owner = action.owner().dupe();
+                    Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
+                })
+                .into());
+
+            error_diagnostics
+        }
+    };
+
+    let outputs = action_result
+        .as_ref()
+        .map(|outputs| {
+            outputs
+                .iter()
+                .filter_map(|(_artifact, value)| {
+                    Some(buck2_data::ActionOutput {
+                        tiny_digest: value.digest()?.tiny_digest().to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    (
+        ActionExecutionData {
+            action_result,
+            wall_time,
+            queue_duration,
+            execution_kind,
+            target_rule_type_name,
+            action_digest,
+        },
+        Box::new(buck2_data::ActionExecutionEnd {
+            key: Some(action_key),
+            kind: action.kind().into(),
+            name: Some(action_name),
+            failed: error.is_some(),
+            error,
+            always_print_stderr: action.always_print_stderr(),
+            wall_time: wall_time.and_then(|d| d.try_into().ok()),
+            execution_kind: execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                as i32,
+            output_size,
+            commands,
+            outputs,
+            prefers_local: prefers_local.unwrap_or_default(),
+            requires_local: requires_local.unwrap_or_default(),
+            allows_cache_upload: allows_cache_upload.unwrap_or_default(),
+            did_cache_upload: did_cache_upload.unwrap_or_default(),
+            allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
+            did_dep_file_cache_upload: did_dep_file_cache_upload.unwrap_or_default(),
+            dep_file_key: dep_file_key.map(|d| d.to_string()),
+            eligible_for_full_hybrid,
+            buck2_revision,
+            buck2_build_time,
+            hostname,
+            error_diagnostics,
+            input_files_bytes,
+        }),
+    )
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or
