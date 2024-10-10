@@ -43,10 +43,6 @@ buck2_e2e_test(
     name = "test_build_report",
     srcs = ["test_build_report.py"],
     data_dir = "test_build_report_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
     use_compiled_buck2_client_and_tpx = True,
     deps = [
