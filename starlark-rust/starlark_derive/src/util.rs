@@ -51,8 +51,11 @@ impl<'a> FieldsUtil<'a> {
                 .iter()
                 .map(|f| f.ident.clone().unwrap())
                 .collect(),
-            Fields::Unnamed(unnamed) => (0..unnamed.unnamed.len())
-                .map(|i| syn::Ident::new(&format!("f{}", i), Span::call_site()))
+            Fields::Unnamed(unnamed) => unnamed
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(i, f)| syn::Ident::new(&format!("f{}", i), f.span()))
                 .collect(),
             Fields::Unit => Vec::new(),
         }
