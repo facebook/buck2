@@ -9,7 +9,6 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//rust:build_params.bzl", "MetadataKind")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:type_defs.bzl", "is_list")
 
 TargetInfo = dict[str, typing.Any]
@@ -114,14 +113,17 @@ def cquery_deps(
         ctx: bxl.Context,
         top_targets: list[TargetLabel],
         workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
-    targets = set([])
+    targets = set()
     target_universe = ctx.target_universe(top_targets).target_set()
     analysis_set = ctx.analysis(target_universe)
     for _target, analysis in analysis_set.items():
         info = analysis.providers().get(RustAnalyzerInfo)
         if info:
-            targets.update(info.transitive_target_set)
-    outputs = ctx.target_universe(targets.list()).target_set()
+            for target_set in info.transitive_target_set:
+                targets.add(target_set)
+
+    #TODO(romanp) support set as target_universe arg
+    outputs = ctx.target_universe(list(targets)).target_set()
     out = {}
 
     # Eagerly analyze targets
