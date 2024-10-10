@@ -400,22 +400,22 @@ impl<'a> BuckTestOrchestrator<'a> {
         } else {
             vec![]
         };
-        let execution_request = self
-            .create_command_execution_request(
-                cwd,
-                expanded_cmd,
-                expanded_env,
-                inputs,
-                declared_outputs,
-                &fs,
-                Some(timeout),
-                Some(host_sharing_requirements),
-                Some(executor_preference),
-                required_resources,
-                worker,
-            )
-            .boxed()
-            .await?;
+        let execution_request = Self::create_command_execution_request(
+            &self.dice,
+            cwd,
+            expanded_cmd,
+            expanded_env,
+            inputs,
+            declared_outputs,
+            &fs,
+            Some(timeout),
+            Some(host_sharing_requirements),
+            Some(executor_preference),
+            required_resources,
+            worker,
+        )
+        .boxed()
+        .await?;
         let result = self
             .execute_request(
                 &test_target,
@@ -609,21 +609,21 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             worker,
         } = test_executable_expanded;
 
-        let execution_request = self
-            .create_command_execution_request(
-                cwd,
-                expanded_cmd,
-                expanded_env,
-                inputs,
-                declared_outputs,
-                &fs,
-                None,
-                None,
-                None,
-                vec![],
-                worker,
-            )
-            .await?;
+        let execution_request = Self::create_command_execution_request(
+            &self.dice,
+            cwd,
+            expanded_cmd,
+            expanded_env,
+            inputs,
+            declared_outputs,
+            &fs,
+            None,
+            None,
+            None,
+            vec![],
+            worker,
+        )
+        .await?;
 
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
@@ -1085,7 +1085,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn create_command_execution_request(
-        &self,
+        dice: &DiceTransaction,
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
         env: SortedVectorMap<String, String>,
@@ -1104,7 +1104,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             // hence we don't actually need to spawn these in parallel
             // TODO (T102328660): Does CommandExecutionRequest need this artifact?
             inputs.push(CommandExecutionInput::Artifact(Box::new(
-                self.dice.clone().ensure_artifact_group(input).await?,
+                dice.clone().ensure_artifact_group(input).await?,
             )));
         }
 
@@ -1114,10 +1114,11 @@ impl<'b> BuckTestOrchestrator<'b> {
             .into_iter()
             .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
             .collect();
+        let digest_config = dice.global_data().get_digest_config();
         let mut request = CommandExecutionRequest::new(
             vec![],
             cmd,
-            CommandExecutionPaths::new(inputs, outputs, fs, self.digest_config)?,
+            CommandExecutionPaths::new(inputs, outputs, fs, digest_config)?,
             env,
         );
         request = request
