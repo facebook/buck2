@@ -7,7 +7,6 @@
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategories")
 # @oss-disable: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES") 
-load("@prelude//utils:set.bzl", "set", "set_type")
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
     #codesigning issues
@@ -49,7 +48,7 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     AppleErrorCategories(string_match = "unknown cell alias", categories = ["apple_buck_configuration_failure", "apple_unknown_cell_alias_failure"]),
 ]
 
-def _add_category_strings(lowercase_stderr: str, category_string_target: set_type, source: list[AppleErrorCategories]):
+def _add_category_strings(lowercase_stderr: str, category_string_target: set[str], source: list[AppleErrorCategories]):
     for error_category in source:
         if error_category.string_match in lowercase_stderr:
             for category_string in error_category.categories:
@@ -61,4 +60,4 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     _add_category_strings(lowercase_stderr, categories, _APPLE_STDERR_ERROR_CATEGORIES)
     # @oss-disable: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES) 
 
-    return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories.list())]
+    return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories)]
