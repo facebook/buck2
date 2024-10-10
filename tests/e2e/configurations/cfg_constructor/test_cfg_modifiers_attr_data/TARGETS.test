@@ -1,0 +1,17 @@
+load(":rules.bzl", "test_rule")
+
+constraint_setting(
+    name = "constraint_A",
+)
+
+constraint_value(
+    name = "A_1",
+    constraint_setting = ":constraint_A",
+)
+
+test_rule(
+    name = "test",
+    modifiers = [
+        "root//:A_1"
+    ],
+)

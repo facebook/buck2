@@ -46,3 +46,9 @@ constraint_setting_group(
     name = "test_named_constraint_settings",
     deps = NAMED_CONSTRAINT_SETTINGS.keys(),
 )
+
+buck2_e2e_test(
+    name = "test_cfg_modifiers_attr",
+    srcs = ["test_cfg_modifiers_attr.py"],
+    data_dir = "test_cfg_modifiers_attr_data",
+)
