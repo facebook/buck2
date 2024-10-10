@@ -12,7 +12,6 @@ load(
     "DepCollectionContext",  # @unused Used as a type
 )
 load("@prelude//rust:link_info.bzl", "get_available_proc_macros", "resolve_rust_deps")
-load("@prelude//utils:set.bzl", "set")
 
 RustAnalyzerInfo = provider(
     fields = {
@@ -27,7 +26,7 @@ RustAnalyzerInfo = provider(
         # The list of recursive rust dependencies for this target, including proc macros. Useful for
         # identifying the targets needing to be collected into Rust Analyzer's crate graph. Notably,
         # excludes rust dependencies that are used in build tools (e.g. build scripts).
-        "transitive_target_set": list[TargetLabel],
+        "transitive_target_set": set[TargetLabel],
     },
 )
 
@@ -52,12 +51,13 @@ def _compute_rust_deps(
 
 def _compute_transitive_target_set(
         ctx: AnalysisContext,
-        first_order_deps: list[Dependency]) -> list[TargetLabel]:
+        first_order_deps: list[Dependency]) -> set[TargetLabel]:
     transitive_targets = set([ctx.label.raw_target()])
     for dep in first_order_deps:
-        target_set = dep.get(RustAnalyzerInfo).transitive_target_set
-        transitive_targets.update(target_set)
-    return transitive_targets.list()
+        target_sets = dep.get(RustAnalyzerInfo).transitive_target_set
+        for target_set in target_sets:
+            transitive_targets.add(target_set)
+    return transitive_targets
 
 def _compute_env(
         ctx: AnalysisContext,
