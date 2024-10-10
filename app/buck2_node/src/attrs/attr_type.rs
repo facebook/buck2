@@ -398,6 +398,13 @@ impl AttrType {
         }))
     }
 
+    pub fn target_modifiers() -> Self {
+        Self(Arc::new(AttrTypeInner2 {
+            inner: AttrTypeInner::TargetModifiers(TargetModifiersAttrType),
+            may_have_queries: false,
+        }))
+    }
+
     /// Used when we first detect that concatenation is going to happen for an attr
     /// while loading a build file. Returning false here will make us provide an error
     /// during the loading phase at the point that the concatenation happens.
