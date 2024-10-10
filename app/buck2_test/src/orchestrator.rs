@@ -893,7 +893,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn get_command_executor(
-        &self,
+        dice: &DiceTransaction,
         fs: &ArtifactFs,
         test_target_node: &ConfiguredTargetNode,
         executor_override: Option<&CommandExecutorConfig>,
@@ -906,8 +906,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             platform,
             cache_checker: _,
             cache_uploader: _,
-        } = self
-            .dice
+        } = dice
             .clone()
             .get_command_executor_from_dice(executor_config)
             .await?;
@@ -1002,7 +1001,8 @@ impl<'b> BuckTestOrchestrator<'b> {
             None => test_info.default_executor().map(|o| &o.0),
         };
 
-        self.get_command_executor(
+        Self::get_command_executor(
+            &self.dice,
             fs,
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
