@@ -53,6 +53,7 @@ buck2_e2e_test(
     name = "test_cfg_modifiers_attr",
     srcs = ["test_cfg_modifiers_attr.py"],
     data_dir = "test_cfg_modifiers_attr_data",
+    deps = [":modifiers_util"],
 )
 
 python_library(

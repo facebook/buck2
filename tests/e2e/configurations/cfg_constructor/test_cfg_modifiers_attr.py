@@ -9,6 +9,8 @@
 
 import json
 
+from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -25,3 +27,12 @@ async def test_cfg_modifiers_attr(buck: Buck) -> None:
     target = targets[0]
     target_modifiers = target["modifiers"]
     assert target_modifiers == ["root//:A_1"]
+
+
+@buck_test(inplace=False)
+async def test_cfg_modifiers_attr_ctargets(buck: Buck) -> None:
+    result = await get_cfg(
+        buck,
+        "root//:test2",
+    )
+    assert ":A_1" not in result  # TODO rm not after impl
