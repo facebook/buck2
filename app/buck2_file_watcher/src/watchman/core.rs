@@ -18,6 +18,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
 use buck2_core::buck2_env;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -211,6 +212,7 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
     async fn on_fresh_instance(
         &mut self,
         dice: Self::Payload,
+        events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)>;
@@ -237,6 +239,7 @@ pub struct SyncableQuery<T, P> {
 
 enum WatchmanSyncResult {
     FreshInstance {
+        events: Vec<WatchmanEvent>,
         merge_base: Option<String>,
         clock: ClockSpec,
         watchman_version: Option<String>,
@@ -328,7 +331,7 @@ where
                 } else {
                     (
                         self.processor
-                            .on_fresh_instance(payload, &merge_base, watchman_version)
+                            .on_fresh_instance(payload, events, &merge_base, watchman_version)
                             .await?,
                         merge_base,
                         clock,
@@ -336,12 +339,13 @@ where
                 }
             }
             WatchmanSyncResult::FreshInstance {
+                events,
                 merge_base,
                 clock,
                 watchman_version,
             } => (
                 self.processor
-                    .on_fresh_instance(payload, &merge_base, watchman_version)
+                    .on_fresh_instance(payload, events, &merge_base, watchman_version)
                     .await?,
                 merge_base,
                 clock,
@@ -412,19 +416,26 @@ where
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
 
+        let events = match files {
+            None if is_fresh_instance => vec![],
+            None => {
+                return Err(internal_error!(
+                    "unexpected missing files in watchman query"
+                ));
+            }
+            Some(v) => v.into_iter().filter_map(|f| f.into_event()).collect(),
+        };
+
         Ok(if is_fresh_instance {
             WatchmanSyncResult::FreshInstance {
+                events,
                 merge_base: new_mergebase,
                 clock,
                 watchman_version: Some(version),
             }
         } else {
             WatchmanSyncResult::Events {
-                events: files
-                    .ok_or_else(|| anyhow::anyhow!(""))?
-                    .into_iter()
-                    .filter_map(|f| f.into_event())
-                    .collect(),
+                events,
                 merge_base: new_mergebase,
                 clock,
                 watchman_version: Some(version),
@@ -485,6 +496,7 @@ where
         expr: Expr,
         processor: Box<dyn SyncableQueryProcessor<Output = T, Payload = P>>,
         mergebase_with: Option<String>,
+        empty_on_fresh_instance: bool,
     ) -> anyhow::Result<SyncableQuery<T, P>> {
         let path = path.as_ref();
         let path = CanonicalPath::canonicalize(path)
@@ -493,7 +505,7 @@ where
         let query = QueryRequestCommon {
             expression: Some(expr),
             fields: vec!["name"],
-            empty_on_fresh_instance: true,
+            empty_on_fresh_instance,
             relative_root: None,
             case_sensitive: true,
             dedup_results: false,

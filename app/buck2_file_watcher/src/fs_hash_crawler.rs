@@ -191,7 +191,7 @@ impl FsSnapshot {
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, FileChangeTracker)> {
         let events = self.get_updates(new_snapshot)?;
         let mut changed = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(events.len(), None, None, None);
+        let mut stats = FileWatcherStats::new(Default::default(), events.len());
         let mut ignored = 0;
         for event in events.into_iter() {
             let ignore = ignore_specs

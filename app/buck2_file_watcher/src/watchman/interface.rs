@@ -22,6 +22,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_events::dispatch::span_async;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
@@ -46,6 +47,7 @@ struct WatchmanQueryProcessor {
     // a bug.
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
+    empty_on_fresh_instance: bool,
     report_global_rev: bool,
     last_mergebase: Option<String>,
     last_mergebase_global_rev: Option<u64>,
@@ -63,15 +65,11 @@ impl WatchmanQueryProcessor {
         &self,
         mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
-        watchman_version: Option<String>,
+        base_stats: buck2_data::FileWatcherStats,
     ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut handler = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(
-            events.len(),
-            self.last_mergebase.as_deref(),
-            self.last_mergebase_global_rev,
-            watchman_version,
-        );
+
+        let mut stats = FileWatcherStats::new(base_stats, events.len());
 
         for ev in events {
             // If the path is invalid, then walk up all the way until you find a valid dir to
@@ -247,13 +245,23 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
         self.last_mergebase = mergebase.clone();
-        self.process_events_impl(dice, events, watchman_version)
-            .await
+        self.process_events_impl(
+            dice,
+            events,
+            buck2_data::FileWatcherStats {
+                branched_from_revision: self.last_mergebase.clone(),
+                branched_from_global_rev: self.last_mergebase_global_rev,
+                watchman_version,
+                ..Default::default()
+            },
+        )
+        .await
     }
 
     async fn on_fresh_instance(
         &mut self,
         ctx: DiceTransactionUpdater,
+        events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
@@ -288,22 +296,25 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // it. So, we just send it off to its own thread.
         let ctx = ctx.unstable_take();
 
-        Ok((
-            buck2_data::FileWatcherStats {
-                fresh_instance: true,
-                branched_from_revision: mergebase.clone(),
-                branched_from_global_rev: self.last_mergebase_global_rev,
-                incomplete_events_reason: Some("Fresh instance".to_owned()),
-                watchman_version,
-                fresh_instance_data: Some(buck2_data::FreshInstance {
-                    new_mergebase: has_new_mergebase,
-                    cleared_dice: true,
-                    cleared_dep_files: clear_dep_files,
-                }),
-                ..Default::default()
-            },
-            ctx,
-        ))
+        let mut base_stats = buck2_data::FileWatcherStats {
+            fresh_instance: true,
+            branched_from_revision: mergebase.clone(),
+            branched_from_global_rev: self.last_mergebase_global_rev,
+            watchman_version,
+            fresh_instance_data: Some(buck2_data::FreshInstance {
+                new_mergebase: has_new_mergebase,
+                cleared_dice: true,
+                cleared_dep_files: clear_dep_files,
+            }),
+            ..Default::default()
+        };
+
+        if self.empty_on_fresh_instance {
+            base_stats.incomplete_events_reason = Some("Fresh instance".to_owned());
+            Ok((base_stats, ctx))
+        } else {
+            self.process_events_impl(ctx, events, base_stats).await
+        }
     }
 }
 
@@ -331,6 +342,24 @@ impl WatchmanFileWatcher {
             })
             .map(|s| s.to_owned());
 
+        let empty_on_fresh_instance = if watchman_merge_base.is_some() {
+            // double negative here because we'd prefer that rollout changes config value from false->true.
+            !root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "disable_watchman_empty_on_fresh_instance",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll()
+        } else {
+            // When not using scm-aware queries, fresh instances would list every file in
+            // the repo. That's a lot and not very useful.
+            // TODO(cjhopman): If we find we get a lot of value from the invalidation tracking that
+            // getting changed files since branch point gives us, we could try to get a better
+            // approach here for the non scm-aware case.
+            true
+        };
+
         let report_global_rev = root_config
             .parse::<bool>(BuckconfigKeyRef {
                 section: "buck2",
@@ -349,11 +378,13 @@ impl WatchmanFileWatcher {
             Box::new(WatchmanQueryProcessor {
                 cells,
                 ignore_specs,
+                empty_on_fresh_instance,
                 report_global_rev,
                 last_mergebase: None,
                 last_mergebase_global_rev: None,
             }),
             watchman_merge_base,
+            empty_on_fresh_instance,
         )?;
 
         Ok(Self { query })

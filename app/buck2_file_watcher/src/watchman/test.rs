@@ -32,7 +32,7 @@ struct TestQueryProcessor;
 
 #[derive(PartialEq, Eq, Debug)]
 enum Out {
-    FreshInstance,
+    FreshInstance(Vec<String>),
     Files(Vec<String>),
 }
 
@@ -57,10 +57,14 @@ impl SyncableQueryProcessor for TestQueryProcessor {
     async fn on_fresh_instance(
         &mut self,
         payload: Self::Payload,
+        events: Vec<WatchmanEvent>,
         _mergebase: &Option<String>,
         _watchman_version: Option<String>,
     ) -> anyhow::Result<(Self::Output, Self::Payload)> {
-        Ok((Out::FreshInstance, payload))
+        Ok((
+            Out::FreshInstance(events.into_map(|e| e.path.display().to_string())),
+            payload,
+        ))
     }
 }
 
@@ -195,10 +199,11 @@ async fn test_syncable_query() -> anyhow::Result<()> {
         Expr::Any(vec![Expr::FileType(FileType::Regular)]),
         Box::new(TestQueryProcessor),
         None,
+        true,
     )?;
 
     // Startup
-    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance);
+    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance(vec![]));
     assert_eq!(watchman_query.sync(()).await?.0, Out::Files(vec![]));
 
     // Create a file, see that we receive it.
@@ -215,7 +220,7 @@ async fn test_syncable_query() -> anyhow::Result<()> {
 
     // Restart Watchman, we should be fixed now, and get a fresh instance.
     let mut watchman_instance = spawn_watchman(&watchman_dir).await?;
-    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance);
+    assert_eq!(watchman_query.sync(()).await?.0, Out::FreshInstance(vec![]));
     assert_eq!(watchman_query.sync(()).await?.0, Out::Files(vec![]));
 
     // Clean up
