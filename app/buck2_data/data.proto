@@ -1314,6 +1314,15 @@ message ActionExecutionEnd {
   optional ActionErrorDiagnostics error_diagnostics = 38;
 
   optional uint64 input_files_bytes = 39;
+
+  optional CommandInvalidationInfo invalidation_info = 40;
+}
+
+message CommandInvalidationInfo {
+  message InvalidationSource {}
+
+  optional InvalidationSource changed_any = 1;
+  optional InvalidationSource changed_file = 2;
 }
 
 message ActionError {

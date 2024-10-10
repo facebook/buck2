@@ -415,3 +415,44 @@ async def test_remote_action_has_input_size(buck: Buck) -> None:
         assert input_size[0] == 370
     else:
         assert input_size[0] == 342
+
+
+@buck_test(data_dir="actions")
+async def test_action_invalidation_tracking(buck: Buck) -> None:
+
+    with open(buck.cwd / ".buckconfig", "a") as buckconfig:
+        buckconfig.write("[buck2]\n")
+        buckconfig.write("invalidation_tracking_enabled = true\n")
+        buckconfig.write("[buck2]\n")
+        buckconfig.write("invalidation_tracking_enabled = true\n")
+
+    await buck.build("//run:runs_simple_script")
+    invalidation_info = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "invalidation_info",
+    )
+
+    assert invalidation_info
+    assert invalidation_info[0]["changed_file"] is None
+
+    with open(buck.cwd / "run" / "src.txt", "a") as srcfile:
+        srcfile.write("more data\n")
+
+    await buck.build("//run:runs_simple_script")
+    invalidation_info = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "invalidation_info",
+    )
+
+    assert invalidation_info
+    assert invalidation_info[0]["changed_file"] == {}

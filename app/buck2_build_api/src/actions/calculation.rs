@@ -40,6 +40,7 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceTrackedInvalidationPath;
 use dice::Key;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -320,6 +321,27 @@ async fn build_action_inner(
         })
         .unwrap_or_default();
 
+    let invalidation_info = if executor.invalidation_tracking_enabled() {
+        fn to_proto(
+            invalidation_path: &DiceTrackedInvalidationPath,
+        ) -> Option<buck2_data::command_invalidation_info::InvalidationSource> {
+            match invalidation_path {
+                dice::DiceTrackedInvalidationPath::Clean
+                | dice::DiceTrackedInvalidationPath::Unknown => None,
+                dice::DiceTrackedInvalidationPath::Invalidated(_) => {
+                    Some(buck2_data::command_invalidation_info::InvalidationSource {})
+                }
+            }
+        }
+        let invalidation_paths = ctx.get_invalidation_paths();
+        Some(buck2_data::CommandInvalidationInfo {
+            changed_any: to_proto(&invalidation_paths.normal_priority_path),
+            changed_file: to_proto(&invalidation_paths.high_priority_path),
+        })
+    } else {
+        None
+    };
+
     (
         ActionExecutionData {
             action_result,
@@ -355,6 +377,7 @@ async fn build_action_inner(
             hostname,
             error_diagnostics,
             input_files_bytes,
+            invalidation_info,
         }),
     )
 }

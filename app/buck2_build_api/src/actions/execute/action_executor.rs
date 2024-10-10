@@ -71,6 +71,7 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::dice_data::CommandExecutorResponse;
 use crate::actions::execute::dice_data::DiceHasCommandExecutor;
+use crate::actions::execute::dice_data::GetInvalidationTrackingConfig;
 use crate::actions::execute::dice_data::GetReClient;
 use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
@@ -244,6 +245,7 @@ impl HasActionExecutor for DiceComputations<'_> {
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
+        let invalidation_tracking_enabled = self.get_invalidation_tracking_config().enabled;
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -263,6 +265,7 @@ impl HasActionExecutor for DiceComputations<'_> {
             io_provider,
             http_client,
             mergebase,
+            invalidation_tracking_enabled,
         )))
     }
 }
@@ -278,6 +281,7 @@ pub struct BuckActionExecutor {
     io_provider: Arc<dyn IoProvider>,
     http_client: HttpClient,
     mergebase: Mergebase,
+    invalidation_tracking_enabled: bool,
 }
 
 impl BuckActionExecutor {
@@ -292,6 +296,7 @@ impl BuckActionExecutor {
         io_provider: Arc<dyn IoProvider>,
         http_client: HttpClient,
         mergebase: Mergebase,
+        invalidation_tracking_enabled: bool,
     ) -> Self {
         Self {
             command_executor,
@@ -304,6 +309,7 @@ impl BuckActionExecutor {
             io_provider,
             http_client,
             mergebase,
+            invalidation_tracking_enabled,
         }
     }
 }
@@ -651,6 +657,10 @@ impl BuckActionExecutor {
 
         (res, command_reports)
     }
+
+    pub fn invalidation_tracking_enabled(&self) -> bool {
+        self.invalidation_tracking_enabled
+    }
 }
 
 #[cfg(test)]
@@ -776,6 +786,7 @@ mod tests {
                 .unwrap()
                 .build(),
             Default::default(),
+            true,
         );
 
         #[derive(Debug, Allocative)]

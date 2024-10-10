@@ -21,6 +21,7 @@ use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dice::DiceComputations;
 use dice::DiceData;
+use dice::DiceDataBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
@@ -120,5 +121,33 @@ impl GetReClient for UserComputationData {
             .get::<ManagedRemoteExecutionClient>()
             .expect("Materializer should be set")
             .dupe()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Dupe)]
+pub struct InvalidationTrackingConfig {
+    pub enabled: bool,
+}
+
+pub trait SetInvalidationTrackingConfig {
+    fn set_invalidation_tracking_config(&mut self, enabled: bool);
+}
+
+pub trait GetInvalidationTrackingConfig {
+    fn get_invalidation_tracking_config(&self) -> InvalidationTrackingConfig;
+}
+
+impl SetInvalidationTrackingConfig for DiceDataBuilder {
+    fn set_invalidation_tracking_config(&mut self, enabled: bool) {
+        self.set(InvalidationTrackingConfig { enabled });
+    }
+}
+
+impl GetInvalidationTrackingConfig for DiceComputations<'_> {
+    fn get_invalidation_tracking_config(&self) -> InvalidationTrackingConfig {
+        *self
+            .global_data()
+            .get::<InvalidationTrackingConfig>()
+            .expect("InvalidationTrackingConfig should be set")
     }
 }
