@@ -17,7 +17,8 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use derive_more::Display;
 use gazebo::transmute;
-use ref_cast::RefCast;
+use ref_cast::ref_cast_custom;
+use ref_cast::RefCastCustom;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
@@ -35,7 +36,16 @@ use crate::fs::paths::path_util::path_remove_prefix;
 ///
 /// This path is platform agnostic, so path separators are always '/'.
 #[derive(
-    Display, Debug, Serialize, RefCast, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative
+    Display,
+    Debug,
+    Serialize,
+    RefCastCustom,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Allocative
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(
@@ -125,6 +135,9 @@ impl<'a> Clone for ForwardRelativePathIter<'a> {
 }
 
 impl ForwardRelativePath {
+    #[ref_cast_custom]
+    fn ref_cast(s: &str) -> &ForwardRelativePath;
+
     #[inline]
     pub fn unchecked_new<S: ?Sized + AsRef<str>>(s: &S) -> &Self {
         ForwardRelativePath::ref_cast(s.as_ref())
@@ -1029,7 +1042,7 @@ impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
     #[inline]
     fn try_from(s: &'a str) -> anyhow::Result<&'a ForwardRelativePath> {
         ForwardRelativePathVerifier::verify_str(s)?;
-        Ok(ForwardRelativePath::ref_cast(s))
+        Ok(ForwardRelativePath::unchecked_new(s))
     }
 }
 
