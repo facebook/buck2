@@ -3,8 +3,9 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 oncall("build_infra")
 
 buck2_e2e_test(
-    name = "test_target_call_stacks",
-    srcs = ["test_target_call_stacks.py"],
+    name = "test_call_stacks",
+    srcs = ["test_call_stacks.py"],
+    data_dir = "test_call_stacks_data",
 )
 
 buck2_e2e_test(
