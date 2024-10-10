@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_skip_targets_with_duplicate_names_without_flag(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//..."),
@@ -23,7 +23,7 @@ async def test_skip_targets_with_duplicate_names_without_flag(buck: Buck) -> Non
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_skip_targets_with_duplicate_names_with_flag(buck: Buck) -> None:
     result = await buck.targets("//...", "--skip-targets-with-duplicate-names")
     assert [

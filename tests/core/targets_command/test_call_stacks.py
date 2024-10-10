@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_target_call_stacks_json(buck: Buck) -> None:
     out = await buck.targets(
         "--stack",

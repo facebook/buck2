@@ -14,7 +14,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_keep_going_json(buck: Buck) -> None:
     result = await buck.targets("//...", "--json", "--keep-going")
     xs = json.loads(result.stdout)
@@ -28,19 +28,19 @@ async def test_keep_going_json(buck: Buck) -> None:
             assert "test_error" in x["buck.error"]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_keep_going(buck: Buck) -> None:
     result = await buck.targets("//...", "--keep-going")
     assert "test_error" in result.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_keep_going_streaming(buck: Buck) -> None:
     result = await buck.targets("//...", "--streaming", "--keep-going")
     assert "test_error" in result.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_streaming_keep_going_missing_targets(buck: Buck) -> None:
     targets = [
         "//a:target1",

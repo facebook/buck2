@@ -1,0 +1,36 @@
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+
+oncall("build_infra")
+
+buck2_e2e_test(
+    name = "test_call_stacks",
+    srcs = ["test_call_stacks.py"],
+    data_dir = "test_call_stacks_data",
+)
+
+buck2_e2e_test(
+    name = "test_skip_targets_with_duplicate_names",
+    srcs = ["test_skip_targets_with_duplicate_names.py"],
+    data_dir = "test_skip_targets_with_duplicate_names_data",
+)
+
+buck2_e2e_test(
+    name = "test_target_metadata",
+    srcs = ["test_target_metadata.py"],
+    data_dir = "test_target_metadata_data",
+    deps = [
+        "//buck2/tests/e2e_util:golden",
+    ],
+)
+
+buck2_e2e_test(
+    name = "test_targets_imports",
+    srcs = ["test_targets_imports.py"],
+    data_dir = "test_targets_imports_data",
+)
+
+buck2_e2e_test(
+    name = "test_targets_keep_going",
+    srcs = ["test_targets_keep_going.py"],
+    data_dir = "test_targets_keep_going_data",
+)
