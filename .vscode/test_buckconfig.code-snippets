@@ -1,0 +1,35 @@
+{
+	"Nanoprelude buckconfig for core test": {
+		"prefix": "",
+		"body": [
+			"[cells]",
+			"  root = .",
+			"  nano_prelude = nano_prelude",
+			"",
+			"[cell_aliases]",
+			"  prelude = nano_prelude",
+			"",
+			"[external_cells]",
+			"  nano_prelude = bundled",
+			"",
+			"[buildfile]",
+			"  name = TARGETS.fixture",
+			"",
+		],
+		"description": "Inserts a buckconfig that is suitable for use in a core test with the nanoprelude",
+		"isFileTemplate": true,
+	},
+	"Buckconfig for core test": {
+		"prefix": "",
+		"body": [
+			"[cells]",
+			"  root = .",
+			"",
+			"[buildfile]",
+			"  name = TARGETS.fixture",
+			"",
+		],
+		"description": "Inserts a buckconfig that is suitable for use in a core test",
+		"isFileTemplate": true,
+	},
+}
