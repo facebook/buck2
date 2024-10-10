@@ -341,7 +341,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             pre_create_dirs,
             stage,
             options,
-            prefix: _,
+            prefix,
             timeout,
             host_sharing_requirements,
         } = key;
@@ -350,17 +350,19 @@ impl<'a> BuckTestOrchestrator<'a> {
         let test_executor = self
             .get_test_executor(&test_target, &test_info, executor_override, &fs)
             .await?;
-        let test_executable_expanded = self
-            .expand_test_executable(
-                &test_target,
-                &test_info,
-                Cow::Borrowed(&cmd),
-                Cow::Borrowed(&env),
-                Cow::Borrowed(&pre_create_dirs),
-                &test_executor.executor_fs(),
-            )
-            .boxed()
-            .await?;
+        let test_executable_expanded = Self::expand_test_executable(
+            &self.dice,
+            &test_target,
+            &test_info,
+            Cow::Borrowed(&cmd),
+            Cow::Borrowed(&env),
+            Cow::Borrowed(&pre_create_dirs),
+            &test_executor.executor_fs(),
+            prefix,
+            options,
+        )
+        .boxed()
+        .await?;
         let ExpandedTestExecutable {
             cwd,
             cmd: expanded_cmd,
@@ -588,16 +590,18 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         let executor = self
             .get_test_executor(&test_target, &test_info, None, &fs)
             .await?;
-        let test_executable_expanded = self
-            .expand_test_executable(
-                &test_target,
-                &test_info,
-                Cow::Owned(cmd),
-                Cow::Owned(env),
-                Cow::Owned(pre_create_dirs),
-                &executor.executor_fs(),
-            )
-            .await?;
+        let test_executable_expanded = Self::expand_test_executable(
+            &self.dice,
+            &test_target,
+            &test_info,
+            Cow::Owned(cmd),
+            Cow::Owned(env),
+            Cow::Owned(pre_create_dirs),
+            &executor.executor_fs(),
+            self.session.prefix(),
+            self.session.options(),
+        )
+        .await?;
 
         let ExpandedTestExecutable {
             cwd,
@@ -1015,20 +1019,19 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn expand_test_executable<'a>(
-        &self,
+        dice: &DiceTransaction,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
         cmd: Cow<'a, Vec<ArgValue>>,
         env: Cow<'a, SortedVectorMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, Vec<DeclaredOutput>>,
         executor_fs: &ExecutorFs<'_>,
+        prefix: Arc<ForwardRelativePathBuf>,
+        opts: TestSessionOptions,
     ) -> anyhow::Result<ExpandedTestExecutable> {
-        let output_root = self
-            .session
-            .prefix()
-            .join(ForwardRelativePathBuf::unchecked_new(
-                Uuid::new_v4().to_string(),
-            ));
+        let output_root = prefix.join(ForwardRelativePathBuf::unchecked_new(
+            Uuid::new_v4().to_string(),
+        ));
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -1038,14 +1041,12 @@ impl<'b> BuckTestOrchestrator<'b> {
         let expanded;
 
         {
-            let opts = self.session.options();
-
             cwd = if test_info.run_from_project_root() || opts.force_run_from_project_root {
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned()))
             } else {
                 supports_re = false;
                 // For compatibility with v1,
-                let cell_resolver = self.dice.clone().get_cell_resolver().await?;
+                let cell_resolver = dice.clone().get_cell_resolver().await?;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
                 cell.path().to_buf()
             };
