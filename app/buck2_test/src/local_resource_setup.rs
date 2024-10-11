@@ -21,6 +21,7 @@ use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
+use buck2_test_api::data::TestStage;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -29,6 +30,15 @@ use itertools::Itertools;
 pub(crate) enum TestStageSimple {
     Listing,
     Testing,
+}
+
+impl From<&TestStage> for TestStageSimple {
+    fn from(value: &TestStage) -> Self {
+        match value {
+            TestStage::Listing(_) => TestStageSimple::Listing,
+            TestStage::Testing { .. } => TestStageSimple::Testing,
+        }
+    }
 }
 
 /// Container for everything needed to set up a local resource.

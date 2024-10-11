@@ -370,10 +370,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         let executor_preference = Self::executor_preference(options, supports_re)?;
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
             let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
-            let simple_stage = match stage.as_ref() {
-                TestStage::Listing(_) => TestStageSimple::Listing,
-                TestStage::Testing { .. } => TestStageSimple::Testing,
-            };
+            let simple_stage = stage.as_ref().into();
 
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
