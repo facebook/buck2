@@ -376,7 +376,8 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = test_executable_expanded;
         let executor_preference = Self::executor_preference(options, supports_re)?;
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
-            let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
+            let setup_local_resources_executor =
+                Self::get_local_executor(self.dice.dupe().deref_mut(), &fs).await?;
             let simple_stage = stage.as_ref().into();
 
             let setup_contexts = {
@@ -566,7 +567,8 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
-        let setup_local_resources_executor = Self::get_local_executor(&self.dice, &fs).await?;
+        let setup_local_resources_executor =
+            Self::get_local_executor(self.dice.dupe().deref_mut(), &fs).await?;
         let setup_contexts = {
             let executor_fs = setup_local_resources_executor.executor_fs();
             required_local_resources_setup_contexts(
@@ -940,7 +942,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn get_local_executor(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         fs: &ArtifactFs,
     ) -> anyhow::Result<CommandExecutor> {
         let executor_config = CommandExecutorConfig {
@@ -956,7 +958,6 @@ impl<'b> BuckTestOrchestrator<'b> {
             cache_checker: _,
             cache_uploader: _,
         } = dice
-            .clone()
             .get_command_executor_from_dice(&executor_config)
             .await?;
         let executor = CommandExecutor::new(
