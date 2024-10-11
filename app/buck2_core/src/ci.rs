@@ -19,10 +19,7 @@ pub fn is_ci() -> anyhow::Result<bool> {
     // - many others
     //
     // Internally, CI should be setting SANDCASTLE env var.
-    Ok(
-        buck2_env!("SANDCASTLE", applicability = internal)?.is_some()
-            || buck2_env!("CI", type = bool, default = false)?,
-    )
+    Ok(buck2_env!("SANDCASTLE", applicability = internal)?.is_some() || buck2_env!("CI", bool)?)
 }
 
 /// Returns a list of possible identifiers for the currently running CI job, in `(name, value)` form
