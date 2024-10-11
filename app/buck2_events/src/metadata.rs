@@ -53,6 +53,10 @@ pub fn collect() -> HashMap<String, String> {
         map.insert("rosetta".to_owned(), "1".to_owned());
     }
 
+    if let Some(ces_id) = ces_id() {
+        map.insert("ces_id".to_owned(), ces_id);
+    }
+
     // Global trace ID
     map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
 
@@ -128,6 +132,19 @@ pub fn hostname() -> Option<String> {
             .map(|res| res.to_string_lossy().into_owned())
     })
     .clone()
+}
+
+pub fn ces_id() -> Option<String> {
+    #[cfg(fbcode_build)]
+    {
+        use cross_env_session_id::CrossEnvironmentSessionId;
+
+        CrossEnvironmentSessionId::get()
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        None
+    }
 }
 
 pub fn username() -> anyhow::Result<Option<String>> {

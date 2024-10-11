@@ -50,5 +50,6 @@ rust_library(
         # @oss-disable: "//buck2/shed/scribe_client:scribe_client", 
         "//common/rust/shed/fbinit:fbinit",
         # @oss-disable: "//common/rust/user:user", 
+        # @oss-disable: "//devx_www/cross_env_session_id:cross_env_session_id", 
     ],
 )
