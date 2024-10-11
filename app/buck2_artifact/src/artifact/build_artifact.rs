@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_data::ToProtoMessage;
+use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use derive_more::Display;
@@ -33,6 +34,9 @@ assert_eq_size!(BuildArtifact, [usize; 6]);
 
 impl BuildArtifact {
     pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> anyhow::Result<Self> {
+        if key.holder_key().owner() != path.owner() {
+            return Err(internal_error!("BaseDeferredKey mismatch"));
+        }
         Ok(BuildArtifact {
             path,
             key,
