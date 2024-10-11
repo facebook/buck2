@@ -18,6 +18,7 @@ use dupe::Clone_;
 use dupe::Dupe_;
 
 use crate::arc_str::ArcStr;
+use crate::arc_str::ThinArcStr;
 
 /// Unsized type which is a string inside.
 pub trait StringInside {
@@ -85,6 +86,70 @@ impl<S: StringInside + ?Sized> Borrow<S> for ArcS<S> {
 }
 
 impl<S: StringInside + Display + ?Sized> Display for ArcS<S> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&**self, f)
+    }
+}
+
+#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Clone_, Dupe_, Debug, Allocative)]
+#[allocative(bound = "")]
+pub struct ThinArcS<S: StringInside + ?Sized> {
+    s: ThinArcStr,
+    _marker: PhantomData<*const S>,
+}
+
+// Copy-paste these two lines from `std::sync::Arc`.
+unsafe impl<S: StringInside + ?Sized + Sync + Send> Send for ThinArcS<S> {}
+unsafe impl<S: StringInside + ?Sized + Sync + Send> Sync for ThinArcS<S> {}
+
+impl<S: StringInside + ?Sized> ThinArcS<S> {
+    // Cannot implement `TryFrom` trait, something about conflicting implementations.
+    #[inline]
+    pub fn try_from<'a>(s: &'a str) -> anyhow::Result<ThinArcS<S>>
+    where
+        &'a S: TryFrom<&'a str, Error = anyhow::Error>,
+        S: 'a,
+    {
+        let s: &S = TryFrom::try_from(s)?;
+        Ok(ThinArcS::from(s))
+    }
+}
+
+impl<'a, S: StringInside + ?Sized> From<&'a S> for ThinArcS<S> {
+    #[inline]
+    fn from(s: &'a S) -> Self {
+        Self {
+            s: ThinArcStr::from(S::as_str(s)),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<S: StringInside + ?Sized> Deref for ThinArcS<S> {
+    type Target = S;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        S::from_str(&self.s)
+    }
+}
+
+impl<S: StringInside + ?Sized> AsRef<S> for ThinArcS<S> {
+    #[inline]
+    fn as_ref(&self) -> &S {
+        self
+    }
+}
+
+impl<S: StringInside + ?Sized> Borrow<S> for ThinArcS<S> {
+    #[inline]
+    fn borrow(&self) -> &S {
+        self
+    }
+}
+
+impl<S: StringInside + Display + ?Sized> Display for ThinArcS<S> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&**self, f)

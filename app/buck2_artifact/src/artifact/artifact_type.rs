@@ -20,11 +20,11 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_util::arc_str::ThinArcS;
 use derivative::Derivative;
 use derive_more::Display;
 use derive_more::From;
@@ -61,7 +61,7 @@ assert_eq_size!(ArtifactData, [usize; 9]);
 impl Artifact {
     pub fn new(
         artifact: impl Into<BaseArtifactKind>,
-        projected_path: Option<Arc<ForwardRelativePathBuf>>,
+        projected_path: Option<ThinArcS<ForwardRelativePath>>,
         hidden_components_count: usize,
     ) -> Self {
         let artifact = match projected_path {
@@ -167,7 +167,7 @@ impl Artifact {
 
         Self::new(
             base.dupe(),
-            Some(Arc::new(projected)),
+            Some(ThinArcS::from(projected.as_ref())),
             hidden_components_count,
         )
     }
@@ -224,7 +224,7 @@ impl From<BuildArtifact> for Artifact {
 #[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
-    projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    projected_path: Option<ThinArcS<ForwardRelativePath>>,
     hidden_components_count: usize,
 }
 
@@ -281,7 +281,7 @@ impl BoundBuildArtifact {
 pub struct DeclaredArtifact {
     /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
-    projected_path: Option<Arc<ForwardRelativePathBuf>>,
+    projected_path: Option<ThinArcS<ForwardRelativePath>>,
     hidden_components_count: usize,
 }
 
@@ -314,10 +314,10 @@ impl DeclaredArtifact {
 
         Self {
             artifact: self.artifact.dupe(),
-            projected_path: Some(Arc::new(match self.projected_path.as_ref() {
-                Some(existing_path) => existing_path.join(path),
-                None => path.to_owned(),
-            })),
+            projected_path: Some(match self.projected_path.as_ref() {
+                Some(existing_path) => ThinArcS::from(existing_path.join(path).as_ref()),
+                None => ThinArcS::from(path),
+            }),
             hidden_components_count,
         }
     }

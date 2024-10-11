@@ -7,11 +7,9 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::arc_str::ThinArcS;
 use derive_more::Display;
 use dupe::Dupe;
 
@@ -22,11 +20,11 @@ use crate::artifact::artifact_type::BaseArtifactKind;
 #[display("{}/{}", base, path)]
 pub struct ProjectedArtifact {
     base: BaseArtifactKind,
-    path: Arc<ForwardRelativePathBuf>,
+    path: ThinArcS<ForwardRelativePath>,
 }
 
 impl ProjectedArtifact {
-    pub fn new(base: BaseArtifactKind, path: Arc<ForwardRelativePathBuf>) -> Self {
+    pub fn new(base: BaseArtifactKind, path: ThinArcS<ForwardRelativePath>) -> Self {
         Self { base, path }
     }
 
@@ -38,7 +36,7 @@ impl ProjectedArtifact {
         &self.path
     }
 
-    pub fn path_shared(&self) -> &Arc<ForwardRelativePathBuf> {
+    pub fn path_shared(&self) -> &ThinArcS<ForwardRelativePath> {
         &self.path
     }
 }

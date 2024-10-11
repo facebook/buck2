@@ -15,6 +15,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
+use buck2_util::arc_str::StringInside;
 use derive_more::Display;
 use gazebo::transmute;
 use ref_cast::ref_cast_custom;
@@ -68,6 +69,18 @@ impl<'de> Deserialize<'de> for ForwardRelativePathBuf {
     {
         let s = String::deserialize(deserializer)?;
         ForwardRelativePathBuf::try_from(s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl StringInside for ForwardRelativePath {
+    #[inline]
+    fn as_str(wrapper: &Self) -> &str {
+        wrapper.as_str()
+    }
+
+    #[inline]
+    fn from_str(s: &str) -> &Self {
+        ForwardRelativePath::unchecked_new(s)
     }
 }
 
