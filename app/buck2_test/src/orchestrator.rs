@@ -343,7 +343,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             host_sharing_requirements,
         } = key;
         let fs = self.dice.clone().get_artifact_fs().await?;
-        let test_info = Self::get_test_info(&self.dice, &test_target).await?;
+        let test_info = Self::get_test_info(&mut self.dice.dupe(), &test_target).await?;
         let test_executor = Self::get_test_executor(
             self.dice.dupe().deref_mut(),
             &test_target,
@@ -562,7 +562,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
         let fs = self.dice.clone().get_artifact_fs().await?;
 
-        let test_info = Self::get_test_info(&self.dice, &test_target).await?;
+        let test_info = Self::get_test_info(self.dice.dupe().deref_mut(), &test_target).await?;
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
@@ -971,11 +971,10 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn get_test_info(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
     ) -> anyhow::Result<FrozenRef<'static, FrozenExternalRunnerTestInfo>> {
         let providers = dice
-            .clone()
             .get_providers(test_target)
             .await?
             .require_compatible()?;
