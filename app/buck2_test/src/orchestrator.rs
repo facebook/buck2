@@ -421,7 +421,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         .boxed()
         .await?;
         let result = Self::execute_request(
-            &self.dice,
+            self.dice.dupe().deref_mut(),
             &self.cancellations,
             &test_target,
             &stage,
@@ -721,7 +721,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
     /// Core request execution logic.
     async fn execute_request(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         cancellation: &CancellationContext<'_>,
         test_target: &ConfiguredProvidersLabel,
         stage: &TestStage,
