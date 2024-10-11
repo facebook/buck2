@@ -594,6 +594,15 @@ pub fn fail(program: &str, msg: &str) -> crate::Error {
 }
 
 #[cfg(test)]
+pub(crate) fn fail_golden(path: &str, program: &str) -> crate::Error {
+    let program = program.trim();
+    let e = fails(program, &[]);
+    let output = format!("Program:\n\n{program}\n\nError:\n\n{e:?}\n");
+    starlark_syntax::golden_test_template::golden_test_template(path, &output);
+    e
+}
+
+#[cfg(test)]
 pub(crate) fn fail_skip_typecheck(program: &str, msg: &str) -> crate::Error {
     let mut a = Assert::new();
     a.disable_static_typechecking();

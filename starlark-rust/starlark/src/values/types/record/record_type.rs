@@ -372,7 +372,8 @@ f_pass(RecPass(a = 1, b = 2))
 
     #[test]
     fn test_record_type_as_type_compile_time() {
-        assert::fail(
+        assert::fail_golden(
+            "src/values/types/record/record_type/record_type_as_type_compile_time.golden",
             r"
 RecFailCt1 = record(a = field(int), b = field(int))
 RecFailCt2 = record(a = field(int), b = field(int))
@@ -383,13 +384,13 @@ def f_fail_ct(x: RecFailCt1):
 def test():
     f_fail_ct(RecFailCt2(a = 1, b = 2))
 ",
-            "Expected type `RecFailCt1` but got `RecFailCt2`",
         );
     }
 
     #[test]
     fn test_record_type_as_type_runtime() {
-        assert::fail(
+        assert::fail_golden(
+            "src/values/types/record/record_type/record_type_as_type_runtime.golden",
             r"
 RecFailRt1 = record(a = field(int), b = field(int))
 RecFailRt2 = record(a = field(int), b = field(int))
@@ -399,15 +400,14 @@ def f_fail_rt(x: RecFailRt1):
 
 noop(f_fail_rt)(RecFailRt2(a = 1, b = 2))
 ",
-            "Value `record[RecFailRt2](a=1, b=2)` of type `record` does not match the type annotation",
         );
     }
 
     #[test]
     fn test_anon_record() {
-        assert::fail(
+        assert::fail_golden(
+            "src/values/types/record/record_type/anon_record.golden",
             "record(a = field(int))(a = 1)",
-            "not assigned to a global variable",
         );
     }
 }
