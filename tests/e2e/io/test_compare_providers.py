@@ -67,7 +67,7 @@ async def test_default(buck: Buck) -> None:
     },
 )
 async def test_eden(buck: Buck) -> None:
-    await _run_test(buck, "eden")
+    await _run_test(buck, "default")
 
 
 @buck_test(
@@ -94,4 +94,4 @@ async def test_blake3(buck: Buck) -> None:
     },
 )
 async def test_eden_blake3(buck: Buck) -> None:
-    await _run_test(buck, "eden_blake3")
+    await _run_test(buck, "blake3")
