@@ -1,0 +1,1 @@
+test_output_artifact_twice(name = "test_output_artifact_twice")

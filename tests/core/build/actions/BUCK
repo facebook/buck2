@@ -31,6 +31,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_output_artifact_twice",
+    srcs = ["test_output_artifact_twice.py"],
+    data_dir = "test_output_artifact_twice_data",
+)
+
+buck2_e2e_test(
     name = "test_projected_output_artifact",
     srcs = ["test_projected_output_artifact.py"],
     data_dir = "test_projected_output_artifact_data",

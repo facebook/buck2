@@ -1,0 +1,8 @@
+[buildfile]
+name = TARGETS.fixture
+
+[cells]
+root = .
+
+[cell_aliases]
+prelude = root
