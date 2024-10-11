@@ -9,11 +9,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_oneof_concat(buck: Buck) -> None:
-    res = await buck.cquery("//:foo")
-    assert res.stdout.startswith("root//:foo ")
+@buck_test()
+async def test_configuration_rule_unbound(buck: Buck) -> None:
+    result = await buck.cquery(
+        # platform argument is ignored
+        "--target-platforms=root//:p",
+        "root//:the-test",
+    )
+    # Note configuration is unbound here.
+    assert "root//:the-test (<unbound>)\n" == result.stdout

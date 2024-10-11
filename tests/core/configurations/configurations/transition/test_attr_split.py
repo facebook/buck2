@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_configuration_transition_attr_split_cquery(buck: Buck) -> None:
     result = await buck.cquery("deps(root//:bb)")
     result.check_returncode()
@@ -21,7 +21,7 @@ async def test_configuration_transition_attr_split_cquery(buck: Buck) -> None:
     assert "root//:code (arm32#" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_configuration_transition_attr_split_build(buck: Buck) -> None:
     result = await buck.build("root//:bb")
     result.check_returncode()

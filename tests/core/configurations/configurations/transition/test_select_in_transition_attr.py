@@ -12,17 +12,17 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_transition_success_if_attr_value_has_not_changed(buck: Buck) -> None:
     await buck.build("root//:target_where_transition_does_not_change_attr")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_transition_dep_success_if_attr_value_has_not_changed(buck: Buck) -> None:
     await buck.build("root//:target_with_transition_dep")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_transition_failed_if_attr_value_has_changed(buck: Buck) -> None:
     err_msg = (
         r"Target root//:target_where_transition_changes_attr configuration transitioned\n"
@@ -39,7 +39,7 @@ async def test_transition_failed_if_attr_value_has_changed(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_transition_failed_if_attr_value_cycle(buck: Buck) -> None:
     err_msg = (
         r"Configured target cycle detected \(`->` means \"depends on\"\):\n"

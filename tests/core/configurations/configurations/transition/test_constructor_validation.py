@@ -13,12 +13,12 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_construction_validation_good(buck: Buck) -> None:
     await buck.targets("//good:")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_construction_validation_bad(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//bad:"),
@@ -26,7 +26,7 @@ async def test_construction_validation_bad(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_construction_validation_bad_param_types(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//bad_param_types:"),
@@ -34,7 +34,7 @@ async def test_construction_validation_bad_param_types(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_construction_validation_bad_return_type(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//bad_return_type:"),

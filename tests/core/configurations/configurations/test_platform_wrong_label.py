@@ -9,13 +9,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_configuration_transition_attr(buck: Buck) -> None:
-    result = await buck.cquery("deps(root//:the-test)")
-    result.check_returncode()
-    # Default configuration is iphoneos and it should be transitioned to watchos
-    assert ":watchos_resource" in result.stdout
-    assert ":default_resource" not in result.stdout
+@buck_test()
+async def test_platform_wrong_label(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//...",
+        ),
+        stderr_regex=r"Platform target `.*` evaluation returned `ProviderInfo` label `.*` which resolved to an unequal configuration",
+    )

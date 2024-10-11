@@ -17,7 +17,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_incompatible_target_skipping(buck: Buck) -> None:
     # incompatible target should be skipped when a package
     result = await buck.build("//:")
@@ -34,7 +34,7 @@ async def test_incompatible_target_skipping(buck: Buck) -> None:
 INCOMPATIBLE_ERROR = "root//:incompatible is incompatible with"
 
 
-@buck_test(inplace=False)
+@buck_test()
 @pytest.mark.parametrize(  # type: ignore
     "target_pattern",
     [
@@ -55,7 +55,7 @@ async def test_dep_incompatible_target(buck: Buck, target_pattern: str) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_incompatible_target_with_incompatible_dep(buck: Buck) -> None:
     target = "//dep_incompatible:target_and_dep_incompatible"
     await buck.cquery(target)
@@ -66,14 +66,14 @@ async def test_incompatible_target_with_incompatible_dep(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_exec_dep_transitive_incompatible(buck: Buck) -> None:
     await buck.cquery(
         "//exec_dep:one_exec_platform_transitive_incompatible",
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_exec_dep_transitive_incompatible_post_transition(buck: Buck) -> None:
     await buck.cquery(
         "//exec_dep:one_exec_platform_transitive_incompatible_post_transition",
@@ -93,7 +93,7 @@ async def test_exec_dep_transitive_incompatible_post_transition(buck: Buck) -> N
         ),
     ],
 )
-@buck_test(inplace=False, allow_soft_errors=True)
+@buck_test(allow_soft_errors=True)
 async def test_error_on_dep_only_incompatible(
     buck: Buck, target_pattern: str, soft_error: bool
 ) -> None:
@@ -112,7 +112,7 @@ async def test_error_on_dep_only_incompatible(
         )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_error_on_dep_only_incompatible_conf(buck: Buck) -> None:
     args = [
         "//dep_incompatible:dep_incompatible_conf2",

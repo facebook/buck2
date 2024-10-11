@@ -9,12 +9,15 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-# Test platform can be loaded via `alias` rule.
-@buck_test(inplace=False)
-async def test_platform_via_alias(buck: Buck) -> None:
-    await buck.build(
-        "root//:gr",
+@buck_test()
+async def test_configuration_transition_rule_infinite_bug(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.cquery(
+            "deps(root//:xx)",
+        )
     )
+    assert "did not produce identical" in result.stderr

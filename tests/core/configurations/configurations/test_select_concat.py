@@ -13,11 +13,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_configuration_transition_rule_infinite_bug(buck: Buck) -> None:
-    result = await expect_failure(
-        buck.cquery(
-            "deps(root//:xx)",
-        )
-    )
-    assert "did not produce identical" in result.stderr
+@buck_test()
+async def test_oneof_concat(buck: Buck) -> None:
+    res = await buck.cquery("//:foo")
+    assert res.stdout.startswith("root//:foo ")

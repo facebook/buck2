@@ -12,12 +12,10 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_configuration_rule_unbound(buck: Buck) -> None:
-    result = await buck.cquery(
-        # platform argument is ignored
-        "--target-platforms=root//:p",
-        "root//:the-test",
-    )
-    # Note configuration is unbound here.
-    assert "root//:the-test (<unbound>)\n" == result.stdout
+@buck_test()
+async def test_configuration_transition_attr(buck: Buck) -> None:
+    result = await buck.cquery("deps(root//:the-test)")
+    result.check_returncode()
+    # Default configuration is iphoneos and it should be transitioned to watchos
+    assert ":watchos_resource" in result.stdout
+    assert ":default_resource" not in result.stdout

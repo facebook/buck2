@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_target_platforms_arg(buck: Buck) -> None:
     out = await buck.cquery(
         # Specifying platform without cell to make sure it is resolved against current cell

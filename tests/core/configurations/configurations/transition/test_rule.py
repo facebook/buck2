@@ -19,7 +19,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_configuration_transition_rule_cquery(buck: Buck) -> None:
     # For the reference, cquery output is: P467297091. Note the "forward" node.
     result = await buck.cquery("deps(root//:the-test)")
@@ -30,7 +30,7 @@ async def test_configuration_transition_rule_cquery(buck: Buck) -> None:
     assert result.stdout.count(":default-resource") == 1
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_configuration_transition_rule_cquery_actual_attr(buck: Buck) -> None:
     result = await buck.cquery(
         "--target-platforms=root//:iphoneos-p",
@@ -59,7 +59,7 @@ async def test_configuration_transition_rule_cquery_actual_attr(buck: Buck) -> N
     assert config_transition_has_no_attributes
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_configuration_transition_rule_build(buck: Buck) -> None:
     # Rule implementations do the assertions.
     result = await buck.build("root//:the-test")
