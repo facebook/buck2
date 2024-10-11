@@ -120,6 +120,7 @@ use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStage;
 use buck2_test_api::protocol::TestOrchestrator;
 use derive_more::From;
+use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
@@ -572,15 +573,17 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             )
             .await?
         };
-        let setup_commands: Vec<PreparedLocalResourceSetupContext> =
-            buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
-                Self::prepare_local_resource(
-                    &self.dice,
-                    context,
-                    setup_local_resources_executor.fs(),
-                    Duration::default(),
-                )
-            }))
+        let setup_commands: Vec<PreparedLocalResourceSetupContext> = self
+            .dice
+            .dupe()
+            .deref_mut()
+            .try_compute_join(setup_contexts, |dice, context| {
+                let fs = fs.clone();
+                async move {
+                    Self::prepare_local_resource(dice, context, &fs, Duration::default()).await
+                }
+                .boxed()
+            })
             .await?;
 
         // Tests are not run, so there is no executor override.
@@ -1149,10 +1152,16 @@ impl<'b> BuckTestOrchestrator<'b> {
         default_timeout: Duration,
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
-        let setup_commands =
-            buck2_util::future::try_join_all(setup_contexts.into_iter().map(|context| {
-                Self::prepare_local_resource(dice, context, executor.fs(), default_timeout)
-            }))
+        let setup_commands = dice
+            .dupe()
+            .deref_mut()
+            .try_compute_join(setup_contexts, |dice, context| {
+                let fs = executor.fs();
+                async move {
+                        Self::prepare_local_resource(dice, context, &fs, default_timeout).await
+                    }
+                    .boxed()
+            })
             .await?;
 
         Self::require_alive(liveliness_observer.dupe()).await?;
@@ -1199,18 +1208,18 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn prepare_local_resource(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         context: LocalResourceSetupContext,
         fs: &ArtifactFs,
         default_timeout: Duration,
     ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
         let digest_config = dice.global_data().get_digest_config();
 
-        let futs = context
-            .input_artifacts
-            .iter()
-            .map(|group| async move { dice.clone().ensure_artifact_group(group).await });
-        let inputs = buck2_util::future::try_join_all(futs).await?;
+        let inputs = dice
+            .try_compute_join(context.input_artifacts, |dice, group| {
+                async move { dice.ensure_artifact_group(&group).await }.boxed()
+            })
+            .await?;
         let inputs = inputs
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
