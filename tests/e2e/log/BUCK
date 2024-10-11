@@ -13,6 +13,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_what_ran",
+    srcs = ["test_what_ran.py"],
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
     name = "test_log_format",
     srcs = ["test_log_format.py"],
     use_compiled_buck2_client_and_tpx = True,
