@@ -33,7 +33,7 @@ struct BuckOutPathData {
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
     action_key: Option<Arc<str>>,
     /// The path relative to that target.
-    path: ForwardRelativePathBuf,
+    path: Box<ForwardRelativePath>,
 }
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
@@ -62,7 +62,7 @@ impl BuckOutPath {
         BuckOutPath(Arc::new(BuckOutPathData {
             owner,
             action_key,
-            path,
+            path: path.into_box(),
         }))
     }
 
