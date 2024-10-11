@@ -17,20 +17,27 @@ from buck2.tests.e2e_util.helper.golden import golden
 
 
 async def _run_test(buck: Buck, name: str) -> None:
-    await buck.build()  # Start Buck2
-
     if sys.platform == "win32":
         kind = "win"
         targets = [
-            "buck2/tests/targets/file_metadata/nested",
+            "file_metadata/nested",
         ]
     else:
+        # Set up some symlinks. Do this here to avoid relying on the test runner
+        # copying these correctly.
+        symlink_dir = buck.cwd / "file_metadata" / "symlinks"
+        symlink_dir.mkdir()
+        (symlink_dir / "internal").symlink_to("../file")
+        (symlink_dir / "external").symlink_to("/absolute")
+
         kind = "unix"
         targets = [
-            "buck2/tests/targets/file_metadata",
-            "buck2/tests/targets/file_metadata/symlinks/internal/traverse",
-            "buck2/tests/targets/file_metadata/symlinks/external/traverse",
+            "file_metadata",
+            "file_metadata/symlinks/internal/traverse",
+            "file_metadata/symlinks/external/traverse",
         ]
+
+    await buck.build()  # Start Buck2
 
     res = await buck.debug("file-status", "--show-matches", *targets)
     golden(output=res.stdout, rel_path=f"{name}.{kind}.golden.out")
@@ -38,7 +45,8 @@ async def _run_test(buck: Buck, name: str) -> None:
 
 
 @buck_test(
-    inplace=True,
+    inplace=False,
+    setup_eden=True,
     extra_buck_config={
         "buck2": {
             "allow_eden_io": "false",
@@ -50,7 +58,8 @@ async def test_default(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=True,
+    inplace=False,
+    setup_eden=True,
     extra_buck_config={
         "buck2": {
             "allow_eden_io": "true",
@@ -62,7 +71,8 @@ async def test_eden(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=True,
+    inplace=False,
+    setup_eden=True,
     extra_buck_config={
         "buck2": {
             "allow_eden_io": "false",
@@ -75,7 +85,8 @@ async def test_blake3(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=True,
+    inplace=False,
+    setup_eden=True,
     extra_buck_config={
         "buck2": {
             "source_digest_algorithm": "BLAKE3-KEYED",

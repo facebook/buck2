@@ -1,0 +1,5 @@
+[cells]
+  root = .
+
+[buck2]
+  digest_algorithms = BLAKE3-KEYED,SHA1
