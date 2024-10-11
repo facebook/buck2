@@ -14,13 +14,3 @@ action_fail = rule(
     impl = _action_fail,
     attrs = {},
 )
-
-def _with_dep(_ctx):
-    fail("Not used in this test")
-
-with_dep = rule(
-    impl = _with_dep,
-    attrs = {
-        "dep": attrs.dep(),
-    },
-)
