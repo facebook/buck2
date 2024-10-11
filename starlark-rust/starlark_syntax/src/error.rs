@@ -55,6 +55,12 @@ impl Error {
         Self(WithDiagnostic::new_empty(ErrorKind::Other(e.into())))
     }
 
+    /// Create a new error with no diagnostic and of kind [`ErrorKind::Native`]
+    #[cold]
+    pub fn new_native(e: impl Into<anyhow::Error>) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::Native(e.into())))
+    }
+
     /// Create a new error with no diagnostic and of kind [`ErrorKind::Value`]
     #[cold]
     pub fn new_value(e: impl Into<anyhow::Error>) -> Self {
@@ -190,12 +196,14 @@ pub enum ErrorKind {
     Parser(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
+    /// Error from user provided native function
+    /// (but not from native functions provided by starlark crate).
+    /// When a native function declares `anyhow::Result<_>`
+    /// return type, it is automatically converted to this variant.
+    Native(anyhow::Error),
     /// Fallback option
     ///
-    /// This is used in two cases:
-    ///  1. For errors produced by starlark which have not yet been assigned their own kind
-    ///  2. When a native function invoked as a part of starlark evaluation returns a
-    ///     `anyhow::Error`
+    /// For errors produced by starlark which have not yet been assigned their own kind
     Other(anyhow::Error),
 }
 
@@ -210,6 +218,7 @@ impl ErrorKind {
             Self::Scope(_) => None,
             Self::Parser(_) => None,
             Self::Internal(_) => None,
+            Self::Native(e) => e.source(),
             Self::Other(e) => e.source(),
         }
     }
@@ -217,13 +226,14 @@ impl ErrorKind {
     /// Change type to `Internal`.
     pub(crate) fn into_internal_error(self) -> ErrorKind {
         match self {
-            ErrorKind::Internal(e) => ErrorKind::Internal(e),
-            ErrorKind::Fail(e)
+            ErrorKind::Internal(e)
+            | ErrorKind::Fail(e)
             | ErrorKind::Value(e)
             | ErrorKind::Function(e)
             | ErrorKind::Scope(e)
             | ErrorKind::Parser(e)
             | ErrorKind::StackOverflow(e)
+            | ErrorKind::Native(e)
             | ErrorKind::Other(e) => ErrorKind::Internal(e),
         }
     }
@@ -239,6 +249,7 @@ impl fmt::Debug for ErrorKind {
             Self::Scope(e) => fmt::Debug::fmt(e, f),
             Self::Parser(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Native(e) => fmt::Debug::fmt(e, f),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
     }
@@ -254,6 +265,7 @@ impl fmt::Display for ErrorKind {
             Self::Scope(e) => fmt::Display::fmt(e, f),
             Self::Parser(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
+            Self::Native(e) => fmt::Display::fmt(e, f),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }
     }
