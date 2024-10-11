@@ -15,7 +15,7 @@ import {SearchBox} from './SearchBox'
 /**
  * Header that goes on every view
  */
-export function Header() {
+export function Navbar() {
   const {rootTarget} = useContext(DataContext)
 
   if (!rootTarget) {

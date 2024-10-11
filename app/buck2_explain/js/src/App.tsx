@@ -20,7 +20,7 @@ import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
 import {GraphView} from './graph/GraphView'
-import {Header} from './Header'
+import {Navbar} from './Navbar'
 
 const INITIAL_STATE = {
   build: null,
@@ -89,7 +89,7 @@ function App() {
     return (
       <DataContext.Provider value={data}>
         <Router>
-          <Header />
+          <Navbar />
           <RootView view={ROOT_VIEW} />
           <TargetView view={QueryKey.TargetView} />
           <SearchView view={QueryKey.SearchView} />
