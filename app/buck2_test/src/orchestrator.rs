@@ -902,7 +902,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn get_command_executor(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         fs: &ArtifactFs,
         test_target_node: &ConfiguredTargetNode,
         executor_override: Option<&CommandExecutorConfig>,
@@ -915,10 +915,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             platform,
             cache_checker: _,
             cache_uploader: _,
-        } = dice
-            .clone()
-            .get_command_executor_from_dice(executor_config)
-            .await?;
+        } = dice.get_command_executor_from_dice(executor_config).await?;
         let executor = CommandExecutor::new(
             executor,
             // Caching is not enabled for tests yet. Use the NoOp
@@ -1010,7 +1007,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
 
         Self::get_command_executor(
-            dice,
+            dice.dupe().deref_mut(),
             fs,
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
