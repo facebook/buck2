@@ -160,7 +160,7 @@ impl<'v> StarlarkSelector<'v> {
             eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
                 .ok_or_else(|| {
-                    starlark::Error::new_kind(starlark::ErrorKind::Other(anyhow::anyhow!(
+                    starlark::Error::new_kind(starlark::ErrorKind::Native(anyhow::anyhow!(
                         "Expected testing function to have a boolean return type"
                     )))
                 })
