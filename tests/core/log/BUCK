@@ -37,6 +37,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_whatup",
+    srcs = ["test_whatup.py"],
+    data_dir = "test_whatup_data",
+)
+
+buck2_e2e_test(
     name = "test_diff",
     srcs = ["test_diff.py"],
     data_dir = "test_diff_data",

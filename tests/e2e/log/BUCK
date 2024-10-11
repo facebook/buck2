@@ -19,11 +19,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_whatup",
-    srcs = ["test_whatup.py"],
-)
-
-buck2_e2e_test(
     name = "test_persist_event_logs",
     srcs = ["test_persist_event_logs.py"],
     deps = [

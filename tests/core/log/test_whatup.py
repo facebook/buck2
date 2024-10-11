@@ -9,20 +9,15 @@
 
 
 import json
-import sys
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test()
 async def test_whatup_command(buck: Buck) -> None:
-    target = "fbcode//buck2/tests/targets/whatup:simple_build"
-    args = [target]
-    if sys.platform == "win32":
-        args.append("@//mode/win")
-    await buck.build(*args)
+    await buck.build("//:long_build")
 
     log = (await buck.log("show")).stdout.strip()
     log_file = tempfile.NamedTemporaryFile(
@@ -41,13 +36,9 @@ async def test_whatup_command(buck: Buck) -> None:
     assert "running analysis" in ext.stderr
 
 
-@buck_test(inplace=True)
+@buck_test()
 async def test_whatup_after_command(buck: Buck) -> None:
-    target = "fbcode//buck2/tests/targets/whatup:long_build"
-    args = [target, "--local-only", "--no-remote-cache"]
-    if sys.platform == "win32":
-        args.append("@//mode/win")
-    await buck.build(*args)
+    await buck.build("//:long_build", "--local-only", "--no-remote-cache")
 
     # Get event log
     log = (await buck.log("show")).stdout.strip()
@@ -72,4 +63,4 @@ async def test_whatup_after_command(buck: Buck) -> None:
     # Verify rule execution appears when running whatup at that timestamp
     action_start = (elapsed[0] * 1000) + abs(elapsed[1])
     ext = (await buck.log("whatup", "--after", str(action_start))).stderr.strip()
-    assert "action (genrule)" in ext
+    assert "action (run_python)" in ext
