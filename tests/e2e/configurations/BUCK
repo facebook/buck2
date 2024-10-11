@@ -35,6 +35,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_target_platforms_arg",
     srcs = ["test_target_platforms_arg.py"],
+    data_dir = "test_target_platforms_arg_data",
 )
 
 buck2_e2e_test(

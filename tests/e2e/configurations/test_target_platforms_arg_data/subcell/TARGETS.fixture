@@ -1,0 +1,51 @@
+constraint_setting(
+    name = "weather",
+)
+
+constraint_value(
+    name = "rain",
+    constraint_setting = ":weather",
+)
+
+constraint_value(
+    name = "clouds",
+    constraint_setting = ":weather",
+)
+
+config_setting(
+    name = "c-clouds",
+    constraint_values = [
+        ":clouds",
+    ],
+)
+
+platform(
+    name = "p-rain",
+    constraint_values = [
+        ":rain",
+    ],
+)
+
+platform(
+    name = "p-clouds",
+    constraint_values = [
+        ":clouds",
+    ],
+)
+
+stub(
+    name = "t-clouds",
+)
+
+stub(
+    name = "t-rain",
+)
+
+stub(
+    name = "the-test",
+    deps = [select({
+        ":c-clouds": ":t-clouds",
+        "DEFAULT": ":t-rain",
+    })],
+    default_target_platform = ":p-rain",
+)
