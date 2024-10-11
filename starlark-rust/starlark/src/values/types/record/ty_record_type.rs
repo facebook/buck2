@@ -124,8 +124,8 @@ def f(rec: MyRec) -> int:
 
     #[test]
     fn test_typecheck_record_type_call() {
-        // TODO(nga): this should fail.
-        assert::pass(
+        assert::fail_golden(
+            "src/values/types/record/ty_record_type/typecheck_record_type_call.golden",
             r#"
 MyRec = record(x = int)
 

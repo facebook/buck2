@@ -49,8 +49,10 @@ use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserParams;
+use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
+use crate::util::ArcStr;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::field::FieldGen;
 use crate::values::record::matcher::RecordTypeMatcher;
@@ -321,9 +323,17 @@ where
                 TypeInstanceId::gen(),
                 TyUserParams {
                     callable: Some(TyCallable::new(
-                        // TODO(nga): more precise parameter types
-                        //   https://www.internalfb.com/tasks/?t=184025179
-                        ParamSpec::kwargs(Ty::any()),
+                        ParamSpec::new_named_only(self.fields.iter().map(|(name, field)| {
+                            (
+                                ArcStr::from(name.as_str()),
+                                if field.default.is_some() {
+                                    ParamIsRequired::No
+                                } else {
+                                    ParamIsRequired::Yes
+                                },
+                                field.ty(),
+                            )
+                        }))?,
                         ty_record.dupe(),
                     )),
                     ..TyUserParams::default()
