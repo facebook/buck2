@@ -81,6 +81,8 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
         .max()
 }
 
+const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
+
 pub(crate) struct InvocationRecorder<'a> {
     fb: FacebookInit,
     write_to_path: Option<AbsPathBuf>,
@@ -380,8 +382,18 @@ impl<'a> InvocationRecorder<'a> {
             .collect();
 
         for error in connection_errors {
+            let error = classify_server_stderr(error, &self.server_stderr);
+
             let error = if self.server_stderr.is_empty() {
-                error.context("buckd stderr is empty")
+                let error = error.context("buckd stderr is empty");
+                // Likely buckd received SIGKILL, may be due to memory pressure
+                if self.tags.iter().any(|s| s == MEMORY_PRESSURE_TAG) {
+                    error
+                        .context("memory pressure detected")
+                        .tag([ErrorTag::ServerMemoryPressure])
+                } else {
+                    error
+                }
             } else {
                 // Scribe sink truncates messages, but here we can do it better:
                 // - truncate even if total message is not large enough
@@ -390,8 +402,7 @@ impl<'a> InvocationRecorder<'a> {
                 error.context(format!("buckd stderr:\n{}", server_stderr))
             };
 
-            self.client_errors
-                .push(classify_server_stderr(error, &self.server_stderr));
+            self.client_errors.push(error);
         }
 
         let mut errors =
@@ -540,7 +551,7 @@ impl<'a> InvocationRecorder<'a> {
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
             // Each snapshot already keeps track of the peak memory/disk usage, so we can use that to check if we ever reported a warning.
             if check_memory_pressure(Some(snapshot), &self.system_info).is_some() {
-                self.tags.push("memory_pressure_warning".to_owned());
+                self.tags.push(MEMORY_PRESSURE_TAG.to_owned());
             }
             if check_remaining_disk_space(Some(snapshot), &self.system_info).is_some() {
                 self.tags.push("low_disk_space".to_owned());
