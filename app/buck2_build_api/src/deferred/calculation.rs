@@ -16,7 +16,6 @@ use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_util::late_binding::LateBinding;
@@ -24,7 +23,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::Future;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::OwnedRefFrozenRef;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -36,7 +34,6 @@ use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::dynamic::calculation::dynamic_lambda_result;
 use crate::dynamic::calculation::DynamicLambdaResult;
-use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
 pub static EVAL_ANON_TARGET: LateBinding<
@@ -113,14 +110,7 @@ impl DeferredHolder {
         self.analysis_values().lookup_action(key)
     }
 
-    pub fn lookup_lambda<'f>(
-        &'f self,
-        key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
-        self.analysis_values().lookup_lambda(key)
-    }
-
-    fn analysis_values(&self) -> &RecordedAnalysisValues {
+    pub fn analysis_values(&self) -> &RecordedAnalysisValues {
         match self {
             DeferredHolder::Analysis(result) => result.analysis_values(),
             DeferredHolder::Bxl(result) => result.analysis_values(),

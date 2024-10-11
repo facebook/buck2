@@ -16,8 +16,6 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
-use buck2_build_api::dynamic::params::DynamicLambdaParams;
-use buck2_build_api::dynamic::params::DynamicLambdaStaticFields;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -39,6 +37,9 @@ use starlark_map::small_map::SmallMap;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
+use crate::dynamic::params::DynamicLambdaParams;
+use crate::dynamic::params::DynamicLambdaStaticFields;
+use crate::dynamic::storage::DynamicLambdaParamsStorageImpl;
 
 #[derive(buck2_error::Error, Debug)]
 enum DynamicOutputError {
@@ -158,7 +159,12 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
 
         let mut this = this.state();
 
-        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
+        let execution_platform = this.actions.execution_platform.dupe();
+
+        let lambda_params_storage =
+            DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
+
+        let key = lambda_params_storage.next_dynamic_actions_key()?;
         let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
 
         // Registration
@@ -172,11 +178,10 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
                 artifact_values,
                 dynamic_values: IndexSet::new(),
                 outputs,
-                execution_platform: this.actions.execution_platform.dupe(),
+                execution_platform,
             },
         };
-        this.analysis_value_storage
-            .set_dynamic_actions(key, lambda_params)?;
+        lambda_params_storage.set_dynamic_actions(key, lambda_params)?;
         Ok(NoneType)
     }
 
@@ -202,7 +207,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
 
         let mut this = this.state();
 
-        let key = this.analysis_value_storage.next_dynamic_actions_key()?;
+        let execution_platform = this.actions.execution_platform.dupe();
+
+        let lambda_params_storage =
+            DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
+        let key = lambda_params_storage.next_dynamic_actions_key()?;
         let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
 
         // Registration
@@ -216,12 +225,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
                 artifact_values,
                 dynamic_values,
                 outputs,
-                execution_platform: this.actions.execution_platform.dupe(),
+                execution_platform,
             },
         };
 
-        this.analysis_value_storage
-            .set_dynamic_actions(key.dupe(), lambda_params)?;
+        lambda_params_storage.set_dynamic_actions(key.dupe(), lambda_params)?;
 
         Ok(StarlarkDynamicValue {
             dynamic_value: DynamicValue {

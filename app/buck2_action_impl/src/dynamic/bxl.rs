@@ -13,7 +13,6 @@ use std::pin::Pin;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
-use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
@@ -25,6 +24,8 @@ use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::Future;
 use starlark::values::OwnedRefFrozenRef;
+
+use crate::dynamic::params::FrozenDynamicLambdaParams;
 
 pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(

@@ -20,7 +20,6 @@ use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::dynamic::calculation::dynamic_lambda_result;
-use buck2_build_api::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -72,6 +71,7 @@ use crate::dynamic::dynamic_actions_callable::P_ARTIFACT_VALUES;
 use crate::dynamic::dynamic_actions_callable::P_DYNAMIC_VALUES;
 use crate::dynamic::dynamic_actions_callable::P_OUTPUTS;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
+use crate::dynamic::params::FrozenDynamicLambdaParams;
 use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
 pub enum DynamicLambdaArgs<'v> {

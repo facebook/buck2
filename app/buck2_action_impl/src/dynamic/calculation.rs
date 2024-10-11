@@ -22,6 +22,7 @@ use dice::Key;
 use dupe::Dupe;
 
 use crate::dynamic::deferred::prepare_and_execute_lambda;
+use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageImpl;
 
 struct DynamicLambdaCalculationImpl;
 
@@ -62,7 +63,10 @@ impl Key for DynamicLambdaDiceKey {
         cancellation: &CancellationContext,
     ) -> Self::Value {
         let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
-        let lambda = deferred_holder.lookup_lambda(&self.0)?;
+        let lambda = FrozenDynamicLambdaParamsStorageImpl::lookup_lambda(
+            deferred_holder.analysis_values().analysis_storage()?,
+            &self.0,
+        )?;
 
         let analysis_values = prepare_and_execute_lambda(
             ctx,

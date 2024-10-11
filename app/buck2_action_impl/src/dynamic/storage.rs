@@ -1,0 +1,184 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+use allocative::Allocative;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_artifact::dynamic::DynamicLambdaIndex;
+use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_build_api::analysis::registry::AnalysisValueStorage;
+use buck2_build_api::analysis::registry::FrozenAnalysisValueStorage;
+use buck2_build_api::dynamic::storage::DynamicLambdaParamStorages;
+use buck2_build_api::dynamic::storage::DynamicLambdaParamsStorage;
+use buck2_build_api::dynamic::storage::FrozenDynamicLambdaParamsStorage;
+use buck2_build_api::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
+use dupe::Dupe;
+use dupe::IterDupedExt;
+use starlark::any::AnyLifetime;
+use starlark::any::ProvidesStaticType;
+use starlark::values::Freeze;
+use starlark::values::Freezer;
+use starlark::values::OwnedRefFrozenRef;
+use starlark::values::Trace;
+use starlark::values::Tracer;
+use starlark_map::small_map::SmallMap;
+
+use crate::dynamic::params::DynamicLambdaParams;
+use crate::dynamic::params::FrozenDynamicLambdaParams;
+
+#[derive(Debug, Allocative, ProvidesStaticType)]
+pub(crate) struct DynamicLambdaParamsStorageImpl<'v> {
+    self_key: DeferredHolderKey,
+    lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
+}
+
+#[derive(Debug, Allocative, ProvidesStaticType)]
+pub(crate) struct FrozenDynamicLambdaParamsStorageImpl {
+    self_key: DeferredHolderKey,
+    lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
+}
+
+impl<'v> DynamicLambdaParamsStorageImpl<'v> {
+    pub(crate) fn get<'a>(
+        storage: &'a mut AnalysisValueStorage<'v>,
+    ) -> anyhow::Result<&'a mut DynamicLambdaParamsStorageImpl<'v>> {
+        storage
+            .lambda_params
+            .as_any_mut()
+            .downcast_mut()
+            .internal_error("Wrong type for lambda params storage")
+    }
+
+    pub fn next_dynamic_actions_key(&self) -> anyhow::Result<DynamicLambdaResultsKey> {
+        let index = DynamicLambdaIndex::new(self.lambda_params.len().try_into()?);
+        Ok(DynamicLambdaResultsKey::new(self.self_key.dupe(), index))
+    }
+
+    pub fn set_dynamic_actions(
+        &mut self,
+        key: DynamicLambdaResultsKey,
+        lambda_params: DynamicLambdaParams<'v>,
+    ) -> anyhow::Result<()> {
+        if &self.self_key != key.holder_key() {
+            return Err(internal_error!(
+                "Wrong lambda owner: expecting `{}`, got `{}`",
+                self.self_key,
+                key
+            ));
+        }
+        self.lambda_params.insert(key, lambda_params);
+        Ok(())
+    }
+}
+
+impl FrozenDynamicLambdaParamsStorageImpl {
+    pub(crate) fn lookup_lambda<'f>(
+        storage: OwnedRefFrozenRef<'f, FrozenAnalysisValueStorage>,
+        key: &DynamicLambdaResultsKey,
+    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
+        if key.holder_key() != &storage.as_ref().self_key {
+            return Err(internal_error!(
+                "Wrong owner for lambda: expecting `{}`, got `{}`",
+                storage.as_ref().self_key,
+                key
+            ));
+        }
+        storage.try_map_result(|s| {
+            s.lambda_params
+                .as_any()
+                .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
+                .internal_error("Wrong type for lambda params storage")?
+                .lambda_params
+                .get(key)
+                .with_internal_error(|| format!("missing lambda `{}`", key))
+        })
+    }
+}
+
+unsafe impl<'v> Trace<'v> for DynamicLambdaParamsStorageImpl<'v> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        let DynamicLambdaParamsStorageImpl {
+            self_key,
+            lambda_params,
+        } = self;
+        tracer.trace_static(self_key);
+        for (k, v) in lambda_params.iter_mut() {
+            tracer.trace_static(k);
+            v.trace(tracer);
+        }
+    }
+}
+
+impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
+    fn as_any_mut(&mut self) -> &mut dyn AnyLifetime<'v> {
+        self
+    }
+
+    fn freeze(
+        self: Box<Self>,
+        freezer: &Freezer,
+    ) -> anyhow::Result<Box<dyn FrozenDynamicLambdaParamsStorage>> {
+        let DynamicLambdaParamsStorageImpl {
+            self_key,
+            lambda_params,
+        } = *self;
+        let lambda_params = lambda_params
+            .into_iter_hashed()
+            .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
+            .collect::<anyhow::Result<_>>()?;
+        Ok(Box::new(FrozenDynamicLambdaParamsStorageImpl {
+            self_key,
+            lambda_params,
+        }))
+    }
+}
+
+impl FrozenDynamicLambdaParamsStorage for FrozenDynamicLambdaParamsStorageImpl {
+    fn as_any(&self) -> &dyn AnyLifetime<'static> {
+        self
+    }
+
+    fn iter_dynamic_lambda_outputs(&self) -> Box<dyn Iterator<Item = BuildArtifact> + Send + '_> {
+        Box::new(
+            self.lambda_params
+                .values()
+                .flat_map(|v| v.static_fields.outputs.iter().duped()),
+        )
+    }
+}
+
+pub(crate) fn init_dynamic_lambda_params_storages() {
+    struct Impl;
+
+    impl DynamicLambdaParamStorages for Impl {
+        fn new_dynamic_lambda_params_storage<'v>(
+            &self,
+            self_key: DeferredHolderKey,
+        ) -> Box<dyn DynamicLambdaParamsStorage<'v>> {
+            Box::new(DynamicLambdaParamsStorageImpl {
+                self_key,
+                lambda_params: SmallMap::new(),
+            })
+        }
+
+        fn new_frozen_dynamic_lambda_params_storage(
+            &self,
+            self_key: DeferredHolderKey,
+        ) -> Box<dyn FrozenDynamicLambdaParamsStorage> {
+            Box::new(FrozenDynamicLambdaParamsStorageImpl {
+                self_key,
+                lambda_params: SmallMap::new(),
+            })
+        }
+    }
+
+    DYNAMIC_LAMBDA_PARAMS_STORAGES.init(&Impl);
+}

@@ -19,8 +19,6 @@ use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_artifact::dynamic::DynamicLambdaIndex;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -30,7 +28,6 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -73,8 +70,9 @@ use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
-use crate::dynamic::params::DynamicLambdaParams;
-use crate::dynamic::params::FrozenDynamicLambdaParams;
+use crate::dynamic::storage::DynamicLambdaParamsStorage;
+use crate::dynamic::storage::FrozenDynamicLambdaParamsStorage;
+use crate::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -353,16 +351,16 @@ pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
-    lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
+    pub lambda_params: Box<dyn DynamicLambdaParamsStorage<'v>>,
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct FrozenAnalysisValueStorage {
-    self_key: DeferredHolderKey,
+    pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
-    lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
+    pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
     result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
 }
 
@@ -383,10 +381,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             tracer.trace_static(k);
             v.trace(tracer);
         }
-        for (k, v) in lambda_params.iter_mut() {
-            tracer.trace_static(k);
-            v.trace(tracer);
-        }
+        lambda_params.trace(tracer);
         tracer.trace_static(self_key);
         result_value.trace(tracer);
     }
@@ -414,10 +409,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .into_iter()
                 .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
                 .collect::<anyhow::Result<_>>()?,
-            lambda_params: lambda_params
-                .into_iter_hashed()
-                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-                .collect::<anyhow::Result<_>>()?,
+            lambda_params: lambda_params.freeze(freezer)?,
             result_value: result_value.freeze(freezer)?,
         })
     }
@@ -445,10 +437,13 @@ impl AnalysisValueFetcher {
 impl<'v> AnalysisValueStorage<'v> {
     fn new(self_key: DeferredHolderKey) -> Self {
         Self {
-            self_key,
+            self_key: self_key.dupe(),
             action_data: SmallMap::new(),
             transitive_sets: SmallMap::new(),
-            lambda_params: SmallMap::new(),
+            lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
+                .get()
+                .unwrap()
+                .new_dynamic_lambda_params_storage(self_key),
             result_value: OnceCell::new(),
         }
     }
@@ -495,27 +490,6 @@ impl<'v> AnalysisValueStorage<'v> {
             ));
         }
         self.action_data.insert(id, action_data);
-        Ok(())
-    }
-
-    pub fn next_dynamic_actions_key(&self) -> anyhow::Result<DynamicLambdaResultsKey> {
-        let index = DynamicLambdaIndex::new(self.lambda_params.len().try_into()?);
-        Ok(DynamicLambdaResultsKey::new(self.self_key.dupe(), index))
-    }
-
-    pub fn set_dynamic_actions(
-        &mut self,
-        key: DynamicLambdaResultsKey,
-        lambda_params: DynamicLambdaParams<'v>,
-    ) -> anyhow::Result<()> {
-        if &self.self_key != key.holder_key() {
-            return Err(internal_error!(
-                "Wrong lambda owner: expecting `{}`, got `{}`",
-                self.self_key,
-                key
-            ));
-        }
-        self.lambda_params.insert(key, lambda_params);
         Ok(())
     }
 
@@ -624,7 +598,10 @@ impl RecordedAnalysisValues {
                 self_key: self_key.dupe(),
                 action_data: SmallMap::new(),
                 transitive_sets: alloced_tsets,
-                lambda_params: SmallMap::new(),
+                lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
+                    .get()
+                    .unwrap()
+                    .new_frozen_dynamic_lambda_params_storage(self_key.dupe()),
                 result_value: Some(
                     FrozenValueTyped::<FrozenProviderCollection>::new(heap.alloc(providers))
                         .unwrap(),
@@ -676,7 +653,7 @@ impl RecordedAnalysisValues {
         self.actions.iter_actions()
     }
 
-    fn analysis_storage(
+    pub fn analysis_storage(
         &self,
     ) -> anyhow::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage>> {
         Ok(self
@@ -687,28 +664,11 @@ impl RecordedAnalysisValues {
             .map(|v| &v.value))
     }
 
-    pub(crate) fn lookup_lambda<'f>(
-        &'f self,
-        key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
-        if key.holder_key() != &self.self_key {
-            return Err(internal_error!(
-                "Wrong owner for lambda: expecting `{}`, got `{}`",
-                self.self_key,
-                key
-            ));
-        }
-        self.analysis_storage()?
-            .try_map_option(|storage| storage.lambda_params.get(key))
-            .with_internal_error(|| format!("missing lambda `{}`", key))
-    }
-
     /// Iterates over the declared dynamic_output/actions.
     pub fn iter_dynamic_lambda_outputs(&self) -> impl Iterator<Item = BuildArtifact> + '_ {
         self.analysis_storage
             .iter()
-            .flat_map(|v| v.value.lambda_params.values())
-            .flat_map(|v| v.static_fields.outputs.iter().duped())
+            .flat_map(|v| v.value.lambda_params.iter_dynamic_lambda_outputs())
     }
 
     pub fn provider_collection(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {
