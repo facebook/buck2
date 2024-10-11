@@ -45,15 +45,13 @@ use crate::artifact::source_artifact::SourceArtifact;
 )]
 pub struct Artifact(Arc<ArtifactData>);
 
-#[derive(Clone, Debug, Display, Dupe, Allocative, Derivative)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Display, Dupe, Allocative, Hash, Eq, PartialEq)]
 #[display("{}", data)]
 struct ArtifactData {
     data: Hashed<ArtifactKind>,
 
     /// The number of components at the prefix of that path that are internal details to the rule,
-    /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    /// not returned by `.short_path`.
     hidden_components_count: usize,
 }
 
@@ -218,13 +216,11 @@ impl From<BuildArtifact> for Artifact {
 }
 
 /// An intermediate struct to respond to calls to `ensure_bound`.
-#[derive(Clone, Dupe, Debug, Display, Allocative, Derivative)]
-#[derivative(Hash, Eq, PartialEq)]
+#[derive(Clone, Dupe, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
     projected_path: Option<Arc<ForwardRelativePathBuf>>,
-    #[derivative(Hash = "ignore", PartialEq = "ignore")]
     hidden_components_count: usize,
 }
 
@@ -579,10 +575,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hash;
-    use std::hash::Hasher;
-
     use assert_matches::assert_matches;
     use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -735,36 +727,6 @@ mod tests {
             assert_eq!(false, artifact1_executable);
             assert_eq!(true, artifact2_executable);
         }
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_eq_hash() -> anyhow::Result<()> {
-        let target =
-            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
-
-        let artifact =
-            BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
-
-        let full = Artifact::new(artifact.clone(), None, 0);
-        let hidden = Artifact::new(artifact, None, 1);
-
-        assert_eq!(full, hidden);
-
-        let hash_full = {
-            let mut hasher = DefaultHasher::new();
-            full.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        let hash_hidden = {
-            let mut hasher = DefaultHasher::new();
-            hidden.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        assert_eq!(hash_full, hash_hidden);
 
         Ok(())
     }

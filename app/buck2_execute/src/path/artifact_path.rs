@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
-use std::hash::Hasher;
 
 use anyhow::Context;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -21,14 +20,13 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePathRef;
 use either::Either;
 use gazebo::cell::ARef;
-use gazebo::eq_chain;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ArtifactPath<'a> {
     pub base_path: Either<ARef<'a, BuckOutPath>, SourcePathRef<'a>>,
     pub projected_path: &'a ForwardRelativePath,
     /// The number of components at the prefix of that path that are internal details to the rule,
-    /// not returned by `.short_path`. Omitted from Eq and Hash comparisons.
+    /// not returned by `.short_path`.
     pub hidden_components_count: usize,
 }
 
@@ -103,24 +101,6 @@ impl<'a> ArtifactPath<'a> {
         Ok(base_path.join(projected_path))
     }
 }
-
-impl Hash for ArtifactPath<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.base_path.hash(state);
-        self.projected_path.hash(state);
-    }
-}
-
-impl PartialEq for ArtifactPath<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        eq_chain! {
-            self.base_path == other.base_path,
-            self.projected_path == other.projected_path,
-        }
-    }
-}
-
-impl Eq for ArtifactPath<'_> {}
 
 impl fmt::Display for ArtifactPath<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
