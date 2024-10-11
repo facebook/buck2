@@ -399,7 +399,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             vec![]
         };
         let execution_request = Self::create_command_execution_request(
-            &self.dice,
+            self.dice.dupe().deref_mut(),
             cwd,
             expanded_cmd,
             expanded_env,
@@ -613,7 +613,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         } = test_executable_expanded;
 
         let execution_request = Self::create_command_execution_request(
-            &self.dice,
+            self.dice.dupe().deref_mut(),
             cwd,
             expanded_cmd,
             expanded_env,
@@ -1090,7 +1090,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn create_command_execution_request(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
         env: SortedVectorMap<String, String>,
@@ -1109,7 +1109,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             // hence we don't actually need to spawn these in parallel
             // TODO (T102328660): Does CommandExecutionRequest need this artifact?
             inputs.push(CommandExecutionInput::Artifact(Box::new(
-                dice.clone().ensure_artifact_group(input).await?,
+                dice.ensure_artifact_group(input).await?,
             )));
         }
 
