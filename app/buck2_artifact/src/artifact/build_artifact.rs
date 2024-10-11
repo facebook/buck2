@@ -14,6 +14,7 @@ use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
 
@@ -27,6 +28,8 @@ pub struct BuildArtifact {
     key: ActionKey,
     output_type: OutputType,
 }
+
+assert_eq_size!(BuildArtifact, [usize; 6]);
 
 impl BuildArtifact {
     pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> Self {

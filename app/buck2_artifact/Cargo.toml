@@ -12,6 +12,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 serde = { workspace = true }
+static_assertions = { workspace = true }
 take_mut = { workspace = true }
 
 allocative = { workspace = true }

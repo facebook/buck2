@@ -32,6 +32,7 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use starlark_map::Hashed;
+use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
 use crate::artifact::build_artifact::BuildArtifact;
@@ -54,6 +55,8 @@ struct ArtifactData {
     /// not returned by `.short_path`.
     hidden_components_count: usize,
 }
+
+assert_eq_size!(ArtifactData, [usize; 9]);
 
 impl Artifact {
     pub fn new(
@@ -194,11 +197,15 @@ pub enum BaseArtifactKind {
     Build(BuildArtifact),
 }
 
+assert_eq_size!(BaseArtifactKind, [usize; 6]);
+
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
 pub enum ArtifactKind {
     Base(BaseArtifactKind),
     Projected(ProjectedArtifact),
 }
+
+assert_eq_size!(ArtifactKind, [usize; 7]);
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
