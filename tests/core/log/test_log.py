@@ -21,7 +21,7 @@ from buck2.tests.e2e_util.helper.utils import (
 )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_log_show_invocation_record(buck: Buck, tmp_path: Path) -> None:
     mode_file = tmp_path / "mode"
     mode_file.write_text("-c\naa.bb=cc\n-c\ndd.ee=ff\n")
@@ -39,7 +39,7 @@ async def test_log_show_invocation_record(buck: Buck, tmp_path: Path) -> None:
     assert "aa.bb=cc" not in command_line_args
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_log_size_logging(buck: Buck, tmp_path: Path) -> None:
     record_file = tmp_path / "record.json"
     await buck.cquery(
@@ -58,14 +58,14 @@ async def test_log_size_logging(buck: Buck, tmp_path: Path) -> None:
     assert logged_size == log_size_in_disk
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_replay(buck: Buck) -> None:
     await buck.build("//:EEE")
     replay = await buck.log("replay", "-v2")
     assert "//:EEE" in replay.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_last_log(buck: Buck) -> None:
     await buck.build("//:EEE")
     out = await buck.log("last")
@@ -76,7 +76,7 @@ async def test_last_log(buck: Buck) -> None:
     assert path == out2.stdout.strip()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_last_log_all(buck: Buck) -> None:
     await buck.build("//:EEE")
     out = await buck.log("last", "--all")
@@ -87,7 +87,7 @@ async def test_last_log_all(buck: Buck) -> None:
         assert "/log/" in path or "\\log\\" in path
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_log_command_with_trace_id(buck: Buck, tmp_path: Path) -> None:
     build_file_path = tmp_path / "b"
     await buck.uquery("//:", f"--write-build-id={build_file_path}")
@@ -100,7 +100,7 @@ async def test_log_command_with_trace_id(buck: Buck, tmp_path: Path) -> None:
         json.loads(line)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_what_buck(buck: Buck, tmp_path: Path) -> None:
     mode_path = tmp_path / "mode"
     mode_path.write_text("-c\nxx.yy=zz\n")

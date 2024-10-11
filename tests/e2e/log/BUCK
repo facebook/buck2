@@ -3,16 +3,6 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 oncall("build_infra")
 
 buck2_e2e_test(
-    name = "test_log",
-    srcs = ["test_log.py"],
-    data_dir = "test_log_data",
-    use_compiled_buck2_client_and_tpx = True,
-    deps = [
-        "//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
     name = "test_what_ran",
     srcs = ["test_what_ran.py"],
     use_compiled_buck2_client_and_tpx = True,
