@@ -690,7 +690,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
 
         let mut data = UserComputationData {
             data,
-            tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())),
+            tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())?),
             cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
