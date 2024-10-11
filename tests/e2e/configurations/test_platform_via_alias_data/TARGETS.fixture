@@ -1,18 +1,16 @@
-prelude = native
+load(":alias.bzl", "alias")
 
-prelude.platform(
+platform(
     name = "ppp",
     constraint_values = [],
 )
 
-prelude.alias(
+alias(
     name = "ppp-alias",
     actual = ":ppp",
 )
 
-prelude.genrule(
+trivial_build(
     name = "gr",
-    out = "gr.txt",
-    cmd = "echo rrr >$OUT",
     default_target_platform = ":ppp-alias",
 )

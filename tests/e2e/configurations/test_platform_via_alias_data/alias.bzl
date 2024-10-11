@@ -5,16 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# pyre-strict
+def _impl(ctx):
+    return ctx.attrs.actual.providers
 
-
-from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-# Test platform can be loaded via `alias` rule.
-@buck_test(inplace=False)
-async def test_platform_via_alias(buck: Buck) -> None:
-    await buck.build(
-        "root//:gr",
-    )
+alias = rule(
+    impl = _impl,
+    attrs = {
+        "actual": attrs.dep(),
+    },
+)

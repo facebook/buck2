@@ -38,6 +38,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_platform_via_alias",
     srcs = ["test_platform_via_alias.py"],
+    data_dir = "test_platform_via_alias_data",
 )
 
 buck2_e2e_test(
