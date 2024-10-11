@@ -21,6 +21,7 @@ stub = rule(
         "exec_deps": attrs.list(attrs.exec_dep(), default = []),
         "srcs": attrs.list(attrs.source(), default = []),
         "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
     },
 )
 

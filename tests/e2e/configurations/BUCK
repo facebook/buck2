@@ -17,6 +17,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_select_buckconfig",
     srcs = ["test_select_buckconfig.py"],
+    data_dir = "test_select_buckconfig_data",
 )
 
 buck2_e2e_test(
