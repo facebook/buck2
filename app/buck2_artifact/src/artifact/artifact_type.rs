@@ -456,7 +456,7 @@ impl OutputArtifact {
             }
             a => take_mut::take(a, |artifact| match artifact {
                 DeclaredArtifactKind::Unbound(unbound) => {
-                    DeclaredArtifactKind::Bound(unbound.bind(key))
+                    DeclaredArtifactKind::Bound(unbound.bind(key).unwrap())
                 }
                 DeclaredArtifactKind::Bound(_) => {
                     unreachable!("should already be verified to be unbound")
@@ -494,7 +494,7 @@ impl Deref for OutputArtifact {
 pub struct UnboundArtifact(BuckOutPath, OutputType);
 
 impl UnboundArtifact {
-    fn bind(self, key: ActionKey) -> BuildArtifact {
+    fn bind(self, key: ActionKey) -> anyhow::Result<BuildArtifact> {
         BuildArtifact::new(self.0, key, self.1)
     }
 }
@@ -568,6 +568,7 @@ pub mod testing {
                 ),
                 OutputType::File,
             )
+            .unwrap()
         }
     }
 }

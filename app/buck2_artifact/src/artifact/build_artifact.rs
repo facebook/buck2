@@ -32,12 +32,12 @@ pub struct BuildArtifact {
 assert_eq_size!(BuildArtifact, [usize; 6]);
 
 impl BuildArtifact {
-    pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> Self {
-        BuildArtifact {
+    pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> anyhow::Result<Self> {
+        Ok(BuildArtifact {
             path,
             key,
             output_type,
-        }
+        })
     }
 
     pub fn get_path(&self) -> &BuckOutPath {
