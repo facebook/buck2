@@ -511,7 +511,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
         dynamic_lambda.static_fields.execution_platform.dupe(),
         DeferredHolderKey::DynamicLambda(self_key),
     )?;
-    registry.set_action_key(Arc::from(action_key));
+    registry.set_dynamic_actions_action_key(Arc::from(action_key));
 
     let artifact_values = artifact_values(
         &dynamic_lambda.static_fields.artifact_values,

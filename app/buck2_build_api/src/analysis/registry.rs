@@ -124,8 +124,8 @@ impl<'v> AnalysisRegistry<'v> {
         })
     }
 
-    pub fn set_action_key(&mut self, action_key: Arc<str>) {
-        self.actions.set_action_key(action_key);
+    pub fn set_dynamic_actions_action_key(&mut self, action_key: Arc<str>) {
+        self.actions.set_dynamic_actions_action_key(action_key);
     }
 
     /// Reserves a path in an output directory. Doesn't declare artifact,

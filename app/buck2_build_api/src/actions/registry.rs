@@ -53,7 +53,7 @@ use crate::deferred::calculation::ActionLookup;
 #[derive(Allocative)]
 pub struct ActionsRegistry {
     owner: DeferredHolderKey,
-    action_key: Option<Arc<str>>,
+    dynamic_actions_action_key: Option<Arc<str>>,
     artifacts: IndexSet<DeclaredArtifact>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
@@ -68,7 +68,7 @@ impl ActionsRegistry {
     pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
-            action_key: None,
+            dynamic_actions_action_key: None,
             artifacts: Default::default(),
             declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
@@ -77,8 +77,8 @@ impl ActionsRegistry {
         }
     }
 
-    pub fn set_action_key(&mut self, action_key: Arc<str>) {
-        self.action_key = Some(action_key);
+    pub fn set_dynamic_actions_action_key(&mut self, action_key: Arc<str>) {
+        self.dynamic_actions_action_key = Some(action_key);
     }
 
     pub fn declare_dynamic_output(
@@ -186,8 +186,11 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path =
-            BuckOutPath::with_action_key(self.owner.owner().dupe(), path, self.action_key.dupe());
+        let out_path = BuckOutPath::with_dynamic_actions_action_key(
+            self.owner.owner().dupe(),
+            path,
+            self.dynamic_actions_action_key.dupe(),
+        );
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

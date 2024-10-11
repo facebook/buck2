@@ -31,7 +31,7 @@ struct BuckOutPathData {
     /// The owner responsible for creating this path.
     owner: BaseDeferredKey,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
-    action_key: Option<Arc<str>>,
+    dynamic_actions_action_key: Option<Arc<str>>,
     /// The path relative to that target.
     path: Box<ForwardRelativePath>,
 }
@@ -51,17 +51,17 @@ pub struct BuckOutPath(Arc<BuckOutPathData>);
 
 impl BuckOutPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_action_key(owner, path, None)
+        Self::with_dynamic_actions_action_key(owner, path, None)
     }
 
-    pub fn with_action_key(
+    pub fn with_dynamic_actions_action_key(
         owner: BaseDeferredKey,
         path: ForwardRelativePathBuf,
-        action_key: Option<Arc<str>>,
+        dynamic_actions_action_key: Option<Arc<str>>,
     ) -> Self {
         BuckOutPath(Arc::new(BuckOutPathData {
             owner,
-            action_key,
+            dynamic_actions_action_key,
             path: path.into_box(),
         }))
     }
@@ -70,8 +70,8 @@ impl BuckOutPath {
         &self.0.owner
     }
 
-    pub fn action_key(&self) -> Option<&str> {
-        self.0.action_key.as_deref()
+    pub fn dynamic_actions_action_key(&self) -> Option<&str> {
+        self.0.dynamic_actions_action_key.as_deref()
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
@@ -197,7 +197,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner(),
-            path.action_key(),
+            path.dynamic_actions_action_key(),
             path.path(),
             false,
         )
@@ -207,7 +207,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner(),
-            path.action_key(),
+            path.dynamic_actions_action_key(),
             path.path(),
             false,
         )
@@ -432,7 +432,7 @@ mod tests {
             resolved_gen_path
         );
 
-        let path = BuckOutPath::with_action_key(
+        let path = BuckOutPath::with_dynamic_actions_action_key(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             Some(Arc::from("xxx")),
