@@ -126,7 +126,7 @@ impl From<crate::Error> for anyhow::Error {
 
 #[derive(derive_more::Display, RefCast)]
 #[repr(transparent)]
-pub(crate) struct CrateAsStdError(pub(crate) crate::Error);
+struct CrateAsStdError(crate::Error);
 
 impl fmt::Debug for CrateAsStdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
