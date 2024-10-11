@@ -18,13 +18,13 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::ArtifactKind;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::artifact::projected_artifact::ProjectedArtifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_common::dice::file_ops::DiceFileComputations;
 use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_directory::directory::directory_data::DirectoryData;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -130,10 +130,11 @@ pub(super) fn ensure_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     artifact: Artifact,
 ) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
-    match artifact.data() {
-        ArtifactKind::Base(base) => ensure_base_artifact_staged(dice, base.clone()).left_future(),
-        ArtifactKind::Projected(projected) => dice
-            .compute(EnsureProjectedArtifactKey::ref_cast(projected))
+    let ArtifactKind { base, path } = artifact.data();
+    match path.is_empty() {
+        true => ensure_base_artifact_staged(dice, base.clone()).left_future(),
+        false => dice
+            .compute(EnsureProjectedArtifactKey::ref_cast(artifact.data()))
             .map(|v| Ok(EnsureArtifactGroupReady::Single(v??)))
             .right_future(),
     }
@@ -358,7 +359,7 @@ async fn path_artifact_value(
 
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
 #[repr(transparent)]
-pub struct EnsureProjectedArtifactKey(pub(crate) ProjectedArtifact);
+pub struct EnsureProjectedArtifactKey(pub(crate) ArtifactKind);
 
 #[async_trait]
 impl Key for EnsureProjectedArtifactKey {
@@ -369,14 +370,23 @@ impl Key for EnsureProjectedArtifactKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let base_value = ensure_base_artifact_staged(ctx, self.0.base().clone())
+        let ArtifactKind { base, path } = &self.0;
+
+        if path.is_empty() {
+            return Err(internal_error!(
+                "EnsureProjectedArtifactKey with non-empty projected path"
+            )
+            .into());
+        }
+
+        let base_value = ensure_base_artifact_staged(ctx, base.dupe())
             .await?
             .unpack_single()?;
 
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
 
-        let base_path = match self.0.base() {
+        let base_path = match base {
             BaseArtifactKind::Build(built) => artifact_fs.resolve_build(built.get_path()),
             BaseArtifactKind::Source(source) => artifact_fs.resolve_source(source.get_path())?,
         };
@@ -384,21 +394,11 @@ impl Key for EnsureProjectedArtifactKey {
         let mut builder = ActionDirectoryBuilder::empty();
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
-        let value = extract_artifact_value(&builder, &base_path.join(self.0.path()), digest_config)
+        let value = extract_artifact_value(&builder, &base_path.join(path), digest_config)
             .with_context(|| {
-                format!(
-                    "The path `{}` cannot be projected in the artifact `{}`",
-                    self.0.path(),
-                    self.0.base()
-                )
+                format!("The path `{path}` cannot be projected in the artifact `{base}`")
             })?
-            .with_context(|| {
-                format!(
-                    "The path `{}` does not exist in the artifact `{}`",
-                    self.0.path(),
-                    self.0.base()
-                )
-            })
+            .with_context(|| format!("The path `{path}` does not exist in the artifact `{base}`"))
             .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
 
         Ok(value)

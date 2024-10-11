@@ -9,6 +9,8 @@
 
 use std::cell::Ref;
 use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -36,7 +38,6 @@ use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
 use crate::artifact::build_artifact::BuildArtifact;
-use crate::artifact::projected_artifact::ProjectedArtifact;
 use crate::artifact::source_artifact::SourceArtifact;
 
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
@@ -61,14 +62,13 @@ assert_eq_size!(ArtifactData, [usize; 9]);
 impl Artifact {
     pub fn new(
         artifact: impl Into<BaseArtifactKind>,
-        projected_path: Option<ThinArcS<ForwardRelativePath>>,
+        projected_path: ThinArcS<ForwardRelativePath>,
         hidden_components_count: usize,
     ) -> Self {
-        let artifact = match projected_path {
-            Some(path) => ArtifactKind::Projected(ProjectedArtifact::new(artifact.into(), path)),
-            None => ArtifactKind::Base(artifact.into()),
+        let artifact = ArtifactKind {
+            base: artifact.into(),
+            path: projected_path,
         };
-
         Self(Arc::new(ArtifactData {
             data: Hashed::new(artifact),
             hidden_components_count,
@@ -76,16 +76,13 @@ impl Artifact {
     }
 
     pub fn as_output_artifact(&self) -> Option<OutputArtifact> {
-        let (kind, projected_path) = match self.0.data.key() {
-            ArtifactKind::Base(a) => (a, None),
-            ArtifactKind::Projected(a) => (a.base(), Some(a.path_shared())),
-        };
-        match kind {
+        let key = self.0.data.key();
+        match &key.base {
             BaseArtifactKind::Source(_) => None,
             BaseArtifactKind::Build(artifact) => {
                 let bound = BoundBuildArtifact {
                     artifact: artifact.dupe(),
-                    projected_path: projected_path.cloned(),
+                    projected_path: key.path.dupe(),
                     hidden_components_count: self.0.hidden_components_count,
                 };
                 Some(bound.into_declared_artifact().into())
@@ -128,10 +125,8 @@ impl Artifact {
     }
 
     pub fn as_parts(&self) -> (&BaseArtifactKind, &ForwardRelativePath) {
-        match self.0.data.key() {
-            ArtifactKind::Base(a) => (a, ForwardRelativePath::empty()),
-            ArtifactKind::Projected(a) => (a.base(), a.path()),
-        }
+        let key = self.0.data.key();
+        (&key.base, &key.path)
     }
 
     pub fn get_path(&self) -> ArtifactPath<'_> {
@@ -167,7 +162,7 @@ impl Artifact {
 
         Self::new(
             base.dupe(),
-            Some(ThinArcS::from(projected.as_ref())),
+            ThinArcS::from(projected.as_ref()),
             hidden_components_count,
         )
     }
@@ -199,23 +194,34 @@ pub enum BaseArtifactKind {
 
 assert_eq_size!(BaseArtifactKind, [usize; 6]);
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
-pub enum ArtifactKind {
-    Base(BaseArtifactKind),
-    Projected(ProjectedArtifact),
+#[derive(Clone, Debug, Dupe, PartialEq, Eq, Hash, Allocative)]
+pub struct ArtifactKind {
+    pub base: BaseArtifactKind,
+    /// When non-empty, the artifact is considered "projected".
+    pub path: ThinArcS<ForwardRelativePath>,
+}
+
+impl Display for ArtifactKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.path.is_empty() {
+            write!(f, "{}", self.base)
+        } else {
+            write!(f, "{}/{}", self.base, self.path)
+        }
+    }
 }
 
 assert_eq_size!(ArtifactKind, [usize; 7]);
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {
-        Self::new(a, None, 0)
+        Self::new(a, ThinArcS::from(ForwardRelativePath::empty()), 0)
     }
 }
 
 impl From<BuildArtifact> for Artifact {
     fn from(a: BuildArtifact) -> Self {
-        Self::new(a, None, 0)
+        Self::new(a, ThinArcS::from(ForwardRelativePath::empty()), 0)
     }
 }
 
@@ -224,7 +230,7 @@ impl From<BuildArtifact> for Artifact {
 #[display("{}", self.get_path())]
 pub struct BoundBuildArtifact {
     artifact: BuildArtifact,
-    projected_path: Option<ThinArcS<ForwardRelativePath>>,
+    projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
 }
 
@@ -256,11 +262,7 @@ impl BoundBuildArtifact {
     pub fn get_path(&self) -> ArtifactPath<'_> {
         ArtifactPath {
             base_path: Either::Left(ARef::new_ptr(self.artifact.get_path())),
-            projected_path: self
-                .projected_path
-                .as_ref()
-                .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p))
-                .unwrap_or(ForwardRelativePath::empty()),
+            projected_path: &self.projected_path,
             hidden_components_count: self.hidden_components_count,
         }
     }
@@ -281,7 +283,7 @@ impl BoundBuildArtifact {
 pub struct DeclaredArtifact {
     /// `Rc` here is not optimization: `DeclaredArtifactKind` is a shared mutable state.
     artifact: Rc<RefCell<DeclaredArtifactKind>>,
-    projected_path: Option<ThinArcS<ForwardRelativePath>>,
+    projected_path: ThinArcS<ForwardRelativePath>,
     hidden_components_count: usize,
 }
 
@@ -295,7 +297,7 @@ impl DeclaredArtifact {
             artifact: Rc::new(RefCell::new(DeclaredArtifactKind::Unbound(
                 UnboundArtifact(path, output_type),
             ))),
-            projected_path: None,
+            projected_path: ThinArcS::from(ForwardRelativePath::empty()),
             hidden_components_count,
         }
     }
@@ -314,10 +316,7 @@ impl DeclaredArtifact {
 
         Self {
             artifact: self.artifact.dupe(),
-            projected_path: Some(match self.projected_path.as_ref() {
-                Some(existing_path) => ThinArcS::from(existing_path.join(path).as_ref()),
-                None => ThinArcS::from(path),
-            }),
+            projected_path: ThinArcS::from(self.projected_path.join(path).as_ref()),
             hidden_components_count,
         }
     }
@@ -329,11 +328,7 @@ impl DeclaredArtifact {
     pub fn get_path(&self) -> ArtifactPath<'_> {
         let borrow = self.artifact.borrow();
 
-        let projected_path = self
-            .projected_path
-            .as_ref()
-            .map(|p| AsRef::<ForwardRelativePath>::as_ref(&**p))
-            .unwrap_or(ForwardRelativePath::empty());
+        let projected_path = &self.projected_path;
 
         let base_path = Ref::map(borrow, |a| match &a {
             DeclaredArtifactKind::Bound(a) => a.get_path(),
@@ -590,6 +585,7 @@ mod tests {
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
@@ -598,6 +594,7 @@ mod tests {
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
+    use buck2_util::arc_str::ThinArcS;
     use dupe::Dupe;
 
     use crate::actions::key::ActionIndex;
@@ -743,8 +740,12 @@ mod tests {
         let artifact =
             BuildArtifact::testing_new(target.dupe(), "foo/bar.cpp", ActionIndex::new(0));
 
-        let full = Artifact::new(artifact.clone(), None, 0);
-        let hidden = Artifact::new(artifact, None, 1);
+        let full = Artifact::new(
+            artifact.clone(),
+            ThinArcS::from(ForwardRelativePath::empty()),
+            0,
+        );
+        let hidden = Artifact::new(artifact, ThinArcS::from(ForwardRelativePath::empty()), 1);
 
         full.get_path()
             .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));
