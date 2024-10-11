@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -58,6 +59,7 @@ use starlark::eval::Evaluator;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::FrozenValue;
+use starlark::values::Heap;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
@@ -416,6 +418,72 @@ pub struct DynamicLambdaCtxData<'v> {
     pub registry: AnalysisRegistry<'v>,
 }
 
+/// Prepare dict of artifact values for dynamic actions.
+fn artifact_values<'v>(
+    artifact_values: &IndexSet<Artifact>,
+    materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
+    project_root: &ProjectRoot,
+    heap: &'v Heap,
+) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
+    let mut artifact_values_dict = Vec::with_capacity(artifact_values.len());
+    for x in artifact_values {
+        let k = StarlarkArtifact::new(x.dupe());
+        let path = materialized_artifacts
+            .get(x)
+            .internal_error("Missing materialized artifact")?;
+        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), project_root.dupe());
+        artifact_values_dict.push((k, v));
+    }
+    Ok(heap
+        .alloc_typed_unchecked(AllocDict(artifact_values_dict))
+        .cast())
+}
+
+/// Prepare dict of output artifacts for dynamic actions.
+fn outputs<'v>(
+    outputs: &[BuildArtifact],
+    registry: &mut AnalysisRegistry<'v>,
+    heap: &'v Heap,
+) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>> {
+    let mut outputs_dict = Vec::with_capacity(outputs.len());
+    for x in outputs {
+        let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
+        let declared = registry.declare_dynamic_output(x)?;
+        let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
+        outputs_dict.push((k, v));
+    }
+
+    Ok(heap.alloc_typed_unchecked(AllocDict(outputs_dict)).cast())
+}
+
+/// Prepare dict of dynamic values for dynamic actions.
+fn dynamic_values<'v>(
+    dynamic_values: &IndexSet<DynamicValue>,
+    resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
+    env: &'v Module,
+) -> anyhow::Result<
+    ValueOfUnchecked<'v, DictType<StarlarkDynamicValue, StarlarkResolvedDynamicValue>>,
+> {
+    let mut dynamic_values_dict = Vec::with_capacity(dynamic_values.len());
+    for x in dynamic_values {
+        let k = StarlarkDynamicValue {
+            dynamic_value: x.dupe(),
+        };
+        let v = resolved_dynamic_values
+            .get(x)
+            .internal_error("Missing resolved dynamic value")?;
+        let v = StarlarkResolvedDynamicValue {
+            value: v.add_heap_ref_static(env.frozen_heap()),
+        };
+        dynamic_values_dict.push((k, v));
+    }
+
+    Ok(env
+        .heap()
+        .alloc_typed_unchecked(AllocDict(dynamic_values_dict))
+        .cast())
+}
+
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
@@ -439,60 +507,31 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let dynamic_lambda = dynamic_lambda.add_heap_ref(env.frozen_heap());
 
-    let heap = env.heap();
-    let mut outputs = Vec::with_capacity(dynamic_lambda.static_fields.outputs.len());
-    let mut dynamic_values = Vec::with_capacity(dynamic_lambda.static_fields.dynamic_values.len());
-
-    let attributes_lambda = dynamic_lambda;
-
-    let execution_platform = dynamic_lambda.static_fields.execution_platform.dupe();
-
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
-        execution_platform,
+        dynamic_lambda.static_fields.execution_platform.dupe(),
         DeferredHolderKey::DynamicLambda(self_key),
     )?;
     registry.set_action_key(Arc::from(action_key));
 
-    let mut artifact_values =
-        Vec::with_capacity(dynamic_lambda.static_fields.artifact_values.len());
-    let fs = project_filesystem;
-    for x in &dynamic_lambda.static_fields.artifact_values {
-        let k = StarlarkArtifact::new(x.dupe());
-        let path = materialized_artifacts
-            .get(x)
-            .internal_error("Missing materialized artifact")?;
-        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), fs.dupe());
-        artifact_values.push((k, v));
-    }
-
-    for x in &*dynamic_lambda.static_fields.outputs {
-        let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
-        let declared = registry.declare_dynamic_output(x)?;
-        let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
-        outputs.push((k, v));
-    }
-
-    for x in &dynamic_lambda.static_fields.dynamic_values {
-        let k = StarlarkDynamicValue {
-            dynamic_value: x.dupe(),
-        };
-        let v = resolved_dynamic_values
-            .get(x)
-            .internal_error("Missing resolved dynamic value")?;
-        let v = StarlarkResolvedDynamicValue {
-            value: v.add_heap_ref_static(env.frozen_heap()),
-        };
-        dynamic_values.push((k, v));
-    }
-
-    let artifact_values = heap
-        .alloc_typed_unchecked(AllocDict(artifact_values))
-        .cast();
-    let outputs = heap.alloc_typed_unchecked(AllocDict(outputs)).cast();
-    let dynamic_values = heap.alloc_typed_unchecked(AllocDict(dynamic_values)).cast();
+    let artifact_values = artifact_values(
+        &dynamic_lambda.static_fields.artifact_values,
+        materialized_artifacts,
+        project_filesystem,
+        env.heap(),
+    )?;
+    let outputs = outputs(
+        &dynamic_lambda.static_fields.outputs,
+        &mut registry,
+        env.heap(),
+    )?;
+    let dynamic_values = dynamic_values(
+        &dynamic_lambda.static_fields.dynamic_values,
+        resolved_dynamic_values,
+        env,
+    )?;
 
     Ok(DynamicLambdaCtxData {
-        lambda: attributes_lambda,
+        lambda: dynamic_lambda,
         outputs,
         artifact_values,
         dynamic_values,
