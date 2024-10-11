@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -375,7 +376,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
                 required_local_resources_setup_contexts(
-                    &self.dice,
+                    self.dice.dupe().deref_mut(),
                     &executor_fs,
                     &test_info,
                     &required_local_resources,
@@ -563,7 +564,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         let setup_contexts = {
             let executor_fs = setup_local_resources_executor.executor_fs();
             required_local_resources_setup_contexts(
-                &self.dice,
+                self.dice.dupe().deref_mut(),
                 &executor_fs,
                 &test_info,
                 &required_local_resources,

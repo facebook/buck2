@@ -22,8 +22,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
-use dice::DiceTransaction;
+use dice::DiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use indexmap::IndexMap;
 use itertools::Itertools;
 
@@ -58,7 +59,7 @@ pub(crate) struct LocalResourceSetupContext {
 }
 
 pub(crate) async fn required_local_resources_setup_contexts(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     executor_fs: &ExecutorFs<'_>,
     test_info: &FrozenExternalRunnerTestInfo,
     required_local_resources: &RequiredLocalResources,
@@ -87,7 +88,7 @@ pub(crate) async fn required_local_resources_setup_contexts(
 }
 
 async fn required_providers<'v>(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
     stage: &TestStageSimple,
@@ -126,23 +127,19 @@ async fn required_providers<'v>(
         })
         .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
-    let futs = targets.iter().map(|t| get_local_resource_info(dice, t));
-
-    futures::future::join_all(futs)
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+    dice.compute_join(targets, |dice, target| {
+        async move { get_local_resource_info(dice, target).await }.boxed()
+    })
+    .await
+    .into_iter()
+    .collect::<Result<Vec<_>, _>>()
 }
 
 async fn get_local_resource_info<'v>(
-    dice: &DiceTransaction,
+    dice: &mut DiceComputations<'_>,
     target: &'v ConfiguredProvidersLabel,
 ) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
-    let providers = dice
-        .clone()
-        .get_providers(target)
-        .await?
-        .require_compatible()?;
+    let providers = dice.get_providers(target).await?.require_compatible()?;
     let providers = providers.provider_collection();
     Ok((
         target.target(),
