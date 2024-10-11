@@ -87,8 +87,8 @@ pub trait InitLocalResourceRegistry {
     fn init_local_resource_registry(&mut self);
 }
 
-pub trait HasLocalResourceRegistry<'a> {
-    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry<'a>>;
+pub trait HasLocalResourceRegistry {
+    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry<'static>>;
 }
 
 impl InitLocalResourceRegistry for UserComputationData {
@@ -97,7 +97,7 @@ impl InitLocalResourceRegistry for UserComputationData {
     }
 }
 
-impl HasLocalResourceRegistry<'static> for DiceComputations<'static> {
+impl HasLocalResourceRegistry for DiceComputations<'_> {
     fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry<'static>> {
         let data = self
             .per_transaction_data()
