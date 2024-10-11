@@ -344,9 +344,14 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = key;
         let fs = self.dice.clone().get_artifact_fs().await?;
         let test_info = Self::get_test_info(&self.dice, &test_target).await?;
-        let test_executor =
-            Self::get_test_executor(&self.dice, &test_target, &test_info, executor_override, &fs)
-                .await?;
+        let test_executor = Self::get_test_executor(
+            self.dice.dupe().deref_mut(),
+            &test_target,
+            &test_info,
+            executor_override,
+            &fs,
+        )
+        .await?;
         let test_executable_expanded = Self::expand_test_executable(
             &self.dice,
             &test_target,
@@ -587,8 +592,14 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .await?;
 
         // Tests are not run, so there is no executor override.
-        let executor =
-            Self::get_test_executor(&self.dice, &test_target, &test_info, None, &fs).await?;
+        let executor = Self::get_test_executor(
+            self.dice.dupe().deref_mut(),
+            &test_target,
+            &test_info,
+            None,
+            &fs,
+        )
+        .await?;
         let test_executable_expanded = Self::expand_test_executable(
             &self.dice,
             &test_target,
@@ -976,7 +987,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn get_test_executor(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
         executor_override: Option<Arc<ExecutorConfigOverride>>,
@@ -985,7 +996,6 @@ impl<'b> BuckTestOrchestrator<'b> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
         // since this will get cached in DICE.
         let node = dice
-            .clone()
             .get_configured_target_node(test_target.target())
             .await?
             .require_compatible()?;
@@ -1007,7 +1017,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         };
 
         Self::get_command_executor(
-            dice.dupe().deref_mut(),
+            dice,
             fs,
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
