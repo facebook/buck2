@@ -9,6 +9,8 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -25,3 +27,11 @@ async def test_dynamic_output_new(buck: Buck) -> None:
 @buck_test(data_dir="empty_dynamic_list")
 async def test_empty_dynamic_list(buck: Buck) -> None:
     await buck.build("root//:empty_test")
+
+
+@buck_test(data_dir="artifact_eq_bug")
+async def test_artifact_eq_bug(buck: Buck) -> None:
+    # TODO(nga): this should not fail.
+    await expect_failure(
+        buck.build("root//:bug"), stderr_regex="Key `<build artifact.*not found"
+    )
