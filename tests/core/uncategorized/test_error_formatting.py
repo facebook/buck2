@@ -69,6 +69,11 @@ error_formatting_test(
 )
 
 error_formatting_test(
+    name="test_during_load_via_dep",
+    command=["//during_load/via_dep:via_dep"],
+)
+
+error_formatting_test(
     name="test_during_parse",
     command=["//during_parse:whatever"],
 )
