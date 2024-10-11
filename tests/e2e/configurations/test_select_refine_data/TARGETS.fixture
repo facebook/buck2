@@ -1,0 +1,60 @@
+constraint_setting(
+    name = "quality",
+)
+
+constraint_value(
+    name = "good",
+    constraint_setting = ":quality",
+)
+
+constraint_value(
+    name = "bad",
+    constraint_setting = ":quality",
+)
+
+constraint_setting(
+    name = "origin",
+)
+
+constraint_value(
+    name = "domestic",
+    constraint_setting = ":origin",
+)
+
+constraint_value(
+    name = "imported",
+    constraint_setting = ":origin",
+)
+
+config_setting(
+    name = "c-good-domestic",
+    constraint_values = [
+        ":domestic",
+        ":good",
+    ],
+)
+
+config_setting(
+    name = "c-good",
+    constraint_values = [
+        ":good",
+    ],
+)
+
+platform(
+    name = "p-good-domestic",
+    constraint_values = [
+        ":domestic",
+        ":good",
+    ],
+)
+
+stub(
+    name = "the-test",
+    labels = select({
+        ":c-good": ["good"],
+        # This option is picked in test even previous options match.
+        ":c-good-domestic": ["good-domestic"],
+        "DEFAULT": ["default"],
+    }),
+)

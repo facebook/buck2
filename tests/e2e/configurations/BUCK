@@ -23,6 +23,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_select_refine",
     srcs = ["test_select_refine.py"],
+    data_dir = "test_select_refine_data",
 )
 
 buck2_e2e_test(
