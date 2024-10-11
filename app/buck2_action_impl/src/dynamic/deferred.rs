@@ -510,8 +510,8 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.static_fields.execution_platform.dupe(),
         DeferredHolderKey::DynamicLambda(self_key),
+        Some(Arc::from(action_key)),
     )?;
-    registry.set_dynamic_actions_action_key(Arc::from(action_key));
 
     let artifact_values = artifact_values(
         &dynamic_lambda.static_fields.artifact_values,

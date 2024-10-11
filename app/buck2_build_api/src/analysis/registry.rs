@@ -108,24 +108,25 @@ impl<'v> AnalysisRegistry<'v> {
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
     ) -> anyhow::Result<AnalysisRegistry<'v>> {
-        Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner))
+        Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner), None)
     }
 
     pub fn new_from_owner_and_deferred(
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
+        dynamic_actions_action_key: Option<Arc<str>>,
     ) -> anyhow::Result<Self> {
         Ok(AnalysisRegistry {
-            actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
+            actions: ActionsRegistry::new(
+                self_key.dupe(),
+                execution_platform.dupe(),
+                dynamic_actions_action_key,
+            ),
             artifact_groups: ArtifactGroupRegistry::new(),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
             short_path_assertions: HashMap::new(),
         })
-    }
-
-    pub fn set_dynamic_actions_action_key(&mut self, action_key: Arc<str>) {
-        self.actions.set_dynamic_actions_action_key(action_key);
     }
 
     /// Reserves a path in an output directory. Doesn't declare artifact,

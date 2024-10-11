@@ -65,20 +65,20 @@ pub struct ActionsRegistry {
 }
 
 impl ActionsRegistry {
-    pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
+    pub fn new(
+        owner: DeferredHolderKey,
+        execution_platform: ExecutionPlatformResolution,
+        dynamic_actions_action_key: Option<Arc<str>>,
+    ) -> Self {
         Self {
             owner,
-            dynamic_actions_action_key: None,
+            dynamic_actions_action_key,
             artifacts: Default::default(),
             declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
             execution_platform,
             claimed_output_paths: DirectoryBuilder::empty(),
         }
-    }
-
-    pub fn set_dynamic_actions_action_key(&mut self, action_key: Arc<str>) {
-        self.dynamic_actions_action_key = Some(action_key);
     }
 
     pub fn declare_dynamic_output(
