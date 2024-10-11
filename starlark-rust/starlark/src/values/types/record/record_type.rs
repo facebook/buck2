@@ -380,10 +380,10 @@ RecFailCt2 = record(a = field(int), b = field(int))
 def f_fail_ct(x: RecFailCt1):
     return x.a
 
-f_fail_ct(RecFailCt2(a = 1, b = 2))
+def test():
+    f_fail_ct(RecFailCt2(a = 1, b = 2))
 ",
-            // TODO(nga): this is runtime error, not compile time.
-            "Value `record[RecFailCt2](a=1, b=2)` of type `record` does not match",
+            "Expected type `RecFailCt1` but got `RecFailCt2`",
         );
     }
 
