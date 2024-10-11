@@ -124,10 +124,10 @@ impl Artifact {
         }
     }
 
-    pub fn as_parts(&self) -> (&BaseArtifactKind, Option<&ForwardRelativePath>) {
+    pub fn as_parts(&self) -> (&BaseArtifactKind, &ForwardRelativePath) {
         match self.0.data.key() {
-            ArtifactKind::Base(a) => (a, None),
-            ArtifactKind::Projected(a) => (a.base(), Some(a.path())),
+            ArtifactKind::Base(a) => (a, ForwardRelativePath::empty()),
+            ArtifactKind::Projected(a) => (a.base(), a.path()),
         }
     }
 
@@ -141,7 +141,7 @@ impl Artifact {
 
         ArtifactPath {
             base_path,
-            projected_path: projected_path.unwrap_or(ForwardRelativePath::empty()),
+            projected_path,
             hidden_components_count: self.0.hidden_components_count,
         }
     }
@@ -160,10 +160,7 @@ impl Artifact {
 
         let (base, already_projected) = self.as_parts();
 
-        let projected = already_projected
-            .unwrap_or(ForwardRelativePath::empty())
-            .to_owned()
-            .join(path);
+        let projected = already_projected.join(path);
 
         Self::new(
             base.dupe(),
