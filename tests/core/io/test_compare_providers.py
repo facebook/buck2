@@ -45,7 +45,6 @@ async def _run_test(buck: Buck, name: str) -> None:
 
 
 @buck_test(
-    inplace=False,
     setup_eden=True,
     extra_buck_config={
         "buck2": {
@@ -58,7 +57,6 @@ async def test_default(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     setup_eden=True,
     extra_buck_config={
         "buck2": {
@@ -71,7 +69,6 @@ async def test_eden(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     setup_eden=True,
     extra_buck_config={
         "buck2": {
@@ -85,7 +82,6 @@ async def test_blake3(buck: Buck) -> None:
 
 
 @buck_test(
-    inplace=False,
     setup_eden=True,
     extra_buck_config={
         "buck2": {
