@@ -353,7 +353,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         )
         .await?;
         let test_executable_expanded = Self::expand_test_executable(
-            &self.dice,
+            self.dice.dupe().deref_mut(),
             &test_target,
             &test_info,
             Cow::Borrowed(&cmd),
@@ -603,7 +603,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         )
         .await?;
         let test_executable_expanded = Self::expand_test_executable(
-            &self.dice,
+            self.dice.dupe().deref_mut(),
             &test_target,
             &test_info,
             Cow::Owned(cmd),
@@ -1027,7 +1027,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn expand_test_executable<'a>(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
         test_info: &FrozenExternalRunnerTestInfo,
         cmd: Cow<'a, Vec<ArgValue>>,
@@ -1054,7 +1054,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             } else {
                 supports_re = false;
                 // For compatibility with v1,
-                let cell_resolver = dice.clone().get_cell_resolver().await?;
+                let cell_resolver = dice.get_cell_resolver().await?;
                 let cell = cell_resolver.get(test_target.target().pkg().cell_name())?;
                 cell.path().to_buf()
             };
