@@ -1,0 +1,9 @@
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+config_setting(
+    name = "the-test",
+    constraint_values = [],
+)

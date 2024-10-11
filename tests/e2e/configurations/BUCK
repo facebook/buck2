@@ -11,6 +11,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_configuration_rule_unbound",
     srcs = ["test_configuration_rule_unbound.py"],
+    data_dir = "test_configuration_rule_unbound_data",
 )
 
 buck2_e2e_test(
