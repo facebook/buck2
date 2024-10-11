@@ -34,4 +34,4 @@ async def test_compatible_with_before_select(buck: Buck) -> None:
         "--target-platforms=root//:p-linux",
         "deps(root//:windows-only-exec-deps)",
     )
-    assert "root//:windows-only (root//:p-windows" in result.stdout
+    assert "root//:windows-only (root//:p-exec-windows" in result.stdout

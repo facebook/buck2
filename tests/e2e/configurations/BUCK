@@ -6,10 +6,6 @@ buck2_e2e_test(
     name = "test_compatible_with_before_select",
     srcs = ["test_compatible_with_before_select.py"],
     data_dir = "test_compatible_with_before_select_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
 )
 
 buck2_e2e_test(
