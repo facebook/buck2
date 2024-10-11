@@ -678,9 +678,11 @@ impl StatefulSuperConsoleImpl {
             ),
         )]));
 
-        lines.push(Line::from_iter([Span::new_styled_lossy(
-            reason.with(Color::DarkRed),
-        )]));
+        lines.extend(
+            reason.lines().map(|l| {
+                Line::from_iter([Span::new_styled_lossy(l.to_owned().with(Color::DarkRed))])
+            }),
+        );
 
         if let Some(command) = command {
             lines_for_command_details(&command, self.verbosity, &mut lines);
