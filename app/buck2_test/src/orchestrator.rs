@@ -387,7 +387,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             };
             // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
             Self::setup_local_resources(
-                &self.dice,
+                self.dice.dupe().deref_mut(),
                 &self.cancellations,
                 setup_contexts,
                 setup_local_resources_executor,
@@ -1145,7 +1145,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     }
 
     async fn setup_local_resources(
-        dice: &DiceTransaction,
+        dice: &mut DiceComputations<'_>,
         cancellation: &'b CancellationContext<'b>,
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
@@ -1153,8 +1153,6 @@ impl<'b> BuckTestOrchestrator<'b> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
         let setup_commands = dice
-            .dupe()
-            .deref_mut()
             .try_compute_join(setup_contexts, |dice, context| {
                 let fs = executor.fs();
                 async move {
