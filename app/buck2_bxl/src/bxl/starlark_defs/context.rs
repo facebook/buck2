@@ -23,8 +23,8 @@ use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
+use buck2_action_impl::dynamic::deferred::InputArtifactsMaterialized;
 use buck2_action_impl::dynamic::params::FrozenDynamicLambdaParams;
-use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -549,9 +549,8 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     action_key: String,
-    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    project_filesystem: ProjectRoot,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> anyhow::Result<RecordedAnalysisValues> {
@@ -574,6 +573,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     // TODO(cjhopman): Why does this get the digest_config from dice???
     let digest_config = dice_ctx.global_data().get_digest_config();
     let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
+    let artifact_fs = dice_ctx.get_artifact_fs().await?;
     let eval_ctx = BxlDynamicOutputEvaluator {
         data: BxlContextCoreData::new(key, dice_ctx).await?,
         self_key,
@@ -582,9 +582,9 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         dynamic_data,
         digest_config,
         action_key,
-        materialized_artifacts,
+        input_artifacts_materialized,
         resolved_dynamic_values,
-        project_filesystem,
+        artifact_fs,
 
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
     };
@@ -635,9 +635,9 @@ struct BxlDynamicOutputEvaluator<'f> {
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     action_key: String,
-    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
+    input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    project_filesystem: ProjectRoot,
+    artifact_fs: ArtifactFs,
     print: EventDispatcherPrintHandler,
 }
 
@@ -666,9 +666,9 @@ impl BxlDynamicOutputEvaluator<'_> {
                 self.dynamic_lambda,
                 self.self_key.dupe(),
                 &self.action_key,
-                &self.materialized_artifacts,
+                self.input_artifacts_materialized,
                 &self.resolved_dynamic_values,
-                &self.project_filesystem,
+                &self.artifact_fs,
                 self.digest_config,
                 &env,
             )?;
@@ -714,9 +714,8 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
          dynamic_lambda,
          dice_ctx,
          action_key,
-         materialized_artifacts,
+         input_artifacts_materialized,
          resolved_dynamic_values,
-         project_filesystem,
          digest_config,
          liveness| {
             Box::pin(eval_bxl_for_dynamic_output(
@@ -725,9 +724,8 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
                 dynamic_lambda,
                 dice_ctx,
                 action_key,
-                materialized_artifacts,
+                input_artifacts_materialized,
                 resolved_dynamic_values,
-                project_filesystem,
                 digest_config,
                 liveness,
             ))

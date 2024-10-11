@@ -29,10 +29,8 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -153,9 +151,8 @@ async fn execute_lambda(
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     action_key: String,
-    materialized_artifacts: HashMap<Artifact, ProjectRelativePathBuf>,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    project_filesystem: ProjectRoot,
+    input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> anyhow::Result<RecordedAnalysisValues> {
@@ -166,9 +163,8 @@ async fn execute_lambda(
             lambda,
             dice,
             action_key,
-            materialized_artifacts,
+            input_artifacts_materialized,
             resolved_dynamic_values,
-            project_filesystem,
             digest_config,
             liveness,
         )
@@ -182,6 +178,8 @@ async fn execute_lambda(
             )),
             rule: proto_rule.clone(),
         };
+
+        let artifact_fs = dice.get_artifact_fs().await?;
 
         span_async(start_event, async {
             let mut declared_actions = None;
@@ -200,9 +198,9 @@ async fn execute_lambda(
                         lambda,
                         self_key,
                         &action_key,
-                        &materialized_artifacts,
+                        input_artifacts_materialized,
                         &resolved_dynamic_values,
-                        &project_filesystem,
+                        &artifact_fs,
                         digest_config,
                         &env,
                     )?;
@@ -292,7 +290,7 @@ pub(crate) async fn prepare_and_execute_lambda(
             owner: Some(lambda.as_ref().static_fields.owner.to_proto().into()),
         },
         async move {
-            let (materialized_artifacts, resolved_dynamic_values) = span_async_simple(
+            let (input_artifacts_materialized, resolved_dynamic_values) = span_async_simple(
                 buck2_data::DeferredPreparationStageStart {
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
                 },
@@ -321,9 +319,8 @@ pub(crate) async fn prepare_and_execute_lambda(
                         ctx,
                         self_holder_key,
                         action_key,
-                        materialized_artifacts,
                         resolved_dynamic_values,
-                        ctx.global_data().get_io_provider().project_root().dupe(),
+                        input_artifacts_materialized,
                         ctx.global_data().get_digest_config(),
                         observer,
                     )
@@ -355,23 +352,26 @@ async fn ensure_artifacts_built(
     Ok(())
 }
 
+/// Marker to indicate artifacts we pass to dynamic actions are materialized.
+/// To not forget to materialize after refactoring.
+#[derive(Copy, Clone, Dupe)]
+pub struct InputArtifactsMaterialized(());
+
 async fn materialize_inputs(
     materialized_artifacts: &IndexSet<Artifact>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<HashMap<Artifact, ProjectRelativePathBuf>> {
+) -> anyhow::Result<InputArtifactsMaterialized> {
     if materialized_artifacts.is_empty() {
-        return Ok(HashMap::new());
+        return Ok(InputArtifactsMaterialized(()));
     }
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 
     let mut paths = Vec::with_capacity(materialized_artifacts.len());
-    let mut result = HashMap::with_capacity(materialized_artifacts.len());
 
     for artifact in materialized_artifacts {
         let path = artifact.resolve_path(&artifact_fs)?;
         paths.push(path.clone());
-        result.insert(artifact.dupe(), path);
     }
 
     ctx.per_transaction_data()
@@ -379,7 +379,7 @@ async fn materialize_inputs(
         .ensure_materialized(paths)
         .await?;
 
-    Ok(result)
+    Ok(InputArtifactsMaterialized(()))
 }
 
 async fn resolve_dynamic_values(
@@ -421,17 +421,16 @@ pub struct DynamicLambdaCtxData<'v> {
 /// Prepare dict of artifact values for dynamic actions.
 fn artifact_values<'v>(
     artifact_values: &IndexSet<Artifact>,
-    materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
-    project_root: &ProjectRoot,
+    _: InputArtifactsMaterialized,
+    artifact_fs: &ArtifactFs,
     heap: &'v Heap,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
     let mut artifact_values_dict = Vec::with_capacity(artifact_values.len());
     for x in artifact_values {
         let k = StarlarkArtifact::new(x.dupe());
-        let path = materialized_artifacts
-            .get(x)
-            .internal_error("Missing materialized artifact")?;
-        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), project_root.dupe());
+        let path = x.get_path().resolve(artifact_fs)?;
+        // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
+        let v = StarlarkArtifactValue::new(x.dupe(), path.to_owned(), artifact_fs.fs().dupe());
         artifact_values_dict.push((k, v));
     }
     Ok(heap
@@ -489,9 +488,9 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: DynamicLambdaResultsKey,
     action_key: &str,
-    materialized_artifacts: &HashMap<Artifact, ProjectRelativePathBuf>,
+    input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    project_filesystem: &ProjectRoot,
+    artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,
     env: &'v Module,
 ) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
@@ -515,8 +514,8 @@ pub fn dynamic_lambda_ctx_data<'v>(
 
     let artifact_values = artifact_values(
         &dynamic_lambda.static_fields.artifact_values,
-        materialized_artifacts,
-        project_filesystem,
+        input_artifacts_materialized,
+        artifact_fs,
         env.heap(),
     )?;
     let outputs = outputs(
