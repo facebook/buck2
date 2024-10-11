@@ -83,35 +83,29 @@ pub(crate) static P_OUTPUTS: DynamicActionsCallbackParam = DynamicActionsCallbac
 
 impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     fn params() -> ParamSpec {
-        ParamSpec::new_parts(
-            [],
-            [],
-            None,
-            [
-                (
-                    ArcStr::new_static(P_ACTIONS.name),
-                    ParamIsRequired::Yes,
-                    P_ACTIONS.ty.dupe(),
-                ),
-                (
-                    ArcStr::new_static(P_ARTIFACT_VALUES.name),
-                    ParamIsRequired::Yes,
-                    P_ARTIFACT_VALUES.ty.dupe(),
-                ),
-                (
-                    ArcStr::new_static(P_DYNAMIC_VALUES.name),
-                    ParamIsRequired::Yes,
-                    P_DYNAMIC_VALUES.ty.dupe(),
-                ),
-                (
-                    ArcStr::new_static(P_OUTPUTS.name),
-                    ParamIsRequired::Yes,
-                    P_OUTPUTS.ty.dupe(),
-                ),
-                (ArcStr::new_static("arg"), ParamIsRequired::Yes, Ty::any()),
-            ],
-            None,
-        )
+        ParamSpec::new_named_only([
+            (
+                ArcStr::new_static(P_ACTIONS.name),
+                ParamIsRequired::Yes,
+                P_ACTIONS.ty.dupe(),
+            ),
+            (
+                ArcStr::new_static(P_ARTIFACT_VALUES.name),
+                ParamIsRequired::Yes,
+                P_ARTIFACT_VALUES.ty.dupe(),
+            ),
+            (
+                ArcStr::new_static(P_DYNAMIC_VALUES.name),
+                ParamIsRequired::Yes,
+                P_DYNAMIC_VALUES.ty.dupe(),
+            ),
+            (
+                ArcStr::new_static(P_OUTPUTS.name),
+                ParamIsRequired::Yes,
+                P_OUTPUTS.ty.dupe(),
+            ),
+            (ArcStr::new_static("arg"), ParamIsRequired::Yes, Ty::any()),
+        ])
         .unwrap()
     }
 }

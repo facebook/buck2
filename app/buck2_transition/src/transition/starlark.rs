@@ -213,29 +213,23 @@ struct TransitionImplParams;
 
 impl StarlarkCallableParamSpec for TransitionImplParams {
     fn params() -> ParamSpec {
-        ParamSpec::new_parts(
-            [],
-            [],
-            None,
-            [
-                (
-                    ArcStr::new_static(IMPL_PLATFORM_PARAM.name),
-                    ParamIsRequired::Yes,
-                    IMPL_PLATFORM_PARAM.ty.dupe(),
-                ),
-                (
-                    ArcStr::new_static(IMPL_REFS_PARAM.name),
-                    ParamIsRequired::Yes,
-                    IMPL_REFS_PARAM.ty.dupe(),
-                ),
-                (
-                    ArcStr::new_static(IMPL_ATTRS_PARAM.name),
-                    ParamIsRequired::No,
-                    IMPL_ATTRS_PARAM.ty.dupe(),
-                ),
-            ],
-            None,
-        )
+        ParamSpec::new_named_only([
+            (
+                ArcStr::new_static(IMPL_PLATFORM_PARAM.name),
+                ParamIsRequired::Yes,
+                IMPL_PLATFORM_PARAM.ty.dupe(),
+            ),
+            (
+                ArcStr::new_static(IMPL_REFS_PARAM.name),
+                ParamIsRequired::Yes,
+                IMPL_REFS_PARAM.ty.dupe(),
+            ),
+            (
+                ArcStr::new_static(IMPL_ATTRS_PARAM.name),
+                ParamIsRequired::No,
+                IMPL_ATTRS_PARAM.ty.dupe(),
+            ),
+        ])
         .unwrap()
     }
 }

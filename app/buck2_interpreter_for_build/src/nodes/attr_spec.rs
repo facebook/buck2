@@ -226,7 +226,7 @@ impl AttributeSpecExt for AttributeSpec {
             };
             params.push((starlark::util::ArcStr::from(name), required, ty));
         }
-        let params = ParamSpec::new_parts([], [], None, params, None).unwrap();
+        let params = ParamSpec::new_named_only(params).unwrap();
         TyFunction::new(params, Ty::none())
     }
 
