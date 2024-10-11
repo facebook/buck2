@@ -12,7 +12,7 @@ import {DataContext} from '../App'
 import {GraphImpl} from './GraphImpl'
 import {QueryKey} from '../Router'
 
-export type Node = {
+export interface Node {
   value: number
   deps: number[]
   rdeps: number[]

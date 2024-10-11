@@ -41,7 +41,7 @@ export function GraphViz(props: {
       linkWidth={3 / Math.pow(nodes.length, 0.5)}
       linkHoverPrecision={6}
       dagMode={dagMode}
-      nodeAutoColorBy="group"
+      nodeAutoColorBy="displayType"
     />
   )
 }

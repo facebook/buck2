@@ -19,6 +19,22 @@ enum NodeSizeOption {
   transitiveSrcs,
 }
 
+enum DisplayType {
+  rootNode,
+  passesFilters,
+  somepath,
+  hidden,
+}
+
+interface DisplayNode extends Node {
+  allowedDeps: Map<number, number>
+  displayType: DisplayType
+}
+
+function showNode(node: DisplayNode) {
+  return node.displayType != DisplayType.hidden
+}
+
 // Here it goes everything that should reload on user interaction
 export function GraphImpl(props: {
   nodes: Map<number, Node>
@@ -29,9 +45,9 @@ export function GraphImpl(props: {
 }) {
   const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
 
-  const nodeMap = new Map()
+  const nodeMap: Map<number, DisplayNode> = new Map()
   for (const [k, node] of nodes) {
-    nodeMap.set(k, {...node, allowedDeps: new Map(), allow: false})
+    nodeMap.set(k, {...node, allowedDeps: new Map(), displayType: DisplayType.hidden})
   }
 
   const [categories, setCategories] = useState(categoryOptions)
@@ -44,7 +60,7 @@ export function GraphImpl(props: {
 
   if (somepath.size > 0) {
     for (const k of somepath) {
-      nodeMap.get(k)!.allow = true
+      nodeMap.get(k)!.displayType = DisplayType.somepath
     }
   } else {
     // Intersection of 'includes', minus 'excludes'
@@ -79,16 +95,18 @@ export function GraphImpl(props: {
         }
       }
 
-      node.allow = passesFilters === true
+      if (passesFilters === true) {
+        node.displayType = DisplayType.passesFilters
+      }
     }
 
     // Always set root node
-    nodeMap.get(0)!.allow = true
+    nodeMap.get(0)!.displayType = DisplayType.rootNode
   }
 
   let filteredNodes = new Map()
   for (const [k, node] of nodeMap) {
-    if (node.allow) {
+    if (showNode(node)) {
       filteredNodes.set(k, node)
     }
   }
@@ -111,7 +129,7 @@ export function GraphImpl(props: {
         }
         const distance = visited.get(n1)! + 1
         visited.set(r, distance)
-        if (nodeMap.get(r)!.allow) {
+        if (showNode(nodeMap.get(r)!)) {
           nodeMap.get(r)!.allowedDeps.set(k, distance)
         } else {
           stack.push(r)
@@ -124,9 +142,7 @@ export function GraphImpl(props: {
   const data: NodeObject[] = []
   const edges: LinkObject[] = []
 
-  console.log(selectedOption, 'hooola')
-
-  for (const [k, _] of filteredNodes) {
+  for (const [k, node] of filteredNodes) {
     const target = build.targets(k)!
 
     const [sizeValue, maxValue] =
@@ -141,7 +157,7 @@ export function GraphImpl(props: {
       val: translateValues(sizeValue, maxValue), // controls size
       id: k,
       name: target.configuredTargetLabel()!,
-      group: target.configuredTargetLabel()!.split('#')[1],
+      displayType: node.displayType,
     })
   }
 
