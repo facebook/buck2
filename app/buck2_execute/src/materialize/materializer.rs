@@ -8,7 +8,6 @@
  */
 
 use std::fmt;
-use std::fmt::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -18,7 +17,6 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::ordered_entry_walk;
 use buck2_events::dispatch::EventDispatcher;
@@ -50,15 +48,34 @@ pub struct WriteRequest {
 fn format_directory_entry_leaves(
     directory: &ActionDirectoryEntry<ActionSharedDirectory>,
 ) -> String {
-    let mut walk = ordered_entry_walk(directory.as_ref());
+    let walk = ordered_entry_walk(directory.as_ref());
+    let only_files = walk
+        .filter_map(|entry| match entry {
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => Some(&f.digest),
+            _ => {
+                // We only download files from RE, not symlinks or directories.
+                // https://fburl.com/code/3o8ht6b6.
+                None
+            }
+        })
+        .with_paths();
+    const MAX_COUNT: usize = 10;
+    const TABULATION: &str = "    ";
+    let mut count = 0;
     let mut result = String::new();
-    while let Some((path, entry)) = walk.next() {
-        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
-            writeln!(result, "  {}: {}", path.get(), f.digest).unwrap();
-        } else {
-            // We only download files from RE, not symlinks or directories.
-            // https://fburl.com/code/3o8ht6b6.
+    for (path, digest) in only_files {
+        count += 1;
+        if count > MAX_COUNT {
+            continue;
         }
+        result.push_str(&format!("{}{}: {}\n", TABULATION, path, digest));
+    }
+    if count > MAX_COUNT {
+        result.push_str(&format!(
+            "{}... and {} more omitted",
+            TABULATION,
+            count - MAX_COUNT
+        ));
     }
     result
 }
@@ -80,17 +97,13 @@ pub enum MaterializationError {
         RE CAS and Buck does not have it. \
         This likely happened because your Buck daemon \
         has been online for a long time. This error is currently unrecoverable. \
-        To proceed, you should restart Buck using `buck2 killall`\n\
-        path: {}\n\
-        digest origin: {}\n\
-        debug info: {}\n\
-        directory:\n\
-        {}",
-        .path,
-        .info.origin.as_display_for_not_found(),
-        .debug,
-        format_directory_entry_leaves(.directory),
-    )]
+        To proceed, you should restart Buck using `buck2 killall`.
+
+Debug information:
+  Path: {}
+  Digest origin: {}
+  Debug info: {}
+  Directory:\n{}", .path, .info.origin.as_display_for_not_found(), .debug, format_directory_entry_leaves(.directory))]
     NotFound {
         path: ProjectRelativePathBuf,
         info: Arc<CasDownloadInfo>,
