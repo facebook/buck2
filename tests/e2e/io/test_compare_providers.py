@@ -40,7 +40,7 @@ async def _run_test(buck: Buck, name: str) -> None:
     await buck.build()  # Start Buck2
 
     res = await buck.debug("file-status", "--show-matches", *targets)
-    golden(output=res.stdout, rel_path=f"{name}.{kind}.golden.out")
+    golden(output=res.stdout, rel_path=f"golden/{name}.{kind}.out")
     assert "MISMATCH" not in res.stdout
 
 

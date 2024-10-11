@@ -3,8 +3,8 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 oncall("build_infra")
 
 buck2_e2e_test(
-    name = "test_io",
-    srcs = ["test_io.py"],
-    data_dir = "test_io_data",
+    name = "test_compare_providers",
+    srcs = ["test_compare_providers.py"],
+    data_dir = "test_compare_providers_data",
     deps = ["fbcode//buck2/tests/e2e_util:golden"],
 )
