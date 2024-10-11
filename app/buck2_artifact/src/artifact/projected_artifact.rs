@@ -25,6 +25,7 @@ pub struct ProjectedArtifact {
 
 impl ProjectedArtifact {
     pub fn new(base: BaseArtifactKind, path: ThinArcS<ForwardRelativePath>) -> Self {
+        assert!(!path.is_empty());
         Self { base, path }
     }
 
