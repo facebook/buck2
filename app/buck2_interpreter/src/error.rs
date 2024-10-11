@@ -55,7 +55,7 @@ impl std::error::Error for BuckStarlarkError {
 
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
         match self.e.kind() {
-            starlark::ErrorKind::Other(e) => {
+            starlark::ErrorKind::Other(e) | starlark::ErrorKind::Native(e) => {
                 // Try to get the underlying error's metadata. If there's nothing here, then the
                 // rest of this function will provide a fallback value
                 e.provide(request);
@@ -67,11 +67,11 @@ impl std::error::Error for BuckStarlarkError {
             starlark::ErrorKind::Fail(_)
             | starlark::ErrorKind::StackOverflow(_)
             | starlark::ErrorKind::Internal(_)
-            | starlark::ErrorKind::Value(_) => Some(buck2_error::Tier::Input),
-            starlark::ErrorKind::Function(_) => Some(buck2_error::Tier::Input),
-            starlark::ErrorKind::Scope(_) => Some(buck2_error::Tier::Input),
-            starlark::ErrorKind::Parser(_) => Some(buck2_error::Tier::Input),
-            starlark::ErrorKind::Other(_)
+            | starlark::ErrorKind::Value(_)
+            | starlark::ErrorKind::Function(_)
+            | starlark::ErrorKind::Scope(_)
+            | starlark::ErrorKind::Parser(_) => Some(buck2_error::Tier::Input),
+            starlark::ErrorKind::Other(_) | starlark::ErrorKind::Native(_)
                 if self.error_handling == OtherErrorHandling::InputError =>
             {
                 Some(buck2_error::Tier::Input)

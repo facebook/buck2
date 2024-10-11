@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-#![doc(hidden)]
-
-/// __derive_refs allows us to reference other crates in starlark_derive without users needing to be
-///  aware of those dependencies. We make them public here and then can reference them like
-///  `starlark::__derive_refs::foo`.
-
-pub mod serde {
-    pub use serde::ser::Error;
-    pub use serde::Serialize;
-    pub use serde::Serializer;
+/// Trait used to convert error returned from native function into `starlark::Error`.
+pub trait InvokeMacroError {
+    fn into_starlark_error(self) -> crate::Error;
 }
-pub use inventory;
-pub mod components;
-pub mod invoke_macro_error;
-pub mod param_spec;
-pub mod parse_args;
-pub mod sig;
+
+/// This implementation should not be used by starlark itself:
+/// starlark native functions should not return `anyhow::Error`,
+/// and should not convert to `ErrorKind::Native`.
+impl InvokeMacroError for anyhow::Error {
+    #[cold]
+    fn into_starlark_error(self) -> crate::Error {
+        crate::Error::new_native(self)
+    }
+}
+
+impl InvokeMacroError for crate::Error {
+    #[cold]
+    fn into_starlark_error(self) -> crate::Error {
+        self
+    }
+}

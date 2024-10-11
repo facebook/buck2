@@ -315,9 +315,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
                 #prepare
                 match Self::invoke_impl(#( #invoke_args, )*) {
                     Ok(v) => Ok(eval.heap().alloc(v)),
-                    // The `.into()` is an `anyhow -> anyhow` conversion if the return type is `anyhow`
-                    #[allow(clippy::useless_conversion)]
-                    Err(e) => Err(e.into()),
+                    Err(e) => Err(starlark::__derive_refs::invoke_macro_error::InvokeMacroError::into_starlark_error(e)),
                 }
             }
         }

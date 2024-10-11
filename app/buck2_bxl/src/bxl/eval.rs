@@ -336,7 +336,7 @@ fn eval_bxl<'v>(
 
     let should_skip_backtrace = !force_print_stacktrace
         && match e.kind() {
-            starlark::ErrorKind::Other(e) => {
+            starlark::ErrorKind::Native(e) => {
                 e.downcast_ref::<BxlErrorWithoutStacktrace>().is_some()
             }
             _ => false,
