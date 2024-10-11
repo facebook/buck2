@@ -51,6 +51,7 @@ export function GraphImpl(props: {
   }
 
   const [categories, setCategories] = useState(categoryOptions)
+  const [colorByCfg, setColorByCfg] = useState(false)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
@@ -158,6 +159,7 @@ export function GraphImpl(props: {
       id: k,
       name: target.configuredTargetLabel()!,
       displayType: node.displayType,
+      cfg: target.configuredTargetLabel()!.split('#')[1],
     })
   }
 
@@ -237,6 +239,8 @@ export function GraphImpl(props: {
     }
   }
 
+  const colorBy = colorByCfg ? 'cfg' : 'displayType'
+
   return (
     <>
       <div className="grid mt-4">
@@ -274,15 +278,20 @@ export function GraphImpl(props: {
         </div>
         <div className="cell">
           <div className="select">
-            <div className="select">
-              <select
-                value={selectedOption}
-                onChange={e => setSelectedOption(parseInt(e.target.value))}>
-                <option value={NodeSizeOption.transitiveDeps}>Size by transitive deps count</option>
-                <option value={NodeSizeOption.transitiveSrcs}>Size by transitive srcs count</option>
-              </select>
-            </div>
+            <select
+              value={selectedOption}
+              onChange={e => setSelectedOption(parseInt(e.target.value))}>
+              <option value={NodeSizeOption.transitiveDeps}>Size by transitive deps count</option>
+              <option value={NodeSizeOption.transitiveSrcs}>Size by transitive srcs count</option>
+            </select>
           </div>
+          <label className="checkbox ml-2 mt-4">
+            <input
+              type="checkbox"
+              checked={colorByCfg}
+              onChange={e => setColorByCfg(e.target.checked)}></input>{' '}
+            Color by configuration
+          </label>
         </div>
         <div className="cell">
           <div className="field">
@@ -310,6 +319,7 @@ export function GraphImpl(props: {
 
       <GraphViz
         nodes={data}
+        colorBy={colorBy}
         links={edges}
         setPath={(name: string) => {
           const fromInput = document.getElementById('pathFrom') as HTMLInputElement

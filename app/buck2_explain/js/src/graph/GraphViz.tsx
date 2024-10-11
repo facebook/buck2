@@ -15,6 +15,7 @@ export function GraphViz(props: {
   links: LinkObject[]
   setPath: (name: string) => void
   openTarget: (name: string) => void
+  colorBy: string
 }) {
   const {nodes, links, setPath, openTarget} = props
   const graphRef = useRef<any>(null)
@@ -41,7 +42,7 @@ export function GraphViz(props: {
       linkWidth={3 / Math.pow(nodes.length, 0.5)}
       linkHoverPrecision={6}
       dagMode={dagMode}
-      nodeAutoColorBy="displayType"
+      nodeAutoColorBy={props.colorBy}
     />
   )
 }
