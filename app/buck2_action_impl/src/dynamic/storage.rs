@@ -21,7 +21,6 @@ use buck2_build_api::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
@@ -147,11 +146,12 @@ impl FrozenDynamicLambdaParamsStorage for FrozenDynamicLambdaParamsStorageImpl {
     }
 
     fn iter_dynamic_lambda_outputs(&self) -> Box<dyn Iterator<Item = BuildArtifact> + Send + '_> {
-        Box::new(
-            self.lambda_params
-                .values()
-                .flat_map(|v| v.static_fields.outputs.iter().duped()),
-        )
+        Box::new(self.lambda_params.values().flat_map(|v| {
+            v.static_fields
+                .outputs
+                .iter()
+                .map(|a| a.as_base_artifact().dupe())
+        }))
     }
 }
 

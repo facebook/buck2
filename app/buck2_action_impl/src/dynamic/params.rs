@@ -9,7 +9,7 @@
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
@@ -41,7 +41,7 @@ pub(crate) struct DynamicLambdaStaticFields {
     /// Dynamic values I depend on.
     pub(crate) dynamic_values: IndexSet<DynamicValue>,
     /// Things I produce
-    pub(crate) outputs: Box<[BuildArtifact]>,
+    pub(crate) outputs: Box<[BoundBuildArtifact]>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
     pub(crate) execution_platform: ExecutionPlatformResolution,
 }

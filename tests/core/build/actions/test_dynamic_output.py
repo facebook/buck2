@@ -31,7 +31,4 @@ async def test_empty_dynamic_list(buck: Buck) -> None:
 
 @buck_test(data_dir="artifact_eq_bug")
 async def test_artifact_eq_bug(buck: Buck) -> None:
-    # TODO(nga): this should not fail.
-    await expect_failure(
-        buck.build("root//:bug"), stderr_regex="Key `<build artifact.*not found"
-    )
+    await buck.build("root//:bug")

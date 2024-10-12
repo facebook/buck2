@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -440,14 +440,14 @@ fn artifact_values<'v>(
 
 /// Prepare dict of output artifacts for dynamic actions.
 fn outputs<'v>(
-    outputs: &[BuildArtifact],
+    outputs: &[BoundBuildArtifact],
     registry: &mut AnalysisRegistry<'v>,
     heap: &'v Heap,
 ) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>> {
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
-        let k = StarlarkArtifact::new(Artifact::from(x.dupe()));
-        let declared = registry.declare_dynamic_output(x)?;
+        let k = StarlarkArtifact::new(x.dupe().into_artifact());
+        let declared = registry.declare_dynamic_output(x.as_base_artifact())?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
         outputs_dict.push((k, v));
     }

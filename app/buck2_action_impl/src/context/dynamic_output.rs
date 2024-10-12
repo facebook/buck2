@@ -12,8 +12,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
+use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::dynamic_value::DynamicValue;
@@ -50,7 +50,7 @@ enum DynamicOutputError {
 fn output_artifacts_to_lambda_build_artifacts(
     dynamic_key: &DynamicLambdaResultsKey,
     outputs: IndexSet<OutputArtifact>,
-) -> anyhow::Result<Box<[BuildArtifact]>> {
+) -> anyhow::Result<Box<[BoundBuildArtifact]>> {
     let dynamic_holder_key = DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe()));
 
     outputs
@@ -71,7 +71,6 @@ fn output_artifacts_to_lambda_build_artifacts(
                     dynamic_holder_key.dupe(),
                     ActionIndex::new(output_artifact_index.try_into()?),
                 ))?
-                .as_base_artifact()
                 .dupe();
             Ok(bound)
         })
