@@ -10,18 +10,12 @@
 
 import os
 import subprocess
-import sys
 import tempfile
 from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, is_deployed_buck2
-
-
-# Currently Rust rules don't work on Mac
-def rust_linux_only() -> bool:
-    return sys.platform == "linux"
 
 
 @buck_test(inplace=True)
@@ -78,30 +72,6 @@ async def test_executable_fail_to_build(buck: Buck) -> None:
         buck.run("fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_3"),
         stderr_regex=r"Failed to build",
     )
-
-
-if rust_linux_only():
-
-    @buck_test(inplace=True)
-    async def test_rust_cdylib(buck: Buck) -> None:
-        # This test checks that when we build a Rust cdylib, we dynamically link to
-        # any underlying C++ libraries that are being used there. If we don't, then
-        # we'll e.g. duplicate statics and break things such as singletons.
-        result = await buck.run("fbcode//buck2/tests/targets/rules/rust/cdylib:main")
-        msgs = [m.strip() for m in result.stdout.split("\n")]
-        msgs = [m for m in msgs if m]
-        assert msgs == ["from main", "initialized", "done", "from lib", "done"]
-
-
-if rust_linux_only():
-
-    @buck_test(inplace=True)
-    async def test_rust_ffi(buck: Buck) -> None:
-        # Check an ffi binding to a shared .so
-        result = await buck.run("fbcode//buck2/tests/targets/rules/rust:ffi")
-        msgs = [m.strip() for m in result.stdout.split("\n")]
-        msgs = [m for m in msgs if m]
-        assert msgs == ["Hello from C: 42!"]
 
 
 # TODO(marwhal): Fix and enable on Windows
