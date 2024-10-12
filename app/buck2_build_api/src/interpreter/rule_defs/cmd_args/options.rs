@@ -681,10 +681,9 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             None => return Ok(None),
         };
 
-        let origin = value
-            .unpack()
-            .into_anyhow_result()
-            .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
+        let origin = value.unpack().into_anyhow_result().internal_error_anyhow(
+            "Must be a valid RelativeOrigin as this was checked in the setter",
+        )?;
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {
             if !relative_path.pop() {

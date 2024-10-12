@@ -318,7 +318,7 @@ impl InterpreterForCell {
             let prelude_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(prelude_import.import_path()))
-                .with_internal_error(|| {
+                .with_internal_error_anyhow(|| {
                     format!(
                         "Should've had an env for the prelude import `{}`",
                         prelude_import,
@@ -367,7 +367,7 @@ impl InterpreterForCell {
             let root_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(&root_import))
-                .with_internal_error(|| {
+                .with_internal_error_anyhow(|| {
                     format!("Should've had an env for the root import `{}`", root_import,)
                 })?
                 .env();

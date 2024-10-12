@@ -89,7 +89,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
     }
 
     pub(crate) fn inner(&self) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error_anyhow(|| {
             format!(
                 "Must be a declared artifact: `{}`",
                 self.declared_artifact.get().to_string_for_type_error()
@@ -104,7 +104,7 @@ impl<'v> StarlarkOutputArtifact<'v> {
 
 impl FrozenStarlarkOutputArtifact {
     pub(crate) fn inner(&self) -> anyhow::Result<FrozenValueTyped<StarlarkArtifact>> {
-        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error_anyhow(|| {
             format!(
                 "Must be a declared artifact: `{}`",
                 self.declared_artifact
@@ -117,9 +117,11 @@ impl FrozenStarlarkOutputArtifact {
 
     pub fn artifact(&self) -> anyhow::Result<OutputArtifact> {
         let artifact = self.inner()?.artifact();
-        artifact.as_output_artifact().with_internal_error(|| {
-            format!("Expecting artifact to be output artifact, got {artifact}")
-        })
+        artifact
+            .as_output_artifact()
+            .with_internal_error_anyhow(|| {
+                format!("Expecting artifact to be output artifact, got {artifact}")
+            })
     }
 }
 

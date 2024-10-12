@@ -147,7 +147,7 @@ async fn bxl(
         request
             .target_cfg
             .as_ref()
-            .internal_error("target_cfg must be set")?,
+            .internal_error_anyhow("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )

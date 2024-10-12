@@ -99,7 +99,7 @@ async fn generate_profile_loading(
     let starlark_profile = &eval_result
         .starlark_profile
         .as_ref()
-        .internal_error("profile result must be set")?;
+        .internal_error_anyhow("profile result must be set")?;
     Ok(StarlarkProfileDataAndStats::downcast(&***starlark_profile)?.clone())
 }
 
@@ -149,7 +149,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                     &opts.target_patterns,
                     opts.target_cfg
                         .as_ref()
-                        .internal_error("target_cfg not set")?,
+                        .internal_error_anyhow("target_cfg not set")?,
                     &opts.target_universe,
                     action,
                     &profile_mode,

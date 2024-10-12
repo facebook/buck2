@@ -768,7 +768,7 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
             None => Ok(StarlarkProfilerConfiguration::None),
             Some(mode) => {
                 let mode = buck2_cli_proto::ProfileMode::from_i32(mode)
-                    .internal_error("invalid profile mode enum value")?;
+                    .internal_error_anyhow("invalid profile mode enum value")?;
                 Ok(StarlarkProfilerConfiguration::ProfileLoading(
                     proto_to_profile_mode(mode),
                     // We enable profiling for everything,

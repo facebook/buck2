@@ -53,7 +53,7 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
             .lambda_params
             .as_any_mut()
             .downcast_mut()
-            .internal_error("Wrong type for lambda params storage")
+            .internal_error_anyhow("Wrong type for lambda params storage")
     }
 
     pub fn next_dynamic_actions_key(&self) -> anyhow::Result<DynamicLambdaResultsKey> {
@@ -94,10 +94,10 @@ impl FrozenDynamicLambdaParamsStorageImpl {
             s.lambda_params
                 .as_any()
                 .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
-                .internal_error("Wrong type for lambda params storage")?
+                .internal_error_anyhow("Wrong type for lambda params storage")?
                 .lambda_params
                 .get(key)
-                .with_internal_error(|| format!("missing lambda `{}`", key))
+                .with_internal_error_anyhow(|| format!("missing lambda `{}`", key))
         })
     }
 }

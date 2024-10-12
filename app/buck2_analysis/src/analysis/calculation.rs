@@ -149,7 +149,7 @@ async fn resolve_queries_impl(
                     let mut resolved_literals =
                         HashMap::with_capacity(resolved_literals_labels.0.len());
                     for (literal, label) in resolved_literals_labels.0 {
-                        let node = deps.get(label.target()).with_internal_error(|| {
+                        let node = deps.get(label.target()).with_internal_error_anyhow(|| {
                             format!("Literal `{literal}` not found in `deps`")
                         })?;
                         resolved_literals.insert(literal, node.dupe());
@@ -222,7 +222,7 @@ async fn get_analysis_result(
 ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
     get_analysis_result_inner(ctx, target)
         .await
-        .tag(ErrorTag::Analysis)
+        .tag_anyhow(ErrorTag::Analysis)
 }
 
 async fn get_analysis_result_inner(
@@ -317,7 +317,7 @@ async fn get_analysis_result_inner(
             let (res, spans) = record_root_spans(|| {
                 let one_dep_analysis = dep_analysis
                     .pop()
-                    .internal_error("Forward node analysis produced no results")?;
+                    .internal_error_anyhow("Forward node analysis produced no results")?;
                 if !dep_analysis.is_empty() {
                     return Err(internal_error_anyhow!(
                         "Forward node analysis produced more than one result"

@@ -190,7 +190,9 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let me = me.unpack_frozen().internal_error("me must be frozen")?;
+        let me = me
+            .unpack_frozen()
+            .internal_error_anyhow("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
         let (artifact_values, dynamic_values, outputs, arg) =
             self.signature.parser(args, eval, |parser, _eval| {

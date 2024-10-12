@@ -176,7 +176,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 return Err(anyhow::anyhow!(
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
                     self.strategy,
-                )).input();
+                )).input_anyhow();
             }
 
             return Ok(CommandExecutorResponse {
@@ -394,7 +394,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = response
-            .with_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input()?;
+            .with_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input_anyhow()?;
 
         Ok(response)
     }

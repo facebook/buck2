@@ -82,7 +82,7 @@ impl FrozenDynamicLambdaParams {
         };
         Ok(Some(
             ValueTypedComplex::new(plugins.to_value())
-                .internal_error("plugins must be AnalysisPlugins")?,
+                .internal_error_anyhow("plugins must be AnalysisPlugins")?,
         ))
     }
 

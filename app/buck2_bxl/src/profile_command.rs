@@ -114,7 +114,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         let global_cfg_options = global_cfg_options_from_client_context(
                             opts.target_cfg
                                 .as_ref()
-                                .internal_error("target_cfg must be set")?,
+                                .internal_error_anyhow("target_cfg must be set")?,
                             server_ctx,
                             &mut ctx,
                         )

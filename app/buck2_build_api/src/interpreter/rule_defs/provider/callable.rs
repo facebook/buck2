@@ -142,7 +142,7 @@ fn create_callable_function_signature(
         None,
     )
     .into_anyhow_result()
-    .internal_error("Must have created correct signature")?;
+    .internal_error_anyhow("Must have created correct signature")?;
 
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }

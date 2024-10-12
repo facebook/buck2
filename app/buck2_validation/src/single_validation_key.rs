@@ -59,7 +59,7 @@ impl Key for SingleValidationKey {
             let (gen_path, ..) = build_result
                 .iter()
                 .next()
-                .internal_error("Just checked single element")?;
+                .internal_error_anyhow("Just checked single element")?;
             gen_path.dupe()
         };
 

@@ -79,7 +79,7 @@ pub(crate) async fn eval_cquery(
     {
         universes_tx_value
             .send(target_universe.dupe())
-            .internal_error("Must be open")?;
+            .internal_error_anyhow("Must be open")?;
     }
 
     let universes_tx = universes_tx_value.as_ref();
@@ -114,7 +114,7 @@ pub(crate) async fn eval_cquery(
                     let universe = Arc::new(universe);
 
                     if let Some(universes_tx) = universes_tx {
-                        universes_tx.send(universe.dupe()).internal_error("Must be open")?;
+                        universes_tx.send(universe.dupe()).internal_error_anyhow("Must be open")?;
                     }
 
                     (

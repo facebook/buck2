@@ -111,7 +111,7 @@ impl<'c> CqueryEnvironment<'c> {
         let universe = self
             .universe
             .as_ref()
-            .internal_error("Target universe not specified")?;
+            .internal_error_anyhow("Target universe not specified")?;
         Ok(universe.owners(path))
     }
 }

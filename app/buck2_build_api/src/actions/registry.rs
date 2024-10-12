@@ -371,7 +371,9 @@ impl RecordedActions {
         self.actions
             .get(key)
             .duped()
-            .with_internal_error(|| format!("action key missing in recorded actions {}", key))
+            .with_internal_error_anyhow(|| {
+                format!("action key missing in recorded actions {}", key)
+            })
     }
 
     /// Iterates over the actions created in this analysis.

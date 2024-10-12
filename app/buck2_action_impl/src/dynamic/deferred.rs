@@ -237,7 +237,7 @@ async fn execute_lambda(
                     )?;
                     let providers = eval.heap().alloc(providers);
                     let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-                        .internal_error("Just allocated ProviderCollection")?;
+                        .internal_error_anyhow("Just allocated ProviderCollection")?;
 
                     ctx.assert_no_promises()?;
 
@@ -470,7 +470,7 @@ fn dynamic_values<'v>(
         };
         let v = resolved_dynamic_values
             .get(x)
-            .internal_error("Missing resolved dynamic value")?;
+            .internal_error_anyhow("Missing resolved dynamic value")?;
         let v = StarlarkResolvedDynamicValue {
             value: v.add_heap_ref_static(env.frozen_heap()),
         };

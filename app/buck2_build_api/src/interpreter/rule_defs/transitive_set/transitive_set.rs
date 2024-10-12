@@ -222,7 +222,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         &self,
     ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
         ValueTypedComplex::unpack_value_err(self.definition.to_value())
-            .internal_error("Must be a TransitiveSetDefinition")
+            .internal_error_anyhow("Must be a TransitiveSetDefinition")
     }
 }
 

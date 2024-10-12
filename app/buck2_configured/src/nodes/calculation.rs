@@ -936,7 +936,7 @@ fn verify_transitioned_attrs<'a>(
     for (attr, attr_value) in pre_transition_attrs {
         let transition_configured_attr = node
             .get(attr, AttrInspectOptions::All)
-            .with_internal_error(|| {
+            .with_internal_error_anyhow(|| {
                 format!(
                     "Attr {} was not found in transition for target {} ({})",
                     attr,
@@ -1275,7 +1275,7 @@ async fn compute_configured_forward_target_node(
                     target_label_after_transition.cfg().dupe(),
                     forward.label().cfg().dupe(),
                 ))
-                .internal_error("idempotence should have been enforced by transition idempotence and attr change checks");
+                .internal_error_anyhow("idempotence should have been enforced by transition idempotence and attr change checks");
             }
         }
 

@@ -514,7 +514,7 @@ impl AnalysisValueFetcher {
                 let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
                     .value
                     .analysis_value_storage
-                    .internal_error("analysis_value_storage not set")?
+                    .internal_error_anyhow("analysis_value_storage not set")?
                     .as_ref();
                 Ok(Some((&analysis_extra_value.value, module.frozen_heap())))
             }
@@ -559,7 +559,7 @@ impl AnalysisValueFetcher {
             Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
                 v.value
                     .analysis_value_storage
-                    .internal_error("analysis_value_storage not set")
+                    .internal_error_anyhow("analysis_value_storage not set")
             })?),
         };
 
@@ -634,9 +634,9 @@ impl RecordedAnalysisValues {
         }
         self.analysis_storage
             .as_ref()
-            .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
+            .with_internal_error_anyhow(|| format!("Missing analysis storage for `{key}`"))?
             .maybe_map(|v| v.value.transitive_sets.get(key).copied())
-            .with_internal_error(|| format!("Missing transitive set `{key}`"))
+            .with_internal_error_anyhow(|| format!("Missing transitive set `{key}`"))
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
@@ -661,7 +661,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .internal_error("missing analysis storage")?
+            .internal_error_anyhow("missing analysis storage")?
             .as_owned_ref_frozen_ref()
             .map(|v| &v.value))
     }
@@ -677,12 +677,12 @@ impl RecordedAnalysisValues {
         let analysis_storage = self
             .analysis_storage
             .as_ref()
-            .internal_error("missing analysis storage")?;
+            .internal_error_anyhow("missing analysis storage")?;
         let value = analysis_storage
             .as_ref()
             .value
             .result_value
-            .internal_error("missing provider collection")?;
+            .internal_error_anyhow("missing provider collection")?;
         unsafe {
             Ok(FrozenProviderCollectionValueRef::new(
                 analysis_storage.owner(),

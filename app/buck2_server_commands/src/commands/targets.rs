@@ -104,7 +104,7 @@ fn outputter<'a, W: Write + Send + 'a>(
     };
 
     let compression = Compression::from_i32(request.compression)
-        .internal_error("buck cli should send valid compression type")?;
+        .internal_error_anyhow("buck cli should send valid compression type")?;
     let output = match compression {
         Compression::Uncompressed => output,
         Compression::Gzip => Box::new(GzEncoder::new(output, Default::default())),
@@ -244,7 +244,7 @@ async fn targets_with_output(
                     request
                         .target_cfg
                         .as_ref()
-                        .internal_error("target_cfg must be set")?,
+                        .internal_error_anyhow("target_cfg must be set")?,
                     server_ctx,
                     &mut dice,
                 )

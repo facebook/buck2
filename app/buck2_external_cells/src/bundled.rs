@@ -257,7 +257,7 @@ fn get_file_ops_delegate_impl(
     let digest_config = digest_config.cas_digest_config().source_files_config();
     for file in data.files {
         let path = ForwardRelativePath::new(file.path)
-            .internal_error("non-forward relative bundled path")?;
+            .internal_error_anyhow("non-forward relative bundled path")?;
         let metadata = FileMetadata {
             digest: TrackedFileDigest::from_content(file.contents, digest_config),
             is_executable: file.is_executable,
@@ -271,7 +271,7 @@ fn get_file_ops_delegate_impl(
                     metadata,
                 }),
             )
-            .internal_error("conflicting bundled source paths")?;
+            .internal_error_anyhow("conflicting bundled source paths")?;
     }
     Ok(BundledFileOpsDelegate {
         dir: builder.fingerprint(&NoDigestDigester),

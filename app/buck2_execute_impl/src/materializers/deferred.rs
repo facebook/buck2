@@ -1841,7 +1841,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         event_dispatcher: EventDispatcher,
     ) -> anyhow::Result<Option<MaterializingFuture>> {
         // TODO(nga): rewrite without recursion or figure out why we overflow stack here.
-        check_stack_overflow().tag(ErrorTag::ServerStackOverflow)?;
+        check_stack_overflow().tag_anyhow(ErrorTag::ServerStackOverflow)?;
 
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();

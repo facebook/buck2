@@ -316,7 +316,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                             .path()
                             .path()
                             .file_name()
-                            .internal_error("Must have name")?,
+                            .internal_error_anyhow("Must have name")?,
                     ) {
                         continue;
                     }

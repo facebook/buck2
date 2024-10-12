@@ -868,7 +868,7 @@ where
         parsed_pattern
     };
 
-    res.input()
+    res.input_anyhow()
 }
 
 fn parse_target_pattern_no_validate<T>(

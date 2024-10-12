@@ -63,14 +63,18 @@ impl StarlarkProfiler {
     /// Collect all profiling data.
     pub fn finish(self) -> anyhow::Result<StarlarkProfileDataAndStats> {
         Ok(StarlarkProfileDataAndStats {
-            initialized_at: self.initialized_at.internal_error("did not initialize")?,
-            finalized_at: self.finalized_at.internal_error("did not finalize")?,
+            initialized_at: self
+                .initialized_at
+                .internal_error_anyhow("did not initialize")?,
+            finalized_at: self
+                .finalized_at
+                .internal_error_anyhow("did not finalize")?,
             total_retained_bytes: self
                 .total_retained_bytes
-                .internal_error("did not visit heap")?,
+                .internal_error_anyhow("did not visit heap")?,
             profile_data: self
                 .profile_data
-                .internal_error("profile_data not initialized")?,
+                .internal_error_anyhow("profile_data not initialized")?,
             targets: vec![self.target],
         })
     }

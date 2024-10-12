@@ -88,7 +88,7 @@ where
     }
 
     let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get().to_value())
-        .internal_error("Validated in constructor")?;
+        .internal_error_anyhow("Validated in constructor")?;
     let setup_is_empty = match setup.unpack() {
         Either::Left(a) => a.is_empty(),
         Either::Right(b) => b.is_empty(),

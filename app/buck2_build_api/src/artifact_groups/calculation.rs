@@ -399,7 +399,7 @@ impl Key for EnsureProjectedArtifactKey {
                 format!("The path `{path}` cannot be projected in the artifact `{base}`")
             })?
             .with_context(|| format!("The path `{path}` does not exist in the artifact `{base}`"))
-            .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
+            .tag_anyhow(buck2_error::ErrorTag::ProjectMissingPath)?;
 
         Ok(value)
     }

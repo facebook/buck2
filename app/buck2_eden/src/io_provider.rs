@@ -339,7 +339,7 @@ impl IoProvider for EdenIoProvider {
                     _ => Err(err.into()),
                 }
             }
-            Err(err) => Err(err).tag(ErrorTag::IoEden),
+            Err(err) => Err(err).tag_anyhow(ErrorTag::IoEden),
         }
     }
 
@@ -355,7 +355,7 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> anyhow::Result<Vec<RawDirEntry>> {
-        self.read_dir_impl(path).await.tag(ErrorTag::IoEden)
+        self.read_dir_impl(path).await.tag_anyhow(ErrorTag::IoEden)
     }
 
     async fn settle(&self) -> anyhow::Result<()> {
@@ -378,7 +378,7 @@ impl IoProvider for EdenIoProvider {
             })
             .await
             .context("Error synchronizing Eden working copy")
-            .tag(ErrorTag::IoEden)
+            .tag_anyhow(ErrorTag::IoEden)
     }
 
     fn name(&self) -> &'static str {

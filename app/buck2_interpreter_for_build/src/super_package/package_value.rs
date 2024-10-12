@@ -53,7 +53,7 @@ impl SuperPackageValuesImpl {
         values
             .as_any()
             .downcast_ref::<SuperPackageValuesImpl>()
-            .internal_error("Expecting SuperPackageValuesImpl")
+            .internal_error_anyhow("Expecting SuperPackageValuesImpl")
     }
 
     pub(crate) fn merge(
@@ -152,7 +152,7 @@ impl OwnedFrozenStarlarkPackageValue {
         self.0
             .value()
             .to_json_value()
-            .internal_error("Not valid JSON, should have been validated at construction")
+            .internal_error_anyhow("Not valid JSON, should have been validated at construction")
     }
 
     pub(crate) fn owned_frozen_value(&self) -> &OwnedFrozenValue {

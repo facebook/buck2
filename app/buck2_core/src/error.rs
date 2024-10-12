@@ -130,7 +130,7 @@ fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
     HARD_ERROR_CONFIG
         .config
         .load_full()
-        .internal_error("Just stored a value")
+        .internal_error_anyhow("Just stored a value")
 }
 
 pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {

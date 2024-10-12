@@ -63,7 +63,7 @@ impl ConfigOverride {
             .map(|p| {
                 ProjectRelativePath::new(p)
                     .map(CellRootPath::new)
-                    .internal_error("Client should have sent a valid path")
+                    .internal_error_anyhow("Client should have sent a valid path")
             })
             .transpose()
     }

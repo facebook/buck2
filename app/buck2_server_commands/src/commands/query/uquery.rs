@@ -139,7 +139,9 @@ async fn uquery(
         ..
     } = request;
 
-    let client_ctx = context.as_ref().internal_error("No client context")?;
+    let client_ctx = context
+        .as_ref()
+        .internal_error_anyhow("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 

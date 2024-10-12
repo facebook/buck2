@@ -95,7 +95,7 @@ impl BxlKey {
     ) -> anyhow::Result<Self> {
         BxlDynamicKey::from_base_deferred_key_dyn_impl(key)
             .map(|k| BxlKey(k.0.key.dupe()))
-            .internal_error("Not BxlKey")
+            .internal_error_anyhow("Not BxlKey")
     }
 
     pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
@@ -163,7 +163,7 @@ impl BxlDynamicKey {
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
         key: BaseDeferredKeyBxl,
     ) -> anyhow::Result<Self> {
-        Self::from_base_deferred_key_dyn_impl(key).internal_error("Not BxlDynamicKey")
+        Self::from_base_deferred_key_dyn_impl(key).internal_error_anyhow("Not BxlDynamicKey")
     }
 }
 

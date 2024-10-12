@@ -59,7 +59,8 @@ impl ProperlyReapedChild {
     async fn output(mut self) -> anyhow::Result<Output> {
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
-        let mut child = mem::take(&mut self.child).internal_error("child field must be set")?;
+        let mut child =
+            mem::take(&mut self.child).internal_error_anyhow("child field must be set")?;
         let mut stdout_pipe = child.stdout.take().context("stdout is not piped")?;
         let mut stderr_pipe = child.stderr.take().context("stderr is not piped")?;
         let (stdout_error, stderr_error, status) = tokio::join!(

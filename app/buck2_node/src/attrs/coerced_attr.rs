@@ -587,7 +587,8 @@ impl CoercedAttr {
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
     ) -> anyhow::Result<ConfiguredAttr> {
-        self.configure_inner(ty, ctx).tag(ErrorTag::ConfigureAttr)
+        self.configure_inner(ty, ctx)
+            .tag_anyhow(ErrorTag::ConfigureAttr)
     }
 
     fn configure_inner(
@@ -602,7 +603,7 @@ impl CoercedAttr {
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
                 let mut it = items.iter().map(|item| item.configure(t, ctx));
-                let first = it.next().internal_error("concat with no items")??;
+                let first = it.next().internal_error_anyhow("concat with no items")??;
                 if singleton {
                     first
                 } else {

@@ -165,14 +165,16 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
-    let client_ctx = context.as_ref().internal_error("No client context")?;
+    let client_ctx = context
+        .as_ref()
+        .internal_error_anyhow("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
     let global_cfg_options = global_cfg_options_from_client_context(
         target_cfg
             .as_ref()
-            .internal_error("target_cfg must be set")?,
+            .internal_error_anyhow("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )
@@ -180,7 +182,9 @@ async fn cquery(
 
     let profile_mode = request
         .profile_mode
-        .map(|i| buck2_cli_proto::ProfileMode::from_i32(i).internal_error("Invalid profile mode"))
+        .map(|i| {
+            buck2_cli_proto::ProfileMode::from_i32(i).internal_error_anyhow("Invalid profile mode")
+        })
         .transpose()?;
 
     let (query_result, universes) = QUERY_FRONTEND
@@ -197,7 +201,7 @@ async fn cquery(
         .await?;
 
     if let Some(profile_mode) = profile_mode {
-        let universes = universes.internal_error("No universes")?;
+        let universes = universes.internal_error_anyhow("No universes")?;
         if universes.is_empty() {
             // Sanity check.
             return Err(internal_error_anyhow!("Empty universes list"));

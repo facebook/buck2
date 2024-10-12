@@ -118,7 +118,7 @@ impl CellsAggregator {
         let info = self
             .cell_infos
             .get_mut(&cell)
-            .internal_error("cell name is not a cell")?;
+            .internal_error_anyhow("cell name is not a cell")?;
         if info.external.is_some() {
             return Err(CellError::DuplicateExternalCell(cell).into());
         }

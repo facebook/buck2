@@ -91,6 +91,8 @@ impl StarlarkProfileDataAndStats {
         profile_data
             .as_any()
             .downcast_ref::<Self>()
-            .internal_error("There's only one implementation of StarlarkProfileDataAndStatsDyn")
+            .internal_error_anyhow(
+                "There's only one implementation of StarlarkProfileDataAndStatsDyn",
+            )
     }
 }

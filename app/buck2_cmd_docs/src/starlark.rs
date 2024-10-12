@@ -86,7 +86,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                     .markdown_file_opts
                     .destination_dir
                     .as_ref()
-                    .internal_error("Args definition requires this")?
+                    .internal_error_anyhow("Args definition requires this")?
                     .resolve(&ctx.working_dir);
                 DocsOutputFormat::Markdown(p)
             }

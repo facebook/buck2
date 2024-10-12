@@ -198,7 +198,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn as_output<'v>(&'v self, this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
         Ok(StarlarkOutputArtifact::new(
             ValueTyped::<StarlarkDeclaredArtifact>::new_err(this)
-                .internal_error("Type must have been checked earlier")?,
+                .internal_error_anyhow("Type must have been checked earlier")?,
         ))
     }
 

@@ -30,8 +30,8 @@ pub use context::BuckErrorContext;
 /// A piece of metadata to indicate whether this error is an infra or user error.
 ///
 /// You can attach this to an error by passing it to the [`Error::context`] method. Alternatively,
-/// you can call [`.input()`](`crate::BuckErrorContext::input`) or
-/// [`.tier0()`](`crate::BuckErrorContext::tier0`) on a [`buck2_error::Result`][`Result`].
+/// you can call [`.input()`](`crate::BuckErrorContext::input_anyhow`) or
+/// [`.tier0()`](`crate::BuckErrorContext::tier0_anyhow`) on a [`buck2_error::Result`][`Result`].
 ///
 /// The category is fundamentally closed - the expectation is that it will not grow new variants in
 /// the future.

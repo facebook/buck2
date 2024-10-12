@@ -82,11 +82,13 @@ impl<'a> dyn IoProvider + 'a {
     ) -> anyhow::Result<Option<String>> {
         self.read_file_if_exists_impl(path)
             .await
-            .tag(ErrorTag::IoSource)
+            .tag_anyhow(ErrorTag::IoSource)
     }
 
     pub async fn read_dir(&self, path: ProjectRelativePathBuf) -> anyhow::Result<Vec<RawDirEntry>> {
-        self.read_dir_impl(path).await.tag(ErrorTag::IoSource)
+        self.read_dir_impl(path)
+            .await
+            .tag_anyhow(ErrorTag::IoSource)
     }
 
     pub async fn read_path_metadata_if_exists(
@@ -95,6 +97,6 @@ impl<'a> dyn IoProvider + 'a {
     ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         self.read_path_metadata_if_exists_impl(path)
             .await
-            .tag(ErrorTag::IoSource)
+            .tag_anyhow(ErrorTag::IoSource)
     }
 }

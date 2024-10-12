@@ -78,7 +78,7 @@ impl<'v> AnalysisExtraValue<'v> {
                 .heap()
                 .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
         )?;
-        Self::get(module)?.internal_error("extra_value must be set")
+        Self::get(module)?.internal_error_anyhow("extra_value must be set")
     }
 }
 
@@ -88,7 +88,7 @@ impl FrozenAnalysisExtraValue {
     ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>> {
         module
             .owned_extra_value()
-            .internal_error("extra_value not set")?
+            .internal_error_anyhow("extra_value not set")?
             .downcast_anyhow()
     }
 }

@@ -339,7 +339,7 @@ async fn run_analysis_with_env_underlying(
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     {
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
-            .internal_error("Just allocated provider collection")?;
+            .internal_error_anyhow("Just allocated provider collection")?;
         analysis_registry
             .analysis_value_storage
             .set_result_value(provider_collection)?;
@@ -421,7 +421,7 @@ pub fn get_user_defined_rule_spec(
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .internal_error("Must be frozen")?;
+                    .internal_error_anyhow("Must be frozen")?;
 
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
@@ -443,7 +443,7 @@ pub fn get_user_defined_rule_spec(
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .internal_error("Must be frozen")?;
+                    .internal_error_anyhow("Must be frozen")?;
 
                 (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?
             };

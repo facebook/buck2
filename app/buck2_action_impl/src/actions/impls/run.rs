@@ -183,7 +183,7 @@ impl UnregisteredAction for UnregisteredRunAction {
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> anyhow::Result<Box<dyn Action>> {
-        let starlark_values = starlark_data.internal_error("module data to be present")?;
+        let starlark_values = starlark_data.internal_error_anyhow("module data to be present")?;
         let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
     }
@@ -389,7 +389,7 @@ impl RunAction {
     ) -> anyhow::Result<Self> {
         let starlark_values = starlark_values
             .downcast_anyhow()
-            .internal_error("Must be `run_action_values`")?;
+            .internal_error_anyhow("Must be `run_action_values`")?;
 
         Self::unpack(&starlark_values)?;
 
