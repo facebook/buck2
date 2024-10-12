@@ -355,7 +355,7 @@ thread_local! {
 }
 
 use allocative::Allocative;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 
 tokio::task_local! {
     pub static EVENTS: EventDispatcher;
@@ -389,7 +389,7 @@ pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
 }
 
 pub fn get_dispatcher() -> EventDispatcher {
-    let enforce_event_dispatcher_set = buck2_env!("ENFORCE_DISPATCHER_SET", bool).unwrap();
+    let enforce_event_dispatcher_set = buck2_env_anyhow!("ENFORCE_DISPATCHER_SET", bool).unwrap();
 
     match get_dispatcher_opt() {
         Some(dispatcher) => dispatcher,

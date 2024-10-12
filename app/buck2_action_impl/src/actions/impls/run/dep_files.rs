@@ -33,7 +33,7 @@ use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::category::Category;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
@@ -77,7 +77,7 @@ static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(Dash
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
 fn keep_directories() -> anyhow::Result<bool> {
-    buck2_env!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
+    buck2_env_anyhow!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
 }
 
 /// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep

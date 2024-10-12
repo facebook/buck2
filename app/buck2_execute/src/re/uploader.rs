@@ -18,7 +18,7 @@ use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -456,7 +456,7 @@ fn add_injected_missing_digests<'a>(
             .collect()
     }
 
-    let ingested_digests = buck2_env!(
+    let ingested_digests = buck2_env_anyhow!(
         "BUCK2_TEST_INJECTED_MISSING_DIGESTS",
         type=Vec<FileDigest>,
         converter=convert_digests,

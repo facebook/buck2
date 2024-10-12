@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
@@ -154,7 +154,7 @@ impl FileDigestConfig {
 impl FileDigest {
     /// Obtain the digest of the file if you can.
     pub fn from_file(file: &AbsPath, config: FileDigestConfig) -> anyhow::Result<Self> {
-        if !buck2_env!("BUCK2_DISABLE_FILE_ATTR", bool)? {
+        if !buck2_env_anyhow!("BUCK2_DISABLE_FILE_ATTR", bool)? {
             if let Some(digest) = Self::from_file_attr(file, config) {
                 return Ok(digest);
             }

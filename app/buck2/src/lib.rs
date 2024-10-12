@@ -52,7 +52,7 @@ use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
@@ -195,7 +195,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
             .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
-    if let Some(arg0) = buck2_env!("BUCK2_ARG0")? {
+    if let Some(arg0) = buck2_env_anyhow!("BUCK2_ARG0")? {
         expanded_args[0] = arg0.to_owned();
     }
 

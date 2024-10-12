@@ -20,7 +20,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use clap::ArgMatches;
@@ -76,7 +76,7 @@ pub struct CompleteCommand {
 
 impl CompleteCommand {
     pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let lockfile = buck2_env!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?
+        let lockfile = buck2_env_anyhow!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?
             .map(AbsPath::new)
             .transpose()?;
 

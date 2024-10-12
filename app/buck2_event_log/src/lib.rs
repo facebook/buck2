@@ -14,7 +14,7 @@ use std::process;
 use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::ci::is_ci;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
@@ -32,7 +32,7 @@ pub fn should_upload_log() -> anyhow::Result<bool> {
     if buck2_core::is_open_source() {
         return Ok(false);
     }
-    Ok(!buck2_env!(
+    Ok(!buck2_env_anyhow!(
         "BUCK2_TEST_DISABLE_LOG_UPLOAD",
         bool,
         applicability = testing
@@ -41,7 +41,10 @@ pub fn should_upload_log() -> anyhow::Result<bool> {
 
 pub fn should_block_on_log_upload() -> anyhow::Result<bool> {
     // `BUCK2_TEST_BLOCK_ON_UPLOAD` is used by our tests.
-    Ok(is_ci()? || buck2_env!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool, applicability = internal)?)
+    Ok(
+        is_ci()?
+            || buck2_env_anyhow!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool, applicability = internal)?,
+    )
 }
 
 /// Wait for the child to finish. Assume its stderr was piped.

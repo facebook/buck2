@@ -15,7 +15,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -57,7 +57,7 @@ use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
 // Whether to throw errors when cache uploads fail (primarily for tests).
 fn error_on_cache_upload() -> anyhow::Result<bool> {
-    buck2_env!(
+    buck2_env_anyhow!(
         "BUCK2_TEST_ERROR_ON_CACHE_UPLOAD",
         bool,
         applicability = testing

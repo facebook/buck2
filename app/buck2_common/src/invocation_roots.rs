@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -41,7 +41,7 @@ impl InvocationRoots {
 
     pub fn paranoid_info_path(&self) -> anyhow::Result<AbsPathBuf> {
         // Used in tests
-        if let Some(p) = buck2_env!("BUCK2_PARANOID_PATH")? {
+        if let Some(p) = buck2_env_anyhow!("BUCK2_PARANOID_PATH")? {
             return AbsPathBuf::try_from(p.to_owned());
         }
 

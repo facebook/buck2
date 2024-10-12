@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 
 pub struct ScheduleType {
     schedule_type: Option<&'static str>,
@@ -20,10 +20,10 @@ impl ScheduleType {
     pub fn new() -> anyhow::Result<Self> {
         // Same as RE does https://fburl.com/code/sj13r130
         let schedule_type =
-            if let Some(env) = buck2_env!("SCHEDULE_TYPE", applicability = internal)? {
+            if let Some(env) = buck2_env_anyhow!("SCHEDULE_TYPE", applicability = internal)? {
                 Some(env)
             } else {
-                buck2_env!("SANDCASTLE_SCHEDULE_TYPE", applicability = internal)?
+                buck2_env_anyhow!("SANDCASTLE_SCHEDULE_TYPE", applicability = internal)?
             };
         Ok(Self { schedule_type })
     }

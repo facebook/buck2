@@ -20,7 +20,7 @@ mod fbcode {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use buck2_core::buck2_env;
+    use buck2_core::buck2_env_anyhow;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
@@ -325,7 +325,7 @@ mod fbcode {
         // Note that both daemon and client are emitting events, and that changing this variable has
         // no effect on the daemon until buckd is restarted but has effect on the client.
         Ok(
-            buck2_env!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
+            buck2_env_anyhow!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
                 .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
                 .to_owned(),
         )

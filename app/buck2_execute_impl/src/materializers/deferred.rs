@@ -33,7 +33,7 @@ use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -184,7 +184,7 @@ pub struct DeferredMaterializerStats {
 }
 
 fn access_time_update_max_buffer_size() -> anyhow::Result<usize> {
-    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
+    buck2_env_anyhow!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
 }
 
 pub struct DeferredMaterializerConfigs {
@@ -1621,7 +1621,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 } => {
                     // NOTE: This is for testing performance when hitting mismatches with disk
                     // state. Unwrapping isn't ideal, but we can't report errors here.
-                    let force_mismatch = buck2_env!(
+                    let force_mismatch = buck2_env_anyhow!(
                         "BUCK2_TEST_FORCE_DECLARE_MISMATCH",
                         bool,
                         applicability = testing

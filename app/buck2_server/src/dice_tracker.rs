@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use allocative::Allocative;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_data::*;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -42,7 +42,7 @@ impl BuckDiceTracker {
     pub fn new(events: EventDispatcher) -> anyhow::Result<Self> {
         let (event_forwarder, receiver) = mpsc::unbounded();
         let snapshot_interval =
-            buck2_env!("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", type=u64, default = 500)
+            buck2_env_anyhow!("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", type=u64, default = 500)
                 .map(Duration::from_millis)?;
 
         thread_spawn("buck2-dice-tracker", move || {

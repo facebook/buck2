@@ -8,7 +8,7 @@
  */
 
 use anyhow::Context as _;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 
@@ -19,7 +19,7 @@ pub struct ChunkReader {
 
 impl ChunkReader {
     pub fn new() -> anyhow::Result<Self> {
-        let chunk_size = buck2_env!(
+        let chunk_size = buck2_env_anyhow!(
             "BUCK2_TEST_MANIFOLD_CHUNK_BYTES",
             type=u64,
             applicability=testing,

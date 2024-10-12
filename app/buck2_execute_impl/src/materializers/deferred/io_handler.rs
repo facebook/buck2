@@ -16,7 +16,7 @@ use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigest;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::fs_util::ReadDir;
@@ -492,7 +492,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> anyhow::Result<&FileDigest> {
             .collect()
     }
 
-    let tombstoned_digests = buck2_env!(
+    let tombstoned_digests = buck2_env_anyhow!(
         "BUCK2_TEST_TOMBSTONED_DIGESTS",
         type=HashSet<FileDigest>,
         converter=convert_digests,

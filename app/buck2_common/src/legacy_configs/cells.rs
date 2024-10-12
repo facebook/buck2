@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::alias::NonEmptyCellAlias;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -432,7 +432,7 @@ impl BuckConfigBasedCells {
 async fn get_external_buckconfig_paths(
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> anyhow::Result<Vec<ConfigPath>> {
-    let skip_default_external_config = buck2_env!(
+    let skip_default_external_config = buck2_env_anyhow!(
         "BUCK2_TEST_SKIP_DEFAULT_EXTERNAL_CONFIG",
         bool,
         applicability = testing
@@ -483,7 +483,7 @@ async fn get_external_buckconfig_paths(
     }
 
     let extra_external_config =
-        buck2_env!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
+        buck2_env_anyhow!("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG", applicability = testing)?;
 
     if let Some(f) = extra_external_config {
         buckconfig_paths.push(ConfigPath::Global(AbsPath::new(f)?.to_owned()));

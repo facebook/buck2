@@ -27,7 +27,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::systemd::SystemdPropertySetType;
 use buck2_common::systemd::SystemdRunner;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
@@ -216,7 +216,7 @@ pub enum BuckdConnectConstraints {
 }
 
 fn buckd_startup_timeout_var() -> anyhow::Result<Option<u64>> {
-    buck2_env!("BUCKD_STARTUP_TIMEOUT", type=u64)
+    buck2_env_anyhow!("BUCKD_STARTUP_TIMEOUT", type=u64)
 }
 
 async fn get_channel(
@@ -319,7 +319,7 @@ impl<'a> BuckdLifecycle<'a> {
         //   behavior.
         daemon_env_vars.push((
             OsStr::new("RUST_LIB_BACKTRACE"),
-            OsStr::new(buck2_env!("BUCK2_LIB_BACKTRACE")?.unwrap_or("0")),
+            OsStr::new(buck2_env_anyhow!("BUCK2_LIB_BACKTRACE")?.unwrap_or("0")),
         ));
 
         if env::var_os("FORCE_WANT_RESTART").is_some() {
@@ -402,7 +402,7 @@ impl<'a> BuckdLifecycle<'a> {
 
         cmd.arg(daemon_startup_config.serialize()?);
 
-        if buck2_env!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {
+        if buck2_env_anyhow!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());
         }
 

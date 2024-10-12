@@ -15,7 +15,7 @@ use anyhow::Context as _;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -177,7 +177,7 @@ impl<'a> ImmediateConfigContext<'a> {
 }
 
 fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
-    if let Some(p) = buck2_env!("BUCK_PARANOID", type=bool)? {
+    if let Some(p) = buck2_env_anyhow!("BUCK_PARANOID", type=bool)? {
         return Ok(p);
     }
 

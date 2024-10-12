@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -249,7 +249,7 @@ impl FromStr for ResourceControlStatus {
 
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        if let Some(env_conf) = buck2_env!(
+        if let Some(env_conf) = buck2_env_anyhow!(
             "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
             applicability = testing,
         )? {

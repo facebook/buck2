@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use remote_execution::TActionResult2;
 
@@ -43,7 +43,7 @@ pub struct CacheUploadResult {
 
 // This is for quick testing of cache upload without configuring executors.
 pub fn force_cache_upload() -> anyhow::Result<bool> {
-    buck2_env!(
+    buck2_env_anyhow!(
         "BUCK2_TEST_FORCE_CACHE_UPLOAD",
         bool,
         applicability = testing

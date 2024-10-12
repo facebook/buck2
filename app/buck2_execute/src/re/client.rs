@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
@@ -105,7 +105,7 @@ struct RemoteExecutionClientData {
 
 impl RemoteExecutionClient {
     pub async fn new(re_config: &RemoteExecutionConfig) -> anyhow::Result<Self> {
-        if buck2_env!("BUCK2_TEST_FAIL_CONNECT", bool, applicability = testing)? {
+        if buck2_env_anyhow!("BUCK2_TEST_FAIL_CONNECT", bool, applicability = testing)? {
             return Err(anyhow::anyhow!("Injected RE Connection error"));
         }
 
@@ -382,7 +382,7 @@ impl RemoteExecutionClientImpl {
 
         let res: anyhow::Result<Self> = try {
             let download_concurrency =
-                buck2_env!("BUCK2_RE_DOWNLOAD_CONCURRENCY", type=usize, default=256)?;
+                buck2_env_anyhow!("BUCK2_RE_DOWNLOAD_CONCURRENCY", type=usize, default=256)?;
 
             // Split things up into smaller chunks.
             let download_chunk_size = std::cmp::max(download_concurrency / 8, 1);
@@ -1156,7 +1156,7 @@ impl RemoteExecutionClientImpl {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
-        if buck2_env!(
+        if buck2_env_anyhow!(
             "BUCK2_TEST_FAIL_RE_DOWNLOADS",
             bool,
             applicability = testing

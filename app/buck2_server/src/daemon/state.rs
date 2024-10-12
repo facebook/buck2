@@ -28,7 +28,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
@@ -296,7 +296,7 @@ impl DaemonState {
             .context("failed to init scribe sink")?;
 
             let default_digest_algorithm =
-                buck2_env!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmKind)?;
+                buck2_env_anyhow!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmKind)?;
 
             let default_digest_algorithm = default_digest_algorithm.unwrap_or_else(|| {
                 if buck2_core::is_open_source() {

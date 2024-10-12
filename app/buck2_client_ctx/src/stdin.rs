@@ -14,7 +14,7 @@ use std::task::Context;
 use std::task::Poll;
 use std::thread::JoinHandle;
 
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_util::threads::thread_spawn;
 use bytes::Bytes;
 use futures::stream::Fuse;
@@ -52,7 +52,7 @@ impl AsyncRead for Stdin {
 
 impl Stdin {
     pub fn new() -> anyhow::Result<Self> {
-        let buffer_size = buck2_env!(
+        let buffer_size = buck2_env_anyhow!(
             "BUCK2_TEST_STDIN_BUFFER_SIZE",
             type=usize,
             applicability=testing,

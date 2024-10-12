@@ -20,7 +20,7 @@ use allocative::Allocative;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -489,7 +489,7 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        if buck2_env!(
+        if buck2_env_anyhow!(
             "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
             bool,
             applicability = testing

@@ -8,7 +8,7 @@
  */
 
 use buck2_common::manifold::Ttl;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_events::metadata::username;
 use buck2_events::schedule_type::ScheduleType;
 
@@ -37,7 +37,7 @@ fn manifold_event_log_ttl_impl(
     schedule_type: ScheduleType,
 ) -> anyhow::Result<Ttl> {
     // 1. return if this is a test
-    let env = buck2_env!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64, applicability=testing)?;
+    let env = buck2_env_anyhow!("BUCK2_TEST_MANIFOLD_TTL_S", type=u64, applicability=testing)?;
     if let Some(env) = env {
         return Ok::<Ttl, anyhow::Error>(Ttl::from_secs(env));
     }

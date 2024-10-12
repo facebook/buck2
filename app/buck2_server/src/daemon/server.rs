@@ -38,7 +38,7 @@ use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
@@ -200,7 +200,7 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
             return Err(Status::unauthenticated("invalid auth token"));
         }
 
-        if buck2_env!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool, applicability = testing).unwrap() {
+        if buck2_env_anyhow!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool, applicability = testing).unwrap() {
             return Err(Status::unauthenticated("injected auth error"));
         }
 
@@ -1493,7 +1493,7 @@ fn server_shutdown_signal(
     mut shutdown_receiver: UnboundedReceiver<()>,
 ) -> anyhow::Result<impl Future<Output = ()>> {
     let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
-    if buck2_env!(
+    if buck2_env_anyhow!(
         "BUCK2_TESTING_INACTIVITY_TIMEOUT",
         bool,
         applicability = testing

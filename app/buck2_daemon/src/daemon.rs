@@ -24,7 +24,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
-use buck2_core::buck2_env;
+use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -180,8 +180,8 @@ impl DaemonCommand {
         //   Daemonize does not preserve threads.
 
         let server_init_ctx = BuckdServerInitPreferences {
-            detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
-            which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
+            detect_cycles: buck2_env_anyhow!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
+            which_dice: buck2_env_anyhow!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -291,11 +291,11 @@ impl DaemonCommand {
         let mut builder = new_tokio_runtime("buck2-rt");
         builder.enable_all();
 
-        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
+        if let Some(threads) = buck2_env_anyhow!("BUCK2_RUNTIME_THREADS", type=usize)? {
             builder.worker_threads(threads);
         }
 
-        if let Some(threads) = buck2_env!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
+        if let Some(threads) = buck2_env_anyhow!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
             builder.max_blocking_threads(threads);
         }
 

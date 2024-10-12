@@ -17,7 +17,7 @@ use tracing_subscriber::reload;
 use tracing_subscriber::reload::Handle;
 use tracing_subscriber::EnvFilter;
 
-use crate::buck2_env;
+use crate::buck2_env_anyhow;
 
 pub mod log_file;
 
@@ -63,7 +63,7 @@ where
     // If the user specifies BUCK_LOG, we want to honour that.
     const ENV_VAR: &str = "BUCK_LOG";
 
-    let filter = match buck2_env!(ENV_VAR)? {
+    let filter = match buck2_env_anyhow!(ENV_VAR)? {
         Some(v) => EnvFilter::try_new(v)
             .with_context(|| format!("Failed to parse ${} as a filter", ENV_VAR))?,
         // daemon_listener is all emitted before the client starts tailing, which is why we log

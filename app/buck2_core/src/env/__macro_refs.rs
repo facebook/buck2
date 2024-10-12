@@ -13,7 +13,7 @@ use std::str::FromStr;
 
 pub use linkme;
 
-pub fn convert_from_str<T>(v: &str) -> anyhow::Result<T>
+pub fn convert_from_str_to_anyhow<T>(v: &str) -> anyhow::Result<T>
 where
     T: FromStr,
     anyhow::Error: From<<T as FromStr>::Err>,
@@ -39,9 +39,9 @@ where
 ///
 /// The macro expands to an expression of type `anyhow::Result<Type>` if a default is set, and
 /// `anyhow::Result<Option<Type>` otherwise.
-pub macro buck2_env {
+pub macro buck2_env_anyhow {
     ($var:expr, bool $(, $($rest:tt)*)?) => {{
-        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env!($var, type=bool, default=false, converter = |s| {
+        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env_anyhow!($var, type=bool, default=false, converter = |s| {
             match s.to_lowercase().as_str() {
                 "1" | "true" => Ok(true),
                 "0" | "false" => Ok(false),
@@ -51,7 +51,7 @@ pub macro buck2_env {
         v
     }},
     ($var:expr, type=$ty:ty, default=$default:expr, converter=$converter:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse2!(
+        $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
             parser=$converter,
@@ -64,10 +64,10 @@ pub macro buck2_env {
         )
     }},
     ($var:expr, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse2!(
+        $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
             stored_type=$ty,
             processor=|x| x.copied().unwrap_or_else(|| $default),
             output_type=$ty,
@@ -77,7 +77,7 @@ pub macro buck2_env {
         )
     }},
     ($var:expr, type=$ty:ty, converter=$converter:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse2!(
+        $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
             parser=$converter,
@@ -90,10 +90,10 @@ pub macro buck2_env {
         )
     }},
     ($var:expr, type=$ty:ty $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse2!(
+        $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
             stored_type=$ty,
             processor=|x| x.copied(),
             output_type=std::option::Option<$ty>,
@@ -103,10 +103,10 @@ pub macro buck2_env {
         )
     }},
     ($var:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse2!(
+        $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str,
+            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
             stored_type=std::string::String,
             processor=|x| x.map(|x| x.as_str()),
             output_type=std::option::Option<&'static str>,
@@ -129,31 +129,31 @@ pub macro buck2_env_name($var:expr) {{
     $var
 }}
 
-macro parse2 {
+macro parse_anyhow {
     (
         $already_parsed:tt,
         applicability=internal$(,)?
     ) => {
-        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Internal,)
+        $crate::env::__macro_refs::expand_anyhow!($already_parsed, applicability=$crate::env::registry::Applicability::Internal,)
     },
     (
         $already_parsed:tt,
         applicability=testing$(,)?
     ) => {
-        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::Testing,)
+        $crate::env::__macro_refs::expand_anyhow!($already_parsed, applicability=$crate::env::registry::Applicability::Testing,)
     },
     (
         $already_parsed:tt,
         $(,)?
     ) => {
-        $crate::env::__macro_refs::expand!($already_parsed, applicability=$crate::env::registry::Applicability::All,)
+        $crate::env::__macro_refs::expand_anyhow!($already_parsed, applicability=$crate::env::registry::Applicability::All,)
     },
 }
 
 /// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
 ///
 /// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
-macro expand(
+macro expand_anyhow(
     (
     var=$var:expr,
     parser=$parser:expr,
