@@ -8,7 +8,7 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_run_isolated",
-    srcs = ["test_run_isolated.py"],
-    data_dir = "test_run_isolated_data",
+    name = "test_build_id_env",
+    srcs = ["test_build_id_env.py"],
+    data_dir = "test_build_id_env_data",
 )
