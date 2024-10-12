@@ -1,0 +1,25 @@
+load(":defs.bzl", "build_fail", "run_python")
+
+build_fail(name = "build_fail")
+
+trivial_build(name = "no_run_info")
+
+run_python(
+    name = "print_hello",
+    script = 'print("hello")',
+)
+
+run_python(
+    name = "echo_args",
+    script = 'import sys; print(" ".join(sys.argv[1:]))',
+)
+
+run_python(
+    name = "check_input_test",
+    script = 'import sys; assert sys.stdin.read() == "test"',
+)
+
+run_python(
+    name = "print_cwd",
+    script = "import os; print(os.getcwd())",
+)
