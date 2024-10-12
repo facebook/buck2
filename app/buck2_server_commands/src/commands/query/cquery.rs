@@ -19,7 +19,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -200,7 +200,7 @@ async fn cquery(
         let universes = universes.internal_error("No universes")?;
         if universes.is_empty() {
             // Sanity check.
-            return Err(internal_error!("Empty universes list"));
+            return Err(internal_error_anyhow!("Empty universes list"));
         }
 
         write_query_profile_for_targets(
@@ -217,7 +217,7 @@ async fn cquery(
         .await?;
     } else {
         if universes.is_some() {
-            return Err(internal_error!("We did not request universes"));
+            return Err(internal_error_anyhow!("We did not request universes"));
         }
     }
 

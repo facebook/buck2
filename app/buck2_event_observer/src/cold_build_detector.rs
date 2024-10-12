@@ -11,7 +11,7 @@ use buck2_common::build_count::BuildCountManager;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::FileWatcherEnd;
 use buck2_data::ParsedTargetPatterns;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 
 /// Detects if this is the first build since a rebase.
 /// The state is relevant per command since the detector is recreated for each command.
@@ -46,7 +46,7 @@ impl ColdBuildDetector {
         {
             if let Some(mb) = &self.merge_base {
                 if mb != merge_base {
-                    return Err(internal_error!(
+                    return Err(internal_error_anyhow!(
                         "Merge base changed during command execution"
                     ));
                 }
@@ -63,7 +63,7 @@ impl ColdBuildDetector {
         patterns: &ParsedTargetPatterns,
     ) -> anyhow::Result<()> {
         if self.target_patterns.is_some() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Parsed target patterns should be updated only once per command"
             ));
         }

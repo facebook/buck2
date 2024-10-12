@@ -12,7 +12,7 @@ use std::process::Output;
 use std::process::Stdio;
 
 use anyhow::Context;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::process::async_background_command;
@@ -74,7 +74,7 @@ impl ProperlyReapedChild {
                 stdout,
                 stderr,
             }),
-            false => Err(internal_error!("Failed to read stdout and stderr")),
+            false => Err(internal_error_anyhow!("Failed to read stdout and stderr")),
         };
         reap_child(child);
         result

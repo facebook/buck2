@@ -37,7 +37,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::INTERNER;
@@ -323,7 +323,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         Ok(Some(metadata.try_map(
             |path| match path.strip_prefix_opt(&self.get_base_path()) {
                 Some(path) => Ok(Arc::new(CellPath::new(self.cell, path.to_owned().into()))),
-                None => Err(internal_error!(
+                None => Err(internal_error_anyhow!(
                     "Non-cell internal symlink at `{}` in cell `{}`",
                     path,
                     self.cell

@@ -18,7 +18,7 @@ use buck2_build_api::dynamic::storage::DynamicLambdaParamStorages;
 use buck2_build_api::dynamic::storage::DynamicLambdaParamsStorage;
 use buck2_build_api::dynamic::storage::FrozenDynamicLambdaParamsStorage;
 use buck2_build_api::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::AnyLifetime;
@@ -67,7 +67,7 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
         lambda_params: DynamicLambdaParams<'v>,
     ) -> anyhow::Result<()> {
         if &self.self_key != key.holder_key() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong lambda owner: expecting `{}`, got `{}`",
                 self.self_key,
                 key
@@ -84,7 +84,7 @@ impl FrozenDynamicLambdaParamsStorageImpl {
         key: &DynamicLambdaResultsKey,
     ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
         if key.holder_key() != &storage.as_ref().self_key {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong owner for lambda: expecting `{}`, got `{}`",
                 storage.as_ref().self_key,
                 key

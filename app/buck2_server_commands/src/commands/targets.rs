@@ -25,7 +25,7 @@ use buck2_cli_proto::TargetsResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -262,6 +262,6 @@ async fn targets_with_output(
                 .await
             }
         }
-        None => Err(internal_error!("Missing field in proto request")),
+        None => Err(internal_error_anyhow!("Missing field in proto request")),
     }
 }

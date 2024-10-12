@@ -18,7 +18,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
 use buck2_core::buck2_env;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -419,7 +419,7 @@ where
         let events = match files {
             None if is_fresh_instance => vec![],
             None => {
-                return Err(internal_error!(
+                return Err(internal_error_anyhow!(
                     "unexpected missing files in watchman query"
                 ));
             }

@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -890,7 +890,7 @@ where
 
     if let Some(dir) = relative.dir() {
         if dir.cell() != cell_name {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Cell resolver cell `{cell_name}` does not match the given relative dir `{dir}`"
             ));
         }

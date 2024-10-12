@@ -24,7 +24,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
@@ -577,7 +577,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         .await?;
         let profile_data = profiler.finish()?;
         if eval_result.starlark_profile.is_some() {
-            return Err(internal_error!("starlark_profile field must not be set yet").into());
+            return Err(
+                internal_error_anyhow!("starlark_profile field must not be set yet").into(),
+            );
         }
         eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
         Ok(Arc::new(eval_result))

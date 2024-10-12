@@ -21,8 +21,8 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::error::ErrorTag;
-use buck2_error::buck2_error;
-use buck2_error::internal_error;
+use buck2_error::buck2_error_anyhow;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
@@ -100,7 +100,7 @@ impl CoercedSelector {
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> anyhow::Result<()> {
         fn duplicate_key(key: &ConfigurationSettingKey) -> anyhow::Error {
-            buck2_error!([], "duplicate key `{key}` in `select()`")
+            buck2_error_anyhow!([], "duplicate key `{key}` in `select()`")
         }
 
         // This is possible when select keys are specified like:
@@ -430,7 +430,9 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(internal_error!("Inconsistent number of elements in tuple"));
+                    return Err(internal_error_anyhow!(
+                        "Inconsistent number of elements in tuple"
+                    ));
                 }
 
                 for (v, vt) in list.iter().zip(&t.xs) {
@@ -539,11 +541,11 @@ impl CoercedAttr {
             entries.push((k, d, v));
         }
         match entries.as_slice() {
-            [] => Err(internal_error!(
+            [] => Err(internal_error_anyhow!(
                 "no entries after slow select the most specific"
             )),
             [(.., x)] => Ok(Some(x)),
-            [(x, ..), (y, ..), ..] => Err(buck2_error!(
+            [(x, ..), (y, ..), ..] => Err(buck2_error_anyhow!(
                 [],
                 "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
             )),
@@ -565,7 +567,7 @@ impl CoercedAttr {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {
-                buck2_error!(
+                buck2_error_anyhow!(
                     [],
                     "None of {} conditions matched configuration `{}` and no default was set:\n{}",
                     entries.len(),
@@ -635,7 +637,9 @@ impl CoercedAttr {
             )),
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(internal_error!("Inconsistent number of elements in tuple"));
+                    return Err(internal_error_anyhow!(
+                        "Inconsistent number of elements in tuple"
+                    ));
                 }
                 ConfiguredAttr::Tuple(TupleLiteral(
                     list.iter()

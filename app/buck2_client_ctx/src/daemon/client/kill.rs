@@ -13,7 +13,7 @@ use std::time::Instant;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_data::error::ErrorTag;
-use buck2_error::buck2_error;
+use buck2_error::buck2_error_anyhow;
 use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
@@ -199,7 +199,7 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
     }
 
     let elapsed_s = timestamp_after_kill.elapsed().as_secs_f32();
-    Err(buck2_error!(
+    Err(buck2_error_anyhow!(
         [ErrorTag::DaemonWontDieFromKill],
         "Daemon pid {pid} did not die after kill within {elapsed_s:.1}s (status: {status})"
     ))

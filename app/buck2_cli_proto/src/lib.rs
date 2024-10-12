@@ -14,7 +14,7 @@
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 
 use crate::BuckDaemonProtoError::MissingClientContext;
@@ -32,7 +32,7 @@ enum BuckDaemonProtoError {
 
 #[track_caller]
 fn wrong_request_type(request_type: &'static str) -> anyhow::Error {
-    internal_error!("wrong gRPC request message type, expecting {request_type}")
+    internal_error_anyhow!("wrong gRPC request message type, expecting {request_type}")
 }
 
 impl ConfigOverride {

@@ -10,7 +10,7 @@
 use std::future;
 use std::mem;
 
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use futures::future::Either;
 use futures::stream::FuturesOrdered;
@@ -41,7 +41,7 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
             .remove(last)
             .with_internal_error(|| format!("missing node {}", last))?;
         if node.node.is_some() {
-            return Err(internal_error!("duplicate node {}", last));
+            return Err(internal_error_anyhow!("duplicate node {}", last));
         }
         let mut parent_key = node.parent;
         while let Some(key) = parent_key {
@@ -151,7 +151,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                     Some(node),
                 );
                 if prev.is_some() {
-                    return Err(internal_error!("duplicate node {}", key));
+                    return Err(internal_error_anyhow!("duplicate node {}", key));
                 }
             }
             Err(mut e) => {

@@ -34,7 +34,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -66,7 +66,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         let contents = starlark_data.expect("Action data should be present");
 
         if !inputs.is_empty() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Input artifacts mut be empty for write macros action"
             ));
         }

@@ -23,7 +23,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
@@ -457,7 +457,9 @@ impl<'v> AnalysisValueStorage<'v> {
                 .alloc_typed(StarlarkAnyComplex { value: self }),
         );
         if res.is_err() {
-            return Err(internal_error!("analysis_value_storage is already set"));
+            return Err(internal_error_anyhow!(
+                "analysis_value_storage is already set"
+            ));
         }
         Ok(())
     }
@@ -483,7 +485,7 @@ impl<'v> AnalysisValueStorage<'v> {
         action_data: (Option<Value<'v>>, Option<StarlarkCallable<'v>>),
     ) -> anyhow::Result<()> {
         if &self.self_key != id.holder_key() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong action owner: expecting `{}`, got `{}`",
                 self.self_key,
                 id
@@ -498,7 +500,7 @@ impl<'v> AnalysisValueStorage<'v> {
         providers: ValueTypedComplex<'v, ProviderCollection<'v>>,
     ) -> anyhow::Result<()> {
         if self.result_value.set(providers).is_err() {
-            return Err(internal_error!("result_value is already set"));
+            return Err(internal_error_anyhow!("result_value is already set"));
         }
         Ok(())
     }
@@ -529,7 +531,7 @@ impl AnalysisValueFetcher {
         };
 
         if id.holder_key() != &storage.self_key {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong action owner: expecting `{}`, got `{}`",
                 storage.self_key,
                 id
@@ -624,7 +626,7 @@ impl RecordedAnalysisValues {
         key: &TransitiveSetKey,
     ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         if key.holder_key() != &self.self_key {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong owner for transitive set: expecting `{}`, got `{}`",
                 self.self_key,
                 key
@@ -639,7 +641,7 @@ impl RecordedAnalysisValues {
 
     pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
         if key.holder_key() != &self.self_key {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Wrong owner for action: expecting `{}`, got `{}`",
                 self.self_key,
                 key

@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use anyhow::Context;
 use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetNameRef;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -94,7 +94,11 @@ impl AttributeSpecExt for AttributeSpec {
                 );
                 name
             }
-            _ => return Err(internal_error!("First attribute is `name`, it is known")),
+            _ => {
+                return Err(internal_error_anyhow!(
+                    "First attribute is `name`, it is known"
+                ));
+            }
         };
         let name = TargetNameRef::new(name)?;
         Ok((name, indices, attr_values))
@@ -175,7 +179,7 @@ impl AttributeSpecExt for AttributeSpec {
         if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
             let within_view = match within_view {
                 CoercedAttr::WithinView(within_view) => within_view,
-                _ => return Err(internal_error!("`within_view` coerced incorrectly")),
+                _ => return Err(internal_error_anyhow!("`within_view` coerced incorrectly")),
             };
             for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
                 check_within_view(

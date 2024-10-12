@@ -19,7 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -414,7 +414,7 @@ pub(crate) fn create_formatter(
         _ => {
             // Self-check.
             if !other.output_attributes.is_empty() {
-                return Err(internal_error!(
+                return Err(internal_error_anyhow!(
                     "Attributes can only be specified when output format is JSON"
                 ));
             }
@@ -422,7 +422,7 @@ pub(crate) fn create_formatter(
     }
 
     match output_format {
-        OutputFormat::Unknown => Err(internal_error!("`output_format` is not set")),
+        OutputFormat::Unknown => Err(internal_error_anyhow!("`output_format` is not set")),
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
             target_call_stacks,

@@ -47,7 +47,7 @@ use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTarg
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
@@ -467,7 +467,7 @@ fn unpack_target_compatible_with_attr(
         }
 
         fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
-            Err(internal_error!(
+            Err(internal_error_anyhow!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
@@ -489,7 +489,7 @@ fn unpack_target_compatible_with_attr(
         fn resolved_transitions(
             &self,
         ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
-            Err(internal_error!(
+            Err(internal_error_anyhow!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
@@ -861,7 +861,7 @@ async fn resolve_transition_attrs<'a>(
         }
 
         fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
-            Err(internal_error!(
+            Err(internal_error_anyhow!(
                 "exec_cfg() is not needed in pre transition attribute resolution."
             ))
         }
@@ -880,7 +880,7 @@ async fn resolve_transition_attrs<'a>(
         fn resolved_transitions(
             &self,
         ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
-            Err(internal_error!(
+            Err(internal_error_anyhow!(
                 "resolved_transitions() can't be used before transition execution."
             ))
         }
@@ -911,7 +911,7 @@ async fn resolve_transition_attrs<'a>(
                     if let Some(old_val) =
                         result.insert(configured_attr.name, Arc::new(configured_attr.value))
                     {
-                        return Err(internal_error!(
+                        return Err(internal_error_anyhow!(
                             "Found duplicated value `{}` for attr `{}` on target `{}`",
                             &old_val.as_display_no_ctx(),
                             attr,

@@ -31,7 +31,7 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_util::truncate::truncate;
@@ -686,7 +686,7 @@ impl OnExecExit {
     ) -> anyhow::Result<Self> {
         let prev = guard.active_commands.insert(command, data);
         if prev.is_some() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "command id `{command}` is already registered"
             ));
         }

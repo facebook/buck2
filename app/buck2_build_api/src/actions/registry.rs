@@ -30,7 +30,7 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::NoDigest;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
@@ -86,7 +86,7 @@ impl ActionsRegistry {
         artifact: &BuildArtifact,
     ) -> anyhow::Result<DeclaredArtifact> {
         if !self.pending.is_empty() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "output for dynamic_output/actions declared after actions: {}, {:?}",
                 artifact,
                 self.pending.map(|v| v.key())

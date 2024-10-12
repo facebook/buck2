@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use buck2_common::events::HasEvents;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -143,9 +143,9 @@ pub(crate) async fn eval_cquery(
     let universes = if let Some(universes_rx) = universes_rx {
         let universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
         match universes_rx.try_recv() {
-            Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
+            Ok(_) => return Err(internal_error_anyhow!("tx must be closed at this moment")),
             Err(std::sync::mpsc::TryRecvError::Empty) => {
-                return Err(internal_error!("tx must be closed at this moment"));
+                return Err(internal_error_anyhow!("tx must be closed at this moment"));
             }
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
         }

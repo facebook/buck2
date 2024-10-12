@@ -21,7 +21,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
@@ -226,7 +226,7 @@ impl TargetNode {
                 // This code is unreachable: visibility attributes are validated
                 // at the coercion stage. But if we did it wrong,
                 // better error with all the context than panic.
-                Err(internal_error!(
+                Err(internal_error_anyhow!(
                     "`visibility` attribute coerced incorrectly (`{0}`)",
                     a.as_display_no_ctx().to_string(),
                 ))
@@ -497,7 +497,7 @@ impl<'a> TargetNodeRef<'a> {
         self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
-                x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
+                x => Err(internal_error_anyhow!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
             .transpose()
     }
@@ -506,7 +506,7 @@ impl<'a> TargetNodeRef<'a> {
         self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::TargetModifiers(m) => Ok(m),
-                x => Err(internal_error!(
+                x => Err(internal_error_anyhow!(
                     "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
                     x
                 )),

@@ -22,7 +22,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
@@ -77,7 +77,7 @@ async fn generate_profile_analysis(
                 .context("Recursive profile analysis failed")
                 .map(Arc::new)
         }
-        _ => Err(internal_error!("Incorrect profile mode")),
+        _ => Err(internal_error_anyhow!("Incorrect profile mode")),
     }
 }
 
@@ -89,7 +89,7 @@ async fn generate_profile_loading(
     let profile_mode = ctx.clone().get_profile_mode_for_loading(package).await?;
     match profile_mode {
         StarlarkProfileMode::None => {
-            return Err(internal_error!("profile mode must be set in DICE"));
+            return Err(internal_error_anyhow!("profile mode must be set in DICE"));
         }
         StarlarkProfileMode::Profile(_) => {}
     }

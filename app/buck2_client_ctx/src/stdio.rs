@@ -20,7 +20,7 @@ use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use superconsole::Line;
 
 use crate::exit_result::ClientIoError;
@@ -35,7 +35,7 @@ static STDOUT_LOCKED: AtomicBool = AtomicBool::new(false);
 
 fn stdout() -> anyhow::Result<io::Stdout> {
     if STDOUT_LOCKED.load(Ordering::Relaxed) {
-        return Err(internal_error!("stdout is already locked"));
+        return Err(internal_error_anyhow!("stdout is already locked"));
     }
     HAS_WRITTEN_TO_STDOUT.store(true, Ordering::Relaxed);
     Ok(io::stdout())

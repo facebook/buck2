@@ -9,7 +9,7 @@
 
 use std::time::Instant;
 
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -93,7 +93,7 @@ impl StarlarkProfiler {
 
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
         if self.will_freeze != module.is_some() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "will_freeze field was initialized incorrectly"
             ));
         }

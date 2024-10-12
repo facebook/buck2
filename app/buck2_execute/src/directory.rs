@@ -47,7 +47,7 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_directory::directory::shared_directory::SharedDirectory;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
@@ -748,7 +748,7 @@ pub fn extract_artifact_value(
     match deps.remove_prefix(path.as_forward_relative_path()) {
         Ok(_) => {}
         Err(DirectoryFindError::CannotTraverseLeaf { .. }) => {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "Dependency artifact is parent of output artifact: {}",
                 path
             ));

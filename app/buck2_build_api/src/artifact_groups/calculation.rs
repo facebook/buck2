@@ -24,7 +24,7 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_directory::directory::directory_data::DirectoryData;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -373,7 +373,7 @@ impl Key for EnsureProjectedArtifactKey {
         let ArtifactKind { base, path } = &self.0;
 
         if path.is_empty() {
-            return Err(internal_error!(
+            return Err(internal_error_anyhow!(
                 "EnsureProjectedArtifactKey with non-empty projected path"
             )
             .into());

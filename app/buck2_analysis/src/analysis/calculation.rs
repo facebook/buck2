@@ -26,7 +26,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::error::ErrorTag;
 use buck2_data::ToProtoMessage;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::record_root_spans;
@@ -319,7 +319,7 @@ async fn get_analysis_result_inner(
                     .pop()
                     .internal_error("Forward node analysis produced no results")?;
                 if !dep_analysis.is_empty() {
-                    return Err(internal_error!(
+                    return Err(internal_error_anyhow!(
                         "Forward node analysis produced more than one result"
                     ));
                 }
@@ -376,7 +376,9 @@ pub async fn profile_analysis(
     for target in targets {
         let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
         if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
-            return Err(internal_error!("recursive analysis configured incorrectly"));
+            return Err(internal_error_anyhow!(
+                "recursive analysis configured incorrectly"
+            ));
         }
     }
 

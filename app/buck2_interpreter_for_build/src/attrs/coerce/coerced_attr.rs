@@ -10,7 +10,7 @@
 //! Contains the internal support within the attribute framework for `select()`.
 
 use anyhow::Context;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -89,7 +89,7 @@ impl CoercedAttrExr for CoercedAttr {
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {
-                                    return Err(internal_error!(
+                                    return Err(internal_error_anyhow!(
                                         "duplicate `\"DEFAULT\"` key in `select()`"
                                     ));
                                 }

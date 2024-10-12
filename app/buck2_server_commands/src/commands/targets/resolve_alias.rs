@@ -26,7 +26,7 @@ use buck2_cli_proto::TargetsResponse;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error;
+use buck2_error::internal_error_anyhow;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_node::nodes::attributes::PACKAGE;
@@ -150,7 +150,7 @@ pub(crate) async fn targets_resolve_aliases(
     let json_writer;
 
     let formatter = match output_format {
-        OutputFormat::Unknown => return Err(internal_error!("`output_format` not set")),
+        OutputFormat::Unknown => return Err(internal_error_anyhow!("`output_format` not set")),
         OutputFormat::Text => &LinesWriter as &dyn ResolveAliasFormatter,
         OutputFormat::Json => {
             json_writer = JsonWriter { json_lines: false };

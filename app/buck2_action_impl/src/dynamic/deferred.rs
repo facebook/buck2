@@ -31,8 +31,8 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_error::buck2_error;
-use buck2_error::internal_error;
+use buck2_error::buck2_error_anyhow;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -128,7 +128,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
     let provider_collection = match args {
         DynamicLambdaArgs::OldPositional { .. } => {
             if !return_value.is_none() {
-                return Err(buck2_error!(
+                return Err(buck2_error_anyhow!(
                     [],
                     "dynamic_output lambda must return `None`, got: `{0}`",
                     return_value.to_string_for_type_error()
@@ -497,7 +497,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let self_key = Arc::new(self_key);
 
     if &dynamic_lambda.as_ref().static_fields.owner != self_key.owner() {
-        return Err(internal_error!(
+        return Err(internal_error_anyhow!(
             "Dynamic lambda owner `{}` does not match self key `{}`",
             dynamic_lambda.as_ref().static_fields.owner,
             self_key
