@@ -9,7 +9,6 @@
 
 
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import List
 
@@ -73,16 +72,12 @@ async def test_input(buck: Buck) -> None:
 
 
 @buck_test(inplace=False)
-async def test_change_cwd(buck: Buck) -> None:
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        result = await buck.run(
-            "root//:print_cwd",
-            f"--chdir={tmpdirname}",
-        )
-        # e.g. in CI it's like this
-        # assert '/var/folders/jq/7h2_h68s0ndbmc43k9cgf2zw000xbj/T/tmp2dk9jc68'
-        # in '/private/var/folders/jq/7h2_h68s0ndbmc43k9cgf2zw000xbj/T/tmp2dk9jc68'
-        assert tmpdirname in result.stdout.strip()
+async def test_change_cwd(buck: Buck, tmp_path: Path) -> None:
+    result = await buck.run(
+        "root//:print_cwd",
+        f"--chdir={tmp_path}",
+    )
+    assert tmp_path.resolve() == Path(result.stdout.strip()).resolve()
 
 
 @buck_test(inplace=False)
