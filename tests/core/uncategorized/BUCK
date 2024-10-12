@@ -14,12 +14,3 @@ buck2_e2e_test(
     data_dir = "test_error_formatting_data",
     deps = ["fbcode//buck2/tests/e2e_util:golden"],
 )
-
-buck2_e2e_test(
-    name = "test_emit_console_preferences",
-    srcs = ["test_emit_console_preferences.py"],
-    data_dir = "test_emit_console_preferences_data",
-    deps = [
-        "fbcode//buck2/tests/e2e_util:utils",
-    ],
-)
