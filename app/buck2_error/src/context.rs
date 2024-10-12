@@ -23,6 +23,46 @@ use crate::{self as buck2_error};
 /// structured context data.
 pub trait BuckErrorContext<T>: Sealed {
     #[track_caller]
+    fn buck_error_context<C: Into<ContextValue>>(self, context: C) -> crate::Result<T>;
+
+    #[track_caller]
+    fn with_buck_error_context<C, F>(self, f: F) -> crate::Result<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C;
+
+    #[track_caller]
+    fn input(self) -> crate::Result<T> {
+        self.buck_error_context(crate::Tier::Input)
+    }
+
+    #[track_caller]
+    fn tier0(self) -> crate::Result<T> {
+        self.buck_error_context(crate::Tier::Tier0)
+    }
+
+    #[track_caller]
+    fn tag(self, tag: crate::ErrorTag) -> crate::Result<T> {
+        self.buck_error_context(ContextValue::Tags(smallvec![tag]))
+    }
+
+    #[track_caller]
+    fn internal_error(self, message: &str) -> crate::Result<T> {
+        self.with_internal_error(|| message.to_owned())
+    }
+
+    #[track_caller]
+    fn with_internal_error<F>(self, f: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> String,
+    {
+        self.with_buck_error_context(|| format!("{} (internal error)", f()))
+            .tag(crate::ErrorTag::InternalError)
+    }
+
+    /// Code below returns an anyhow::Error, it is used while we transition from anyhow to buck2_error in buck2/app
+    /// TODO(minglunli): Delete the code below once we have fully transitioned to buck2_error
+    #[track_caller]
     fn buck_error_context_anyhow<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
 
     #[track_caller]
@@ -83,6 +123,27 @@ impl<T, E> BuckErrorContext<T> for std::result::Result<T, E>
 where
     crate::Error: From<E>,
 {
+    fn buck_error_context<C>(self, c: C) -> crate::Result<T>
+    where
+        C: Into<ContextValue>,
+    {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => Err(crate::Error::from(e).context(c)),
+        }
+    }
+
+    fn with_buck_error_context<C, F>(self, f: F) -> crate::Result<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C,
+    {
+        match self {
+            Ok(x) => Ok(x),
+            Err(e) => Err(crate::Error::from(e).context(f())),
+        }
+    }
+
     fn buck_error_context_anyhow<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
@@ -163,6 +224,27 @@ struct NoneError;
 impl<T> Sealed for Option<T> {}
 
 impl<T> BuckErrorContext<T> for Option<T> {
+    fn buck_error_context<C>(self, c: C) -> crate::Result<T>
+    where
+        C: Into<ContextValue>,
+    {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::Error::from(NoneError).context(c)),
+        }
+    }
+
+    fn with_buck_error_context<C, F>(self, f: F) -> crate::Result<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C,
+    {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::Error::from(NoneError).context(f())),
+        }
+    }
+
     fn buck_error_context_anyhow<C>(self, c: C) -> anyhow::Result<T>
     where
         C: Into<ContextValue>,
@@ -259,11 +341,7 @@ mod tests {
         );
 
         crate::Error::check_equal(
-            &crate::Error::from(
-                Option::<()>::None
-                    .buck_error_context_anyhow("string")
-                    .unwrap_err(),
-            ),
+            &crate::Error::from(Option::<()>::None.buck_error_context("string").unwrap_err()),
             &crate::Error::from(
                 Option::<()>::None
                     .compute_context(
