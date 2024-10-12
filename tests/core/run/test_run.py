@@ -17,13 +17,13 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_run_executable(buck: Buck) -> None:
     result = await buck.run("root//:print_hello")
     assert result.stdout.strip() == "hello"
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])  # Not supported on Windows
+@buck_test(skip_for_os=["windows"])
 async def test_emit_shell(buck: Buck) -> None:
     result = await buck.run(
         "root//:print_hello",
@@ -34,7 +34,7 @@ async def test_emit_shell(buck: Buck) -> None:
     assert out.strip() == "hello"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_run_non_executable_fails(buck: Buck) -> None:
     await expect_failure(
         buck.run("root//:no_run_info"),
@@ -42,7 +42,7 @@ async def test_run_non_executable_fails(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_passing_arguments(buck: Buck) -> None:
     async def f(args1: List[str], args2: List[str]) -> None:
         result = await buck.run("root//:echo_args", *args1, *args2)
@@ -58,7 +58,7 @@ async def test_passing_arguments(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_executable_fail_to_build(buck: Buck) -> None:
     await expect_failure(
         buck.run("root//:build_fail"),
@@ -66,12 +66,12 @@ async def test_executable_fail_to_build(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_input(buck: Buck) -> None:
     await buck.run("root//:check_input_test", input=b"test")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_change_cwd(buck: Buck, tmp_path: Path) -> None:
     result = await buck.run(
         "root//:print_cwd",
@@ -80,7 +80,7 @@ async def test_change_cwd(buck: Buck, tmp_path: Path) -> None:
     assert tmp_path.resolve() == Path(result.stdout.strip()).resolve()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_dont_change_cwd(buck: Buck) -> None:
     result = await buck.run("root//:print_cwd")
     assert buck.cwd == Path(result.stdout.strip())
