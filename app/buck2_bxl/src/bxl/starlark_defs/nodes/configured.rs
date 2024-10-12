@@ -211,6 +211,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `attrs_eager()` each time you need to access the attrs.
     ///
+    /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
+    /// We will deprecate this method in the future.
+    ///
     /// Sample usage:
     /// ```text
     /// def _impl_attrs_eager(ctx):
@@ -254,6 +257,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// `attrs_lazy()` each time to get the `lazy_attrs` object. Note that if the `get()` is `None`,
     /// then any methods called on `None` will result in an error.
     ///
+    /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
+    /// We will deprecate this method in the future.
+    ///
     /// Sample usage:
     /// ```text
     /// def _impl_attrs_lazy(ctx):
@@ -278,6 +284,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `resolved_attrs_lazy()` each time to get the `lazy_resolved_attrs` object. Note that if the `get()` is `None`,
     /// then any methods called on `None` will result in an error.
+    ///
+    /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
+    /// We will deprecate this method in the future.
     ///
     /// Sample usage:
     /// ```text
@@ -305,6 +314,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `resolved_attrs_eager()` each time you need all the resolved attrs.
+    ///
+    /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
+    /// We will deprecate this method in the future.
     ///
     /// Sample usage:
     /// ```text

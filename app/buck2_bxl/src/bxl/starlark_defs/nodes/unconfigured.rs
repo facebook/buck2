@@ -79,6 +79,8 @@ impl<'a> UnpackValue<'a> for StarlarkTargetNode {
 #[starlark_module]
 fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the coerced attributes from the unconfigured target node. Returns a struct.
+    /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
+    /// We will deprecate this method in the future.
     ///
     /// Sample usage:
     /// ```text
