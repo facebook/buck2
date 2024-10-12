@@ -21,6 +21,10 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//utils:expect.bzl", "expect")
+load(
+    "@prelude//utils:utils.bzl",
+    "flatten",
+)
 
 # JAVA PROVIDER DOCS
 #
@@ -423,6 +427,20 @@ def get_java_packaging_info(
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
+def _create_java_compiling_deps_tset_for_global_code(
+        actions: AnalysisActions,
+        global_code_library: [JavaCompilingDepsTSet, None],
+        name: str,
+        global_code_infos: list[JavaGlobalCodeInfo]) -> [JavaCompilingDepsTSet, None]:
+    global_code_jars_kwargs = {}
+    global_code_jars_children = filter(None, [info.global_code_map.get(name, None) for info in global_code_infos])
+    if global_code_library:
+        global_code_jars_children.append(global_code_library)
+    if global_code_jars_children:
+        global_code_jars_kwargs["children"] = global_code_jars_children
+
+    return actions.tset(JavaCompilingDepsTSet, **global_code_jars_kwargs) if global_code_jars_kwargs else None
+
 # This function identifies and collects necessary dependencies that meet criteria defined in `GLOBAL_CODE_CONFIG` for global code generation across frameworks.
 # It maps framework names to their corresponding Java compiling dependency sets.
 # Example: Below configuration specifies criteria for the "di" framework:
@@ -446,20 +464,6 @@ def get_global_code_info(
         library_compiling_deps: [JavaCompilingDepsTSet, None],
         first_order_compiling_deps: [JavaCompilingDepsTSet, None],
         global_code_config: dict) -> JavaGlobalCodeInfo:
-    def create_java_compiling_deps_tset_for_global_code(
-            actions: AnalysisActions,
-            global_code_library: [JavaCompilingDepsTSet, None],
-            name: str,
-            global_code_infos: list[JavaGlobalCodeInfo]) -> [JavaCompilingDepsTSet, None]:
-        global_code_jars_kwargs = {}
-        global_code_jars_children = filter(None, [info.global_code_map.get(name, None) for info in global_code_infos])
-        if global_code_library:
-            global_code_jars_children.append(global_code_library)
-        if global_code_jars_children:
-            global_code_jars_kwargs["children"] = global_code_jars_children
-
-        return actions.tset(JavaCompilingDepsTSet, **global_code_jars_kwargs) if global_code_jars_kwargs else None
-
     global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
 
     def declared_deps_contains_trigger(deps_triggers: list[TargetLabel]):
@@ -483,9 +487,23 @@ def get_global_code_info(
         else:
             global_code_library_compiling_deps = None
 
-        global_code_tset = create_java_compiling_deps_tset_for_global_code(ctx.actions, global_code_library_compiling_deps, name, global_code_infos)
+        global_code_tset = _create_java_compiling_deps_tset_for_global_code(ctx.actions, global_code_library_compiling_deps, name, global_code_infos)
         if global_code_tset:
             global_code_map[name] = global_code_tset
+
+    return JavaGlobalCodeInfo(global_code_map = global_code_map)
+
+def propagate_global_code_info(
+        ctx: AnalysisContext,
+        packaging_deps: list[Dependency]) -> JavaGlobalCodeInfo:
+    global_code_map = {}
+    global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
+    keys = set(flatten([info.global_code_map.keys() for info in global_code_infos]))
+
+    for key in keys:
+        global_code_tset = _create_java_compiling_deps_tset_for_global_code(ctx.actions, None, key, global_code_infos)
+        if global_code_tset:
+            global_code_map[key] = global_code_tset
 
     return JavaGlobalCodeInfo(global_code_map = global_code_map)
 

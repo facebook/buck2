@@ -42,6 +42,7 @@ load(
 load(
     "@prelude//java:java_providers.bzl",
     "get_java_packaging_info",
+    "propagate_global_code_info",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 load(
@@ -951,6 +952,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # final binary.
     if impl_params.generate_providers.java_packaging_info:
         providers.append(get_java_packaging_info(ctx, non_exported_deps + exported_deps))
+
+    if impl_params.generate_providers.java_global_code_info:
+        providers.append(propagate_global_code_info(ctx, ctx.attrs.deps + ctx.attrs.exported_deps))
 
     # TODO(T107163344) this shouldn't be in cxx_library itself, use overlays to remove it.
     if impl_params.generate_providers.android_packageable_info:

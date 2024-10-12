@@ -99,6 +99,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         compilation_database = True,
         default = False,  # We need to do some postprocessing to make sure the shared library is our default output
         java_packaging_info = False,
+        java_global_code_info = False,
         linkable_graph = False,  # We create this here so we can correctly apply exclusions
         link_style_outputs = False,
         merged_native_link_info = False,

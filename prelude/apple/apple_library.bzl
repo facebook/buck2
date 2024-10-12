@@ -162,6 +162,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
                 rule_type = "apple_library",
                 generate_providers = CxxRuleProviderParams(
                     java_packaging_info = False,
+                    java_global_code_info = False,
                     android_packageable_info = False,
                     omnibus_root = False,
                     # We generate a provider on our own, disable to avoid several providers of same type.
