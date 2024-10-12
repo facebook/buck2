@@ -10,3 +10,10 @@ buck2_e2e_test(
         "//buck2/tests/e2e_util:golden",
     ],
 )
+
+buck2_e2e_test(
+    name = "test_formatting",
+    srcs = ["test_formatting.py"],
+    data_dir = "test_formatting_data",
+    deps = ["fbcode//buck2/tests/e2e_util:golden"],
+)
