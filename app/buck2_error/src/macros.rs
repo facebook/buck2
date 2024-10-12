@@ -12,9 +12,48 @@ use std::fmt::Arguments;
 #[doc(hidden)]
 #[cold]
 #[track_caller]
-pub fn buck2_error_anyhow_impl(tags: &[crate::ErrorTag], args: Arguments) -> anyhow::Error {
+pub fn buck2_error_impl(tags: &[crate::ErrorTag], args: Arguments) -> crate::Error {
     let anyhow_error = anyhow::anyhow!("{args}");
     let error = crate::Error::from(anyhow_error).tag(tags.iter().copied());
+    error
+}
+
+#[doc(hidden)]
+#[cold]
+#[track_caller]
+pub fn internal_error_impl(args: Arguments) -> crate::Error {
+    buck2_error_impl(
+        &[crate::ErrorTag::InternalError],
+        format_args!("{args} (internal error)"),
+    )
+}
+
+#[macro_export]
+macro_rules! buck2_error {
+    ($tags:expr, $format:expr) => {
+        buck2_error!($tags, $format,)
+    };
+    ($tags:expr, $format:expr, $($arg:tt)*) => {
+        $crate::macros::buck2_error_impl(&$tags, format_args!($format, $($arg)*))
+    };
+}
+
+/// Indicates a bug in buck2.
+#[macro_export]
+macro_rules! internal_error {
+    ($format:expr) => {
+        internal_error!($format,)
+    };
+    ($format:expr , $($arg:tt)*) => {
+        $crate::macros::internal_error_impl(format_args!($format, $($arg)*))
+    };
+}
+
+#[doc(hidden)]
+#[cold]
+#[track_caller]
+pub fn buck2_error_anyhow_impl(tags: &[crate::ErrorTag], args: Arguments) -> anyhow::Error {
+    let error = buck2_error_impl(tags, args);
     anyhow::Error::from(error)
 }
 
@@ -22,28 +61,26 @@ pub fn buck2_error_anyhow_impl(tags: &[crate::ErrorTag], args: Arguments) -> any
 #[cold]
 #[track_caller]
 pub fn internal_error_anyhow_impl(args: Arguments) -> anyhow::Error {
-    buck2_error_anyhow_impl(
-        &[crate::ErrorTag::InternalError],
-        format_args!("{args} (internal error)"),
-    )
+    let error = internal_error_impl(args);
+    anyhow::Error::from(error)
 }
 
 #[macro_export]
 macro_rules! buck2_error_anyhow {
-    ($tags:expr, $format:expr) => {
-        buck2_error_anyhow!($tags, $format,)
-    };
-    ($tags:expr, $format:expr, $($arg:tt)*) => {
-        $crate::macros::buck2_error_anyhow_impl(&$tags, format_args!($format, $($arg)*))
-    };
-}
+     ($tags:expr, $format:expr) => {
+         buck2_error_anyhow!($tags, $format,)
+     };
+     ($tags:expr, $format:expr, $($arg:tt)*) => {
+         $crate::macros::buck2_error_anyhow_impl(&$tags, format_args!($format, $($arg)*))
+     };
+ }
 
 #[macro_export]
 macro_rules! internal_error_anyhow {
-    ($format:expr) => {
-        internal_error_anyhow!($format,)
-    };
-    ($format:expr , $($arg:tt)*) => {
-        $crate::macros::internal_error_anyhow_impl(format_args!($format, $($arg)*))
-    };
-}
+     ($format:expr) => {
+         internal_error_anyhow!($format,)
+     };
+     ($format:expr , $($arg:tt)*) => {
+         $crate::macros::internal_error_anyhow_impl(format_args!($format, $($arg)*))
+     };
+ }
