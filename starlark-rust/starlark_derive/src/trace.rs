@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use proc_macro2::Span;
 use quote::quote;
 use quote::quote_spanned;
+use quote::ToTokens;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::parse_quote;
@@ -39,9 +40,24 @@ use syn::TypeParamBound;
 
 use crate::util::DeriveInputUtil;
 
-pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut input = parse_macro_input!(input as DeriveInput);
+pub(crate) fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match derive_trace_impl(input) {
+        Ok(x) => x.into_token_stream().into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let tick_v = GenericParam::Lifetime(LifetimeParam::new(Lifetime::new("'v", Span::call_site())));
+
+    let TraceAttrs { unsafe_ignore } = parse_attrs(&input.attrs)?;
+    if let Some(unsafe_ignore) = unsafe_ignore {
+        return Err(syn::Error::new_spanned(
+            unsafe_ignore,
+            "`unsafe_ignore` attribute is not allowed on `#[derive(Trace)]`, only on fields",
+        ));
+    }
 
     let bound: TypeParamBound = parse_quote!(starlark::values::Trace<'v>);
     let mut has_tick_v = false;
@@ -64,37 +80,67 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (impl_generics, _, _) = generics2.split_for_impl();
 
     let name = &input.ident;
-    let body = match trace_impl(&input, &input.generics) {
-        Ok(body) => body,
-        Err(e) => {
-            return e.to_compile_error().into();
-        }
-    };
-    let gen = quote! {
+    let body = trace_impl(&input, &input.generics)?;
+    Ok(syn::parse_quote! {
         unsafe impl #impl_generics starlark::values::Trace<'v> for #name #ty_generics #where_clause {
             #[allow(unused_variables)]
             fn trace(&mut self, tracer: &starlark::values::Tracer<'v>) {
                 #body
             }
         }
-    };
-    gen.into()
+    })
+}
+
+syn::custom_keyword!(unsafe_ignore);
+
+#[derive(Default)]
+struct TraceAttrs {
+    /// `#[trace(unsafe_ignore)]`
+    unsafe_ignore: Option<unsafe_ignore>,
+}
+
+impl TraceAttrs {
+    fn parse(attr: &Attribute) -> syn::Result<TraceAttrs> {
+        attr.parse_args_with(|input: ParseStream| {
+            let mut trace_attrs = TraceAttrs::default();
+            while !input.is_empty() {
+                if let Some(unsafe_ignore) = input.parse::<Option<unsafe_ignore>>()? {
+                    if trace_attrs.unsafe_ignore.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            unsafe_ignore,
+                            "Duplicate `unsafe_ignore` attribute",
+                        ));
+                    }
+                    trace_attrs.unsafe_ignore = Some(unsafe_ignore);
+                } else {
+                    return Err(input.error("Unknown attribute"));
+                }
+                if input.is_empty() {
+                    break;
+                }
+                input.parse::<syn::Token![,]>()?;
+            }
+            Ok(trace_attrs)
+        })
+    }
 }
 
 /// Parse attribute `#[trace(unsafe_ignore)]`.
 ///
 /// Currently it fails on any attribute argument other than `unsafe_ignore`.
-fn is_ignore(attrs: &[Attribute]) -> bool {
-    syn::custom_keyword!(unsafe_ignore);
+fn parse_attrs(attrs: &[Attribute]) -> syn::Result<TraceAttrs> {
+    let mut trace_attrs = None;
 
-    attrs.iter().any(|a| {
-        a.path().is_ident("trace")
-            && a.parse_args_with(|input: ParseStream| {
-                let ignore = input.parse::<Option<unsafe_ignore>>()?.is_some();
-                Ok(ignore)
-            })
-            .unwrap()
-    })
+    for attr in attrs {
+        if attr.path().is_ident("trace") {
+            if trace_attrs.is_some() {
+                return Err(syn::Error::new_spanned(attr, "Duplicate `trace` attribute"));
+            }
+            trace_attrs = Some(TraceAttrs::parse(attr)?);
+        }
+    }
+
+    Ok(trace_attrs.unwrap_or_default())
 }
 
 fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<syn::Expr> {
@@ -106,7 +152,8 @@ fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<sy
         .collect();
 
     derive_input.for_each_field(|name, field| {
-        if is_ignore(&field.attrs) {
+        let TraceAttrs { unsafe_ignore } = parse_attrs(&field.attrs)?;
+        if unsafe_ignore.is_some() {
             Ok(quote! {})
         } else if is_static(&field.ty, &generic_types) {
             Ok(quote_spanned! {
