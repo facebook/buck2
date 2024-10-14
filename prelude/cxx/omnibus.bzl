@@ -300,10 +300,7 @@ def _create_root(
             links = [LinkArgs(flags = extra_ldflags), LinkArgs(infos = inputs)],
             category_suffix = "omnibus_root",
             identifier = root.name or output,
-            # We prefer local execution because there are lot of cxx_link_omnibus_root
-            # running simultaneously, so while their overall load is reasonable,
-            # their peak execution load is very high.
-            link_execution_preference = LinkExecutionPreference("local"),
+            link_execution_preference = LinkExecutionPreference("any"),
             allow_cache_upload = allow_cache_upload,
         ),
     )
