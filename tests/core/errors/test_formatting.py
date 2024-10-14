@@ -95,3 +95,9 @@ error_formatting_test(
     command=["//fail_no_stacktrace.bxl:fail_with_stacktrace_test"],
     command_name="bxl",
 )
+
+error_formatting_test(
+    name="test_bxl_attr_coercion",
+    command=["//fail_attr_coercion.bxl:int_rule"],
+    command_name="bxl",
+)

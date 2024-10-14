@@ -1,0 +1,34 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Traceback (most recent call last):
+  File <builtin>, in <module>
+  * fail_attr_coercion.bxl:9, in _int_rule
+      ctx.unconfigured_targets("//attr_coercion:int_rule")
+error: Error loading targets in package `root//attr_coercion` for target `root//attr_coercion:int_rule`
+ --> fail_attr_coercion.bxl:9:5
+  |
+9 |     ctx.unconfigured_targets("//attr_coercion:int_rule")
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+
+
+Caused by:
+    0: Error evaluating build file: `root//attr_coercion:TARGETS.fixture`
+    1: Traceback (most recent call last):
+         * attr_coercion/TARGETS.fixture:3, in <module>
+             int_rule(
+       error: Error coercing attribute `x` of `root//attr_coercion:int_rule`
+        --> attr_coercion/TARGETS.fixture:3:1
+         |
+       3 | / int_rule(
+       4 | |     name = "int_rule",
+       5 | |     x = "foobar",
+       6 | | )
+         | |_^
+         |
+       
+    2: Error coercing attribute `x` of type `attrs.int()`
+    3: Error coercing "foobar"
+    4: Expected value of type `int`, got value with type `string` (value was `"foobar"`)
+BXL FAILED
