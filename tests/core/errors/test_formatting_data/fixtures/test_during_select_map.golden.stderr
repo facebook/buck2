@@ -1,0 +1,22 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+BUILD FAILED
+Error evaluating build file: `root//during_select:TARGETS.fixture`
+
+Caused by:
+    Traceback (most recent call last):
+      * during_select/TARGETS.fixture:3, in <module>
+          map()
+      * during_select/select.bzl:13, in map
+          select_map(str_select, _fail)
+      File <builtin>, in select_map
+      File <builtin>, in None
+      * during_select/select.bzl:9, in _fail
+          fail("unused")
+    error: fail: unused
+     --> during_select/select.bzl:9:5
+      |
+    9 |     fail("unused")
+      |     ^^^^^^^^^^^^^^
+      |
+    

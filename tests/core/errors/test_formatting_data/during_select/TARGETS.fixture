@@ -1,0 +1,3 @@
+load(":select.bzl", "map")
+
+map()

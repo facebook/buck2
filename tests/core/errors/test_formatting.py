@@ -79,6 +79,11 @@ error_formatting_test(
 )
 
 error_formatting_test(
+    name="test_during_select_map",
+    command=["//during_select:map"],
+)
+
+error_formatting_test(
     name="test_bxl_no_stacktrace",
     command=["//fail_no_stacktrace.bxl:fail_no_stacktrace_test"],
     command_name="bxl",
