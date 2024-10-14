@@ -51,11 +51,20 @@ pub(crate) fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenS
 fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let tick_v = GenericParam::Lifetime(LifetimeParam::new(Lifetime::new("'v", Span::call_site())));
 
-    let TraceAttrs { unsafe_ignore } = parse_attrs(&input.attrs)?;
+    let TraceAttrs {
+        unsafe_ignore,
+        trace_static,
+    } = parse_attrs(&input.attrs)?;
     if let Some(unsafe_ignore) = unsafe_ignore {
         return Err(syn::Error::new_spanned(
             unsafe_ignore,
             "`unsafe_ignore` attribute is not allowed on `#[derive(Trace)]`, only on fields",
+        ));
+    }
+    if let Some(trace_static) = trace_static {
+        return Err(syn::Error::new_spanned(
+            trace_static,
+            "`static` attribute is not allowed on `#[derive(Trace)]`, only on fields",
         ));
     }
 
@@ -97,6 +106,8 @@ syn::custom_keyword!(unsafe_ignore);
 struct TraceAttrs {
     /// `#[trace(unsafe_ignore)]`
     unsafe_ignore: Option<unsafe_ignore>,
+    /// `#[trace(static)]`
+    trace_static: Option<syn::Token![static]>,
 }
 
 impl TraceAttrs {
@@ -112,6 +123,14 @@ impl TraceAttrs {
                         ));
                     }
                     trace_attrs.unsafe_ignore = Some(unsafe_ignore);
+                } else if let Some(trace_static) = input.parse::<Option<syn::Token![static]>>()? {
+                    if trace_attrs.trace_static.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            trace_static,
+                            "Duplicate `static` attribute",
+                        ));
+                    }
+                    trace_attrs.trace_static = Some(trace_static);
                 } else {
                     return Err(input.error("Unknown attribute"));
                 }
@@ -152,10 +171,19 @@ fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<sy
         .collect();
 
     derive_input.for_each_field(|name, field| {
-        let TraceAttrs { unsafe_ignore } = parse_attrs(&field.attrs)?;
+        let TraceAttrs {
+            unsafe_ignore,
+            trace_static,
+        } = parse_attrs(&field.attrs)?;
+        if let (Some(unsafe_ignore), Some(_trace_static)) = (unsafe_ignore, trace_static) {
+            return Err(syn::Error::new_spanned(
+                unsafe_ignore,
+                "Cannot have both `unsafe_ignore` and `static` attributes",
+            ));
+        }
         if unsafe_ignore.is_some() {
             Ok(quote! {})
-        } else if is_static(&field.ty, &generic_types) {
+        } else if trace_static.is_some() || is_static(&field.ty, &generic_types) {
             Ok(quote_spanned! {
                 field.span()=>
                 starlark::values::Tracer::trace_static(tracer, #name);

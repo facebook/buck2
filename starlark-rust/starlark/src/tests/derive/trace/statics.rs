@@ -31,6 +31,8 @@ struct TraceWithStatic<'v> {
     ignored_because_static: StaticType<'static, String>,
     ignored_because_static_in_dyn: Box<dyn Display>,
     ignored_because_static_in_dyn_with_static_bound: Box<dyn Display + 'static>,
+    #[trace(static)] // This is no-op, because it is inferred automatically.
+    explicit_static: String,
 }
 
 #[allow(dead_code)]
