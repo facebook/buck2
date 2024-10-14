@@ -150,8 +150,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         use_project_relative_paths = True,
         executor_overrides = _compute_executor_overrides(ctx, android_toolchain.instrumentation_test_can_run_locally),
         local_resources = {
-            "android_emulator": None,
+            "android_emulator": None if ctx.attrs._android_emulators == None else ctx.attrs._android_emulators.label,
         },
+        required_local_resources = [RequiredTestLocalResource("android_emulator", listing = True, execution = True)],
     )
 
     classmap_source_info = [ctx.attrs.apk[JavaClassToSourceMapInfo]] if JavaClassToSourceMapInfo in ctx.attrs.apk else []

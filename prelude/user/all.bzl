@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//android/user:android_emulators.bzl", _android_emulators_spec = "registration_spec")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", _apple_resource_dedupe_alias_spec = "registration_spec")
 load("@prelude//apple:apple_static_archive.bzl", _apple_static_archive_spec = "registration_spec")
 load("@prelude//apple/mockingbird:mockingbird_mock.bzl", _mockingbird_mock_spec = "registration_spec")
@@ -26,6 +27,7 @@ load(":write_file.bzl", _write_file_spec = "registration_spec")
 
 _all_specs = [
     _extract_archive_spec,
+    _android_emulators_spec,
     _apple_tools_spec,
     _apple_selective_debugging_spec,
     _apple_static_archive_spec,
