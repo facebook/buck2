@@ -13,11 +13,11 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleTo
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
-load("@prelude//apple/user:apple_simulators.bzl", "apple_simulators_transition")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
+load("@prelude//utils/clear_platform.bzl", "clear_platform_transition")
 
 def get_apple_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)
@@ -153,9 +153,9 @@ def apple_test_extra_attrs():
         """),
         "_apple_toolchain": get_apple_toolchain_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
-        "_ios_booted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
-        "_ios_unbooted_simulator": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
-        "_macos_idb_companion": attrs.transition_dep(cfg = apple_simulators_transition, default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo]),
+        "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
+        "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
+        "_macos_idb_companion": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo]),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs

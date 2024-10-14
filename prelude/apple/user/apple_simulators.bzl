@@ -20,24 +20,6 @@ def _rule_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-# We don't want `apple_simulators` target to be configured differently and handled as a different resource broker by buck2 core.
-# By nuking a platform we make sure there is only a single configured target for a resource broker which manages resources of certain type.
-def _transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
-    # buildifier: disable=unused-variable
-    _ = (platform, refs)
-    return PlatformInfo(
-        label = "apple_simulators",
-        configuration = ConfigurationInfo(
-            constraints = {},
-            values = {},
-        ),
-    )
-
-apple_simulators_transition = transition(
-    impl = _transition_impl,
-    refs = {},
-)
-
 registration_spec = RuleRegistrationSpec(
     name = "apple_simulators",
     impl = _rule_impl,
