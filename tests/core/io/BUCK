@@ -8,3 +8,9 @@ buck2_e2e_test(
     data_dir = "test_compare_providers_data",
     deps = ["fbcode//buck2/tests/e2e_util:golden"],
 )
+
+buck2_e2e_test(
+    name = "test_allow_eden",
+    srcs = ["test_allow_eden.py"],
+    data_dir = "test_allow_eden_data",
+)
