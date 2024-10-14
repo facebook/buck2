@@ -101,7 +101,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
         env.pop(var, None)
 
     common_dir = await _get_common_dir()
-    temp_dir = Path(tempfile.mkdtemp(dir=common_dir))
+    base_dir = Path(tempfile.mkdtemp(dir=common_dir))
 
     isolation_prefix = None
     keep_temp = os.environ.get("BUCK_E2E_KEEP_TEMP") == "1"
@@ -117,12 +117,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Create a temporary file to store all lines of extra buck config values.
     extra_config_lines = []
 
-    # Temp dirs needed for EdenFS, will only be created if necessary
-    eden_dir = temp_dir / "eden"
-    etc_eden_dir = temp_dir / "etc_eden"
-    home_dir = temp_dir / "home"
-    backing_dir = temp_dir / "backing_dir"
-    repo_dir = temp_dir / "repo"
+    project_dir = base_dir / "project"
+
+    # Temp dir needed for EdenFS, will only be created if necessary
+    eden_dir = base_dir / "eden"
 
     try:
         if marker.setup_eden:
@@ -132,10 +130,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
             _setup_eden(
                 eden_dir,
-                etc_eden_dir,
-                home_dir,
-                backing_dir,
-                repo_dir,
+                project_dir,
                 env,
                 is_windows,
             )
@@ -162,12 +157,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
             extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
 
         else:
-            _setup_not_inplace(backing_dir)
+            _setup_not_inplace(project_dir)
             if marker.data_dir is not None:
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
-                _copytree(src, backing_dir)
-                _setup_ovr_config(backing_dir)
-                with open(Path(backing_dir, ".watchmanconfig"), "w") as f:
+                _copytree(src, project_dir)
+                _setup_ovr_config(project_dir)
+                with open(Path(project_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
                         {
@@ -182,14 +177,14 @@ async def buck_fixture(  # noqa C901 : "too complex"
             if sys.platform == "darwin":
                 extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
-            buck_cwd = backing_dir
+            buck_cwd = project_dir
 
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")
             for key, value in config.items():
                 extra_config_lines.append(f"{key} = {value}\n")
 
-        extra_config = os.path.join(temp_dir, "extra.bcfg")
+        extra_config = os.path.join(base_dir, "extra.bcfg")
         with open(extra_config, "w") as f:
             for line in extra_config_lines:
                 f.write(line)
@@ -215,11 +210,11 @@ async def buck_fixture(  # noqa C901 : "too complex"
                 await buck.clean()
     finally:
         if keep_temp:
-            print(f"Not deleting temporary directory at {temp_dir}", file=sys.stderr)
+            print(f"Not deleting temporary directory at {base_dir}", file=sys.stderr)
         else:
             if marker.setup_eden:
-                _cleanup_eden(eden_dir, repo_dir, env)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+                _cleanup_eden(eden_dir, project_dir, env)
+            shutil.rmtree(base_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="function")
@@ -265,34 +260,40 @@ def nobuckd(fn: Callable) -> Callable:
     return decorator(wrapped, fn)
 
 
+def _eden_base_cmd(eden_dir: Path) -> List[str]:
+    config_dir = eden_dir / "config"
+    etc_dir = eden_dir / "etc"
+    home_dir = eden_dir / "home"
+
+    config_dir.mkdir(exist_ok=True)
+    etc_dir.mkdir(exist_ok=True)
+    home_dir.mkdir(exist_ok=True)
+
+    return [
+        "eden",
+        "--config-dir",
+        str(config_dir),
+        "--home-dir",
+        str(home_dir),
+        "--etc-eden-dir",
+        str(etc_dir),
+    ]
+
+
 # Adapted from Eden integration test, didn't use their code because Eden uses the compiled binary in their buck-out
 # which we don't have, extracting that part out would be more work than what was done below.
 # https://www.internalfb.com/code/fbsource/[45334ead4a72]/fbcode/eden/integration/lib/testcase.py?lines=123
 def _setup_eden(
     eden_dir: Path,
-    etc_eden_dir: Path,
-    home_dir: Path,
-    backing_dir: Path,
-    repo_dir: Path,
+    project_dir: Path,
     env: Dict[str, str],
     is_windows: bool,
 ):
-    # Eden setup is best effort, it won't fail the tests if the setup fails
     eden_dir.mkdir(exist_ok=True)
-    etc_eden_dir.mkdir(exist_ok=True)
-    home_dir.mkdir(exist_ok=True)
-    backing_dir.mkdir(exist_ok=True)
-
     # Start up an EdenFS Client and point it to the temp dirs
-    subprocess.run(
-        [
-            "eden",
-            "--etc-eden-dir",
-            str(etc_eden_dir),
-            "--config-dir",
-            str(eden_dir),
-            "--home-dir",
-            str(home_dir),
+    subprocess.check_call(
+        _eden_base_cmd(eden_dir)
+        + [
             "start",
         ],
         stdout=sys.stdout,
@@ -300,22 +301,21 @@ def _setup_eden(
         env=env,
     )
 
+    temp_repo = eden_dir / "temp_repo"
     # Initialize a hg repo, so Eden can mount it
-    subprocess.run(
-        ["hg", "init", str(backing_dir)],
+    subprocess.check_call(
+        ["hg", "init", str(temp_repo)],
         stdout=sys.stdout,
         stderr=sys.stderr,
         env=env,
     )
 
     # Mount the hg repo we created
-    cmd = [
-        "eden",
-        "--config-dir",
-        str(eden_dir),
+    project_dir.mkdir(exist_ok=True)
+    cmd = _eden_base_cmd(eden_dir) + [
         "clone",
-        backing_dir,
-        repo_dir,
+        temp_repo,
+        project_dir,
         "--allow-empty-repo",
         "--case-insensitive",
     ]
@@ -323,27 +323,39 @@ def _setup_eden(
     if is_windows:
         cmd.append("--enable-windows-symlinks")
 
-    subprocess.run(
+    subprocess.check_call(
         cmd,
         stdout=sys.stdout,
         stderr=sys.stderr,
         env=env,
     )
 
+    subprocess.check_call(
+        _eden_base_cmd(eden_dir)
+        + [
+            "redirect",
+            "add",
+            "buck-out",
+            "bind",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+        cwd=project_dir,
+    )
+
 
 def _cleanup_eden(
     eden_dir: Path,
-    repo_dir: Path,
+    project_dir: Path,
     env: Dict[str, str],
 ):
     # Remove the Eden mount created for the test
     subprocess.run(
-        [
-            "eden",
-            "--config-dir",
-            str(eden_dir),
+        _eden_base_cmd(eden_dir)
+        + [
             "remove",
-            str(repo_dir),
+            str(project_dir),
             "-y",
         ],
         stdout=sys.stdout,
@@ -352,10 +364,8 @@ def _cleanup_eden(
     )
 
     subprocess.run(
-        [
-            "eden",
-            "--config-dir",
-            str(eden_dir),
+        _eden_base_cmd(eden_dir)
+        + [
             "shutdown",
         ],
         stdout=sys.stdout,

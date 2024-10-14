@@ -69,5 +69,4 @@ async def test_allow_eden_io_respected(buck: Buck) -> None:
     },
 )
 async def test_eden_io(buck: Buck) -> None:
-    # TODO(JakobDegen): Bug
-    await _check_io_provider(buck, "fs")
+    await _check_io_provider(buck, "eden")
