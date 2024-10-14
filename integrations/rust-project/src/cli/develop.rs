@@ -193,6 +193,9 @@ impl Develop {
             for (buildfile, targets) in targets {
                 let project = self.run_inner(targets)?;
 
+                // we have to log before we write the output, because rust-analyzer will kill us after the write
+                crate::scuba::log_develop(start.elapsed(), input.clone(), self.invoked_by_ra);
+
                 let out = OutputData {
                     buildfile,
                     project,
@@ -207,6 +210,8 @@ impl Develop {
             targets.dedup();
 
             let project = self.run_inner(targets)?;
+            crate::scuba::log_develop(start.elapsed(), input, self.invoked_by_ra);
+
             if cfg.pretty {
                 serde_json::to_writer_pretty(&mut writer, &project)?;
             } else {
@@ -218,8 +223,6 @@ impl Develop {
                 Output::Stdout => info!("wrote rust-project.json to stdout"),
             }
         }
-
-        crate::scuba::log_develop(start.elapsed(), input, self.invoked_by_ra);
 
         Ok(())
     }
