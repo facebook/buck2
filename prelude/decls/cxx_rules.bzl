@@ -591,9 +591,37 @@ cxx_library = prelude_rule(
             "uses_cxx_explicit_modules": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "use_header_units": attrs.bool(default = False),
-            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None),
-            "export_header_unit_filter": attrs.list(attrs.string(), default = []),
+            "use_header_units": attrs.bool(default = False, doc = """
+                If True, makes any header unit exported by a dependency (including
+                recursively) through export_header_unit available to the compiler. If
+                false, the compilation ignores header units, regardless of what is
+                exported by dependencies.
+            """),
+            "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None, doc = """
+                If not None, export a C++20 header unit visible to dependants (including
+                recursively) with use_header_units set to True.
+
+                "include": replace includes of each file in exported_headers or
+                    raw_headers with an import of the precompiled header unit; files
+                    that do not include any of those headers do not load the header
+                    unit.
+
+                "preload": automatically load the precompiled header unit in any
+                    dependant that uses header units.
+            """),
+            "export_header_unit_filter": attrs.list(attrs.string(), default = [], doc = """
+                A list of regexes. Each regex should match a set of headers in
+                exported_headers or raw_headers to be precompiled together into one
+                C++20 header unit.
+
+                When used with export_header_unit="include", this allows different
+                subsets of headers to be loaded only by files that use them. Each group
+                should only depend on headers in previous groups.
+
+                If a header is not matched by any group, it is not precompiled and will
+                be included textually. If no filter is specified, the rule excludes
+                inline headers based on a name heuristics (e.g. "-inl.h").
+            """),
         } |
         buck.allow_cache_upload_arg()
     ),
