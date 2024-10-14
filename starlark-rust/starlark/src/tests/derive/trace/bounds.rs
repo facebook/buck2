@@ -15,6 +15,23 @@
  * limitations under the License.
  */
 
-mod bounds;
-mod enums;
-mod statics;
+#![allow(dead_code)]
+
+use crate as starlark;
+use crate::values::Trace;
+
+#[derive(Trace)]
+#[trace(bound = "A: Trace<'v>, B: 'static")]
+struct TestTraceWithBounds<A, B> {
+    a: A,
+    #[trace(static)]
+    b: B,
+}
+
+struct NotTrace;
+
+fn assert_trace<'v, T: Trace<'v>>() {}
+
+fn test() {
+    assert_trace::<TestTraceWithBounds<String, NotTrace>>();
+}

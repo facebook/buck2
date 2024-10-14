@@ -24,6 +24,7 @@ use quote::ToTokens;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::parse_quote;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::Attribute;
 use syn::DeriveInput;
@@ -54,6 +55,7 @@ fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let TraceAttrs {
         unsafe_ignore,
         trace_static,
+        bounds,
     } = parse_attrs(&input.attrs)?;
     if let Some(unsafe_ignore) = unsafe_ignore {
         return Err(syn::Error::new_spanned(
@@ -72,7 +74,9 @@ fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let mut has_tick_v = false;
     for param in &mut input.generics.params {
         if let GenericParam::Type(type_param) = param {
-            type_param.bounds.push(bound.clone());
+            if bounds.is_none() {
+                type_param.bounds.push(bound.clone());
+            }
         }
         if let GenericParam::Lifetime(t) = param {
             if t.lifetime.ident == "v" {
@@ -80,6 +84,23 @@ fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
             }
         }
     }
+    if let Some(bounds) = bounds {
+        'outer: for bound in bounds {
+            for param in &mut input.generics.params {
+                if let GenericParam::Type(type_param) = param {
+                    if type_param.ident == bound.ident {
+                        type_param.bounds.extend(bound.bounds);
+                        continue 'outer;
+                    }
+                }
+            }
+            return Err(syn::Error::new_spanned(
+                bound,
+                "Type parameter not found in the generic parameters",
+            ));
+        }
+    }
+
     let mut generics2 = input.generics.clone();
 
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -101,6 +122,7 @@ fn derive_trace_impl(mut input: DeriveInput) -> syn::Result<syn::ItemImpl> {
 }
 
 syn::custom_keyword!(unsafe_ignore);
+syn::custom_keyword!(bound);
 
 #[derive(Default)]
 struct TraceAttrs {
@@ -108,6 +130,8 @@ struct TraceAttrs {
     unsafe_ignore: Option<unsafe_ignore>,
     /// `#[trace(static)]`
     trace_static: Option<syn::Token![static]>,
+    /// `#[trace(bound = "A: 'static, B: Trace<'v>")]`
+    bounds: Option<Punctuated<syn::TypeParam, syn::Token![,]>>,
 }
 
 impl TraceAttrs {
@@ -131,6 +155,18 @@ impl TraceAttrs {
                         ));
                     }
                     trace_attrs.trace_static = Some(trace_static);
+                } else if let Some(bound) = input.parse::<Option<bound>>()? {
+                    if trace_attrs.bounds.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            bound,
+                            "Duplicate `bound` attribute",
+                        ));
+                    }
+                    input.parse::<syn::Token![=]>()?;
+                    let bounds = input.parse::<syn::LitStr>()?;
+                    let bounds = bounds
+                        .parse_with(|parser: ParseStream| Punctuated::parse_terminated(parser))?;
+                    trace_attrs.bounds = Some(bounds);
                 } else {
                     return Err(input.error("Unknown attribute"));
                 }
@@ -174,11 +210,18 @@ fn trace_impl(derive_input: &DeriveInput, generics: &Generics) -> syn::Result<sy
         let TraceAttrs {
             unsafe_ignore,
             trace_static,
+            bounds,
         } = parse_attrs(&field.attrs)?;
         if let (Some(unsafe_ignore), Some(_trace_static)) = (unsafe_ignore, trace_static) {
             return Err(syn::Error::new_spanned(
                 unsafe_ignore,
                 "Cannot have both `unsafe_ignore` and `static` attributes",
+            ));
+        }
+        if let Some(bounds) = bounds {
+            return Err(syn::Error::new_spanned(
+                bounds,
+                "The `bound` attribute can only be used on the `#[derive(Trace)]`",
             ));
         }
         if unsafe_ignore.is_some() {
