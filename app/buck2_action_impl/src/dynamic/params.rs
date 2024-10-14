@@ -32,6 +32,9 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
+use crate::dynamic::attrs::DynamicAttrValues;
+use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
+
 #[derive(Allocative, Debug)]
 pub(crate) struct DynamicLambdaStaticFields {
     /// the owner that defined this lambda
@@ -51,7 +54,10 @@ pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
     pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<'v>,
-    pub(crate) arg: Option<Value<'v>>,
+    pub(crate) attr_values: Option<(
+        DynamicAttrValues<Value<'v>, BoundBuildArtifact>,
+        FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
+    )>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
@@ -60,7 +66,10 @@ pub struct FrozenDynamicLambdaParams {
     pub(crate) attributes: Option<FrozenValueOfUnchecked<'static, StructRef<'static>>>,
     pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
     pub(crate) lambda: FrozenStarlarkCallable,
-    pub(crate) arg: Option<FrozenValue>,
+    pub attr_values: Option<(
+        DynamicAttrValues<FrozenValue, BoundBuildArtifact>,
+        FrozenValueTyped<'static, FrozenStarlarkDynamicActionsCallable>,
+    )>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
@@ -89,23 +98,27 @@ impl FrozenDynamicLambdaParams {
     pub fn lambda<'v>(&'v self) -> Value<'v> {
         self.lambda.0.to_value()
     }
-
-    pub fn arg<'v>(&'v self) -> Option<Value<'v>> {
-        self.arg.map(|v| v.to_value())
-    }
 }
 
 impl<'v> Freeze for DynamicLambdaParams<'v> {
     type Frozen = FrozenDynamicLambdaParams;
 
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        let attr_values = match self.attr_values {
+            None => None,
+            Some((attr_values, callable)) => Some((
+                attr_values.freeze(freezer)?,
+                // Change lifetime.
+                FrozenValueTyped::new_err(callable.to_frozen_value())?,
+            )),
+        };
         Ok(FrozenDynamicLambdaParams {
             attributes: self
                 .attributes
                 .try_map(|a| anyhow::Ok(a.freeze(freezer)?.cast()))?,
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
-            arg: self.arg.freeze(freezer)?,
+            attr_values,
             static_fields: self.static_fields,
         })
     }

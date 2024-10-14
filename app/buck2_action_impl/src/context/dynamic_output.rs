@@ -47,33 +47,49 @@ enum DynamicOutputError {
     EmptyOutput,
 }
 
+pub(crate) struct DynamicActionsOutputArtifactBinder {
+    key: DeferredHolderKey,
+    index: u32,
+}
+
+impl DynamicActionsOutputArtifactBinder {
+    pub(crate) fn new(key: &DynamicLambdaResultsKey) -> Self {
+        DynamicActionsOutputArtifactBinder {
+            key: DeferredHolderKey::DynamicLambda(Arc::new(key.dupe())),
+            index: 0,
+        }
+    }
+
+    pub(crate) fn bind(&mut self, output: OutputArtifact) -> anyhow::Result<BoundBuildArtifact> {
+        // We create ActionKeys that point directly to the dynamic_lambda's
+        // output rather than our own. This saves the resolution of the key from
+        // needing to first lookup our result just to get forwarded to the lambda's result.
+        //
+        // This means that we are creating ActionKeys for the lambda and it needs to offset
+        // its key's index to account for this (see ActionRegistry where this is done).
+        //
+        // TODO(cjhopman): We should probably combine ActionRegistry and DynamicRegistry (and
+        // probably ArtifactGroupRegistry too).
+        let bound = output
+            .bind(ActionKey::new(
+                self.key.dupe(),
+                ActionIndex::new(self.index),
+            ))?
+            .dupe();
+        self.index += 1;
+        Ok(bound)
+    }
+}
+
 fn output_artifacts_to_lambda_build_artifacts(
     dynamic_key: &DynamicLambdaResultsKey,
     outputs: IndexSet<OutputArtifact>,
 ) -> anyhow::Result<Box<[BoundBuildArtifact]>> {
-    let dynamic_holder_key = DeferredHolderKey::DynamicLambda(Arc::new(dynamic_key.dupe()));
+    let mut bind = DynamicActionsOutputArtifactBinder::new(dynamic_key);
 
     outputs
-        .iter()
-        .enumerate()
-        .map(|(output_artifact_index, output)| {
-            // We create ActionKeys that point directly to the dynamic_lambda's
-            // output rather than our own. This saves the resolution of the key from
-            // needing to first lookup our result just to get forwarded to the lambda's result.
-            //
-            // This means that we are creating ActionKeys for the lambda and it needs to offset
-            // its key's index to account for this (see ActionRegistry where this is done).
-            //
-            // TODO(cjhopman): We should probably combine ActionRegistry and DynamicRegistry (and
-            // probably ArtifactGroupRegistry too).
-            let bound = output
-                .bind(ActionKey::new(
-                    dynamic_holder_key.dupe(),
-                    ActionIndex::new(output_artifact_index.try_into()?),
-                ))?
-                .dupe();
-            Ok(bound)
-        })
+        .into_iter()
+        .map(|output| bind.bind(output))
         .collect::<anyhow::Result<_>>()
 }
 
@@ -171,7 +187,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             attributes,
             plugins,
             lambda: f.erase(),
-            arg: None,
+            attr_values: None,
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
                 artifact_values,
@@ -197,10 +213,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .take()
             .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
         let StarlarkDynamicActionsData {
-            artifact_values,
-            dynamic_values,
-            outputs,
-            arg,
+            attr_values,
             callable,
         } = dynamic_actions;
 
@@ -211,14 +224,19 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let lambda_params_storage =
             DynamicLambdaParamsStorageImpl::get(&mut this.analysis_value_storage)?;
         let key = lambda_params_storage.next_dynamic_actions_key()?;
-        let outputs = output_artifacts_to_lambda_build_artifacts(&key, outputs)?;
+
+        let attr_values = attr_values.bind(&key)?;
+
+        let outputs = attr_values.outputs().into_iter().collect();
+        let artifact_values = attr_values.artifact_values();
+        let dynamic_values = attr_values.dynamic_values();
 
         // Registration
         let lambda_params = DynamicLambdaParams {
             attributes: None,
             plugins: None,
             lambda: callable.implementation.erase().to_callable(),
-            arg: Some(arg),
+            attr_values: Some((attr_values, callable)),
             static_fields: DynamicLambdaStaticFields {
                 owner: key.owner().dupe(),
                 artifact_values,

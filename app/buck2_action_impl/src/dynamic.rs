@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+pub(crate) mod attrs;
+pub(crate) mod attrs_starlark;
 pub mod bxl;
 pub mod calculation;
 pub mod deferred;

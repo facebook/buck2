@@ -76,6 +76,7 @@
 ## ctarget\_set
 ## dedupe
 ## dynamic\_actions
+## dynattrs
 ## fail\_no\_stacktrace
 ## file\_set
 ## get\_base\_path

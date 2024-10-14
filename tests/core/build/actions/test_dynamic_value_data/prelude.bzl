@@ -7,36 +7,37 @@
 
 MyInfo = provider(fields = {"hgfd": int})
 
-def _produce_dynamic_value_impl(actions, artifact_values, dynamic_values, outputs, arg):
-    _ignore = (actions, artifact_values, dynamic_values, outputs, arg)  # buildifier: disable=unused-variable
+def _produce_dynamic_value_impl(actions: AnalysisActions) -> list[Provider]:
+    _ignore = (actions,)  # buildifier: disable=unused-variable
     return [
         MyInfo(hgfd = 123),
     ]
 
-_produce_dynamic_value = dynamic_actions(impl = _produce_dynamic_value_impl)
+_produce_dynamic_value = dynamic_actions(
+    impl = _produce_dynamic_value_impl,
+    attrs = {},
+)
 
-def _consume_dynamic_value_impl(actions, artifact_values, dynamic_values, outputs, arg):
-    _ignore = (actions, artifact_values)  # buildifier: disable=unused-variable
-    (out, v) = arg
-    value = dynamic_values[v].providers[MyInfo].hgfd
-    actions.write(outputs[out], "<<<{}>>>".format(value))
+def _consume_dynamic_value_impl(actions, out: OutputArtifact, v: ResolvedDynamicValue) -> list[Provider]:
+    value = v.providers[MyInfo].hgfd
+    actions.write(out, "<<<{}>>>".format(value))
     return []
 
-_consume_dynamic_value = dynamic_actions(impl = _consume_dynamic_value_impl)
+_consume_dynamic_value = dynamic_actions(
+    impl = _consume_dynamic_value_impl,
+    attrs = {
+        "out": dynattrs.output(),
+        "v": dynattrs.dynamic_value(),
+    },
+)
 
 def _test_rule(ctx):
-    v = ctx.actions.dynamic_output_new(_produce_dynamic_value(
-        artifact_values = [],
-        outputs = [],
-        arg = None,
-    ))
+    v = ctx.actions.dynamic_output_new(_produce_dynamic_value())
 
     out = ctx.actions.declare_output("poiuy")
     ctx.actions.dynamic_output_new(_consume_dynamic_value(
-        artifact_values = [],
-        outputs = [out.as_output()],
-        dynamic_values = [v],
-        arg = (out, v),
+        v = v,
+        out = out.as_output(),
     ))
 
     return [DefaultInfo(default_output = out)]

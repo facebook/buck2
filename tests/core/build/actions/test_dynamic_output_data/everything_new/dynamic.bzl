@@ -5,14 +5,19 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-def _basic_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifact_values[arg.input].read_string()
+def _basic_f_impl(actions: AnalysisActions, src: ArtifactValue, out: OutputArtifact):
+    src = src.read_string()
     assert_eq(src, "42")
-    actions.write(outputs[arg.output], src)
+    actions.write(out, src)
     return []
 
-_basic_f = dynamic_actions(impl = _basic_f_impl)
+_basic_f = dynamic_actions(
+    impl = _basic_f_impl,
+    attrs = {
+        "out": dynattrs.output(),
+        "src": dynattrs.artifact_value(),
+    },
+)
 
 # Basic test
 def _basic(ctx: AnalysisContext) -> list[Provider]:
@@ -20,20 +25,25 @@ def _basic(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_basic_f(
-        artifact_values = [input],
-        outputs = [output.as_output()],
-        arg = struct(input = input, output = output),
+        src = input,
+        out = output.as_output(),
     ))
     return [DefaultInfo(default_output = output)]
 
-def _two_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifact_values[arg.input].read_string()
-    actions.write(outputs[arg.output1], "output1_" + src)
-    actions.write(outputs[arg.output2], "output2_" + src)
+def _two_f_impl(actions: AnalysisActions, outs: tuple, src: ArtifactValue):
+    src = src.read_string()
+    [output1, output2] = outs
+    actions.write(output1, "output1_" + src)
+    actions.write(output2, "output2_" + src)
     return []
 
-_two_f = dynamic_actions(impl = _two_f_impl)
+_two_f = dynamic_actions(
+    impl = _two_f_impl,
+    attrs = {
+        "outs": dynattrs.tuple(dynattrs.output(), dynattrs.output()),
+        "src": dynattrs.artifact_value(),
+    },
+)
 
 # Produce two output files
 def _two(ctx: AnalysisContext) -> list[Provider]:
@@ -42,9 +52,8 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
     output2 = ctx.actions.declare_output("output2")
 
     ctx.actions.dynamic_output_new(_two_f(
-        artifact_values = [input],
-        outputs = [output1.as_output(), output2.as_output()],
-        arg = struct(input = input, output1 = output1, output2 = output2),
+        src = input,
+        outs = (output1.as_output(), output2.as_output()),
     ))
     sub_targets = {
         "output1": [DefaultInfo(default_output = output1)],
@@ -54,9 +63,8 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     )]
 
-def _nested_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifact_values[arg.input].read_string()
+def _nested_f_impl(actions: AnalysisActions, input: ArtifactValue, symlinked_dir: OutputArtifact):
+    src = input.read_string()
     output1 = actions.declare_output("output1")
     output2 = actions.declare_output("output2")
     actions.write(output1, "output1_" + src)
@@ -68,24 +76,36 @@ def _nested_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, ou
     nested_output = actions.declare_output("nested_output")
 
     actions.dynamic_output_new(_nested_f2(
-        artifact_values = [output1, output2],
-        outputs = [nested_output.as_output()],
-        arg = struct(output1 = output1, output2 = output2, nested_output = nested_output),
+        output1 = output1,
+        output2 = output2,
+        nested_output = nested_output.as_output(),
     ))
 
     symlink_tree["nested_output"] = nested_output
-    actions.symlinked_dir(outputs[arg.symlinked_dir], symlink_tree)
+    actions.symlinked_dir(symlinked_dir, symlink_tree)
     return []
 
-def _nested_f2_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    nested_src1 = artifact_values[arg.output1].read_string()
-    nested_src2 = artifact_values[arg.output2].read_string()
-    actions.write(outputs[arg.nested_output], [nested_src1, nested_src2])
+def _nested_f2_impl(actions: AnalysisActions, output1: ArtifactValue, output2: ArtifactValue, nested_output: OutputArtifact):
+    nested_src1 = output1.read_string()
+    nested_src2 = output2.read_string()
+    actions.write(nested_output, [nested_src1, nested_src2])
     return []
 
-_nested_f = dynamic_actions(impl = _nested_f_impl)
-_nested_f2 = dynamic_actions(impl = _nested_f2_impl)
+_nested_f = dynamic_actions(
+    impl = _nested_f_impl,
+    attrs = {
+        "input": dynattrs.artifact_value(),
+        "symlinked_dir": dynattrs.output(),
+    },
+)
+_nested_f2 = dynamic_actions(
+    impl = _nested_f2_impl,
+    attrs = {
+        "nested_output": dynattrs.output(),
+        "output1": dynattrs.artifact_value(),
+        "output2": dynattrs.artifact_value(),
+    },
+)
 
 # Nested dynamic outputs
 def _nested(ctx: AnalysisContext) -> list[Provider]:
@@ -93,23 +113,29 @@ def _nested(ctx: AnalysisContext) -> list[Provider]:
     symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir", dir = True)
 
     ctx.actions.dynamic_output_new(_nested_f(
-        artifact_values = [input],
-        outputs = [symlinked_dir.as_output()],
-        arg = struct(input = input, symlinked_dir = symlinked_dir),
+        input = input,
+        symlinked_dir = symlinked_dir.as_output(),
     ))
     return [DefaultInfo(default_output = symlinked_dir)]
 
-def _command_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifact_values[arg.hello].read_string().strip()
+def _command_f_impl(actions: AnalysisActions, hello: ArtifactValue, world: OutputArtifact, universe: OutputArtifact, script: Artifact):
+    src = hello.read_string().strip()
     assert_eq(src, "Hello")
     actions.run(
-        cmd_args(["python3", arg.script, src, outputs[arg.world].as_output(), outputs[arg.universe].as_output()]),
+        cmd_args(["python3", script, src, world, universe]),
         category = "dynamic_check",
     )
     return []
 
-_command_f = dynamic_actions(impl = _command_f_impl)
+_command_f = dynamic_actions(
+    impl = _command_f_impl,
+    attrs = {
+        "hello": dynattrs.artifact_value(),
+        "script": dynattrs.value(Artifact),
+        "universe": dynattrs.output(),
+        "world": dynattrs.output(),
+    },
+)
 
 # Produce two output files, using a command
 def _command(ctx: AnalysisContext) -> list[Provider]:
@@ -138,20 +164,26 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
     )
 
     ctx.actions.dynamic_output_new(_command_f(
-        artifact_values = [hello],
-        outputs = [world.as_output(), universe.as_output()],
-        arg = struct(hello = hello, world = world, universe = universe, script = script),
+        hello = hello,
+        script = script,
+        world = world.as_output(),
+        universe = universe.as_output(),
     ))
     return [DefaultInfo(default_output = world, other_outputs = [universe])]
 
-def _create_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-    src = artifact_values[arg.input].read_string()
+def _create_f_impl(actions: AnalysisActions, input: ArtifactValue, output: OutputArtifact):
+    src = input.read_string()
     new_file = actions.write("new_file", src)
-    actions.copy_file(outputs[arg.output], new_file)
+    actions.copy_file(output, new_file)
     return []
 
-_create_f = dynamic_actions(impl = _create_f_impl)
+_create_f = dynamic_actions(
+    impl = _create_f_impl,
+    attrs = {
+        "input": dynattrs.artifact_value(),
+        "output": dynattrs.output(),
+    },
+)
 
 # Create a fresh output inside the dynamic
 def _create(ctx: AnalysisContext) -> list[Provider]:
@@ -159,16 +191,13 @@ def _create(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_create_f(
-        artifact_values = [input],
-        outputs = [output.as_output()],
-        arg = struct(input = input, output = output),
+        input = input,
+        output = output.as_output(),
     ))
     return [DefaultInfo(default_output = output)]
 
-def _create_duplicate_f_impl(actions: AnalysisActions, artifact_values, dynamic_values, outputs, arg):
-    _unused = dynamic_values  # buildifier: disable=unused-variable
-
-    src = artifact_values[arg.input].read_string()
+def _create_duplicate_f_impl(actions: AnalysisActions, input: ArtifactValue, output: OutputArtifact):
+    src = input.read_string()
 
     # Deliberately reuse the names input/output
     new_output = actions.write("output", src)
@@ -179,10 +208,16 @@ def _create_duplicate_f_impl(actions: AnalysisActions, artifact_values, dynamic_
     # We could allow copy to take an explicit identifier, but this is a corner
     # case and I don't think its a good idea to reuse names heavily anyway.
     new_input = actions.copy_file("input", new_output)
-    actions.copy_file(outputs[arg.output], new_input)
+    actions.copy_file(output, new_input)
     return []
 
-_create_duplicate_f = dynamic_actions(impl = _create_duplicate_f_impl)
+_create_duplicate_f = dynamic_actions(
+    impl = _create_duplicate_f_impl,
+    attrs = {
+        "input": dynattrs.artifact_value(),
+        "output": dynattrs.output(),
+    },
+)
 
 # Create a fresh output inside the dynamic, which clashes
 def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
@@ -190,9 +225,8 @@ def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output")
 
     ctx.actions.dynamic_output_new(_create_duplicate_f(
-        artifact_values = [input],
-        outputs = [output.as_output()],
-        arg = struct(input = input, output = output),
+        input = input,
+        output = output.as_output(),
     ))
     return [DefaultInfo(default_output = output)]
 

@@ -23,6 +23,7 @@ use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
+use buck2_action_impl::dynamic::deferred::DynamicLambdaCtxDataSpec;
 use buck2_action_impl::dynamic::deferred::InputArtifactsMaterialized;
 use buck2_action_impl::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
@@ -60,6 +61,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::internal_error_anyhow;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -684,16 +686,29 @@ impl BxlDynamicOutputEvaluator<'_> {
 
             let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
-            let args = match dynamic_lambda_ctx_data.lambda.arg() {
-                None => DynamicLambdaArgs::OldPositional {
+            let args = match (
+                &dynamic_lambda_ctx_data.lambda.attr_values,
+                &dynamic_lambda_ctx_data.spec,
+            ) {
+                (
+                    None,
+                    DynamicLambdaCtxDataSpec::Old {
+                        outputs,
+                        artifact_values,
+                    },
+                ) => DynamicLambdaArgs::OldPositional {
                     ctx: ctx.to_value(),
-                    artifact_values: dynamic_lambda_ctx_data.artifact_values,
-                    outputs: dynamic_lambda_ctx_data.outputs,
+                    artifact_values: *artifact_values,
+                    outputs: *outputs,
                 },
-                Some(_arg) => {
+                (Some(_arg), DynamicLambdaCtxDataSpec::New { .. }) => {
                     return Err(anyhow::anyhow!(
                         "New `dynamic_actions` API is not implemented for BXL"
                     ));
+                }
+                (None, DynamicLambdaCtxDataSpec::New { .. })
+                | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
+                    return Err(internal_error_anyhow!("Inconsistent"));
                 }
             };
 
