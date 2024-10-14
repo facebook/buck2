@@ -143,6 +143,7 @@ fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
         "forkserver_pid": serde_json::to_value(status.forkserver_pid)?,
         "supports_vpnless": status.supports_vpnless.unwrap_or_default(),
         "http2": status.http2,
+        "io_provider": status.io_provider,
     });
 
     if let Some(valid_working_directory) = status.valid_working_directory {

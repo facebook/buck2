@@ -873,6 +873,12 @@ impl DaemonApi for BuckdServer {
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
             let valid_buck_out_mount = daemon_state.validate_buck_out_mount().is_ok();
 
+            let io_provider = daemon_state
+                .data()
+                .as_ref()
+                .ok()
+                .map(|state| state.io.name().to_owned());
+
             let uptime = self.0.start_instant.elapsed();
             let base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),
@@ -899,6 +905,7 @@ impl DaemonApi for BuckdServer {
                     .map(|state| state.http_client.http2()),
                 valid_working_directory: Some(valid_working_directory),
                 valid_buck_out_mount: Some(valid_buck_out_mount),
+                io_provider,
                 ..Default::default()
             };
             Ok(base)

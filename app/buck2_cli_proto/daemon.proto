@@ -78,6 +78,7 @@ message StatusResponse {
   optional bool http2 = 13;
   optional bool valid_working_directory = 14;
   optional bool valid_buck_out_mount = 15;
+  optional string io_provider = 16;
 }
 
 message PingRequest {
