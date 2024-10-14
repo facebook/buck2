@@ -236,9 +236,10 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, false);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -256,9 +257,10 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::subscriber::set_global_default(subscriber)?;
 
             let (develop, input, out) = cli::Develop::from_command(c);
-            match develop.run(input, out) {
+            match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
+                    crate::scuba::log_develop_error(&e, input, true);
                     tracing::error!(
                         error = <anyhow::Error as AsRef<
                             dyn std::error::Error + Send + Sync + 'static,
@@ -285,7 +287,9 @@ fn main() -> Result<(), anyhow::Error> {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            cli::Check::new(mode, use_clippy, saved_file).run()
+            cli::Check::new(mode, use_clippy, saved_file.clone())
+                .run()
+                .inspect_err(|e| crate::scuba::log_check_error(&e, &saved_file, use_clippy))
         }
     }
 }

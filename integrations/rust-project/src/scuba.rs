@@ -22,7 +22,25 @@ pub(crate) fn log_develop(duration: Duration, input: Input, invoked_by_ra: bool)
     sample.add("revision", get_sl_revision());
     sample.add("invoked_by_ra", invoked_by_ra);
     sample.log();
+    sample.flush(Duration::from_millis(500));
 }
+
+#[cfg(not(fbcode_build))]
+pub(crate) fn log_develop(_duration: Duration, _input: Input, _invoked_by_ra: bool) {}
+
+#[cfg(fbcode_build)]
+pub(crate) fn log_develop_error(error: &anyhow::Error, input: Input, invoked_by_ra: bool) {
+    let mut sample = new_sample("develop");
+    sample.add("error", format!("{:#?}", error));
+    sample.add("input", format!("{:?}", input));
+    sample.add("revision", get_sl_revision());
+    sample.add("invoked_by_ra", invoked_by_ra);
+    sample.log();
+    sample.flush(Duration::from_millis(500));
+}
+
+#[cfg(not(fbcode_build))]
+pub(crate) fn log_develop_error(_error: &anyhow::Error, _input: Input, _invoked_by_ra: bool) {}
 
 #[cfg(fbcode_build)]
 fn get_sl_revision() -> String {
@@ -33,9 +51,6 @@ fn get_sl_revision() -> String {
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .unwrap_or("unknown".to_owned())
 }
-
-#[cfg(not(fbcode_build))]
-pub(crate) fn log_develop(_duration: Duration, _input: Input, _invoked_by_ra: bool) {}
 
 #[cfg(fbcode_build)]
 pub(crate) fn log_check(duration: Duration, saved_file: &Path, use_clippy: bool) {
@@ -48,6 +63,18 @@ pub(crate) fn log_check(duration: Duration, saved_file: &Path, use_clippy: bool)
 
 #[cfg(not(fbcode_build))]
 pub(crate) fn log_check(_duration: Duration, _saved_file: &Path, _use_clippy: bool) {}
+
+#[cfg(fbcode_build)]
+pub(crate) fn log_check_error(error: &anyhow::Error, saved_file: &Path, use_clippy: bool) {
+    let mut sample = new_sample("check");
+    sample.add("error", format!("{:#?}", error));
+    sample.add("saved_file", saved_file.display().to_string());
+    sample.add("use_clippy", use_clippy.to_string());
+    sample.log();
+}
+
+#[cfg(not(fbcode_build))]
+pub(crate) fn log_check_error(_error: &anyhow::Error, _saved_file: &Path, _use_clippy: bool) {}
 
 #[cfg(fbcode_build)]
 fn new_sample(kind: &str) -> scuba::ScubaSampleBuilder {
