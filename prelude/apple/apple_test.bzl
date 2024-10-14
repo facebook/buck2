@@ -191,7 +191,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         sub_targets["ui-test-target"] = [DefaultInfo(default_output = ui_test_target_app_bundle)] if ui_test_target_app_bundle else [DefaultInfo()]
 
         sub_targets[DWARF_AND_DSYM_SUBTARGET] = [
-            DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact]),
+            DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact], sub_targets = {_XCTOOLCHAIN_SUB_TARGET: ctx.attrs._apple_xctoolchain.providers}),
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, dsym_artifact, ui_test_target_app_bundle),
         ]
 
