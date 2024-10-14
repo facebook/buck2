@@ -12,6 +12,12 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_exit_code",
+    srcs = ["test_exit_code.py"],
+    data_dir = "test_exit_code_data",
+)
+
+buck2_e2e_test(
     name = "test_formatting",
     srcs = ["test_formatting.py"],
     data_dir = "test_formatting_data",
