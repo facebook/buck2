@@ -6,8 +6,8 @@ Usage: buck2 log diff [OPTIONS] <COMMAND>
 
 Commands:
   action-divergence  Identifies the first divergent action between two builds. Divergence is
-                         identified by the same action having differing outputs. Useful for
-                         identifying non-determinism
+                     identified by the same action having differing outputs. Useful for identifying
+                     non-determinism
   configs
   help               Print this message or the help of the given subcommand(s)
 

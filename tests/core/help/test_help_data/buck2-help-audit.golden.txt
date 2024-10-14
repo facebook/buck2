@@ -7,10 +7,10 @@ Usage: buck2 audit [OPTIONS] <COMMAND>
 Commands:
   cell                           Query information about the [cells] list in .buckconfig.
   classpath                      Prints out a target's classpaths if it has one.
-                                         This command is deprecated and currently available for
-                                         compatibility with buck1.
-                                         We will replace this command with something that can audit
-                                         the entire `TemplatePlaceholderInfo` in the future.
+                                     This command is deprecated and currently available for
+                                     compatibility with buck1.
+                                     We will replace this command with something that can audit the
+                                     entire `TemplatePlaceholderInfo` in the future.
   config                         buck audit config
   configurations                 prints the constraints for configuration IDs
   includes                       list build file extensions imported at parse time.
@@ -20,17 +20,16 @@ Commands:
   analysis-queries               buck audit analysis resolving query attrs
   execution-platform-resolution  prints out information about execution platform resolution
   visibility                     Verify the visibility for transitive deps of the specified
-                                     target(s) on the unconfigured target graph
+                                 target(s) on the unconfigured target graph
   starlark                       Debug Starlark interpreter
   dep-files                      prints out the select files for a command
   deferred-materializer          Access and interact with the deferred materializer
   output                         Query the action that produced the output artifact. Does not
-                                     support BXL, test, scratch, or anon artifacts. If the
-                                     configuration hash of the output path does not match the
-                                     current platform configuration, the unconfigured target label
-                                     will be returned.
-  parse                          Parses the buck-out path into parts that may be useful (ex:
-                                     config hash, file path to artifact).
+                                 support BXL, test, scratch, or anon artifacts. If the configuration
+                                 hash of the output path does not match the current platform
+                                 configuration, the unconfigured target label will be returned.
+  parse                          Parses the buck-out path into parts that may be useful (ex: config
+                                 hash, file path to artifact).
   package-values                 Inspect package values
   help                           Print this message or the help of the given subcommand(s)
 
