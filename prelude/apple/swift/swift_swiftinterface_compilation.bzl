@@ -61,16 +61,20 @@ def compile_swiftinterface_common(
 
     if additional_compiled_pcm:
         pcm_deps_tset = ctx.actions.tset(SwiftCompiledModuleTset, value = additional_compiled_pcm, children = [pcm_deps_tset])
-    cmd.add(pcm_deps_tset.project_as_args("clang_module_file_flags"))
 
     clang_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_deps_providers)
     swift_deps_tset = get_compiled_sdk_swift_deps_tset(ctx, sdk_deps_providers + deps)
-    swift_module_map_artifact = write_swift_module_map_with_deps(ctx, uncompiled_module_info_name, swift_deps_tset)
+
+    all_deps_tset = ctx.actions.tset(
+        SwiftCompiledModuleTset,
+        children = [pcm_deps_tset, clang_deps_tset, swift_deps_tset],
+    )
+
+    swift_module_map_artifact = write_swift_module_map_with_deps(ctx, uncompiled_module_info_name, all_deps_tset)
     cmd.add([
         "-explicit-swift-module-map-file",
         swift_module_map_artifact,
     ])
-    cmd.add(clang_deps_tset.project_as_args("clang_module_file_flags"))
 
     swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION)
     cmd.add([
