@@ -60,6 +60,7 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
+use buck2_file_watcher::dep_files::FLUSH_NON_LOCAL_DEP_FILES;
 use dashmap::DashMap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -83,12 +84,29 @@ fn keep_directories() -> anyhow::Result<bool> {
 /// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep
 /// file was produced and the user wants unblocking, this will provide it.
 fn flush_dep_files() {
-    tracing::info!("Flushing {} dep files", DEP_FILES.len());
+    tracing::info!("Flushing all {} dep files", DEP_FILES.len());
     DEP_FILES.clear();
+}
+
+/// Flush all dep files that were not produced locally.
+/// In general we may want to retain dep files that were produced locally for longer, since (a) they are
+/// already on disk and we don't need to download them, and (b) since they were produced locally they are
+/// not cached elsewhere so there is more value in retaining them.
+fn flush_non_local_dep_files() {
+    tracing::info!(
+        "Flushing non-local dep files, current size is: {}",
+        DEP_FILES.len()
+    );
+    DEP_FILES.retain(|_, dep_file_state| dep_file_state.was_produced_locally);
+    tracing::info!(
+        "Number of remaining local dep files is: {}",
+        DEP_FILES.len()
+    );
 }
 
 pub(crate) fn init_flush_dep_files() {
     FLUSH_DEP_FILES.init(flush_dep_files);
+    FLUSH_NON_LOCAL_DEP_FILES.init(flush_non_local_dep_files);
 }
 
 pub(crate) fn get_dep_files(key: &DepFilesKey) -> Option<Arc<DepFileState>> {
