@@ -152,6 +152,7 @@ impl StoredFingerprints {
         digests: CommandDigests,
         declared_dep_files: DeclaredDepFiles,
         result: &ActionOutputs,
+        was_produced_locally: bool,
     ) -> DepFileState {
         let input_signatures = Mutex::new(DepFileStateInputSignatures::Computed(self));
         DepFileState {
@@ -159,6 +160,7 @@ impl StoredFingerprints {
             input_signatures,
             declared_dep_files,
             result: result.dupe(),
+            was_produced_locally,
         }
     }
 }
@@ -193,6 +195,7 @@ pub(crate) struct DepFileState {
     input_signatures: Mutex<DepFileStateInputSignatures>,
     declared_dep_files: DeclaredDepFiles,
     result: ActionOutputs,
+    was_produced_locally: bool,
 }
 
 #[derive(Allocative)]
@@ -952,6 +955,7 @@ pub(crate) async fn populate_dep_files(
     ctx: &dyn ActionExecutionCtx,
     dep_file_bundle: DepFileBundle,
     result: &ActionOutputs,
+    was_produced_locally: bool,
 ) -> anyhow::Result<()> {
     let DepFileBundle {
         declared_dep_files,
@@ -970,7 +974,12 @@ pub(crate) async fn populate_dep_files(
     };
 
     let state = match filtered_input_fingerprints {
-        Some(fingerprints) => fingerprints.to_dep_file_state(digests, declared_dep_files, result),
+        Some(fingerprints) => fingerprints.to_dep_file_state(
+            digests,
+            declared_dep_files,
+            result,
+            was_produced_locally,
+        ),
         None if should_compute_fingerprints => {
             let fingerprints = eagerly_compute_fingerprints(
                 ctx.digest_config(),
@@ -980,7 +989,12 @@ pub(crate) async fn populate_dep_files(
                 &declared_dep_files,
             )
             .await?;
-            fingerprints.to_dep_file_state(digests, declared_dep_files, result)
+            fingerprints.to_dep_file_state(
+                digests,
+                declared_dep_files,
+                result,
+                was_produced_locally,
+            )
         }
         None => DepFileState {
             digests,
@@ -989,6 +1003,7 @@ pub(crate) async fn populate_dep_files(
             ))),
             declared_dep_files,
             result: result.dupe(),
+            was_produced_locally,
         },
     };
 

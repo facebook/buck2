@@ -831,6 +831,7 @@ impl IncrementalActionExecutable for RunAction {
             result.did_dep_file_cache_upload = upload_result.did_dep_file_cache_upload;
         }
 
+        let was_locally_executed = result.was_locally_executed();
         let (outputs, metadata) = ctx.unpack_command_execution_result(
             executor_preference,
             result,
@@ -840,7 +841,7 @@ impl IncrementalActionExecutable for RunAction {
         )?;
 
         if let Some(dep_file_bundle) = dep_file_bundle {
-            populate_dep_files(ctx, dep_file_bundle, &outputs).await?;
+            populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
         }
 
         Ok((outputs, metadata))
