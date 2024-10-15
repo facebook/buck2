@@ -5,16 +5,27 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
+    "ArtifactTSet",
+    "make_artifact_tset",
+)
+load("@prelude//apple:apple_utility.bzl", "get_base_swiftinterface_compilation_flags")
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
+    "SwiftDependencyInfo",
+    "create_swift_dependency_info",
+    "get_external_debug_info_tsets",
     "get_swift_framework_anonymous_targets",
 )
+load("@prelude//apple/swift:swift_pcm_compilation.bzl", "compile_framework_pcm")
 load(
     "@prelude//apple/swift:swift_pcm_compilation_types.bzl",
     "SwiftPCMUncompiledInfo",
 )
+load("@prelude//apple/swift:swift_swiftinterface_compilation.bzl", "compile_swiftinterface_common")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -29,6 +40,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_triple", "get_unversioned_target_triple")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -61,7 +73,7 @@ load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback"
 load(":debug.bzl", "AppleDebuggableInfo")
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
-    def get_prebuilt_apple_framework_providers(_) -> list[Provider]:
+    def get_prebuilt_apple_framework_providers(deps_providers) -> list[Provider]:
         providers = []
 
         framework_directory_artifact = ctx.attrs.framework
@@ -142,8 +154,23 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
         pcm_provider = _create_uncompiled_pcm_module_info(ctx, framework_directory_artifact, framework_name)
         providers.append(pcm_provider)
 
+        # Since not all frameworks expose a swiftinterface, we use the `contains_swift` attribute to determine if one is available.
+        if ctx.attrs.contains_swift:
+            swift_dependency_info = _compile_swiftinterface(
+                ctx,
+                framework_name,
+                pcm_provider,
+                deps_providers,
+                framework_directory_artifact,
+            )
+            providers.append(swift_dependency_info)
+
         return providers
 
+    # We cannot determine whether Swift Explicit modules are enabled at this point.
+    # Therefore, we always return providers for both Implicit and Explicit modules, if SDK modules are available.
+    # This approach is safe and won't trigger compilation of swiftinterfaces or pcm modules,
+    # as no upper-level targets will depend on the artifacts from these compilations.
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     if is_sdk_modules_provided(swift_toolchain):
         return get_swift_framework_anonymous_targets(ctx, get_prebuilt_apple_framework_providers)
@@ -167,6 +194,61 @@ def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory
         propagated_preprocessor_args_cmd = cmd_args([]),
         uncompiled_sdk_modules = ctx.attrs.sdk_modules,
     )
+
+def _compile_swiftinterface(
+        ctx: AnalysisContext,
+        framework_name: str,
+        pcm_provider: SwiftPCMUncompiledInfo,
+        deps_providers,
+        framework_directory_artifact: Artifact) -> SwiftDependencyInfo:
+    # To compile the framework's swiftinterface, the PCM module must be precompiled first.
+    compiled_underlying_pcm = compile_framework_pcm(
+        ctx,
+        framework_name,
+        pcm_provider,
+        deps_providers,
+        ["-target", get_target_triple(ctx)],
+    )
+
+    partial_cmd = get_base_swiftinterface_compilation_flags(framework_name)
+
+    swiftinterface_path = cmd_args(
+        framework_directory_artifact,
+        "/Modules/",
+        framework_name,
+        ".swiftmodule/" + get_unversioned_target_triple(ctx) + ".swiftinterface",
+        delimiter = "",
+    )
+
+    swift_compiled_module, _ = compile_swiftinterface_common(
+        ctx,
+        ctx.attrs.deps,
+        True,  # is_framework
+        framework_name,
+        partial_cmd,
+        deps_providers,
+        swiftinterface_path,
+        "prebuilt_framework_swiftinterface_compilation",
+        compiled_underlying_pcm,
+    )
+
+    debug_info_tset = make_artifact_tset(
+        actions = ctx.actions,
+        artifacts = [swift_compiled_module.output_artifact],
+        children = get_external_debug_info_tsets(ctx.attrs.deps),
+        label = ctx.label,
+        tags = [ArtifactInfoTag("swiftmodule")],
+    )
+
+    swift_dependency_info = create_swift_dependency_info(
+        ctx,
+        ctx.attrs.deps,
+        deps_providers,
+        swift_compiled_module,
+        debug_info_tset,
+    )
+
+    return swift_dependency_info
 
 def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_directory_artifact: Artifact) -> list[Provider]:
     framework_name = to_framework_name(framework_directory_artifact.basename)

@@ -85,19 +85,13 @@ def compile_swiftinterface_common(
         identifier = uncompiled_module_info_name,
     )
 
-    compiled_sdk = SwiftCompiledModuleInfo(
+    return SwiftCompiledModuleInfo(
         is_framework = is_framework,
         is_sdk_module = True,
         is_swiftmodule = True,
         module_name = uncompiled_module_info_name,
         output_artifact = swiftmodule_output,
-    )
-
-    return WrappedSdkCompiledModuleInfo(
-        swift_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [swift_deps_tset]),
-        swift_debug_info = extract_and_merge_swift_debug_infos(ctx, sdk_deps_providers, [swiftmodule_output]),
-        clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_deps_providers),
-    )
+    ), swift_deps_tset
 
 def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     def k(sdk_deps_providers) -> list[Provider]:
@@ -113,7 +107,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
             uncompiled_sdk_module_info.input_relative_path,
         )
 
-        wrapped_sdk_compiled_module_info = compile_swiftinterface_common(
+        compiled_sdk, swift_deps_tset = compile_swiftinterface_common(
             ctx,
             [],
             uncompiled_sdk_module_info.is_framework,
@@ -123,6 +117,12 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
             expanded_swiftinterface_cmd,
             "sdk_swiftinterface_compile",
             None,
+        )
+
+        wrapped_sdk_compiled_module_info = WrappedSdkCompiledModuleInfo(
+            swift_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [swift_deps_tset]),
+            swift_debug_info = extract_and_merge_swift_debug_infos(ctx, sdk_deps_providers, [compiled_sdk.output_artifact]),
+            clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_deps_providers),
         )
 
         return [
