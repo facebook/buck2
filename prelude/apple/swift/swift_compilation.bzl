@@ -142,6 +142,40 @@ _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency",
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
+def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: typing.Callable) -> Promise:
+    # Get SDK deps from direct dependencies,
+    # all transitive deps will be compiled recursively.
+    direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
+        ctx.attrs.sdk_modules,
+        _REQUIRED_SDK_MODULES,
+        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+    )
+
+    # Recursively compiling headers of direct and transitive deps as PCM modules,
+    # prebuilt_apple_framework rule doesn't support custom compiler_flags, so we pass only target triple.
+    pcm_targets = get_swift_pcm_anon_targets(
+        ctx,
+        ctx.attrs.deps,
+        ["-target", get_target_triple(ctx)],
+        False,  # C++ Interop is disabled for now.
+    )
+
+    # Recursively compiling SDK's Clang dependencies,
+    # prebuilt_apple_framework rule doesn't support custom compiler_flags, so we pass only target triple.
+    sdk_pcm_targets = get_swift_sdk_pcm_anon_targets(
+        ctx,
+        False,
+        direct_uncompiled_sdk_deps,
+        ["-target", get_target_triple(ctx)],
+    )
+
+    # Recursively compile SDK and prebuilt_apple_framework's Swift dependencies.
+    swift_interface_anon_targets = get_swift_interface_anon_targets(
+        ctx,
+        direct_uncompiled_sdk_deps,
+    )
+    return ctx.actions.anon_targets(pcm_targets + sdk_pcm_targets + swift_interface_anon_targets).promise.map(get_providers)
+
 def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_providers: typing.Callable) -> Promise:
     swift_cxx_flags = get_swift_cxx_flags(ctx)
 
