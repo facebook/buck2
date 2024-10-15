@@ -14,3 +14,9 @@ buck2_e2e_test(
     srcs = ["test_allow_eden.py"],
     data_dir = "test_allow_eden_data",
 )
+
+buck2_e2e_test(
+    name = "test_modify_eden",
+    srcs = ["test_modify_eden.py"],
+    data_dir = "test_modify_eden_data",
+)

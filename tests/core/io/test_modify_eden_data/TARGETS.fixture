@@ -1,0 +1,6 @@
+load(":copy_file.bzl", "copy_file")
+
+copy_file(
+    name = "copy_file",
+    src = "src.txt",
+)
