@@ -6,6 +6,11 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
+load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
+load(
+    "@prelude//apple/swift:swift_compilation.bzl",
+    "get_swift_framework_anonymous_targets",
+)
 load(
     "@prelude//apple/swift:swift_pcm_compilation_types.bzl",
     "SwiftPCMUncompiledInfo",
@@ -55,105 +60,111 @@ load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
 
-def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
-    providers = []
+def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
+    def get_prebuilt_apple_framework_providers(_) -> list[Provider]:
+        providers = []
 
-    framework_directory_artifact = ctx.attrs.framework
+        framework_directory_artifact = ctx.attrs.framework
 
-    # Check this rule's `supported_platforms_regex` with the current platform.
-    if cxx_platform_supported(ctx):
-        # Sandbox the framework, to avoid leaking other frameworks via search paths.
-        framework_name = to_framework_name(framework_directory_artifact.basename)
-        framework_dir = ctx.actions.symlinked_dir(
-            "Frameworks",
-            {framework_name + ".framework": framework_directory_artifact},
-        )
+        # Check this rule's `supported_platforms_regex` with the current platform.
+        if cxx_platform_supported(ctx):
+            # Sandbox the framework, to avoid leaking other frameworks via search paths.
+            framework_name = to_framework_name(framework_directory_artifact.basename)
+            framework_dir = ctx.actions.symlinked_dir(
+                "Frameworks",
+                {framework_name + ".framework": framework_directory_artifact},
+            )
 
-        # Add framework & pp info from deps.
-        inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-        providers.append(cxx_merge_cpreprocessors(
-            ctx,
-            [CPreprocessor(args = CPreprocessorArgs(args = ["-F", framework_dir]))],
-            inherited_pp_info,
-        ))
-
-        # Add framework to link args.
-        # TODO(T110378120): Support shared linking for mac targets:
-        # https://fburl.com/code/pqrtt1qr.
-        args = []
-        args.extend(cxx_attr_exported_linker_flags(ctx))
-        args.extend(["-F", framework_dir])
-        args.extend(["-framework", framework_name])
-        link = LinkInfo(
-            name = framework_name,
-            pre_flags = args,
-        )
-        link_info = LinkInfos(default = link)
-
-        providers.append(create_merged_link_info(
-            ctx,
-            get_cxx_toolchain_info(ctx).pic_behavior,
-            {output_style: link_info for output_style in LibOutputStyle},
-        ))
-
-        # Create, augment and provide the linkable graph.
-        linkable_graph = create_linkable_graph(
-            ctx,
-            node = create_linkable_graph_node(
+            # Add framework & pp info from deps.
+            inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
+            providers.append(cxx_merge_cpreprocessors(
                 ctx,
-                linkable_node = create_linkable_node(
+                [CPreprocessor(args = CPreprocessorArgs(args = ["-F", framework_dir]))],
+                inherited_pp_info,
+            ))
+
+            # Add framework to link args.
+            # TODO(T110378120): Support shared linking for mac targets:
+            # https://fburl.com/code/pqrtt1qr.
+            args = []
+            args.extend(cxx_attr_exported_linker_flags(ctx))
+            args.extend(["-F", framework_dir])
+            args.extend(["-framework", framework_name])
+            link = LinkInfo(
+                name = framework_name,
+                pre_flags = args,
+            )
+            link_info = LinkInfos(default = link)
+
+            providers.append(create_merged_link_info(
+                ctx,
+                get_cxx_toolchain_info(ctx).pic_behavior,
+                {output_style: link_info for output_style in LibOutputStyle},
+            ))
+
+            # Create, augment and provide the linkable graph.
+            linkable_graph = create_linkable_graph(
+                ctx,
+                node = create_linkable_graph_node(
                     ctx,
-                    preferred_linkage = cxx_attr_preferred_linkage(ctx),
-                    link_infos = {output_style: link_info for output_style in LibOutputStyle},
-                    # TODO(cjhopman): this should be set to non-None
-                    default_soname = None,
+                    linkable_node = create_linkable_node(
+                        ctx,
+                        preferred_linkage = cxx_attr_preferred_linkage(ctx),
+                        link_infos = {output_style: link_info for output_style in LibOutputStyle},
+                        # TODO(cjhopman): this should be set to non-None
+                        default_soname = None,
+                    ),
+                    excluded = {ctx.label: None},
                 ),
-                excluded = {ctx.label: None},
-            ),
+            )
+            providers.append(linkable_graph)
+
+        providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
+        providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
+
+        # The default output is the provided framework.
+        sub_targets = {
+            "distribution": _sanitize_framework_for_app_distribution(ctx, framework_directory_artifact) + providers,
+        }
+
+        if ctx.attrs.dsyms:
+            sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = ctx.attrs.dsyms)]
+            providers.append(AppleDebuggableInfo(dsyms = ctx.attrs.dsyms, debug_info_tset = ArtifactTSet()))
+
+        providers.append(DefaultInfo(default_output = framework_directory_artifact, sub_targets = sub_targets))
+        providers.append(AppleBundleInfo(
+            bundle = framework_directory_artifact,
+            bundle_type = AppleBundleTypeDefault,
+            skip_copying_swift_stdlib = True,
+            contains_watchapp = None,
+        ))
+
+        exported_pp_info = CPreprocessor(
+            headers = [],
+            modular_args = [],
+            args = CPreprocessorArgs(args = [
+                cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
+            ]),
+            modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
         )
-        providers.append(linkable_graph)
+        framework_name = to_framework_name(framework_directory_artifact.basename)
+        pcm_provider = SwiftPCMUncompiledInfo(
+            name = framework_name,
+            is_transient = False,
+            exported_preprocessor = exported_pp_info,
+            exported_deps = ctx.attrs.deps,
+            propagated_preprocessor_args_cmd = cmd_args([]),
+            uncompiled_sdk_modules = ctx.attrs.sdk_modules,
+        )
+        providers.append(pcm_provider)
 
-    providers.append(merge_link_group_lib_info(deps = ctx.attrs.deps))
-    providers.append(merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)))
+        return providers
 
-    # The default output is the provided framework.
-    sub_targets = {
-        "distribution": _sanitize_framework_for_app_distribution(ctx, framework_directory_artifact) + providers,
-    }
-
-    if ctx.attrs.dsyms:
-        sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_outputs = ctx.attrs.dsyms)]
-        providers.append(AppleDebuggableInfo(dsyms = ctx.attrs.dsyms, debug_info_tset = ArtifactTSet()))
-
-    providers.append(DefaultInfo(default_output = framework_directory_artifact, sub_targets = sub_targets))
-    providers.append(AppleBundleInfo(
-        bundle = framework_directory_artifact,
-        bundle_type = AppleBundleTypeDefault,
-        skip_copying_swift_stdlib = True,
-        contains_watchapp = None,
-    ))
-
-    exported_pp_info = CPreprocessor(
-        headers = [],
-        modular_args = [],
-        args = CPreprocessorArgs(args = [
-            cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
-        ]),
-        modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
-    )
-    framework_name = to_framework_name(framework_directory_artifact.basename)
-    pcm_provider = SwiftPCMUncompiledInfo(
-        name = framework_name,
-        is_transient = False,
-        exported_preprocessor = exported_pp_info,
-        exported_deps = ctx.attrs.deps,
-        propagated_preprocessor_args_cmd = cmd_args([]),
-        uncompiled_sdk_modules = ctx.attrs.sdk_modules,
-    )
-
-    providers.append(pcm_provider)
-
-    return providers
+    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    if is_sdk_modules_provided(swift_toolchain):
+        return get_swift_framework_anonymous_targets(ctx, get_prebuilt_apple_framework_providers)
+    else:
+        return get_prebuilt_apple_framework_providers([])
 
 def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_directory_artifact: Artifact) -> list[Provider]:
     framework_name = to_framework_name(framework_directory_artifact.basename)
