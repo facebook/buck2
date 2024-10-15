@@ -12,7 +12,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleTo
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
-load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
+load("@prelude//decls/apple_rules.bzl", "AppleBundleExtension")
 
 def _get_apple_resources_toolchain_attr():
     # FIXME: prelude// should be standalone (not refer to fbcode//)

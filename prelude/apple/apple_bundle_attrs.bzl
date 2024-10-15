@@ -8,7 +8,7 @@
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_bundle_extra_attrs")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
-load("@prelude//decls/ios_rules.bzl", "AppleBundleExtension")
+load("@prelude//decls/apple_rules.bzl", "AppleBundleExtension")
 
 def _apple_bundle_base_attrs():
     return {
