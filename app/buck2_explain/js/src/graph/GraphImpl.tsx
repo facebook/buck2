@@ -94,6 +94,7 @@ export function GraphImpl(props: {
 
   const [categories, setCategories] = useState(categoryOptions)
   const [colorByCfg, setColorByCfg] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
@@ -380,6 +381,13 @@ export function GraphImpl(props: {
               onChange={e => setColorByCfg(e.target.checked)}></input>{' '}
             Color by configuration
           </label>
+          <label className="checkbox ml-2 mt-4">
+            <input
+              type="checkbox"
+              checked={showLabels}
+              onChange={e => setShowLabels(e.target.checked)}></input>{' '}
+            Show labels
+          </label>
         </div>
         <div className="cell">
           <div className="field">
@@ -408,6 +416,7 @@ export function GraphImpl(props: {
       <GraphViz
         nodes={data}
         colorByCfg={colorByCfg}
+        showLabels={showLabels}
         links={edges}
         setPath={(name: string) => {
           const fromInput = document.getElementById('pathFrom') as HTMLInputElement
