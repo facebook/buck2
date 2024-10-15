@@ -857,7 +857,7 @@ def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftCompiledModuleTs
         if SwiftDependencyInfo in d
     ]
 
-def _get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet]:
+def get_external_debug_info_tsets(deps: list[Dependency]) -> list[ArtifactTSet]:
     return [
         d[SwiftDependencyInfo].debug_info_tset
         for d in deps
@@ -882,16 +882,33 @@ def get_swift_pcm_uncompile_info(
         )
     return None
 
+def create_swift_dependency_info(
+        ctx: AnalysisContext,
+        deps,
+        deps_providers: list,
+        compiled_info: [SwiftCompiledModuleInfo, None],
+        debug_info_tset: ArtifactTSet):
+    # We pass through the SDK swiftmodules here to match Buck 1 behaviour. This is
+    # pretty loose, but it matches Buck 1 behavior so cannot be improved until
+    # migration is complete.
+    transitive_swiftmodule_deps = _get_swift_paths_tsets(deps) + [get_compiled_sdk_swift_deps_tset(ctx, deps_providers)]
+
+    if compiled_info:
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = transitive_swiftmodule_deps)
+    else:
+        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, children = transitive_swiftmodule_deps)
+
+    return SwiftDependencyInfo(
+        debug_info_tset = debug_info_tset,
+        exported_swiftmodules = exported_swiftmodules,
+    )
+
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         output_module: Artifact | None,
         deps_providers: list) -> SwiftDependencyInfo:
     exported_deps = _exported_deps(ctx)
 
-    # We pass through the SDK swiftmodules here to match Buck 1 behaviour. This is
-    # pretty loose, but it matches Buck 1 behavior so cannot be improved until
-    # migration is complete.
-    transitive_swiftmodule_deps = _get_swift_paths_tsets(exported_deps) + [get_compiled_sdk_swift_deps_tset(ctx, deps_providers)]
     if output_module:
         compiled_info = SwiftCompiledModuleInfo(
             is_framework = False,
@@ -900,21 +917,23 @@ def get_swift_dependency_info(
             module_name = get_module_name(ctx),
             output_artifact = output_module,
         )
-        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_info, children = transitive_swiftmodule_deps)
     else:
-        exported_swiftmodules = ctx.actions.tset(SwiftCompiledModuleTset, children = transitive_swiftmodule_deps)
+        compiled_info = None
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = [output_module] if output_module != None else [],
-        children = _get_external_debug_info_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
+        children = get_external_debug_info_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
         label = ctx.label,
         tags = [ArtifactInfoTag("swiftmodule")],
     )
 
-    return SwiftDependencyInfo(
-        debug_info_tset = debug_info_tset,
-        exported_swiftmodules = exported_swiftmodules,
+    return create_swift_dependency_info(
+        ctx,
+        exported_deps,
+        deps_providers,
+        compiled_info,
+        debug_info_tset,
     )
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
