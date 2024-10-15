@@ -14,8 +14,6 @@ import {QueryKey} from '../Router'
 
 export interface Node {
   value: number
-  deps: number[]
-  rdeps: number[]
   transitiveDeps: number
   transitiveSrcs: number
   srcs: number
@@ -24,8 +22,6 @@ export interface Node {
 function defaultNode(): Node {
   return {
     value: 0,
-    deps: [],
-    rdeps: [],
     transitiveDeps: 0,
     transitiveSrcs: 0,
     srcs: 0,
@@ -41,6 +37,7 @@ export function GraphView(props: {view: QueryKey}) {
 
   // build better data structure
   let nodeMap = new Map<number, Node>()
+  let graphDeps: Map<number, {deps: number[]; rdeps: number[]}> = new Map()
   for (let i = 0; i < build.targetsLength(); i++) {
     // Create node object
     if (nodeMap.get(i) == null) {
@@ -48,6 +45,7 @@ export function GraphView(props: {view: QueryKey}) {
         ...defaultNode(),
         value: i,
       })
+      graphDeps.set(i, {deps: [], rdeps: []})
     }
   }
 
@@ -67,20 +65,20 @@ export function GraphView(props: {view: QueryKey}) {
       const d = allTargets[dep]
 
       // Record deps
-      node.deps.push(d)
+      graphDeps.get(k)!.deps.push(d)
 
       // Record rdeps
       if (d === k) {
         throw Error('wth')
       }
-      nodeMap.get(d)!.rdeps.push(k)
+      graphDeps.get(d)!.rdeps.push(k)
     }
   }
 
   // Sum transitive deps. For each node, we traverse all the transitive rdeps
   for (const [k, node] of nodeMap) {
     let visited = new Set()
-    let rdeps = new Set(nodeMap.get(k)!.rdeps)
+    let rdeps = new Set(graphDeps.get(k)!.rdeps)
 
     while (rdeps.size > 0) {
       let next: Set<number> = new Set()
@@ -88,12 +86,13 @@ export function GraphView(props: {view: QueryKey}) {
         if (!visited.has(r)) {
           // Add transitive deps
           const rnode = nodeMap.get(r)!
+          const rdeps2 = graphDeps.get(r)!.rdeps
           rnode.transitiveDeps += 1
           // Add transitive srcs
           rnode.transitiveSrcs += node.srcs
 
           visited.add(r)
-          for (const r2 of rnode.rdeps) {
+          for (const r2 of rdeps2) {
             next.add(r2)
           }
         }
@@ -125,6 +124,7 @@ export function GraphView(props: {view: QueryKey}) {
   return (
     <div className="mx-4">
       <GraphImpl
+        graphDeps={graphDeps}
         nodes={nodeMap}
         build={build}
         categoryOptions={categoryOptions}

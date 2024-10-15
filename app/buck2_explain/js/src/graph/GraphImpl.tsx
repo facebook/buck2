@@ -39,11 +39,12 @@ function showNode(node: DisplayNode) {
 export function GraphImpl(props: {
   nodes: Map<number, Node>
   build: Build
+  graphDeps: Map<number, {deps: number[]; rdeps: number[]}>
   maxSrcs: number
   allTargets: {[key: string]: number}
   categoryOptions: {category: string; count: number; checked: boolean}[]
 }) {
-  const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
+  const {nodes, build, categoryOptions, allTargets, maxSrcs, graphDeps} = props
 
   const nodeMap: Map<number, DisplayNode> = new Map()
   for (const [k, node] of nodes) {
@@ -105,6 +106,7 @@ export function GraphImpl(props: {
     nodeMap.get(0)!.displayType = DisplayType.rootNode
   }
 
+  let displayNodes: Map<number, DisplayNode> = new Map()
   let filteredNodes = new Map()
   for (const [k, node] of nodeMap) {
     if (showNode(node)) {
@@ -124,7 +126,7 @@ export function GraphImpl(props: {
     while (stack.length > 0) {
       const n1 = stack.shift()
 
-      for (const r of nodeMap.get(n1)!.rdeps) {
+      for (const r of graphDeps.get(n1)!.rdeps) {
         if (visited.has(r)) {
           continue
         }
@@ -219,7 +221,7 @@ export function GraphImpl(props: {
         if (node === to) {
           break
         }
-        for (let d of nodeMap.get(node)!.deps) {
+        for (let d of graphDeps.get(node)!.deps) {
           if (!parentOf.has(d)) {
             parentOf.set(d, node)
             queue.push(d)
