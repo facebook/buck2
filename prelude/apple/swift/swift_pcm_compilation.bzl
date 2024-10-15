@@ -105,8 +105,7 @@ def _compiled_module_info(
     )
 
     clang_importer_args = cmd_args(
-        "-Xcc",
-        pcm_info.exported_preprocessor.args.args,
+        cmd_args(pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
         hidden = pcm_info.exported_preprocessor.modular_args,
     )
 
@@ -289,12 +288,7 @@ def _get_base_pcm_flags(
         pcm_deps_tset.project_as_args("clang_importer_flags"),
         # To correctly resolve modulemap's headers,
         # a search path to the root of modulemap should be passed.
-        [
-            "-Xcc",
-            "-I",
-            "-Xcc",
-            cmd_args(modulemap_path, parent = 1),
-        ],
+        cmd_args(uncompiled_pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
         # Modular deps like `-Swift.h` have to be materialized.
         hidden = uncompiled_pcm_info.exported_preprocessor.modular_args,
     )
