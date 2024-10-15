@@ -214,9 +214,11 @@ extra_attributes = {
         "path": attrs.source(allow_directory = True),
     },
     "prebuilt_apple_framework": {
+        "contains_swift": attrs.bool(default = False),
         "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
+        "sdk_modules": attrs.list(attrs.string(), default = []),
         "stripped": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
         "_apple_tools": attrs.default_only(attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo])),
