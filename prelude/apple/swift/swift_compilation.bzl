@@ -64,7 +64,7 @@ load(
     "SwiftPCMUncompiledInfo",
 )
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
-load(":swift_sdk_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
+load(":swift_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 load(
     ":swift_toolchain_types.bzl",
     "SwiftCompiledModuleInfo",
