@@ -43,7 +43,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::ValueOf;
+use starlark::values::ValueTyped;
 
 #[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
 #[repr(C)]
@@ -336,13 +336,13 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured_with_abs_path) # should return the absolute path of the artifact
     /// ```
     fn abs_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifact>,
+        this: ValueTyped<'v, EnsuredArtifact>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if this.typed.abs() {
-            Ok(this.value)
+    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifact>> {
+        if this.abs() {
+            Ok(this)
         } else {
-            let artifact = match this.typed {
+            let artifact = match &*this {
                 EnsuredArtifact::Artifact { artifact, .. } => EnsuredArtifact::Artifact {
                     artifact: artifact.dupe(),
                     abs: true,
@@ -355,7 +355,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
                 }
             };
 
-            Ok(heap.alloc(artifact))
+            Ok(heap.alloc_typed(artifact))
         }
     }
 
@@ -375,13 +375,13 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured_with_rel_path) # should return the relative path of the artifact
     /// ```
     fn rel_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifact>,
+        this: ValueTyped<'v, EnsuredArtifact>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if !this.typed.abs() {
-            Ok(this.value)
+    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifact>> {
+        if !this.abs() {
+            Ok(this)
         } else {
-            let artifact = match this.typed {
+            let artifact = match &*this {
                 EnsuredArtifact::Artifact { artifact, .. } => EnsuredArtifact::Artifact {
                     artifact: artifact.dupe(),
                     abs: false,
@@ -394,7 +394,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
                 }
             };
 
-            Ok(heap.alloc(artifact))
+            Ok(heap.alloc_typed(artifact))
         }
     }
 }
@@ -422,18 +422,18 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured_with_abs_path) # should return the absolute path of the artifact
     /// ```
     fn abs_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifactGroup<'v>>,
+        this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if this.typed.abs {
-            Ok(this.value)
+    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
+        if this.abs {
+            Ok(this)
         } else {
             let artifact = EnsuredArtifactGroup {
-                inner: this.typed.inner,
+                inner: this.inner,
                 abs: true,
             };
 
-            Ok(heap.alloc(artifact))
+            Ok(heap.alloc_typed(artifact))
         }
     }
 
@@ -453,18 +453,18 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(ensured_with_rel_path) # should return the relative path of the artifact
     /// ```
     fn rel_path<'v>(
-        this: ValueOf<'v, &'v EnsuredArtifactGroup<'v>>,
+        this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
-        if !this.typed.abs {
-            Ok(this.value)
+    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
+        if !this.abs {
+            Ok(this)
         } else {
             let artifact = EnsuredArtifactGroup {
-                inner: this.typed.inner,
+                inner: this.inner,
                 abs: false,
             };
 
-            Ok(heap.alloc(artifact))
+            Ok(heap.alloc_typed(artifact))
         }
     }
 }
