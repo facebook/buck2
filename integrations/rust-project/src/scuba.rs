@@ -21,8 +21,7 @@ pub(crate) fn log_develop(duration: Duration, input: Input, invoked_by_ra: bool)
     sample.add("input", format!("{:?}", input));
     sample.add("revision", get_sl_revision());
     sample.add("invoked_by_ra", invoked_by_ra);
-    sample.log();
-    sample.flush(Duration::from_millis(500));
+    emit_log(sample);
 }
 
 #[cfg(not(fbcode_build))]
@@ -35,8 +34,7 @@ pub(crate) fn log_develop_error(error: &anyhow::Error, input: Input, invoked_by_
     sample.add("input", format!("{:?}", input));
     sample.add("revision", get_sl_revision());
     sample.add("invoked_by_ra", invoked_by_ra);
-    sample.log();
-    sample.flush(Duration::from_millis(500));
+    emit_log(sample);
 }
 
 #[cfg(not(fbcode_build))]
@@ -58,7 +56,7 @@ pub(crate) fn log_check(duration: Duration, saved_file: &Path, use_clippy: bool)
     sample.add("duration_ms", duration.as_millis() as i64);
     sample.add("saved_file", saved_file.display().to_string());
     sample.add("use_clippy", use_clippy.to_string());
-    sample.log();
+    emit_log(sample);
 }
 
 #[cfg(not(fbcode_build))]
@@ -70,16 +68,16 @@ pub(crate) fn log_check_error(error: &anyhow::Error, saved_file: &Path, use_clip
     sample.add("error", format!("{:#?}", error));
     sample.add("saved_file", saved_file.display().to_string());
     sample.add("use_clippy", use_clippy.to_string());
-    sample.log();
+    emit_log(sample);
 }
 
 #[cfg(not(fbcode_build))]
 pub(crate) fn log_check_error(_error: &anyhow::Error, _saved_file: &Path, _use_clippy: bool) {}
 
 #[cfg(fbcode_build)]
-fn new_sample(kind: &str) -> scuba::ScubaSampleBuilder {
+fn new_sample(kind: &str) -> scuba_sample::ScubaSampleBuilder {
     let fb = fbinit::expect_init();
-    let mut sample = scuba::ScubaSampleBuilder::new(fb, "rust_project");
+    let mut sample = scuba_sample::ScubaSampleBuilder::new(fb, "rust_project");
     sample.add("root_span", kind);
     sample.add("unixname", whoami::username());
     sample.add("hostname", whoami::hostname());
@@ -91,4 +89,37 @@ fn new_sample(kind: &str) -> scuba::ScubaSampleBuilder {
         sample.add("session_id", session_id);
     }
     sample
+}
+
+#[cfg(fbcode_build)]
+fn emit_log(message: scuba_sample::ScubaSampleBuilder) {
+    use std::io::Write;
+    use std::process::Child;
+    use std::process::Command;
+    use std::process::Stdio;
+
+    let message = message.to_json().unwrap().to_string();
+    let mut child: Child = match Command::new("scribe_cat")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .args(["perfpipe_rust_project"])
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_err) => {
+            eprintln!("Error spawning scribe_cat child process");
+            return;
+        }
+    };
+
+    if child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(message.as_bytes())
+        .is_err()
+    {
+        eprintln!("Could not write to scribe_cat stdin");
+    };
 }
