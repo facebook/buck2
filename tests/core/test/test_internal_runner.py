@@ -17,23 +17,21 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 INTERNAL_TEST_EXECUTOR = ""
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_for_os=["windows"])
+@buck_test()
 @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
 async def test_internal_test_executor(buck: Buck) -> None:
     await buck.test(
-        "fbcode//buck2/tests/targets/rules/sh_test:test",
+        ":trivial_pass",
         test_executor=INTERNAL_TEST_EXECUTOR,
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_for_os=["windows"])
+@buck_test()
 @env("TEST_VAR", "BAD_VALUE")
 @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
 async def test_internal_test_executor_env(buck: Buck) -> None:
     await buck.test(
-        "fbcode//buck2/tests/targets/rules/sh_test:test_env",
+        ":check_env",
         "--",
         "--env",
         "TEST_VAR=TEST_VALUE",
@@ -41,13 +39,12 @@ async def test_internal_test_executor_env(buck: Buck) -> None:
     )
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(inplace=True, skip_for_os=["windows"])
+@buck_test()
 @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
 async def test_internal_test_executor_timeout(buck: Buck) -> None:
     await expect_failure(
         buck.test(
-            "fbcode//buck2/tests/targets/rules/sh_test:test_timeout",
+            ":timeout",
             "--",
             "--timeout",
             "1",
@@ -55,9 +52,3 @@ async def test_internal_test_executor_timeout(buck: Buck) -> None:
         ),
         stderr_regex="Timeout: ",
     )
-
-
-@buck_test(inplace=True)
-async def test_windows_dummy() -> None:
-    # None of the tests in this file pass on Windows and that upsets CI.
-    pass

@@ -3,6 +3,14 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 oncall("build_infra")
 
 buck2_e2e_test(
+    name = "test_internal_runner",
+    srcs = ["test_internal_runner.py"],
+    data_dir = "test_internal_runner_data",
+    serialize_test_cases = False,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
     name = "test_platform_resolution",
     srcs = ["test_platform_resolution.py"],
     data_dir = "test_platform_resolution_data",
