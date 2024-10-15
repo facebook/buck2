@@ -39,11 +39,6 @@ static INSTANCE: Lazy<CancellationContext> =
 pub struct CancellationContext<'a>(CancellationContextInner<'a>);
 
 impl<'a> CancellationContext<'a> {
-    /// TODO replace with real initialization
-    pub fn todo() -> Self {
-        CancellationContext(CancellationContextInner::ThreadLocal)
-    }
-
     pub fn testing() -> &'a Self {
         &INSTANCE
     }
