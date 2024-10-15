@@ -117,6 +117,14 @@ impl Hash for RemoteExecutorUseCase {
     }
 }
 
+impl FromStr for RemoteExecutorUseCase {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(RemoteExecutorUseCase::new(s.to_owned()))
+    }
+}
+
 #[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
 pub struct RemoteExecutorOptions {
     pub re_max_input_files_bytes: Option<u64>,

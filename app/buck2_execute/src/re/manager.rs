@@ -302,6 +302,7 @@ impl ReConnectionHandle {
     pub fn get_client(&self) -> ManagedRemoteExecutionClient {
         ManagedRemoteExecutionClient {
             data: Arc::downgrade(&self.connection),
+            re_use_case_override: None,
         }
     }
 }
@@ -309,9 +310,15 @@ impl ReConnectionHandle {
 #[derive(Clone, Dupe)]
 pub struct ManagedRemoteExecutionClient {
     data: Weak<Arc<LazyRemoteExecutionClient>>,
+    re_use_case_override: Option<RemoteExecutorUseCase>,
 }
 
 impl ManagedRemoteExecutionClient {
+    pub fn with_re_use_case_override(mut self, use_case: Option<RemoteExecutorUseCase>) -> Self {
+        self.re_use_case_override = use_case;
+        self
+    }
+
     fn lock(&self) -> anyhow::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
         self.data
             .upgrade()
@@ -515,6 +522,9 @@ impl ManagedRemoteExecutionClient {
     /// Construct a dummy ManagedRemoteExecutionClient that won't actually work. This is only
     /// remotely useful in tests.
     pub fn testing_new_dummy() -> Self {
-        Self { data: Weak::new() }
+        Self {
+            data: Weak::new(),
+            re_use_case_override: None,
+        }
     }
 }

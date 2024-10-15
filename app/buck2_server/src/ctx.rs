@@ -53,6 +53,7 @@ use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -708,8 +709,17 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             })?
             .unwrap_or(CriticalPathBackendName::Default);
 
+        let override_use_case = root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
+            section: "buck2_re_client",
+            property: "override_use_case",
+        })?;
+
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
-        data.set_re_client(self.re_connection.get_client());
+        data.set_re_client(
+            self.re_connection
+                .get_client()
+                .with_re_use_case_override(override_use_case),
+        );
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
