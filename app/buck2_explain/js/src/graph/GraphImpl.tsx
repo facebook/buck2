@@ -13,6 +13,7 @@ import {RuleTypeDropdown} from './RuleTypeDropdown'
 import {Node} from './GraphView'
 import {GraphViz} from './GraphViz'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
+import {shortestPathTree} from './graph'
 
 enum NodeSizeOption {
   transitiveDeps,
@@ -35,16 +36,41 @@ function showNode(node: DisplayNode) {
   return node.displayType != DisplayType.hidden
 }
 
+type DepsGraph = Map<number, {deps: number[]; rdeps: number[]}>
+
+function toLeanGraph(graph: DepsGraph): Map<number, number[]> {
+  let newGraph = new Map()
+  for (const [k, node] of graph) {
+    newGraph.set(k, node.deps)
+  }
+  return newGraph
+}
+
+function fromLeanGraph(graph: Map<number, number[]>): DepsGraph {
+  let newGraph = new Map()
+  for (const [k, deps] of graph) {
+    newGraph.set(k, {deps, rdeps: []})
+  }
+  for (const [k, deps] of graph) {
+    for (const d of deps) {
+      newGraph.get(d)!.rdeps.push(k)
+    }
+  }
+  return newGraph
+}
+
 // Here it goes everything that should reload on user interaction
 export function GraphImpl(props: {
   nodes: Map<number, Node>
   build: Build
-  graphDeps: Map<number, {deps: number[]; rdeps: number[]}>
+  graphDeps: DepsGraph
   maxSrcs: number
   allTargets: {[key: string]: number}
   categoryOptions: {category: string; count: number; checked: boolean}[]
 }) {
-  const {nodes, build, categoryOptions, allTargets, maxSrcs, graphDeps} = props
+  const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
+
+  const graphDeps = fromLeanGraph(shortestPathTree(toLeanGraph(props.graphDeps), 0))
 
   const nodeMap: Map<number, DisplayNode> = new Map()
   for (const [k, node] of nodes) {
