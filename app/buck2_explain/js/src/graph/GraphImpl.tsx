@@ -183,7 +183,7 @@ export function GraphImpl(props: {
 
     // Add nodes to graph
     data.push({
-      val: translateValues(sizeValue, maxValue), // controls size
+      val: translateValues(sizeValue, maxValue) + 0.5, // controls size
       id: k,
       name: target.configuredTargetLabel()!,
       displayType: node.displayType,

@@ -39,7 +39,7 @@ export function GraphViz(props: {
       linkDirectionalArrowLength={10 / Math.pow(nodes.length, 0.2)}
       linkDirectionalArrowRelPos={1}
       linkCurvature={0.2}
-      linkWidth={3 / Math.pow(nodes.length, 0.5)}
+      linkWidth={10 / Math.pow(links.length, 0.5)}
       linkHoverPrecision={6}
       dagMode={dagMode}
       nodeAutoColorBy={props.colorBy}
