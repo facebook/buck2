@@ -7,6 +7,7 @@
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode//target_determinator/macros:ci.bzl", "ci")
+load("@fbcode//target_determinator/macros:ci_hint.bzl", "ci_hint")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 
@@ -31,7 +32,9 @@ def buck_e2e_test(
         pytest_confcutdir = None,
         serialize_test_cases = None,
         require_nano_prelude = None,
-        cfg_modifiers = ()):
+        cfg_modifiers = (),
+        ci_srcs = [],
+        ci_deps = []):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -59,7 +62,8 @@ def buck_e2e_test(
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
-    if read_package_value and read_package_value("buck2_e2e_test.flavor") == "isolated":
+    e2e_flavor = read_package_value and read_package_value("buck2_e2e_test.flavor")
+    if e2e_flavor == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
         serialize_test_cases = serialize_test_cases or False
     else:
@@ -139,6 +143,35 @@ def buck_e2e_test(
         metadata = metadata,
     )
 
+    if e2e_flavor == "buck2_non_isolated":
+        # These are buck2's own non-isolated e2e tests. Add a ci hint indicating
+        # that they depend on many of the macros in the repo. Intentionally
+        # don't do this for other users of `buck2_e2e_test` in the repo
+        BUCK2_E2E_TEST_CI_SRCS = [
+            "fbandroid/buck2/**",
+            "fbcode/buck2/cfg/**",
+            "fbcode/buck2/prelude/**",
+            "fbcode/buck2/platform/**",
+            "fbcode/buck2/toolchains/**",
+            "fbcode/buck2/tests/targets/**",
+            "fbobjc/buck2/**",
+            "xplat/buck2/**",
+            "xplat/toolchains/**",
+            "fbcode/hermetic_infra/fdb/**",
+            "tools/build_defs/**",
+            "arvr/tools/build_defs/config/**",
+            ".buckconfig",
+            "tools/buckconfigs/**",
+        ]
+        ci_srcs = ci_srcs + BUCK2_E2E_TEST_CI_SRCS
+    if ci_srcs or ci_deps:
+        ci_hint(
+            ci_srcs = ci_srcs,
+            ci_deps = ci_deps,
+            reason = "Non isolated buck2 e2e tests depend heavily on macros",
+            target = name,
+        )
+
 def buck2_e2e_test(
         name,
         test_with_compiled_buck2 = True,
@@ -161,7 +194,9 @@ def buck2_e2e_test(
         pytest_expr = None,
         pytest_confcutdir = None,
         serialize_test_cases = None,
-        require_nano_prelude = None):
+        require_nano_prelude = None,
+        ci_srcs = [],
+        ci_deps = []):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -184,6 +219,8 @@ def buck2_e2e_test(
     """
     kwargs = {
         "base_module": base_module,
+        "ci_deps": ci_deps,
+        "ci_srcs": ci_srcs,
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
