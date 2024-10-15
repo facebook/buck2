@@ -6,6 +6,10 @@
 # of this source tree.
 
 load("@prelude//:artifact_tset.bzl", "ArtifactTSet")
+load(
+    "@prelude//apple/swift:swift_pcm_compilation_types.bzl",
+    "SwiftPCMUncompiledInfo",
+)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -128,6 +132,26 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> list[Provider]:
         skip_copying_swift_stdlib = True,
         contains_watchapp = None,
     ))
+
+    exported_pp_info = CPreprocessor(
+        headers = [],
+        modular_args = [],
+        args = CPreprocessorArgs(args = [
+            cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
+        ]),
+        modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
+    )
+    framework_name = to_framework_name(framework_directory_artifact.basename)
+    pcm_provider = SwiftPCMUncompiledInfo(
+        name = framework_name,
+        is_transient = False,
+        exported_preprocessor = exported_pp_info,
+        exported_deps = ctx.attrs.deps,
+        propagated_preprocessor_args_cmd = cmd_args([]),
+        uncompiled_sdk_modules = ctx.attrs.sdk_modules,
+    )
+
+    providers.append(pcm_provider)
 
     return providers
 
