@@ -71,7 +71,7 @@ def build_package(
         covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
-        symabis = _symabis(ctx, pkg_name, go_list.s_files, assembler_flags)
+        symabis = _symabis(ctx, pkg_name, go_list.s_files, go_list.h_files, assembler_flags)
 
         def build_variant(shared: bool) -> Artifact:
             suffix = "__shared" if shared else ""  # suffix to make artifacts unique
@@ -158,7 +158,7 @@ def _compile(
 
     return (out, asmhdr)
 
-def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assembler_flags: list[str]) -> Artifact | None:
+def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_files: list[Artifact], assembler_flags: list[str]) -> Artifact | None:
     if len(s_files) == 0:
         return None
 
@@ -179,6 +179,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], assem
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
         s_files,
+        h_files,
     ]
 
     identifier = paths.basename(pkg_name)
