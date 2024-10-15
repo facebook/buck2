@@ -330,6 +330,7 @@ impl ManagedRemoteExecutionClient {
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Option<ActionResultResponse>> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         Ok(self
             .lock()?
             .get()
@@ -351,6 +352,7 @@ impl ManagedRemoteExecutionClient {
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
     ) -> anyhow::Result<UploadStats> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -374,6 +376,7 @@ impl ManagedRemoteExecutionClient {
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -400,6 +403,7 @@ impl ManagedRemoteExecutionClient {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -424,6 +428,7 @@ impl ManagedRemoteExecutionClient {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -437,6 +442,7 @@ impl ManagedRemoteExecutionClient {
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<T>> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -449,6 +455,7 @@ impl ManagedRemoteExecutionClient {
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<u8>> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -461,6 +468,7 @@ impl ManagedRemoteExecutionClient {
         blob: Vec<u8>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<TDigest> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?.get().await?.upload_blob(blob, use_case).await
     }
 
@@ -469,6 +477,7 @@ impl ManagedRemoteExecutionClient {
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -482,6 +491,7 @@ impl ManagedRemoteExecutionClient {
         ttl: Duration,
         use_case: RemoteExecutorUseCase,
     ) -> anyhow::Result<()> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
             .await?
@@ -496,6 +506,7 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> anyhow::Result<WriteActionResultResponse> {
+        let use_case = self.re_use_case_override.unwrap_or(use_case);
         if buck2_env_anyhow!(
             "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
             bool,
