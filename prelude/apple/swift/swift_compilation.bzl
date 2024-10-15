@@ -159,6 +159,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
         ctx,
         ctx.attrs.deps + ctx.attrs.exported_deps,
         swift_cxx_flags,
+        ctx.attrs.enable_cxx_interop,
     )
 
     # Recursively compiling SDK's Clang dependencies,

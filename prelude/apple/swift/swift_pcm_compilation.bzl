@@ -36,11 +36,12 @@ def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -
 def get_swift_pcm_anon_targets(
         ctx: AnalysisContext,
         uncompiled_deps: list[Dependency],
-        swift_cxx_args: list[str]):
+        swift_cxx_args: list[str],
+        enable_cxx_interop: bool):
     deps = [
         {
             "dep": uncompiled_dep,
-            "enable_cxx_interop": ctx.attrs.enable_cxx_interop,
+            "enable_cxx_interop": enable_cxx_interop,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
@@ -209,6 +210,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         ctx,
         ctx.attrs.dep[SwiftPCMUncompiledInfo].exported_deps,
         ctx.attrs.swift_cxx_args,
+        ctx.attrs.enable_cxx_interop,
     )
     return ctx.actions.anon_targets(sdk_pcm_deps_anon_targets + swift_pcm_anon_targets).promise.map(k)
 
