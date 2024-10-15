@@ -19,6 +19,8 @@ export interface Node {
   srcs: number
 }
 
+type CategoryOption = {category: string; count: number; checked: false}
+
 function defaultNode(): Node {
   return {
     value: 0,
@@ -101,25 +103,29 @@ export function GraphView(props: {view: QueryKey}) {
     }
   }
 
-  let categoriesCounter = new Map()
-  for (const [k, node] of nodeMap) {
-    const target = build.targets(k)
-    const type = target!.type()
-    categoriesCounter.set(type, (categoriesCounter.get(type) ?? 0) + 1)
-  }
-
-  let categoryOptions: {category: string; count: number; checked: false}[] = []
-  for (const [category, count] of categoriesCounter) {
-    categoryOptions.push({category, count, checked: false})
-  }
-
-  categoryOptions.sort((a, b) => {
-    if (a.category < b.category) {
-      return -1
-    } else {
-      return 1
+  const extractCategories = (): CategoryOption[] => {
+    const categoriesCounter = new Map()
+    for (const [k, _node] of nodeMap) {
+      const target = build.targets(k)
+      const type = target!.type()!
+      categoriesCounter.set(type, (categoriesCounter.get(type) ?? 0) + 1)
     }
-  })
+
+    let categoryOptions: CategoryOption[] = []
+    for (const [category, count] of categoriesCounter) {
+      categoryOptions.push({category, count, checked: false})
+    }
+    categoryOptions.sort((a, b) => {
+      if (a.category < b.category) {
+        return -1
+      } else {
+        return 1
+      }
+    })
+
+    return categoryOptions
+  }
+  const categoryOptions = extractCategories()
 
   return (
     <div className="mx-4">
