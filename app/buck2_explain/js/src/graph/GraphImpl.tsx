@@ -31,6 +31,7 @@ enum DisplayType {
   passesFilters,
   somepath,
   hidden,
+  highlighted,
 }
 
 const displayTypeColors: {[key in DisplayType]: string} = {
@@ -38,6 +39,7 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   [DisplayType.rootNode]: '#1a181b',
   [DisplayType.passesFilters]: '#1c77c3',
   [DisplayType.somepath]: '#9EC1A3',
+  [DisplayType.highlighted]: '#e9724c',
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
 
@@ -94,6 +96,7 @@ export function GraphImpl(props: {
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
+  const [highlighted, setHighlighted] = useState<string | null>(null)
   const [showPaths, setShowPaths] = useState(ShowPaths.All)
   const [selectedOption, setSelectedOption] = useState(NodeSizeOption.transitiveDeps)
 
@@ -153,6 +156,13 @@ export function GraphImpl(props: {
 
       if (passesFilters === true) {
         node.displayType = DisplayType.passesFilters
+      }
+
+      // Add highlighted
+      if (highlighted) {
+        if (label.includes(highlighted)) {
+          node.displayType = DisplayType.highlighted
+        }
       }
     }
 
@@ -247,6 +257,9 @@ export function GraphImpl(props: {
     const exc = inputValue('excludeContaining')
     setExcludeContaining(exc ? exc.split(',') : [])
 
+    // Highlight by label
+    setHighlighted(inputValue('highlightNode'))
+
     // Include by rule type
     const checkboxes = document.querySelectorAll('#checkboxes input[type="checkbox"]')
     for (let i = 0; i < checkboxes.length; i++) {
@@ -315,6 +328,19 @@ export function GraphImpl(props: {
                 className="input"
                 type="text"
                 placeholder="Exclude containing"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="cell">
+          <div className="field">
+            <label className="label">Highlight target by label:</label>
+            <div className="control">
+              <input
+                id="highlightNode"
+                className="input"
+                type="text"
+                placeholder="Label to highlight"
               />
             </div>
           </div>
