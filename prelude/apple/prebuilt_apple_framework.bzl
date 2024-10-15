@@ -65,11 +65,11 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
         providers = []
 
         framework_directory_artifact = ctx.attrs.framework
+        framework_name = to_framework_name(framework_directory_artifact.basename)
 
         # Check this rule's `supported_platforms_regex` with the current platform.
         if cxx_platform_supported(ctx):
             # Sandbox the framework, to avoid leaking other frameworks via search paths.
-            framework_name = to_framework_name(framework_directory_artifact.basename)
             framework_dir = ctx.actions.symlinked_dir(
                 "Frameworks",
                 {framework_name + ".framework": framework_directory_artifact},
@@ -139,23 +139,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
             contains_watchapp = None,
         ))
 
-        exported_pp_info = CPreprocessor(
-            headers = [],
-            modular_args = [],
-            args = CPreprocessorArgs(args = [
-                cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
-            ]),
-            modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
-        )
-        framework_name = to_framework_name(framework_directory_artifact.basename)
-        pcm_provider = SwiftPCMUncompiledInfo(
-            name = framework_name,
-            is_transient = False,
-            exported_preprocessor = exported_pp_info,
-            exported_deps = ctx.attrs.deps,
-            propagated_preprocessor_args_cmd = cmd_args([]),
-            uncompiled_sdk_modules = ctx.attrs.sdk_modules,
-        )
+        pcm_provider = _create_uncompiled_pcm_module_info(ctx, framework_directory_artifact, framework_name)
         providers.append(pcm_provider)
 
         return providers
@@ -165,6 +149,24 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
         return get_swift_framework_anonymous_targets(ctx, get_prebuilt_apple_framework_providers)
     else:
         return get_prebuilt_apple_framework_providers([])
+
+def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory_artifact: Artifact, framework_name: str) -> SwiftPCMUncompiledInfo:
+    exported_pp_info = CPreprocessor(
+        headers = [],
+        modular_args = [],
+        args = CPreprocessorArgs(args = [
+            cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
+        ]),
+        modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
+    )
+    return SwiftPCMUncompiledInfo(
+        name = framework_name,
+        is_transient = False,
+        exported_preprocessor = exported_pp_info,
+        exported_deps = ctx.attrs.deps,
+        propagated_preprocessor_args_cmd = cmd_args([]),
+        uncompiled_sdk_modules = ctx.attrs.sdk_modules,
+    )
 
 def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_directory_artifact: Artifact) -> list[Provider]:
     framework_name = to_framework_name(framework_directory_artifact.basename)
