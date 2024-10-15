@@ -33,6 +33,14 @@ enum DisplayType {
   hidden,
 }
 
+const displayTypeColors: {[key in DisplayType]: string} = {
+  // https://coolors.co/1c77c3-39a9db-9ec1a3-cfe0c3-e9724c
+  [DisplayType.rootNode]: '#1a181b',
+  [DisplayType.passesFilters]: '#1c77c3',
+  [DisplayType.somepath]: '#9EC1A3',
+  [DisplayType.hidden]: 'gray', // doesn't matter
+}
+
 interface DisplayNode extends Node {
   allowedDeps: Map<number, number>
   displayType: DisplayType
@@ -206,7 +214,7 @@ export function GraphImpl(props: {
       val: translateValues(sizeValue, maxValue) + 0.5, // controls size
       id: k,
       name: target.configuredTargetLabel()!,
-      displayType: node.displayType,
+      color: colorByCfg ? undefined : displayTypeColors[node.displayType],
       cfg: target.configuredTargetLabel()!.split('#')[1],
     })
   }
@@ -286,8 +294,6 @@ export function GraphImpl(props: {
       setSomepath(path)
     }
   }
-
-  const colorBy = colorByCfg ? 'cfg' : 'displayType'
 
   return (
     <>
@@ -374,7 +380,7 @@ export function GraphImpl(props: {
 
       <GraphViz
         nodes={data}
-        colorBy={colorBy}
+        colorByCfg={colorByCfg}
         links={edges}
         setPath={(name: string) => {
           const fromInput = document.getElementById('pathFrom') as HTMLInputElement
