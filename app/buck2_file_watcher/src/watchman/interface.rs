@@ -278,8 +278,11 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // (where we'll rebuild things our dep files *could* have avoided) as not flushing in the
         // former (where we'll fetch loads of dep files that all miss), so we err on the side of
         // being safe and drop them when the mergebase changes.
+        //
+        // We do retain dep files that were produced locally, since we don't need to fetch them as
+        // they are already on disk.
         if clear_dep_files {
-            crate::dep_files::flush_dep_files();
+            crate::dep_files::flush_non_local_dep_files();
         }
 
         self.last_mergebase = mergebase.clone();
