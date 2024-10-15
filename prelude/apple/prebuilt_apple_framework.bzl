@@ -26,6 +26,7 @@ load(
     "SwiftPCMUncompiledInfo",
 )
 load("@prelude//apple/swift:swift_swiftinterface_compilation.bzl", "compile_swiftinterface_common")
+load("@prelude//apple/swift:swift_types.bzl", "FrameworkImplicitSearchPathInfo", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
@@ -164,6 +165,16 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
                 framework_directory_artifact,
             )
             providers.append(swift_dependency_info)
+
+        implicit_search_path_tset = get_implicit_framework_search_path_providers(
+            ctx,
+            cmd_args("-F", cmd_args(framework_directory_artifact, parent = 1)),
+            ctx.attrs.deps,
+        )
+
+        providers.append(
+            FrameworkImplicitSearchPathInfo(tset = implicit_search_path_tset),
+        )
 
         return providers
 
