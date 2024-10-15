@@ -13,11 +13,17 @@ import {RuleTypeDropdown} from './RuleTypeDropdown'
 import {Node} from './GraphView'
 import {GraphViz} from './GraphViz'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
-import {shortestPathTree} from './graph'
+import {longestPathTree, shortestPathTree} from './graph'
 
 enum NodeSizeOption {
   transitiveDeps,
   transitiveSrcs,
+}
+
+enum ShowPaths {
+  Shortest,
+  Longest,
+  All,
 }
 
 enum DisplayType {
@@ -70,8 +76,6 @@ export function GraphImpl(props: {
 }) {
   const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
 
-  const graphDeps = fromLeanGraph(shortestPathTree(toLeanGraph(props.graphDeps), 0))
-
   const nodeMap: Map<number, DisplayNode> = new Map()
   for (const [k, node] of nodes) {
     nodeMap.set(k, {...node, allowedDeps: new Map(), displayType: DisplayType.hidden})
@@ -82,7 +86,23 @@ export function GraphImpl(props: {
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
+  const [showPaths, setShowPaths] = useState(ShowPaths.All)
   const [selectedOption, setSelectedOption] = useState(NodeSizeOption.transitiveDeps)
+
+  // Choose which edges to show
+  const chooseEdges = (graph: DepsGraph, show: ShowPaths) => {
+    let newGraph
+    const lean = toLeanGraph(graph)
+    if (show === ShowPaths.Shortest) {
+      newGraph = shortestPathTree(lean, 0)
+    } else if (show === ShowPaths.Longest) {
+      newGraph = longestPathTree(lean, 0)
+    } else {
+      newGraph = lean // ShowPaths.All
+    }
+    return fromLeanGraph(newGraph)
+  }
+  const graphDeps = chooseEdges(props.graphDeps, showPaths)
 
   const activeCategories = categories.filter(v => v.checked).map(v => v.category)
 
@@ -311,6 +331,13 @@ export function GraphImpl(props: {
               onChange={e => setSelectedOption(parseInt(e.target.value))}>
               <option value={NodeSizeOption.transitiveDeps}>Size by transitive deps count</option>
               <option value={NodeSizeOption.transitiveSrcs}>Size by transitive srcs count</option>
+            </select>
+          </div>
+          <div className="select">
+            <select value={showPaths} onChange={e => setShowPaths(parseInt(e.target.value))}>
+              <option value={ShowPaths.All}>Show all edges</option>
+              <option value={ShowPaths.Shortest}>Show shortest path from root</option>
+              <option value={ShowPaths.Longest}>Show longest path from root</option>
             </select>
           </div>
           <label className="checkbox ml-2 mt-4">
