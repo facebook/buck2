@@ -224,14 +224,14 @@ _swift_pcm_compilation = rule(
     },
 )
 
-def compile_underlying_pcm(
+def _compile_pcm(
         ctx: AnalysisContext,
+        action_name: str,
+        module_name: str,
         uncompiled_pcm_info: SwiftPCMUncompiledInfo,
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
-        framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
-    module_name = get_module_name(ctx)
-
+        additional_args: cmd_args) -> SwiftCompiledModuleInfo:
     # `compiled_pcm_deps_providers` will contain `WrappedSdkCompiledModuleInfo` providers
     # from direct SDK deps and transitive deps that export sdk deps.
     sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, compiled_pcm_deps_providers)
@@ -248,8 +248,42 @@ def compile_underlying_pcm(
         pcm_deps_tset,
         swift_cxx_args,
     )
+    cmd.add(additional_args)
+
+    _compile_with_argsfile(
+        ctx,
+        action_name,
+        module_name,
+        cmd,
+        additional_cmd,
+    )
+    return _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
+
+def compile_framework_pcm(
+        ctx: AnalysisContext,
+        module_name: str,
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo,
+        compiled_pcm_deps_providers,
+        swift_cxx_args: list[str]) -> SwiftCompiledModuleInfo:
+    return _compile_pcm(
+        ctx,
+        "swift_prebuilt_framework_pcm_compile",
+        module_name,
+        uncompiled_pcm_info,
+        compiled_pcm_deps_providers,
+        swift_cxx_args,
+        cmd_args(),
+    )
+
+def compile_underlying_pcm(
+        ctx: AnalysisContext,
+        uncompiled_pcm_info: SwiftPCMUncompiledInfo,
+        compiled_pcm_deps_providers,
+        swift_cxx_args: list[str],
+        framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
+    module_name = get_module_name(ctx)
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
-    cmd.add([
+    cmd = cmd_args([
         "-Xcc",
         "-I",
         "-Xcc",
@@ -257,14 +291,15 @@ def compile_underlying_pcm(
     ])
     cmd.add(framework_search_path_flags)
 
-    _compile_with_argsfile(
+    return _compile_pcm(
         ctx,
         "swift_underlying_pcm_compile",
         module_name,
+        uncompiled_pcm_info,
+        compiled_pcm_deps_providers,
+        swift_cxx_args,
         cmd,
-        additional_cmd,
     )
-    return _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
 
 def _get_base_pcm_flags(
         ctx: AnalysisContext,
