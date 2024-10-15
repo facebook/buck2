@@ -37,11 +37,12 @@ export function GraphView(props: {view: QueryKey}) {
     return null
   }
 
-  // build better data structure
+  // Build better data structure
   let nodeMap = new Map<number, Node>()
   let graphDeps: Map<number, {deps: number[]; rdeps: number[]}> = new Map()
+
+  // Create nodes
   for (let i = 0; i < build.targetsLength(); i++) {
-    // Create node object
     if (nodeMap.get(i) == null) {
       nodeMap.set(i, {
         ...defaultNode(),
@@ -51,13 +52,12 @@ export function GraphView(props: {view: QueryKey}) {
     }
   }
 
+  // Record deps, rdeps and srcs
   let maxSrcs = 0
-
-  // Set options
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
 
-    // Record srcs
+    // Srcs
     const srcs = Number(target.srcs()) // TODO iguridi: long type for srcs is not needed
     maxSrcs += srcs
     node.srcs = srcs
@@ -66,10 +66,10 @@ export function GraphView(props: {view: QueryKey}) {
       const dep = target.deps(i)!
       const d = allTargets[dep]
 
-      // Record deps
+      // Deps
       graphDeps.get(k)!.deps.push(d)
 
-      // Record rdeps
+      // Rdeps
       if (d === k) {
         throw Error('wth')
       }
@@ -77,7 +77,7 @@ export function GraphView(props: {view: QueryKey}) {
     }
   }
 
-  // Sum transitive deps. For each node, we traverse all the transitive rdeps
+  // Sum transitive deps and srcs. For each node, we traverse all the transitive rdeps
   for (const [k, node] of nodeMap) {
     let visited = new Set()
     let rdeps = new Set(graphDeps.get(k)!.rdeps)

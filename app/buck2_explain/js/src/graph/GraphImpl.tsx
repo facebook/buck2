@@ -75,7 +75,8 @@ function fromLeanGraph(graph: Map<number, number[]>): DepsGraph {
   return newGraph
 }
 
-// Here it goes everything that should reload on user interaction
+// Here it goes everything that has to recompute on user interaction.
+// On big graphs recomputing less matters
 export function GraphImpl(props: {
   nodes: Map<number, Node>
   build: Build
