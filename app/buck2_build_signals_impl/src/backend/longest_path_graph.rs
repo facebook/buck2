@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
-use buck2_build_signals::CriticalPathBackendName;
-use buck2_build_signals::NodeDuration;
+use buck2_build_signals::env::CriticalPathBackendName;
+use buck2_build_signals::env::NodeDuration;
 use buck2_core::soft_error;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;

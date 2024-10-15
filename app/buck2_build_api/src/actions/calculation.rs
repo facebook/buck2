@@ -17,7 +17,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_build_signals::NodeDuration;
+use buck2_build_signals::env::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;

@@ -8,8 +8,8 @@
  */
 
 use buck2_build_api::actions::calculation::ActionWithExtraData;
-use buck2_build_signals::CriticalPathBackendName;
-use buck2_build_signals::NodeDuration;
+use buck2_build_signals::env::CriticalPathBackendName;
+use buck2_build_signals::env::NodeDuration;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
 

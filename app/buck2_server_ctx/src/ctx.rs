@@ -12,9 +12,9 @@ use std::future::Future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_build_signals::BuildSignalsContext;
-use buck2_build_signals::DeferredBuildSignals;
-use buck2_build_signals::HasCriticalPathBackend;
+use buck2_build_signals::env::BuildSignalsContext;
+use buck2_build_signals::env::DeferredBuildSignals;
+use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::fs::paths::file_name::FileName;
@@ -163,7 +163,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
-                                            let res = buck2_build_signals::scope(
+                                            let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),
                                                 dice.per_transaction_data()
