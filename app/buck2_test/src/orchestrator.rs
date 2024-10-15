@@ -236,24 +236,25 @@ impl<'a> BuckTestOrchestrator<'a> {
             timing,
             execution_kind,
             outputs,
-        } = self
-            .prepare_and_execute(
-                TestExecutionKey {
-                    test_target,
-                    cmd: Arc::new(cmd),
-                    env: Arc::new(env),
-                    executor_override: executor_override.map(Arc::new),
-                    required_local_resources: Arc::new(required_local_resources),
-                    pre_create_dirs: pre_create_dirs.dupe(),
-                    stage: Arc::new(stage),
-                    options: self.session.options(),
-                    prefix: self.session.prefix(),
-                    timeout,
-                    host_sharing_requirements,
-                },
-                self.cancellations,
-            )
-            .await?;
+        } = Self::prepare_and_execute(
+            self.dice.dupe().deref_mut(),
+            TestExecutionKey {
+                test_target,
+                cmd: Arc::new(cmd),
+                env: Arc::new(env),
+                executor_override: executor_override.map(Arc::new),
+                required_local_resources: Arc::new(required_local_resources),
+                pre_create_dirs: pre_create_dirs.dupe(),
+                stage: Arc::new(stage),
+                options: self.session.options(),
+                prefix: self.session.prefix(),
+                timeout,
+                host_sharing_requirements,
+            },
+            self.liveliness_observer.dupe(),
+            self.cancellations,
+        )
+        .await?;
 
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
@@ -329,8 +330,9 @@ impl<'a> BuckTestOrchestrator<'a> {
     }
 
     async fn prepare_and_execute(
-        &self,
+        dice: &mut DiceComputations<'static>,
         key: TestExecutionKey,
+        liveliness_observer: Arc<dyn LivelinessObserver>,
         cancellation: &CancellationContext<'_>,
     ) -> Result<ExecuteData, ExecuteError> {
         let TestExecutionKey {
@@ -346,18 +348,12 @@ impl<'a> BuckTestOrchestrator<'a> {
             timeout,
             host_sharing_requirements,
         } = key;
-        let fs = self.dice.clone().get_artifact_fs().await?;
-        let test_info = Self::get_test_info(&mut self.dice.dupe(), &test_target).await?;
-        let test_executor = Self::get_test_executor(
-            self.dice.dupe().deref_mut(),
-            &test_target,
-            &test_info,
-            executor_override,
-            &fs,
-        )
-        .await?;
+        let fs = dice.get_artifact_fs().await?;
+        let test_info = Self::get_test_info(dice, &test_target).await?;
+        let test_executor =
+            Self::get_test_executor(dice, &test_target, &test_info, executor_override, &fs).await?;
         let test_executable_expanded = Self::expand_test_executable(
-            self.dice.dupe().deref_mut(),
+            dice,
             &test_target,
             &test_info,
             Cow::Borrowed(&cmd),
@@ -380,14 +376,13 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = test_executable_expanded;
         let executor_preference = Self::executor_preference(options, supports_re)?;
         let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
-            let setup_local_resources_executor =
-                Self::get_local_executor(self.dice.dupe().deref_mut(), &fs).await?;
+            let setup_local_resources_executor = Self::get_local_executor(dice, &fs).await?;
             let simple_stage = stage.as_ref().into();
 
             let setup_contexts = {
                 let executor_fs = setup_local_resources_executor.executor_fs();
                 required_local_resources_setup_contexts(
-                    self.dice.dupe().deref_mut(),
+                    dice,
                     &executor_fs,
                     &test_info,
                     &required_local_resources,
@@ -397,19 +392,19 @@ impl<'a> BuckTestOrchestrator<'a> {
             };
             // If some timeout is neeeded, use the same value as for the test itself which is better than nothing.
             Self::setup_local_resources(
-                self.dice.dupe().deref_mut(),
+                dice,
                 cancellation,
                 setup_contexts,
                 setup_local_resources_executor,
                 timeout,
-                self.liveliness_observer.dupe(),
+                liveliness_observer.dupe(),
             )
             .await?
         } else {
             vec![]
         };
         let execution_request = Self::create_command_execution_request(
-            self.dice.dupe().deref_mut(),
+            dice,
             cwd,
             expanded_cmd,
             expanded_env,
@@ -425,13 +420,13 @@ impl<'a> BuckTestOrchestrator<'a> {
         .boxed()
         .await?;
         let result = Self::execute_request(
-            self.dice.dupe().deref_mut(),
+            dice,
             cancellation,
             &test_target,
             &stage,
             &test_executor,
             execution_request,
-            self.liveliness_observer.dupe(),
+            liveliness_observer.dupe(),
         )
         .boxed()
         .await?;
