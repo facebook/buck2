@@ -93,6 +93,10 @@ def create_annotation_processor_properties(
                 isolate_class_loader = ap_plugin.isolate_class_loader,
             ))
 
+    annotation_processor_params = annotation_processor_params + [
+        "buck.current_buck_target=" + str(ctx.label.raw_target()),
+    ]
+
     return AnnotationProcessorProperties(
         annotation_processors = annotation_processors,
         annotation_processor_params = annotation_processor_params,
