@@ -63,3 +63,22 @@ def get_disable_pch_validation_flags() -> list[str]:
         "-Xcc",
         "-fno-validate-pch",
     ]
+
+def get_base_swiftinterface_compilation_flags(module_name: str) -> cmd_args:
+    cmd = cmd_args([
+        "-frontend",
+        "-compile-module-from-interface",
+        "-disable-implicit-swift-modules",
+        "-serialize-parseable-module-interface-dependency-hashes",
+        "-disable-modules-validate-system-headers",
+        "-suppress-warnings",
+        "-module-name",
+        module_name,
+        "-Xcc",
+        "-fno-implicit-modules",
+        "-Xcc",
+        "-fno-implicit-module-maps",
+    ])
+    cmd.add(get_disable_pch_validation_flags())
+
+    return cmd

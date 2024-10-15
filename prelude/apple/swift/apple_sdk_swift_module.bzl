@@ -5,27 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags")
+load("@prelude//apple:apple_utility.bzl", "get_base_swiftinterface_compilation_flags")
 load(":swift_toolchain_types.bzl", "SdkSwiftOverlayInfo", "SdkUncompiledModuleInfo")
 
 def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
     module_name = ctx.attrs.module_name
-
-    cmd = cmd_args([
-        "-frontend",
-        "-compile-module-from-interface",
-        "-disable-implicit-swift-modules",
-        "-serialize-parseable-module-interface-dependency-hashes",
-        "-disable-modules-validate-system-headers",
-        "-suppress-warnings",
-        "-module-name",
-        module_name,
-        "-Xcc",
-        "-fno-implicit-modules",
-        "-Xcc",
-        "-fno-implicit-module-maps",
-    ])
-    cmd.add(get_disable_pch_validation_flags())
+    cmd = get_base_swiftinterface_compilation_flags(module_name)
 
     if module_name == "Swift" or module_name == "SwiftOnoneSupport":
         cmd.add([
