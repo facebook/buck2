@@ -15,15 +15,14 @@ from typing import Iterable
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
-TARGET = "fbcode//buck2/tests/targets/rules/genrule:executable_helper"
 
-
-@buck_test(inplace=True)
+@buck_test()
 async def test_clean(buck: Buck) -> None:
-    build_result = await buck.build(TARGET)
+    build_result = await buck.build("root//:trivial_build")
     build_report = build_result.get_build_report()
     build_report_outputs = [
-        str(output) for output in build_report.outputs_for_target(TARGET)
+        str(output)
+        for output in build_report.outputs_for_target("root//:trivial_build")
     ]
 
     clean_result = await buck.clean()
@@ -35,12 +34,13 @@ async def test_clean(buck: Buck) -> None:
     _assert_all_paths_do_not_exist(build_report_outputs)
 
 
-@buck_test(inplace=True)
+@buck_test()
 async def test_clean_dry_run(buck: Buck) -> None:
-    build_result = await buck.build(TARGET, "--show-output")
+    build_result = await buck.build("root//:trivial_build", "--show-output")
     build_report = build_result.get_build_report()
     build_report_outputs = [
-        str(output) for output in build_report.outputs_for_target(TARGET)
+        str(output)
+        for output in build_report.outputs_for_target("root//:trivial_build")
     ]
 
     dry_clean_result = await buck.clean("--dry-run")

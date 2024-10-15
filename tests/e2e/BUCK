@@ -9,11 +9,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_clean",
-    srcs = ["test_clean.py"],
-)
-
-buck2_e2e_test(
     name = "test_starlark",
     srcs = ["test_starlark.py"],
 )
