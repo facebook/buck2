@@ -19,7 +19,10 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
-pub struct FlushDepFilesCommand {}
+pub struct FlushDepFilesCommand {
+    #[clap(long, help = "Whether to retain locally produced dep files")]
+    retain_local: bool,
+}
 
 #[async_trait]
 impl StreamingCommand for FlushDepFilesCommand {
@@ -37,7 +40,9 @@ impl StreamingCommand for FlushDepFilesCommand {
     ) -> ExitResult {
         buckd
             .with_flushing()
-            .flush_dep_files(FlushDepFilesRequest {})
+            .flush_dep_files(FlushDepFilesRequest {
+                retain_locally_produced_dep_files: self.retain_local,
+            })
             .await??;
         ExitResult::success()
     }

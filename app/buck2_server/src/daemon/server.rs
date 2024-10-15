@@ -918,8 +918,14 @@ impl DaemonApi for BuckdServer {
         req: Request<FlushDepFilesRequest>,
     ) -> Result<Response<CommandResult>, Status> {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
-            let FlushDepFilesRequest {} = req;
-            buck2_file_watcher::dep_files::flush_dep_files();
+            let FlushDepFilesRequest {
+                retain_locally_produced_dep_files,
+            } = req;
+            if retain_locally_produced_dep_files {
+                buck2_file_watcher::dep_files::flush_non_local_dep_files();
+            } else {
+                buck2_file_watcher::dep_files::flush_dep_files();
+            }
             Ok(GenericResponse {})
         })
         .await

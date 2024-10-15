@@ -840,7 +840,9 @@ message FileStatusRequest {
   bool show_matches = 3;
 }
 
-message FlushDepFilesRequest {}
+message FlushDepFilesRequest {
+  bool retain_locally_produced_dep_files = 1;
+}
 
 message SetLogFilterRequest {
   string log_filter = 1;

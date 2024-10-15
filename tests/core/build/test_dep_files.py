@@ -668,3 +668,30 @@ async def test_re_dep_file_query_change_tagged_used_file(buck: Buck) -> None:
     await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL])
     output = result.get_build_report().output_for_target(target).read_text()
     assert output == "used1(MODIFIED)\nused2\nused3\n"
+
+
+# Flaky because of watchman on mac (and maybe windows)
+# Skipping on windows due to gcc dependency
+@buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
+async def test_flush_dep_files(buck: Buck) -> None:
+    # Make sure that we build locally
+    args = ["app:app", "--no-remote-cache", "--local-only"]
+    await buck.build(*args)
+    await expect_exec_count(buck, 1)
+
+    await buck.debug("flush-dep-files", "--retain-local")
+
+    # //app:app doesn't use other.h and
+    # dep file should still be present
+    # since we retained local dep files
+    touch(buck, "app/other.h")
+    await buck.build(*args)
+    await expect_exec_count(buck, 0)
+
+    await buck.debug("flush-dep-files")
+
+    # all dep files are gone, so we have
+    # to rebuild.
+    touch(buck, "app/other.h")
+    await buck.build(*args)
+    await expect_exec_count(buck, 1)
