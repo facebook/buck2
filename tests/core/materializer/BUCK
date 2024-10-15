@@ -6,10 +6,6 @@ buck2_e2e_test(
     name = "test_materializer",
     srcs = ["test_materializer.py"],
     data_dir = "test_materializer_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
 )
 
@@ -17,10 +13,6 @@ buck2_e2e_test(
     name = "test_clean_stale",
     srcs = ["test_clean_stale.py"],
     data_dir = "test_clean_stale_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
 )
 
@@ -28,10 +20,6 @@ buck2_e2e_test(
     name = "test_clean_stale_bxl",
     srcs = ["test_clean_stale_bxl.py"],
     data_dir = "test_clean_stale_bxl_data",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
     serialize_test_cases = False,
 )
 

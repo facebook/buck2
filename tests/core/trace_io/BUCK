@@ -6,7 +6,4 @@ buck2_e2e_test(
     name = "test_trace_io",
     srcs = ["test_trace_io.py"],
     data_dir = "test_trace_io_data",
-    env = {
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
 )
