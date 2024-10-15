@@ -1174,23 +1174,28 @@ impl<'b> BuckTestOrchestrator<'b> {
         let digest_config = dice.global_data().get_digest_config();
 
         let local_resource_state_registry = dice.get_local_resource_registry();
+        let targets = setup_commands
+            .iter()
+            .map(|ctx| ctx.target.dupe())
+            .collect::<Vec<_>>();
+        let mut lock = local_resource_state_registry.0.lock().await;
 
-        let resource_futs = setup_commands.into_iter().map(|context| {
-            let local_resource_target = context.target.dupe();
-            local_resource_state_registry
-                .dupe()
-                .0
-                .entry(local_resource_target.dupe())
-                .or_insert_with(|| {
-                    let setup = Self::start_local_resource(
-                        events.dupe(),
-                        liveliness_observer.dupe(),
-                        digest_config.dupe(),
-                        executor.dupe(),
-                        context,
-                        cancellation,
-                    );
-                    async move {
+        let resource_futs = setup_commands
+            .into_iter()
+            .filter(|ctx| !lock.contains_key(&ctx.target))
+            .map(|ctx| {
+                let local_resource_target = ctx.target.dupe();
+                let setup = Self::start_local_resource(
+                    events.dupe(),
+                    liveliness_observer.dupe(),
+                    digest_config.dupe(),
+                    executor.dupe(),
+                    ctx,
+                    cancellation,
+                );
+                async move {
+                    (
+                        local_resource_target.dupe(),
                         setup
                             .await
                             .with_context(|| {
@@ -1199,17 +1204,19 @@ impl<'b> BuckTestOrchestrator<'b> {
                                     local_resource_target
                                 )
                             })
-                            .map_err(buck2_error::Error::from)
-                    }
-                    .boxed()
-                    .shared()
-                })
-                .clone()
-        });
+                            .map_err(buck2_error::Error::from),
+                    )
+                }
+            });
+        for (target, result) in futures::future::join_all(resource_futs).await {
+            lock.insert(target, result);
+        }
 
-        Ok(buck2_util::future::try_join_all(resource_futs)
-            .await
-            .map_err(anyhow::Error::from)?)
+        let result: buck2_error::Result<Vec<_>> = targets
+            .iter()
+            .map(|t| lock.get(t).unwrap().clone())
+            .collect();
+        Ok(result.map_err(anyhow::Error::from)?)
     }
 
     async fn prepare_local_resource(
