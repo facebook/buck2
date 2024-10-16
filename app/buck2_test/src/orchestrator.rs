@@ -249,7 +249,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 options: self.session.options(),
                 prefix: self.session.prefix(),
                 timeout,
-                host_sharing_requirements,
+                host_sharing_requirements: host_sharing_requirements.into(),
             },
             self.liveliness_observer.dupe(),
             self.cancellations,
@@ -446,7 +446,7 @@ struct TestExecutionKey {
     options: TestSessionOptions,
     prefix: Arc<ForwardRelativePathBuf>,
     timeout: Duration,
-    host_sharing_requirements: HostSharingRequirements,
+    host_sharing_requirements: Arc<HostSharingRequirements>,
 }
 
 struct PreparedLocalResourceSetupContext {
@@ -1104,7 +1104,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
-        host_sharing_requirements: Option<HostSharingRequirements>,
+        host_sharing_requirements: Option<Arc<HostSharingRequirements>>,
         executor_preference: Option<ExecutorPreference>,
         required_local_resources: Vec<LocalResourceState>,
         worker: Option<WorkerSpec>,
@@ -1142,7 +1142,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             request = request.with_timeout(timeout)
         }
         if let Some(host_sharing_requirements) = host_sharing_requirements {
-            request = request.with_host_sharing_requirements(host_sharing_requirements);
+            request = request.with_host_sharing_requirements(host_sharing_requirements.dupe());
         }
         if let Some(executor_preference) = executor_preference {
             request = request.with_executor_preference(executor_preference);

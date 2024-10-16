@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -292,7 +293,7 @@ pub struct CommandExecutionRequest {
     env: SortedVectorMap<String, String>,
     timeout: Option<Duration>,
     pub executor_preference: ExecutorPreference,
-    host_sharing_requirements: HostSharingRequirements,
+    host_sharing_requirements: Arc<HostSharingRequirements>,
     // Used to disable the low pass filter for concurrent local actions. Enabled by default
     low_pass_filter: bool,
     /// Working directory, relative to the project root.
@@ -337,7 +338,7 @@ impl CommandExecutionRequest {
             env,
             timeout: None,
             executor_preference: ExecutorPreference::Default,
-            host_sharing_requirements: HostSharingRequirements::default(),
+            host_sharing_requirements: Arc::new(HostSharingRequirements::default()),
             low_pass_filter: true,
             working_directory: ProjectRelativePathBuf::default(),
             prefetch_lossy_stderr: false,
@@ -369,7 +370,7 @@ impl CommandExecutionRequest {
 
     pub fn with_host_sharing_requirements(
         mut self,
-        host_sharing_requirements: HostSharingRequirements,
+        host_sharing_requirements: Arc<HostSharingRequirements>,
     ) -> Self {
         self.host_sharing_requirements = host_sharing_requirements;
         self
