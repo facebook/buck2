@@ -101,6 +101,16 @@ pub(crate) async fn with_error_handler<T>(
     }
 }
 
+pub fn test_re_error(message: &str, code: TCode) -> buck2_error::Error {
+    re_error(
+        "test",
+        "test",
+        message.to_owned(),
+        code,
+        TCodeReasonGroup::UNKNOWN,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

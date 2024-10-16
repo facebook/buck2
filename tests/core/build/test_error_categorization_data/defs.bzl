@@ -34,3 +34,13 @@ bad_url = rule(
     impl = _bad_url,
     attrs = {},
 )
+
+def _run_action(ctx):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(cmd_args(["sh", "-c", 'echo > "$1"', "--", out.as_output()]), category = "run")
+    return [DefaultInfo(default_outputs = [out])]
+
+run_action = rule(
+    impl = _run_action,
+    attrs = {},
+)

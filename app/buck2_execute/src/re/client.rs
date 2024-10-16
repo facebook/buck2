@@ -68,6 +68,7 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
+use crate::re::error::test_re_error;
 use crate::re::error::with_error_handler;
 use crate::re::error::RemoteExecutionError;
 use crate::re::manager::RemoteExecutionConfig;
@@ -1154,7 +1155,7 @@ impl RemoteExecutionClientImpl {
             bool,
             applicability = testing
         )? {
-            return Err(anyhow::anyhow!("Injected error"));
+            return Err(test_re_error("Injected error", TCode::NOT_FOUND).into());
         }
 
         let use_case = &use_case;
