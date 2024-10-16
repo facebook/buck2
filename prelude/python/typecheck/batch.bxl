@@ -8,22 +8,27 @@
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
-def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
-    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False))
-
-    build_result = ctx.build([
-        target.label.with_sub_target("typecheck")
-        for target in checked_targets
-    ])
+def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typing.Any:
+    build_result = ctx.build(
+        [target.label.with_sub_target("typecheck") for target in checked_targets],
+    )
     output = ctx.output.ensure_multiple(build_result)
 
-    ctx.output.print_json({
-        "artifacts": {
-            label.raw_target(): [artifact.rel_path() for artifact in artifacts]
-            for label, artifacts in output.items()
+    return {
+        label.raw_target(): [artifact.rel_path() for artifact in artifacts]
+        for label, artifacts in output.items()
+    }
+
+def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
+    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False))
+    artifacts = _check_targets_batched(ctx, checked_targets)
+
+    ctx.output.print_json(
+        {
+            "artifacts": artifacts,
+            "root": ctx.root(),
         },
-        "root": ctx.root(),
-    })
+    )
 
 def _run_entry_point(ctx: bxl.Context) -> None:
     targets = flatten(ctx.cli_args.target)
