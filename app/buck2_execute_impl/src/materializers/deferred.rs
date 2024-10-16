@@ -63,6 +63,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
+use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
@@ -334,11 +335,7 @@ struct TtlRefreshHistoryEntry {
 #[derive(Debug, Clone, Dupe)]
 pub enum SharedMaterializingError {
     Error(buck2_error::Error),
-    NotFound {
-        info: Arc<CasDownloadInfo>,
-        debug: Arc<str>,
-        directory: ActionDirectoryEntry<ActionSharedDirectory>,
-    },
+    NotFound(CasNotFoundError),
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -347,12 +344,8 @@ pub enum MaterializeEntryError {
     Error(anyhow::Error),
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
-    #[error("Artifact not found (digest origin: {}, debug: {})", .info.origin.as_display_for_not_found(), .debug)]
-    NotFound {
-        info: Arc<CasDownloadInfo>,
-        debug: Arc<str>,
-        directory: ActionDirectoryEntry<ActionSharedDirectory>,
-    },
+    #[error(transparent)]
+    NotFound(CasNotFoundError),
 }
 
 impl From<anyhow::Error> for MaterializeEntryError {
@@ -365,15 +358,7 @@ impl From<MaterializeEntryError> for SharedMaterializingError {
     fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {
             MaterializeEntryError::Error(e) => Self::Error(e.into()),
-            MaterializeEntryError::NotFound {
-                info,
-                debug,
-                directory,
-            } => Self::NotFound {
-                info,
-                debug,
-                directory,
-            },
+            MaterializeEntryError::NotFound(e) => Self::NotFound(e),
         }
     }
 }
@@ -1559,16 +1544,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             path,
                             source: source.into(),
                         },
-                        SharedMaterializingError::NotFound {
-                            info,
-                            debug,
-                            directory,
-                        } => MaterializationError::NotFound {
-                            path,
-                            info,
-                            debug,
-                            directory,
-                        },
+                        SharedMaterializingError::NotFound(source) => {
+                            MaterializationError::NotFound { source }
+                        }
                     })
                 })
         });

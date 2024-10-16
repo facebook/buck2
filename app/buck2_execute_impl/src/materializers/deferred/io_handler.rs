@@ -40,6 +40,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::http::http_download;
+use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::error::RemoteExecutionError;
@@ -230,12 +231,13 @@ impl DefaultIoHandler {
                     .map_err(|e| {
                         let e: buck2_error::Error = e.into();
                         match e.find_typed_context::<RemoteExecutionError>() {
-                            Some(e) if e.code == TCode::NOT_FOUND => {
-                                MaterializeEntryError::NotFound {
+                            Some(re_error) if re_error.code == TCode::NOT_FOUND => {
+                                MaterializeEntryError::NotFound(CasNotFoundError {
+                                    path: Arc::from(path),
                                     info: info.dupe(),
-                                    debug: Arc::from(e.message.as_str()),
+                                    debug: Arc::from(re_error.message.as_str()),
                                     directory: entry,
-                                }
+                                })
                             }
                             _ => MaterializeEntryError::Error(
                                 e.context({

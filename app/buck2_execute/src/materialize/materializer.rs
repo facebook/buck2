@@ -80,6 +80,27 @@ fn format_directory_entry_leaves(
     result
 }
 
+#[derive(buck2_error::Error, Debug, Clone, Dupe)]
+#[error(
+    "Your build requires materializing an artifact that has expired in the \
+    RE CAS and Buck does not have it. \
+    This likely happened because your Buck daemon \
+    has been online for a long time. This error is currently unrecoverable. \
+    To proceed, you should restart Buck using `buck2 killall`.
+
+Debug information:
+  Path: {}
+  Digest origin: {}
+  Debug info: {}
+  Directory:\n{}", .path, .info.origin.as_display_for_not_found(), .debug, format_directory_entry_leaves(.directory))]
+#[buck2(tag = MaterializationError)]
+pub struct CasNotFoundError {
+    pub path: Arc<ProjectRelativePathBuf>,
+    pub info: Arc<CasDownloadInfo>,
+    pub debug: Arc<str>,
+    pub directory: ActionDirectoryEntry<ActionSharedDirectory>,
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = MaterializationError)]
 pub enum MaterializationError {
@@ -92,24 +113,8 @@ pub enum MaterializationError {
     },
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
-    #[error(
-        "Your build requires materializing an artifact that has expired in the \
-        RE CAS and Buck does not have it. \
-        This likely happened because your Buck daemon \
-        has been online for a long time. This error is currently unrecoverable. \
-        To proceed, you should restart Buck using `buck2 killall`.
-
-Debug information:
-  Path: {}
-  Digest origin: {}
-  Debug info: {}
-  Directory:\n{}", .path, .info.origin.as_display_for_not_found(), .debug, format_directory_entry_leaves(.directory))]
-    NotFound {
-        path: ProjectRelativePathBuf,
-        info: Arc<CasDownloadInfo>,
-        debug: Arc<str>,
-        directory: ActionDirectoryEntry<ActionSharedDirectory>,
-    },
+    #[error(transparent)]
+    NotFound { source: CasNotFoundError },
 
     #[error("Error inserting entry into materializer state sqlite for artifact at `{}`", .path)]
     SqliteDbError {
