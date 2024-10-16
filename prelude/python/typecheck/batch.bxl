@@ -8,6 +8,27 @@
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
+def _check_targets_sharded(ctx: bxl.Context, checked_targets: typing.Any) -> typing.Any:
+    type_check_shard_labels = {
+        label.configured_target(): target.providers()[DefaultInfo]
+            .sub_targets["typecheck"][DefaultInfo]
+            .sub_targets
+        for label, target in ctx.analysis(checked_targets).items()
+    }
+    shard_sub_targets = [
+        target.with_sub_target(["typecheck", shard])
+        for target, shards in type_check_shard_labels.items()
+        for shard in shards
+    ]
+    build_result = ctx.build(shard_sub_targets)
+    build_output = ctx.output.ensure_multiple(build_result)
+
+    output = {label.raw_target(): [] for label in build_output}
+    for label, artifacts in build_output.items():
+        output[label.raw_target()] += [artifact.rel_path() for artifact in artifacts]
+
+    return output
+
 def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typing.Any:
     build_result = ctx.build(
         [target.label.with_sub_target("typecheck") for target in checked_targets],
@@ -19,9 +40,15 @@ def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typ
         for label, artifacts in output.items()
     }
 
-def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
+def check_targets(
+        ctx: bxl.Context,
+        targets: typing.Any,
+        enable_sharding: bool = False) -> None:
     checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False))
-    artifacts = _check_targets_batched(ctx, checked_targets)
+    if enable_sharding:
+        artifacts = _check_targets_sharded(ctx, checked_targets)
+    else:
+        artifacts = _check_targets_batched(ctx, checked_targets)
 
     ctx.output.print_json(
         {
@@ -32,12 +59,16 @@ def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
 
 def _run_entry_point(ctx: bxl.Context) -> None:
     targets = flatten(ctx.cli_args.target)
-    check_targets(ctx, targets)
+    check_targets(ctx, targets, ctx.cli_args.enable_sharding)
 
 run = bxl_main(
     doc = "Run [typecheck] on a set of targets or target patterns.",
     impl = _run_entry_point,
     cli_args = {
+        "enable-sharding": cli_args.bool(
+            default = False,
+            doc = "Shard type checking within each target",
+        ),
         "target": cli_args.list(
             cli_args.target_expr(
                 doc = "Target pattern to run type checking on",
