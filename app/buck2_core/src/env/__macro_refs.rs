@@ -221,8 +221,27 @@ where
 /// `anyhow::Result<Option<Type>` otherwise.
 pub macro buck2_env_anyhow {
     ($var:expr, bool $(, $($rest:tt)*)?) => {{
-        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env_anyhow!($var, type=bool, default=false, $($($rest)*)?);
+        let v: anyhow::Result<bool> = $crate::env::__macro_refs::buck2_env_anyhow!($var, type=bool, default=false, converter = |s| {
+            match s.to_lowercase().as_str() {
+                "1" | "true" => Ok(true),
+                "0" | "false" => Ok(false),
+                _ => Err(anyhow::anyhow!("Invalid bool value: {}", s)),
+            }
+        }, $($($rest)*)?);
         v
+    }},
+    ($var:expr, type=$ty:ty, default=$default:expr, converter=$converter:expr $(, $($rest:tt)*)?) => {{
+        $crate::env::__macro_refs::parse_anyhow!(
+            (
+            var=$var,
+            parser=$converter,
+            stored_type=$ty,
+            processor=|x| x.copied().unwrap_or_else(|| $default),
+            output_type=$ty,
+            default_repr=std::option::Option::Some(stringify!($default)),
+            ),
+            $($($rest)*)?
+        )
     }},
     ($var:expr, type=$ty:ty, default=$default:expr $(, $($rest:tt)*)?) => {{
         $crate::env::__macro_refs::parse_anyhow!(
