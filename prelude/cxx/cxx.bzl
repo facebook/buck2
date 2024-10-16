@@ -485,8 +485,6 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     archive = Archive(artifact = lib),
                     linker_type = linker_type,
                     link_whole = ctx.attrs.link_whole,
-                    # prebuilt archives are compiled to object code instead of IR
-                    supports_lto = False,
                 )
 
             if output_style == LibOutputStyle("archive"):
