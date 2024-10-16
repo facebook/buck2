@@ -73,6 +73,10 @@ impl ActionStats {
     }
 
     pub fn update(&mut self, action: &buck2_data::ActionExecutionEnd) {
+        // TODO(ezgi): consolidate with InvocationRecord creation at https://fburl.com/code/c8iitvvy
+        if action.kind != buck2_data::ActionKind::Run as i32 {
+            return;
+        }
         if was_fallback_action(action) {
             self.fallback_actions += 1;
         }
