@@ -9,10 +9,69 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
+    "create_manifest_for_entries",
 )
 load(":python.bzl", "PythonLibraryManifestsTSet")
 
 DEFAULT_PY_VERSION = "3.10"
+
+def _create_all_dep_manifests(
+        source_manifests: list[Artifact],
+        dep_manifests: typing.Any) -> typing.Any:
+    return source_manifests + [dep for dep in dep_manifests.traverse() if dep]
+
+def _create_sharded_type_check(
+        ctx: AnalysisContext,
+        executable: RunInfo,
+        typeshed_manifest: Artifact,
+        py_version: str | None,
+        source_manifests: list[Artifact],
+        source_artifacts: list[typing.Any],
+        dep_manifests: typing.Any,
+        hidden: typing.Any) -> dict[str, list[DefaultInfo]]:
+    commands = {}
+    output_files = []
+    all_dep_manifests = _create_all_dep_manifests(source_manifests, dep_manifests)
+    for shard in source_artifacts:
+        artifact_project_path, artifact_cell_path = shard
+        sanitized_path = artifact_cell_path.replace("/", "+")
+        shard_name = "shard_{}".format(sanitized_path)
+
+        shard_manifest = create_manifest_for_entries(
+            ctx,
+            shard_name,
+            [(artifact_cell_path, artifact_project_path, "sharding")],
+        )
+
+        # Create input configs
+        input_config = {
+            "dependencies": all_dep_manifests,
+            "py_version": py_version or DEFAULT_PY_VERSION,
+            "sources": [shard_manifest.manifest],
+            "typeshed": typeshed_manifest,
+        }
+
+        input_file_name = "type_checking_config_shard_{}.json".format(sanitized_path)
+        output_file_name = "type_check_result_shard_{}.json".format(sanitized_path)
+        input_file = ctx.actions.write_json(
+            input_file_name,
+            input_config,
+            with_inputs = True,
+        )
+        output_file = ctx.actions.declare_output(output_file_name)
+        output_files.append(output_file)
+
+        cmd = cmd_args(
+            executable,
+            input_file,
+            "--output",
+            output_file.as_output(),
+            hidden = hidden,
+        )
+        ctx.actions.run(cmd, category = "type_check", identifier = shard_name)
+        commands[shard_name] = [DefaultInfo(default_output = output_file)]
+
+    return commands
 
 def _create_batched_type_check(
         ctx: AnalysisContext,
@@ -22,8 +81,6 @@ def _create_batched_type_check(
         source_manifests: list[Artifact],
         dep_manifests: typing.Any,
         hidden: typing.Any) -> Artifact:
-    cmd = [executable]
-
     # Create input configs
     input_config = {
         "dependencies": dep_manifests,
@@ -38,10 +95,15 @@ def _create_batched_type_check(
         with_inputs = True,
     )
     output_file = ctx.actions.declare_output("type_check_result.json")
-    cmd.append(cmd_args(input_file))
-    cmd.append(cmd_args(output_file.as_output(), format = "--output={}"))
+    cmd = cmd_args(
+        executable,
+        input_file,
+        "--output",
+        output_file.as_output(),
+        hidden = hidden,
+    )
 
-    ctx.actions.run(cmd_args(cmd, hidden = hidden), category = "type_check")
+    ctx.actions.run(cmd, category = "type_check")
 
     return output_file
 
@@ -56,7 +118,16 @@ def create_per_target_type_check(
     if not typing_enabled:
         # Use empty dict to signal that no type checking was performed.
         output_file = ctx.actions.write_json("type_check_result.json", {})
-        return DefaultInfo(default_output = output_file)
+        sharded_output_file = ctx.actions.write_json(
+            "sharded_type_check_result.json",
+            {},
+        )
+        return DefaultInfo(
+            default_output = output_file,
+            sub_targets = {
+                "shard_default": [DefaultInfo(default_output = sharded_output_file)],
+            },
+        )
 
     hidden = []
 
@@ -77,8 +148,10 @@ def create_per_target_type_check(
 
     # Source artifacts
     source_manifests = []
+    source_artifacts = []
     if srcs != None:
-        source_manifests.append(srcs.manifest)
+        source_manifests = [srcs.manifest]
+        source_artifacts = srcs.artifacts
         hidden.extend([a for a, _ in srcs.artifacts])
 
     return DefaultInfo(
@@ -88,6 +161,16 @@ def create_per_target_type_check(
             typeshed_manifest,
             py_version,
             source_manifests,
+            dep_manifests,
+            hidden,
+        ),
+        sub_targets = _create_sharded_type_check(
+            ctx,
+            executable,
+            typeshed_manifest,
+            py_version,
+            source_manifests,
+            source_artifacts,
             dep_manifests,
             hidden,
         ),
