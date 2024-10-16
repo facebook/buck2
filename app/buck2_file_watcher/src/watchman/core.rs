@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
 use buck2_core::buck2_env_anyhow;
 use buck2_error::internal_error_anyhow;
+use buck2_error::ErrorTag;
 use dupe::Dupe;
 use futures::future::Future;
 use serde::Deserialize;
@@ -26,6 +27,21 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use watchman_client::prelude::*;
+
+fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
+    let tag = match e {
+        watchman_client::Error::ConnectionError { .. } => ErrorTag::WatchmanConnectionError,
+        watchman_client::Error::ConnectionLost(_) => ErrorTag::WatchmanConnectionLost,
+        watchman_client::Error::ConnectionDiscovery { .. } => ErrorTag::WatchmanConnectionDiscovery,
+        watchman_client::Error::WatchmanServerError { .. } => ErrorTag::WatchmanServerError,
+        watchman_client::Error::WatchmanResponseError { .. } => ErrorTag::WatchmanResponseError,
+        watchman_client::Error::MissingField { .. } => ErrorTag::WatchmanMissingField,
+        watchman_client::Error::Deserialize { .. } => ErrorTag::WatchmanDeserialize,
+        watchman_client::Error::Serialize { .. } => ErrorTag::WatchmanSerialize,
+        watchman_client::Error::Connect { .. } => ErrorTag::WatchmanConnect,
+    };
+    Some(tag)
+}
 
 #[derive(Debug, buck2_error::Error)]
 enum WatchmanClientError {
@@ -39,9 +55,9 @@ enum WatchmanClientError {
     )]
     Timeout(u64),
     #[buck2(typ = Watchman)]
-    #[buck2(tag = WatchmanRequestError)]
+    #[buck2(tag = watchman_error_tag(source))]
     #[error(transparent)]
-    RequestFailed(watchman_client::Error),
+    RequestFailed { source: watchman_client::Error },
 }
 
 // We use the "new" field. This is marked as deprecated, but buck1 uses it and
@@ -156,7 +172,7 @@ async fn with_timeout<R>(
         Ok(Ok(res)) => Ok(res),
         Ok(Err(e)) => {
             validate_certs().await.context("Watchman Request Failed")?;
-            Err(WatchmanClientError::RequestFailed(e).into())
+            Err(WatchmanClientError::RequestFailed { source: e }.into())
         }
         Err(_) => {
             validate_certs().await.context("Watchman Timed Out")?;
