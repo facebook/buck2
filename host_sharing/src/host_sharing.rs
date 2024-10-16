@@ -27,7 +27,7 @@ const SINGLE_RUN: usize = 1;
 /// on Sandcastle machines with 56 cores so we want to move away from the core-analogy and instead use
 /// the term "permits" to describe the limited resources available on each machine.
 /// More long term we want improve this to also take into account memory usage, cpu usage etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Allocative, Hash)]
 pub enum WeightClass {
     /// Tests can require any number of permits and this can be used to mimic resource utilization like
     /// memory or cpu. For now, we map the Testpilot behaviour as Normal->Permits(1) and Heavy->Permits(4).
@@ -45,7 +45,7 @@ impl fmt::Display for WeightClass {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Allocative, Hash)]
 pub struct WeightPercentage {
     value: u8, // Between 0 and 100
 }
@@ -79,7 +79,7 @@ impl WeightPercentage {
 /// to check for other instances of the same binary.
 /// Some commands required the full host to run, others just dont care.
 /// This enum encapsulates all the different scenarios.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative, Hash)]
 pub enum HostSharingRequirements {
     /// Needs exclusive access to the host. No other processes should run.
     ExclusiveAccess,
@@ -87,6 +87,18 @@ pub enum HostSharingRequirements {
     OnePerToken(String, WeightClass),
     /// Run with any other processes within reasonable limits.
     Shared(WeightClass),
+}
+
+impl fmt::Display for HostSharingRequirements {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            HostSharingRequirements::ExclusiveAccess => write!(f, "ExclusiveAccess"),
+            HostSharingRequirements::OnePerToken(name, class) => {
+                write!(f, "OnePerToken({},{})", name, class)
+            }
+            HostSharingRequirements::Shared(class) => write!(f, "Shared({})", class),
+        }
+    }
 }
 
 impl Default for HostSharingRequirements {
