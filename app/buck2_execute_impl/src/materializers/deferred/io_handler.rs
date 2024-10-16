@@ -232,11 +232,12 @@ impl DefaultIoHandler {
                         let e: buck2_error::Error = e.into();
                         match e.find_typed_context::<RemoteExecutionError>() {
                             Some(re_error) if re_error.code == TCode::NOT_FOUND => {
+                                let e: anyhow::Error = e.into();
                                 MaterializeEntryError::NotFound(CasNotFoundError {
                                     path: Arc::from(path),
                                     info: info.dupe(),
-                                    debug: Arc::from(re_error.message.as_str()),
                                     directory: entry,
+                                    error: Arc::from(e),
                                 })
                             }
                             _ => MaterializeEntryError::Error(

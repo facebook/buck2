@@ -91,14 +91,14 @@ fn format_directory_entry_leaves(
 Debug information:
   Path: {}
   Digest origin: {}
-  Debug info: {}
-  Directory:\n{}", .path, .info.origin.as_display_for_not_found(), .debug, format_directory_entry_leaves(.directory))]
+  Directory:\n{}", .path, .info.origin.as_display_for_not_found(), format_directory_entry_leaves(.directory))]
 #[buck2(tag = MaterializationError)]
 pub struct CasNotFoundError {
     pub path: Arc<ProjectRelativePathBuf>,
     pub info: Arc<CasDownloadInfo>,
-    pub debug: Arc<str>,
     pub directory: ActionDirectoryEntry<ActionSharedDirectory>,
+    #[source]
+    pub error: Arc<anyhow::Error>,
 }
 
 #[derive(buck2_error::Error, Debug)]
