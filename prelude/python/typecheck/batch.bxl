@@ -9,7 +9,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
 def check_targets(ctx: bxl.Context, targets: typing.Any) -> None:
-    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets))
+    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = True))
 
     build_result = ctx.build([
         target.label.with_sub_target("typecheck")
