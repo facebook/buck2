@@ -218,7 +218,7 @@ impl<'a> BuildReportCollector<'a> {
         // to do a little iterator munging to achieve that ourselves
         let results_by_unconfigured = configured
             .iter()
-            .group_by(|x| x.0.target().unconfigured().dupe());
+            .chunk_by(|x| x.0.target().unconfigured().dupe());
         let errors_by_unconfigured = other_errors
             .iter()
             .filter_map(|(l, e)| Some((l.as_ref()?.target().dupe(), e)));
@@ -294,7 +294,7 @@ impl<'a> BuildReportCollector<'a> {
             .into_iter()
             // We omit skipped targets here.
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
-            .group_by(|x| x.0.target().dupe())
+            .chunk_by(|x| x.0.target().dupe())
         {
             let configured_report = self.collect_results_for_configured(target.dupe(), results);
             if let Some(report) = unconfigured_report.as_mut() {

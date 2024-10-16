@@ -21,7 +21,7 @@ fxhash = "0.2.1"
 gazebo = { workspace = true }
 indexmap = { workspace = true }
 indoc = { workspace = true }
-itertools = "0.10.0"
+itertools = "0.13.0"
 lock_free_hashtable = { workspace = true }
 lock_free_vec = { workspace = true }
 parking_lot = { version = "0.11.2", features = ["send_guard"] }
