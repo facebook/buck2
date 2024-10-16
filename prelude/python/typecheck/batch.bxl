@@ -40,10 +40,7 @@ def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typ
         for label, artifacts in output.items()
     }
 
-def check_targets(
-        ctx: bxl.Context,
-        targets: typing.Any,
-        enable_sharding: bool = False) -> None:
+def check_targets(ctx: bxl.Context, targets: typing.Any, enable_sharding: bool) -> None:
     checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False))
     if enable_sharding:
         artifacts = _check_targets_sharded(ctx, checked_targets)
