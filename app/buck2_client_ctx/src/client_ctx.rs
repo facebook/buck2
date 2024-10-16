@@ -15,6 +15,7 @@ use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOve
 use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
+use buck2_common::init::LogDownloadMethod;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::error::buck2_hard_error_env;
 use buck2_core::fs::working_dir::WorkingDir;
@@ -246,5 +247,13 @@ impl<'a> ClientCommandContext<'a> {
 
     pub fn async_cleanup_context(&self) -> &AsyncCleanupContext<'a> {
         &self.async_cleanup
+    }
+
+    pub fn log_download_method(&self) -> LogDownloadMethod {
+        self.immediate_config
+            .daemon_startup_config()
+            .unwrap()
+            .log_download_method
+            .clone()
     }
 }
