@@ -1158,6 +1158,9 @@ impl<'b> BuckTestOrchestrator<'b> {
         default_timeout: Duration,
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<Vec<LocalResourceState>, ExecuteError> {
+        if setup_contexts.is_empty() {
+            return Ok(vec![]);
+        }
         let setup_commands = dice
             .try_compute_join(setup_contexts, |dice, context| {
                 let fs = executor.fs();
@@ -1172,8 +1175,12 @@ impl<'b> BuckTestOrchestrator<'b> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let digest_config = dice.global_data().get_digest_config();
 
+        // TODO(romanp): The code below is not optimal. We are locking the entire registry here, but we could have better concurrency.
+        // For example, if different suites require different local resources and can execute in parallel, this code runs sequentially but should run in parallel.
+        // An easy fix would be to introduce an RwLock instead of a mutex. In this case, suites that have the necessary resources and do not require write access
+        // can be executed in parallel.
         let local_resource_state_registry = dice.get_local_resource_registry();
-        let targets = setup_commands
+        let required_targets = setup_commands
             .iter()
             .map(|ctx| ctx.target.dupe())
             .collect::<Vec<_>>();
@@ -1183,7 +1190,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .into_iter()
             .filter(|ctx| !lock.contains_key(&ctx.target))
             .map(|ctx| {
-                let local_resource_target = ctx.target.dupe();
+                let missing_target = ctx.target.dupe();
                 let setup = Self::start_local_resource(
                     events.dupe(),
                     liveliness_observer.dupe(),
@@ -1194,13 +1201,13 @@ impl<'b> BuckTestOrchestrator<'b> {
                 );
                 async move {
                     (
-                        local_resource_target.dupe(),
+                        missing_target.dupe(),
                         setup
                             .await
                             .with_context(|| {
                                 format!(
                                     "Error setting up local resource declared in `{}`",
-                                    local_resource_target
+                                    missing_target
                                 )
                             })
                             .map_err(buck2_error::Error::from),
@@ -1211,7 +1218,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             lock.insert(target, result);
         }
 
-        let result: buck2_error::Result<Vec<_>> = targets
+        let result: buck2_error::Result<Vec<_>> = required_targets
             .iter()
             .map(|t| lock.get(t).unwrap().clone())
             .collect();

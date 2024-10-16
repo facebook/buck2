@@ -30,17 +30,17 @@ pub struct LocalResourceRegistry(
 
 impl LocalResourceRegistry {
     pub(crate) async fn release_all_resources(&self) -> anyhow::Result<()> {
-        let mut lock = self.0.lock().await;
-        let resourses = lock.drain().flat_map(|(_, v)| v).collect::<Vec<_>>();
-        drop(lock);
+        let resources = {
+            let mut lock = self.0.lock().await;
+            lock.drain().flat_map(|(_, v)| v).collect::<Vec<_>>()
+        };
 
-        // We setup resources prior to running tests so at this point everything should be set up, so just resolve all futures.
-        if resourses.is_empty() {
+        if resources.is_empty() {
             return Ok(());
         }
 
         let cleanup = || async move {
-            let resource_futs = resourses
+            let resource_futs = resources
                 .into_iter()
                 .filter(|s| s.owning_pid().is_some())
                 .map(|s| async move {
