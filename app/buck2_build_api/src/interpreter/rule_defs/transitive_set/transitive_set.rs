@@ -449,7 +449,7 @@ impl<'v> TransitiveSet<'v> {
                 let value = value.unwrap_or_else(Value::new_none);
 
                 let reduced = eval
-                    .eval_function(*reduce, &[children_values, value], &[])
+                    .eval_function(reduce.get(), &[children_values, value], &[])
                     .map_err(|error| TransitiveSetError::ReductionError {
                         error: BuckStarlarkError::new(error, OtherErrorHandling::InputError).into(),
                         name: name.clone(),

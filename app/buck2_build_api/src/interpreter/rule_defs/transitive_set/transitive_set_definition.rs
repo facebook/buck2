@@ -31,6 +31,7 @@ use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
+use starlark::values::list::ListType;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
@@ -125,7 +126,13 @@ pub struct TransitiveSetOperationsGen<V: ValueLifetimeless> {
 
     /// Callables that will reduce the values contained in transitive sets to a single value per
     /// node. This can be used to e.g. aggregate flags throughout a transitive set;
-    pub(crate) reductions: SmallMap<String, V>,
+    pub(crate) reductions: SmallMap<
+        String,
+        ValueOfUncheckedGeneric<
+            V,
+            FrozenStarlarkCallable<(ListType<FrozenValue>, FrozenValue), FrozenValue>,
+        >,
+    >,
 }
 
 pub type TransitiveSetOperations<'v> = TransitiveSetOperationsGen<Value<'v>>;
@@ -419,10 +426,14 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] json_projections: Option<
             SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
         >,
-        #[starlark(require = named)] reductions: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] reductions: Option<
+            SmallMap<
+                String,
+                StarlarkCallableChecked<'v, (ListType<Value<'v>>, Value<'v>), Value<'v>>,
+            >,
+        >,
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
-        // TODO(cjhopman): Reductions could do similar signature checking.
         let projections: SmallMap<_, _> = args_projections
             .into_iter()
             .flat_map(|v| v.into_iter())
@@ -451,6 +462,12 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             )
             .collect();
 
+        let reductions = reductions
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(k, v)| (k, ValueOfUncheckedGeneric::new(v.0)))
+            .collect();
+
         let starlark_path: StarlarkPath = starlark_path_from_build_context(eval)?;
         Ok(TransitiveSetDefinition::new(
             match starlark_path {
@@ -459,7 +476,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             },
             TransitiveSetOperations {
                 projections,
-                reductions: reductions.unwrap_or_default(),
+                reductions,
             },
         ))
     }
