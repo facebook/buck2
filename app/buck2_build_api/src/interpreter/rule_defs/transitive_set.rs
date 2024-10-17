@@ -88,9 +88,6 @@ pub(crate) enum TransitiveSetError {
         error: anyhow::Error,
     },
 
-    #[error("Expected args_projection `{}` function to take a single argument", .name)]
-    ProjectionSignatureError { name: String },
-
     #[error("Error evaluating transitive set reduction {}", .name)]
     ReductionError {
         name: String,

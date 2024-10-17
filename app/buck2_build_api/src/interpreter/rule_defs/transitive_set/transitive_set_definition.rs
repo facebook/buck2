@@ -32,6 +32,8 @@ use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
 use starlark::values::starlark_value;
+use starlark::values::typing::FrozenStarlarkCallable;
+use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
@@ -43,6 +45,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueOfUncheckedGeneric;
 
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
@@ -81,7 +84,7 @@ impl TransitiveSetProjectionKind {
 #[repr(C)]
 pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
     pub kind: TransitiveSetProjectionKind,
-    pub projection: V,
+    pub projection: ValueOfUncheckedGeneric<V, FrozenStarlarkCallable<(FrozenValue,), FrozenValue>>,
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
@@ -410,8 +413,12 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
 #[starlark_module]
 pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
     fn transitive_set<'v>(
-        #[starlark(require = named)] args_projections: Option<SmallMap<String, Value<'v>>>,
-        #[starlark(require = named)] json_projections: Option<SmallMap<String, Value<'v>>>,
+        #[starlark(require = named)] args_projections: Option<
+            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+        >,
+        #[starlark(require = named)] json_projections: Option<
+            SmallMap<String, StarlarkCallableChecked<'v, (Value<'v>,), Value<'v>>>,
+        >,
         #[starlark(require = named)] reductions: Option<SmallMap<String, Value<'v>>>,
         eval: &mut Evaluator,
     ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
@@ -424,7 +431,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                     k,
                     TransitiveSetProjectionSpec {
                         kind: TransitiveSetProjectionKind::Args,
-                        projection: v,
+                        projection: ValueOfUncheckedGeneric::new(v.0),
                     },
                 )
             })
@@ -437,27 +444,12 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                             k,
                             TransitiveSetProjectionSpec {
                                 kind: TransitiveSetProjectionKind::Json,
-                                projection: v,
+                                projection: ValueOfUncheckedGeneric::new(v.0),
                             },
                         )
                     }),
             )
             .collect();
-
-        // Both kinds of projections take functions with the same signature.
-        for (name, spec) in projections.iter() {
-            // We should probably be able to require that the projection returns a parameters_spec, but
-            // we don't depend on this type-checking and we'd just error out later when calling it if it
-            // were wrong.
-            if let Some(v) = spec.projection.parameters_spec() {
-                if v.len() != 1 {
-                    return Err(TransitiveSetError::ProjectionSignatureError {
-                        name: name.clone(),
-                    }
-                    .into());
-                }
-            };
-        }
 
         let starlark_path: StarlarkPath = starlark_path_from_build_context(eval)?;
         Ok(TransitiveSetDefinition::new(

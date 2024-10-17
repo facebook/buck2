@@ -411,7 +411,7 @@ impl<'v> TransitiveSet<'v> {
                 .iter()
                 .map(|(name, spec)| {
                     let projected_value = eval
-                        .eval_function(spec.projection, &[value], &[])
+                        .eval_function(spec.projection.get(), &[value], &[])
                         .map_err(|error| TransitiveSetError::ProjectionError {
                             error: BuckStarlarkError::new(error, OtherErrorHandling::InputError)
                                 .into(),
