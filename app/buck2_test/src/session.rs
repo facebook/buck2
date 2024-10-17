@@ -7,10 +7,12 @@
  * of this source tree.
  */
 
+use core::fmt;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use anyhow::Context as _;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -19,12 +21,22 @@ use chrono::Local;
 use dashmap::DashMap;
 use dupe::Dupe;
 
-#[derive(Debug, Clone, Copy, Dupe, Default)]
+#[derive(Debug, Clone, Copy, Dupe, Default, Allocative, PartialEq, Hash, Eq)]
 pub struct TestSessionOptions {
     /// Whether this session should allow things to run on RE.
     pub allow_re: bool,
     pub force_use_project_relative_paths: bool,
     pub force_run_from_project_root: bool,
+}
+
+impl fmt::Display for TestSessionOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "allow_re = {}, force_use_project_relative_paths = {}, force_run_from_project_root = {}",
+            self.allow_re, self.force_use_project_relative_paths, self.force_run_from_project_root
+        )
+    }
 }
 
 /// The state of a buck2 test command.

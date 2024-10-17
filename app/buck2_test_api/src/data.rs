@@ -18,6 +18,7 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -25,6 +26,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_test_proto::CasDigest;
 pub use buck2_test_proto::ExecutionDetails;
 use derivative::Derivative;
+use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
@@ -48,7 +50,7 @@ pub struct ConfiguredTarget {
 }
 
 /// Metadata about the execution to display
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Allocative, Hash, Eq)]
 pub enum TestStage {
     // Listing the test binary to discover tests. The String is the name of the suite at the binary
     Listing(String),
@@ -57,6 +59,17 @@ pub enum TestStage {
         suite: String,
         testcases: Vec<String>,
     },
+}
+
+impl fmt::Display for TestStage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match &self {
+            TestStage::Listing(name) => write!(f, "Listing({})", name),
+            TestStage::Testing { suite, testcases } => {
+                write!(f, "Testing({}:[{}])", suite, testcases.join(", "))
+            }
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -144,15 +157,26 @@ pub struct ExternalRunnerSpec {
 ///
 /// It is either a verbatim string, or a reference to a more complex value that's opaque to the
 /// test run coordinator.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Allocative, Hash, Eq)]
 pub enum ExternalRunnerSpecValue {
     Verbatim(String),
     ArgHandle(ArgHandle),
     EnvHandle(EnvHandle),
 }
 
+impl std::fmt::Display for ExternalRunnerSpecValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Verbatim(s) => write!(f, "Verbatim({})", s),
+            Self::ArgHandle(h) => write!(f, "ArgHandle({})", h),
+            Self::EnvHandle(h) => write!(f, "EnvHandle({})", h),
+        }
+    }
+}
+
 /// Handle referring to a complex argument defined on the test rule
-#[derive(Clone, Debug, Dupe, PartialEq, From)]
+#[derive(Clone, Debug, Dupe, PartialEq, From, Allocative, Hash, Eq, Display)]
+#[display("{}", _0)]
 pub struct ArgHandle(pub usize);
 
 impl TryFrom<i64> for ArgHandle {
@@ -164,22 +188,34 @@ impl TryFrom<i64> for ArgHandle {
 }
 
 /// Handle referring to a complex environment value defined on the test rule
-#[derive(Clone, Debug, PartialEq, From)]
+#[derive(Clone, Debug, PartialEq, From, Allocative, Hash, Eq, Display)]
+#[display("{}", _0)]
 pub struct EnvHandle(pub String);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Allocative, Hash, Eq, Display)]
+#[display("content = {}, format = {}", "content", "format")]
 pub struct ArgValue {
     pub content: ArgValueContent,
     pub format: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Allocative, Hash, Eq)]
 pub enum ArgValueContent {
     ExternalRunnerSpecValue(ExternalRunnerSpecValue),
     DeclaredOutput(OutputName),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, From)]
+impl fmt::Display for ArgValueContent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ExternalRunnerSpecValue(v) => write!(f, "ExternalRunnerSpecValue({})", v),
+            Self::DeclaredOutput(o) => write!(f, "DeclaredOutput({})", o),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, From, Allocative, Display)]
+#[display("name = {}", "name")]
 pub struct OutputName {
     pub name: ForwardRelativePathBuf,
 }
@@ -206,12 +242,23 @@ impl From<OutputName> for ForwardRelativePathBuf {
     }
 }
 
-#[derive(Dupe, Clone, PartialEq)]
+#[derive(Dupe, Clone, PartialEq, Allocative, Hash, Eq)]
 pub struct TtlConfig {
     /// Specifies a custom TTL for blobs under the output dir.
     pub ttl: Duration,
     /// Specifies a custom use-case to use for managing blobs' TTL.
     pub use_case: RemoteExecutorUseCase,
+}
+
+impl fmt::Display for TtlConfig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ttl = {}, use_case = {}",
+            self.ttl.as_millis(),
+            self.use_case
+        )
+    }
 }
 
 // Use a custom implementation of Debug because we don't care about interning
@@ -225,7 +272,8 @@ impl Debug for TtlConfig {
     }
 }
 
-#[derive(Debug, Dupe, Clone, PartialEq, Default)]
+#[derive(Debug, Dupe, Clone, PartialEq, Default, Allocative, Hash, Eq, Display)]
+#[display("remote = {}, ttl = {})", "supports_remote", "ttl_config")]
 pub struct RemoteStorageConfig {
     /// Signals that the output does not have to be materialized.
     pub supports_remote: bool,
@@ -241,7 +289,8 @@ impl RemoteStorageConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Allocative, Hash, Eq, Display)]
+#[display("name = {}, config = {}", "name", "remote_storage_config")]
 pub struct DeclaredOutput {
     pub name: OutputName,
     pub remote_storage_config: RemoteStorageConfig,
@@ -256,17 +305,22 @@ impl DeclaredOutput {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Allocative, Display)]
+#[display("name = {}", "name")]
+
 pub struct ExecutorConfigOverride {
     pub name: String,
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Allocative, Display)]
+#[display("name = {}", "name")]
+
 pub struct LocalResourceType {
     pub name: String,
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Allocative, Display)]
+#[display("resources = {}", "resources")]
 pub struct RequiredLocalResources {
     pub resources: Vec<LocalResourceType>,
 }

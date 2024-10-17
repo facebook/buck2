@@ -15,6 +15,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
@@ -122,6 +123,8 @@ use buck2_test_api::protocol::TestOrchestrator;
 use derive_more::From;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use display_container::fmt_container;
+use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
@@ -434,7 +437,6 @@ impl<'a> BuckTestOrchestrator<'a> {
     }
 }
 
-#[allow(dead_code)]
 struct TestExecutionKey {
     test_target: ConfiguredProvidersLabel,
     cmd: Arc<Vec<ArgValue>>,
@@ -447,6 +449,35 @@ struct TestExecutionKey {
     prefix: Arc<ForwardRelativePathBuf>,
     timeout: Duration,
     host_sharing_requirements: Arc<HostSharingRequirements>,
+}
+
+impl Display for TestExecutionKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "test_target = {}, ", self.test_target)?;
+        fmt_container(f, "cmd = [", "], ", self.cmd.as_ref())?;
+        fmt_keyed_container(f, "env = {", "}, ", ",", self.env.as_ref())?;
+        fmt_container(
+            f,
+            "executor_override = [",
+            "], ",
+            self.executor_override.iter(),
+        )?;
+        write!(
+            f,
+            "required_local_resources = {}, ",
+            self.required_local_resources.as_ref(),
+        )?;
+        fmt_container(f, "pre_create_dirs = [", "], ", self.pre_create_dirs.iter())?;
+        write!(
+            f,
+            "stage = {}, options = {}, prefix = {}, timeout = {}, host_sharing_requirements = {}",
+            self.stage,
+            self.options,
+            self.prefix,
+            self.timeout.as_millis(),
+            self.host_sharing_requirements
+        )
+    }
 }
 
 struct PreparedLocalResourceSetupContext {
