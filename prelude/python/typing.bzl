@@ -15,6 +15,17 @@ load(":python.bzl", "PythonLibraryManifestsTSet")
 
 DEFAULT_PY_VERSION = "3.10"
 
+# Best-effort guess on what the host sys.platform is
+def get_default_sys_platform() -> str | None:
+    os_info = host_info().os
+    if os_info.is_linux:
+        return "linux"
+    elif os_info.is_macos:
+        return "darwin"
+    elif os_info.is_windows:
+        return "win32"
+    return None
+
 def _create_all_dep_manifests(
         source_manifests: list[Artifact],
         dep_manifests: typing.Any) -> typing.Any:
@@ -48,6 +59,7 @@ def _create_sharded_type_check(
             "dependencies": all_dep_manifests,
             "py_version": py_version or DEFAULT_PY_VERSION,
             "sources": [shard_manifest.manifest],
+            "system_platform": get_default_sys_platform(),
             "typeshed": typeshed_manifest,
         }
 
@@ -86,6 +98,7 @@ def _create_batched_type_check(
         "dependencies": dep_manifests,
         "py_version": py_version or DEFAULT_PY_VERSION,
         "sources": source_manifests,
+        "system_platform": get_default_sys_platform(),
         "typeshed": typeshed_manifest,
     }
 
