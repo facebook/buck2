@@ -156,7 +156,7 @@ impl BuckOutScratchPath {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Allocative)]
 pub struct BuckOutTestPath {
     /// A base path. This is primarily useful when e.g. set of tests should all be in the same
     /// path.

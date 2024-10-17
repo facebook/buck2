@@ -14,6 +14,7 @@ use std::ops::FromResidual;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use allocative::Allocative;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use derivative::Derivative;
@@ -106,7 +107,7 @@ impl Display for CommandExecutionStatus {
 
 /// Unlike action where we only really have just 1 time, commands can have slightly richer timing
 /// data.
-#[derive(Debug, Copy, Clone, Dupe)]
+#[derive(Debug, Copy, Clone, Dupe, Allocative)]
 pub struct CommandExecutionMetadata {
     /// How long this build actually waited for this action to complete
     pub wall_time: Duration,

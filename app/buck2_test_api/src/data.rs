@@ -72,7 +72,7 @@ impl fmt::Display for TestStage {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Allocative)]
 pub enum ExecutionStream {
     Inline(Vec<u8>),
 }
@@ -87,7 +87,7 @@ impl Debug for ExecutionStream {
     }
 }
 
-#[derive(Clone, Debug, Dupe, PartialEq)]
+#[derive(Clone, Debug, Dupe, PartialEq, Allocative)]
 pub enum ExecutionStatus {
     Finished { exitcode: i32 },
     TimedOut { duration: Duration },

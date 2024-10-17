@@ -9,6 +9,7 @@
 
 use std::time::Duration;
 
+use allocative::Allocative;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::RePlatform;
@@ -21,7 +22,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::dep_file_digest::DepFileDigest;
 use crate::re::convert::platform_to_proto;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Clone, Allocative)]
 pub enum CommandExecutionKind {
     /// This action was executed locally.
     #[display("local")]
@@ -189,7 +190,7 @@ impl CommandExecutionKind {
 }
 
 /// Structured data for a RE request.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Allocative)]
 pub struct RemoteCommandExecutionDetails {
     pub action_digest: ActionDigest,
     pub remote_dep_file_key: Option<DepFileDigest>,

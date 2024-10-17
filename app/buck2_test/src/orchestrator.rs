@@ -20,6 +20,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
 
+use allocative::Allocative;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -718,7 +719,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         Ok(())
     }
 }
-
+#[derive(Allocative)]
 struct ExecuteData {
     pub stdout: ExecutionStream,
     pub stderr: ExecutionStream,
