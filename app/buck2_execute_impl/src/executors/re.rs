@@ -185,13 +185,13 @@ impl ReExecutor {
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
 
-        let remote_details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: platform.clone(),
-            remote_dep_file_key: None,
-        };
+        let remote_details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            None,
+            self.re_client.get_session_id().await.ok(),
+            self.re_use_case,
+            &platform,
+        );
 
         let execution_kind = response.execution_kind(remote_details);
         let manager = manager.with_execution_kind(execution_kind.clone());
@@ -288,13 +288,13 @@ impl PreparedCommandExecutor for ReExecutor {
             digest_config,
         } = command;
 
-        let details = RemoteCommandExecutionDetails {
-            action_digest: command.prepared_action.digest(),
-            remote_dep_file_key: command.request.remote_dep_file_key,
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: platform.clone(),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            command.prepared_action.digest(),
+            command.request.remote_dep_file_key,
+            self.re_client.get_session_id().await.ok(),
+            self.re_use_case,
+            &platform,
+        );
         let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
             details: details.clone(),
             queue_time: Duration::ZERO,

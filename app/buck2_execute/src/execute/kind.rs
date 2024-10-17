@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_data::RePlatform;
 use derive_more::Display;
 use gazebo::prelude::SliceExt;
 use remote_execution as RE;
@@ -194,10 +195,26 @@ pub struct RemoteCommandExecutionDetails {
     pub remote_dep_file_key: Option<DepFileDigest>,
     pub session_id: Option<String>,
     pub use_case: RemoteExecutorUseCase,
-    pub platform: RE::Platform,
+    pub platform: RePlatform,
 }
 
 impl RemoteCommandExecutionDetails {
+    pub fn new(
+        action_digest: ActionDigest,
+        remote_dep_file_key: Option<DepFileDigest>,
+        session_id: Option<String>,
+        use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
+    ) -> Self {
+        Self {
+            action_digest,
+            remote_dep_file_key,
+            session_id,
+            use_case,
+            platform: platform_to_proto(platform),
+        }
+    }
+
     fn to_proto(&self, omit_details: bool) -> Option<buck2_data::RemoteCommandDetails> {
         if omit_details {
             return None;
@@ -206,7 +223,7 @@ impl RemoteCommandExecutionDetails {
         Some(buck2_data::RemoteCommandDetails {
             session_id: self.session_id.clone(),
             use_case: self.use_case.to_string(),
-            platform: Some(platform_to_proto(&self.platform)),
+            platform: Some(self.platform.clone()),
         })
     }
 }

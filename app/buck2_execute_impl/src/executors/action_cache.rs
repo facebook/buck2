@@ -225,13 +225,13 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let action_digest = &command.prepared_action.action_and_blobs.action;
-        let details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: command.prepared_action.platform.clone(),
-            remote_dep_file_key: *command.request.remote_dep_file_key(),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            *command.request.remote_dep_file_key(),
+            self.re_client.get_session_id().await.ok(),
+            self.re_use_case,
+            &command.prepared_action.platform,
+        );
         let cache_type = CacheType::ActionCache;
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,
@@ -296,13 +296,13 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
 
         let cache_type = CacheType::RemoteDepFileCache(remote_dep_file_key);
         let action_digest = remote_dep_file_key.dupe().coerce::<ActionDigestKind>();
-        let details = RemoteCommandExecutionDetails {
-            action_digest: action_digest.dupe(),
-            session_id: self.re_client.get_session_id().await.ok(),
-            use_case: self.re_use_case,
-            platform: command.prepared_action.platform.clone(),
-            remote_dep_file_key: Some(remote_dep_file_key.dupe()),
-        };
+        let details = RemoteCommandExecutionDetails::new(
+            action_digest.dupe(),
+            Some(remote_dep_file_key.dupe()),
+            self.re_client.get_session_id().await.ok(),
+            self.re_use_case,
+            &command.prepared_action.platform,
+        );
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,
             details.clone(),
