@@ -106,3 +106,13 @@ error_formatting_test(
     command=["//fail_attr_coercion.bxl:int_rule"],
     command_name="bxl",
 )
+
+error_formatting_test(
+    name="test_duplicate_target",
+    command=["//duplicate_target:foo"],
+)
+
+error_formatting_test(
+    name="test_duplicate_target_with_stacktrace",
+    command=["//duplicate_target:foo", "--stack"],
+)
