@@ -83,8 +83,10 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     fn tset<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
-        value: Option<Value<'v>>,
-        children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
+        #[starlark(require = named)] value: Option<Value<'v>>,
+        #[starlark(require = named)] children: Option<
+            ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let mut this = this.state()?;
