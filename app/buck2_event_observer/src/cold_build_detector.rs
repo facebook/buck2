@@ -9,9 +9,9 @@
 
 use buck2_common::build_count::BuildCountManager;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::soft_error;
 use buck2_data::FileWatcherEnd;
 use buck2_data::ParsedTargetPatterns;
-use buck2_error::internal_error_anyhow;
 
 /// Detects if this is the first build since a rebase.
 /// The state is relevant per command since the detector is recreated for each command.
@@ -46,9 +46,16 @@ impl ColdBuildDetector {
         {
             if let Some(mb) = &self.merge_base {
                 if mb != merge_base {
-                    return Err(internal_error_anyhow!(
-                        "Merge base changed during command execution"
-                    ));
+                    soft_error!(
+                        "merge_base_changed_unexpectedly",
+                        anyhow::anyhow!(
+                            "unexpected merge base update from: {} to: {}",
+                            mb,
+                            merge_base
+                        )
+                        .into()
+                    )?;
+                    return Ok(());
                 }
             } else {
                 self.merge_base = Some(merge_base.clone());
@@ -63,9 +70,16 @@ impl ColdBuildDetector {
         patterns: &ParsedTargetPatterns,
     ) -> anyhow::Result<()> {
         if self.target_patterns.is_some() {
-            return Err(internal_error_anyhow!(
-                "Parsed target patterns should be updated only once per command"
-            ));
+            soft_error!(
+                "parsed_target_patterns_changed_unexpectedly",
+                anyhow::anyhow!(
+                    "unexpected parsed target patterns update from: {:?} to: {:?}",
+                    self.target_patterns,
+                    patterns
+                )
+                .into()
+            )?;
+            return Ok(());
         }
         self.target_patterns = Some(patterns.clone());
         self.try_compute_first_build_since_rebase().await?;
