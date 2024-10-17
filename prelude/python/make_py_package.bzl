@@ -645,7 +645,7 @@ def _pex_modules_args(
         cmd.append(cmd_args(manifest_module, format = "--module-manifest={}"))
 
     if pex_modules.compile:
-        pyc_mode = PycInvalidationMode("UNCHECKED_HASH") if symlink_tree_path == None else PycInvalidationMode("CHECKED_HASH")
+        pyc_mode = PycInvalidationMode("unchecked_hash") if symlink_tree_path == None else PycInvalidationMode("checked_hash")
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
         dep_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
 

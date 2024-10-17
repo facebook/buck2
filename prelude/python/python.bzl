@@ -88,8 +88,8 @@ def _source_type_artifacts(value: PythonLibraryManifests):
     return [a for a, _ in value.src_types.artifacts]
 
 _BYTECODE_PROJ_PREFIX = {
-    PycInvalidationMode("CHECKED_HASH"): "checked_bytecode",
-    PycInvalidationMode("UNCHECKED_HASH"): "bytecode",
+    PycInvalidationMode("checked_hash"): "checked_bytecode",
+    PycInvalidationMode("unchecked_hash"): "bytecode",
 }
 
 args_projections = {
