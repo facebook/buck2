@@ -13,7 +13,7 @@
 [CI]: https://github.com/facebook/buck2/actions/workflows/build-and-test.yml
 
 <strong>
-  <a href="https://buck2.build">Homepage</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://buck2.build/docs/getting_started/">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="./CONTRIBUTING.md">Contributing</a>
+  <a href="https://buck2.build">Homepage</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="https://buck2.build/docs/about/getting_started/">Getting Started</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="./CONTRIBUTING.md">Contributing</a>
 </strong>
 
 ---
