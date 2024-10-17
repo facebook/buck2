@@ -1,0 +1,33 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+syntax = "proto3";
+
+import "data.proto";
+
+package event_publisher;
+
+message BuckEventRequest {
+  // A trace-unique 64-bit identifying the stream.
+  uint64 stream_id = 1;
+
+  buck.data.BuckEvent event = 2;
+};
+
+message BuckEventResponse {
+  // A trace-unique 64-bit identifying the stream.
+  uint64 stream_id = 1;
+
+  // The trace ID of the event that has been committed.
+  uint64 trace_id = 2;
+};
+
+service BuckEventPublisher {
+  rpc StreamBuckEvent(stream BuckEventRequest) returns (stream BuckEventResponse);
+};
