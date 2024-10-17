@@ -270,7 +270,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
-        let mut this = this.state();
+        let mut this = this.state()?;
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let key = registry.anon_target_key(rule, attrs)?;
         registry.register_one(anon_target_promise, key.clone())?;
@@ -294,7 +294,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         )>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<StarlarkAnonTargets<'v>> {
-        let mut this = this.state();
+        let mut this = this.state()?;
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
 
@@ -338,7 +338,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
         short_path: &'v str,
     ) -> anyhow::Result<StarlarkPromiseArtifact> {
-        let mut this = this.state();
+        let mut this = this.state()?;
         let promise = artifact.artifact.clone();
 
         let short_path = ForwardRelativePathBuf::new(short_path.to_owned())?;

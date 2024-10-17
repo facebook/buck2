@@ -37,7 +37,7 @@ fn create_dir_tree<'v>(
     let inputs = action.inputs();
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
-    let mut this = this.state();
+    let mut this = this.state()?;
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory)?;
     this.register_action(inputs, indexset![output_artifact], action, None, None)?;
@@ -57,7 +57,7 @@ fn copy_file_impl<'v>(
 
     let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
-    let mut this = this.state();
+    let mut this = this.state()?;
     let (declaration, output_artifact) = this.get_or_declare_output(eval, dest, output_type)?;
 
     this.register_action(

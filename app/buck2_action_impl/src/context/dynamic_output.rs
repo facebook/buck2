@@ -172,7 +172,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let attributes = this.attributes;
         let plugins = this.plugins;
 
-        let mut this = this.state();
+        let mut this = this.state()?;
 
         let execution_platform = this.actions.execution_platform.dupe();
 
@@ -217,7 +217,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             callable,
         } = dynamic_actions;
 
-        let mut this = this.state();
+        let mut this = this.state()?;
 
         let execution_platform = this.actions.execution_platform.dupe();
 

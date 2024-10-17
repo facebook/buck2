@@ -456,7 +456,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
     pub(crate) fn take_state_dynamic(&self) -> anyhow::Result<AnalysisRegistry<'v>> {
         let state = self.data.state.as_ref();
-        state.state().assert_no_promises()?;
+        state.state()?.assert_no_promises()?;
 
         Ok(state
             .state

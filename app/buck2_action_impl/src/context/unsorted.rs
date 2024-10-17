@@ -65,7 +65,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
-        let artifact = this.state().declare_output(
+        let artifact = this.state()?.declare_output(
             prefix,
             filename,
             output_type,
@@ -87,7 +87,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         children: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        let mut this = this.state();
+        let mut this = this.state()?;
         this.create_transitive_set(definition, value, children.map(|v| v.get()), eval)
     }
 

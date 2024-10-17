@@ -18,6 +18,7 @@ use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -77,10 +78,14 @@ pub struct AnalysisActions<'v> {
 }
 
 impl<'v> AnalysisActions<'v> {
-    pub fn state(&self) -> RefMut<AnalysisRegistry<'v>> {
-        RefMut::map(self.state.borrow_mut(), |x| {
-            x.as_mut().expect("state to be present during execution")
-        })
+    pub fn state(&self) -> anyhow::Result<RefMut<AnalysisRegistry<'v>>> {
+        let state = self
+            .state
+            .try_borrow_mut()
+            .internal_error_anyhow("AnalysisActions.state is already borrowed")?;
+        RefMut::filter_map(state, |x| x.as_mut())
+            .ok()
+            .internal_error_anyhow("state to be present during execution")
     }
 
     pub async fn run_promises(
@@ -92,7 +97,7 @@ impl<'v> AnalysisActions<'v> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
-            let promises = self.state().take_promises();
+            let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
                 promises
                     .run_promises(dice, eval, description.clone())
@@ -113,7 +118,7 @@ impl<'v> AnalysisActions<'v> {
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<()> {
         let (short_path_assertions, consumer_analysis_artifacts) = {
-            let state = self.state();
+            let state = self.state()?;
             (
                 state.short_path_assertions.clone(),
                 state.consumer_analysis_artifacts(),
@@ -239,7 +244,7 @@ impl<'v> AnalysisContext<'v> {
     }
 
     pub fn assert_no_promises(&self) -> anyhow::Result<()> {
-        self.actions.state().assert_no_promises()
+        self.actions.state()?.assert_no_promises()
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.

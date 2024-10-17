@@ -300,7 +300,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let metadata_param = match (metadata_env_var, metadata_path) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
-                this.state().claim_output_path(eval, &path)?;
+                this.state()?.claim_output_path(eval, &path)?;
                 Ok(Some(MetadataParameter { env_var, path }))
             }
             (Some(_), None) => Err(anyhow::anyhow!(RunActionError::MetadataPathMissing)),
@@ -344,7 +344,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,
         };
-        this.state().register_action(
+        this.state()?.register_action(
             artifacts.inputs,
             artifacts.outputs,
             action,
