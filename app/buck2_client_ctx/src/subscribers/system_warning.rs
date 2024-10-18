@@ -63,25 +63,25 @@ pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> Str
         String::new()
     };
     let msg = format!(
-        "Slow download speed is detected{}. This may significantly impact build speed.",
+        "Slow download speed is detected{}. This may significantly impact build speed",
         avg_speed
     );
     if !is_open_source() {
-        format!("{msg} See {DOWNLOAD_SPEED_LOW_LINK} for more details.")
+        format!("{msg}: {DOWNLOAD_SPEED_LOW_LINK}.")
     } else {
-        msg
+        format!("{msg}.")
     }
 }
 
 pub(crate) fn cache_misses_msg(cache_hit_percent: u8) -> String {
     let msg = format!(
-        "Low cache hits detected: {}%. This may significantly impact build speed.",
+        "Low cache hits detected: {}%. This may significantly impact build speed",
         cache_hit_percent
     );
     if !is_open_source() {
-        format!("{msg} See {CACHE_MISS_LINK} for more details")
+        format!("{msg}: {CACHE_MISS_LINK}.")
     } else {
-        format!("{msg} Try rebasing to a stable revision with warmed caches.")
+        format!("{msg}. Try rebasing to a stable revision with warmed caches.")
     }
 }
 
