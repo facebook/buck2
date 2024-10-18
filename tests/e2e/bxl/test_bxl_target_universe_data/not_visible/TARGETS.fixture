@@ -1,7 +1,4 @@
-load("//:rules.bzl", "simple")
-
-simple(
+stub(
     name = "not_visible",
-    deps = [],
     visibility = ["//not_visible/..."],
 )

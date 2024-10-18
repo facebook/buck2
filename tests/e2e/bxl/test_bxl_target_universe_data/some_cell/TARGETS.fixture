@@ -1,11 +1,8 @@
-load("@root//:rules.bzl", "simple")
-
-simple(
+stub(
     name = "inner",
     deps = ["root//good_targets:target2", ":inner_declared_dep"],
 )
 
-simple(
+stub(
     name = "inner_declared_dep",
-    deps = [],
 )
