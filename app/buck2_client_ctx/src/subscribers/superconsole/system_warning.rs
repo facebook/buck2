@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use crossterm::style::Color;
 use crossterm::style::Stylize;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -35,8 +36,14 @@ pub(crate) struct SystemWarningComponent<'a> {
 }
 
 fn warning_styled(text: &str) -> anyhow::Result<Line> {
+    // cross term doesn't directly define orange as a color
+    let orange = Color::Rgb {
+        r: (244),
+        g: (140),
+        b: (40),
+    };
     Ok(Line::from_iter([Span::new_styled(
-        text.to_owned().yellow(),
+        text.to_owned().with(orange),
     )?]))
 }
 
