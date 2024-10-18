@@ -517,3 +517,18 @@ async def test_output_format_starlark_golden(buck: Buck) -> None:
         output=result.stdout,
         rel_path="output_starlark.golden.out",
     )
+
+
+@buck_test(data_dir="bxl_simple")
+async def test_uquery_rdeps(buck: Buck) -> None:
+    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1)""")
+    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
+
+    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 0)""")
+    assert result.stdout == "root//lib:file1\n"
+
+    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 1)""")
+    assert result.stdout == "root//lib:lib1\nroot//lib:file1\n"
+
+    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 100)""")
+    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"

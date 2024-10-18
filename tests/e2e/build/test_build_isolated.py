@@ -57,22 +57,6 @@ async def test_missing_target(buck: Buck) -> None:
     await expect_failure(buck.build("//:not_a_target_name"))
 
 
-# TODO(nga): this test does not belong here.
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_query_rdeps(buck: Buck) -> None:
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1)""")
-    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 0)""")
-    assert result.stdout == "root//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 1)""")
-    assert result.stdout == "root//lib:lib1\nroot//lib:file1\n"
-
-    result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 100)""")
-    assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
-
-
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_targets_recursive(buck: Buck) -> None:
     result = await buck.targets("--json", "ignored/...")
