@@ -13,11 +13,11 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=False)
 async def test_not_bxl(buck: Buck) -> None:
     await expect_failure(
         buck.bxl(
-            "//buck2/tests/e2e/bxl/not_bxl.bxl:not_bxl",
+            "//not_bxl.bxl:not_bxl",
         ),
         stderr_regex="Expected value of type `bxl` but got `function",
     )

@@ -1,6 +1,5 @@
-[buildfile]
-name=TARGETS.fixture
+[cells]
+  root = .
 
-[repositories]
-prelude = .
-config = config
+[buildfile]
+  name=TARGETS.fixture
