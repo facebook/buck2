@@ -123,3 +123,9 @@ buck2_e2e_test(
     srcs = ["test_package_file_visibility.py"],
     data_dir = "test_package_file_visibility_data",
 )
+
+buck2_e2e_test(
+    name = "test_print",
+    srcs = ["test_print.py"],
+    data_dir = "test_print_data",
+)

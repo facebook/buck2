@@ -922,17 +922,6 @@ async def test_executor_caching(buck: Buck) -> None:
     assert (await read_executors()) == ["Cache"]
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_print(buck: Buck) -> None:
-    result = await buck.build("root//:print")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
-
-    result = await buck.build("root//:print", "--no-buckd")
-    assert "print me" in result.stderr
-    assert "print me" not in result.stdout
-
-
 @buck_test(inplace=False, data_dir="pass")
 async def test_sandcastle_id_check(buck: Buck) -> None:
     async def pid() -> int:
