@@ -34,3 +34,9 @@ buck2_e2e_test(
     srcs = ["test_targets_keep_going.py"],
     data_dir = "test_targets_keep_going_data",
 )
+
+buck2_e2e_test(
+    name = "test_recursive",
+    srcs = ["test_recursive.py"],
+    data_dir = "test_recursive_data",
+)

@@ -58,14 +58,6 @@ async def test_missing_target(buck: Buck) -> None:
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
-async def test_targets_recursive(buck: Buck) -> None:
-    result = await buck.targets("--json", "ignored/...")
-    assert json.loads(result.stdout) == []
-
-    await expect_failure(buck.targets("--json", "nonexistent/..."))
-
-
-@buck_test(inplace=False, data_dir="bxl/simple")
 async def test_target_hashing_accepts_backreferencing_relative_paths(
     buck: Buck,
     tmp_path: Path,
