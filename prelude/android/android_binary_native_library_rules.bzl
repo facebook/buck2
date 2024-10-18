@@ -183,6 +183,7 @@ def get_android_binary_native_library_info(
     linkable_nodes_by_platform = {}
     native_library_merge_sequence = getattr(ctx.attrs, "native_library_merge_sequence", None)
     native_library_merge_map = getattr(ctx.attrs, "native_library_merge_map", None)
+    native_library_merge_non_asset_libs = getattr(ctx.attrs, "native_library_merge_non_asset_libs", False)
     has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
 
@@ -211,6 +212,8 @@ def get_android_binary_native_library_info(
         mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
         if apk_module_graph_file:
             mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
+        if native_library_merge_non_asset_libs:
+            mergemap_cmd.add(cmd_args("--merge-non-asset-libs"))
         native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
         native_library_merge_map = native_library_merge_dir.project("merge.map")
         split_groups_map = native_library_merge_dir.project("split_groups.map")
