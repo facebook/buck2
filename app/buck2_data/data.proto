@@ -2029,6 +2029,9 @@ message InvocationRecord {
   repeated NetworkKind active_networks_kinds = 102;
   // Configuration used during the build command.
   optional TargetCfg target_cfg = 103;
+  // Source code revision where invocation happened
+  optional VersionControlRevision version_control_revision = 104;
+
   // Detailed per-backend RE stats.
   optional uint64 zdb_download_queries = 200;
   optional uint64 zdb_download_bytes = 201;

@@ -198,6 +198,7 @@ pub(crate) struct InvocationRecorder<'a> {
     peak_used_disk_space_bytes: Option<u64>,
     active_networks_kinds: HashSet<i32>,
     target_cfg: Option<TargetCfg>,
+    version_control_revision: Option<buck2_data::VersionControlRevision>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -336,6 +337,7 @@ impl<'a> InvocationRecorder<'a> {
             peak_used_disk_space_bytes: None,
             active_networks_kinds: HashSet::new(),
             target_cfg: None,
+            version_control_revision: None,
         }
     }
 
@@ -731,6 +733,7 @@ impl<'a> InvocationRecorder<'a> {
                 .into_iter()
                 .collect(),
             target_cfg: self.target_cfg.take(),
+            version_control_revision: self.version_control_revision.take(),
         };
 
         let event = BuckEvent::new(
@@ -1480,6 +1483,10 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::TargetCfg(target_cfg) => {
                         self.target_cfg = Some(target_cfg.clone());
+                        Ok(())
+                    }
+                    buck2_data::instant_event::Data::VersionControlRevision(revision) => {
+                        self.version_control_revision = Some(revision.clone());
                         Ok(())
                     }
                     _ => Ok(()),
