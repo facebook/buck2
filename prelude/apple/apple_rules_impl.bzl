@@ -217,6 +217,7 @@ extra_attributes = {
         "contains_swift": attrs.bool(default = False),
         "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
         "framework": attrs.option(attrs.source(allow_directory = True), default = None),
+        "modular": attrs.bool(default = True),
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
         "sdk_modules": attrs.list(attrs.string(), default = []),
         "stripped": attrs.option(attrs.bool(), default = None),
