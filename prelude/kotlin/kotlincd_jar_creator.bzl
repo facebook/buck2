@@ -76,7 +76,7 @@ def create_jar_artifact_kotlincd(
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
-        debug_port: [int, None] = None) -> JavaCompileOutputs:
+        debug_port: [int, None] = None) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -360,10 +360,11 @@ def create_jar_artifact_kotlincd(
             error_handler = kotlin_toolchain.kotlin_error_handler,
             **common_params
         )
+        return proto
 
     library_classpath_jars_tag = actions.artifact_tag()
     command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag, incremental_state_dir)
-    define_kotlincd_action(
+    proto = define_kotlincd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
@@ -417,7 +418,7 @@ def create_jar_artifact_kotlincd(
             annotation_processor_output = output_paths.annotations,
             incremental_state_dir = incremental_state_dir,
             abi_jar_snapshot = abi_jar_snapshot,
-        )
+        ), proto
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, final_jar_output.final_jar, actions_identifier)
         return make_compile_outputs(
@@ -426,4 +427,4 @@ def create_jar_artifact_kotlincd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
-        )
+        ), proto

@@ -414,13 +414,15 @@ def build_kotlin_library(
                 "srcs": srcs,
                 "target_level": target_level,
             }
-            outputs = create_jar_artifact_kotlincd(
+            outputs, proto = create_jar_artifact_kotlincd(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 **common_kotlincd_kwargs
             )
 
+            if proto:
+                extra_sub_targets = extra_sub_targets | {"jar_command_proto_json": [DefaultInfo(default_output = proto)]}
             if outputs and outputs.incremental_state_dir:
                 extra_sub_targets = extra_sub_targets | {"incremental_state_dir": [
                     DefaultInfo(default_output = outputs.incremental_state_dir),
