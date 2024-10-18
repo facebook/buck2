@@ -57,43 +57,6 @@ async def test_missing_target(buck: Buck) -> None:
     await expect_failure(buck.build("//:not_a_target_name"))
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_target_hashing_accepts_backreferencing_relative_paths(
-    buck: Buck,
-    tmp_path: Path,
-) -> None:
-    await buck.targets(
-        ":the_binary",
-        "--show-target-hash",
-        "--target-hash-file-mode=paths_only",
-        "--target-hash-modified-paths=../.buckconfig",
-        rel_cwd=Path("bin"),
-    )
-
-    # Paths outside of the project still fail
-    await expect_failure(
-        buck.targets(
-            ":the_binary",
-            "--show-target-hash",
-            "--target-hash-file-mode=paths_only",
-            "--target-hash-modified-paths=../.buckconfig",
-        ),
-        stderr_regex="relativize path.*against project root",
-    )
-
-    if os.name != "nt":
-        # Absolute path non-normalized paths should work
-        (tmp_path / "symlink").symlink_to(buck.cwd)
-
-        await buck.targets(
-            ":the_binary",
-            "--show-target-hash",
-            "--target-hash-file-mode=paths_only",
-            f"--target-hash-modified-paths={tmp_path}/symlink/.buckconfig",
-            rel_cwd=Path("bin"),
-        )
-
-
 @buck_test(inplace=False, data_dir="pass")
 async def test_success_message_printed(buck: Buck) -> None:
     results = await buck.build("//:abc", "--console=simplenotty")

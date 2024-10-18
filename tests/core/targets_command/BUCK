@@ -40,3 +40,9 @@ buck2_e2e_test(
     srcs = ["test_recursive.py"],
     data_dir = "test_recursive_data",
 )
+
+buck2_e2e_test(
+    name = "test_target_hashing",
+    srcs = ["test_target_hashing.py"],
+    data_dir = "test_target_hashing_data",
+)
