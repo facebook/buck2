@@ -62,6 +62,7 @@ enum SystemWarningTypes {
     MemoryPressure,
     LowDiskSpace,
     SlowDownloadSpeed,
+    LowCacheHits,
 }
 
 static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
@@ -140,6 +141,10 @@ fn init_remaining_system_warning_count() {
         .lock()
         .unwrap()
         .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
+    ELAPSED_SYSTEM_WARNING_MAP
+        .lock()
+        .unwrap()
+        .insert(SystemWarningTypes::LowCacheHits, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -674,7 +679,10 @@ where
                         .and_then(|cbd| cbd.first_build_since_rebase())
                         .unwrap_or(false);
                     if check_cache_misses(cache_hit_percent, sysinfo, first_build_since_rebase) {
-                        echo!("{}", cache_misses_msg(cache_hit_percent))?;
+                        echo_system_warning_exponential(
+                            SystemWarningTypes::LowCacheHits,
+                            &cache_misses_msg(cache_hit_percent),
+                        )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
