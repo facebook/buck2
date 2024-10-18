@@ -37,6 +37,8 @@ import os
 import os.path
 import subprocess
 import sys
+import tempfile
+from enum import Enum
 from typing import List
 
 
@@ -63,57 +65,105 @@ def _extract_lib_search_path(argsfile_path: str) -> List[str]:
     return lib_search_path
 
 
+class BitcodeMergeState(str, Enum):
+    STANDALONE = "STANDALONE"
+    ABSORBED = "ABSORBED"
+    ROOT = "ROOT"
+    NOT_LOADED = "NOT_LOADED"
+
+
+def read_merged_bitcode_file(merged_bitcode_path) -> BitcodeMergeState:
+    if os.path.getsize(merged_bitcode_path) == 0:
+        return BitcodeMergeState.NOT_LOADED
+
+    result = subprocess.check_output(
+        f"file {merged_bitcode_path}", shell=True, text=True
+    )
+    if "LLVM bitcode" in result:
+        return BitcodeMergeState.ROOT
+
+    with open(merged_bitcode_path) as merged_bitcode_file:
+        for line in merged_bitcode_file:
+            if "standalone" in line:
+                return BitcodeMergeState.STANDALONE
+            if "absorbed" in line:
+                return BitcodeMergeState.ABSORBED
+
+    assert False, f"unexpected merged bitcode file contents: {merged_bitcode_path}"
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--meta")
     parser.add_argument("--index")
     parser.add_argument("--link-plan")
     parser.add_argument("--final-link-index")
+    parser.add_argument("--enable-premerger", action="store_true")
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
-
-    subprocess.check_call(args.index_args[1:])
 
     bitcode_suffix = ".thinlto.bc"
     imports_suffix = ".imports"
     opt_objects_suffix = ".opt.o"  # please note the files are not exist yet, this is to generate the index file use in final link
+    merged_bitcode_suffix = ".merged.bc"
+
+    premerger_enabled = args.enable_premerger
 
     with open(args.meta) as meta:
         meta_lines = [line.strip() for line in meta.readlines()]
 
-    def read_imports(path, imports_path):
+    def read_imports(imports_path):
         with open(imports_path) as infile:
-            return [line.strip() for line in infile.readlines()]
+            if not premerger_enabled:
+                return [line.strip() for line in infile.readlines()]
+
+            result = []
+            for line in infile.readlines():
+                if line.strip().endswith(".merged.bc"):
+                    result.append(
+                        output_merged_bitcode_file_path_to_input_bitcode_file_path_mapping[
+                            line.strip()
+                        ]
+                    )
+                else:
+                    result.append(line.strip())
+            return result
 
     def index_path(path):
         return os.path.join(args.index, path)
 
     # The meta file comes directly from dist_lto.bzl and consists of a list of
-    # 7-tuples of information. It is easiest for us to write each tuple member
-    # as a separate line in Starlark, so these 7-tuples are encoded in groups
-    # of seven lines.
+    # 9-tuples of information. It is easiest for us to write each tuple member
+    # as a separate line in Starlark, so these 9-tuples are encoded in groups
+    # of nine lines.
     #
-    # The seven pieces of information are:
+    # The nine pieces of information are:
     #  1. The path to the source bitcode file. This is used as an index into
     #     a dictionary (`mapping`) that records much of the metadata coming
     #     from these lines.
     #  2. The path to an output bitcode file. This script is expected to place a
     #     ThinLTO index file at this location (suffixed `.thinlto.bc`).
-    #  3. The path to an output plan. This script is expected to place a link
+    #  3. If the premerger is enabled, the path to a merged bitcode file.
+    #     This script is expected to place a file at this location (suffixed `.merged.bc`).
+    #  4. The path to an output plan. This script is expected to place a link
     #     plan here (a JSON document indicating which other object files this)
     #     object file depends on, among other things.
-    #  4. The link data's index in the Starlark array.
-    #  5. If this object file came from an archive, the name of the archive. Otherwise,
+    #  5. The link data's index in the Starlark array.
+    #  6. If this object file came from an archive, the name of the archive. Otherwise,
     #     this line is empty.
-    #  6. If this object file came from an archive, the path to an output plan.
+    #  7. If this object file came from an archive, the path to an output plan.
     #     This script is expected to produce an archive link plan here (a JSON)
     #     document similar to the object link plan, except containing link
     #     information for every file in the archive from which this object
     #     came. Otherwise, this line is empty.
-    #  7. If this object file came from an archive, the indexes directory of that
+    #  8. If this object file came from an archive, the indexes directory of that
     #     archive. This script is expected to place all ThinLTO indexes derived
     #     from object files originating from this archive in that directory.
     #     Otherwise, this line is empty.
+    #  9. If this object file came from an archive, and the premerger is enabled,
+    #     the merged bc directory of that archive. This script is expected to place
+    #     all merged bitcode files derived from object files originating
+    #     from this archive in that directory. Otherwise, this line is empty.
     #
     # There are two indices that are derived from this meta file: the object
     # index (mapping["index"]) and the archive index (mapping["archive_index"]).
@@ -121,30 +171,69 @@ def main(argv):
     # linkables, respectively. This script does not inspect them.
     mapping = {}
     archives = {}
-    for i in range(0, len(meta_lines), 7):
+    input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping = {}
+    output_merged_bitcode_file_path_to_input_bitcode_file_path_mapping = {}
+    for i in range(0, len(meta_lines), 9):
         path = meta_lines[i]
         output = meta_lines[i + 1]
-        plan_output = meta_lines[i + 2]
-        idx = int(meta_lines[i + 3])
-        archive_name = meta_lines[i + 4]
-        archive_plan = meta_lines[i + 5]
-        archive_index_dir = meta_lines[i + 6]
+        merged_output = meta_lines[i + 2]
+        plan_output = meta_lines[i + 3]
+        idx = int(meta_lines[i + 4])
+        archive_name = meta_lines[i + 5]
+        archive_plan = meta_lines[i + 6]
+        archive_index_dir = meta_lines[i + 7]
+        archive_merged_bitcode_dir = meta_lines[i + 8]
 
         archive_idx = idx if output == "" else None  # archives do not have outputs
         mapping[path] = {
             "output": output,
+            "merged_output": merged_output,
             "plan_output": plan_output,
             "index": idx,
             "archive_index": archive_idx,
             "archive_name": archive_name,
         }
         if archive_idx is not None:
+            if premerger_enabled:
+                input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping[
+                    path
+                ] = os.path.join(
+                    archive_merged_bitcode_dir, path + merged_bitcode_suffix
+                )
+                output_merged_bitcode_file_path_to_input_bitcode_file_path_mapping[
+                    os.path.join(
+                        archive_merged_bitcode_dir, path + merged_bitcode_suffix
+                    )
+                ] = path
             archives[idx] = {
                 "name": archive_name,
                 "objects": [],
                 "plan": archive_plan,
                 "index_dir": archive_index_dir,
+                "merged_bitcode_dir": archive_merged_bitcode_dir,
             }
+        elif premerger_enabled:
+            input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping[path] = (
+                merged_output
+            )
+            output_merged_bitcode_file_path_to_input_bitcode_file_path_mapping[
+                merged_output
+            ] = path
+
+    if premerger_enabled:
+        with tempfile.NamedTemporaryFile(mode="w+t") as premerger_output_mapping:
+            json.dump(
+                input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping,
+                premerger_output_mapping,
+            )
+            premerger_output_mapping.flush()
+            thin_link_args = args.index_args[1:]
+            thin_link_args.append(
+                f"-Wl,-mllvm,-premerger-output-map={premerger_output_mapping.name}"
+            )
+            subprocess.check_call(thin_link_args)
+    else:
+        subprocess.check_call(args.index_args[1:])
 
     # We read the `index`` and `index.full`` files produced by linker in index stage
     # and translate them to 2 outputs:
@@ -155,6 +244,7 @@ def main(argv):
     index = {}
     index_files_set = set()
     loaded_input_bitcode_files = set()
+    absorbed_source_files = set()
     with open(index_path("index")) as indexfile:
         for line in indexfile:
             line = line.strip()
@@ -183,7 +273,7 @@ def main(argv):
         if os.path.exists(imports_path):
             assert os.path.exists(bc_file), "missing bc file for %s" % path
             os.rename(bc_file, output_loc)
-            imports = read_imports(path, imports_path)
+            imports = read_imports(imports_path)
             imports_list = []
             archives_list = []
             for path in imports:
@@ -200,6 +290,20 @@ def main(argv):
                 "path": path,
                 "is_bc": True,
             }
+
+            if premerger_enabled:
+                merged_bitcode_path = (
+                    input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping[
+                        path
+                    ]
+                )
+                assert os.path.exists(
+                    merged_bitcode_path
+                ), f"missing merged bitcode file at {merged_bitcode_path}"
+                merge_state = read_merged_bitcode_file(merged_bitcode_path)
+                if merge_state == BitcodeMergeState.ABSORBED:
+                    absorbed_source_files.add(path)
+                plan["merge_state"] = merge_state.value
         else:
             non_lto_objects[data["index"]] = 1
             with open(output_loc, "w"):
@@ -221,23 +325,19 @@ def main(argv):
         # calculate it.
         archive_plan["base_dir"] = os.path.dirname(archive["plan"])
         object_plans = []
+        output_path = archive["index_dir"]
+        os.makedirs(output_path, exist_ok=True)
+        if premerger_enabled:
+            merged_bitcode_output_path = archive["merged_bitcode_dir"]
+            os.makedirs(merged_bitcode_output_path, exist_ok=True)
         for obj in archive["objects"]:
             imports_path = index_path(obj) + imports_suffix
-            output_path = archive["index_dir"]
-            os.makedirs(output_path, exist_ok=True)
             if os.path.exists(imports_path):
                 bc_file = index_path(obj) + bitcode_suffix
+                index_path(obj) + merged_bitcode_suffix
                 os.rename(bc_file, os.path.join(output_path, os.path.basename(bc_file)))
-                if not _input_bitcode_file_path_is_loaded_by_linker(obj):
-                    object_plans.append(
-                        {
-                            "not_loaded_by_linker": True,
-                            "is_bc": True,
-                        }
-                    )
-                    continue
 
-                imports = read_imports(path, imports_path)
+                imports = read_imports(imports_path)
                 imports_list = []
                 archives_list = []
                 for path in imports:
@@ -246,22 +346,37 @@ def main(argv):
                         archives_list.append(int(entry["archive_index"]))
                     else:
                         imports_list.append(entry["index"])
-                object_plans.append(
-                    {
-                        "is_bc": True,
-                        "path": obj,
-                        "imports": imports_list,
-                        "archive_imports": archives_list,
-                        "bitcode_file": os.path.join(
-                            output_path, os.path.basename(bc_file)
-                        ),
-                    }
-                )
+
+                object_plan = {
+                    "is_bc": True,
+                    "path": obj,
+                    "imports": imports_list,
+                    "archive_imports": archives_list,
+                    "bitcode_file": os.path.join(
+                        output_path, os.path.basename(bc_file)
+                    ),
+                }
+
+                if not _input_bitcode_file_path_is_loaded_by_linker(obj):
+                    object_plan["not_loaded_by_linker"] = True
+
+                if premerger_enabled:
+                    merged_bc_file = input_bitcode_file_path_to_output_merged_bitcode_file_path_mapping[
+                        obj
+                    ]
+                    merge_state = read_merged_bitcode_file(merged_bc_file)
+                    if merge_state == BitcodeMergeState.ABSORBED:
+                        absorbed_source_files.add(obj)
+                    object_plan["merge_state"] = merge_state.value
+                    object_plan["merged_bitcode_path"] = merged_bc_file
+
+                object_plans.append(object_plan)
             else:
                 object_plans.append(
                     {
                         "is_bc": False,
                         "path": obj,
+                        "merge_state": BitcodeMergeState.STANDALONE.value,
                     }
                 )
 
@@ -293,6 +408,8 @@ def main(argv):
         for line in full_index_input:
             line = line.strip()
             path = os.path.relpath(line, start=args.index)
+            if path in absorbed_source_files:
+                continue
             if line in index_files_set:
                 if mapping[path]["output"]:
                     # handle files that were not extracted from archives

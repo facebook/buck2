@@ -43,6 +43,7 @@ _BitcodeLinkData = record(
     bc_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
+    merged_bc = field([Artifact, None]),
 )
 
 _ArchiveLinkData = record(
@@ -55,6 +56,7 @@ _ArchiveLinkData = record(
     indexes_dir = Artifact,
     plan = Artifact,
     link_whole = bool,
+    merged_bc_dir = field([Artifact, None]),
 )
 
 _DynamicLibraryLinkData = record(
@@ -77,6 +79,7 @@ def cxx_darwin_dist_link(
         # The destination for the link output.
         output: Artifact,
         opts: LinkOptions,
+        premerger_enabled: bool,
         linker_map: Artifact | None = None) -> LinkedObject:
     """
     Perform a distributed thin-lto link into the supplied output
@@ -176,6 +179,10 @@ def cxx_darwin_dist_link(
                     bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
                     plan_output = ctx.actions.declare_output(name + ".opt.plan")
                     opt_output = ctx.actions.declare_output(name + ".opt.o")
+                    merged_bc_output = None
+                    if premerger_enabled:
+                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
+                        plan_outputs.append(merged_bc_output.as_output())
 
                     data = _IndexLinkData(
                         data_type = _DataType("bitcode"),
@@ -185,10 +192,12 @@ def cxx_darwin_dist_link(
                             bc_file = bc_output,
                             plan = plan_output,
                             opt_object = opt_output,
+                            merged_bc = merged_bc_output,
                         ),
                     )
                     unsorted_index_link_data.append(data)
                     plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
+
             elif isinstance(linkable, ArchiveLinkable):
                 # Our implementation of Distributed ThinLTO operates on individual objects, not archives. Since these
                 # archives might still contain LTO-able bitcode, we first extract the objects within the archive into
@@ -204,6 +213,11 @@ def cxx_darwin_dist_link(
                 archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name), dir = True)
                 archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
                 archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
+                archive_merged_bc_files = None
+                if premerger_enabled:
+                    archive_merged_bc_files = ctx.actions.declare_output("%s/%s/merged_bc_files" % (prepare_cat, name), dir = True)
+                    plan_outputs.append(archive_merged_bc_files.as_output())
+
                 prepare_args = cmd_args([
                     lto_prepare,
                     "--manifest-out",
@@ -230,6 +244,7 @@ def cxx_darwin_dist_link(
                         indexes_dir = archive_indexes,
                         plan = archive_plan,
                         link_whole = linkable.link_whole,
+                        merged_bc_dir = archive_merged_bc_files,
                     ),
                 )
                 unsorted_index_link_data.append(data)
@@ -284,7 +299,10 @@ def cxx_darwin_dist_link(
 
                 if artifact.data_type == _DataType("bitcode"):
                     index_args_out.add(link_data.initial_object)
-                    index_meta_args_out.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "")
+                    if premerger_enabled:
+                        index_meta_args_out.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), outputs[link_data.merged_bc].as_output(), outputs[link_data.plan].as_output(), str(idx), "", "", "", "")
+                    else:
+                        index_meta_args_out.add(link_data.initial_object, outputs[link_data.bc_file].as_output(), "", outputs[link_data.plan].as_output(), str(idx), "", "", "", "")
 
                 elif artifact.data_type == _DataType("archive"):
                     manifest = artifacts[link_data.manifest].read_json()
@@ -292,8 +310,11 @@ def cxx_darwin_dist_link(
                     if not manifest["objects"]:
                         # Despite not having any objects (and thus not needing a plan), we still need to bind the plan output.
                         ctx.actions.write(outputs[link_data.plan].as_output(), "{}")
-                        cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
-                        ctx.actions.run(cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name)
+                        make_indexes_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.indexes_dir].as_output()])
+                        ctx.actions.run(make_indexes_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_indexes_dir")
+                        if premerger_enabled:
+                            make_merged_bc_dir_cmd = cmd_args(["/bin/sh", "-c", "mkdir", "-p", outputs[link_data.merged_bc_dir].as_output()])
+                            ctx.actions.run(make_merged_bc_dir_cmd, category = make_cat("thin_lto_mkdir"), identifier = link_data.name + "_merged_bc_dir")
                         continue
 
                     index_args_out.add(cmd_args(hidden = link_data.objects_dir))
@@ -302,7 +323,10 @@ def cxx_darwin_dist_link(
                         index_args_out.add("-Wl,--start-lib")
 
                     for obj in manifest["objects"]:
-                        index_meta_args_out.add(obj, "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output())
+                        if premerger_enabled:
+                            index_meta_args_out.add(obj, "", "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output(), outputs[link_data.merged_bc_dir].as_output())
+                        else:
+                            index_meta_args_out.add(obj, "", "", "", str(idx), link_data.name, outputs[link_data.plan].as_output(), outputs[link_data.indexes_dir].as_output(), "")
                         index_args_out.add(obj)
 
                     if not link_data.link_whole:
@@ -366,8 +390,10 @@ def cxx_darwin_dist_link(
                 index_meta,
             )
 
-            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output(), "--"])
-            plan_cmd.add(index_cmd)
+            plan_cmd = cmd_args([lto_planner, "--meta", index_meta_file, "--index", index_out_dir, "--link-plan", outputs[link_plan].as_output(), "--final-link-index", outputs[final_link_index].as_output()])
+            if premerger_enabled:
+                plan_cmd.add("--enable-premerger")
+            plan_cmd.add("--", index_cmd)
 
             plan_cmd.add(cmd_args(hidden = [
                 index_meta,
@@ -415,21 +441,31 @@ def cxx_darwin_dist_link(
     # opt actions, but an action needs to re-run whenever the analysis that
     # produced it re-runs. And so, with a single dynamic_output, we'd need to
     # re-run all actions when any of the plans changed.
-    def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact):
+    def dynamic_optimize(name: str, initial_object: Artifact, bc_file: Artifact, plan: Artifact, opt_object: Artifact, merged_bc: Artifact | None):
         def optimize_object(ctx: AnalysisContext, artifacts, outputs):
             plan_json = artifacts[plan].read_json()
 
             # If the object was not compiled with thinlto flags, then there
             # won't be valid outputs for it from the indexing, but we still
             # need to bind the artifact. Similarily, if a bitcode file is not
-            # loaded by the indexing phase, there is no point optimizing it.
-            if "not_loaded_by_linker" in plan_json or not plan_json["is_bc"]:
+            # loaded by the indexing phase, or is absorbed by another module,
+            # there is no point optimizing it.
+            if "not_loaded_by_linker" in plan_json or not plan_json["is_bc"] or ("merge_state" in plan_json and plan_json["merge_state"] == "ABSORBED"):
                 ctx.actions.write(outputs[opt_object], "")
                 return
 
             opt_cmd = cmd_args(lto_opt)
             opt_cmd.add("--out", outputs[opt_object].as_output())
-            opt_cmd.add("--input", initial_object)
+            if premerger_enabled:
+                if plan_json["merge_state"] == "STANDALONE":
+                    opt_cmd.add("--input", initial_object)
+                elif plan_json["merge_state"] == "ROOT":
+                    opt_cmd.add("--input", merged_bc)
+                else:
+                    fail("Invalid merge state {} for bitcode file: {}".format(plan_json["merge_state"], bc_file))
+            else:
+                opt_cmd.add("--input", initial_object)
+
             opt_cmd.add("--index", bc_file)
 
             opt_cmd.add(cmd_args(hidden = common_opt_cmd))
@@ -438,9 +474,15 @@ def cxx_darwin_dist_link(
             opt_cmd.add("--")
             opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
-            imports = [sorted_index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
-            archives = [sorted_index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
-            opt_cmd.add(cmd_args(hidden = imports + archives))
+            imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in plan_json["imports"]]
+            imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in plan_json["archive_imports"]]
+
+            if premerger_enabled:
+                imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in plan_json["imports"]]
+                imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in plan_json["archive_imports"]]
+                opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory))
+
+            opt_cmd.add(cmd_args(hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory))
             ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_object"), identifier = name)
 
         ctx.actions.dynamic_output(dynamic = [plan], inputs = [], outputs = [opt_object.as_output()], f = optimize_object)
@@ -458,6 +500,9 @@ def cxx_darwin_dist_link(
             output_manifest = cmd_args()
             for entry in plan_json["objects"]:
                 if "not_loaded_by_linker" in entry:
+                    continue
+
+                if premerger_enabled and entry["merge_state"] == "ABSORBED":
                     continue
 
                 base_dir = plan_json["base_dir"]
@@ -481,7 +526,10 @@ def cxx_darwin_dist_link(
                 output_dir[source_path] = opt_object
                 opt_cmd = cmd_args(lto_opt)
                 opt_cmd.add("--out", opt_object.as_output())
-                opt_cmd.add("--input", entry["path"])
+                if premerger_enabled and entry["merge_state"] == "ROOT":
+                    opt_cmd.add("--input", entry["merged_bitcode_path"])
+                else:
+                    opt_cmd.add("--input", entry["path"])
                 opt_cmd.add("--index", entry["bitcode_file"])
 
                 opt_cmd.add(cmd_args(hidden = common_opt_cmd))
@@ -490,10 +538,15 @@ def cxx_darwin_dist_link(
                 opt_cmd.add("--")
                 opt_cmd.add(cxx_toolchain.cxx_compiler_info.compiler)
 
-                imports = [sorted_index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
-                archives = [sorted_index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
+                imported_input_bitcode_files = [sorted_index_link_data[idx].link_data.initial_object for idx in entry["imports"]]
+                imported_archives_input_bitcode_files_directory = [sorted_index_link_data[idx].link_data.objects_dir for idx in entry["archive_imports"]]
+                if premerger_enabled:
+                    imported_merged_input_bitcode_files = [sorted_index_link_data[idx].link_data.merged_bc for idx in entry["imports"]]
+                    imported_archives_merged_bitcode_files_directory = [sorted_index_link_data[idx].link_data.merged_bc_dir for idx in entry["archive_imports"]]
+                    opt_cmd.add(cmd_args(hidden = imported_merged_input_bitcode_files + imported_archives_merged_bitcode_files_directory + [archive.merged_bc_dir]))
+
                 opt_cmd.add(cmd_args(
-                    hidden = imports + archives + [archive.indexes_dir, archive.objects_dir],
+                    hidden = imported_input_bitcode_files + imported_archives_input_bitcode_files_directory + [archive.indexes_dir, archive.objects_dir],
                 ))
                 ctx.actions.run(opt_cmd, category = make_cat("thin_lto_opt_archive"), identifier = source_path)
 
@@ -513,6 +566,7 @@ def cxx_darwin_dist_link(
                 bc_file = link_data.bc_file,
                 plan = link_data.plan,
                 opt_object = link_data.opt_object,
+                merged_bc = link_data.merged_bc,
             )
         elif artifact.data_type == _DataType("archive"):
             dynamic_optimize_archive(link_data)

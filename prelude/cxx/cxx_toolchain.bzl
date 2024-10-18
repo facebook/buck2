@@ -142,6 +142,7 @@ def cxx_toolchain_impl(ctx):
         static_dep_runtime_ld_flags = ctx.attrs.static_dep_runtime_ld_flags,
         static_library_extension = ctx.attrs.static_library_extension or "a",
         static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
+        thin_lto_premerger_enabled = ctx.attrs.thin_lto_premerger_enabled,
         type = linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
     )
@@ -259,6 +260,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "supports_distributed_thinlto": attrs.bool(default = False),
         # Darwin only: the deployment target to use for this build
         "target_sdk_version": attrs.option(attrs.string(), default = None),
+        "thin_lto_premerger_enabled": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.

@@ -156,6 +156,7 @@ def cxx_link_into(
                 ctx,
                 output,
                 opts,
+                linker_info.thin_lto_premerger_enabled,
                 linker_map,
             )
         elif linker_type == LinkerType("gnu"):

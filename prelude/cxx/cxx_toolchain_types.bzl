@@ -64,6 +64,7 @@ LinkerInfo = provider(
         "requires_objects": provider_field(typing.Any, default = None),
         "supports_distributed_thinlto": provider_field(typing.Any, default = None),
         "independent_shlib_interface_linker_flags": provider_field(typing.Any, default = None),
+        "thin_lto_premerger_enabled": provider_field(bool, default = False),
         "type": LinkerType,
         "use_archiver_flags": provider_field(typing.Any, default = None),
         "force_full_hybrid_if_capable": provider_field(typing.Any, default = None),
