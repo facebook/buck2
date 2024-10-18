@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_not_bxl(buck: Buck) -> None:
     await expect_failure(
         buck.bxl(
@@ -23,7 +23,7 @@ async def test_not_bxl(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_not_allowed_now(buck: Buck) -> None:
     await expect_failure(
         buck.build(":"),

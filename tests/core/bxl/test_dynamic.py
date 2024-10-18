@@ -22,7 +22,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_dynamic_action(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -32,7 +32,7 @@ async def test_bxl_dynamic_action(buck: Buck) -> None:
     assert Path(outputs).read_text() == "content"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_dynamic_with_bxl_ctx(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -51,7 +51,7 @@ async def test_bxl_dynamic_with_bxl_ctx(buck: Buck) -> None:
 
 
 # Very simple test that the exec_deps/toolchains get propagatd to the dynamic bxl_ctx correctly
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_dynamic_execution_resolution(buck: Buck) -> None:
 
     result = await buck.bxl(
@@ -63,7 +63,7 @@ async def test_bxl_dynamic_execution_resolution(buck: Buck) -> None:
     assert Path(outputs["dynamic"]).read_text() == Path(outputs["root"]).read_text()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_dynamic_incompatible_targets(buck: Buck) -> None:
 
     result = await buck.bxl(

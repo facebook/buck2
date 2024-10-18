@@ -13,28 +13,28 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_target_universe_keep_going_no_errors(buck: Buck) -> None:
     await buck.bxl(
         "//target_universe.bxl:target_universe_keep_going_no_errors",
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_target_universe_universe_target_set(buck: Buck) -> None:
     await buck.bxl(
         "//target_universe.bxl:target_universe_universe_target_set",
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_target_universe_keep_going_with_errors(buck: Buck) -> None:
     await buck.bxl(
         "//keep_going.bxl:target_universe_keep_going_with_errors",
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_target_universe_keep_going_invalid_input(buck: Buck) -> None:
     await expect_failure(
         buck.bxl(

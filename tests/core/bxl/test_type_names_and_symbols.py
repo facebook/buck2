@@ -7,17 +7,10 @@
 
 # pyre-strict
 
-
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
-async def test_not_bxl(buck: Buck) -> None:
-    result = await expect_failure(
-        buck.bxl(
-            "//:test_typecheck.bxl:main",
-        )
-    )
-    assert "Expected type `int` but got `str`" in result.stderr
+@buck_test()
+async def test_cquery_ctx(buck: Buck) -> None:
+    await buck.bxl("//bxl/check_type_names_and_symbols.bxl:cquery_ctx")

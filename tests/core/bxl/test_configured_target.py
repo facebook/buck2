@@ -12,12 +12,12 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="")
+@buck_test(data_dir="")
 async def test_unwrap_forward(buck: Buck) -> None:
     await buck.bxl("//bxl/configured_target.bxl:unwrap_forward")
 
 
-@buck_test(inplace=False, data_dir="")
+@buck_test(data_dir="")
 async def test_configured_targets_with_modifiers(buck: Buck) -> None:
     result = await buck.bxl(
         "//bxl/configured_target.bxl:configured_targets_with_modifiers"

@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_caching(buck: Buck) -> None:
     result = await buck.bxl(
         "//caching.bxl:print_caching",
@@ -29,7 +29,7 @@ async def test_bxl_caching(buck: Buck) -> None:
     assert "result print" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_caching_with_target_platforms_specified(buck: Buck) -> None:
     # run with platform1, result should be cached afterwards
     result = await buck.bxl(
@@ -63,7 +63,7 @@ async def test_bxl_caching_with_target_platforms_specified(buck: Buck) -> None:
     assert "root//:platform1" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_error_caching(buck: Buck) -> None:
     result = await buck.bxl("//caching.bxl:print_error_caching")
     assert "ran me" in result.stderr
@@ -78,7 +78,7 @@ async def test_bxl_error_caching(buck: Buck) -> None:
     assert "root//:incompatible" in result.stderr
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_print_with_no_buckd(buck: Buck) -> None:
     result = await buck.bxl(
         "//caching.bxl:print_caching",
