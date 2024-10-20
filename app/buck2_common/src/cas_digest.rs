@@ -65,12 +65,12 @@ impl RawDigest {
         }
     }
 
-    pub fn algorithm(&self) -> DigestAlgorithmKind {
+    pub fn algorithm(&self) -> DigestAlgorithmFamily {
         match self {
-            Self::Sha1(..) => DigestAlgorithmKind::Sha1,
-            Self::Sha256(..) => DigestAlgorithmKind::Sha256,
-            Self::Blake3(..) => DigestAlgorithmKind::Blake3,
-            Self::Blake3Keyed(..) => DigestAlgorithmKind::Blake3Keyed,
+            Self::Sha1(..) => DigestAlgorithmFamily::Sha1,
+            Self::Sha256(..) => DigestAlgorithmFamily::Sha256,
+            Self::Blake3(..) => DigestAlgorithmFamily::Blake3,
+            Self::Blake3Keyed(..) => DigestAlgorithmFamily::Blake3Keyed,
         }
     }
 
@@ -105,7 +105,7 @@ impl fmt::Display for RawDigest {
     }
 }
 
-/// The kind of digest algorithm associated with a digest. This tells you what kind of digest it
+/// The family of digest algorithm associated with a digest. This tells you what kind of digest it
 /// is, but it might not be sufficient in order to actually recreate the digest. For example, this
 /// could contain keyed digests, but then you wouldn't have the key. We use this to store our
 /// digest kind when it's informative-only, like in our materializer state on disk.
@@ -122,7 +122,7 @@ impl fmt::Display for RawDigest {
     Allocative
 )]
 #[repr(u8)]
-pub enum DigestAlgorithmKind {
+pub enum DigestAlgorithmFamily {
     #[display("SHA1")]
     Sha1,
     #[display("SHA256")]
@@ -135,10 +135,10 @@ pub enum DigestAlgorithmKind {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Invalid Digest algorithm: `{0}`")]
-pub struct InvalidDigestAlgorithmKind(String);
+pub struct InvalidDigestAlgorithmFamily(String);
 
-impl std::str::FromStr for DigestAlgorithmKind {
-    type Err = InvalidDigestAlgorithmKind;
+impl std::str::FromStr for DigestAlgorithmFamily {
+    type Err = InvalidDigestAlgorithmFamily;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "SHA1" {
@@ -157,7 +157,7 @@ impl std::str::FromStr for DigestAlgorithmKind {
             return Ok(Self::Blake3Keyed);
         }
 
-        Err(InvalidDigestAlgorithmKind(s.to_owned()))
+        Err(InvalidDigestAlgorithmFamily(s.to_owned()))
     }
 }
 
@@ -171,12 +171,12 @@ pub enum DigestAlgorithm {
 }
 
 impl DigestAlgorithm {
-    fn kind(self) -> DigestAlgorithmKind {
+    fn family(self) -> DigestAlgorithmFamily {
         match self {
-            Self::Sha1 => DigestAlgorithmKind::Sha1,
-            Self::Sha256 => DigestAlgorithmKind::Sha256,
-            Self::Blake3 => DigestAlgorithmKind::Blake3,
-            Self::Blake3Keyed { .. } => DigestAlgorithmKind::Blake3Keyed,
+            Self::Sha1 => DigestAlgorithmFamily::Sha1,
+            Self::Sha256 => DigestAlgorithmFamily::Sha256,
+            Self::Blake3 => DigestAlgorithmFamily::Blake3,
+            Self::Blake3Keyed { .. } => DigestAlgorithmFamily::Blake3Keyed,
         }
     }
 }
@@ -259,8 +259,8 @@ impl fmt::Display for CasDigestConfig {
         write!(
             f,
             "CasDigestConfig(preferred = {}, source preferred = {})",
-            self.preferred_algorithm().kind(),
-            self.source_files_config().preferred_algorithm().kind()
+            self.preferred_algorithm().family(),
+            self.source_files_config().preferred_algorithm().family()
         )
     }
 }
@@ -349,7 +349,7 @@ pub enum CasDigestConfigError {
     NotConfigured,
     #[error("The preferred source algorithm must be in the algorithms list")]
     InvalidPreferredSourceAlgorithm,
-    #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0.kind(), .1.kind())]
+    #[error("Two algorithms were enabled for the same size: `{}` and `{}`", .0.family(), .1.family())]
     Conflict(DigestAlgorithm, DigestAlgorithm),
 }
 
@@ -402,12 +402,12 @@ impl DataDigester {
         }
     }
 
-    pub fn algorithm(&self) -> DigestAlgorithmKind {
+    pub fn algorithm(&self) -> DigestAlgorithmFamily {
         match &self.variant {
-            DigesterVariant::Sha1(..) => DigestAlgorithmKind::Sha1,
-            DigesterVariant::Sha256(..) => DigestAlgorithmKind::Sha256,
-            DigesterVariant::Blake3(..) => DigestAlgorithmKind::Blake3,
-            DigesterVariant::Blake3Keyed(..) => DigestAlgorithmKind::Blake3Keyed,
+            DigesterVariant::Sha1(..) => DigestAlgorithmFamily::Sha1,
+            DigesterVariant::Sha256(..) => DigestAlgorithmFamily::Sha256,
+            DigesterVariant::Blake3(..) => DigestAlgorithmFamily::Blake3,
+            DigesterVariant::Blake3Keyed(..) => DigestAlgorithmFamily::Blake3Keyed,
         }
     }
 
@@ -428,7 +428,7 @@ impl<Kind: CasDigestKind> Digester<Kind> {
         }
     }
 
-    pub fn algorithm(&self) -> DigestAlgorithmKind {
+    pub fn algorithm(&self) -> DigestAlgorithmFamily {
         self.data.algorithm()
     }
 
@@ -515,15 +515,15 @@ impl<Kind: CasDigestKind> fmt::Debug for CasDigest<Kind> {
 
 impl<Kind: CasDigestKind> CasDigest<Kind> {
     pub fn from_digest_bytes(
-        kind: DigestAlgorithmKind,
+        kind: DigestAlgorithmFamily,
         digest: &[u8],
         size: u64,
     ) -> anyhow::Result<Self> {
         Ok(match kind {
-            DigestAlgorithmKind::Sha1 => Self::new_sha1(digest.try_into()?, size),
-            DigestAlgorithmKind::Sha256 => Self::new_sha256(digest.try_into()?, size),
-            DigestAlgorithmKind::Blake3 => Self::new_blake3(digest.try_into()?, size),
-            DigestAlgorithmKind::Blake3Keyed => Self::new_blake3_keyed(digest.try_into()?, size),
+            DigestAlgorithmFamily::Sha1 => Self::new_sha1(digest.try_into()?, size),
+            DigestAlgorithmFamily::Sha256 => Self::new_sha256(digest.try_into()?, size),
+            DigestAlgorithmFamily::Blake3 => Self::new_blake3(digest.try_into()?, size),
+            DigestAlgorithmFamily::Blake3Keyed => Self::new_blake3_keyed(digest.try_into()?, size),
         })
     }
 
@@ -1015,7 +1015,7 @@ mod tests {
         )
         .unwrap()
         .0;
-        assert_eq!(sha1.raw_digest().algorithm(), DigestAlgorithmKind::Sha1);
+        assert_eq!(sha1.raw_digest().algorithm(), DigestAlgorithmFamily::Sha1);
         assert_eq!(
             sha1.to_string(),
             "0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33:3"
@@ -1027,7 +1027,10 @@ mod tests {
         )
         .unwrap()
         .0;
-        assert_eq!(sha256.raw_digest().algorithm(), DigestAlgorithmKind::Sha256);
+        assert_eq!(
+            sha256.raw_digest().algorithm(),
+            DigestAlgorithmFamily::Sha256
+        );
         assert_eq!(
             sha256.to_string(),
             "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae:3"
@@ -1039,7 +1042,10 @@ mod tests {
         )
         .unwrap()
         .0;
-        assert_eq!(blake3.raw_digest().algorithm(), DigestAlgorithmKind::Blake3);
+        assert_eq!(
+            blake3.raw_digest().algorithm(),
+            DigestAlgorithmFamily::Blake3
+        );
         assert_eq!(
             blake3.to_string(),
             "04e0bb39f30b1a3feb89f536c93be15055482df748674b00d26e5a75777702e9:3"
@@ -1053,7 +1059,7 @@ mod tests {
         .0;
         assert_eq!(
             blake3_keyed.raw_digest().algorithm(),
-            DigestAlgorithmKind::Blake3Keyed
+            DigestAlgorithmFamily::Blake3Keyed
         );
         assert_eq!(
             blake3_keyed.to_string(),
@@ -1064,10 +1070,10 @@ mod tests {
     #[test]
     fn test_digest_algorithm_kind_roundtrip() {
         for v in [
-            DigestAlgorithmKind::Sha1,
-            DigestAlgorithmKind::Sha256,
-            DigestAlgorithmKind::Blake3,
-            DigestAlgorithmKind::Blake3Keyed,
+            DigestAlgorithmFamily::Sha1,
+            DigestAlgorithmFamily::Sha256,
+            DigestAlgorithmFamily::Blake3,
+            DigestAlgorithmFamily::Blake3Keyed,
         ] {
             assert_eq!(v, v.to_string().parse().unwrap());
         }

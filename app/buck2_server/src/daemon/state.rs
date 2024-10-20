@@ -19,7 +19,7 @@ use anyhow::Context;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
-use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
@@ -296,13 +296,13 @@ impl DaemonState {
             .context("failed to init scribe sink")?;
 
             let default_digest_algorithm =
-                buck2_env_anyhow!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmKind)?;
+                buck2_env_anyhow!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmFamily)?;
 
             let default_digest_algorithm = default_digest_algorithm.unwrap_or_else(|| {
                 if buck2_core::is_open_source() {
-                    DigestAlgorithmKind::Sha256
+                    DigestAlgorithmFamily::Sha256
                 } else {
-                    DigestAlgorithmKind::Sha1
+                    DigestAlgorithmFamily::Sha1
                 }
             });
 
@@ -313,7 +313,7 @@ impl DaemonState {
                 .map(|algos| {
                     algos
                         .split(',')
-                        .map(DigestAlgorithmKind::from_str)
+                        .map(DigestAlgorithmFamily::from_str)
                         .collect::<Result<_, _>>()
                 })
                 .transpose()
@@ -825,12 +825,12 @@ impl DaemonState {
     }
 }
 
-fn convert_algorithm_kind(kind: DigestAlgorithmKind) -> anyhow::Result<DigestAlgorithm> {
+fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> anyhow::Result<DigestAlgorithm> {
     anyhow::Ok(match kind {
-        DigestAlgorithmKind::Sha1 => DigestAlgorithm::Sha1,
-        DigestAlgorithmKind::Sha256 => DigestAlgorithm::Sha256,
-        DigestAlgorithmKind::Blake3 => DigestAlgorithm::Blake3,
-        DigestAlgorithmKind::Blake3Keyed => {
+        DigestAlgorithmFamily::Sha1 => DigestAlgorithm::Sha1,
+        DigestAlgorithmFamily::Sha256 => DigestAlgorithm::Sha256,
+        DigestAlgorithmFamily::Blake3 => DigestAlgorithm::Blake3,
+        DigestAlgorithmFamily::Blake3Keyed => {
             #[cfg(fbcode_build)]
             {
                 let key = blake3_constants::BLAKE3_HASH_KEY;

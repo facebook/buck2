@@ -13,7 +13,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 use buck2_common::cas_digest::CasDigest;
-use buck2_common::cas_digest::DigestAlgorithmKind;
+use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
@@ -36,7 +36,7 @@ pub struct FileInfo<'a> {
     #[serde(serialize_with = "stringify")]
     pub digest: &'a CasDigest<FileDigestKind>,
     #[serde(serialize_with = "stringify")]
-    pub digest_kind: DigestAlgorithmKind,
+    pub digest_kind: DigestAlgorithmFamily,
     pub is_exec: bool,
 }
 
@@ -99,7 +99,7 @@ mod tests {
             path,
             info: ArtifactInfo::File(FileInfo {
                 digest: &digest,
-                digest_kind: DigestAlgorithmKind::Sha1,
+                digest_kind: DigestAlgorithmFamily::Sha1,
                 is_exec: false,
             }),
         };
