@@ -15,6 +15,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",

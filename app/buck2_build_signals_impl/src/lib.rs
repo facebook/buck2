@@ -39,7 +39,6 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
-use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
@@ -80,7 +79,6 @@ enum NodeKey {
     AnalysisKey(AnalysisKey),
     EnsureProjectedArtifactKey(EnsureProjectedArtifactKey),
     EnsureTransitiveSetProjectionKey(EnsureTransitiveSetProjectionKey),
-    ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
     PackageListingKey(PackageListingKey),
 
@@ -98,7 +96,6 @@ assert_eq_size!(BuildKey, [usize; 4]);
 assert_eq_size!(AnalysisKey, [usize; 2]);
 assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 5]);
 assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
-assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(PackageListingKey, [usize; 1]);
 assert_eq_size!(BuildArtifact, [usize; 6]);
@@ -114,8 +111,6 @@ impl NodeKey {
             Self::EnsureProjectedArtifactKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<EnsureTransitiveSetProjectionKey>() {
             Self::EnsureTransitiveSetProjectionKey(key.dupe())
-        } else if let Some(key) = key.downcast_ref::<ConfiguredTargetNodeKey>() {
-            Self::ConfiguredTargetNodeKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<InterpreterResultsKey>() {
             Self::InterpreterResultsKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<PackageListingKey>() {
@@ -139,7 +134,6 @@ impl fmt::Display for NodeKey {
             Self::EnsureTransitiveSetProjectionKey(k) => {
                 write!(f, "EnsureTransitiveSetProjectionKey({})", k)
             }
-            Self::ConfiguredTargetNodeKey(k) => write!(f, "ConfiguredTargetNodeKey({})", k),
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
             Self::Materialization(k) => write!(f, "Materialization({})", k),
@@ -492,7 +486,6 @@ where
                     .into(),
                     NodeKey::EnsureProjectedArtifactKey(..) => return None,
                     NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
-                    NodeKey::ConfiguredTargetNodeKey(..) => return None,
                     NodeKey::Dyn(_, d) => d.critical_path_entry_proto()?,
                 };
 

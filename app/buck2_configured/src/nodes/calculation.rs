@@ -18,6 +18,8 @@ use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
+use buck2_build_signals::node_key::BuildSignalsNodeKey;
+use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -75,6 +77,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::visibility::VisibilityError;
 use derive_more::Display;
+use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -1400,7 +1403,13 @@ impl Key for ConfiguredTargetNodeKey {
             _ => false,
         }
     }
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| BuildSignalsNodeKey::new(self.dupe()))
+    }
 }
+
+impl BuildSignalsNodeKeyImpl for ConfiguredTargetNodeKey {}
 
 #[async_trait]
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {
