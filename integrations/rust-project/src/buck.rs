@@ -559,7 +559,7 @@ impl Buck {
         &self,
         use_clippy: bool,
         saved_file: &Path,
-    ) -> Result<Vec<PathBuf>, anyhow::Error> {
+    ) -> Result<CheckOutput, anyhow::Error> {
         let mut command = self.command(["bxl"]);
 
         if let Some(mode) = &self.mode {
@@ -578,6 +578,7 @@ impl Buck {
         // apply BXL scripts-specific arguments:
         command.args(["--", "--file"]);
         command.arg(file_path.as_os_str());
+        command.args(["--structured-output", "true"]);
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 
@@ -589,11 +590,6 @@ impl Buck {
         }
 
         let output = command.output();
-        if let Ok(output) = &output {
-            if output.stdout.is_empty() {
-                return Ok(vec![]);
-            }
-        }
 
         let files = deserialize_output(output, &command)?;
         Ok(files)
@@ -697,6 +693,11 @@ impl Buck {
         let out = deserialize_output(command.output(), &command)?;
         Ok(out)
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CheckOutput {
+    pub(crate) diagnostic_paths: Vec<PathBuf>,
 }
 
 pub(crate) fn utf8_output(

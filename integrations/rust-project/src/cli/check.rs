@@ -40,10 +40,10 @@ impl Check {
         let buck = &self.buck;
 
         let cell_root = buck.resolve_root_of_file(&self.saved_file)?;
-        let diagnostic_files = buck.check_saved_file(self.use_clippy, &self.saved_file)?;
+        let check_output = buck.check_saved_file(self.use_clippy, &self.saved_file)?;
 
         let mut diagnostics = vec![];
-        for path in diagnostic_files {
+        for path in check_output.diagnostic_paths {
             let contents = std::fs::read_to_string(path)?;
             for l in contents.lines() {
                 // rustc (and with greater relevance, the underlying build.bxl script) emits diagnostics as newline-delimited JSON.
