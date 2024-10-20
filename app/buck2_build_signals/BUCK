@@ -13,8 +13,11 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",
+        "//buck2/gazebo/cmp_any:cmp_any",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

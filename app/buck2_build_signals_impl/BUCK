@@ -18,7 +18,6 @@ rust_library(
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
-        "//buck2/app/buck2_action_impl:buck2_action_impl",
         "//buck2/app/buck2_analysis:buck2_analysis",
         "//buck2/app/buck2_artifact:buck2_artifact",
         "//buck2/app/buck2_build_api:buck2_build_api",

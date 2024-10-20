@@ -16,7 +16,10 @@ use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
 use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_api::dynamic::calculation::DYNAMIC_LAMBDA_CALCULATION_IMPL;
+use buck2_build_signals::node_key::BuildSignalsNodeKey;
+use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use dice::CancellationContext;
+use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -86,4 +89,10 @@ impl Key for DynamicLambdaDiceKey {
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
     }
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| BuildSignalsNodeKey::new(self.dupe()));
+    }
 }
+
+impl BuildSignalsNodeKeyImpl for DynamicLambdaDiceKey {}

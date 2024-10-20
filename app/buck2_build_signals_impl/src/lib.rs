@@ -19,7 +19,6 @@ use std::time::Instant;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_action_impl::dynamic::calculation::DynamicLambdaDiceKey;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
@@ -37,6 +36,7 @@ use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::FinishBuildSignals;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
@@ -83,10 +83,12 @@ enum NodeKey {
     ConfiguredTargetNodeKey(ConfiguredTargetNodeKey),
     InterpreterResultsKey(InterpreterResultsKey),
     PackageListingKey(PackageListingKey),
-    DynamicLambda(DynamicLambdaDiceKey),
 
     // This one is not a DICE key.
     Materialization(BuildArtifact),
+
+    // Dynamically-typed.
+    Dyn(&'static str, BuildSignalsNodeKey),
 }
 
 // Explain the sizeof this struct (and avoid regressing it since we store it in the longest path
@@ -99,7 +101,6 @@ assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
 assert_eq_size!(ConfiguredTargetNodeKey, [usize; 2]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(PackageListingKey, [usize; 1]);
-assert_eq_size!(DynamicLambdaDiceKey, [usize; 4]);
 assert_eq_size!(BuildArtifact, [usize; 6]);
 assert_eq_size!(NodeKey, [usize; 7]);
 
@@ -119,8 +120,8 @@ impl NodeKey {
             Self::InterpreterResultsKey(key.dupe())
         } else if let Some(key) = key.downcast_ref::<PackageListingKey>() {
             Self::PackageListingKey(key.dupe())
-        } else if let Some(key) = key.downcast_ref::<DynamicLambdaDiceKey>() {
-            Self::DynamicLambda(key.dupe())
+        } else if let Some(node_key) = key.request_value::<BuildSignalsNodeKey>() {
+            Self::Dyn(key.key_type_name(), node_key)
         } else {
             return None;
         };
@@ -141,8 +142,8 @@ impl fmt::Display for NodeKey {
             Self::ConfiguredTargetNodeKey(k) => write!(f, "ConfiguredTargetNodeKey({})", k),
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
-            Self::DynamicLambda(k) => write!(f, "DynamicLambdaResultsKey({})", k),
             Self::Materialization(k) => write!(f, "Materialization({})", k),
+            Self::Dyn(name, k) => write!(f, "{name}({k})"),
         }
     }
 }
@@ -491,8 +492,8 @@ where
                     .into(),
                     NodeKey::EnsureProjectedArtifactKey(..) => return None,
                     NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
-                    NodeKey::DynamicLambda(..) => return None,
                     NodeKey::ConfiguredTargetNodeKey(..) => return None,
+                    NodeKey::Dyn(_, d) => d.critical_path_entry_proto()?,
                 };
 
                 Some((entry, data, potential_improvement))
