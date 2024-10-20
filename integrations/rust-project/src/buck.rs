@@ -578,7 +578,6 @@ impl Buck {
         // apply BXL scripts-specific arguments:
         command.args(["--", "--file"]);
         command.arg(file_path.as_os_str());
-        command.args(["--structured-output", "true"]);
 
         command.args(["--use-clippy", &use_clippy.to_string()]);
 

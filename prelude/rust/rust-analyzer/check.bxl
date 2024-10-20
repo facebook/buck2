@@ -34,12 +34,11 @@ def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
     ]
 
 def _run(ctx: bxl.Context) -> None:
-    out = _check_targets_impl(ctx)
+    diagnostic_paths = _check_targets_impl(ctx)
 
-    if ctx.cli_args.structured_output:
-        out = {
-            "diagnostic_paths": out,
-        }
+    out = {
+        "diagnostic_paths": diagnostic_paths,
+    }
 
     ctx.output.print_json(out)
 
