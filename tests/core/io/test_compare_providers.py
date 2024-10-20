@@ -49,6 +49,7 @@ async def _run_test(buck: Buck, name: str) -> None:
     extra_buck_config={
         "buck2": {
             "allow_eden_io": "false",
+            "source_digest_algorithm": "SHA1",
         }
     },
 )
@@ -61,6 +62,7 @@ async def test_default(buck: Buck) -> None:
     extra_buck_config={
         "buck2": {
             "allow_eden_io": "true",
+            "source_digest_algorithm": "SHA1",
         }
     },
 )
