@@ -21,7 +21,6 @@ buck2_data = { workspace = true }
 buck2_events = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
-derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }

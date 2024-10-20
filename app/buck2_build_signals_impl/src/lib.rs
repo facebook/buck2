@@ -49,7 +49,6 @@ use buck2_events::span::SpanId;
 use buck2_interpreter_for_build::interpreter::calculation::IntepreterResultsKeyActivationData;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use derive_more::From;
 use dice::ActivationData;
 use dice::ActivationTracker;
 use dice::DynKey;
@@ -72,7 +71,7 @@ use crate::backend::longest_path_graph::LongestPathGraphBackend;
 mod backend;
 
 /// A node in our critical path graph.
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, From)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug)]
 enum NodeKey {
     // Those are DICE keys.
     BuildKey(BuildKey),
@@ -158,7 +157,6 @@ struct FinalMaterializationSignal {
  * entire build graph isn't feasible - therefore, we have these signals
  * with an unserializable but lightweight handle on a RegisteredAction.
  */
-#[derive(From)]
 enum BuildSignal {
     Evaluation(Evaluation),
     TopLevelTarget(TopLevelTargetSignal),
@@ -201,7 +199,10 @@ impl BuildSignals for BuildSignalSender {
     ) {
         let _ignored = self
             .sender
-            .send(TopLevelTargetSignal { label, artifacts }.into());
+            .send(BuildSignal::TopLevelTarget(TopLevelTargetSignal {
+                label,
+                artifacts,
+            }));
     }
 
     fn final_materialization(
@@ -210,14 +211,13 @@ impl BuildSignals for BuildSignalSender {
         duration: NodeDuration,
         span_id: Option<SpanId>,
     ) {
-        let _ignored = self.sender.send(
+        let _ignored = self.sender.send(BuildSignal::FinalMaterialization(
             FinalMaterializationSignal {
                 artifact,
                 duration,
                 span_id,
-            }
-            .into(),
-        );
+            },
+        ));
     }
 }
 
@@ -302,7 +302,7 @@ impl ActivationTracker for BuildSignalSender {
             }
         }
 
-        let _ignored = self.sender.send(signal.into());
+        let _ignored = self.sender.send(BuildSignal::Evaluation(signal));
     }
 }
 
