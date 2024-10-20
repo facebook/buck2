@@ -19,6 +19,7 @@ use dupe::Dupe;
 use crate::api::computations::DiceComputations;
 use crate::api::storage_type::StorageType;
 use crate::introspection::graph::short_type_name;
+use crate::Demand;
 
 /// The computation Key that maps to a value. The key will be used as an index
 /// for caching the computed values.
@@ -64,6 +65,13 @@ pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 
 
     fn storage_type() -> StorageType {
         StorageType::Normal
+    }
+
+    /// Machinery to provide. Default implementation is no-op.
+    ///
+    /// Provided value can be obtained with [`DynKey`](crate::DynKey).
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        let _ignore = demand;
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {

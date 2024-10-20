@@ -32,6 +32,14 @@ impl DynKey {
         self.erased.as_any().downcast_ref()
     }
 
+    pub fn request_value<T: 'static>(&self) -> Option<T> {
+        self.erased.request_value()
+    }
+
+    pub fn request_ref<T: ?Sized + 'static>(&self) -> Option<&T> {
+        self.erased.request_ref()
+    }
+
     pub fn from_key(k: impl Key) -> Self {
         Self {
             erased: DiceKeyErased::key(k),

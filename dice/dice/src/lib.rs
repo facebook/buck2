@@ -215,6 +215,7 @@ pub use crate::api::computations::DiceComputations;
 pub use crate::api::computations::LinearRecomputeDiceComputations;
 pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;
+pub use crate::api::demand::Demand;
 pub use crate::api::dice::Dice;
 pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::dyn_key::DynKey;

@@ -13,6 +13,7 @@ pub(crate) mod activation_tracker;
 pub(crate) mod computations;
 pub(crate) mod cycles;
 pub(crate) mod data;
+pub(crate) mod demand;
 pub(crate) mod dice;
 pub(crate) mod dyn_key;
 pub(crate) mod error;
