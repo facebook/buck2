@@ -157,11 +157,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
             extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
 
         else:
-            _setup_not_inplace(project_dir)
             if marker.data_dir is not None:
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
                 _copytree(src, project_dir)
-                _setup_ovr_config(project_dir)
+                _maybe_setup_prelude_and_ovr_config(project_dir)
                 with open(Path(project_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
@@ -393,15 +392,21 @@ def _copytree(
             shutil.copy2(s, d)
 
 
-def _setup_not_inplace(path: Path) -> None:
+def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
+    if "PRELUDE" in os.environ or "OVR_CONFIG" in os.environ:
+        if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+            raise Exception(
+                "Don't set `PRELUDE` or `OVR_CONFIG` in `tests/core` - these tests are always isolated"
+            )
+
     if "PRELUDE" in os.environ:
-        _copytree(
-            Path(os.environ["PRELUDE"]),
-            Path(path, "prelude"),
-        )
+        prelude = Path(path, "prelude")
+        if not prelude.exists():
+            _copytree(
+                Path(os.environ["PRELUDE"]),
+                Path(path, "prelude"),
+            )
 
-
-def _setup_ovr_config(path: Path) -> None:
     # TODO: The toolchain platform definitions we hard-code in the prelude are
     # in the ovr_config cell, so copy them in for now.  Longer-term, D31566140
     # has a discusion on bettter approaches.
