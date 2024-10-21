@@ -39,6 +39,7 @@ pub struct EventObserver<E> {
     starlark_debugger_state: StarlarkDebuggerState,
     re_avg_download_speed: NetworkSpeedAverage,
     pub cold_build_detector: Option<ColdBuildDetector>,
+    dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -65,6 +66,7 @@ where
             starlark_debugger_state: StarlarkDebuggerState::new(),
             re_avg_download_speed: NetworkSpeedAverage::default(),
             cold_build_detector,
+            dice_state: DiceState::new(),
             extra: E::new(),
         }
     }
@@ -150,6 +152,9 @@ where
                                     .await?;
                             }
                         }
+                        DiceStateSnapshot(dice) => {
+                            self.dice_state.update(dice);
+                        }
                         _ => {}
                     }
                 }
@@ -201,6 +206,10 @@ where
     pub fn extra(&self) -> &E {
         &self.extra
     }
+
+    pub fn dice_state(&self) -> &DiceState {
+        &self.dice_state
+    }
 }
 
 pub trait EventObserverExtra: Send {
@@ -211,7 +220,6 @@ pub trait EventObserverExtra: Send {
 
 /// This has more fields for debug info. We don't always capture those.
 pub struct DebugEventObserverExtra {
-    dice_state: DiceState,
     debug_events: DebugEventsState,
     progress_state: BuildProgressStateTracker,
 }
@@ -219,7 +227,6 @@ pub struct DebugEventObserverExtra {
 impl EventObserverExtra for DebugEventObserverExtra {
     fn new() -> Self {
         Self {
-            dice_state: DiceState::new(),
             debug_events: DebugEventsState::new(),
             progress_state: BuildProgressStateTracker::new(),
         }
@@ -229,37 +236,11 @@ impl EventObserverExtra for DebugEventObserverExtra {
         self.debug_events.handle_event(receive_time, event)?;
         self.progress_state.handle_event(receive_time, event)?;
 
-        {
-            use buck2_data::buck_event::Data::*;
-
-            match event.data() {
-                Instant(instant) => {
-                    use buck2_data::instant_event::Data::*;
-
-                    match instant
-                        .data
-                        .as_ref()
-                        .context("Missing `data` in `Instant`")?
-                    {
-                        DiceStateSnapshot(dice) => {
-                            self.dice_state.update(dice);
-                        }
-                        _ => {}
-                    }
-                }
-                _ => {}
-            }
-        }
-
         Ok(())
     }
 }
 
 impl DebugEventObserverExtra {
-    pub fn dice_state(&self) -> &DiceState {
-        &self.dice_state
-    }
-
     pub fn debug_events(&self) -> &DebugEventsState {
         &self.debug_events
     }

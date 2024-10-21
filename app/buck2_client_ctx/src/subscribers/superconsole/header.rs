@@ -72,7 +72,7 @@ impl<'s> HeaderData<'s> {
     fn from_state(header: &'s str, state: &'s SuperConsoleState) -> Self {
         let observer = state.simple_console.observer();
         let spans = observer.spans();
-        let pending = pending_estimate(spans.roots(), observer.extra().dice_state());
+        let pending = pending_estimate(spans.roots(), observer.dice_state());
         let finished = spans.roots_completed() as u64;
         let remaining = spans.iter_roots().len() as u64 + pending;
 

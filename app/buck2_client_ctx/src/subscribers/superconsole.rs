@@ -270,7 +270,7 @@ impl<'s> Component for BuckRootComponent<'s> {
         draw.draw(
             &DiceComponent {
                 super_console_config: &self.state.config,
-                dice_state: self.state.simple_console.observer.extra().dice_state(),
+                dice_state: self.state.simple_console.observer.dice_state(),
             },
             mode,
         )?;
