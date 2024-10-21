@@ -547,6 +547,7 @@ mod tests {
                 ],
             }),
             action_key: None,
+            use_case: "".to_owned(),
         };
         let result = executor_with_platform(&execute);
         assert_eq!(

@@ -1504,6 +1504,7 @@ message ReExecute {
   string action_digest = 1;
   RePlatform platform = 2;
   optional string action_key = 3;
+  string use_case = 4;
 }
 
 message RePlatform {
@@ -1518,14 +1519,17 @@ message ReDownload {}
 
 message ReQueue {
   string action_digest = 1;
+  string use_case = 2;
 }
 
 message ReWorkerDownload {
   string action_digest = 1;
+  string use_case = 2;
 }
 
 message ReWorkerUpload {
   string action_digest = 1;
+  string use_case = 2;
 }
 
 message ReUnknown {

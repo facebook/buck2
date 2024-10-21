@@ -830,6 +830,8 @@ impl RemoteExecutionClientImpl {
             None
         };
 
+        let re_use_case = metadata.use_case_id.clone();
+
         #[allow(clippy::large_enum_variant)]
         enum ResponseOrStateChange {
             Present(ExecuteWithProgressResponse),
@@ -899,20 +901,27 @@ impl RemoteExecutionClientImpl {
             action_digest: String,
             platform: &remote_execution::Platform,
             action_key: &Option<String>,
+            use_case: String,
         ) -> re_stage::Stage {
             match stage {
-                Stage::QUEUED => re_stage::Stage::Queue(ReQueue { action_digest }),
-                Stage::MATERIALIZING_INPUT => {
-                    re_stage::Stage::WorkerDownload(ReWorkerDownload { action_digest })
-                }
+                Stage::QUEUED => re_stage::Stage::Queue(ReQueue {
+                    action_digest,
+                    use_case,
+                }),
+                Stage::MATERIALIZING_INPUT => re_stage::Stage::WorkerDownload(ReWorkerDownload {
+                    action_digest,
+                    use_case,
+                }),
                 Stage::EXECUTING => re_stage::Stage::Execute(ReExecute {
                     action_digest,
                     platform: Some(platform_to_proto(platform)),
                     action_key: action_key.clone(),
+                    use_case,
                 }),
-                Stage::UPLOADING_OUTPUT => {
-                    re_stage::Stage::WorkerUpload(ReWorkerUpload { action_digest })
-                }
+                Stage::UPLOADING_OUTPUT => re_stage::Stage::WorkerUpload(ReWorkerUpload {
+                    action_digest,
+                    use_case,
+                }),
                 _ => {
                     tracing::debug!(
                         "Received unexpected RE stage {:#?} for action: {}",
@@ -956,6 +965,7 @@ impl RemoteExecutionClientImpl {
                     action_digest_str.clone(),
                     platform,
                     &action_key,
+                    re_use_case.clone(),
                 ),
                 manager,
                 re_max_queue_time,
