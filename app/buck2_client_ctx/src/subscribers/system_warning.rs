@@ -8,6 +8,7 @@
  */
 
 use buck2_core::is_open_source;
+use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 
@@ -73,7 +74,8 @@ pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> Str
     }
 }
 
-pub(crate) fn cache_misses_msg(cache_hit_percent: u8) -> String {
+pub(crate) fn cache_misses_msg(action_stats: &ActionStats) -> String {
+    let cache_hit_percent = action_stats.total_cache_hit_percentage();
     let msg = format!(
         "Low cache hits detected: {}%. This may significantly impact build speed",
         cache_hit_percent
@@ -174,26 +176,37 @@ pub(crate) fn is_vpn_enabled() -> bool {
 }
 
 pub(crate) fn check_cache_misses(
-    cache_hit_percent: u8,
+    action_stats: &ActionStats,
     system_info: &buck2_data::SystemInfo,
     first_build_since_rebase: bool,
     estimated_completion_percent: u8,
 ) -> bool {
-    if !cache_warning_completion_threshold_crossed(estimated_completion_percent, system_info) {
+    if !cache_warning_completion_threshold_crossed(
+        action_stats,
+        estimated_completion_percent,
+        system_info,
+    ) {
         return false;
     }
-
+    let cache_hit_percent = action_stats.total_cache_hit_percentage();
     let threshold = system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8;
     first_build_since_rebase && cache_hit_percent < threshold
 }
 
 fn cache_warning_completion_threshold_crossed(
+    action_stats: &ActionStats,
     estimated_completion_percent: u8,
     system_info: &buck2_data::SystemInfo,
 ) -> bool {
     let percent_completion_threshold = system_info
         .cache_warning_min_completion_threshold_percent
         .unwrap_or(0) as u8;
-    estimated_completion_percent > percent_completion_threshold
-    // TODO(rajneeshl): Add threshold based on action count to handle large builds
+    if estimated_completion_percent > percent_completion_threshold {
+        return true;
+    }
+    // The completion_treshold is set to 10% typically.
+    // For large builds, 10% completion may be too late to warn about cache misses.
+    // Additionally check if we have crossed an action count threshold.
+    action_stats.total_executed_and_cached_actions()
+        > system_info.cache_warning_min_actions_count.unwrap_or(0)
 }

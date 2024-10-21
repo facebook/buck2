@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_event_observer::action_stats::ActionStats;
 use crossterm::style::Color;
 use crossterm::style::Stylize;
 use superconsole::Component;
@@ -31,7 +32,7 @@ pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) last_snapshot: Option<&'a buck2_data::Snapshot>,
     pub(crate) system_info: &'a buck2_data::SystemInfo,
     pub(crate) avg_re_download_speed: Option<u64>,
-    pub(crate) cache_hit_percent: u8,
+    pub(crate) action_stats: &'a ActionStats,
     pub(crate) estimated_completion_percent: u8,
     pub(crate) first_build_since_rebase: bool,
 }
@@ -73,12 +74,12 @@ impl<'a> Component for SystemWarningComponent<'a> {
             ))?);
         }
         if check_cache_misses(
-            self.cache_hit_percent,
+            self.action_stats,
             self.system_info,
             self.first_build_since_rebase,
             self.estimated_completion_percent,
         ) {
-            lines.push(warning_styled(&cache_misses_msg(self.cache_hit_percent))?);
+            lines.push(warning_styled(&cache_misses_msg(self.action_stats))?);
         }
         Ok(Lines(lines))
     }

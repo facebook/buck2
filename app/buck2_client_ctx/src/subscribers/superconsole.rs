@@ -204,12 +204,6 @@ impl<'s> Component for BuckRootComponent<'s> {
             .observer
             .re_avg_download_speed()
             .avg_per_second();
-        let cache_hit_percent = self
-            .state
-            .simple_console
-            .observer
-            .action_stats()
-            .total_cache_hit_percentage();
         let first_build_since_rebase = self
             .state
             .simple_console
@@ -223,6 +217,7 @@ impl<'s> Component for BuckRootComponent<'s> {
             self.state.simple_console.observer().dice_state(),
         );
         let system_info = self.state.simple_console.observer.system_info();
+        let action_stats = self.state.simple_console.observer.action_stats();
         {
             draw.draw(
                 &SystemWarningComponent {
@@ -230,7 +225,7 @@ impl<'s> Component for BuckRootComponent<'s> {
                     first_snapshot,
                     system_info,
                     avg_re_download_speed,
-                    cache_hit_percent,
+                    action_stats,
                     first_build_since_rebase,
                     estimated_completion_percent,
                 },

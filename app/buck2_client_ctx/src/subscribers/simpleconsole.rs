@@ -671,8 +671,6 @@ where
                             &slow_download_speed_msg(avg_re_download_speed),
                         )?;
                     }
-                    let cache_hit_percent =
-                        self.observer().action_stats().total_cache_hit_percentage();
                     let first_build_since_rebase = self
                         .observer
                         .cold_build_detector
@@ -685,14 +683,14 @@ where
                     );
 
                     if check_cache_misses(
-                        cache_hit_percent,
+                        self.observer().action_stats(),
                         sysinfo,
                         first_build_since_rebase,
                         estimated_completion_percent,
                     ) {
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowCacheHits,
-                            &cache_misses_msg(cache_hit_percent),
+                            &cache_misses_msg(self.observer().action_stats()),
                         )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
