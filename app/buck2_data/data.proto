@@ -2383,6 +2383,7 @@ message SystemInfo {
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
   optional uint64 min_cache_hit_threshold_percent = 7;
   optional uint64 cache_warning_min_completion_threshold_percent = 9;
+  optional uint64 cache_warning_min_actions_count = 10;
 }
 
 message CpuCounter {

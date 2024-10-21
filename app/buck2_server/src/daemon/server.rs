@@ -422,6 +422,7 @@ impl BuckdServer {
             min_cache_hit_threshold_percent: system_warning_config.min_cache_hit_threshold_percent,
             cache_warning_min_completion_threshold_percent: system_warning_config
                 .cache_warning_min_completion_threshold_percent,
+            cache_warning_min_actions_count: system_warning_config.cache_warning_min_actions_count,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
