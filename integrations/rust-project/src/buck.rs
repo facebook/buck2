@@ -412,10 +412,11 @@ fn merge_unit_test_targets(
     let (generated_unit_tests, standalone_tests): (
         FxHashMap<Target, TargetInfo>,
         FxHashMap<Target, TargetInfo>,
-    ) = tests.into_iter().partition(|(target, _)| {
-        targets
-            .iter()
-            .any(|(_, value)| value.test_deps.contains(target))
+    ) = tests.into_iter().partition(|(test_target, _)| {
+        test_target.ends_with("-unittest")
+            && targets
+                .iter()
+                .any(|(_, value)| value.test_deps.contains(test_target))
     });
 
     targets.extend(standalone_tests);
@@ -983,6 +984,64 @@ fn merge_target_multiple_tests_no_cycles() {
         vec![Target::new("//test-framework")],
         "Test dependencies should only come from the foo@rust-unittest crate"
     );
+}
+
+#[test]
+fn integration_tests_preserved() {
+    let mut targets = FxHashMap::default();
+
+    targets.insert(
+        Target::new("//foo"),
+        TargetInfo {
+            name: "foo".to_owned(),
+            label: "foo".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![Target::new("//foo-integration-test")],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        },
+    );
+
+    targets.insert(
+        Target::new("//foo-integration-test"),
+        TargetInfo {
+            name: "foo-integration-test".to_owned(),
+            label: "foo-integration-test".to_owned(),
+            kind: Kind::Test,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![Target::new("//foo")],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        },
+    );
+
+    let res = merge_unit_test_targets(targets.clone());
+    assert!(res.contains_key(&Target::new("//foo-integration-test")));
 }
 
 #[test]
