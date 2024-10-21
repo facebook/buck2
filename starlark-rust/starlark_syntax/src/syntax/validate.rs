@@ -149,21 +149,22 @@ pub(crate) fn validate_module(stmt: &AstStmt, parser_state: &mut ParserState) {
         }
     }
 
-    fn expr(expr: &AstExpr, parser_state: &mut ParserState) {
-        match &expr.node {
+    fn expr(x: &AstExpr, parser_state: &mut ParserState) {
+        match &x.node {
             Expr::Literal(AstLiteral::Ellipsis) => {
                 if parser_state.dialect.enable_types == DialectTypes::Disable {
-                    parser_state.error(expr.span, "`...` is not allowed in this dialect");
+                    parser_state.error(x.span, "`...` is not allowed in this dialect");
                 }
             }
             Expr::Lambda(LambdaP { params, .. }) => {
                 if !parser_state.dialect.enable_lambda {
-                    parser_state.error(expr.span, "`lambda` is not allowed in this dialect");
+                    parser_state.error(x.span, "`lambda` is not allowed in this dialect");
                 }
                 validate_params(params, parser_state);
             }
             _ => {}
         }
+        x.node.visit_expr(|x| expr(x, parser_state));
     }
 
     f(stmt, parser_state, true, false, false);

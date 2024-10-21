@@ -192,6 +192,13 @@ fn test_lambda_errors() {
 }
 
 #[test]
+fn test_lambda_errors_nested() {
+    // Test from https://issues.oss-fuzz.com/issues/369003809
+    assert::fail("lambda: lambda a,a:a", "duplicated parameter name");
+    assert::fail("[lambda a,a:a]", "duplicated parameter name");
+}
+
+#[test]
 fn test_double_capture_and_freeze() {
     let mut a = Assert::new();
     a.module(
