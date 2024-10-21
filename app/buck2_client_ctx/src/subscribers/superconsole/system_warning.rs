@@ -32,6 +32,7 @@ pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) system_info: &'a buck2_data::SystemInfo,
     pub(crate) avg_re_download_speed: Option<u64>,
     pub(crate) cache_hit_percent: u8,
+    pub(crate) estimated_completion_percent: u8,
     pub(crate) first_build_since_rebase: bool,
 }
 
@@ -75,6 +76,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
             self.cache_hit_percent,
             self.system_info,
             self.first_build_since_rebase,
+            self.estimated_completion_percent,
         ) {
             lines.push(warning_styled(&cache_misses_msg(self.cache_hit_percent))?);
         }

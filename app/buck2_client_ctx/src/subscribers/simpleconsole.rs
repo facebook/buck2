@@ -25,6 +25,7 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
+use buck2_event_observer::pending_estimate::estimate_completion_percentage;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
@@ -678,7 +679,17 @@ where
                         .as_ref()
                         .and_then(|cbd| cbd.first_build_since_rebase())
                         .unwrap_or(false);
-                    if check_cache_misses(cache_hit_percent, sysinfo, first_build_since_rebase) {
+                    let estimated_completion_percent = estimate_completion_percentage(
+                        self.observer().spans().roots(),
+                        self.observer().dice_state(),
+                    );
+
+                    if check_cache_misses(
+                        cache_hit_percent,
+                        sysinfo,
+                        first_build_since_rebase,
+                        estimated_completion_percent,
+                    ) {
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowCacheHits,
                             &cache_misses_msg(cache_hit_percent),

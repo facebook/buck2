@@ -177,7 +177,23 @@ pub(crate) fn check_cache_misses(
     cache_hit_percent: u8,
     system_info: &buck2_data::SystemInfo,
     first_build_since_rebase: bool,
+    estimated_completion_percent: u8,
 ) -> bool {
+    if !cache_warning_completion_threshold_crossed(estimated_completion_percent, system_info) {
+        return false;
+    }
+
     let threshold = system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8;
     first_build_since_rebase && cache_hit_percent < threshold
+}
+
+fn cache_warning_completion_threshold_crossed(
+    estimated_completion_percent: u8,
+    system_info: &buck2_data::SystemInfo,
+) -> bool {
+    let percent_completion_threshold = system_info
+        .cache_warning_min_completion_threshold_percent
+        .unwrap_or(0) as u8;
+    estimated_completion_percent > percent_completion_threshold
+    // TODO(rajneeshl): Add threshold based on action count to handle large builds
 }
