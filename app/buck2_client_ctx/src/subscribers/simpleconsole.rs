@@ -686,7 +686,7 @@ where
                         self.observer().action_stats(),
                         sysinfo,
                         first_build_since_rebase,
-                        estimated_completion_percent,
+                        Some(estimated_completion_percent),
                     ) {
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowCacheHits,

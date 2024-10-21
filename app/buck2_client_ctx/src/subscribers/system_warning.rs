@@ -179,7 +179,7 @@ pub(crate) fn check_cache_misses(
     action_stats: &ActionStats,
     system_info: &buck2_data::SystemInfo,
     first_build_since_rebase: bool,
-    estimated_completion_percent: u8,
+    estimated_completion_percent: Option<u8>,
 ) -> bool {
     if !cache_warning_completion_threshold_crossed(
         action_stats,
@@ -195,15 +195,18 @@ pub(crate) fn check_cache_misses(
 
 fn cache_warning_completion_threshold_crossed(
     action_stats: &ActionStats,
-    estimated_completion_percent: u8,
+    estimated_completion_percent: Option<u8>,
     system_info: &buck2_data::SystemInfo,
 ) -> bool {
-    let percent_completion_threshold = system_info
-        .cache_warning_min_completion_threshold_percent
-        .unwrap_or(0) as u8;
-    if estimated_completion_percent > percent_completion_threshold {
-        return true;
+    if let Some(estimated_completion_percent) = estimated_completion_percent {
+        let percent_completion_threshold = system_info
+            .cache_warning_min_completion_threshold_percent
+            .unwrap_or(0) as u8;
+        if estimated_completion_percent > percent_completion_threshold {
+            return true;
+        }
     }
+
     // The completion_treshold is set to 10% typically.
     // For large builds, 10% completion may be too late to warn about cache misses.
     // Additionally check if we have crossed an action count threshold.

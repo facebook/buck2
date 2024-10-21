@@ -77,7 +77,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
             self.action_stats,
             self.system_info,
             self.first_build_since_rebase,
-            self.estimated_completion_percent,
+            Some(self.estimated_completion_percent),
         ) {
             lines.push(warning_styled(&cache_misses_msg(self.action_stats))?);
         }
