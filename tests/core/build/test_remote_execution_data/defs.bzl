@@ -18,10 +18,10 @@ def _simple(ctx):
         ],
     )
     ctx.actions.run(
-        cmd_args(["python3", run, output.as_output()]),
+        cmd_args(["python3", run, output.as_output(), ctx.attrs.input]),
         category = "test_category",
     )
 
     return [DefaultInfo(default_output = output)]
 
-simple = rule(impl = _simple, attrs = {})
+simple = rule(impl = _simple, attrs = {"input": attrs.source()})
