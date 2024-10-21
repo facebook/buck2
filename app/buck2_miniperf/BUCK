@@ -9,6 +9,7 @@ rust_binary(
         ["src/**/*.rs"],
     ),
     allocator = "malloc",
+    allow_cache_upload = True,
     # JEMalloc isn't super lean (and we don't actually allocate anything here),
     # so dont use it.
     default_strip_mode = "full",
