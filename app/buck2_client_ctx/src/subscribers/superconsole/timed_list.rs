@@ -490,81 +490,13 @@ mod tests {
         state
             .simple_console
             .observer
-            .observe(
-                fake_time(&tick, 10),
-                &Arc::new(BuckEvent::new(
-                    UNIX_EPOCH,
-                    TraceId::new(),
-                    Some(SpanId::next()),
-                    None,
-                    SpanStartEvent {
-                        data: Some(
-                            buck2_data::ActionExecutionStart {
-                                key: Some(buck2_data::ActionKey {
-                                    id: Default::default(),
-                                    owner: Some(buck2_data::action_key::Owner::TargetLabel(
-                                        buck2_data::ConfiguredTargetLabel {
-                                            label: Some(buck2_data::TargetLabel {
-                                                package: "pkg".into(),
-                                                name: "target".into(),
-                                            }),
-                                            configuration: Some(buck2_data::Configuration {
-                                                full_name: "conf".into(),
-                                            }),
-                                            execution_configuration: None,
-                                        },
-                                    )),
-                                    key: "".to_owned(),
-                                }),
-                                name: Some(buck2_data::ActionName {
-                                    category: "category".into(),
-                                    identifier: "identifier".into(),
-                                }),
-                                kind: buck2_data::ActionKind::NotSet as i32,
-                            }
-                            .into(),
-                        ),
-                    }
-                    .into(),
-                )),
-            )
+            .observe(fake_time(&tick, 10), &span_start_event(None))
             .await?;
 
         state
             .simple_console
             .observer
-            .observe(
-                fake_time(&tick, 1),
-                &Arc::new(BuckEvent::new(
-                    UNIX_EPOCH,
-                    TraceId::new(),
-                    None,
-                    None,
-                    buck2_data::InstantEvent {
-                        data: Some(
-                            buck2_data::DiceStateSnapshot {
-                                key_states: {
-                                    let mut map = HashMap::new();
-                                    map.insert(
-                                        "BuildKey".to_owned(),
-                                        buck2_data::DiceKeyState {
-                                            started: 5,
-                                            finished: 2,
-                                            check_deps_started: 2,
-                                            check_deps_finished: 1,
-                                            compute_started: 4,
-                                            compute_finished: 2,
-                                        },
-                                    );
-                                    map
-                                },
-                            }
-                            .into(),
-                        ),
-                    }
-                    .into(),
-                )),
-            )
+            .observe(fake_time(&tick, 1), &dice_snapshot())
             .await?;
 
         {
@@ -615,42 +547,6 @@ mod tests {
 
         let parent = SpanId::next();
 
-        let action = Arc::new(BuckEvent::new(
-            UNIX_EPOCH,
-            TraceId::new(),
-            Some(parent),
-            None,
-            SpanStartEvent {
-                data: Some(
-                    buck2_data::ActionExecutionStart {
-                        key: Some(buck2_data::ActionKey {
-                            id: Default::default(),
-                            owner: Some(buck2_data::action_key::Owner::TargetLabel(
-                                buck2_data::ConfiguredTargetLabel {
-                                    label: Some(buck2_data::TargetLabel {
-                                        package: "pkg".into(),
-                                        name: "target".into(),
-                                    }),
-                                    configuration: Some(buck2_data::Configuration {
-                                        full_name: "conf".into(),
-                                    }),
-                                    execution_configuration: None,
-                                },
-                            )),
-                            key: "".to_owned(),
-                        }),
-                        name: Some(buck2_data::ActionName {
-                            category: "category".into(),
-                            identifier: "identifier".into(),
-                        }),
-                        kind: buck2_data::ActionKind::NotSet as i32,
-                    }
-                    .into(),
-                ),
-            }
-            .into(),
-        ));
-
         let prepare = Arc::new(BuckEvent::new(
             UNIX_EPOCH,
             TraceId::new(),
@@ -668,7 +564,9 @@ mod tests {
         ));
 
         let mut state = BuckEventSpanTracker::new();
-        state.start_at(&action, fake_time(&tick, 10)).unwrap();
+        state
+            .start_at(&span_start_event(Some(parent)), fake_time(&tick, 10))
+            .unwrap();
         state.start_at(&prepare, fake_time(&tick, 5)).unwrap();
 
         let time_speed = fake_time_speed();
@@ -755,5 +653,76 @@ mod tests {
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
         Ok(())
+    }
+
+    fn dice_snapshot() -> Arc<BuckEvent> {
+        Arc::new(BuckEvent::new(
+            UNIX_EPOCH,
+            TraceId::new(),
+            None,
+            None,
+            buck2_data::InstantEvent {
+                data: Some(
+                    buck2_data::DiceStateSnapshot {
+                        key_states: {
+                            let mut map = HashMap::new();
+                            map.insert(
+                                "BuildKey".to_owned(),
+                                buck2_data::DiceKeyState {
+                                    started: 5,
+                                    finished: 2,
+                                    check_deps_started: 2,
+                                    check_deps_finished: 1,
+                                    compute_started: 4,
+                                    compute_finished: 2,
+                                },
+                            );
+                            map
+                        },
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        ))
+    }
+
+    fn span_start_event(parent_span: Option<SpanId>) -> Arc<BuckEvent> {
+        let span_id = Some(parent_span.unwrap_or(SpanId::next()));
+        Arc::new(BuckEvent::new(
+            UNIX_EPOCH,
+            TraceId::new(),
+            span_id,
+            None,
+            SpanStartEvent {
+                data: Some(
+                    buck2_data::ActionExecutionStart {
+                        key: Some(buck2_data::ActionKey {
+                            id: Default::default(),
+                            owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                                buck2_data::ConfiguredTargetLabel {
+                                    label: Some(buck2_data::TargetLabel {
+                                        package: "pkg".into(),
+                                        name: "target".into(),
+                                    }),
+                                    configuration: Some(buck2_data::Configuration {
+                                        full_name: "conf".into(),
+                                    }),
+                                    execution_configuration: None,
+                                },
+                            )),
+                            key: "".to_owned(),
+                        }),
+                        name: Some(buck2_data::ActionName {
+                            category: "category".into(),
+                            identifier: "identifier".into(),
+                        }),
+                        kind: buck2_data::ActionKind::NotSet as i32,
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        ))
     }
 }
