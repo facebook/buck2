@@ -39,7 +39,6 @@ impl Check {
         let start = std::time::Instant::now();
         let buck = &self.buck;
 
-        let cell_root = buck.resolve_root_of_file(&self.saved_file)?;
         let check_output = buck.check_saved_file(self.use_clippy, &self.saved_file)?;
 
         let mut diagnostics = vec![];
@@ -58,7 +57,7 @@ impl Check {
                 // we rewrite the file paths in the diagnostics to be relative to the buck2 project root, resulting in a fully absolute
                 // path.
                 if let Ok(mut message) = serde_json::from_str::<diagnostics::Message>(l) {
-                    make_message_absolute(&mut message, &cell_root);
+                    make_message_absolute(&mut message, &check_output.project_root);
 
                     let span = serde_json::to_value(message)?;
                     // this is done under the assumption that the number of diagnostics inside the vector

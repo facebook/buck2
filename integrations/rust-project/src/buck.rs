@@ -510,25 +510,6 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    pub(crate) fn resolve_root_of_file(&self, path: &Path) -> Result<PathBuf, anyhow::Error> {
-        let mut command = self.command_without_config(["root"]);
-        command.arg("--kind=project");
-
-        if let Some(parent) = path.parent() {
-            command.arg("--dir");
-            command.arg(parent.as_os_str());
-        }
-
-        let mut stdout = utf8_output(command.output(), &command)?;
-        truncate_line_ending(&mut stdout);
-
-        if enabled!(Level::TRACE) {
-            trace!(%stdout, "got root from buck");
-        }
-
-        Ok(stdout.into())
-    }
-
     pub(crate) fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
         let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
@@ -697,6 +678,7 @@ impl Buck {
 #[derive(Debug, Deserialize)]
 pub(crate) struct CheckOutput {
     pub(crate) diagnostic_paths: Vec<PathBuf>,
+    pub(crate) project_root: PathBuf,
 }
 
 pub(crate) fn utf8_output(

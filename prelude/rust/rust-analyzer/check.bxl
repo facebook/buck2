@@ -38,6 +38,7 @@ def _run(ctx: bxl.Context) -> None:
 
     out = {
         "diagnostic_paths": diagnostic_paths,
+        "project_root": ctx.root(),
     }
 
     ctx.output.print_json(out)
