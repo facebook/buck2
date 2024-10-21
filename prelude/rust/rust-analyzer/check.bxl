@@ -46,8 +46,6 @@ check = bxl_main(
     impl = _run,
     cli_args = {
         "file": cli_args.string(),
-        # TODO(JakobDegen): Make this the default after migration
-        "structured-output": cli_args.bool(),
         "use-clippy": cli_args.bool(),
     },
 )
