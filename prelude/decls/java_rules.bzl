@@ -102,6 +102,10 @@ java_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
+            "base_dep": attrs.option(attrs.dep(), default = None, doc = """
+                Rule (normally of type `java_library`) that should be
+                 compiled and used as a base JAR to receive all dependencies through an append operation.
+            """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Rules (normally of type `java_library`) that should be
                  compiled and whose `.class` files and resources should be
@@ -158,6 +162,7 @@ java_binary = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_wrapper": attrs.bool(default = False),
             "do_not_create_inner_jar": attrs.bool(default = False),
+            "incremental_target_prefix": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         }
