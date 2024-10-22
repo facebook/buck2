@@ -24,12 +24,11 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::AnyhowContextForError;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -93,7 +92,7 @@ fn call_transition_function<'v>(
     }
     let new_platforms = eval
         .eval_function(transition.implementation.to_value(), &[], &args)
-        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
+        .map_err(from_starlark)?;
     if transition.split {
         match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)
             .into_anyhow_result()?

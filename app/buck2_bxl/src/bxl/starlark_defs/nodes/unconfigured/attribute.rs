@@ -17,8 +17,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
@@ -192,9 +191,13 @@ impl CoercedAttrExt for CoercedAttr {
 
                 for (k, v) in map.iter() {
                     res.insert_hashed(
-                        k.to_value(pkg.dupe(), heap)?
-                            .get_hashed()
-                            .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))?,
+                        k.to_value(pkg.dupe(), heap)?.get_hashed().map_err(|e| {
+                            from_starlark_with_options(
+                                e,
+                                buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                                false,
+                            )
+                        })?,
                         v.to_value(pkg.dupe(), heap)?,
                     );
                 }

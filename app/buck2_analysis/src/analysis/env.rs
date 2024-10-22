@@ -28,12 +28,11 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::data::ProfileTarget;
@@ -426,7 +425,7 @@ pub fn get_user_defined_rule_spec(
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
             eval.eval_function(rule_impl.0.to_value(), &[ctx.to_value()], &[])
-                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError).into())
+                .map_err(|e| from_starlark(e).into())
         }
 
         fn promise_artifact_mappings<'v>(

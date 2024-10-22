@@ -16,8 +16,8 @@ use anyhow::Context;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
+use buck2_error::starlark_error::from_starlark;
+use buck2_error::AnyhowContextForError;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -143,7 +143,7 @@ where
         self.provider_collection
             .to_value()
             .at(index, heap)
-            .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))
+            .map_err(from_starlark)
             .with_context(|| format!("Error accessing dependencies of `{}`", self.label))
             .map_err(Into::into)
     }

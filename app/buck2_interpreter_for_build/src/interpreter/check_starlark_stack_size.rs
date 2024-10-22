@@ -9,11 +9,10 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
@@ -67,13 +66,22 @@ pub(crate) async fn check_starlark_stack_size(
                         content.to_owned(),
                         &StarlarkFileType::Bzl.dialect(false),
                     )
-                    .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))
+                    .map_err(|e| {
+                        from_starlark_with_options(
+                            e,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                    })
                     .internal_error_anyhow("Failed to parse check module")?;
                     match eval.eval_module(ast, &Globals::standard()) {
                         Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
-                        Err(p) => {
-                            Err(BuckStarlarkError::new(p, OtherErrorHandling::Unknown).into())
-                        }
+                        Err(p) => Err(from_starlark_with_options(
+                            p,
+                            buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                            false,
+                        )
+                        .into()),
                         Ok(_) => {
                             Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into())
                         }

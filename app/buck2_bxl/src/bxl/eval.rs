@@ -24,6 +24,7 @@ use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::with_dispatcher;
@@ -32,8 +33,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -342,7 +341,11 @@ fn eval_bxl<'v>(
             _ => false,
         };
 
-    let mut e = BuckStarlarkError::new(e, OtherErrorHandling::Unknown);
+    let e = from_starlark_with_options(
+        e,
+        buck2_error::starlark_error::NativeErrorHandling::Unknown,
+        should_skip_backtrace,
+    );
     if should_skip_backtrace {
         let dispatcher = get_dispatcher();
         dispatcher.instant_event(StarlarkFailNoStacktrace {
@@ -350,7 +353,6 @@ fn eval_bxl<'v>(
         });
         dispatcher
             .console_message("Re-run the script with `-v5` to show the full stacktrace".to_owned());
-        e.set_print_stacktrace(false);
     }
 
     Err(e.into())

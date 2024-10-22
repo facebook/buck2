@@ -48,14 +48,13 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -453,7 +452,7 @@ impl AnonTargetKey {
         for (id, func) in promise_artifact_mappings.values().enumerate() {
             let artifact = eval
                 .eval_function(*func, &[anon_target_result], &[])
-                .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
+                .map_err(from_starlark)?;
 
             let promise_id =
                 PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);

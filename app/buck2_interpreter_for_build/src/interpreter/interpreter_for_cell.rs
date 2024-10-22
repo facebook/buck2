@@ -25,11 +25,10 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::soft_error;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
@@ -94,11 +93,6 @@ enum StarlarkPeakMemorySoftError {
     CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }
 
-#[derive(Debug, buck2_error::Error)]
-#[error("Error parsing: `{1}`")]
-#[buck2(input)]
-pub struct ParseError(#[source] pub BuckStarlarkError, OwnedStarlarkPath);
-
 /// A ParseData includes the parsed AST and a list of the imported files.
 ///
 /// The imports are under a separate Arc so that that can be shared with
@@ -108,7 +102,7 @@ pub struct ParseData(
     pub Arc<Vec<(Option<FileSpan>, OwnedStarlarkModulePath)>>,
 );
 
-pub type ParseResult = Result<ParseData, ParseError>;
+pub type ParseResult = Result<ParseData, buck2_error::Error>;
 
 impl ParseData {
     fn new(
@@ -450,10 +444,10 @@ impl InterpreterForCell {
         ) {
             Ok(ast) => ast,
             Err(e) => {
-                return Ok(Err(ParseError(
-                    BuckStarlarkError::new(e, OtherErrorHandling::InputError),
-                    OwnedStarlarkPath::new(import),
-                )));
+                return Ok(Err(from_starlark(e).context(format!(
+                    "Error parsing: `{}`",
+                    OwnedStarlarkPath::new(import)
+                ))));
             }
         };
         let mut implicit_imports = Vec::new();
@@ -539,7 +533,7 @@ impl InterpreterForCell {
                     cpu_instruction_count
                 }
                 Err(p) => {
-                    return Err(BuckStarlarkError::new(p, OtherErrorHandling::InputError).into());
+                    return Err(from_starlark(p).into());
                 }
             }
         };

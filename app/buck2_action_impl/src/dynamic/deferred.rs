@@ -35,6 +35,7 @@ use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::buck2_error_anyhow;
 use buck2_error::internal_error_anyhow;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -44,8 +45,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_futures::cancellable_future::CancellationObserver;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::CancellationContext;
@@ -117,7 +116,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
     };
     let return_value = eval
         .eval_function(lambda, pos, named)
-        .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::InputError))?;
+        .map_err(from_starlark)?;
 
     let provider_collection = match args {
         DynamicLambdaArgs::OldPositional { .. } => {

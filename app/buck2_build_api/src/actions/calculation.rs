@@ -24,6 +24,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
+use buck2_error::starlark_error::from_starlark;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
@@ -33,8 +34,6 @@ use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
 use buck2_futures::cancellation::CancellationContext;
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -430,11 +429,7 @@ fn try_run_error_handler(
                             )),
                         },
                         Err(e) => {
-                            let e = buck2_error::Error::from(BuckStarlarkError::new(
-                                e,
-                                OtherErrorHandling::InputError,
-                            ))
-                            .context("Error handler failed");
+                            let e = from_starlark(e).context("Error handler failed");
                             Data::HandlerInvocationError(format!("{:#}", e))
                         }
                     };

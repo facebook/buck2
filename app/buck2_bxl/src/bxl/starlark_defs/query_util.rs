@@ -7,8 +7,7 @@
  * of this source tree.
  */
 
-use buck2_interpreter::error::BuckStarlarkError;
-use buck2_interpreter::error::OtherErrorHandling;
+use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use starlark::eval::Evaluator;
@@ -36,10 +35,13 @@ pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
                 .into_iter()
                 .map(|(q, res)| {
                     Ok((
-                        eval.heap()
-                            .alloc(q)
-                            .get_hashed()
-                            .map_err(|e| BuckStarlarkError::new(e, OtherErrorHandling::Unknown))?,
+                        eval.heap().alloc(q).get_hashed().map_err(|e| {
+                            from_starlark_with_options(
+                                e,
+                                buck2_error::starlark_error::NativeErrorHandling::Unknown,
+                                false,
+                            )
+                        })?,
                         match res? {
                             QueryEvaluationValue::TargetSet(targets) => {
                                 eval.heap().alloc(StarlarkTargetSet::from(targets))

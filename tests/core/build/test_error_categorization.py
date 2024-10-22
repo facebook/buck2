@@ -157,7 +157,7 @@ async def test_starlark_error_categorization(buck: Buck) -> None:
     assert len(errors_events) == 1
     errors = errors_events[0]
     assert len(errors) == 1
-    assert errors[0]["source_location"].endswith("BuckStarlarkError::Fail")
+    assert errors[0]["source_location"].endswith("StarlarkError::Fail")
     assert errors[0]["tier"] == USER_ERROR
 
 
@@ -176,7 +176,7 @@ async def test_targets_error_categorization(buck: Buck) -> None:
     assert len(errors_events) == 1
     errors = errors_events[0]["errors"]
     assert len(errors) == 1
-    assert errors[0]["tags"] == [ANY_STARKLARK_EVALUATION_TAG, STARLARK_FAIL_TAG]
+    assert errors[0]["tags"] == [STARLARK_FAIL_TAG]
     assert errors[0]["tier"] == USER_ERROR
 
 
