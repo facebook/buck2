@@ -35,7 +35,7 @@ use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::GlobalStats;
 
 ///
@@ -354,7 +354,7 @@ impl DiceTaskInternal {
 
     /// report the task as terminated. This should only be called once. No effect if called affect
     /// task is already ready
-    pub(super) fn report_terminated(&self) {
+    pub(super) fn report_terminated(&self, reason: CancellationReason) {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {
@@ -366,7 +366,7 @@ impl DiceTaskInternal {
             // SAFETY: no tasks read the value unless state is converted to `READY`
             &mut *self.maybe_value.get()
         }
-        .replace(Err(Cancelled))
+        .replace(Err(reason))
         .is_some();
         assert!(
             !prev_exist,

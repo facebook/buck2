@@ -26,7 +26,6 @@ use crate::impls::task::dice::SlabId;
 use crate::impls::task::handle::TaskState;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
 
 /// A string reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -157,9 +156,9 @@ impl DicePromise {
                                     // setting the result
                                     let _ignore = internals.set_value(result);
                                 }
-                                Err(Cancelled) => {
+                                Err(reason) => {
                                     // if its cancelled, report cancelled
-                                    internals.report_terminated();
+                                    internals.report_terminated(reason);
                                 }
                             }
 

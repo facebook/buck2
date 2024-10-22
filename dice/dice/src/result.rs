@@ -15,9 +15,18 @@ use dupe::Dupe;
 use thiserror::Error;
 
 #[allow(unused)] // TODO temporary
-pub(crate) type CancellableResult<T> = Result<T, Cancelled>;
+pub(crate) type CancellableResult<T> = Result<T, CancellationReason>;
 
 #[allow(unused)] // TODO temporary
 #[derive(Clone, Dupe, Display, Debug, Error, Allocative)]
 #[display("{:?}", self)]
-pub(crate) struct Cancelled;
+pub enum CancellationReason {
+    OutdatedEpoch,
+    TransactionCancelled,
+    Terminated,
+    NoResult,
+    Rejected,
+    DepsMatch,
+    WorkerFinished,
+    Cached,
+}

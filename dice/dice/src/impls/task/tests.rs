@@ -42,7 +42,7 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
@@ -380,7 +380,10 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
             .sync_get_or_complete(|| DiceSyncResult {
                 sync_result: v_sync,
                 state_future: rx
-                    .map(|res| { res.map_err(|_| Cancelled).flatten() })
+                    .map(|res| {
+                        res.map_err(|_| CancellationReason::TransactionCancelled)
+                            .flatten()
+                    })
                     .boxed(),
             })?
             .value()

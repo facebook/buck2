@@ -61,7 +61,7 @@ use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::project_for_key;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 use crate::DiceError;
@@ -208,7 +208,7 @@ impl<'d> ModernComputeCtx<'d> {
                 OpaqueValueModern::new(dice_key, value, invalidation_paths)
             });
 
-            cancellable.map_err(|_| DiceError::cancelled())
+            cancellable.map_err(DiceError::cancelled)
         })
     }
 
@@ -665,7 +665,7 @@ impl CoreCtx {
 
         let r = match r {
             Ok(r) => r,
-            Err(_cancelled) => return Err(DiceError::cancelled()),
+            Err(reason) => return Err(DiceError::cancelled(reason)),
         };
 
         dep_trackers.lock().record(
@@ -827,7 +827,7 @@ impl SharedLiveTransactionCtx {
                     debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
                     tokio::task::yield_now().await;
 
-                    Err(Cancelled)
+                    Err(CancellationReason::TransactionCancelled)
                 }
                     .right_future()
             },

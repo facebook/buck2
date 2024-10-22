@@ -35,7 +35,7 @@ use crate::impls::value::DiceValidValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::metrics::Metrics;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
@@ -125,7 +125,7 @@ impl CoreState {
                 .0)
         } else {
             debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
-            Err(Cancelled)
+            Err(CancellationReason::OutdatedEpoch)
         }
     }
 

@@ -54,7 +54,7 @@ use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 
@@ -152,7 +152,7 @@ impl DiceTaskWorker {
             VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
             VersionedGraphResult::Compute => None,
             VersionedGraphResult::Rejected(..) => {
-                return Err(Cancelled);
+                return Err(CancellationReason::Rejected);
             }
         };
 
@@ -323,8 +323,8 @@ pub(crate) async fn check_dependencies<'a>(
         let combined = stream::select(inner.into_stream(), parallel);
         pin_mut!(combined);
         while let Some(v) = combined.next().await {
-            if let Err(Cancelled) = v {
-                return Err(Cancelled);
+            if let Err(cancelled) = v {
+                return Err(cancelled);
             }
         }
         Ok(())
@@ -351,8 +351,8 @@ pub(crate) async fn check_dependencies<'a>(
                                     continuables: std::future::ready(Ok(())).boxed(),
                                 });
                             }
-                            Err(Cancelled) => {
-                                return Err(Cancelled);
+                            Err(cancelled) => {
+                                return Err(cancelled);
                             }
                         }
                     }
@@ -493,7 +493,7 @@ pub(crate) fn project_for_key(
                         invalidation_paths.dupe(),
                     );
 
-                    Some(rx.map(|res| res.map_err(|_channel_drop| Cancelled)).boxed())
+                    Some(rx.map(|res| res).boxed())
                 }
                 Err(_transient_result) => {
                     // transients are never stored in the state, but the result should be shared

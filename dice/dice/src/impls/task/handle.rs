@@ -15,6 +15,7 @@ use dupe::Dupe;
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
+use crate::result::CancellationReason;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
@@ -94,7 +95,8 @@ impl Drop for TaskCompletionHandle {
 
             // This is only owned by the main worker task. If this was dropped, and no result was
             // ever recorded, then we must have been terminated.
-            self.internal.report_terminated()
+            self.internal
+                .report_terminated(CancellationReason::NoResult)
         }
     }
 }

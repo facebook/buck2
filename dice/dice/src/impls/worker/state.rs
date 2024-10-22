@@ -28,7 +28,7 @@ use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
 use crate::result::CancellableResult;
-use crate::result::Cancelled;
+use crate::result::CancellationReason;
 use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;
@@ -119,7 +119,7 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
             Ok(res) => {
                 return Either::Left(self.previously_finished(res));
             }
-            Err(Cancelled) => {
+            Err(_cancelled) => {
                 // actually was cancelled, so just continue re-evaluating
             }
         }
@@ -134,7 +134,7 @@ fn finish_with_cached_value(
     internals: &mut DiceTaskHandle<'_>,
 ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
     match disable_cancellation {
-        None => Err(Cancelled),
+        None => Err(CancellationReason::Cached),
         Some(g) => {
             internals.finished(value);
 
@@ -247,7 +247,7 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
-                return Err(Cancelled);
+                return Err(CancellationReason::DepsMatch);
             }
         };
 
@@ -284,7 +284,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
-                return Err(Cancelled);
+                return Err(CancellationReason::WorkerFinished);
             }
         };
 

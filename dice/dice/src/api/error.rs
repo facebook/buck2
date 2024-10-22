@@ -16,6 +16,7 @@ use itertools::Itertools;
 use thiserror::Error;
 
 use crate::legacy::cycles::RequestedKey;
+use crate::result::CancellationReason;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
 #[error(transparent)]
@@ -40,8 +41,8 @@ impl DiceError {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
 
-    pub fn cancelled() -> Self {
-        DiceError(Arc::new(DiceErrorImpl::Cancelled))
+    pub fn cancelled(reason: CancellationReason) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::Cancelled(reason)))
     }
 
     pub fn duplicate_activation_data() -> Self {
@@ -68,8 +69,8 @@ pub(crate) enum DiceErrorImpl {
     InjectedKeyGotInvalidation(Arc<dyn RequestedKey>),
     /// NOTE: This isn't an error users normally see, since if the user is waiting on a result, the
     /// future doesn't get cancelled.
-    #[error("The evaluation of this key was cancelled")]
-    Cancelled,
+    #[error("The evaluation of this key was cancelled: {0}")]
+    Cancelled(CancellationReason),
     #[error(
         "Requested cycle_guard of type {}, but current guard has type {}",
         expected_type_name,
