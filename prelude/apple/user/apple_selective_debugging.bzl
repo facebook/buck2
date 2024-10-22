@@ -44,6 +44,7 @@ AppleSelectiveDebuggingInfo = provider(
 AppleSelectiveDebuggingFilteredDebugInfo = record(
     map = field(dict[Label, list[Artifact]]),
     swift_modules_labels = field(list[Label]),
+    metadata = field(Artifact),
 )
 
 # The type of selective debugging json input to utilze.
@@ -169,7 +170,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
         )
         return output
 
-    def filter_debug_info(debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
+    def filter_debug_info(inner_ctx: AnalysisContext, debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         map = {}
         selected_targets_contain_swift = False
         for infos in debug_info:
@@ -186,7 +187,10 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
                         map[info.label] = list(info.artifacts)
 
                     selected_targets_contain_swift = selected_targets_contain_swift or ArtifactInfoTag("swiftmodule") in info.tags
-        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = [])
+
+        metadata = inner_ctx.actions.write_json("selective_metadata.json", {"contains_focused_targets": True})
+
+        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = [], metadata = metadata)
 
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,

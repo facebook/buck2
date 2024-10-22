@@ -15,6 +15,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
+load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
@@ -146,6 +147,9 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
 
     if debuggable_info:
+        if debuggable_info.selective_metadata:
+            fail("Binary cannot contain selective metadata, as it only gets scrubbed when embedded in a bundle")
+
         # If we have debuggable info for this binary, create the scrubed dsym for the binary and filter debug info.
         debug_info_tset = debuggable_info.debug_info_tset
 
@@ -153,7 +157,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         # portions of the debug info that are not transitive in relation to the focused targets.
         all_debug_info = debug_info_tset._tset.traverse(ordering = "topological")
         selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
-        filtered_debug_info = selective_debugging_info.filter(all_debug_info)
+        filtered_debug_info = selective_debugging_info.filter(ctx, all_debug_info)
 
         filtered_external_debug_info = make_artifact_tset(
             actions = ctx.actions,
@@ -164,7 +168,17 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
         dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
-        debuggable_info = AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = filtered_external_debug_info, filtered_map = filtered_debug_info.map)
+        debuggable_info = AppleDebuggableInfo(
+            dsyms = [dsym_artifact],
+            debug_info_tset = filtered_external_debug_info,
+            filtered_map = filtered_debug_info.map,
+            selective_metadata = [
+                AppleSelectiveDebuggableMetadata(
+                    dsym = dsym_artifact,
+                    metadata = filtered_debug_info.metadata,
+                ),
+            ],
+        )
         return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
     else:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
@@ -215,6 +229,12 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cm
 def _apple_bundle_run_validity_checks(ctx: AnalysisContext):
     if ctx.attrs.extension == None:
         fail("`extension` attribute is required")
+
+def _get_deps_selective_metadata(deps_debuggable_infos: list[AppleDebuggableInfo]) -> list[AppleSelectiveDebuggableMetadata]:
+    all_metadatas = []
+    for debuggable_info in deps_debuggable_infos:
+        all_metadatas.extend(debuggable_info.selective_metadata)
+    return all_metadatas
 
 def _get_deps_debuggable_infos(ctx: AnalysisContext) -> list[AppleDebuggableInfo]:
     binary_labels = filter(None, [getattr(binary_dep, "label", None) for binary_dep in get_flattened_binary_deps(ctx.attrs.binary)])
@@ -357,7 +377,21 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = dsym_info, other_outputs = dsym_json_info.outputs),
     ]
 
-    extended_dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts, [])
+    deps_selective_metadata = _get_deps_selective_metadata(deps_debuggable_infos)
+    binary_selective_metadata = []
+    if binary_outputs.debuggable_info and binary_outputs.debuggable_info.selective_metadata:
+        if len(binary_outputs.debuggable_info.selective_metadata) > 1:
+            fail("Binary cannot have multiple selective metadata")
+
+        # `AppleSelectiveDebuggableMetadata` for the binary is computed here because
+        # the dSYMs for the bundle get regenerated (via call to `_get_bundle_binary_dsym_artifacts()`).
+        # To ensure we have the correct dSYM path, metadata needs to be created here, as otherwise
+        # the map will contain the value of the dSYM for the standalone binary, not for the binary
+        # as part of the bundle.
+        binary_selective_metadata = [AppleSelectiveDebuggableMetadata(dsym = binary_dsym, metadata = binary_outputs.debuggable_info.selective_metadata[0].metadata) for binary_dsym in binary_dsym_artifacts]
+    all_selective_metadata = binary_selective_metadata + deps_selective_metadata
+
+    extended_dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts, all_selective_metadata)
     extended_dsym_info = ctx.actions.write_json("extended-dsym-info.json", extended_dsym_json_info.json_object, pretty = True)
     sub_targets[EXTENDED_DSYM_INFO_SUBTARGET] = [
         DefaultInfo(default_output = extended_dsym_info, other_outputs = extended_dsym_json_info.outputs),
@@ -414,6 +448,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             dsyms = dsym_artifacts,
             debug_info_tset = aggregated_debug_info.debug_info.debug_info_tset,
             filtered_map = aggregated_debug_info.debug_info.filtered_map,
+            selective_metadata = all_selective_metadata,
         ),
         InstallInfo(
             installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
