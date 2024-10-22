@@ -1,0 +1,30 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl_cli_test_short(ctx):
+    ctx.output.print("bool_arg: " + repr(ctx.cli_args.bool_arg))
+    ctx.output.print("string_arg: " + repr(ctx.cli_args.string_arg))
+    ctx.output.print("int_arg: " + repr(ctx.cli_args.int_arg))
+    ctx.output.print("float_arg: " + repr(ctx.cli_args.float_arg))
+    ctx.output.print("optional: " + repr(ctx.cli_args.optional))
+    ctx.output.print("enum_type: " + repr(ctx.cli_args.enum_type))
+    ctx.output.print("target: " + repr(ctx.cli_args.target))
+    ctx.output.print("list: " + repr(ctx.cli_args.list_type))
+
+cli_test_short_bad = bxl_main(
+    impl = _impl_cli_test_short,
+    cli_args = {
+        "bool_arg": cli_args.bool(short = "a"),
+        "enum_type": cli_args.enum(["a", "b"], short = "a"),
+        "float_arg": cli_args.float(short = "a"),
+        "int_arg": cli_args.int(short = "a"),
+        "list_type": cli_args.list(cli_args.int(), short = "a"),
+        "optional": cli_args.option(cli_args.string(), short = "a"),
+        "string_arg": cli_args.string(short = "a"),
+        "target": cli_args.target_label(short = "a"),
+    },
+)

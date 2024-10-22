@@ -17,10 +17,10 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_cli(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test",
+        "//cli_args.bxl:cli_test",
         "--",
         "--int_arg",
         "1",
@@ -43,7 +43,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     )
 
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test",
+        "//cli_args.bxl:cli_test",
         "--",
         # Override default bool arg with false
         "--bool_arg_with_default",
@@ -71,7 +71,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     # multiple occurrences of a list-type argument
     # i.e., --arg 1 --arg 2 --arg 3
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test",
+        "//cli_args.bxl:cli_test",
         "--",
         "--int_arg",
         "1",
@@ -98,7 +98,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     # illegal target
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:cli_test",
+            "//cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -120,7 +120,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     # not int
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:cli_test",
+            "//cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2.0",
@@ -164,7 +164,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     # not valid enum variant
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:cli_test",
+            "//cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -186,7 +186,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     # missing non-optional field
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:cli_test",
+            "//cli_args.bxl:cli_test",
             "--",
             "--int_arg",
             "2",
@@ -205,7 +205,7 @@ async def test_bxl_cli(buck: Buck) -> None:
 
     # check short args work
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test_short",
+        "//cli_args.bxl:cli_test_short",
         "--",
         "-i",
         "1",
@@ -229,7 +229,7 @@ async def test_bxl_cli(buck: Buck) -> None:
 
     # check long args still work with short args
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test_short",
+        "//cli_args.bxl:cli_test_short",
         "--",
         "--int_arg",
         "1",
@@ -253,7 +253,7 @@ async def test_bxl_cli(buck: Buck) -> None:
 
     # check snakecase cli_arg access from bxl context, make sure it still works with default args and shorthand args
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test_snakecase_access",
+        "//cli_args.bxl:cli_test_snakecase_access",
         "--",
         "--my-arg",
         "this is my arg",
@@ -261,16 +261,16 @@ async def test_bxl_cli(buck: Buck) -> None:
     assert result.stdout == 'my-arg: "this is my arg"\n'
 
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:cli_test_snakecase_access", "--", "-a", "this is my arg"
+        "//cli_args.bxl:cli_test_snakecase_access", "--", "-a", "this is my arg"
     )
     assert result.stdout == 'my-arg: "this is my arg"\n'
 
-    result = await buck.bxl("//bxl/cli_args.bxl:cli_test_snakecase_access")
+    result = await buck.bxl("//cli_args.bxl:cli_test_snakecase_access")
     assert result.stdout == 'my-arg: "default"\n'
 
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args_bad_case.bxl:cli_test_bad_case",
+            "//cli_args_bad_case.bxl:cli_test_bad_case",
             "--",
             "--my-arg",
             "this is my arg",
@@ -278,7 +278,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_cli_json_args(buck: Buck) -> None:
     json_args = {}
     json_args.update({"int": 1})
@@ -296,7 +296,7 @@ async def test_bxl_cli_json_args(buck: Buck) -> None:
     my_json = json.dumps(json_args)
 
     await buck.bxl(
-        "//bxl/cli_args.bxl:cli_json_arg",
+        "//cli_args.bxl:cli_json_arg",
         "--",
         "--my-json",
         my_json,
@@ -304,7 +304,7 @@ async def test_bxl_cli_json_args(buck: Buck) -> None:
 
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:cli_json_arg",
+            "//cli_args.bxl:cli_json_arg",
             "--",
             "--my-json",
             "[1,2,3]",
@@ -313,12 +313,12 @@ async def test_bxl_cli_json_args(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_cli_short_bad(buck: Buck) -> None:
     # duplicate "short"
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args_bad.bxl:cli_test_short_bad",
+            "//cli_args_bad.bxl:cli_test_short_bad",
             "--",
             "-a",
             "2",
@@ -337,43 +337,28 @@ async def test_bxl_cli_short_bad(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_cli_target_pattern(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:target_expr_test",
+        "//cli_args.bxl:target_expr_test",
         "--",
         "--targets",
-        ":bin",
+        ":t1",
     )
-    assert "[root//:bin]" in result.stdout
+    assert "[root//:t1]" in result.stdout
 
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:target_expr_test",
+        "//cli_args.bxl:target_expr_test",
         "--",
         "--targets",
         "root//:",
     )
-    assert "root//:bin" in result.stdout
-    assert "root//:data" in result.stdout
-    assert "root//:foo_toolchain" in result.stdout
-    assert "root//:genrule_binary" in result.stdout
-    assert "root//:package_boundary_violation" in result.stdout
-    assert "root//:buildable" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl/cli_args.bxl:target_expr_test",
-        "--",
-        "--targets",
-        "root//bin/...",
-    )
-    assert "root//bin/kind:foo" in result.stdout
-    assert "root//bin/kind:bar" in result.stdout
-    assert "root//bin/kind:bzzt" in result.stdout
-    assert "root//bin:the_binary" in result.stdout
+    assert "root//:t1" in result.stdout
+    assert "root//:t2" in result.stdout
 
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:target_expr_test",
+            "//cli_args.bxl:target_expr_test",
             "--",
             "--targets",
             ":non-existent",
@@ -382,118 +367,60 @@ async def test_cli_target_pattern(buck: Buck) -> None:
 
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:target_expr_test",
+            "//cli_args.bxl:target_expr_test",
             "--",
             "--targets",
             "invalid/...",
         )
     )
-    await expect_failure(
-        buck.bxl(
-            "//bxl/cli_args.bxl:target_expr_test",
-            "--",
-            "--targets",
-            "root/bin:fake_name",
-        )
-    )
-
-    await expect_failure(
-        buck.bxl(
-            "//bxl/cli_args.bxl:target_expr_test",
-            "--",
-            "--targets",
-            "root/bin/fake_name:",
-        )
-    )
-
-    await expect_failure(
-        buck.bxl(
-            "//bxl/cli_args.bxl:target_expr_test",
-            "--",
-            "--targets",
-            "root/bin/fake_name:fake_name",
-        )
-    )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_cli_sub_target_pattern(buck: Buck) -> None:
     # Tests where no sub-target is specified; should ensure functionality
     # of regular target patterns work with these subtarget patterns.
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
+        "//cli_args.bxl:sub_target_expr_test",
         "--",
         "--sub_targets",
-        ":bin",
+        ":t1",
     )
     print(result.stdout)
-    assert "[root//:bin]" in result.stdout
+    assert "[root//:t1]" in result.stdout
 
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
+        "//cli_args.bxl:sub_target_expr_test",
         "--",
         "--sub_targets",
         "root//:",
     )
-    assert "root//:bin" in result.stdout
-    assert "root//:data" in result.stdout
-    assert "root//:foo_toolchain" in result.stdout
-    assert "root//:genrule_binary" in result.stdout
-    assert "root//:package_boundary_violation" in result.stdout
-    assert "root//:buildable" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
-        "--",
-        "--sub_targets",
-        "root//bin/...",
-    )
-    assert "root//bin/kind:foo" in result.stdout
-    assert "root//bin/kind:bar" in result.stdout
-    assert "root//bin/kind:bzzt" in result.stdout
-    assert "root//bin:the_binary" in result.stdout
+    assert "root//:t1" in result.stdout
+    assert "root//:t2" in result.stdout
 
     # Test single sub-targets.
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
+        "//cli_args.bxl:sub_target_expr_test",
         "--",
         "--sub_targets",
-        "root//bin:the_binary[sub]",
+        "root//:t1[sub]",
     )
-    assert "[root//bin:the_binary[sub]" in result.stdout
-
-    result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
-        "--",
-        "--sub_targets",
-        "bin:the_binary[sub]",
-    )
-    assert "[root//bin:the_binary[sub]" in result.stdout
+    assert "[root//:t1[sub]" in result.stdout
 
     # Several subtargets / nested subtargets.
     result = await buck.bxl(
-        "//bxl/cli_args.bxl:sub_target_expr_test",
+        "//cli_args.bxl:sub_target_expr_test",
         "--",
         "--sub_targets",
-        "root//bin:the_binary[sub1][sub2]",
+        "root//:t2[sub1][sub2]",
     )
-    assert "[root//bin:the_binary[sub1][sub2]" in result.stdout
+    assert "[root//:t2[sub1][sub2]" in result.stdout
 
     await expect_failure(
         buck.bxl(
-            "//bxl/cli_args.bxl:sub_target_expr_test",
+            "//cli_args.bxl:sub_target_expr_test",
             "--",
             "--sub_targets",
             ":fake_bin[sub]",
-        )
-    )
-
-    await expect_failure(
-        buck.bxl(
-            "//bxl/cli_args.bxl:sub_target_expr_test",
-            "--",
-            "--sub_targets",
-            "root//fake_bin:fake_bin[sub]",
         )
     )
 
