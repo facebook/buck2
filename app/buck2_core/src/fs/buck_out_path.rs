@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use itertools::Itertools;
 
 use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::CategoryRef;
@@ -24,6 +25,9 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::provider::label::ConfiguredProvidersLabel;
+use crate::provider::label::NonDefaultProvidersName;
+use crate::provider::label::ProvidersName;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display("({})/{}", owner, path.as_str())]
@@ -258,6 +262,32 @@ impl BuckOutPathResolver {
         ]))
     }
 
+    /// Resolve a test path for test discovery
+    pub fn resolve_test_discovery(
+        &self,
+        label: &ConfiguredProvidersLabel,
+    ) -> ProjectRelativePathBuf {
+        let path = match label.name() {
+            ProvidersName::Default => "default".into(),
+            ProvidersName::NonDefault(nd) => match nd.as_ref() {
+                NonDefaultProvidersName::Named(names) => names
+                    .iter()
+                    .map(|name| name.as_str().replace("/", "+"))
+                    .join("/")
+                    .into(),
+                NonDefaultProvidersName::UnrecognizedFlavor(s) => s.dupe(),
+            },
+        };
+        let path = ForwardRelativePath::unchecked_new(&path);
+        self.prefixed_path_for_owner(
+            ForwardRelativePath::unchecked_new("test_discovery"),
+            &BaseDeferredKey::TargetLabel(label.target().dupe()),
+            None,
+            &path,
+            true,
+        )
+    }
+
     fn prefixed_path_for_owner(
         &self,
         prefix: &ForwardRelativePath,
@@ -310,6 +340,9 @@ mod tests {
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
     use crate::package::source_path::SourcePath;
     use crate::package::PackageLabel;
+    use crate::provider::label::ConfiguredProvidersLabel;
+    use crate::provider::label::ProviderName;
+    use crate::provider::label::ProvidersName;
     use crate::target::label::label::TargetLabel;
     use crate::target::name::TargetNameRef;
 
@@ -563,5 +596,24 @@ mod tests {
         // Different action_key, different identifier are not equal
         assert_ne!(mk("diff_key1", "diff_id1"), mk("diff_key2", "diff_id2"));
         assert_ne!(mk("diff_key1", "_buck_1"), mk("diff_key2", "_buck_2"));
+    }
+
+    #[test]
+    fn test_resolve_test_discovery() -> anyhow::Result<()> {
+        let path_resolver =
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
+
+        let pkg = PackageLabel::new(
+            CellName::testing_new("foo"),
+            CellRelativePath::unchecked_new("baz-package"),
+        );
+        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
+        let cfg_target = target.configure(ConfigurationData::testing_new());
+        let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
+        let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
+        let result = path_resolver.resolve_test_discovery(&providers_label);
+        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-z]+/bar\\+baz")?;
+        assert!(expected_result.is_match(result.as_str()));
+        Ok(())
     }
 }
