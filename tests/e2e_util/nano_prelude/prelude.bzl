@@ -5,10 +5,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("//:asserts.bzl", _asserts = "asserts")
 load("//:cfg_rules.bzl", _config_setting = "config_setting", _constraint_setting = "constraint_setting", _constraint_value = "constraint_value", _execution_platform = "execution_platform", _platform = "platform")
 load("//:execution_platforms.bzl", _execution_platforms = "execution_platforms")
 load("//:stub_rules.bzl", _stub = "stub", _trivial_build = "trivial_build")
 
+asserts = _asserts
 platform = _platform
 config_setting = _config_setting
 constraint_setting = _constraint_setting
