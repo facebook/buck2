@@ -240,6 +240,68 @@ impl BxlContextCoreData {
     pub(crate) fn key(&self) -> &BxlKey {
         &self.current_bxl
     }
+
+    pub(crate) fn project_root(&self) -> &ProjectRoot {
+        &self.project_fs
+    }
+
+    pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
+        self.current_bxl.global_cfg_options()
+    }
+
+    pub(crate) fn target_alias_resolver(&self) -> &BuckConfigTargetAliasResolver {
+        &self.target_alias_resolver
+    }
+
+    pub(crate) fn cell_resolver(&self) -> &CellResolver {
+        &self.cell_resolver
+    }
+
+    pub(crate) fn cell_name(&self) -> CellName {
+        self.cell_name
+    }
+
+    pub(crate) fn cell_root_abs(&self) -> &AbsNormPathBuf {
+        &self.cell_root_abs
+    }
+
+    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
+        &self.cell_alias_resolver
+    }
+
+    pub(crate) fn current_bxl(&self) -> &BxlKey {
+        &self.current_bxl
+    }
+
+    pub(crate) fn project_fs(&self) -> &ProjectRoot {
+        &self.project_fs
+    }
+
+    pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
+        &self.artifact_fs
+    }
+
+    /// Working dir for resolving literals.
+    /// Note, unlike buck2 command line UI, we resolve targets and literals
+    /// against the cell root instead of user working dir.
+    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
+        let cell = self.cell_resolver().get(self.cell_name())?;
+        Ok(cell.path().as_project_relative_path().to_owned())
+    }
+
+    pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
+        parse_query_file_literal(
+            literal,
+            self.cell_alias_resolver(),
+            self.cell_resolver(),
+            // NOTE(nga): we pass cell root as working directory here,
+            //   which is inconsistent with the rest of buck2:
+            //   The same query `owner(foo.h)` is resolved using
+            //   current directory in `buck2 query`, but relative to cell root in BXL.
+            self.cell_root_abs(),
+            self.project_root(),
+        )
+    }
 }
 
 impl<'v> BxlContext<'v> {
@@ -403,70 +465,6 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
             BxlContextType::Dynamic(_) => console_message(msg),
         }
         Ok(())
-    }
-}
-
-impl BxlContextCoreData {
-    pub(crate) fn project_root(&self) -> &ProjectRoot {
-        &self.project_fs
-    }
-
-    pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
-        self.current_bxl.global_cfg_options()
-    }
-
-    pub(crate) fn target_alias_resolver(&self) -> &BuckConfigTargetAliasResolver {
-        &self.target_alias_resolver
-    }
-
-    pub(crate) fn cell_resolver(&self) -> &CellResolver {
-        &self.cell_resolver
-    }
-
-    pub(crate) fn cell_name(&self) -> CellName {
-        self.cell_name
-    }
-
-    pub(crate) fn cell_root_abs(&self) -> &AbsNormPathBuf {
-        &self.cell_root_abs
-    }
-
-    pub(crate) fn cell_alias_resolver(&self) -> &CellAliasResolver {
-        &self.cell_alias_resolver
-    }
-
-    pub(crate) fn current_bxl(&self) -> &BxlKey {
-        &self.current_bxl
-    }
-
-    pub(crate) fn project_fs(&self) -> &ProjectRoot {
-        &self.project_fs
-    }
-
-    pub(crate) fn artifact_fs(&self) -> &ArtifactFs {
-        &self.artifact_fs
-    }
-
-    /// Working dir for resolving literals.
-    /// Note, unlike buck2 command line UI, we resolve targets and literals
-    /// against the cell root instead of user working dir.
-    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
-        let cell = self.cell_resolver().get(self.cell_name())?;
-        Ok(cell.path().as_project_relative_path().to_owned())
-    }
-
-    pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
-        parse_query_file_literal(
-            literal,
-            self.cell_alias_resolver(),
-            self.cell_resolver(),
-            // NOTE(nga): we pass cell root as working directory here,
-            //   which is inconsistent with the rest of buck2:
-            //   The same query `owner(foo.h)` is resolved using
-            //   current directory in `buck2 query`, but relative to cell root in BXL.
-            self.cell_root_abs(),
-            self.project_root(),
-        )
     }
 }
 
