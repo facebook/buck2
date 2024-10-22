@@ -20,7 +20,6 @@ pub mod build_context;
 pub mod coerce;
 pub mod dice;
 pub mod downstream_crate_starlark_defs;
-pub mod error;
 pub mod extra;
 pub mod factory;
 pub mod file_loader;
