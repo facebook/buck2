@@ -234,7 +234,8 @@ Below is an incomplete list of supported buckconfigs.
 This section contains definitions of [build target](build_target.md) aliases.
 
 ```
-[alias]app     = //apps/myapp:app
+[alias]
+  app = //apps/myapp:app
   apptest = //apps/myapp:test
 ```
 

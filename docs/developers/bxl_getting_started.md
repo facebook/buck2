@@ -95,7 +95,7 @@ command line.
 The documentation for a BXL function can be seen by running:
 
 ```text
- buck2 bxl <bxl function> -- --help`
+ buck2 bxl <bxl function> -- --help
 ```
 
 Note that this is different from `buck2 bxl --help`, which generates the help

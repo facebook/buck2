@@ -69,7 +69,13 @@ example of using a relative path.
 ## Assume this target is in //java/com/facebook/share/BUCK#
 java_binary(
   name = 'ui_jar',
-  deps = [## The following target path##   //java/com/facebook/share:ui## is the same as using the following relative path.#':ui',],)
+  deps = [
+    ## The following target path
+    ##   //java/com/facebook/share:ui
+    ## is the same as using the following relative path.#
+    ':ui',
+  ],
+)
 ```
 
 ## Command-line Pro Tips
