@@ -109,10 +109,14 @@ pub(crate) fn recover_crate_error(
     // context that is not included in the `base` error yet.
     let mut e = base;
     for context_value in context_stack.into_iter().rev() {
-        // First, just add the value directly. This value is only used for formatting
-        e = e.context(format!("{}", context_value));
-        // Now add any additional information from the metadata, if it's available
-        e = maybe_add_context_from_metadata(e, context_value);
+        if let Some(starlark_err) = cur.downcast_ref::<crate::starlark_error::BuckStarlarkError>() {
+            e = e.context(format!("{}", starlark_err));
+        } else {
+            // First, just add the value directly. This value is only used for formatting
+            e = e.context(format!("{}", context_value));
+            // Now add any additional information from the metadata, if it's available
+            e = maybe_add_context_from_metadata(e, context_value);
+        }
     }
     e
 }
@@ -126,7 +130,7 @@ impl From<crate::Error> for anyhow::Error {
 
 #[derive(derive_more::Display, RefCast)]
 #[repr(transparent)]
-struct CrateAsStdError(crate::Error);
+pub(crate) struct CrateAsStdError(pub(crate) crate::Error);
 
 impl fmt::Debug for CrateAsStdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

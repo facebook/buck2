@@ -119,6 +119,10 @@ impl Error {
         self.0.span()
     }
 
+    pub fn call_stack(&self) -> &CallStack {
+        self.0.call_stack()
+    }
+
     /// Set the span, unless it's already been set.
     pub fn set_span(&mut self, span: Span, codemap: &CodeMap) {
         self.0.set_span(span, codemap);

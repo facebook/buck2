@@ -22,6 +22,7 @@ mod format;
 pub mod macros;
 mod root;
 mod source_location;
+pub mod starlark_error;
 
 use std::error::Request;
 
