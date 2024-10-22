@@ -8,5 +8,7 @@
  */
 
 #![cfg(test)]
+#![feature(error_generic_member_access)]
 
 mod conversion;
+mod format;

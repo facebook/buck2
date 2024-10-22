@@ -10,20 +10,11 @@
 use anyhow::Context;
 use buck2_error::starlark_error::from_starlark;
 use buck2_util::golden_test_helper::golden_test_template;
+use buck2_util::golden_test_helper::trim_rust_backtrace;
 use starlark::assert::Assert;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
-
-/// Duplicate of `starlark::tests::util::trim_rust_backtrace` to avoid exposing test internals.
-/// There's no anyhow API to print error without rust backtrace
-/// ([issue](https://github.com/dtolnay/anyhow/issues/300)).
-fn trim_rust_backtrace(error: &str) -> &str {
-    match error.find("\nStack backtrace:") {
-        Some(pos) => error[..pos].trim_end(),
-        None => error.trim_end(),
-    }
-}
 
 fn starlark_conversion_helper() -> starlark::Error {
     fn fail1() -> anyhow::Result<()> {

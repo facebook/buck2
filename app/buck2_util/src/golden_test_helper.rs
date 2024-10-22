@@ -62,3 +62,13 @@ pub fn golden_test_template(golden_rel_path: &str, output: &str) {
         assert_eq!(expected, output_with_prefix);
     }
 }
+
+/// Duplicate of `starlark::tests::util::trim_rust_backtrace` to avoid exposing test internals.
+/// There's no anyhow API to print error without rust backtrace
+/// ([issue](https://github.com/dtolnay/anyhow/issues/300)).
+pub fn trim_rust_backtrace(error: &str) -> &str {
+    match error.find("\nStack backtrace:") {
+        Some(pos) => error[..pos].trim_end(),
+        None => error.trim_end(),
+    }
+}
