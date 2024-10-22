@@ -1,0 +1,92 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _impl(ctx):
+    outputs = {}
+    for target, value in ctx.build(ctx.cli_args.target).items():
+        outputs.update({target.raw_target(): ctx.output.ensure_multiple(value.artifacts())})
+
+    ctx.output.print_json(outputs)
+
+build_test = bxl_main(
+    impl = _impl,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
+
+def _impl_build_stats(ctx):
+    stats = {}
+    for target, value in ctx.build(ctx.cli_args.targets).items():
+        artifacts = value.artifacts()
+        failures = value.failures()
+
+        stats[target.raw_target()] = {
+            "artifacts": len(artifacts),
+            "failures": len(failures),
+        }
+
+        for i, artifact in enumerate(artifacts):
+            if artifacts[i] != artifact:
+                fail("{} != {}", artifacts[i], artifact)
+
+        for i, failure in enumerate(failures):
+            if failures[i] != failure:
+                fail("{} != {}", failures[i], failure)
+
+    ctx.output.print_json(stats)
+
+build_stats = bxl_main(
+    impl = _impl_build_stats,
+    cli_args = {
+        "targets": cli_args.target_expr(),
+    },
+)
+
+def _impl_build_with_target_platform(ctx):
+    outputs = []
+    for target in ctx.build(ctx.cli_args.target, ctx.cli_args.target_platform).keys():
+        outputs.append(target.configured_target())
+
+    ctx.output.print(outputs)
+
+build_with_target_platform_test = bxl_main(
+    impl = _impl_build_with_target_platform,
+    cli_args = {
+        "target": cli_args.target_label(),
+        "target_platform": cli_args.option(cli_args.target_label()),
+    },
+)
+
+def _cquery_build(ctx):
+    universe = ctx.target_universe("...").target_set()
+    targets = ctx.cquery().kind("trivial_build", universe)
+
+    outputs = []
+    for value in ctx.build(targets).values():
+        outputs.extend(ctx.output.ensure_multiple(value.artifacts()))
+
+    ctx.output.print(sep = "\n", *outputs)
+
+cquery_build_test = bxl_main(
+    impl = _cquery_build,
+    cli_args = {},
+)
+
+def _impl_build_duplicate(ctx):
+    outputs = {}
+    for target, value in ctx.build([ctx.cli_args.target, ctx.cli_args.target]).items():
+        outputs.update({target.raw_target(): ctx.output.ensure_multiple(value.artifacts())})
+
+    ctx.output.print_json(outputs)
+
+build_duplicate = bxl_main(
+    impl = _impl_build_duplicate,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)

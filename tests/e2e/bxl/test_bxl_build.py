@@ -17,29 +17,28 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import replace_hash
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_build(buck: Buck) -> None:
-
     result = await buck.bxl(
-        "//bxl/build.bxl:build_test",
+        "//build.bxl:build_test",
         "--",
         "--target",
-        ":buildable",
+        ":trivial_build",
     )
     outputs = json.loads(result.stdout)
-    assert (buck.cwd / Path(outputs["root//:buildable"][0])).read_text() == "FOO"
+    assert (buck.cwd / Path(outputs["root//:trivial_build"][0])).read_text() == "abcd"
 
     result = await buck.bxl(
-        "//bxl/build.bxl:cquery_build_test",
+        "//build.bxl:cquery_build_test",
     )
     outputs = result.stdout.splitlines()[0]
-    assert (buck.cwd / Path(outputs)).read_text() == "FOO"
+    assert (buck.cwd / Path(outputs)).read_text() == "abcd"
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_build_stats(buck: Buck) -> None:
     result = await buck.bxl(
-        "//bxl/build.bxl:build_stats",
+        "//build.bxl:build_stats",
         "--",
         "--targets",
         "root//build/...",
@@ -51,63 +50,60 @@ async def test_bxl_build_stats(buck: Buck) -> None:
     assert stats["root//build:fail"]["failures"] == 1
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_target_platform_from_unpacking_providers_expr(buck: Buck) -> None:
     # Pass in explicit target platform from client. Result should be configured with this target platform.
     result = await buck.bxl(
         "--target-platforms",
-        "root//platforms:platform2",
-        "//bxl/build.bxl:build_with_target_platform_test",
+        "root//:platform2",
+        "//build.bxl:build_with_target_platform_test",
         "--",
         "--target",
-        ":buildable",
+        ":trivial_build",
     )
     assert (
         replace_hash(result.stdout)
-        == "[root//:buildable (root//platforms:platform2#<HASH>)]\n"
+        == "[root//:trivial_build (root//:platform2#<HASH>)]\n"
     )
 
-    # No target platform specified from client context. Result should be configured with root//platforms:platform1
+    # No target platform specified from client context. Result should be configured with root//:platform1
     result = await buck.bxl(
-        "//bxl/build.bxl:build_with_target_platform_test",
+        "//build.bxl:build_with_target_platform_test",
         "--",
         "--target",
-        ":buildable",
+        ":trivial_build",
     )
     assert (
         replace_hash(result.stdout)
-        == "[root//:buildable (root//platforms:platform1#<HASH>)]\n"
+        == "[root//:trivial_build (root//:platform3#<HASH>)]\n"
     )
 
     # Target platform from client context should be overridden by what's declared in build().
     result = await buck.bxl(
-        "//bxl/build.bxl:build_with_target_platform_test",
+        "//build.bxl:build_with_target_platform_test",
         "--target-platforms",
-        "root//platforms:platform2",
+        "root//:platform2",
         "--",
         "--target",
-        ":buildable",
+        ":trivial_build",
         "--target_platform",
-        "root//platforms:platform1",
+        "root//:platform1",
     )
     assert (
         replace_hash(result.stdout)
-        == "[root//:buildable (root//platforms:platform1#<HASH>)]\n"
+        == "[root//:trivial_build (root//:platform1#<HASH>)]\n"
     )
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
+@buck_test(inplace=False)
 async def test_bxl_build_order(buck: Buck) -> None:
     await buck.bxl("//build_artifacts_order/check.bxl:check")
 
 
-@buck_test(
-    inplace=False,
-    data_dir="no_materialization_bxl_build",
-)
+@buck_test(inplace=False)
 async def test_bxl_build_no_materialization(buck: Buck) -> None:
     result = await buck.bxl(
-        "//remote_text.bxl:build",
+        "//materializations.bxl:build",
         "--",
         "--materializations=skip",
     )
@@ -116,7 +112,7 @@ async def test_bxl_build_no_materialization(buck: Buck) -> None:
     assert os.path.exists(buck.cwd / Path(output)) is False
 
     result = await buck.bxl(
-        "//remote_text.bxl:build",
+        "//materializations.bxl:build",
         "--",
         "--materializations=materialize",
     )

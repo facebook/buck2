@@ -78,11 +78,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_bxl_build",
     srcs = ["test_bxl_build.py"],
-    data = "//buck2/tests/targets:isolated_targets",
-    env = {
-        "OVR_CONFIG": "1",
-        "PRELUDE": "$(location prelude//:prelude)",
-    },
+    data_dir = "test_bxl_build_data",
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],

@@ -1,0 +1,22 @@
+load(":defs.bzl", "run_remote")
+
+run_remote(
+    name = "run_remote",
+)
+
+trivial_build(
+    name = "trivial_build",
+    default_target_platform = ":platform3",
+)
+
+platform(
+    name = "platform1",
+)
+
+platform(
+    name = "platform2",
+)
+
+platform(
+    name = "platform3",
+)

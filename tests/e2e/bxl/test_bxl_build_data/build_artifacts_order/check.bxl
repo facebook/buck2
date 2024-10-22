@@ -1,0 +1,28 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _check(ctx):
+    results = list(ctx.build("//build_artifacts_order:artifacts").values())
+    if len(results) != 1:
+        fail("bad results")
+
+    result = results[0]
+    artifacts = list(result.artifacts())
+
+    if len(artifacts) != 2:
+        fail("bad artifacts")
+
+    if artifacts[0].short_path != "slow":
+        fail("slow is not first")
+
+    if artifacts[1].short_path != "fast":
+        fail("fast is not second")
+
+check = bxl_main(
+    impl = _check,
+    cli_args = {},
+)
