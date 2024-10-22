@@ -14,7 +14,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.api.result import Result
 
@@ -29,13 +28,11 @@ class Executable:
 
     def __init__(
         self,
-        executable_type: ExecutableType,
         path_to_executable: Path,
         encoding: str,
         env: Dict[str, str],
         cwd: Optional[Path] = None,
     ) -> None:
-        self.executable_type: ExecutableType = executable_type
         self.path_to_executable = path_to_executable
         self.cwd = Path() if cwd is None else cwd
         assert self.cwd.exists(), str(self.cwd)

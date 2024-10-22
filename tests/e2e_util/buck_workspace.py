@@ -35,7 +35,6 @@ import __manifest__
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.executable import WindowsCmdOption
-from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from decorator import decorator
 
 BuckTestMarker = namedtuple(
@@ -58,39 +57,37 @@ async def buck_fixture(  # noqa C901 : "too complex"
     """Returns a Buck for testing"""
 
     is_windows = platform.system() == "Windows"
-    test_executable_type = ExecutableType(os.environ["TEST_EXECUTABLE_TYPE"])
     test_executable = os.environ["TEST_EXECUTABLE"]
 
     env: Dict[str, str] = {**os.environ}
-    if test_executable_type != ExecutableType.buck1:
-        # This is necessary for static linking on Linux.
-        if platform.system() != "Windows":
-            env["BUCKD_STARTUP_TIMEOUT"] = "120"
+    # This is necessary for static linking on Linux.
+    if platform.system() != "Windows":
+        env["BUCKD_STARTUP_TIMEOUT"] = "120"
 
-        # allow_soft_errors will override any existing environment variable behavior
-        if marker.allow_soft_errors or marker.inplace:
-            env["BUCK2_HARD_ERROR"] = "false"
+    # allow_soft_errors will override any existing environment variable behavior
+    if marker.allow_soft_errors or marker.inplace:
+        env["BUCK2_HARD_ERROR"] = "false"
 
-        # Use a very small stdin buffer to catch any scenarios in which we
-        # don't properly handle partial input.
-        env["BUCK2_TEST_STDIN_BUFFER_SIZE"] = "8"
-        # Explicitly disable log uploading, we don't care about stats for tests.
-        env["BUCK2_TEST_DISABLE_LOG_UPLOAD"] = "true"
-        # But still block on it, because the upload process also writes
-        # locally, and we want that to be synchronous instead of backgrounded.
-        env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
-        # Require the events dispatcher to be set for e2e tests.
-        env["ENFORCE_DISPATCHER_SET"] = "true"
-        # Auto-destroy after a while. This should be longer than the test timeout.
-        env["BUCK2_TERMINATE_AFTER"] = "650"
-        # Timeout Watchman requests because we often see it hang and crash.
-        env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
-        # Use little threads. We don't do much work in tests but we do run lots of Bucks.
-        env["BUCK2_RUNTIME_THREADS"] = "2"
+    # Use a very small stdin buffer to catch any scenarios in which we
+    # don't properly handle partial input.
+    env["BUCK2_TEST_STDIN_BUFFER_SIZE"] = "8"
+    # Explicitly disable log uploading, we don't care about stats for tests.
+    env["BUCK2_TEST_DISABLE_LOG_UPLOAD"] = "true"
+    # But still block on it, because the upload process also writes
+    # locally, and we want that to be synchronous instead of backgrounded.
+    env["BUCK2_TEST_BLOCK_ON_UPLOAD"] = "true"
+    # Require the events dispatcher to be set for e2e tests.
+    env["ENFORCE_DISPATCHER_SET"] = "true"
+    # Auto-destroy after a while. This should be longer than the test timeout.
+    env["BUCK2_TERMINATE_AFTER"] = "650"
+    # Timeout Watchman requests because we often see it hang and crash.
+    env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
+    # Use little threads. We don't do much work in tests but we do run lots of Bucks.
+    env["BUCK2_RUNTIME_THREADS"] = "2"
 
-        # Windows uses blocking threads for subprocess I/O so we can't do this there.
-        if not is_windows:
-            env["BUCK2_MAX_BLOCKING_THREADS"] = "2"
+    # Windows uses blocking threads for subprocess I/O so we can't do this there.
+    if not is_windows:
+        env["BUCK2_MAX_BLOCKING_THREADS"] = "2"
 
     # Filter out some environment variables that may interfere with the
     # running of tests. Notably, since this framework is used to write
@@ -190,7 +187,6 @@ async def buck_fixture(  # noqa C901 : "too complex"
         env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
 
         buck = Buck(
-            test_executable_type,
             Path(test_executable),
             cwd=buck_cwd,
             encoding="utf-8",

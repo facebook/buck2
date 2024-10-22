@@ -26,7 +26,6 @@ from buck2.tests.e2e_util.api.buck_result import (
     TestResult,
 )
 from buck2.tests.e2e_util.api.executable import Executable
-from buck2.tests.e2e_util.api.executable_type import ExecutableType
 from buck2.tests.e2e_util.api.lsp import LspClient
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.api.result import E, R, Result
@@ -38,14 +37,13 @@ class Buck(Executable):
 
     def __init__(
         self,
-        executable_type: ExecutableType,
         path_to_executable: Path,
         encoding: str,
         env: Dict[str, str],
         cwd: Optional[Path] = None,
         isolation_prefix: Optional[str] = None,
     ) -> None:
-        super().__init__(executable_type, path_to_executable, encoding, env, cwd)
+        super().__init__(path_to_executable, encoding, env, cwd)
         self.set_buckd(False)
         self.isolation_prefix = isolation_prefix
 
@@ -83,9 +81,7 @@ class Buck(Executable):
         env: Optional dictionary for environment variables to run command with.
         """
         args = list(argv)
-        if (self.executable_type == ExecutableType.buck2) and not any(
-            arg.startswith("--build-report") for arg in args
-        ):
+        if not any(arg.startswith("--build-report") for arg in args):
             args.append("--build-report=-")
 
         return self._run_buck_command(
@@ -95,7 +91,7 @@ class Buck(Executable):
             rel_cwd=rel_cwd,
             env=env,
             result_type=lambda proc, stdout, stderr, buck_build_id: BuildResult(
-                proc, stdout, stderr, buck_build_id, self.executable_type, *args
+                proc, stdout, stderr, buck_build_id, *args
             ),
             exception_type=BuckException,
         )
@@ -860,30 +856,17 @@ class Buck(Executable):
         """
         buck_build_id = str(uuid.uuid1())
         command_env = self._get_command_env(env)
-        if (
-            self.executable_type == ExecutableType.buck1
-            and "BUCK_BUILD_ID" not in command_env
-        ):
-            command_env["BUCK_BUILD_ID"] = buck_build_id
-        if (
-            self.executable_type == ExecutableType.buck2
-            and "BUCK_WRAPPER_UUID" not in command_env
-        ):
+        if "BUCK_WRAPPER_UUID" not in command_env:
             command_env["BUCK_WRAPPER_UUID"] = buck_build_id
 
         cmd_to_run = [str(self.path_to_executable), cmd]
         if self.isolation_prefix:
-            if self.executable_type == ExecutableType.buck1:
-                cmd_to_run.extend(
-                    ["--isolation_prefix", "buck-out/" + str(self.isolation_prefix)]
-                )
-            elif self.executable_type == ExecutableType.buck2:
-                cmd_to_run = [
-                    cmd_to_run[0],
-                    "--isolation-dir",
-                    str(self.isolation_prefix),
-                    *cmd_to_run[1:],
-                ]
+            cmd_to_run = [
+                cmd_to_run[0],
+                "--isolation-dir",
+                str(self.isolation_prefix),
+                *cmd_to_run[1:],
+            ]
         cmd_to_run.extend(argv)
         cmd_to_run = self._get_windows_cmd_options() + cmd_to_run
         stderr = subprocess.PIPE if intercept_stderr else None

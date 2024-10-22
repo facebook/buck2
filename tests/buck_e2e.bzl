@@ -13,7 +13,6 @@ load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 
 def buck_e2e_test(
         name,
-        executable_type,
         executable,
         use_buck_api = True,
         contacts = None,
@@ -47,7 +46,6 @@ def buck_e2e_test(
     ]
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
-    env["TEST_EXECUTABLE_TYPE"] = executable_type
     env["TEST_EXECUTABLE"] = executable
 
     # Having it enabled has significant negative impact on Starlark evaluation performance.
@@ -265,7 +263,6 @@ def buck2_e2e_test(
             name = name + ("_with_compiled_buck2" if test_with_deployed_buck2 else ""),
             env = compiled_env,
             executable = exe,
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
             cfg_modifiers = buck2_modifiers() + [
@@ -284,7 +281,6 @@ def buck2_e2e_test(
             name = name,
             env = deployed_env,
             executable = "buck2",
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
             **kwargs
@@ -297,7 +293,6 @@ def buck2_e2e_test(
             name = name + "_with_reverted_buck2",
             env = previous_env,
             executable = "buck2",
-            executable_type = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
             **kwargs
