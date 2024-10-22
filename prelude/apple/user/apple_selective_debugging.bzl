@@ -60,6 +60,16 @@ _SelectiveDebuggingJsonType = enum(*_SelectiveDebuggingJsonTypes)
 
 _LOCAL_LINK_THRESHOLD = 0.2
 
+_OBJECT_FILE_EXTENSIONS = [
+    ".o",
+    ".a",
+]
+
+def _generate_metadata_json_object(is_any_selected_target_linked: bool) -> dict[str, typing.Any]:
+    return {
+        "contains_focused_targets": is_any_selected_target_linked,
+    }
+
 def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
     json_type = _SelectiveDebuggingJsonType(ctx.attrs.json_type)
 
@@ -172,13 +182,39 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
 
     def filter_debug_info(inner_ctx: AnalysisContext, debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         map = {}
+        linked_targets = set()
+        is_any_selected_target_linked = False
+        is_using_spec = (json_type == _SelectiveDebuggingJsonType("spec"))
         selected_targets_contain_swift = False
         for infos in debug_info:
             for info in infos:
                 is_swiftmodule = ArtifactInfoTag("swiftmodule") in info.tags
                 is_swift_pcm = ArtifactInfoTag("swift_pcm") in info.tags
                 is_swift_related = is_swiftmodule or is_swift_pcm
-                if _is_label_included(info.label, selection_criteria) or (selected_targets_contain_swift and is_swift_related):
+
+                is_label_included = _is_label_included(info.label, selection_criteria)
+
+                is_any_selected_target_linked_when_using_spec = is_using_spec and is_any_selected_target_linked
+                if not is_any_selected_target_linked_when_using_spec:
+                    # When using spec mode and there's already a selected target, there's no need
+                    # to continue the search whether a selected target is linked - we know at least
+                    # one is already linked. So, the if statement acts as a short-circuit for perf
+                    # reasons to avoid unnecessary work.
+                    #
+                    # In targets mode (i.e., non-spec mode), the full list of `linked_targets` must
+                    # be computed, as that value is used behind a dynamic output, so it's not possible
+                    # terminate the search early (as we cannot determine whether a selected target is linked
+                    # as the list of selected targets is stored in the targets JSON file, which is not available
+                    # at analysis time, only avail behind a dynamic output).
+                    debug_artifact_contains_object_code = lazy.is_any(lambda debug_artifact: debug_artifact.extension in _OBJECT_FILE_EXTENSIONS, info.artifacts)
+                    if debug_artifact_contains_object_code:
+                        if is_using_spec and is_label_included:
+                            is_any_selected_target_linked = True
+                        if not is_using_spec:
+                            # `linked_targets` only used in targets mode, avoid costs in all other modes
+                            linked_targets.add(info.label)
+
+                if is_label_included or (selected_targets_contain_swift and is_swift_related):
                     # There might be a few ArtifactInfo corresponding to the same Label,
                     # so to avoid overwriting, we need to preserve all artifacts.
                     if info.label in map:
@@ -188,9 +224,41 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
 
                     selected_targets_contain_swift = selected_targets_contain_swift or ArtifactInfoTag("swiftmodule") in info.tags
 
-        metadata = inner_ctx.actions.write_json("selective_metadata.json", {"contains_focused_targets": True})
+        if json_type == _SelectiveDebuggingJsonType("spec"):
+            metadata_output = inner_ctx.actions.write_json(
+                "selective_metadata_with_spec.json",
+                _generate_metadata_json_object(is_any_selected_target_linked),
+                pretty = True,
+            )
+        elif json_type == _SelectiveDebuggingJsonType("targets"):
+            def generate_metadata_output(dynamic_ctx: AnalysisContext, artifacts, outputs):
+                targets = artifacts[targets_json_file].read_json()["targets"]
+                is_any_selected_target_linked_inner = False
+                for target in targets:
+                    cell, package_with_target_name = target.split("//")
+                    package, target_name = package_with_target_name.split(":")
 
-        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = [], metadata = metadata)
+                    is_any_selected_target_linked_inner = lazy.is_any(lambda linked_target: linked_target.cell == cell and linked_target.package == package and linked_target.name == target_name, linked_targets)
+                    if is_any_selected_target_linked_inner:
+                        break
+
+                dynamic_ctx.actions.write_json(
+                    outputs.values()[0],
+                    _generate_metadata_json_object(is_any_selected_target_linked_inner),
+                    pretty = True,
+                )
+
+            metadata_output = inner_ctx.actions.declare_output("selective_metadata_with_targets_file.json")
+            inner_ctx.actions.dynamic_output(
+                dynamic = [targets_json_file],
+                inputs = [],
+                outputs = [metadata_output.as_output()],
+                f = generate_metadata_output,
+            )
+        else:
+            fail("Unexpected type: {}".format(json_type))
+
+        return AppleSelectiveDebuggingFilteredDebugInfo(map = map, swift_modules_labels = [], metadata = metadata_output)
 
     def preference_for_links(links: list[Label], deps_preferences: list[LinkExecutionPreferenceInfo]) -> LinkExecutionPreference:
         # If any dependent links were run locally, prefer that the current link is also performed locally,
