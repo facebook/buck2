@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 
+use crate::__for_macro::ContextValue;
+use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
 use crate::DynLateFormat;
 
@@ -52,14 +54,33 @@ pub(crate) fn into_anyhow_for_format(
         }
     };
 
+    let mut starlark_error: Option<StarlarkContext> = None;
     let mut out: anyhow::Error = base.into();
     for context in context_stack.into_iter().rev() {
+        if let ContextValue::StarlarkError(ctx) = context {
+            // Because context_stack is reversed, the right ordering would be first error last to preserve stack ordering
+            starlark_error = Some(ctx.concat(starlark_error));
+            continue;
+        }
+        if let Some(ctx) = starlark_error {
+            out = out.context(format!("{}", ctx));
+            starlark_error = None;
+        }
         if context.should_display() {
             out = out.context(format!("{}", context));
         }
     }
+
+    if let Some(ctx) = starlark_error {
+        out = out.context(format!("{}", ctx));
+    }
     (out, was_late_formatted)
 }
+
+// Keep 3 variables
+// backtrace string which just continuously concatenates
+// error message which is the first error message since stack is reversed so first error is the right one
+// span which is the same as error message
 
 impl fmt::Debug for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

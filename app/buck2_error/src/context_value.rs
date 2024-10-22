@@ -11,6 +11,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use smallvec::SmallVec;
+use starlark_syntax::codemap::FileSpan;
+use starlark_syntax::span_display::span_display;
 
 #[derive(allocative::Allocative, Clone)]
 pub enum ContextValue {
@@ -20,6 +22,7 @@ pub enum ContextValue {
     Typed(Arc<dyn TypedContext>),
     // Stable value for category key
     Key(Arc<str>),
+    StarlarkError(StarlarkContext),
 }
 
 impl ContextValue {
@@ -32,6 +35,7 @@ impl ContextValue {
             Self::Tier(_) => false,
             Self::Tags(_) => false,
             Self::Key(..) => false,
+            Self::StarlarkError(..) => false,
         }
     }
 
@@ -53,6 +57,9 @@ impl ContextValue {
             (ContextValue::Key(a), ContextValue::Key(b)) => {
                 assert_eq!(a, b);
             }
+            (ContextValue::StarlarkError(a), ContextValue::StarlarkError(b)) => {
+                assert_eq!(a, b);
+            }
             (_, _) => panic!("context variants don't match!"),
         }
     }
@@ -66,6 +73,7 @@ impl std::fmt::Display for ContextValue {
             Self::Tags(tags) => write!(f, "{:?}", tags),
             Self::Typed(v) => std::fmt::Display::fmt(v, f),
             Self::Key(v) => f.write_str(v),
+            Self::StarlarkError(v) => write!(f, "{}", v),
         }
     }
 }
@@ -124,6 +132,44 @@ pub trait TypedContext:
 impl<T: TypedContext> From<T> for ContextValue {
     fn from(value: T) -> Self {
         ContextValue::Typed(Arc::new(value))
+    }
+}
+
+#[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
+pub struct StarlarkContext {
+    // TODO(minglunli): We could take in the CallStack type and do some magic to make it look nicer
+    // but I think just concatenating the string form and it's accurate and look good enough
+    pub call_stack: String,
+    pub error_msg: String,
+    pub span: Option<FileSpan>,
+}
+
+impl StarlarkContext {
+    pub fn concat(&self, other: Option<Self>) -> Self {
+        if let Some(ctx) = other {
+            let trimmed = ctx
+                .call_stack
+                .trim_start_matches(starlark_syntax::call_stack::CALL_STACK_TRACEBACK_PREFIX);
+            let call_stack = format!("{}{}", self.call_stack, trimmed);
+            Self {
+                call_stack,
+                error_msg: ctx.error_msg.clone(),
+                span: ctx.span.clone(),
+            }
+        } else {
+            self.clone()
+        }
+    }
+}
+
+impl std::fmt::Display for StarlarkContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let span = span_display(
+            self.span.as_ref().map(|s| s.as_ref()),
+            self.error_msg.as_str(),
+            false,
+        );
+        write!(f, "{}\n{}", self.call_stack, span)
     }
 }
 

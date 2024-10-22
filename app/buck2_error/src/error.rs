@@ -18,6 +18,7 @@ use smallvec::SmallVec;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
+use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
@@ -172,6 +173,13 @@ impl Error {
     pub fn context_for_key(self, context: &str) -> Self {
         Self(Arc::new(ErrorKind::WithContext(
             ContextValue::Key(context.into()),
+            self,
+        )))
+    }
+
+    pub fn context_for_starlark_backtrace(self, context: StarlarkContext) -> Self {
+        Self(Arc::new(ErrorKind::WithContext(
+            ContextValue::StarlarkError(context),
             self,
         )))
     }

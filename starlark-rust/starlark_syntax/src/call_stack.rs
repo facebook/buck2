@@ -30,6 +30,8 @@ use std::fmt::Display;
 
 use crate::frame::Frame;
 
+pub const CALL_STACK_TRACEBACK_PREFIX: &str = "Traceback (most recent call last):";
+
 /// Owned call stack.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct CallStack {
@@ -53,7 +55,7 @@ impl Display for CallStack {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.frames.is_empty() {
             // Match Python output.
-            writeln!(f, "Traceback (most recent call last):")?;
+            writeln!(f, "{}", CALL_STACK_TRACEBACK_PREFIX)?;
             // TODO(nga): use real module name.
             let mut prev = "<module>";
             for x in &self.frames {
