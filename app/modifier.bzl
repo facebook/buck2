@@ -133,6 +133,16 @@ def buck2_modifiers():
                 }),
             }),
         }),
+        modifiers.conditional({
+            "DEFAULT": None,
+            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
+                "DEFAULT": None,
+                "ovr_config//os:linux": modifiers.conditional({
+                    "DEFAULT": None,
+                    "ovr_config//cpu:arm64": "ovr_config//cpu/constraints:armv8.4a",
+                }),
+            }),
+        }),
     ]
 
 def disable_buck2_modifiers():
