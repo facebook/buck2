@@ -50,6 +50,8 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
 AppleDsymJsonInfo = record(
     # JSON object containing the list of dSYMs
     json_object = field(dict[str, typing.Any]),
+    # A list of all artifacts referenced in `json_object`
+    outputs = field(list[Artifact]),
 )
 
 def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artifact]) -> AppleDsymJsonInfo:
@@ -67,4 +69,5 @@ def get_apple_dsym_info_json(binary_dsyms: list[Artifact], dep_dsyms: list[Artif
         dsym_info["deps"] = dedupe(dep_dsyms)
     return AppleDsymJsonInfo(
         json_object = dsym_info,
+        outputs = binary_dsyms + dep_dsyms,
     )
