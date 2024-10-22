@@ -1,0 +1,29 @@
+load("//:rules.bzl", "command", "toolchain")
+
+command(
+    name = "local_only",
+    command = "local_only.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:local_only"],
+)
+
+command(
+    name = "remote_only",
+    command = "remote_only.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:remote_only"],
+)
+
+toolchain(
+    name = "local_only_toolchain",
+    command = "local_only.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:local_only"],
+)
+
+toolchain(
+    name = "remote_only_toolchain",
+    command = "remote_only.py",
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:remote_only"],
+)

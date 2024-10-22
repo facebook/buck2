@@ -1,0 +1,61 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _test_exec_platforms(ctx):
+    bxl_actions = ctx.bxl_actions(exec_deps = ctx.cli_args.exec_deps, toolchains = ctx.cli_args.toolchains, target_platform = "//platforms:target")
+    actions = bxl_actions.actions
+    out = actions.declare_output("out")
+
+    dependency = None
+    if len(bxl_actions.exec_deps) != 0:
+        dependency = bxl_actions.exec_deps[ctx.cli_args.exec_deps[0]]
+    elif len(bxl_actions.toolchains) != 0:
+        dependency = bxl_actions.toolchains[ctx.cli_args.toolchains[0]]
+    else:
+        fail("test setup is wrong - one of exec deps or toolchains should be not None")
+
+    actions.run(
+        [
+            "python3",
+            dependency[RunInfo],
+            out.as_output(),
+        ],
+        category = "command",
+        env = {"cache_buster": read_config("test", "cache_buster", "")},
+        local_only = False,
+    )
+    ctx.output.print(ctx.output.ensure(out))
+
+test_exec_platforms = bxl_main(
+    impl = _test_exec_platforms,
+    cli_args = {
+        "exec_deps": cli_args.option(cli_args.list(cli_args.sub_target())),
+        "toolchains": cli_args.option(cli_args.list(cli_args.sub_target())),
+    },
+)
+
+def _test_exec_compatible_with(ctx):
+    bxl_actions = ctx.bxl_actions(target_platform = "//platforms:target", exec_compatible_with = "//platforms:local_only")
+    actions = bxl_actions.actions
+    out = actions.declare_output("out")
+
+    actions.run(
+        [
+            "python3",
+            "executor_fallback_tests/local_only.py",
+            out.as_output(),
+        ],
+        category = "command",
+        env = {"cache_buster": read_config("test", "cache_buster", "")},
+        prefer_local = True,
+    )
+    ctx.output.print(ctx.output.ensure(out))
+
+test_exec_compatible_with = bxl_main(
+    impl = _test_exec_compatible_with,
+    cli_args = {},
+)
