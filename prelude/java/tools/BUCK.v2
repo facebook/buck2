@@ -76,6 +76,15 @@ prelude.python_bootstrap_library(
     ],
 )
 
+prelude.python_bootstrap_binary(
+    name = "postprocessor_runner",
+    main = "run_postprocessor.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":utils_lib",
+    ],
+)
+
 prelude.python_bootstrap_library(
     name = "utils_lib",
     srcs = [

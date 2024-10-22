@@ -55,6 +55,7 @@ JavaToolchainInfo = provider(
         "nullsafe": provider_field(typing.Any, default = None),
         "nullsafe_extra_args": provider_field(typing.Any, default = None),
         "nullsafe_signatures": provider_field(typing.Any, default = None),
+        "postprocessor_runner": provider_field(typing.Any, default = None),
         "source_level": provider_field(typing.Any, default = None),
         "src_root_elements": provider_field(typing.Any, default = None),
         "src_root_prefixes": provider_field(typing.Any, default = None),

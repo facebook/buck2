@@ -439,7 +439,7 @@ def _create_jar_artifact(
     abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out)
 
     has_postprocessor = hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor
-    final_jar = postprocess_jar(ctx.actions, ctx.attrs.jar_postprocessor[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
+    final_jar = postprocess_jar(ctx.actions, java_toolchain.zip_scrubber, ctx.attrs.jar_postprocessor[RunInfo], java_toolchain.postprocessor_runner[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
 
     jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, abi or final_jar, actions_identifier)
     return make_compile_outputs(
