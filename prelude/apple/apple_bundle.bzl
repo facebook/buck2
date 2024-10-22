@@ -63,7 +63,7 @@ load(
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration")
-load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
+load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -355,6 +355,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     dsym_info = ctx.actions.write_json("dsym-info.json", dsym_json_info.json_object, pretty = True)
     sub_targets[DSYM_INFO_SUBTARGET] = [
         DefaultInfo(default_output = dsym_info, other_outputs = dsym_json_info.outputs),
+    ]
+
+    extended_dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts, [])
+    extended_dsym_info = ctx.actions.write_json("extended-dsym-info.json", extended_dsym_json_info.json_object, pretty = True)
+    sub_targets[EXTENDED_DSYM_INFO_SUBTARGET] = [
+        DefaultInfo(default_output = extended_dsym_info, other_outputs = extended_dsym_json_info.outputs),
     ]
 
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
