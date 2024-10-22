@@ -15,3 +15,8 @@ bad_url(
 run_action(
     name = "run_action",
 )
+
+run_action(
+    name = "local_run_action",
+    local_only = True,
+)

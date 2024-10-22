@@ -37,10 +37,12 @@ bad_url = rule(
 
 def _run_action(ctx):
     out = ctx.actions.declare_output("out")
-    ctx.actions.run(cmd_args(["sh", "-c", 'echo > "$1"', "--", out.as_output()]), category = "run")
+    ctx.actions.run(cmd_args(["sh", "-c", 'echo > "$1"', "--", out.as_output()]), category = "run", local_only = ctx.attrs.local_only)
     return [DefaultInfo(default_outputs = [out])]
 
 run_action = rule(
     impl = _run_action,
-    attrs = {},
+    attrs = {
+        "local_only": attrs.bool(default = False),
+    },
 )

@@ -51,14 +51,17 @@ impl std::error::Error for ActionError {
 
         let category = match &self.execute_error {
             ExecuteError::CommandExecutionError { error } => {
-                if let Some(err) = error {
+                let category = if let Some(err) = error {
                     tags.extend(err.tags());
-                }
+                    err.get_tier()
+                } else {
+                    None
+                };
 
                 if is_command_failure {
                     Some(buck2_error::Tier::Input)
                 } else {
-                    None
+                    category
                 }
             }
             // Returning extra outputs is a bug in the executor

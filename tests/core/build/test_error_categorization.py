@@ -324,3 +324,26 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
     )
+
+
+@buck_test()
+async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    res = await expect_failure(
+        buck.build(
+            "//:local_run_action",
+            "--remote-only",
+            "--no-remote-cache",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        )
+    )
+
+    assert "Incompatible executor preferences" in res.stderr
+
+    record = read_invocation_record(record_path)
+    assert record["error_category"] == "USER"
+    assert (
+        record["best_error_category_key"]
+        == "buck2_build_api/src/actions/error.rs::ActionError:ANY_ACTION_EXECUTION"
+    )
