@@ -79,7 +79,7 @@ def build_package(
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
             go_a_file, asmhdr = _compile(ctx, pkg_name, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, suffix, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
 
-            asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, asmhdr, assembler_flags, shared, suffix)
+            asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
 
             return _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
 
@@ -178,8 +178,8 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_fil
         "-gensymabis",
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
+        ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
         s_files,
-        h_files,
     ]
 
     identifier = paths.basename(pkg_name)
@@ -187,7 +187,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_fil
 
     return symabis
 
-def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asmhdr: Artifact | None, assembler_flags: list[str], shared: bool, suffix: str) -> list[Artifact]:
+def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_files: list[Artifact], asmhdr: Artifact | None, assembler_flags: list[str], shared: bool, suffix: str) -> list[Artifact]:
     if len(s_files) == 0:
         return []
 
@@ -207,6 +207,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], asm
             _asm_args(ctx, pkg_name, shared),
             ["-o", o_file.as_output()],
             ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
+            ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
             s_file,
         ]
 
