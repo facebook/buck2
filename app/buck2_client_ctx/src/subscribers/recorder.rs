@@ -203,6 +203,12 @@ pub(crate) struct InvocationRecorder<'a> {
     version_control_revision: Option<buck2_data::VersionControlRevision>,
 }
 
+struct ErrorsReport {
+    errors: Vec<ProcessedErrorReport>,
+    best_error_tag: Option<String>,
+    best_error_category_key: Option<String>,
+}
+
 impl<'a> InvocationRecorder<'a> {
     pub fn new(
         fb: FacebookInit,
@@ -378,7 +384,7 @@ impl<'a> InvocationRecorder<'a> {
         Ok(Default::default())
     }
 
-    fn finalize_errors(&mut self) -> (Vec<ProcessedErrorReport>, Option<String>, Option<String>) {
+    fn finalize_errors(&mut self) -> ErrorsReport {
         // Add stderr to GRPC connection errors if available
         let connection_errors: Vec<buck2_error::Error> = self
             .client_errors
@@ -436,7 +442,11 @@ impl<'a> InvocationRecorder<'a> {
             )
         };
 
-        (errors, best_error_tag, best_error_category_key)
+        ErrorsReport {
+            errors,
+            best_error_tag,
+            best_error_category_key,
+        }
     }
 
     fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
@@ -590,7 +600,7 @@ impl<'a> InvocationRecorder<'a> {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        let (errors, best_error_tag, best_error_category_key) = self.finalize_errors();
+        let errors_report = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
@@ -702,9 +712,9 @@ impl<'a> InvocationRecorder<'a> {
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            errors,
-            best_error_tag,
-            best_error_category_key,
+            errors: errors_report.errors,
+            best_error_tag: errors_report.best_error_tag,
+            best_error_category_key: errors_report.best_error_category_key,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
                 self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),
