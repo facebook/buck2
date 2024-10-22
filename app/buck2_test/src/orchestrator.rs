@@ -125,6 +125,7 @@ use buck2_test_api::protocol::TestOrchestrator;
 use derive_more::From;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::Key;
 use display_container::fmt_container;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
@@ -241,8 +242,9 @@ impl<'a> BuckTestOrchestrator<'a> {
             timing,
             execution_kind,
             outputs,
-        } = Self::prepare_and_execute(
+        } = prepare_and_execute(
             self.dice.dupe().deref_mut(),
+            self.cancellations,
             TestExecutionKey {
                 test_target,
                 cmd: Arc::new(cmd),
@@ -257,7 +259,6 @@ impl<'a> BuckTestOrchestrator<'a> {
                 host_sharing_requirements: host_sharing_requirements.into(),
             },
             self.liveliness_observer.dupe(),
-            self.cancellations,
         )
         .await?;
 
@@ -334,8 +335,8 @@ impl<'a> BuckTestOrchestrator<'a> {
         })
     }
 
-    async fn prepare_and_execute(
-        dice: &mut DiceComputations<'static>,
+    async fn prepare_and_execute_no_dice(
+        dice: &mut DiceComputations<'_>,
         key: TestExecutionKey,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         cancellation: &CancellationContext<'_>,
@@ -439,6 +440,7 @@ impl<'a> BuckTestOrchestrator<'a> {
     }
 }
 
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 struct TestExecutionKey {
     test_target: ConfiguredProvidersLabel,
     cmd: Arc<Vec<ArgValue>>,
@@ -475,6 +477,88 @@ impl Display for TestExecutionPrefix {
             TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({})", prefix),
         }
     }
+}
+
+#[async_trait]
+impl Key for TestExecutionKey {
+    type Value = buck2_error::Result<Arc<ExecuteData>>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        cancellations: &CancellationContext,
+    ) -> Self::Value {
+        Ok(cancellations
+            .with_structured_cancellation(|observer| {
+                async move {
+                    let result = BuckTestOrchestrator::prepare_and_execute_no_dice(
+                        ctx,
+                        self.dupe(),
+                        Arc::new(observer),
+                        cancellations,
+                    )
+                    .await;
+                    let result: anyhow::Result<Arc<ExecuteData>> = match result {
+                        Ok(ok) => Ok(Arc::new(ok)),
+                        Err(err) => match err {
+                            ExecuteError::Error(err) => Err(err)?,
+                            ExecuteError::Cancelled(_) => Err(ExecuteDiceErr::Cancelled)?,
+                        },
+                    };
+                    result
+                }
+                .boxed()
+            })
+            .await?)
+    }
+
+    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
+        false
+    }
+}
+
+async fn prepare_and_execute(
+    ctx: &mut DiceComputations<'static>,
+    cancellation: &CancellationContext<'_>,
+    key: TestExecutionKey,
+    liveliness_observer: Arc<dyn LivelinessObserver>,
+) -> Result<ExecuteData, ExecuteError> {
+    let execute_on_dice = false;
+    if execute_on_dice {
+        let result = tokio::select! {
+            _ = liveliness_observer.while_alive() => {
+                Err(ExecuteError::Cancelled(Cancelled))
+            }
+            result = prepare_and_execute_dice(ctx, &key) => {
+                result
+            }
+        }?;
+        Ok((*result).clone())
+    } else {
+        Ok(BuckTestOrchestrator::prepare_and_execute_no_dice(
+            ctx,
+            key,
+            liveliness_observer,
+            cancellation,
+        )
+        .await?)
+    }
+}
+
+async fn prepare_and_execute_dice(
+    ctx: &mut DiceComputations<'_>,
+    key: &TestExecutionKey,
+) -> Result<Arc<ExecuteData>, ExecuteError> {
+    let result = ctx.compute(key).await;
+    let result = result.map_err(anyhow::Error::from)?;
+
+    result.map_err(anyhow::Error::from).map_err(|err| {
+        if err.downcast_ref::<ExecuteDiceErr>().is_some() {
+            ExecuteError::Cancelled(Cancelled)
+        } else {
+            ExecuteError::Error(err)
+        }
+    })
 }
 
 impl Display for TestExecutionKey {
@@ -520,6 +604,13 @@ struct Cancelled;
 enum ExecuteError {
     Error(anyhow::Error),
     Cancelled(Cancelled),
+}
+
+#[derive(From, Debug, buck2_error::Error)]
+/// Used to support the same ExecuteError's api via dice
+enum ExecuteDiceErr {
+    #[error("Cancelled")]
+    Cancelled,
 }
 
 #[async_trait]
@@ -744,7 +835,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
         Ok(())
     }
 }
-#[derive(Allocative)]
+#[derive(Allocative, Clone)]
 struct ExecuteData {
     pub stdout: ExecutionStream,
     pub stderr: ExecutionStream,
