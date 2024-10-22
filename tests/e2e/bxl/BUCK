@@ -171,6 +171,19 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_execution_platforms",
+    srcs = ["test_execution_platforms.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "OVR_CONFIG": "1",
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_bxl_targets",
     srcs = ["test_bxl_targets.py"],
     data = "//buck2/tests/targets:isolated_targets",
