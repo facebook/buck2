@@ -1,0 +1,60 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load(":defs.bzl", "FooInfo")
+
+def _providers_test_impl(ctx):
+    node = ctx.configured_targets("root//:provides_foo")
+    providers = ctx.analysis(node).providers()
+    ctx.output.print(providers[FooInfo])
+
+    providers = ctx.analysis(node.label).providers()
+    ctx.output.print(providers[FooInfo])
+
+providers_test = bxl_main(
+    impl = _providers_test_impl,
+    cli_args = {},
+)
+
+def _incompatible_targets_single(ctx):
+    result = ctx.analysis("root//:incompatible_target")
+    ctx.output.print(result)
+
+incompatible_targets_single = bxl_main(
+    impl = _incompatible_targets_single,
+    cli_args = {},
+)
+
+def _incompatible_targets(ctx):
+    result = ctx.analysis(["root//:incompatible_target"])
+    ctx.output.print(result)
+
+incompatible_targets = bxl_main(
+    impl = _incompatible_targets,
+    cli_args = {},
+)
+
+def _dependency_test_impl(ctx):
+    node = ctx.configured_targets("root//:stub")
+
+    dep = ctx.analysis(node).as_dependency()
+    ctx.output.print(type(dep))
+    ctx.output.print(dep.label)
+
+dependency_test = bxl_main(
+    impl = _dependency_test_impl,
+    cli_args = {},
+)
+
+def _missing_subtarget_test(ctx):
+    node = ctx.configured_targets("root//:stub").label.with_sub_target("missing_subtarget")
+    ctx.analysis(node)
+
+missing_subtarget_test = bxl_main(
+    impl = _missing_subtarget_test,
+    cli_args = {},
+)
