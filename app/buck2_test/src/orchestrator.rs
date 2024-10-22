@@ -30,6 +30,7 @@ use buck2_build_api::actions::execute::dice_data::GetReClient;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -249,9 +250,9 @@ impl<'a> BuckTestOrchestrator<'a> {
                 executor_override: executor_override.map(Arc::new),
                 required_local_resources: Arc::new(required_local_resources),
                 pre_create_dirs: pre_create_dirs.dupe(),
+                prefix: TestExecutionPrefix::new(&stage, &self.session),
                 stage: Arc::new(stage),
                 options: self.session.options(),
-                prefix: self.session.prefix(),
                 timeout,
                 host_sharing_requirements: host_sharing_requirements.into(),
             },
@@ -447,9 +448,33 @@ struct TestExecutionKey {
     pre_create_dirs: Arc<Vec<DeclaredOutput>>,
     stage: Arc<TestStage>,
     options: TestSessionOptions,
-    prefix: Arc<ForwardRelativePathBuf>,
+    prefix: TestExecutionPrefix,
     timeout: Duration,
     host_sharing_requirements: Arc<HostSharingRequirements>,
+}
+
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+enum TestExecutionPrefix {
+    Listing,
+    Testing(Arc<ForwardRelativePathBuf>),
+}
+
+impl TestExecutionPrefix {
+    fn new(stage: &TestStage, session: &TestSession) -> Self {
+        match stage {
+            TestStage::Listing(_) => TestExecutionPrefix::Listing,
+            TestStage::Testing { .. } => TestExecutionPrefix::Testing(session.prefix().dupe()),
+        }
+    }
+}
+
+impl Display for TestExecutionPrefix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TestExecutionPrefix::Listing => write!(f, "Listing"),
+            TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({})", prefix),
+        }
+    }
 }
 
 impl Display for TestExecutionKey {
@@ -583,7 +608,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
     async fn prepare_for_local_execution(
         &self,
-        _stage: TestStage,
+        stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
         env: SortedVectorMap<String, ArgValue>,
@@ -641,7 +666,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             Cow::Owned(env),
             Cow::Owned(pre_create_dirs),
             &executor.executor_fs(),
-            self.session.prefix(),
+            TestExecutionPrefix::new(&stage, &self.session),
             self.session.options(),
         )
         .await?;
@@ -1065,12 +1090,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         env: Cow<'a, SortedVectorMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, Vec<DeclaredOutput>>,
         executor_fs: &ExecutorFs<'_>,
-        prefix: Arc<ForwardRelativePathBuf>,
+        prefix: TestExecutionPrefix,
         opts: TestSessionOptions,
     ) -> anyhow::Result<ExpandedTestExecutable> {
-        let output_root = prefix.join(ForwardRelativePathBuf::unchecked_new(
-            Uuid::new_v4().to_string(),
-        ));
+        let output_root = resolve_output_root(dice, test_target, prefix).await?;
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -1517,6 +1540,25 @@ impl<'a> Execute2RequestExpander<'a> {
 
         Ok((expanded_cmd, expanded_env, inputs, expanded_worker))
     }
+}
+
+async fn resolve_output_root(
+    dice: &mut DiceComputations<'_>,
+    test_target: &ConfiguredProvidersLabel,
+    prefix: TestExecutionPrefix,
+) -> Result<ForwardRelativePathBuf, anyhow::Error> {
+    let output_root = match prefix {
+        TestExecutionPrefix::Listing => {
+            let resolver = dice.get_buck_out_path().await?;
+            resolver
+                .resolve_test_discovery(test_target)
+                .into_forward_relative_path_buf()
+        }
+        TestExecutionPrefix::Testing(prefix) => prefix.join(ForwardRelativePathBuf::unchecked_new(
+            Uuid::new_v4().to_string(),
+        )),
+    };
+    Ok(output_root)
 }
 
 trait CommandLineContextExt<'a>: CommandLineContext + 'a {
