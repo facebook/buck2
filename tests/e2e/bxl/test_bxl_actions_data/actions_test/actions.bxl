@@ -1,0 +1,36 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _build_actions_impl(ctx):
+    actions = ctx.bxl_actions().actions
+
+    output = actions.write("my_output", ctx.cli_args.content)
+
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
+
+build_actions_test = bxl_main(
+    impl = _build_actions_impl,
+    cli_args = {
+        "content": cli_args.string(),
+    },
+)
+
+def _impl_build_and_write(ctx):
+    actions = ctx.bxl_actions().actions
+    ctx.build(ctx.cli_args.target)
+
+    output1 = actions.declare_output("output1")
+    actions.write(output1, "sample_content")
+    ctx.output.ensure(output1)
+
+build_and_write = bxl_main(
+    impl = _impl_build_and_write,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)

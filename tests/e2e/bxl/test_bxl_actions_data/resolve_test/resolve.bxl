@@ -1,0 +1,46 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("//resolve_test:anon_bxl_rules.bzl", "MirrorInfo", "ValidateInfo", "assert_eq", "mirror")
+
+def _resolve_test_impl(ctx):
+    actions = ctx.bxl_actions().actions
+
+    node = ctx.configured_targets("root//resolve_test:buildable")
+    dep = ctx.analysis(node).as_dependency()
+
+    attrs = {
+        "dep": dep,
+        "false": False,
+        "int": 42,
+        "list_string": ["a", "b", "c"],
+        "string": "a-string",
+        "true": True,
+    }
+
+    def validate(providers):
+        res = providers[MirrorInfo].info
+        assert_eq(res.true, True)
+        assert_eq(res.false, False)
+        assert_eq(res.int, 42)
+        assert_eq(res.string, "a-string")
+        assert_eq(res.list_string, ["a", "b", "c"])
+        assert_eq(type(res.dep), "dependency")
+        assert_eq(res.dep.label.name, "buildable")
+        return [DefaultInfo(), ValidateInfo(string = res.string)]
+
+    promise = actions.anon_target(mirror, attrs).promise.map(validate)
+    promise_result = ctx.resolve(actions, promise)
+
+    # promise.get() returns a "provider_collection". ValidateInfo (a "provider") is at index 1
+    ctx.output.print(promise_result[1].string)
+
+resolve_test = bxl_main(
+    impl = _resolve_test_impl,
+    cli_args = {
+    },
+)
