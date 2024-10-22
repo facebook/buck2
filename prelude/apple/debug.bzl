@@ -17,6 +17,16 @@ DEBUGINFO_DB_SUBTARGET = "debuginfo-db"
 
 AppleDebugInfo = TransitiveSetArgsProjection
 
+AppleSelectiveDebuggableMetadata = record(
+    # dSYM which the metadata applies for.
+    dsym = field(Artifact),
+    # JSON file containing metadata about the dSYM.
+    #
+    # This must be an artifact because there's no access to the focused targets
+    # JSON file at analysis time.
+    metadata = field(Artifact),
+)
+
 # Represents Apple debug info from both executables and bundles.
 AppleDebuggableInfo = provider(
     # @unsorted-dict-items
@@ -28,6 +38,7 @@ AppleDebuggableInfo = provider(
         "debug_info_tset": provider_field(ArtifactTSet),
         # In the case of b above, contains the map of library target to artifacts, else None
         "filtered_map": provider_field([dict[Label, list[Artifact]], None], default = None),
+        "selective_metadata": provider_field(list[AppleSelectiveDebuggableMetadata], default = []),
     },
 )
 
