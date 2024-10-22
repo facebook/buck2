@@ -17,13 +17,22 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_discovery_cached(buck: Buck) -> None:
     args = [
         "-c",
-        "buck2.cache_test_listings=true",
+        "buck2.cache_test_listings=//:ok",
         "//:ok",
     ]
     await run_test_and_check_discovery_presence(buck, False, args)
-    await run_test_and_check_discovery_presence(
-        buck, False, args
-    )  # will be true once the implementation is done
+    await run_test_and_check_discovery_presence(buck, True, args)
+
+
+@buck_test()
+async def test_discovery_not_cached_for_not_matching_pattern(buck: Buck) -> None:
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:not_ok",
+        "//:ok",
+    ]
+    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, False, args)
 
 
 @buck_test()
