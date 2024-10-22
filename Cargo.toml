@@ -31,6 +31,7 @@ members = [
     "app/buck2_downward_api_proto",
     "app/buck2_error",
     "app/buck2_error_derive",
+    "app/buck2_error_tests",
     "app/buck2_event_observer",
     "app/buck2_events",
     "app/buck2_event_log",
