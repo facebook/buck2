@@ -36,6 +36,7 @@ use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::classify::best_error;
 use buck2_error::classify::best_tag;
+use buck2_error::classify::error_category;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -207,6 +208,7 @@ struct ErrorsReport {
     errors: Vec<ProcessedErrorReport>,
     best_error_tag: Option<String>,
     best_error_category_key: Option<String>,
+    error_category: Option<String>,
 }
 
 impl<'a> InvocationRecorder<'a> {
@@ -442,10 +444,18 @@ impl<'a> InvocationRecorder<'a> {
             )
         };
 
+        // TODO(ctolliday) derive category from `best_error`
+        let error_category = if !errors.is_empty() {
+            Some(error_category(&errors).to_owned())
+        } else {
+            None
+        };
+
         ErrorsReport {
             errors,
             best_error_tag,
             best_error_category_key,
+            error_category,
         }
     }
 
@@ -715,6 +725,7 @@ impl<'a> InvocationRecorder<'a> {
             errors: errors_report.errors,
             best_error_tag: errors_report.best_error_tag,
             best_error_category_key: errors_report.best_error_category_key,
+            error_category: errors_report.error_category,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
                 self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),

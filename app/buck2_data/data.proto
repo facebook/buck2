@@ -2056,6 +2056,10 @@ message InvocationRecord {
   optional uint64 hedwig_download_bytes = 231;
   optional uint64 hedwig_upload_queries = 232;
   optional uint64 hedwig_upload_bytes = 233;
+
+  // If `errors` is not empty, the category of the error
+  // assumed to have triggered the command failure.
+  optional string error_category = 234;
 }
 
 // Record event sent directly to scribe.
