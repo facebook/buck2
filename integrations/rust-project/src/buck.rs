@@ -193,7 +193,7 @@ pub(crate) fn to_json_project(
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
-            ..Default::default()
+            target: None,
         };
         crates.push(crate_info);
     }
