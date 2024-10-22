@@ -14,6 +14,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import replace_hash
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")
@@ -48,6 +49,51 @@ async def test_bxl_build_stats(buck: Buck) -> None:
     assert stats["root//build:pass"]["failures"] == 0
     assert stats["root//build:fail"]["artifacts"] == 0
     assert stats["root//build:fail"]["failures"] == 1
+
+
+@buck_test(inplace=False, data_dir="bxl/simple")
+async def test_bxl_target_platform_from_unpacking_providers_expr(buck: Buck) -> None:
+    # Pass in explicit target platform from client. Result should be configured with this target platform.
+    result = await buck.bxl(
+        "--target-platforms",
+        "root//platforms:platform2",
+        "//bxl/build.bxl:build_with_target_platform_test",
+        "--",
+        "--target",
+        ":buildable",
+    )
+    assert (
+        replace_hash(result.stdout)
+        == "[root//:buildable (root//platforms:platform2#<HASH>)]\n"
+    )
+
+    # No target platform specified from client context. Result should be configured with root//platforms:platform1
+    result = await buck.bxl(
+        "//bxl/build.bxl:build_with_target_platform_test",
+        "--",
+        "--target",
+        ":buildable",
+    )
+    assert (
+        replace_hash(result.stdout)
+        == "[root//:buildable (root//platforms:platform1#<HASH>)]\n"
+    )
+
+    # Target platform from client context should be overridden by what's declared in build().
+    result = await buck.bxl(
+        "//bxl/build.bxl:build_with_target_platform_test",
+        "--target-platforms",
+        "root//platforms:platform2",
+        "--",
+        "--target",
+        ":buildable",
+        "--target_platform",
+        "root//platforms:platform1",
+    )
+    assert (
+        replace_hash(result.stdout)
+        == "[root//:buildable (root//platforms:platform1#<HASH>)]\n"
+    )
 
 
 @buck_test(inplace=False, data_dir="bxl/simple")

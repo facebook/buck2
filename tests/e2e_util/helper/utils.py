@@ -95,10 +95,10 @@ def random_string():
 
 
 def replace_hashes(strings: typing.List[str]) -> typing.List[str]:
-    return [_replace_hash(s) for s in strings]
+    return [replace_hash(s) for s in strings]
 
 
-def _replace_hash(s: str) -> str:
+def replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
