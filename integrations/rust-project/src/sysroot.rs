@@ -57,10 +57,17 @@ pub(crate) fn resolve_buckconfig_sysroot(
             project_root.join(sysroot_src)
         };
 
-        // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with:
-        // buck2 run fbcode//third-party-buck/platform010/build/rust:bin/rustc -- --print sysroot
+        // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
+        // derived from buck, e.g.
+        //
+        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a compiler fbcode//buck2/platform/toolchain:rust_bootstrap
+        // ...
+        //     "compiler": "fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)"
+        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a exe fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler
+        // ...
+        //     "exe": "fbcode//third-party-buck/platform010/build/rust/llvm-fb-17:bin/rustc (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)",
         let sysroot = Sysroot {
-            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust/llvm-fb-15"),
+            sysroot: base.join("fbcode/third-party-buck/platform010/build/rust/llvm-fb-17"),
             sysroot_src: Some(sysroot_src),
         };
 
