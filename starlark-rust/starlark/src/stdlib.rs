@@ -21,6 +21,7 @@
 use dupe::Dupe;
 
 use crate::environment::GlobalsBuilder;
+use crate::values::namespace::globals::register_namespace;
 
 pub(crate) mod breakpoint;
 pub(crate) mod call_stack;
@@ -58,6 +59,9 @@ pub enum LibraryExtension {
     RecordType,
     /// Definitions to support the `enum` type, the `enum()` constructor.
     EnumType,
+    /// Add a function `namespace()` which acts much like `struct()` but is clear about it's
+    /// intended use and stricter
+    NamespaceType,
     /// A function `map(f, xs)` which applies `f` to each element of `xs` and returns the result.
     // TODO(nga): add set: https://www.internalfb.com/tasks/?t=184017710
     Map,
@@ -102,8 +106,24 @@ impl LibraryExtension {
     pub(crate) fn all() -> &'static [Self] {
         use LibraryExtension::*;
         &[
-            StructType, RecordType, EnumType, Map, Filter, Partial, Debug, Print, Pprint, Pstr,
-            Prepr, Breakpoint, Json, Typing, Internal, CallStack, SetType,
+            StructType,
+            RecordType,
+            EnumType,
+            NamespaceType,
+            Map,
+            Filter,
+            Partial,
+            Debug,
+            Print,
+            Pprint,
+            Pstr,
+            Prepr,
+            Breakpoint,
+            Json,
+            Typing,
+            Internal,
+            CallStack,
+            SetType,
         ]
     }
 
@@ -112,6 +132,7 @@ impl LibraryExtension {
         use LibraryExtension::*;
         match self {
             StructType => register_struct(builder),
+            NamespaceType => register_namespace(builder),
             RecordType => register_record(builder),
             EnumType => register_enum(builder),
             SetType => register_set(builder),

@@ -88,6 +88,7 @@ pub use crate::values::types::function;
 pub use crate::values::types::int;
 pub use crate::values::types::list;
 pub use crate::values::types::list_or_tuple;
+pub use crate::values::types::namespace;
 pub use crate::values::types::none;
 pub use crate::values::types::range;
 pub use crate::values::types::record;
