@@ -261,18 +261,24 @@ impl DocType {
     }
 }
 
+impl DocItem {
+    pub fn render_as_code(&self, name: &str) -> String {
+        match self {
+            DocItem::Module(m) => m.render_as_code(),
+            DocItem::Type(o) => o.render_as_code(&name),
+            DocItem::Member(DocMember::Function(f)) => f.render_as_code(&name),
+            DocItem::Member(DocMember::Property(p)) => p.render_as_code(&name),
+        }
+    }
+}
+
 impl Doc {
     /// Render a starlark code representation of this documentation object.
     ///
     /// Function bodies for these consist of a single "pass" statement, and objects
     /// are represented as structs.
     pub fn render_as_code(&self) -> String {
-        match &self.item {
-            DocItem::Module(m) => m.render_as_code(),
-            DocItem::Type(o) => o.render_as_code(&self.id.name),
-            DocItem::Member(DocMember::Function(f)) => f.render_as_code(&self.id.name),
-            DocItem::Member(DocMember::Property(p)) => p.render_as_code(&self.id.name),
-        }
+        self.item.render_as_code(&self.id.name)
     }
 }
 
