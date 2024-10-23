@@ -1157,8 +1157,9 @@ def _get_merged_linkables_for_platform(
         group_deps = link_groups_graph_builder.setdefault(target_group, {})
         for dep in linkable_nodes_graph[target]:
             dep_group = target_to_link_group[dep]
-            if target_group != dep_group:
-                group_deps[dep_group] = True
+            if target_group != dep_group and dep_group not in group_deps:
+                # Store one example of why target_group depends on dep_group
+                group_deps[dep_group] = (target, dep)
     link_groups_graph = {k: list(v.keys()) for k, v in link_groups_graph_builder.items()}
 
     archive_output_style = LibOutputStyle("pic_archive")
@@ -1168,9 +1169,17 @@ def _get_merged_linkables_for_platform(
     group_shared_libs = {}
     included_default_solibs = {}
 
+    def edge_explainer(src_group, dest_group):
+        """Explains in an error why src_group has a dependency on dest_group"""
+        if src_group not in link_groups_graph_builder or dest_group not in link_groups_graph_builder[src_group]:
+            return ["Unknown"]
+
+        src_target, dest_target = link_groups_graph_builder[src_group][dest_group]
+        return ["   " + str(src_target), "-> " + str(dest_target)]
+
     # Now we will traverse from the leaves up the graph (the link groups graph). As we traverse, we will produce
     # a link group linkablenode for each group.
-    for group in post_order_traversal(link_groups_graph):
+    for group in post_order_traversal(link_groups_graph, edge_explainer = edge_explainer):
         group_data = link_groups[group]
         is_actually_merged = len(group_data.constituents) > 1
 

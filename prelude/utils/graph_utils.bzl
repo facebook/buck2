@@ -9,7 +9,8 @@ load("@prelude//utils:expect.bzl", "expect")
 
 def pre_order_traversal(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
+        node_formatter: typing.Callable[[typing.Any], str] = str,
+        edge_explainer: typing.Callable[[typing.Any, typing.Any], list[str]] = lambda _src, _dest: ["Unknown"]) -> list[typing.Any]:
     """
     Perform a pre-order (topologically sorted) traversal of `graph` and return the ordered nodes
     """
@@ -29,7 +30,7 @@ def pre_order_traversal(
 
     for _ in range(len(in_degrees)):
         if len(queue) == 0:
-            fail_cycle(graph, node_formatter)
+            fail_cycle(graph, node_formatter, edge_explainer)
 
         node = queue.pop()
         ordered.append(node)
@@ -46,7 +47,8 @@ def pre_order_traversal(
 
 def post_order_traversal(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
+        node_formatter: typing.Callable[[typing.Any], str] = str,
+        edge_explainer: typing.Callable[[typing.Any, typing.Any], list[str]] = lambda _src, _dest: ["Unknown"]) -> list[typing.Any]:
     """
     Performs a post-order traversal of `graph`.
     """
@@ -65,7 +67,7 @@ def post_order_traversal(
 
     for _ in range(len(out_degrees)):
         if len(queue) == 0:
-            fail_cycle(graph, node_formatter)
+            fail_cycle(graph, node_formatter, edge_explainer)
 
         node = queue.pop()
         ordered.append(node)
@@ -82,15 +84,20 @@ def post_order_traversal(
 
 def fail_cycle(
         graph: dict[typing.Any, list[typing.Any]],
-        node_formatter: typing.Callable[[typing.Any], str]) -> typing.Never:
+        node_formatter: typing.Callable[[typing.Any], str],
+        edge_explainer: typing.Callable[[typing.Any, typing.Any], list[str]]) -> typing.Never:
     cycle = find_cycle(graph)
     if cycle:
+        errors = []
+        for i, c in enumerate(cycle):
+            indented_number = "\n\n" + (" -> " if i > 0 else "    ") + "" * (3 - len(str(i))) + str(i + 1) + ": "
+            edge_explanation = ""
+            if i > 0:
+                edge_explanation = "\n" + " " * 9 + "Reason for edge:"
+                edge_explanation += "".join(["\n" + " " * 11 + e for e in edge_explainer(cycle[i - 1], c)])
+            errors.append(indented_number + node_formatter(c) + edge_explanation)
         fail(
-            "cycle in graph detected: {}".format(
-                " -> ".join(
-                    [node_formatter(c) for c in cycle],
-                ),
-            ),
+            "cycle in graph detected:{}\n".format("".join(errors)),
         )
     fail("expected cycle, but found none")
 
