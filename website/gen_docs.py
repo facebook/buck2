@@ -55,6 +55,7 @@ def doc_name(x):
 
 
 def copy_starlark_docs():
+    Path("docs/developers/starlark").mkdir(parents=True, exist_ok=True)
     # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
     for x in Path("starlark-rust/docs").glob("*.md"):
         name = Path(x).stem
