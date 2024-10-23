@@ -50,10 +50,6 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
   ],
 
   plugins: [
-    [require.resolve('docusaurus-lunr-search'), {
-      excludeRoutes: [
-      ]
-    }],
     [
       '@docusaurus/plugin-google-gtag',
       {
@@ -216,4 +212,9 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
         darkTheme: darkCodeTheme,
       },
     }),
+
+  markdown: ({
+    // Use mdx for `.mdx` files and commonmark for `.md` files
+    format: 'detect',
+  }),
 });
