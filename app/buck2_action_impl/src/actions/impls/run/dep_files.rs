@@ -361,7 +361,7 @@ impl CommonDigests {
     }
 
     /// Take a list of declared dep files (label, artifact) and filtered inputs (StoredFingerprints)
-    /// and create a list of dep file path and filterd inputs for that input
+    /// and create a list of dep file path and filtered inputs for that input
     fn get_dep_file_inputs(
         &self,
         declared_dep_files: &DeclaredDepFiles,
@@ -453,7 +453,7 @@ impl DepFileBundle {
         declared_outputs: &[BuildArtifact],
     ) -> anyhow::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
         // Get the action outputs (if cache hit) and an indicator on whether a full lookup operation should be performed
-        let (outputs, check_filterd_inputs) = span_async_simple(
+        let (outputs, check_filtered_inputs) = span_async_simple(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: false,
                 remote_cache: false,
@@ -479,7 +479,7 @@ impl DepFileBundle {
                 },
             )
         });
-        Ok((outputs, check_filterd_inputs))
+        Ok((outputs, check_filtered_inputs))
     }
 
     pub(crate) async fn check_local_dep_file_cache(
