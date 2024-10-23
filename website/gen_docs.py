@@ -6,6 +6,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-strict
+
 """
 Generate API documentation for the website.
 """
@@ -16,14 +18,15 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import List
 
 
-def read_file(path):
+def read_file(path: Path) -> str:
     with open(path, "r") as f:
         return f.read()
 
 
-def write_file(path, contents):
+def write_file(path: Path, contents: str) -> None:
     with open(path, "w") as f:
         f.write(contents)
 
@@ -40,7 +43,7 @@ Re-generate by running `fbcode/buck2/website/gen_docs.py`.
     )
 
 
-def buck_command(args):
+def buck_command(args: argparse.Namespace) -> str:
     if args.buck2:
         return args.buck2
     elif args.prod:
@@ -51,7 +54,7 @@ def buck_command(args):
         return "./buck2.sh"
 
 
-def copy_starlark_docs():
+def copy_starlark_docs() -> None:
     base_path = Path("docs/developers/starlark") / "developers" / "starlark"
     setup_gen_dir(base_path)
     # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
@@ -61,7 +64,7 @@ def copy_starlark_docs():
         write_file(base_path / (name + ".generated.md"), prefix + read_file(x))
 
 
-def generate_api_docs(buck):
+def generate_api_docs(buck: str) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         base_dir = Path("docs") / "prelude"
         setup_gen_dir(base_dir)
@@ -102,7 +105,7 @@ def generate_api_docs(buck):
             shutil.copyfile(orig, dest)
 
 
-def parse_subcommands(output):
+def parse_subcommands(output: str) -> List[str]:
     res = []
     seen_subcommands = False
     for x in output.splitlines():
@@ -115,7 +118,7 @@ def parse_subcommands(output):
     return res
 
 
-def generate_help_docs_subcommand(buck, args):
+def generate_help_docs_subcommand(buck: str, args: List[str]) -> str:
     cmd = buck + " " + " ".join(args) + " --help"
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
@@ -133,7 +136,7 @@ def generate_help_docs_subcommand(buck, args):
     )
 
 
-def generate_help_docs(buck):
+def generate_help_docs(buck: str) -> None:
     base_dir = Path("docs") / "users" / "commands"
     setup_gen_dir(base_dir)
 
@@ -141,7 +144,7 @@ def generate_help_docs(buck):
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
     for sub in parse_subcommands(res.stdout.decode()):
-        res = generate_help_docs_subcommand(buck, [sub])
+        output = generate_help_docs_subcommand(buck, [sub])
         write_file(
             base_dir / (sub + ".generated.md"),
             "---\nid: "
@@ -151,11 +154,11 @@ def generate_help_docs(buck):
             + "\n---\nThese are the flags/commands under `buck2 "
             + sub
             + "` and their `--help` output:"
-            + res,
+            + output,
         )
 
 
-def generate_query_docs(buck):
+def generate_query_docs(buck: str) -> None:
     base_dir = Path("docs") / "users" / "query"
     setup_gen_dir(base_dir)
 
