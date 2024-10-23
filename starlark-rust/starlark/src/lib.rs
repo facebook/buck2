@@ -429,7 +429,6 @@
 mod macros;
 
 pub use starlark_derive::starlark_module;
-pub use starlark_derive::StarlarkDocs;
 pub use starlark_syntax::codemap;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;

@@ -44,7 +44,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_targets::AnonTargetKey;
@@ -56,15 +55,7 @@ pub enum AnonTargetsError {
     ArtifactNotFound(String),
 }
 
-#[derive(
-    Debug,
-    NoSerialize,
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    Clone,
-    StarlarkDocs
-)]
+#[derive(Debug, NoSerialize, ProvidesStaticType, Trace, Allocative, Clone)]
 struct StarlarkAnonTarget<'v> {
     // Promise created by the anon rule
     promise: ValueTyped<'v, StarlarkPromise<'v>>,
@@ -179,15 +170,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Debug,
-    NoSerialize,
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    Clone,
-    StarlarkDocs
-)]
+#[derive(Debug, NoSerialize, ProvidesStaticType, Trace, Allocative, Clone)]
 struct StarlarkAnonTargets<'v> {
     // Joined promise for all anon targets.
     promise: ValueTyped<'v, StarlarkPromise<'v>>,

@@ -33,7 +33,6 @@ use std::iter;
 use allocative::Allocative;
 pub use code::render_docs_as_code;
 pub use parse::DocStringKind;
-pub use starlark_derive::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
@@ -339,48 +338,5 @@ impl Doc {
             item,
             custom_attrs: HashMap::new(),
         }
-    }
-}
-
-/// Get documentation for all items registered with `#[derive(StarlarkDocs)]`
-///
-/// Note: Because `StarlarkDocs` uses the inventory crate under the hood, in statically linked
-/// binaries, documentation from all compiled crates in the binary will be included.
-///
-/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
-/// library is `dlopen()`ed.
-pub fn get_registered_starlark_docs() -> Vec<Doc> {
-    inventory::iter::<RegisteredDoc>
-        .into_iter()
-        .filter_map(|d| (d.getter)())
-        .collect()
-}
-
-#[doc(hidden)]
-pub struct RegisteredDoc {
-    pub getter: fn() -> Option<Doc>,
-}
-
-inventory::collect!(RegisteredDoc);
-
-impl RegisteredDoc {
-    /// This function is called from generated code.
-    pub fn for_type<'v, T: StarlarkValue<'v>>(custom_attrs: &[(&str, &str)]) -> Option<Doc> {
-        let name = T::TYPE.to_owned();
-        let id = Identifier {
-            name,
-            location: None,
-        };
-        let ty = T::get_type_starlark_repr();
-        let item = DocItem::Type(T::get_methods()?.documentation(ty));
-        let custom_attrs = custom_attrs
-            .iter()
-            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
-            .collect();
-        Some(Doc {
-            id,
-            item,
-            custom_attrs,
-        })
     }
 }

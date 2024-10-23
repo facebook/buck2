@@ -26,10 +26,8 @@ use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
-#[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
-#[starlark_docs(directory = "bxl")]
+#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub(crate) struct StarlarkAnalysisResult {
     // Invariant: The subtarget specified on the label is present in the analysis result.
     analysis: AnalysisResult,

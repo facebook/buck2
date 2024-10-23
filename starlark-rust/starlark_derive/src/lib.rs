@@ -27,7 +27,6 @@ mod any_lifetime;
 mod attrs;
 mod bc;
 mod coerce;
-mod docs;
 mod freeze;
 mod module;
 mod serde;
@@ -190,30 +189,6 @@ pub fn derive_alloc_frozen_value(input: proc_macro::TokenStream) -> proc_macro::
 #[proc_macro_derive(StarlarkAttrs, attributes(starlark))]
 pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attrs::derive_attrs(input)
-}
-
-/// Generate an accessor function on the provided type that returns its documentation
-/// based on `StarlarkValue::get_methods()`. This macro requires that the type implements
-/// `starlark::StarlarkValue`.
-///
-/// Types that derive `StarlarkDocs` are also registered automatically with the `inventory` crate.
-/// To get all types annotated with `StarlarkDocs`, see `starlark::docs::get_registered_starlark_docs()`
-///
-/// Note that for statically linked binaries, documentation from all compiled crates in the binary
-/// will be included.
-///
-/// For dynamically linked binaries, documentation will only be able to retrieved after the crate's
-/// library is `dlopen()`ed.
-///
-/// `#[starlark_docs(key="value", second_key="second_value",...)]` can be used to insert
-/// arbitrary keys and string values into the generated `Docs::custom_attrs` for use
-/// by documentation tooling.
-///
-/// Types provided by the `starlark` library itself will have the `builtin` key set to either
-/// `standard` or `extension` depending on whether the type is part of the Starlark standard.
-#[proc_macro_derive(StarlarkDocs, attributes(starlark_docs))]
-pub fn derive_starlark_docs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    docs::derive_docs(input)
 }
 
 /// Generate `{has,get,dir}_attr` in the `StarlarkValue` impl block that proxy

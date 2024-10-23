@@ -37,7 +37,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
@@ -71,9 +70,8 @@ impl<'a> FileSetExpr<'a> {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)] // TODO maybe this should be
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkFileSet(
     /// Set of files or directories.
     pub(crate) FileSet,
@@ -159,9 +157,8 @@ impl Deref for StarlarkFileSet {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
+#[derive(Debug, Display, ProvidesStaticType, Clone, Allocative)]
 #[derive(NoSerialize)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkFileNode(pub(crate) CellPath);
 
 starlark_simple_value!(StarlarkFileNode);
@@ -190,9 +187,8 @@ pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, Clone, Allocative, StarlarkDocs)]
+#[derive(Debug, ProvidesStaticType, Clone, Allocative)]
 #[derive(NoSerialize)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkReadDirSet {
     /// Cell path to the directory/files.
     pub(crate) cell_path: CellPath,

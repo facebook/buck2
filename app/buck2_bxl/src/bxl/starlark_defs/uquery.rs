@@ -40,7 +40,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use super::file_set::StarlarkFileSet;
 use super::target_list_expr::TargetListExpr;
@@ -57,10 +56,8 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
     Display,
     Trace,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 #[allocative(skip)]

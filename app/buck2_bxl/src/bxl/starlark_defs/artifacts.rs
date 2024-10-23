@@ -29,7 +29,6 @@ use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallSet;
 use starlark::collections::StarlarkHasher;
-use starlark::docs::StarlarkDocs;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
@@ -45,9 +44,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
+#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) enum EnsuredArtifact {
     Artifact {
         artifact: StarlarkArtifact,
@@ -99,9 +97,8 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     Ok(())
 }
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, StarlarkDocs, Allocative)]
+#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct EnsuredArtifactGroup<'v> {
     // Have `EnsuredArtifactGroup` be a wrapper around `EnsuredArtifactGroupInner` as a Starlark `Value`
     // so that we don't have to copy all of its artifact groups whenever we call `abs_path()` or `rel_path()`,

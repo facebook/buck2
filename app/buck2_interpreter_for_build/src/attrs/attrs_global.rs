@@ -46,7 +46,6 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueOf;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkDocs;
 use tracing::error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -639,14 +638,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Display,
-    Debug,
-    StarlarkDocs,
-    Allocative,
-    ProvidesStaticType,
-    NoSerialize
-)]
+#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
 #[display("<attrs>")]
 struct Attrs;
 

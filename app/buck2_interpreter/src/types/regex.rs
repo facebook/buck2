@@ -24,10 +24,9 @@ use starlark::typing::Ty;
 use starlark::values::starlark_value;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
-use starlark::StarlarkDocs;
 
 /// Wrapper for `regex::Regex`.
-#[derive(ProvidesStaticType, Debug, NoSerialize, StarlarkDocs, Allocative)]
+#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
 pub enum BuckStarlarkRegex {
     // TODO(nga): do not skip.
     //   And this is important because regex can have a lot of cache.

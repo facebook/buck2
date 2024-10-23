@@ -31,7 +31,6 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 use starlark_map::Equivalent;
 
 use crate as starlark;
@@ -70,16 +69,7 @@ use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLike;
 
-#[derive(
-    Clone,
-    Default,
-    Trace,
-    Debug,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 pub(crate) struct DictGen<T>(pub(crate) T);
 
 impl<'v, T: DictLike<'v>> Display for DictGen<T> {

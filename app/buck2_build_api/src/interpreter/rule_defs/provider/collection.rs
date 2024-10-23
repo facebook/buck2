@@ -62,7 +62,6 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::StarlarkDocs;
 use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
@@ -118,7 +117,7 @@ enum ProviderCollectionError {
     AtNotFound(String, Vec<String>),
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative, StarlarkDocs)]
+#[derive(Debug, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ProviderCollectionGen<V: ValueLifetimeless> {
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,

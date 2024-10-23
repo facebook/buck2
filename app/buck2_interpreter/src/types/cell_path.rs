@@ -26,17 +26,8 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 
-#[derive(
-    Debug,
-    PartialEq,
-    Display,
-    ProvidesStaticType,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkCellPath(pub CellPath);
 
 starlark_simple_value!(StarlarkCellPath);

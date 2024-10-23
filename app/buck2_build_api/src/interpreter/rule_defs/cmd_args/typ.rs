@@ -31,7 +31,6 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::coerce;
-use starlark::docs::StarlarkDocs;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -283,15 +282,7 @@ pub struct StarlarkCommandLineData<'v> {
     options: Option<Box<CommandLineOptions<'v>>>,
 }
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    Trace,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
+#[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Allocative)]
 pub struct StarlarkCmdArgs<'v>(RefCell<StarlarkCommandLineData<'v>>);
 
 impl<'v> Serialize for StarlarkCmdArgs<'v> {

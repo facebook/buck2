@@ -30,7 +30,6 @@ use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
 use starlark_derive::starlark_value;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
@@ -68,16 +67,7 @@ use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
 
-#[derive(
-    Clone,
-    Default,
-    Trace,
-    Debug,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(builtin = "standard")]
+#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
 #[repr(transparent)]
 pub(crate) struct ListGen<T>(pub(crate) T);
 

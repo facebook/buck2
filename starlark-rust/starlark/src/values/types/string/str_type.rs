@@ -32,7 +32,6 @@ use allocative::Allocative;
 use serde::Serialize;
 use starlark_derive::starlark_value;
 use starlark_derive::ProvidesStaticType;
-use starlark_derive::StarlarkDocs;
 use starlark_map::Hashed;
 use starlark_map::StarlarkHashValue;
 use starlark_map::StarlarkHasher;
@@ -74,8 +73,7 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 
 /// A pointer to this type represents a Starlark string.
 /// Use of this type is discouraged and not considered stable.
-#[derive(ProvidesStaticType, StarlarkDocs, Allocative)]
-#[starlark_docs(builtin = "standard")]
+#[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,

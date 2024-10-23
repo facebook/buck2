@@ -37,14 +37,12 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)]
 #[display("{}", self.0)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkAction(pub(crate) Arc<RegisteredAction>);
 
 starlark_simple_value!(StarlarkAction);
@@ -88,10 +86,9 @@ fn action_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, StarlarkDocs)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative)]
 #[derive(NoSerialize)]
 #[display("{}", self.0.key())]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkActionQueryNode(pub(crate) ActionQueryNode);
 
 starlark_simple_value!(StarlarkActionQueryNode);
@@ -164,17 +161,9 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Debug,
-    ProvidesStaticType,
-    Allocative,
-    StarlarkDocs,
-    derive_more::Display,
-    Serialize
-)]
+#[derive(Debug, ProvidesStaticType, Allocative, derive_more::Display, Serialize)]
 #[repr(transparent)]
 #[serde(transparent)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkActionAttr(pub(crate) OwnedActionAttr);
 
 starlark_simple_value!(StarlarkActionAttr);

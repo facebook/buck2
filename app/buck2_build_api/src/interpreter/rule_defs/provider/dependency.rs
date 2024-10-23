@@ -64,8 +64,7 @@ enum DependencyError {
     Freeze,
     ProvidesStaticType,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
 #[repr(C)]
 pub struct DependencyGen<V: ValueLifetimeless> {

@@ -20,7 +20,6 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
-use starlark::docs::StarlarkDocs;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -50,16 +49,7 @@ impl StarlarkConfiguredProvidersLabel {
 }
 
 /// Container for `ConfiguredProvidersLabel` that gives users access to things like package, cell, etc. This can also be properly stringified by our forthcoming `CommandLine` object
-#[derive(
-    Clone,
-    Debug,
-    Display,
-    Trace,
-    Freeze,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative
-)]
+#[derive(Clone, Debug, Display, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[display("{}", label)]
 #[repr(C)]
 pub struct StarlarkConfiguredProvidersLabel {
@@ -209,7 +199,6 @@ impl StarlarkProvidersLabel {
     Freeze,
     ProvidesStaticType,
     Serialize,
-    StarlarkDocs,
     Allocative
 )]
 #[display("{}", label)]

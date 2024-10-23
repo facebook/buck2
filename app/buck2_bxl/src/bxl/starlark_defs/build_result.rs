@@ -21,7 +21,6 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;
@@ -35,10 +34,8 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
 /// The result of building in bxl.

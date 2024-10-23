@@ -72,7 +72,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -81,18 +80,9 @@ use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrR
 
 mod attr_resolution_ctx;
 
-#[derive(
-    Debug,
-    Display,
-    ProvidesStaticType,
-    StarlarkDocs,
-    Allocative,
-    Clone,
-    Dupe
-)]
+#[derive(Debug, Display, ProvidesStaticType, Allocative, Clone, Dupe)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display("configured_target_node(name = {}, ...)", self.0.label())]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
@@ -565,9 +555,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Clone, ProvidesStaticType, StarlarkDocs, Allocative)]
+#[derive(Debug, Clone, ProvidesStaticType, Allocative)]
 #[repr(C)]
-#[starlark_docs(directory = "bxl")]
 pub(crate) struct StarlarkConfiguredAttr(ConfiguredAttr, PackageLabel);
 
 impl Display for StarlarkConfiguredAttr {
@@ -646,10 +635,8 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct StarlarkLazyAttrs<'v> {
@@ -736,10 +723,8 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct StarlarkLazyResolvedAttrs<'v> {

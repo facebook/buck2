@@ -29,7 +29,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkDocs;
 
 #[derive(Debug, buck2_error::Error)]
 enum BxlResultError {
@@ -48,10 +47,8 @@ enum BxlResultError {
     // TODO(nero): implement Serialize for StarlarkError
     NoSerialize,
     Allocative,
-    StarlarkDocs,
     Trace
 )]
-#[starlark_docs(directory = "bxl")]
 #[display("bx.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
 pub(crate) struct StarlarkError {
     err: buck2_error::Error,
@@ -83,11 +80,9 @@ fn error_methods(builder: &mut MethodsBuilder) {
     NoSerialize,
     Trace,
     Freeze,
-    StarlarkDocs,
     ProvidesStaticType,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[repr(C)]
 pub(crate) enum StarlarkResultGen<T> {
     Ok(T),

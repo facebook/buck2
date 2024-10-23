@@ -51,11 +51,9 @@ use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
-use starlark::StarlarkDocs;
 use starlark_map::small_map::SmallMap;
 
-#[derive(Debug, ProvidesStaticType, From, Allocative, StarlarkDocs)]
-#[starlark_docs(directory = "bxl")]
+#[derive(Debug, ProvidesStaticType, From, Allocative)]
 pub(crate) struct StarlarkCoercedAttr(pub(crate) CoercedAttr, pub(crate) PackageLabel);
 
 starlark_simple_value!(StarlarkCoercedAttr);

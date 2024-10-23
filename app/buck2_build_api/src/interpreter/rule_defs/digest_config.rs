@@ -36,8 +36,7 @@ use starlark::values::Value;
     Trace,
     ProvidesStaticType,
     NoSerialize,
-    Allocative,
-    StarlarkDocs
+    Allocative
 )]
 #[display("{}", self.digest_config)]
 pub struct StarlarkDigestConfig {

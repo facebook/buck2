@@ -60,7 +60,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 use starlark::StarlarkResultExt;
 
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
@@ -77,11 +76,9 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
 #[display("{:?}", self)]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 pub(crate) struct OutputStream {
     #[derivative(Debug = "ignore")]

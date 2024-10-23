@@ -47,7 +47,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use super::BxlContext;
 use crate::bxl::starlark_defs::file_expr::FileExpr;
@@ -61,11 +60,9 @@ use crate::bxl::starlark_defs::target_list_expr::TargetListExprArg;
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
 #[derivative(Debug)]
-#[starlark_docs(directory = "bxl")]
 #[display("{:?}", self)]
 #[allocative(skip)]
 pub(crate) struct BxlFilesystem<'v> {

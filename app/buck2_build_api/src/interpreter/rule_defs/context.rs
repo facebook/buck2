@@ -56,15 +56,7 @@ use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
 /// Functions to allow users to interact with the Actions registry.
 ///
 /// Accessed via `ctx.actions.<function>`
-#[derive(
-    ProvidesStaticType,
-    Debug,
-    Display,
-    Trace,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(ProvidesStaticType, Debug, Display, Trace, NoSerialize, Allocative)]
 #[display("<ctx.actions>")]
 pub struct AnalysisActions<'v> {
     /// Use a RefCell/Option so when we are done with it, without obtaining exclusive access,
@@ -173,14 +165,7 @@ impl<'v> UnpackValue<'v> for RefAnalysisAction<'v> {
     }
 }
 
-#[derive(
-    ProvidesStaticType,
-    Debug,
-    Trace,
-    NoSerialize,
-    Allocative,
-    StarlarkDocs
-)]
+#[derive(ProvidesStaticType, Debug, Trace, NoSerialize, Allocative)]
 pub struct AnalysisContext<'v> {
     attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,

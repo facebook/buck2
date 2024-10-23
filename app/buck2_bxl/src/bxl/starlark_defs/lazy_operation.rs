@@ -36,7 +36,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -159,11 +158,9 @@ impl LazyOperation {
     Trace,
     NoSerialize,
     Allocative,
-    StarlarkDocs,
     Clone,
     Dupe
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct StarlarkLazy {

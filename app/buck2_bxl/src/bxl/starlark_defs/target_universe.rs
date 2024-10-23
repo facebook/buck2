@@ -30,7 +30,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
@@ -43,10 +42,8 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("<universe of {} nodes>", self.target_universe.len())]
 pub(crate) struct StarlarkTargetUniverse<'v> {

@@ -58,7 +58,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
@@ -146,10 +145,8 @@ impl<'v> Display for BxlContextType<'v> {
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlContext<'v> {

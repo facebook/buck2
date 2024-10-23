@@ -52,7 +52,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
@@ -185,10 +184,8 @@ pub(crate) fn validate_action_instantiation(
     Display,
     Trace,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct BxlActions<'v> {

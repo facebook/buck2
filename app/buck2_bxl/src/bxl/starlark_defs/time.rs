@@ -21,7 +21,6 @@ use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkDocs;
 
 /// Starlark object for Instant.
 #[derive(
@@ -30,10 +29,8 @@ use starlark::StarlarkDocs;
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    StarlarkDocs,
     Allocative
 )]
-#[starlark_docs(directory = "bxl")]
 #[display("{:?}", _0)]
 pub(crate) struct StarlarkInstant(pub(crate) Instant);
 

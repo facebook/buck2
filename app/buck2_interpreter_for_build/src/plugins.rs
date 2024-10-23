@@ -38,7 +38,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkDocs;
 
 use crate::interpreter::build_context::BuildContext;
 
@@ -218,14 +217,7 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Display,
-    Debug,
-    StarlarkDocs,
-    Allocative,
-    ProvidesStaticType,
-    NoSerialize
-)]
+#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
 #[display("<plugins>")]
 struct Plugins;
 

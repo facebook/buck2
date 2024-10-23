@@ -35,7 +35,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::StarlarkDocs;
 
 use crate::starlark::values::ValueLike;
 
@@ -51,7 +50,6 @@ pub(crate) enum ActionErrorHandlerError {
     ProvidesStaticType,
     Trace,
     Allocative,
-    StarlarkDocs,
     Debug,
     Display,
     NoSerialize,
@@ -156,7 +154,6 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     ProvidesStaticType,
     Trace,
     Allocative,
-    StarlarkDocs,
     Debug,
     Display,
     NoSerialize,
@@ -230,7 +227,6 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     ProvidesStaticType,
     Trace,
     Allocative,
-    StarlarkDocs,
     Debug,
     NoSerialize,
     Clone,

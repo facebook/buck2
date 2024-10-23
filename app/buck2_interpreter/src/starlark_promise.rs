@@ -40,13 +40,11 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
-use starlark::StarlarkDocs;
 
 /// A type that corresponds to a Rust promise.
 #[derive(
     ProvidesStaticType,
     NoSerialize,
-    StarlarkDocs,
     Display,
     Derivative,
     Trace,
