@@ -134,11 +134,6 @@ fn check_non_field_attrs(attrs: &Attrs, parsed_earlier: Option<&Attrs>) -> Resul
         {
             return Err(Error::new(category.span(), "already specified on enum"));
         }
-        if let Some(typ) = &attrs.typ
-            && parsed_earlier.typ.is_some()
-        {
-            return Err(Error::new(typ.span(), "already specified on enum"));
-        }
     }
     Ok(())
 }
@@ -159,8 +154,6 @@ fn check_field_attrs(fields: &[Field]) -> Result<()> {
             ));
         }
         let style = if let Some(style) = &field.attrs.category {
-            Some(style)
-        } else if let Some(style) = &field.attrs.typ {
             Some(style)
         } else if let Some(style) = field.attrs.tags.first() {
             Some(style)

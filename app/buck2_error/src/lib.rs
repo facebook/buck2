@@ -53,17 +53,6 @@ pub fn Ok<T>(t: T) -> Result<T> {
 
 /// See the documentation in the `error.proto` file for details.
 pub use buck2_data::error::ErrorTag;
-/// The type of the error that is being produced.
-///
-/// The type of the error approximately indicates where the error came from. It is useful when you
-/// want to track a particular error scenario in more detail.
-///
-/// The error type is not a piece of context - it can only be set when creating the error, not at
-/// some later point.
-///
-/// Unlike the [`tier`](crate::Tier), this type is "open" in the sense that it is expected to grow
-/// in the future. You should not match on it exhaustively.
-pub use buck2_data::error::ErrorType;
 /// Generates an error impl for the type.
 ///
 /// This macro is a drop-in replacement for [`thiserror::Error`]. In the near future, all uses of
@@ -96,24 +85,17 @@ use crate::any::ProvidableMetadata;
 /// all possible. This function has a pretty strict contract: You must call it within the `provide`
 /// implementation for an error type `E`, and must pass `E` as the type parameter.
 ///
-/// If the `typ` argument is provided, then this metadata is treated as "root-like." That means that
-/// this error will be treated as the error root and errors furthere down in the `.source()` chain
-/// will not be checked for context. However they will still be printed as a part of the `Display`
-/// and `Debug` impls on `buck2_error::Error`.
-///
 /// The `source_file` should just be `std::file!()`; the `source_location_extra` should be the type
 /// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
 pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
     category: Option<crate::Tier>,
-    typ: Option<crate::ErrorType>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
     source_file: &'static str,
     source_location_extra: Option<&'static str>,
     action_error: Option<buck2_data::ActionError>,
 ) {
     let metadata = ProvidableMetadata {
-        typ,
         action_error,
         category,
         tags: tags.into_iter().collect(),

@@ -22,7 +22,6 @@ use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
-use crate::ErrorType;
 use crate::Tier;
 use crate::UniqueRootId;
 
@@ -113,10 +112,6 @@ impl Error {
     pub fn is_emitted<'a>(&'a self) -> Option<impl fmt::Debug + fmt::Display + 'a> {
         let (val, was_late_formatted) = into_anyhow_for_format(self, true);
         if was_late_formatted { Some(val) } else { None }
-    }
-
-    pub fn get_error_type(&self) -> Option<ErrorType> {
-        self.root().error_type()
     }
 
     /// Only intended to be used for debugging, helps to understand the structure of the error

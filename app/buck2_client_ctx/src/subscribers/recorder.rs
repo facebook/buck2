@@ -1544,10 +1544,6 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         tier: error.tier,
         message: error.message,
         telemetry_message: error.telemetry_message,
-        typ: error
-            .typ
-            .and_then(buck2_data::error::ErrorType::from_i32)
-            .map(|t| t.as_str_name().to_owned()),
         source_location: error.source_location,
         tags: error
             .tags

@@ -158,9 +158,6 @@ fn impl_enum(mut input: Enum) -> TokenStream {
         if input.attrs.category.is_some() {
             variant.attrs.category = input.attrs.category.clone();
         }
-        if input.attrs.typ.is_some() {
-            variant.attrs.typ = input.attrs.typ.clone();
-        }
         variant.attrs.tags.extend(input.attrs.tags.iter().cloned());
     }
 
@@ -327,15 +324,6 @@ fn gen_provide_contents(
             core::option::Option::None
         },
     };
-    let typ: syn::Expr = match &attrs.typ {
-        Some(OptionStyle::Explicit(typ)) => syn::parse_quote! {
-            core::option::Option::Some(buck2_error::ErrorType::#typ)
-        },
-        Some(OptionStyle::ByExpr(e)) => e.clone(),
-        None => syn::parse_quote! {
-            core::option::Option::None
-        },
-    };
     let tags: Vec<syn::Expr> = attrs
         .tags
         .iter()
@@ -352,7 +340,6 @@ fn gen_provide_contents(
         buck2_error::provide_metadata(
             __request,
             #category,
-            #typ,
             <[Option<buck2_error::ErrorTag>; #num_tags] as IntoIterator>::into_iter([#(#tags,)*]).flatten(),
             core::file!(),
             core::option::Option::Some(#source_location_extra),

@@ -130,7 +130,6 @@ fn from_starlark_impl(
         }
         _ => crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
             description,
-            None,
             source_location,
             None,
         ))))),
@@ -193,7 +192,6 @@ mod tests {
     impl std::error::Error for FullMetadataError {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
-                typ: Some(crate::ErrorType::Watchman),
                 action_error: None,
                 source_file: file!(),
                 source_location_extra: Some("FullMetadataError"),

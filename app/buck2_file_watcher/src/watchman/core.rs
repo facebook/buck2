@@ -48,13 +48,11 @@ enum WatchmanClientError {
     #[buck2(input)]
     #[error("Configured timeout is zero")]
     ZeroTimeout,
-    #[buck2(typ = Watchman)]
     #[buck2(tag = WatchmanTimeout)]
     #[error(
         "Watchman request timed out after {0}s; try restarting watchman, probably via `watchman shutdown-server`"
     )]
     Timeout(u64),
-    #[buck2(typ = Watchman)]
     #[buck2(tag = watchman_error_tag(source))]
     #[error(transparent)]
     RequestFailed { source: watchman_client::Error },

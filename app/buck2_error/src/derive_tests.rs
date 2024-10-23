@@ -28,7 +28,7 @@ fn test_derive_error1() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("foo")]
-#[buck2(typ = ActionCommandFailure, tier0)]
+#[buck2(tier0)]
 #[allow(unused)]
 struct Error2((), ());
 
@@ -36,17 +36,12 @@ struct Error2((), ());
 fn test_derive_error2() {
     let e: crate::Error = Error2((), ()).into();
     assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-    assert_eq!(
-        e.get_error_type(),
-        Some(crate::ErrorType::ActionCommandFailure)
-    );
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
 pub enum Error3 {
     #[error("foo")]
     #[buck2(input)]
-    #[buck2(typ = ActionCommandFailure)]
     VariantA,
     #[error("bar")]
     #[buck2(tier0)]
@@ -59,18 +54,12 @@ pub enum Error3 {
 fn test_derive_error3() {
     let e: crate::Error = Error3::VariantA.into();
     assert_eq!(e.get_tier(), Some(crate::Tier::Input));
-    assert_eq!(
-        e.get_error_type(),
-        Some(crate::ErrorType::ActionCommandFailure)
-    );
 
     let e: crate::Error = Error3::VariantB.into();
     assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-    assert_eq!(e.get_error_type(), None);
 
     let e: crate::Error = Error3::VariantC.into();
     assert_eq!(e.get_tier(), None);
-    assert_eq!(e.get_error_type(), None);
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -150,32 +139,28 @@ fn test_error_with_spelled_out_category() {
 fn test_root_is_applied_conditionally() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
-    #[buck2(typ = Watchman)]
     struct WatchmanError;
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
-    #[buck2(typ = compute(self))]
+    #[buck2(tag = compute(self))]
     enum MaybeWatchmanError {
         Some(#[source] WatchmanError),
         None,
     }
 
-    fn compute(x: &MaybeWatchmanError) -> Option<crate::ErrorType> {
+    fn compute(x: &MaybeWatchmanError) -> Option<crate::ErrorTag> {
         match x {
             MaybeWatchmanError::Some(_) => None,
-            MaybeWatchmanError::None => Some(crate::ErrorType::ActionCommandFailure),
+            MaybeWatchmanError::None => Some(crate::ErrorTag::AnyActionExecution),
         }
     }
 
     let e: crate::Error = MaybeWatchmanError::None.into();
-    assert_eq!(
-        e.get_error_type(),
-        Some(crate::ErrorType::ActionCommandFailure)
-    );
+    assert!(e.has_tag(crate::ErrorTag::AnyActionExecution));
 
     let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
-    assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
+    assert!(e.tags().is_empty());
 }
 
 #[test]

@@ -45,7 +45,6 @@ async def test_action_error(buck: Buck) -> None:
     errors = errors_events[0]
     assert len(errors) == 1
     assert errors[0]["tier"] == USER_ERROR
-    assert errors[0]["typ"] == ACTION_COMMAND_FAILURE
     # This test is unfortunately liable to break as a result of refactorings, since this is not
     # stable. Feel free to delete it if it becomes a problem.
     assert (
@@ -72,7 +71,6 @@ async def test_missing_outputs(buck: Buck) -> None:
     errors = errors_events[0]
     assert len(errors) == 1
     assert errors[0]["tier"] == USER_ERROR
-    assert errors[0]["typ"] is None
 
 
 @buck_test()

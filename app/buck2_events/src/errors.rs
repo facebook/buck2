@@ -16,7 +16,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         buck2_error::Tier::Environment => buck2_data::error::ErrorTier::Environment,
         buck2_error::Tier::Tier0 => buck2_data::error::ErrorTier::Tier0,
     });
-    let typ = err.get_error_type().map(|c| c as i32);
 
     let (message, telemetry_message) = if let Some(f) = err.is_emitted() {
         (format!("{:?}", f), Some(format!("{:?}", err)))
@@ -48,7 +47,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
 
     buck2_data::ErrorReport {
         tier: tier.map(|c| c as i32),
-        typ,
         message,
         telemetry_message,
         source_location,

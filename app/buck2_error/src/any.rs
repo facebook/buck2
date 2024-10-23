@@ -64,7 +64,6 @@ pub(crate) fn recover_crate_error(
     // We allow all of these to appear more than once in the context chain, however we always use
     // the bottom-most value when actually generating the root
     let mut source_location = source_location;
-    let mut typ = None;
     let mut action_error = None;
     let base = 'base: loop {
         // Handle the `cur` error
@@ -77,9 +76,6 @@ pub(crate) fn recover_crate_error(
                 metadata.source_file,
                 metadata.source_location_extra,
             );
-            if metadata.typ.is_some() {
-                typ = metadata.typ;
-            }
             if metadata.action_error.is_some() {
                 action_error = metadata.action_error;
             }
@@ -99,7 +95,6 @@ pub(crate) fn recover_crate_error(
         let description = format!("{}", cur);
         let e = crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
             description,
-            typ,
             source_location,
             action_error,
         )))));
@@ -162,7 +157,6 @@ pub struct ProvidableMetadata {
     /// Extra information to add to the end of the source location - typically a type/variant name,
     /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
     pub source_location_extra: Option<&'static str>,
-    pub typ: Option<crate::ErrorType>,
     /// The protobuf ActionError, if the root was an action error
     pub action_error: Option<buck2_data::ActionError>,
 }
@@ -228,7 +222,6 @@ mod tests {
     impl StdError for FullMetadataError {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
-                typ: Some(crate::ErrorType::Watchman),
                 action_error: None,
                 source_file: file!(),
                 source_location_extra: Some("FullMetadataError"),
@@ -249,7 +242,6 @@ mod tests {
             crate::Error::new(FullMetadataError),
         ] {
             assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-            assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
             assert_eq!(
                 e.source_location(),
                 Some("buck2_error/src/any.rs::FullMetadataError")
@@ -293,7 +285,6 @@ mod tests {
     fn test_context_in_wrapper() {
         let e: crate::Error = FullMetadataContextWrapperError(FullMetadataError).into();
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-        assert_eq!(e.get_error_type(), Some(crate::ErrorType::Watchman));
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/any.rs::FullMetadataError")

@@ -16,19 +16,6 @@ syntax = "proto3";
 // elsewhere.
 package buck.data.error;
 
-// TODO(jakobdegen): this enum and `error_subcategory` scuba column
-//   are deprecated. Use category+tag.
-enum ErrorType {
-  // Protobuf requires us to supply a default value; however, this type is
-  // always used in an `optional` way and so no default value should ever
-  // appear. Still, let's use a sentinal just to be safe.
-  UNUSED_DEFAULT = 0;
-  ACTION_COMMAND_FAILURE = 2;
-  WATCHMAN = 3;
-  USER_DEADLINE_EXPIRED = 4;
-  // Add causes here as needed
-}
-
 enum ErrorTier {
   // Same as above
   UNUSED_DEFAULT_CATEGORY = 0;
