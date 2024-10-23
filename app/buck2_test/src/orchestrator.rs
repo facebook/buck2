@@ -1091,9 +1091,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         })
     }
 
-    fn executor_config_with_disabled_remote_cache<'a>(
+    fn executor_config_with_remote_cache_override<'a>(
         test_target_node: &'a ConfiguredTargetNode,
         executor_override: Option<&'a CommandExecutorConfig>,
+        stage: &TestStage,
     ) -> anyhow::Result<Cow<'a, CommandExecutorConfig>> {
         let executor_config = match executor_override {
             Some(o) => o,
@@ -1102,6 +1103,10 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .executor_config()
                 .context("Error accessing executor config")?,
         };
+
+        if let TestStage::Listing(_) = &stage {
+            return Ok(Cow::Borrowed(executor_config));
+        }
 
         match &executor_config.executor {
             Executor::RemoteEnabled(options) if options.remote_cache_enabled => {
@@ -1124,8 +1129,11 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor_override: Option<&CommandExecutorConfig>,
         stage: &TestStage,
     ) -> anyhow::Result<CommandExecutor> {
-        let executor_config =
-            &Self::executor_config_with_disabled_remote_cache(test_target_node, executor_override)?;
+        let executor_config = &Self::executor_config_with_remote_cache_override(
+            test_target_node,
+            executor_override,
+            &stage,
+        )?;
 
         let CommandExecutorResponse {
             executor,

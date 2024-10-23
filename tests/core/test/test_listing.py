@@ -63,7 +63,7 @@ async def test_discovery_cached_on_re(buck: Buck) -> None:
     ]
     await run_test_and_check_discovery_presence(buck, False, args)
     await buck.kill()
-    await run_test_and_check_discovery_presence(buck, False, args)  # will be true
+    await run_test_and_check_discovery_presence(buck, True, args)
     await buck.kill()
     args = [
         "-c",
@@ -78,7 +78,7 @@ async def test_discovery_cached_on_re(buck: Buck) -> None:
         "test.remote_cache_enabled=true",
         "//:test",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)  # will be true
+    await run_test_and_check_discovery_presence(buck, True, args)
 
 
 @buck_test()
@@ -102,8 +102,8 @@ async def test_local_discovery_uploaded_to_cache(buck: Buck) -> None:
 
 async def _check_cache_uploaded(buck: Buck) -> None:
     result = await _cache_uploads(buck)
-    assert len(result) == 0  # will be 1
-    # assert result[0]["success"] # will be true
+    assert len(result) == 1
+    assert result[0]["success"]
 
 
 async def _cache_uploads(buck: Buck) -> List[Dict[str, Any]]:
