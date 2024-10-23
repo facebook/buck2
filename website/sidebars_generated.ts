@@ -12,6 +12,6 @@
 // sidebars module, and we need to make some functionality available (itemFilter)
 // in docusaurus.config.js
 
-const sidebars = require('./sidebars.js').sidebars;
+const sidebars = require('./sidebars.ts').sidebars;
 
 module.exports = sidebars
