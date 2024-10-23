@@ -12,6 +12,7 @@ Generate API documentation for the website.
 
 import argparse
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -25,6 +26,18 @@ def read_file(path):
 def write_file(path, contents):
     with open(path, "w") as f:
         f.write(contents)
+
+
+def setup_gen_dir(path: Path) -> None:
+    shutil.rmtree(path, ignore_errors=True)
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "README.txt").write_text(
+        """
+This directory contains generated files.
+
+Re-generate by running `fbcode/buck2/website/gen_docs.py`.
+"""
+    )
 
 
 def buck_command(args):
@@ -55,18 +68,19 @@ def doc_name(x):
 
 
 def copy_starlark_docs():
-    Path("docs/developers/starlark").mkdir(parents=True, exist_ok=True)
+    base_path = Path("docs/developers/starlark") / "developers" / "starlark"
+    setup_gen_dir(base_path)
     # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
     for x in Path("starlark-rust/docs").glob("*.md"):
         name = Path(x).stem
         prefix = "---\nid: " + name + "\n---\n"
-        write_file(
-            "docs/developers/starlark/" + name + ".generated.md", prefix + read_file(x)
-        )
+        write_file(base_path / (name + ".generated.md"), prefix + read_file(x))
 
 
 def generate_api_docs(buck):
     with tempfile.TemporaryDirectory() as tmp:
+        base_dir = Path("docs") / "prelude"
+        setup_gen_dir(base_dir)
         # Actually generate the docs
         print("Running Buck...")
         subprocess.run(
@@ -79,16 +93,18 @@ def generate_api_docs(buck):
         )
 
         src = read_file(Path(tmp) / "starlark" / "prelude" / "docs" / "rules.bzl.md")
-        dest = "docs/prelude/globals.generated.md"
+        dest = base_dir / "globals.generated.md"
 
         prefix = "---\nid: globals\n---\n"
         prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
         src = "\n".join(src.splitlines()[1:])
 
-        os.makedirs(Path(dest).parent, exist_ok=True)
+        os.makedirs(dest.parent, exist_ok=True)
         write_file(dest, prefix + src)
 
     with tempfile.TemporaryDirectory() as tmp:
+        base_dir = Path("docs") / "api"
+        setup_gen_dir(base_dir)
         subprocess.run(
             buck
             + " docs starlark --format=markdown_files --markdown-files-destination-dir="
@@ -154,14 +170,16 @@ def generate_help_docs_subcommand(buck, args):
 
 
 def generate_help_docs(buck):
+    base_dir = Path("docs") / "users" / "commands"
+    setup_gen_dir(base_dir)
+
     cmd = buck + " --help"
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
-    os.makedirs("docs/users/commands", exist_ok=True)
     for sub in parse_subcommands(res.stdout.decode()):
         res = generate_help_docs_subcommand(buck, [sub])
         write_file(
-            "docs/users/commands/" + sub + ".generated.md",
+            base_dir / (sub + ".generated.md"),
             "---\nid: "
             + sub
             + "\ntitle: "
@@ -174,13 +192,15 @@ def generate_help_docs(buck):
 
 
 def generate_query_docs(buck):
-    os.makedirs("docs/users/query", exist_ok=True)
+    base_dir = Path("docs") / "users" / "query"
+    setup_gen_dir(base_dir)
+
     for x in ["uquery", "cquery", "aquery"]:
         cmd = buck + " docs " + x + " --format=markdown"
         print("Running " + cmd + " ...")
         res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
         write_file(
-            "docs/users/query/" + x + ".generated.md",
+            base_dir / (x + ".generated.md"),
             "---\nid: "
             + x
             + "\ntitle: "
