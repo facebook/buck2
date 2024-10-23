@@ -19,8 +19,6 @@ const presetOptions: ClassicPresetOptions = ({
   docs: {
     path: '../docs',
     sidebarPath: require.resolve('./sidebars_generated.ts'),
-    // Please change this to your repo.
-    // editUrl: 'https://github.com/facebook/docusaurus/edit/main/website/',
     async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
       const items = await defaultSidebarItemsGenerator({
         ...args
@@ -42,7 +40,7 @@ const themeConfig: ClassicPresetConfig = ({
   navbar: {
     title: 'Buck2',
     logo: {
-      alt: 'My Site Logo',
+      alt: 'Buck2 Logo',
       src: 'img/logo.svg',
     },
     items: [
@@ -144,8 +142,8 @@ const config: DocusaurusConfig = ({
   trailingSlash: true,
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/logo.png',
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'buck2', // Usually your repo name.
+  organizationName: 'facebook',
+  projectName: 'buck2',
 
   presets: [
     [
