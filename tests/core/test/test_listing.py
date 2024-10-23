@@ -11,10 +11,11 @@ from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import random_string
 
 
 @buck_test()
-async def test_discovery_cached(buck: Buck) -> None:
+async def test_discovery_cached_on_dice(buck: Buck) -> None:
     args = [
         "-c",
         "buck2.cache_test_listings=//:ok",
@@ -44,16 +45,52 @@ async def test_discovery_cache_turned_off(buck: Buck) -> None:
     await run_test_and_check_discovery_presence(buck, False, args)
 
 
+@buck_test()
+async def test_discovery_cached_on_re(buck: Buck) -> None:
+    seed = random_string()
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:ok",
+        "-c",
+        f"test.seed={seed}",
+        "-c",
+        "test.local_enabled=false",
+        "-c",
+        "test.remote_enabled=true",
+        "-c",
+        "test.remote_cache_enabled=true",
+        "//:test",
+    ]
+    await run_test_and_check_discovery_presence(buck, False, args)
+    await buck.kill()
+    await run_test_and_check_discovery_presence(buck, False, args)  # will be true
+    await buck.kill()
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:ok",
+        "-c",
+        f"test.seed={seed}",
+        "-c",
+        "test.remote_enabled=false",
+        "-c",
+        "test.local_enabled=true",
+        "-c",
+        "test.remote_cache_enabled=true",
+        "//:test",
+    ]
+    await run_test_and_check_discovery_presence(buck, False, args)  # will be true
+
+
 async def run_test_and_check_discovery_presence(
     buck: Buck,
-    is_present: bool,
+    is_absent: bool,
     args: List[str],
 ) -> None:
     await buck.test(*args)
     stdout = (await buck.log("what-ran")).stdout
 
     assert "test.run" in stdout
-    if is_present:
+    if is_absent:
         assert "test.discovery" not in stdout
     else:
         assert "test.discovery" in stdout

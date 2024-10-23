@@ -31,6 +31,7 @@ buck2_e2e_test(
     data_dir = "test_listing_data",
     serialize_test_cases = False,
     use_compiled_buck2_client_and_tpx = True,
+    deps = ["//buck2/tests/e2e_util:utils"],
 )
 
 buck2_e2e_test(

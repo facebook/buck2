@@ -1,3 +1,7 @@
-load(":rules.bzl", "ok_test")
+load(":rules.bzl", "ok_test", "seed")
 
-ok_test(name = "ok")
+seed_val = read_config("test", "seed", "42")
+
+ok_test(name = "ok", seed = seed_val)
+
+seed(name = "test", seed = seed_val)
