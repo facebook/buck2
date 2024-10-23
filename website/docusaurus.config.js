@@ -85,6 +85,18 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             to: '/docs/prelude/globals',
             from: '/docs/api/rules',
           },
+          {
+            to: '/docs/api/starlark',
+            from: '/docs/api/starlark/globals',
+          },
+          {
+            to: '/docs/api/build',
+            from: '/docs/api/build/globals',
+          },
+          {
+            to: '/docs/api/bxl',
+            from: '/docs/api/bxl/globals',
+          },
         ] + (!isInternal()) ? [] : [
           // Internal-only redirects
           {

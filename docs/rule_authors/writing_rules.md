@@ -7,7 +7,7 @@ This page describes how to write rules for Buck2 and explains the flow for
 implementing rules that are already defined in Buck1.
 
 For a list of the API functions available, see the
-[Build APIs](../../api/build/globals).
+[Build APIs](../../api/build).
 
 <!-- prettier-ignore -->
 :::note

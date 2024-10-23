@@ -247,12 +247,12 @@ computations, that would also result in errors.
 
 However, if you are not making any assumptions about the existence of these
 artifacts, you can use use
-[`get_path_without_materialization()`](../../api/bxl/globals#get_path_without_materialization),
+[`get_path_without_materialization()`](../../api/bxl/bxl#get_path_without_materialization),
 which accepts source, declared, or build aritfacts. It does _not_ accept ensured
 artifacts (also see
 [What do I need to know about ensured artifacts](./bxl_faq.md#what-do-i-need-to-know-about-ensured-artifacts)).
 
 For getting paths of `cmd_args()` inputs, you can use
-[`get_paths_without_materialization()`](../../api/bxl/globals#get_paths_without_materialization),
+[`get_paths_without_materialization()`](../../api/bxl/bxl#get_paths_without_materialization),
 but note this is risky because the inputs could contain tsets, which, when
 expanded, could be very large. Use these methods at your own risk.

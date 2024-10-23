@@ -51,22 +51,6 @@ def buck_command(args):
         return "./buck2.sh"
 
 
-# Given the path to the documentation, e.g. native/bxl/analysis_result
-# produce a new name which is the destination, e.g. bxl/analysis_result
-def doc_name(x):
-    if x.startswith("native/bxl/"):
-        return "api/" + x[7:]  # drop the native
-    elif x.endswith("/function"):
-        # Uninteresting docs we'd rather not have generated
-        return None
-    elif x.startswith("native/standard/") or x.startswith("native/extension/"):
-        return "api/starlark/" + x.split("/")[-1]
-    elif x.startswith("native/"):
-        return "api/build/" + x[7:]
-    else:
-        raise RuntimeError("Unknown name: " + x)
-
-
 def copy_starlark_docs():
     base_path = Path("docs/developers/starlark") / "developers" / "starlark"
     setup_gen_dir(base_path)
@@ -106,36 +90,16 @@ def generate_api_docs(buck):
         base_dir = Path("docs") / "api"
         setup_gen_dir(base_dir)
         subprocess.run(
-            buck
-            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
-            + tmp
-            + " --builtins",
+            buck + " docs starlark-builtins --output-dir " + tmp,
             shell=True,
             check=True,
         )
 
         for orig in Path(tmp).rglob("*.md"):
-            src = read_file(orig)
-            path = os.path.relpath(orig, tmp)
-            if path.endswith(".md"):
-                path = path[:-3]
-
-            name = doc_name(path)
-            if name is None:
-                continue
-
-            prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
-
-            dest = "docs/" + name + ".generated.md"
-            os.makedirs(Path(dest).parent, exist_ok=True)
-            write_file(dest, prefix + src)
-
-            # copy build APIs to BXL
-            if name.startswith("api/build/"):
-                name_without_build = "/".join(name.split("/")[2:])
-                bxl_dest = "docs/api/bxl/" + name_without_build + ".generated.md"
-                os.makedirs(Path(bxl_dest).parent, exist_ok=True)
-                write_file(bxl_dest, prefix + src)
+            path = orig.relative_to(tmp)
+            dest = base_dir.joinpath(path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(orig, dest)
 
 
 def parse_subcommands(output):

@@ -51,8 +51,8 @@ your team.
 
 - [Writing Rules](rule_authors/writing_rules.md) - how to write rules to support
   new languages.
-- [Build APIs](api/build/globals) - documentation for the APIs available when
-  writing rules.
+- [Build APIs](api/build) - documentation for the APIs available when writing
+  rules.
 - [Starlark Types](https://github.com/facebook/starlark-rust/blob/main/docs/types.md) -
   rules are written in Starlark (which is approximately Python), but our version
   adds types.
