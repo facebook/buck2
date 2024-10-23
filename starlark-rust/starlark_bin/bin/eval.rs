@@ -26,10 +26,6 @@ use std::path::PathBuf;
 use itertools::Either;
 use lsp_types::Url;
 use starlark::analysis::AstModuleLint;
-use starlark::docs::get_registered_starlark_docs;
-use starlark::docs::render_docs_as_code;
-use starlark::docs::Doc;
-use starlark::docs::DocItem;
 use starlark::docs::DocModule;
 use starlark::environment::FrozenModule;
 use starlark::environment::Globals;
@@ -125,17 +121,14 @@ impl Context {
         } else {
             None
         };
-        let mut builtins: HashMap<LspUrl, Vec<Doc>> = HashMap::new();
+        let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
-        for doc in get_registered_starlark_docs() {
-            let uri = Self::url_for_doc(&doc);
-            builtin_symbols.insert(doc.id.name.clone(), uri.clone());
-            builtins.entry(uri).or_default().push(doc);
+        for (name, item) in globals.documentation().members {
+            let uri = Url::parse(&format!("starlark:{name}.bzl"))?;
+            let uri = LspUrl::try_from(uri)?;
+            builtin_docs.insert(uri.clone(), item.render_as_code(&name));
+            builtin_symbols.insert(name, uri);
         }
-        let builtin_docs = builtins
-            .into_iter()
-            .map(|(u, ds)| (u, render_docs_as_code(&ds)))
-            .collect();
 
         Ok(Self {
             mode,
@@ -148,17 +141,6 @@ impl Context {
             builtin_symbols,
             suppression_rules,
         })
-    }
-
-    fn url_for_doc(doc: &Doc) -> LspUrl {
-        let url = match &doc.item {
-            DocItem::Module(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
-            DocItem::Type(_) => {
-                Url::parse(&format!("starlark:/native/builtins/{}.bzl", doc.id.name)).unwrap()
-            }
-            DocItem::Member(_) => Url::parse("starlark:/native/builtins.bzl").unwrap(),
-        };
-        LspUrl::try_from(url).unwrap()
     }
 
     fn new_module(prelude: &[FrozenModule]) -> Module {
