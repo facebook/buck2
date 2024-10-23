@@ -588,6 +588,7 @@ inlined_extra_attributes = {
         "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
         "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
+        "supports_lto": attrs.bool(default = False),
         "supports_python_dlopen": attrs.bool(default = True),
         "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
         "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
