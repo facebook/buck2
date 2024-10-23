@@ -23,6 +23,8 @@
 pub mod code;
 pub mod markdown;
 mod parse;
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashMap;
 use std::iter;

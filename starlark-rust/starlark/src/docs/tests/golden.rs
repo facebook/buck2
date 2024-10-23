@@ -26,7 +26,7 @@ pub(crate) fn docs_golden_test(test_file_name: &str, doc: DocItem) -> String {
 
     let output = render_doc_item("name", &doc);
 
-    golden_test_template(&format!("src/tests/docs/golden/{test_file_name}"), &output);
+    golden_test_template(&format!("src/docs/tests/golden/{test_file_name}"), &output);
 
     output
 }
