@@ -16,6 +16,8 @@
  */
 
 use allocative::Allocative;
+use derive_more::Display;
+use serde::Serialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
@@ -28,6 +30,9 @@ use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::environment::GlobalsBuilder;
+use crate::environment::Methods;
+use crate::environment::MethodsBuilder;
+use crate::environment::MethodsStatic;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -147,5 +152,87 @@ def with_arguments(*args, **kwargs) -> int: pass
         }
         // Comparing one at a time produces more useful error messages
         assert_eq!(&expected, got.get(&name).unwrap());
+    }
+}
+
+#[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
+#[display("obj")]
+struct Obj;
+
+#[starlark_value(type = "obj")]
+impl<'v> StarlarkValue<'v> for Obj {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(object)
+    }
+}
+
+/// These are where the module docs go
+#[starlark_module]
+fn object(builder: &mut MethodsBuilder) {
+    /// Docs for func1
+    ///
+    /// # Arguments
+    ///     * `foo`: Docs for foo
+    ///
+    /// # Returns
+    /// The string 'func1'
+    fn func1<'v>(this: Value<'v>, foo: String) -> anyhow::Result<String> {
+        let _ignore = (this, foo);
+        Ok("func1".to_owned())
+    }
+}
+
+#[test]
+fn inner_object_functions_have_docs() {
+    let heap = Heap::new();
+    let obj = heap.alloc_simple(Obj);
+    let item = obj
+        .get_attr("func1", &heap)
+        .unwrap()
+        .unwrap()
+        .documentation()
+        .unwrap();
+
+    match item {
+        DocItem::Member(DocMember::Function(item)) => {
+            assert_eq!(item.docs.unwrap().summary, "Docs for func1");
+        }
+        _ => panic!("Expected function: {:#?}", item),
+    }
+}
+
+#[starlark_module]
+fn module(builder: &mut GlobalsBuilder) {
+    const MAGIC: i32 = 42;
+
+    /// Docs for func1
+    ///
+    /// # Arguments
+    ///     * `foo`: Docs for foo
+    ///
+    /// # Returns
+    /// The string 'func1'
+    fn func1(foo: String) -> anyhow::Result<String> {
+        let _ignore = foo;
+        Ok("func1".to_owned())
+    }
+}
+
+#[test]
+fn inner_module_functions_have_docs() {
+    let item = GlobalsBuilder::new()
+        .with(module)
+        .build()
+        .get("func1")
+        .unwrap()
+        .documentation()
+        .unwrap();
+
+    match item {
+        DocItem::Member(DocMember::Function(item)) => {
+            assert_eq!(item.docs.unwrap().summary, "Docs for func1");
+        }
+        _ => panic!("Expected function: {:#?}", item),
     }
 }

@@ -36,7 +36,6 @@ use crate::environment::MethodsStatic;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
 use crate::values::tuple::UnpackTuple;
-use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -263,31 +262,4 @@ fn native_docs_module() {
 fn golden_docs_object() {
     let res = docs_golden_test("object.golden.md", Obj.documentation().unwrap());
     assert!(res.contains(r#"name.\_\_exported\_\_"#));
-}
-
-#[test]
-fn inner_object_functions_have_docs() {
-    let heap = Heap::new();
-    let obj = heap.alloc_simple(Obj);
-    let item = obj
-        .get_attr("func1", &heap)
-        .unwrap()
-        .unwrap()
-        .documentation()
-        .unwrap();
-    let res = render_doc_item("func1", &item);
-    assert!(res.contains("Docs for func1"));
-}
-
-#[test]
-fn inner_module_functions_have_docs() {
-    let item = GlobalsBuilder::new()
-        .with(module)
-        .build()
-        .get("func1")
-        .unwrap()
-        .documentation()
-        .unwrap();
-    let res = render_doc_item("func1", &item);
-    assert!(res.contains("Docs for func1"))
 }
