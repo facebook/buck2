@@ -406,6 +406,8 @@ impl<'a> InvocationRecorder<'a> {
                 } else {
                     error
                 }
+            } else if error.has_tag(ErrorTag::ServerSigterm) {
+                error.context("buckd killed by SIGTERM")
             } else {
                 // Scribe sink truncates messages, but here we can do it better:
                 // - truncate even if total message is not large enough
