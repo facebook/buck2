@@ -204,7 +204,7 @@ async def test_streaming_uncached(buck: Buck) -> None:
     # This test aims to check the kind of things TD might do - the streaming plus other related features
     with tempfile.NamedTemporaryFile() as file:
         await buck.targets(
-            "fbcode//buck2/...",
+            "fbcode//buck2:buck2",
             "--json-lines",
             "--streaming",
             "--imports",
