@@ -28,10 +28,6 @@
 
 const { isInternal } = require("docusaurus-plugin-internaldocs-fb/internal");
 
-const universallyExcludedDirs = new Set([
-  "rfcs/",
-]);
-
 const mainSidebar = [
     'index',
   {
@@ -245,21 +241,6 @@ apiSidebar = [
   },
 ]
 
-function itemFilter(item, docs) {
-  const dirName = item.dirName + '/';
-  return docs.filter((doc) => {
-    if (!isInternal() && doc.source.endsWith(".fb.md")) {
-      return false;
-    }
-    for (dir of universallyExcludedDirs) {
-      if (doc.id.startsWith(dir)) {
-        return false;
-      }
-    }
-    return true;
-  });
-}
-
 function itemSort(items) {
   // First, handle recursive categories
   const result = items.map((item) => {
@@ -280,7 +261,6 @@ function itemSort(items) {
 }
 
 module.exports = {
-  itemFilter: itemFilter,
   itemSort: itemSort,
   sidebars: {
     mainSidebar: mainSidebar,
