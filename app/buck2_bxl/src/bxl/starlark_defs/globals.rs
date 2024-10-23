@@ -22,7 +22,7 @@ use crate::bxl::starlark_defs::functions::register_target_function;
 use crate::bxl::starlark_defs::type_names::register_bxl_type_names_in_bxl_namespace;
 
 fn bxl_namespace(g: &mut GlobalsBuilder) {
-    g.struct_("cli_args", cli_args::register_cli_args_module);
+    g.namespace("cli_args", cli_args::register_cli_args_module);
     // TODO(nga): add `main` function here.
     register_artifact_function(g);
     register_target_function(g);
@@ -34,9 +34,9 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
 
 pub(crate) fn init_bxl_specific_globals() {
     REGISTER_BUCK2_BXL_GLOBALS.init(|g| {
-        g.struct_("bxl", bxl_namespace);
+        g.namespace("bxl", bxl_namespace);
         // TODO(nga): move these into `bxl` namespace.
-        g.struct_("cli_args", cli_args::register_cli_args_module);
+        g.namespace("cli_args", cli_args::register_cli_args_module);
         register_bxl_function(g);
         register_artifact_function(g);
         register_target_function(g);

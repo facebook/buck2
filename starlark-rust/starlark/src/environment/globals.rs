@@ -37,7 +37,7 @@ pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;
 use crate::values::function::NativeFunc;
 use crate::values::function::SpecialBuiltinFunction;
-use crate::values::structs::AllocStruct;
+use crate::values::namespace::FrozenNamespace;
 use crate::values::types::function::NativeFunction;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
@@ -66,7 +66,7 @@ pub struct GlobalsBuilder {
     // Normal top-level variables, e.g. True/hash
     variables: SymbolMap<FrozenValue>,
     // The list of struct fields, pushed to the end
-    struct_fields: Vec<SmallMap<FrozenStringValue, FrozenValue>>,
+    namespace_fields: Vec<SmallMap<FrozenStringValue, FrozenValue>>,
     /// The raw docstring for this module
     ///
     /// FIXME(JakobDegen): This should probably be removed. Having a docstring on a `GlobalsBuilder`
@@ -171,7 +171,7 @@ impl GlobalsBuilder {
         Self {
             heap: FrozenHeap::new(),
             variables: SymbolMap::new(),
-            struct_fields: Vec::new(),
+            namespace_fields: Vec::new(),
             docstring: None,
         }
     }
@@ -198,13 +198,13 @@ impl GlobalsBuilder {
         res
     }
 
-    /// Add a nested struct to the builder. If `f` adds the definition `foo`,
-    /// it will end up on a struct `name`, accessible as `name.foo`.
-    pub fn struct_(&mut self, name: &str, f: impl FnOnce(&mut GlobalsBuilder)) {
-        self.struct_fields.push(SmallMap::new());
+    /// Add a nested namespace to the builder. If `f` adds the definition `foo`,
+    /// it will end up on a namespace `name`, accessible as `name.foo`.
+    pub fn namespace(&mut self, name: &str, f: impl FnOnce(&mut GlobalsBuilder)) {
+        self.namespace_fields.push(SmallMap::new());
         f(self);
-        let fields = self.struct_fields.pop().unwrap();
-        self.set(name, AllocStruct(fields));
+        let fields = self.namespace_fields.pop().unwrap();
+        self.set(name, self.heap.alloc(FrozenNamespace::new(fields)));
     }
 
     /// A fluent API for modifying [`GlobalsBuilder`] and returning the result.
@@ -213,9 +213,9 @@ impl GlobalsBuilder {
         self
     }
 
-    /// A fluent API for modifying [`GlobalsBuilder`] using [`struct_`](GlobalsBuilder::struct_).
-    pub fn with_struct(mut self, name: &str, f: impl Fn(&mut GlobalsBuilder)) -> Self {
-        self.struct_(name, f);
+    /// A fluent API for modifying [`GlobalsBuilder`] using [`namespace`](GlobalsBuilder::namespace).
+    pub fn with_namespace(mut self, name: &str, f: impl Fn(&mut GlobalsBuilder)) -> Self {
+        self.namespace(name, f);
         self
     }
 
@@ -238,7 +238,7 @@ impl GlobalsBuilder {
     /// Set a value in the [`GlobalsBuilder`].
     pub fn set<'v, V: AllocFrozenValue>(&'v mut self, name: &str, value: V) {
         let value = value.alloc_frozen_value(&self.heap);
-        match self.struct_fields.last_mut() {
+        match self.namespace_fields.last_mut() {
             None => {
                 // TODO(nga): do not quietly ignore redefinitions.
                 self.variables.insert(name, value)

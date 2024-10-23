@@ -127,5 +127,5 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
 }
 
 pub(crate) fn register_dynamic_attrs(globals: &mut GlobalsBuilder) {
-    globals.struct_("dynattrs", struct_dynattrs);
+    globals.namespace("dynattrs", struct_dynattrs);
 }

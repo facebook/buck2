@@ -54,6 +54,10 @@ impl<'v, V: ValueLike<'v>> NamespaceGen<'v, V> {
     pub fn new(fields: SmallMap<V::String, V>) -> Self {
         Self { fields }
     }
+
+    pub fn get(&self, key: &str) -> Option<V> {
+        self.fields.get_hashed(Hashed::new(key)).copied()
+    }
 }
 
 unsafe impl<'v> Coerce<NamespaceGen<'v, Value<'v>>> for NamespaceGen<'static, FrozenValue> {}

@@ -135,10 +135,10 @@ fn register_all_internals(builder: &mut GlobalsBuilder) {
 /// files, but does include everything else.
 pub fn base_globals() -> GlobalsBuilder {
     let mut global_env = GlobalsBuilder::standard().with(register_all_natives);
-    global_env.struct_("__internal__", |x| {
+    global_env.namespace("__internal__", |x| {
         register_all_internals(x);
     });
-    global_env.struct_("__buck2_builtins__", |x| {
+    global_env.namespace("__buck2_builtins__", |x| {
         register_all_natives(x);
     });
     global_env

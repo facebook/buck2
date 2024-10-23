@@ -19,7 +19,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 
 use crate::environment::Globals;
-use crate::values::structs::FrozenStructRef;
+use crate::values::namespace::FrozenNamespace;
 use crate::values::FrozenValue;
 
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -65,9 +65,12 @@ impl Constants {
                 fn_isinstance: BuiltinFn(g.get_frozen("isinstance").unwrap()),
                 fn_set: BuiltinFn(g.get_frozen("set").unwrap()),
                 typing_callable: {
-                    let typing = g.get_frozen("typing").unwrap();
-                    let typing = FrozenStructRef::from_value(typing).unwrap();
-                    BuiltinFn(*typing.0.fields.get("Callable").unwrap())
+                    let typing = g
+                        .get_frozen("typing")
+                        .unwrap()
+                        .downcast_frozen_ref::<FrozenNamespace>()
+                        .unwrap();
+                    BuiltinFn(typing.as_ref().get("Callable").unwrap())
                 },
             }
         });

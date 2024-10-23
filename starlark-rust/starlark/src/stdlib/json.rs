@@ -226,7 +226,7 @@ pub(crate) fn json(globals: &mut GlobalsBuilder) {
     // Copying Bazel's json module: https://bazel.build/rules/lib/json
     // or starlark-go json module:
     // https://github.com/google/starlark-go/blob/d1966c6b9fcd6631f48f5155f47afcd7adcc78c2/lib/json/json.go#L28
-    globals.struct_("json", json_members);
+    globals.namespace("json", json_members);
 }
 
 #[cfg(test)]

@@ -24,7 +24,7 @@ use crate::values::typing::type_compiled::globals::register_eval_type;
 
 pub(crate) fn register_typing(globals: &mut GlobalsBuilder) {
     register_eval_type(globals);
-    globals.struct_("typing", |globals| {
+    globals.namespace("typing", |globals| {
         globals.set("Any", TypingAny);
         globals.set("Never", TypingNever);
         globals.set("Callable", TypingCallable);

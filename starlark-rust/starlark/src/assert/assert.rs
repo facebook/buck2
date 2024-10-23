@@ -57,7 +57,7 @@ static GLOBALS: Lazy<Globals> = Lazy::new(|| mk_environment().build());
 
 static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     let g = GlobalsBuilder::new()
-        .with_struct("asserts", asserts_star)
+        .with_namespace("asserts", asserts_star)
         .build();
     let m = Module::new();
     m.frozen_heap().add_reference(g.heap());
