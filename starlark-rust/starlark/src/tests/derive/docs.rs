@@ -17,24 +17,21 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use maplit::hashmap;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
-use starlark_derive::StarlarkDocs;
 use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::docs::get_registered_starlark_docs;
-use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
+use crate::docs::DocType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
@@ -42,7 +39,6 @@ use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
-use crate::wasm::is_wasm;
 
 /// Main module docs
 #[starlark_module]
@@ -54,14 +50,7 @@ fn object_docs_1(_: &mut MethodsBuilder) {
     }
 }
 
-#[derive(
-    Debug,
-    Display,
-    ProvidesStaticType,
-    NoSerialize,
-    StarlarkDocs,
-    Allocative
-)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
 struct TestExample {}
 
 starlark_simple_value!(TestExample);
@@ -85,7 +74,6 @@ impl<'v> StarlarkValue<'v> for TestExample {
     Trace,
     Freeze,
     ProvidesStaticType,
-    StarlarkDocs,
     Allocative
 )]
 #[repr(C)]
@@ -121,19 +109,7 @@ where
 
 #[test]
 fn test_derive_docs() {
-    if is_wasm() {
-        // `inventory` doesn't work on wasm.
-        return;
-    }
-
-    let docs = get_registered_starlark_docs()
-        .into_iter()
-        .find(|d| d.id.name == "TestExample")
-        .unwrap();
-    let obj = match docs.item {
-        DocItem::Type(o) => o,
-        _ => panic!("Expected object as docitem"),
-    };
+    let obj = DocType::from_starlark_value::<TestExample>();
 
     assert_eq!(
         DocString::from_docstring(DocStringKind::Rust, "Main module docs"),
@@ -149,24 +125,11 @@ fn test_derive_docs() {
             })
             .unwrap()
     );
-    assert!(docs.custom_attrs.is_empty());
 }
 
 #[test]
 fn test_derive_docs_on_complex_values() {
-    if is_wasm() {
-        // `inventory` doesn't work on wasm.
-        return;
-    }
-
-    let complex_docs = get_registered_starlark_docs()
-        .into_iter()
-        .find(|d| d.id.name == "ComplexTestExample")
-        .unwrap();
-    let complex_obj = match complex_docs.item {
-        DocItem::Type(o) => o,
-        _ => panic!("Expected object as docitem"),
-    };
+    let complex_obj = DocType::from_starlark_value::<FrozenComplexTestExample>();
 
     assert_eq!(
         DocString::from_docstring(DocStringKind::Rust, "Main module docs"),
@@ -183,51 +146,4 @@ fn test_derive_docs_on_complex_values() {
             })
             .unwrap()
     );
-    assert!(complex_docs.custom_attrs.is_empty());
-}
-
-/// Main module docs
-#[starlark_module]
-fn object_docs_2(_: &mut MethodsBuilder) {}
-
-#[derive(
-    Debug,
-    Display,
-    ProvidesStaticType,
-    NoSerialize,
-    StarlarkDocs,
-    Allocative
-)]
-#[starlark_docs(key = "value", key2 = "value2")]
-struct TestAttrExample {}
-
-starlark_simple_value!(TestAttrExample);
-
-#[starlark_value(type = "TestAttrExample")]
-impl<'v> StarlarkValue<'v> for TestAttrExample {
-    fn get_methods() -> Option<&'static Methods>
-    where
-        Self: Sized,
-    {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(object_docs_2)
-    }
-}
-
-#[test]
-fn test_derive_docs_custom_attrs() {
-    if is_wasm() {
-        // `inventory` doesn't work on wasm.
-        return;
-    }
-
-    let docs = get_registered_starlark_docs()
-        .into_iter()
-        .find(|d| d.id.name == "TestAttrExample")
-        .unwrap();
-    let expected_attrs = hashmap! {
-        "key".to_owned()=> "value".to_owned(),
-        "key2".to_owned()=> "value2".to_owned(),
-    };
-    assert_eq!(expected_attrs, docs.custom_attrs);
 }
