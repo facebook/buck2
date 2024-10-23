@@ -16,6 +16,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Display;
+use std::ops::ControlFlow;
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
@@ -81,6 +82,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::blocking::HasBlockingExecutor;
+use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::claim::MutexClaimManager;
 use buck2_execute::execute::command_executor::CommandExecutor;
@@ -362,8 +364,15 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = key;
         let fs = dice.get_artifact_fs().await?;
         let test_info = Self::get_test_info(dice, &test_target).await?;
-        let test_executor =
-            Self::get_test_executor(dice, &test_target, &test_info, executor_override, &fs).await?;
+        let test_executor = Self::get_test_executor(
+            dice,
+            &test_target,
+            &test_info,
+            executor_override,
+            &fs,
+            &stage,
+        )
+        .await?;
         let test_executable_expanded = Self::expand_test_executable(
             dice,
             &test_target,
@@ -530,7 +539,7 @@ async fn prepare_and_execute(
     liveliness_observer: Arc<dyn LivelinessObserver>,
 ) -> Result<ExecuteData, ExecuteError> {
     let execute_on_dice = match key.stage.as_ref() {
-        TestStage::Listing(_) => check_cache_listings_experiment(ctx, &key).await?,
+        TestStage::Listing(_) => check_cache_listings_experiment(ctx, &key.test_target).await?,
         TestStage::Testing { .. } => false,
     };
     if execute_on_dice {
@@ -756,6 +765,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             &test_info,
             None,
             &fs,
+            &stage,
         )
         .await?;
         let test_executable_expanded = Self::expand_test_executable(
@@ -879,7 +889,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     async fn execute_request(
         dice: &mut DiceComputations<'_>,
         cancellation: &CancellationContext<'_>,
-        test_target: &ConfiguredProvidersLabel,
+        test_target_label: &ConfiguredProvidersLabel,
         stage: &TestStage,
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
@@ -904,7 +914,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         }
 
         let test_target = TestTarget {
-            target: test_target.target(),
+            target: test_target_label.target(),
             action_key_suffix,
         };
 
@@ -917,12 +927,95 @@ impl<'b> BuckTestOrchestrator<'b> {
             prepared_action: &prepared_action,
             digest_config,
         };
-        let command = executor.exec_cmd(manager, &prepared_command, cancellation);
+
+        let action_cache = match stage {
+            TestStage::Listing(_) => {
+                executor
+                    .action_cache(manager, &prepared_command, cancellation)
+                    .await
+            }
+            TestStage::Testing { .. } => ControlFlow::Continue(manager),
+        };
 
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
+
+        let (command_exec_result, cached) = match action_cache {
+            ControlFlow::Break(result) => (result, true),
+            ControlFlow::Continue(manager) => {
+                let command = executor.exec_cmd(manager, &prepared_command, cancellation);
+                let result = match stage {
+                    TestStage::Listing(listing) => {
+                        let start = TestDiscoveryStart {
+                            suite_name: listing.clone(),
+                        };
+                        events
+                            .span_async(start, async move {
+                                let result = command.await;
+                                let end = TestDiscoveryEnd {
+                                    suite_name: listing.clone(),
+                                    command_report: Some(
+                                        result
+                                            .report
+                                            .to_command_execution_proto(true, true, false)
+                                            .await,
+                                    ),
+                                };
+                                (result, end)
+                            })
+                            .await
+                    }
+                    TestStage::Testing { suite, testcases } => {
+                        let test_suite = Some(TestSuite {
+                            suite_name: suite.clone(),
+                            test_names: testcases.clone(),
+                            target_label: Some(test_target.target.as_proto()),
+                        });
+                        let start = TestRunStart {
+                            suite: test_suite.clone(),
+                        };
+                        events
+                            .span_async(start, async move {
+                                let result = command.await;
+                                let end = TestRunEnd {
+                                    suite: test_suite,
+                                    command_report: Some(
+                                        result
+                                            .report
+                                            .to_command_execution_proto(true, true, false)
+                                            .await,
+                                    ),
+                                };
+                                (result, end)
+                            })
+                            .await
+                    }
+                };
+                (result, false)
+            }
+        };
+
+        if let TestStage::Listing(_) = stage {
+            if !cached && check_cache_listings_experiment(dice, &test_target_label).await? {
+                let info = CacheUploadInfo {
+                    target: &test_target as _,
+                    digest_config,
+                };
+                let _result = executor
+                    .cache_upload(
+                        &info,
+                        &command_exec_result,
+                        None,
+                        None,
+                        &prepared_action.action_and_blobs,
+                    )
+                    .await?;
+            }
+        }
+
         let CommandExecutionResult {
             outputs,
+            did_cache_upload: _,
             report:
                 CommandExecutionReport {
                     std_streams,
@@ -932,53 +1025,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                     ..
                 },
             ..
-        } = match stage {
-            TestStage::Listing(listing) => {
-                let start = TestDiscoveryStart {
-                    suite_name: listing.clone(),
-                };
-                events
-                    .span_async(start, async move {
-                        let result = command.await;
-                        let end = TestDiscoveryEnd {
-                            suite_name: listing.clone(),
-                            command_report: Some(
-                                result
-                                    .report
-                                    .to_command_execution_proto(true, true, false)
-                                    .await,
-                            ),
-                        };
-                        (result, end)
-                    })
-                    .await
-            }
-            TestStage::Testing { suite, testcases } => {
-                let test_suite = Some(TestSuite {
-                    suite_name: suite.clone(),
-                    test_names: testcases.clone(),
-                    target_label: Some(test_target.target.as_proto()),
-                });
-                let start = TestRunStart {
-                    suite: test_suite.clone(),
-                };
-                events
-                    .span_async(start, async move {
-                        let result = command.await;
-                        let end = TestRunEnd {
-                            suite: test_suite,
-                            command_report: Some(
-                                result
-                                    .report
-                                    .to_command_execution_proto(true, true, false)
-                                    .await,
-                            ),
-                        };
-                        (result, end)
-                    })
-                    .await
-            }
-        };
+        } = command_exec_result;
 
         let outputs = outputs
             .into_iter()
@@ -1075,6 +1122,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         fs: &ArtifactFs,
         test_target_node: &ConfiguredTargetNode,
         executor_override: Option<&CommandExecutorConfig>,
+        stage: &TestStage,
     ) -> anyhow::Result<CommandExecutor> {
         let executor_config =
             &Self::executor_config_with_disabled_remote_cache(test_target_node, executor_override)?;
@@ -1082,14 +1130,23 @@ impl<'b> BuckTestOrchestrator<'b> {
         let CommandExecutorResponse {
             executor,
             platform,
-            cache_checker: _,
-            cache_uploader: _,
+            cache_checker,
+            cache_uploader,
         } = dice.get_command_executor_from_dice(executor_config).await?;
+
+        // Caching is enabled only for listings
+        let (cache_uploader, cache_checker) = match stage {
+            TestStage::Listing(_) => (cache_uploader, cache_checker),
+            TestStage::Testing { .. } => (
+                Arc::new(NoOpCacheUploader {}) as _,
+                Arc::new(NoOpCommandOptionalExecutor {}) as _,
+            ),
+        };
+
         let executor = CommandExecutor::new(
             executor,
-            // Caching is not enabled for tests yet. Use the NoOp
-            Arc::new(NoOpCommandOptionalExecutor {}),
-            Arc::new(NoOpCacheUploader {}),
+            cache_checker,
+            cache_uploader,
             fs.clone(),
             executor_config.options,
             platform,
@@ -1148,6 +1205,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         test_info: &FrozenExternalRunnerTestInfo,
         executor_override: Option<Arc<ExecutorConfigOverride>>,
         fs: &ArtifactFs,
+        stage: &TestStage,
     ) -> anyhow::Result<CommandExecutor> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
         // since this will get cached in DICE.
@@ -1177,6 +1235,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             fs,
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
+            stage,
         )
         .await
         .context("Error constructing CommandExecutor")
@@ -1837,7 +1896,7 @@ impl CommandExecutionTarget for TestTarget<'_> {
 /// Checks if test listings cache is enabled. Needed only for safe deployment and will be removed
 async fn check_cache_listings_experiment(
     dice: &mut DiceComputations<'_>,
-    key: &TestExecutionKey,
+    test_target: &ConfiguredProvidersLabel,
 ) -> anyhow::Result<bool> {
     #[derive(
         Clone,
@@ -1894,7 +1953,7 @@ async fn check_cache_listings_experiment(
 
     let patterns = dice.compute(&CheckCacheListingsConfigKey).await??;
     for pattern in patterns.iter() {
-        if pattern.matches(key.test_target.target().unconfigured_label()) {
+        if pattern.matches(test_target.target().unconfigured_label()) {
             return Ok(true);
         }
     }
