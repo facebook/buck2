@@ -31,7 +31,6 @@ use std::collections::HashMap;
 use std::iter;
 
 use allocative::Allocative;
-pub use code::render_docs_as_code;
 pub use parse::DocStringKind;
 use starlark_map::small_map::SmallMap;
 
@@ -326,17 +325,4 @@ pub struct Doc {
     /// Custom key-value pairs that are not interpreted directly by starlark, and can be
     /// used as arbitrary data for documentation tooling.
     pub custom_attrs: HashMap<String, String>,
-}
-
-impl Doc {
-    pub fn named_item(name: String, item: DocItem) -> Self {
-        Doc {
-            id: Identifier {
-                name,
-                location: None,
-            },
-            item,
-            custom_attrs: HashMap::new(),
-        }
-    }
 }

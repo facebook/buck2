@@ -19,7 +19,6 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 
-use crate::docs::Doc;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
@@ -270,32 +269,4 @@ impl DocItem {
             DocItem::Member(DocMember::Property(p)) => p.render_as_code(&name),
         }
     }
-}
-
-impl Doc {
-    /// Render a starlark code representation of this documentation object.
-    ///
-    /// Function bodies for these consist of a single "pass" statement, and objects
-    /// are represented as structs.
-    pub fn render_as_code(&self) -> String {
-        self.item.render_as_code(&self.id.name)
-    }
-}
-
-/// Render a series of [`Doc`] objects into a "starlark" file.
-///
-/// Function bodies for these consist of a single "pass" statement, and objects
-/// are represented as structs.
-///
-/// The returned array may not be in the same order as the originally provided docs.
-/// They are in the order that they should appear in the rendered starlark file.
-pub fn render_docs_as_code(docs: &[Doc]) -> String {
-    let (modules, non_modules): (Vec<_>, Vec<_>) = docs
-        .iter()
-        .partition(|d| matches!(d.item, DocItem::Module(_)));
-    modules
-        .into_iter()
-        .chain(non_modules)
-        .map(|d| d.render_as_code())
-        .join("\n\n")
 }
