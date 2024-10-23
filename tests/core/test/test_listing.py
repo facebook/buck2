@@ -7,11 +7,11 @@
 
 # pyre-strict
 
-from typing import List
+from typing import Any, Dict, List
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import random_string
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
 @buck_test()
@@ -79,6 +79,35 @@ async def test_discovery_cached_on_re(buck: Buck) -> None:
         "//:test",
     ]
     await run_test_and_check_discovery_presence(buck, False, args)  # will be true
+
+
+@buck_test()
+@env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
+async def test_local_discovery_uploaded_to_cache(buck: Buck) -> None:
+    seed = random_string()
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:ok",
+        "-c",
+        f"test.seed={seed}",
+        "-c",
+        "test.allow_cache_uploads=true",
+        "-c",
+        "test.remote_cache_enabled=true",
+        "//:ok",
+    ]
+    await run_test_and_check_discovery_presence(buck, False, args)
+    await _check_cache_uploaded(buck)
+
+
+async def _check_cache_uploaded(buck: Buck) -> None:
+    result = await _cache_uploads(buck)
+    assert len(result) == 0  # will be 1
+    # assert result[0]["success"] # will be true
+
+
+async def _cache_uploads(buck: Buck) -> List[Dict[str, Any]]:
+    return await filter_events(buck, "Event", "data", "SpanEnd", "data", "CacheUpload")
 
 
 async def run_test_and_check_discovery_presence(

@@ -23,6 +23,8 @@ def _execution_platforms(ctx):
                 "platform": "linux-remote-execution",
             },
             remote_execution_use_case = "buck2-testing",
+            allow_cache_uploads = ctx.attrs.allow_cache_uploads,
+            max_cache_upload_mebibytes = 1,
         ),
     )
 
@@ -32,6 +34,7 @@ def _execution_platforms(ctx):
     ]
 
 execution_platforms = rule(attrs = {
+    "allow_cache_uploads": attrs.bool(),
     "local_enabled": attrs.bool(),
     "remote_cache_enabled": attrs.option(attrs.bool(), default = None),
     "remote_enabled": attrs.bool(),
