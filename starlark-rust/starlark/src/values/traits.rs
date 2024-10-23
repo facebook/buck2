@@ -43,6 +43,8 @@ use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHasher;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocProperty;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
@@ -308,7 +310,11 @@ pub trait StarlarkValue<'v>:
         None
     }
 
-    /// Return structured documentation for self, if available.
+    /// Return the documentation for this value.
+    ///
+    /// This should be the doc-item that is expected to be generated when this value appears as a
+    /// global in a module. In other words, for normal types this should generally return a
+    /// `DocMember::Property`. In that case there is no need to override this method.
     fn documentation(&self) -> Option<DocItem>
     where
         Self: Sized,
@@ -316,7 +322,10 @@ pub trait StarlarkValue<'v>:
         let ty = self
             .typechecker_ty()
             .unwrap_or_else(|| Self::get_type_starlark_repr());
-        Self::get_methods().map(|methods| DocItem::Type(methods.documentation(ty)))
+        Some(DocItem::Member(DocMember::Property(DocProperty {
+            docs: None,
+            typ: ty,
+        })))
     }
 
     /// Type of this instance for typechecker.

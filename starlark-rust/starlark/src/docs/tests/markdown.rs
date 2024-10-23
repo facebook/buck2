@@ -29,6 +29,7 @@ use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::docs::markdown::render_doc_item;
 use crate::docs::DocItem;
+use crate::docs::DocType;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
@@ -260,6 +261,7 @@ fn native_docs_module() {
 
 #[test]
 fn golden_docs_object() {
-    let res = docs_golden_test("object.golden.md", Obj.documentation().unwrap());
+    let docs = DocType::from_starlark_value::<Obj>();
+    let res = docs_golden_test("object.golden.md", DocItem::Type(docs));
     assert!(res.contains(r#"name.\_\_exported\_\_"#));
 }
