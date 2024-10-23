@@ -197,4 +197,6 @@ enum ErrorTag {
   CONFIGURE_ATTR = 3001;
   // Action execution
   DOWNLOAD_FILE_HEAD_REQUEST = 4001;
+  // Tests
+  TEST_DEADLINE_EXPIRED = 5001;
 }

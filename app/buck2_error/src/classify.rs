@@ -120,6 +120,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::AnyActionExecution => rank!(unspecified),
         ErrorTag::AnyStarlarkEvaluation => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
+        ErrorTag::TestDeadlineExpired => rank!(input),
     }
 }
 
