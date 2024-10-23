@@ -213,7 +213,7 @@ impl DocMember {
         // If we have a value which is a complex type, the right type to put in the docs is not the type
         // it represents, but it's just a property we should point at
         match value.documentation() {
-            Some(DocItem::Member(x)) => x,
+            DocItem::Member(x) => x,
             _ => DocMember::Property(DocProperty {
                 docs: None,
                 typ: value.get_type_starlark_repr(),

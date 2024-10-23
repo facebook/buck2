@@ -244,7 +244,7 @@ impl ProviderCodegen {
         }
 
         Ok(syn::parse_quote_spanned! {self.span=>
-            fn documentation(&self) -> Option<starlark::docs::DocItem> {
+            fn documentation(&self) -> starlark::docs::DocItem {
                 let docstring = #provider_docstring;
                 let field_names = [
                     #(#field_names),*
@@ -255,14 +255,14 @@ impl ProviderCodegen {
                 let field_types = [
                     #(#field_types),*
                 ];
-                Some(crate::interpreter::rule_defs::provider::doc::provider_callable_documentation(
+                crate::interpreter::rule_defs::provider::doc::provider_callable_documentation(
                     Some(#create_func),
                     BUILTIN_PROVIDER_TY.instance(),
                     &docstring,
                     &field_names,
                     &field_docs,
                     &field_types,
-                ))
+                )
             }
         })
     }

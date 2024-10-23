@@ -874,7 +874,7 @@ impl<'v> Value<'v> {
     }
 
     /// Forwards to [`StarlarkValue::documentation`].
-    pub fn documentation(self) -> Option<DocItem> {
+    pub fn documentation(self) -> DocItem {
         self.get_ref().documentation()
     }
 

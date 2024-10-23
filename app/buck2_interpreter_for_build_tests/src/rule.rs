@@ -390,8 +390,7 @@ fn returns_documentation() -> anyhow::Result<()> {
         .get("foo_binary")
         .expect("foo_binary to exist")
         .value()
-        .documentation()
-        .unwrap();
+        .documentation();
 
     assert_eq!(expected_docs, docs);
 

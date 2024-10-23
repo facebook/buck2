@@ -196,8 +196,8 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         }
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Member(DocMember::Function(self.docs.clone())))
+    fn documentation(&self) -> DocItem {
+        DocItem::Member(DocMember::Function(self.docs.clone()))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -269,8 +269,8 @@ starlark_simple_value!(NativeMethod);
 
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Member(DocMember::Function(self.docs.clone())))
+    fn documentation(&self) -> DocItem {
+        DocItem::Member(DocMember::Function(self.docs.clone()))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -307,16 +307,13 @@ impl NativeAttribute {
 
 #[starlark_value(type = "attribute")]
 impl<'v> StarlarkValue<'v> for NativeAttribute {
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let ds = self
             .docstring
             .as_ref()
             .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
         let typ = self.typ.clone();
-        Some(DocItem::Member(DocMember::Property(DocProperty {
-            docs: ds,
-            typ,
-        })))
+        DocItem::Member(DocMember::Property(DocProperty { docs: ds, typ }))
     }
 }
 
@@ -365,7 +362,7 @@ where
             .invoke(eval, self.this.to_value(), args)
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         self.method.documentation()
     }
 }

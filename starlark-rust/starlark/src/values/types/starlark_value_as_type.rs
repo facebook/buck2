@@ -30,6 +30,8 @@ use starlark_derive::NoSerialize;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::docs::DocItem;
+use crate::docs::DocMember;
+use crate::docs::DocProperty;
 use crate::docs::DocType;
 use crate::typing::Ty;
 use crate::values::layout::avalue::alloc_static;
@@ -48,7 +50,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
-struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> Option<DocType>);
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
@@ -58,8 +60,8 @@ impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
         Some((self.0)())
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Type((self.1)()?))
+    fn documentation(&self) -> DocItem {
+        (self.1)()
     }
 }
 
@@ -132,7 +134,7 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
             &const {
                 alloc_static(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
-                    || Some(DocType::from_starlark_value::<T>()),
+                    || DocItem::Type(DocType::from_starlark_value::<T>()),
                 ))
             },
             PhantomData,
@@ -145,7 +147,12 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
             &const {
                 alloc_static(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
-                    || None,
+                    || {
+                        DocItem::Member(DocMember::Property(DocProperty {
+                            docs: None,
+                            typ: AbstractType::starlark_type_repr(),
+                        }))
+                    },
                 ))
             },
             PhantomData,

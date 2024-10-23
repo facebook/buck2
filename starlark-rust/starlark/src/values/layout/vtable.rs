@@ -310,7 +310,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) fn documentation(self) -> Option<DocItem> {
+    pub(crate) fn documentation(self) -> DocItem {
         (self.vtable.starlark_value.documentation)(self.value)
     }
 

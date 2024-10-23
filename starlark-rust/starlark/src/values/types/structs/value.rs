@@ -179,16 +179,13 @@ where
         self.fields.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         // This treats structs as being value-like, and intentionally generates bad docs in the case
         // of namespace-like usage. See
         // <https://fb.workplace.com/groups/starlark/permalink/1463680027654154/> for some
         // additional discussion
         let typ = self.self_ty();
-        Some(DocItem::Member(DocMember::Property(DocProperty {
-            docs: None,
-            typ,
-        })))
+        DocItem::Member(DocMember::Property(DocProperty { docs: None, typ }))
     }
 
     fn get_type_starlark_repr() -> Ty {

@@ -268,8 +268,8 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         ))
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(self.documentation_impl())
+    fn documentation(&self) -> DocItem {
+        self.documentation_impl()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -414,8 +414,8 @@ impl<'v> StarlarkValue<'v> for FrozenRuleCallable {
             .map_err(Into::into)
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(self.rule_docs.clone())
+    fn documentation(&self) -> DocItem {
+        self.rule_docs.clone()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

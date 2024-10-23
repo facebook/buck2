@@ -28,6 +28,8 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocStringKind;
 use starlark::environment::GlobalsBuilder;
@@ -409,17 +411,25 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
         self.callable.get().map(|named| named.ty_provider.dupe())
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let return_types = vec![Ty::any(); self.fields.len()];
-        Some(provider_callable_documentation(
+        let Some(callable) = self.callable.get() else {
+            // This shouldn't really happen, we mostly don't even ask for documentation on
+            // non-frozen things
+            return DocItem::Member(DocMember::Property(DocProperty {
+                docs: None,
+                typ: Ty::any(),
+            }));
+        };
+        provider_callable_documentation(
             None,
-            self.callable.get()?.ty_callable.dupe(),
+            callable.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             // TODO(nga): types.
             &vec![None; self.fields.len()],
             &return_types,
-        ))
+        )
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -481,16 +491,16 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
         demand.provide_value::<&dyn ProviderCallableLike>(self);
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let return_types = vec![Ty::any(); self.fields.len()];
-        Some(provider_callable_documentation(
+        provider_callable_documentation(
             None,
             self.callable.ty_callable.dupe(),
             &self.docs,
             &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
             &vec![None; self.fields.len()],
             &return_types,
-        ))
+        )
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

@@ -191,8 +191,7 @@ fn inner_object_functions_have_docs() {
         .get_attr("func1", &heap)
         .unwrap()
         .unwrap()
-        .documentation()
-        .unwrap();
+        .documentation();
 
     match item {
         DocItem::Member(DocMember::Function(item)) => {
@@ -226,8 +225,7 @@ fn inner_module_functions_have_docs() {
         .build()
         .get("func1")
         .unwrap()
-        .documentation()
-        .unwrap();
+        .documentation();
 
     match item {
         DocItem::Member(DocMember::Function(item)) => {

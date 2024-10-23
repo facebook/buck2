@@ -315,17 +315,17 @@ pub trait StarlarkValue<'v>:
     /// This should be the doc-item that is expected to be generated when this value appears as a
     /// global in a module. In other words, for normal types this should generally return a
     /// `DocMember::Property`. In that case there is no need to override this method.
-    fn documentation(&self) -> Option<DocItem>
+    fn documentation(&self) -> DocItem
     where
         Self: Sized,
     {
         let ty = self
             .typechecker_ty()
             .unwrap_or_else(|| Self::get_type_starlark_repr());
-        Some(DocItem::Member(DocMember::Property(DocProperty {
+        DocItem::Member(DocMember::Property(DocProperty {
             docs: None,
             typ: ty,
-        })))
+        }))
     }
 
     /// Type of this instance for typechecker.

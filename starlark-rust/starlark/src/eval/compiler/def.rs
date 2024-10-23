@@ -649,7 +649,7 @@ where
         self.invoke_impl(me, &args.0, eval)
     }
 
-    fn documentation(&self) -> Option<DocItem> {
+    fn documentation(&self) -> DocItem {
         let mut parameter_types = vec![Ty::any(); self.parameters.len()];
         for (idx, _, ty) in &self.parameter_types {
             // Local slot number for parameter is the same as parameter index.
@@ -667,7 +667,7 @@ where
             None,
         );
 
-        Some(DocItem::Member(DocMember::Function(function_docs)))
+        DocItem::Member(DocMember::Function(function_docs))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

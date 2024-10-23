@@ -97,15 +97,15 @@ where
         self.fields.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
-    fn documentation(&self) -> Option<DocItem> {
-        Some(DocItem::Module(DocModule {
+    fn documentation(&self) -> DocItem {
+        DocItem::Module(DocModule {
             docs: None,
             members: self
                 .fields
                 .iter()
-                .filter_map(|(k, v)| Some((k.as_str().to_owned(), v.to_value().documentation()?)))
+                .map(|(k, v)| (k.as_str().to_owned(), v.to_value().documentation()))
                 .collect(),
-        }))
+        })
     }
 
     fn get_type_starlark_repr() -> Ty {

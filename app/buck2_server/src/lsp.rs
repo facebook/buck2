@@ -62,13 +62,9 @@ use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
 use starlark::docs::markdown::render_doc_item;
-use starlark::docs::DocItem;
-use starlark::docs::DocMember;
 use starlark::docs::DocModule;
-use starlark::docs::DocProperty;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
-use starlark::typing::Ty;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::server_with_connection;
 use starlark_lsp::server::LspContext;
@@ -169,12 +165,7 @@ async fn get_prelude_docs(
     // For the prelude, we want to promote `native` symbol up one level
     for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
         if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-            let doc = value.to_value().documentation().unwrap_or_else(|| {
-                DocItem::Member(DocMember::Property(DocProperty {
-                    docs: None,
-                    typ: Ty::any(),
-                }))
-            });
+            let doc = value.to_value().documentation();
 
             module_docs.members.insert(name.to_owned(), doc);
         }
