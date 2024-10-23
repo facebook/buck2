@@ -272,6 +272,7 @@ impl BuckOutPathResolver {
             ProvidersName::NonDefault(nd) => match nd.as_ref() {
                 NonDefaultProvidersName::Named(names) => names
                     .iter()
+                    // Replacing / with + to avoid the path clash for ["foo/bar"] and ["foo", "bar"]
                     .map(|name| name.as_str().replace("/", "+"))
                     .join("/")
                     .into(),
