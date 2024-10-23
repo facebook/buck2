@@ -37,7 +37,7 @@ impl JsonDoc {
         Self {
             id: JsonIdentifier::from_starlark(doc.id),
             item: JsonDocItem::from_starlark(doc.item),
-            custom_attrs: doc.custom_attrs,
+            custom_attrs: HashMap::new(),
         }
     }
 }

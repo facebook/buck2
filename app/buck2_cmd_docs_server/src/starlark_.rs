@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -46,7 +45,6 @@ pub(crate) struct Identifier {
 pub(crate) struct Doc {
     pub(crate) id: Identifier,
     pub(crate) item: DocItem,
-    pub(crate) custom_attrs: HashMap<String, String>,
 }
 
 fn parse_import_paths(
@@ -97,7 +95,6 @@ async fn get_docs_from_module(
                 docs: Some(module_doc),
                 members: SmallMap::new(),
             }),
-            custom_attrs: Default::default(),
         });
     }
     docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
@@ -114,7 +111,6 @@ async fn get_docs_from_module(
                 DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
                 DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
             },
-            custom_attrs: Default::default(),
         })
     }));
 

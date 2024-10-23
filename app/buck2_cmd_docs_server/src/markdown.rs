@@ -14,91 +14,12 @@ use std::path::PathBuf;
 
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::console_message;
 use itertools::Itertools;
 use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 
 use crate::starlark_::Doc;
-
-static DOCS_DIRECTORY_KEY: &str = "directory";
-static DOCS_BUILTIN_KEY: &str = "builtin";
-
-fn format_custom_attr_error(keys_and_values: &[(String, String)]) -> String {
-    let mut ret = "{".to_owned();
-    ret.push_str(
-        &keys_and_values
-            .iter()
-            .map(|(k, v)| format!("`{}` => `{}`", k, v))
-            .join(", "),
-    );
-    ret.push('}');
-    ret
-}
-
-#[derive(Debug, buck2_error::Error)]
-enum DocPathError {
-    #[error("Directory traversal was found in documentation path `{}` provided for `{}`", .path, .name)]
-    InvalidDirectory {
-        name: String,
-        path: String,
-        source: anyhow::Error,
-    },
-    #[error("Invalid custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    InvalidCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
-    #[error("Conflicting custom attributes were found on `{}`: {}", .name, format_custom_attr_error(.keys_and_values))]
-    ConflictingCustomAttributes {
-        name: String,
-        keys_and_values: Vec<(String, String)>,
-    },
-}
-
-/// Get the output subdirectory for a [`Doc`] based on the `directory` custom attr, if present.
-fn output_subdir_for_doc(doc: &Doc) -> anyhow::Result<ForwardRelativePathBuf> {
-    let unknown_keys: Vec<_> = doc
-        .custom_attrs
-        .iter()
-        .filter(|(k, _)| *k != DOCS_DIRECTORY_KEY && *k != DOCS_BUILTIN_KEY)
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-    if !unknown_keys.is_empty() {
-        return Err(DocPathError::InvalidCustomAttributes {
-            name: doc.id.name.to_owned(),
-            keys_and_values: unknown_keys,
-        }
-        .into());
-    }
-
-    match (
-        doc.custom_attrs.get(DOCS_DIRECTORY_KEY),
-        doc.custom_attrs.get(DOCS_BUILTIN_KEY),
-    ) {
-        (Some(path), None) | (None, Some(path)) => {
-            match ForwardRelativePathBuf::new(path.to_owned()) {
-                Ok(fp) => Ok(fp),
-                Err(e) => Err(DocPathError::InvalidDirectory {
-                    name: doc.id.name.to_owned(),
-                    path: path.to_owned(),
-                    source: e,
-                }
-                .into()),
-            }
-        }
-        (Some(dir), Some(builtin)) => Err(DocPathError::ConflictingCustomAttributes {
-            name: doc.id.name.to_owned(),
-            keys_and_values: vec![
-                (DOCS_DIRECTORY_KEY.to_owned(), dir.clone()),
-                (DOCS_BUILTIN_KEY.to_owned(), builtin.clone()),
-            ],
-        }
-        .into()),
-        (None, None) => Ok(ForwardRelativePathBuf::new(String::new())?),
-    }
-}
 
 #[derive(Clone, Debug, Default)]
 struct MarkdownOutput {
@@ -130,18 +51,13 @@ impl MarkdownOutput {
         native_subdir: &Path,
         doc: &Doc,
     ) -> anyhow::Result<PathBuf> {
-        let subdir = output_subdir_for_doc(doc)?;
         let path = match &doc.id.location {
-            Some(loc) => starlark_subdir
-                .join(subdir.as_path())
-                .join(Self::path_from_location(&loc.path)?),
+            Some(loc) => starlark_subdir.join(Self::path_from_location(&loc.path)?),
             None => match &doc.item {
                 // Functions all go in one file.
                 // Objects get their on file (e.g. each provider, Artifact, etc)
-                DocItem::Member(_) => native_subdir.join(subdir.as_path()).join("native"),
-                DocItem::Module(_) | DocItem::Type(_) => {
-                    native_subdir.join(subdir.as_path()).join(&doc.id.name)
-                }
+                DocItem::Member(_) => native_subdir.join("native"),
+                DocItem::Module(_) | DocItem::Type(_) => native_subdir.join(&doc.id.name),
             },
         };
         let path = path.with_extension(match path.extension() {
