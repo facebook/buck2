@@ -17,6 +17,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
+use itertools::Itertools;
 use serde::Serialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -28,14 +29,17 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::docs::markdown::render_doc_item;
+use crate::docs::multipage::render_markdown_multipage;
 use crate::docs::DocItem;
 use crate::docs::DocType;
+use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::values::list::UnpackList;
 use crate::values::none::NoneType;
+use crate::values::starlark_value_as_type::StarlarkValueAsType;
 use crate::values::tuple::UnpackTuple;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -114,6 +118,8 @@ impl<'v> StarlarkValue<'v> for Magic {}
 fn module(builder: &mut GlobalsBuilder) {
     const MAGIC: i32 = 42;
 
+    const Obj: StarlarkValueAsType<Obj> = StarlarkValueAsType::new();
+
     /// Docs for func1
     ///
     /// # Arguments
@@ -172,7 +178,10 @@ fn module(builder: &mut GlobalsBuilder) {
         let _unused = (a, b, c);
         Ok(NoneType)
     }
+}
 
+#[starlark_module]
+fn submodule(builder: &mut GlobalsBuilder) {
     fn notypes<'v>(a: Value<'v>) -> anyhow::Result<Value<'v>> {
         Ok(a)
     }
@@ -188,6 +197,13 @@ fn module(builder: &mut GlobalsBuilder) {
         let _ignore = kwargs;
         Ok(NoneType)
     }
+}
+
+fn get_globals() -> Globals {
+    GlobalsBuilder::new()
+        .with(module)
+        .with_namespace("submod", submodule)
+        .build()
 }
 
 #[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
@@ -253,10 +269,24 @@ fn golden_docs_starlark() {
 fn native_docs_module() {
     let res = docs_golden_test(
         "native.golden.md",
-        DocItem::Module(GlobalsBuilder::new().with(module).build().documentation()),
+        DocItem::Module(get_globals().documentation()),
     );
     assert!(!res.contains("starlark::assert::all_true"));
     assert!(res.contains(r#"string_default: str = "my_default"#));
+}
+
+#[test]
+fn globals_multipage_render() {
+    let res = render_markdown_multipage(get_globals().documentation(), "globals");
+    let expected_keys = vec!["", "Obj", "submod"];
+    assert_eq!(&res.keys().sorted().collect::<Vec<_>>(), &expected_keys);
+    for (k, v) in res {
+        let k = if k.is_empty() { "globals" } else { &k };
+        golden_test_template(
+            &format!("src/docs/tests/golden/multipage/{}.golden.md", k),
+            &v,
+        );
+    }
 }
 
 #[test]

@@ -22,6 +22,7 @@
 
 pub mod code;
 pub mod markdown;
+pub mod multipage;
 mod parse;
 #[cfg(test)]
 mod tests;

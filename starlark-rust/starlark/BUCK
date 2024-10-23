@@ -11,7 +11,7 @@ alias(
 buck_filegroup(
     name = "testcases",
     srcs = glob([
-        "src/**/golden/*",
+        "src/**/golden/**",
         "src/**/*.golden",
         "testcases/**",
     ]),

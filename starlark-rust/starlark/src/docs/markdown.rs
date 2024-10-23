@@ -154,7 +154,7 @@ fn render_function(name: &str, function: &DocFunction) -> String {
     body
 }
 
-fn render_members<'a>(
+pub(super) fn render_members<'a>(
     name: &str,
     docs: &Option<DocString>,
     prefix: &str,
