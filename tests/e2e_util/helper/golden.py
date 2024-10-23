@@ -87,8 +87,12 @@ def golden_dir(*, output: typing.Dict[str, str], rel_path: str) -> None:
         )
 
     # Check that there are no extra files
-    for file in rel_path_path.glob("**/*"):
-        rel_file_path = str(file.relative_to(rel_path_path))
+    path_in_src = Path(_test_repo_data_src()).joinpath(rel_path_path)
+
+    for file in path_in_src.glob("**/*"):
+        if file.is_dir():
+            continue
+        rel_file_path = str(file.relative_to(path_in_src))
         if rel_file_path not in output:
             if _is_update_invocation():
                 file.unlink()
@@ -107,6 +111,7 @@ def golden(*, output: str, rel_path: str) -> None:
     path_in_src = os.path.join(_test_repo_data_src(), rel_path)
 
     if _is_update_invocation():
+        Path(path_in_src).parent.mkdir(parents=True, exist_ok=True)
         with open(path_in_src, "w") as f:
             f.write(output)
         return
