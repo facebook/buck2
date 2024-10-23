@@ -207,6 +207,14 @@ def _skip_universal_resource_dedupe_arg():
         "skip_universal_resource_dedupe": attrs.bool(default = _skip_universal_resource_dedupe_default_value()),
     }
 
+def _apple_sanitizer_compatibility_arg():
+    if not is_full_meta_repo():
+        return {}
+
+    return {
+        "_sanitizer_compatibility": attrs.default_only(attrs.dep(default = "fbsource//tools/build_defs/apple/sanitizers:sanitizer_compatibility")),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -223,4 +231,5 @@ apple_common = struct(
     uses_explicit_modules_arg = _uses_explicit_modules_arg,
     meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
     skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
+    apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
 )
