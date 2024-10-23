@@ -63,9 +63,7 @@
 ## WorkerRunInfo
 ## anon\_rule
 ## attrs
-## bxl
 ## bxl\_main
-## cli\_args
 ## cmd\_args
 ## `ignore_artifacts`
 ## `hidden`
@@ -76,7 +74,6 @@
 ## ctarget\_set
 ## dedupe
 ## dynamic\_actions
-## dynattrs
 ## fail\_no\_stacktrace
 ## file\_set
 ## get\_base\_path

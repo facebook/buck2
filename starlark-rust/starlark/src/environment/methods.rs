@@ -109,7 +109,17 @@ impl Methods {
                 .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
         );
 
-        DocType { docs, members, ty }
+        DocType {
+            docs,
+            members: members
+                .filter_map(|(n, item)| {
+                    // This is only `None` if the item is a module, but types shouldn't really have
+                    // modules in them anyway, so that seems ok
+                    Some((n, item.try_as_member_with_collapsed_object().ok()?))
+                })
+                .collect(),
+            ty,
+        }
     }
 }
 

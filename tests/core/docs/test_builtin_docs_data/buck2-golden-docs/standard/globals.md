@@ -27,7 +27,6 @@
 ## hash
 ## int
 ## isinstance
-## json
 ## len
 ## list
 ## map
@@ -45,10 +44,8 @@
 ## reversed
 ## set
 ## sorted
-## starlark\_rust\_internal
 ## str
 ## struct
 ## tuple
 ## type
-## typing
 ## zip

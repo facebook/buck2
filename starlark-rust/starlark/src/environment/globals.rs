@@ -27,7 +27,6 @@ use crate::__derive_refs::components::NativeCallableComponents;
 use crate::collections::symbol::map::SymbolMap;
 use crate::collections::SmallMap;
 use crate::docs::DocItem;
-use crate::docs::DocMember;
 use crate::docs::DocModule;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
@@ -157,10 +156,7 @@ impl Globals {
         );
         DocModule {
             docs,
-            members: members
-                .into_iter()
-                .map(|(n, m)| (n, DocItem::Member(m)))
-                .collect(),
+            members: members.collect(),
         }
     }
 }
@@ -347,15 +343,14 @@ impl GlobalsStatic {
 pub(crate) fn common_documentation<'a>(
     docstring: &Option<String>,
     members: impl IntoIterator<Item = (&'a str, FrozenValue)>,
-) -> (Option<DocString>, SmallMap<String, DocMember>) {
+) -> (Option<DocString>, impl Iterator<Item = (String, DocItem)>) {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
     let member_docs = members
         .into_iter()
-        .map(|(name, val)| (name.to_owned(), DocMember::from_value(val.to_value())))
-        .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r))
-        .collect();
+        .map(|(name, val)| (name.to_owned(), val.to_value().documentation()))
+        .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r));
 
     (main_docs, member_docs)
 }
