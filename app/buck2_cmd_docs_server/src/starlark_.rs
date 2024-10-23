@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -26,15 +27,27 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use starlark::collections::SmallMap;
-use starlark::docs::Doc;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
-use starlark::docs::Identifier;
-use starlark::docs::Location;
 
 use crate::json;
 use crate::markdown::generate_markdown_files;
+
+pub(crate) struct Location {
+    pub(crate) path: String,
+}
+
+pub(crate) struct Identifier {
+    pub(crate) name: String,
+    pub(crate) location: Option<Location>,
+}
+
+pub(crate) struct Doc {
+    pub(crate) id: Identifier,
+    pub(crate) item: DocItem,
+    pub(crate) custom_attrs: HashMap<String, String>,
+}
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -76,7 +89,7 @@ async fn get_docs_from_module(
         docs.push(Doc {
             id: Identifier {
                 name: import_path_string.clone(),
-                location: Some(starlark::docs::Location {
+                location: Some(Location {
                     path: import_path_string.clone(),
                 }),
             },

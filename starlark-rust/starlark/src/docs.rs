@@ -27,7 +27,6 @@ mod parse;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
 use std::iter;
 
 use allocative::Allocative;
@@ -51,22 +50,6 @@ pub struct DocString {
     /// The contents of a doc string that follow the summary, and a single blank line.
     /// This also has whitespace trimmed from it, and it is dedented.
     pub details: Option<String>,
-}
-
-/// The file a symbol resides in, and if available its location within that file.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Location {
-    /// `path` is a string that can be passed into `load()` statements.
-    pub path: String,
-}
-
-/// The main identifier for a symbol.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Identifier {
-    /// The name of the symbol (e.g. the function name, a name or path for a module, etc).
-    pub name: String,
-    /// Where the symbol is located, or absent if it is a built-in symbol.
-    pub location: Option<Location>,
 }
 
 /// The documentation for a module/namespace.
@@ -315,14 +298,4 @@ impl DocParam {
     pub fn get_doc_summary(&self) -> Option<&str> {
         self.get_doc_string().map(|ds| ds.summary.as_str())
     }
-}
-
-/// The main structure that represents the documentation for a given symbol / module.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Doc {
-    pub id: Identifier,
-    pub item: DocItem,
-    /// Custom key-value pairs that are not interpreted directly by starlark, and can be
-    /// used as arbitrary data for documentation tooling.
-    pub custom_attrs: HashMap<String, String>,
 }

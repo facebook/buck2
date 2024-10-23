@@ -18,8 +18,9 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::console_message;
 use itertools::Itertools;
 use starlark::docs::markdown::render_doc_item;
-use starlark::docs::Doc;
 use starlark::docs::DocItem;
+
+use crate::starlark_::Doc;
 
 static DOCS_DIRECTORY_KEY: &str = "directory";
 static DOCS_BUILTIN_KEY: &str = "builtin";

@@ -33,7 +33,7 @@ struct JsonDoc {
 }
 
 impl JsonDoc {
-    fn from_starlark(doc: starlark::docs::Doc) -> Self {
+    fn from_starlark(doc: crate::starlark_::Doc) -> Self {
         Self {
             id: JsonIdentifier::from_starlark(doc.id),
             item: JsonDocItem::from_starlark(doc.item),
@@ -49,7 +49,7 @@ struct JsonIdentifier {
 }
 
 impl JsonIdentifier {
-    fn from_starlark(id: starlark::docs::Identifier) -> Self {
+    fn from_starlark(id: crate::starlark_::Identifier) -> Self {
         Self {
             name: id.name,
             location: id.location.map(JsonLocation::from_starlark),
@@ -63,7 +63,7 @@ struct JsonLocation {
 }
 
 impl JsonLocation {
-    fn from_starlark(loc: starlark::docs::Location) -> Self {
+    fn from_starlark(loc: crate::starlark_::Location) -> Self {
         Self { path: loc.path }
     }
 }
@@ -294,7 +294,7 @@ impl JsonDocString {
     }
 }
 
-pub(crate) fn to_json(docs: Vec<starlark::docs::Doc>) -> anyhow::Result<String> {
+pub(crate) fn to_json(docs: Vec<crate::starlark_::Doc>) -> anyhow::Result<String> {
     let docs: Vec<_> = docs.into_iter().map(JsonDoc::from_starlark).collect();
     Ok(serde_json::to_string(&docs)?)
 }
