@@ -9,7 +9,7 @@
 
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
-const { itemSort } = require('./sidebars.js');
+const { postProcessItems } = require('./sidebars.js');
 const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/internal');
 
 // With JSDoc @type annotations, IDEs can provide config autocompletion
@@ -39,7 +39,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
             const items = await defaultSidebarItemsGenerator({
               ...args
             });
-            return itemSort(items);
+            return postProcessItems(items);
           },
         },
         theme: {

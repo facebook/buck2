@@ -241,11 +241,11 @@ apiSidebar = [
   },
 ]
 
-function itemSort(items) {
+function postProcessItems(items) {
   // First, handle recursive categories
   const result = items.map((item) => {
     if (item.type === 'category') {
-      return {...item, items: itemSort(item.items)};
+      return {...item, items: postProcessItems(item.items)};
     }
     return item;
   });
@@ -261,7 +261,7 @@ function itemSort(items) {
 }
 
 module.exports = {
-  itemSort: itemSort,
+  postProcessItems: postProcessItems,
   sidebars: {
     mainSidebar: mainSidebar,
     apiSidebar: apiSidebar,
