@@ -196,7 +196,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Change to buck2 directory
-    buck2_dir = Path(__file__).parent.absolute()
+    buck2_dir = Path(__file__).absolute().parent.parent
     os.chdir(str(buck2_dir))
 
     # Clear the docs folder first so that if we change the names of any
