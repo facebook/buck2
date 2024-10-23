@@ -97,7 +97,6 @@ pub enum DocsOutputFormat {
 #[derive(Serialize, Deserialize)]
 pub struct DocsStarlarkRequest {
     pub symbol_patterns: Vec<String>,
-    pub retrieve_builtins: bool,
     pub format: DocsOutputFormat,
     pub markdown_native_subdir: String,
     pub markdown_starlark_subdir: String,

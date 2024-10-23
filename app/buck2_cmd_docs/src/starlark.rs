@@ -58,12 +58,6 @@ pub(crate) struct DocsStarlarkCommand {
     )]
     format: DocsOutputFormatArg,
 
-    #[clap(
-        long = "builtins",
-        help = "get documentation for built in functions, rules, and providers"
-    )]
-    builtins: bool,
-
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 }
@@ -99,7 +93,6 @@ impl StreamingCommand for DocsStarlarkCommand {
                 buck2_cli_proto::new_generic::NewGenericRequest::Docs(DocsRequest::Starlark(
                     DocsStarlarkRequest {
                         symbol_patterns: self.patterns.clone(),
-                        retrieve_builtins: self.builtins,
                         format,
                         markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
                         markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),

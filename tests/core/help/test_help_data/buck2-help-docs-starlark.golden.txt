@@ -25,9 +25,6 @@ Options:
           [default: json]
           [possible values: json, markdown_files]
 
-      --builtins
-          get documentation for built in functions, rules, and providers
-
   -h, --help
           Print help (see a summary with '-h')
 

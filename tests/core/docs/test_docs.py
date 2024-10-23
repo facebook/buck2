@@ -32,20 +32,6 @@ async def test_docs_returns(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_builtin_docs(buck: Buck) -> None:
-    result = await buck.docs("starlark", "--builtins")
-    result.check_returncode()
-    decoded = json.loads(result.stdout)
-    builtins = next(
-        x
-        for x in decoded
-        if x["id"]["name"] == "globals" and x["id"]["location"] is None
-    )
-    assert builtins
-    assert "map" in builtins["item"]["members"]
-
-
-@buck_test()
 async def test_prelude_docs(buck: Buck) -> None:
     result = await buck.docs("starlark", "prelude//:prelude.bzl")
     result.check_returncode()

@@ -33,7 +33,6 @@ use starlark::docs::DocModule;
 use starlark::docs::Identifier;
 use starlark::docs::Location;
 
-use crate::get_builtin_docs;
 use crate::json;
 use crate::markdown::generate_markdown_files;
 
@@ -129,12 +128,6 @@ pub(crate) async fn docs_starlark(
         &request.symbol_patterns,
     )?;
 
-    let mut docs = if request.retrieve_builtins {
-        get_builtin_docs()
-    } else {
-        vec![]
-    };
-
     let dice_ref = &dice_ctx;
     let module_calcs: Vec<_> =
         lookups
@@ -144,8 +137,11 @@ pub(crate) async fn docs_starlark(
             })
             .collect();
 
-    let modules_docs = buck2_util::future::try_join_all(module_calcs).await?;
-    docs.extend(modules_docs.into_iter().flatten());
+    let docs: Vec<_> = buck2_util::future::try_join_all(module_calcs)
+        .await?
+        .into_iter()
+        .flatten()
+        .collect();
 
     let json_output = match &request.format {
         DocsOutputFormat::Json => Some(json::to_json(docs)?),
