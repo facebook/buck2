@@ -43,8 +43,6 @@ def buck_command(args):
 def doc_name(x):
     if x.startswith("native/bxl/"):
         return "api/" + x[7:]  # drop the native
-    elif x.endswith("/rules.bzl"):
-        return "prelude/globals"
     elif x.endswith("/function"):
         # Uninteresting docs we'd rather not have generated
         return None
@@ -74,7 +72,27 @@ def generate_api_docs(buck):
             buck
             + " docs starlark --format=markdown_files --markdown-files-destination-dir="
             + tmp
-            + " --builtins prelude//docs:rules.bzl",
+            + " prelude//docs:rules.bzl",
+            shell=True,
+            check=True,
+        )
+
+        src = read_file(Path(tmp) / "starlark" / "prelude" / "docs" / "rules.bzl.md")
+        dest = "docs/prelude/globals.generated.md"
+
+        prefix = "---\nid: globals\n---\n"
+        prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
+        src = "\n".join(src.splitlines()[1:])
+
+        os.makedirs(Path(dest).parent, exist_ok=True)
+        write_file(dest, prefix + src)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(
+            buck
+            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
+            + tmp
+            + " --builtins",
             shell=True,
             check=True,
         )
@@ -90,9 +108,6 @@ def generate_api_docs(buck):
                 continue
 
             prefix = "---\nid: " + name.rsplit("/")[-1] + "\n---\n"
-            if name == "prelude/globals":
-                prefix += "# Rules\n\nThese rules are available as standard in Buck2.\n"
-                src = "\n".join(src.splitlines()[1:])
 
             dest = "docs/" + name + ".generated.md"
             os.makedirs(Path(dest).parent, exist_ok=True)
