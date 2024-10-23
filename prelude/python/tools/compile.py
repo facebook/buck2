@@ -70,7 +70,6 @@ def main(argv: List[str]) -> None:
     parser.add_argument(
         "--invalidation-mode",
         type=str,
-        # pyre-fixme[16]: `int` has no attribute `name`.
         default=PycInvalidationMode.UNCHECKED_HASH.name,
         choices=[m.name for m in PycInvalidationMode],
     )
