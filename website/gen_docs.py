@@ -55,7 +55,7 @@ def buck_command(args: argparse.Namespace) -> str:
 
 
 def copy_starlark_docs() -> None:
-    base_path = Path("docs/developers/starlark") / "developers" / "starlark"
+    base_path = Path("docs") / "developers" / "starlark"
     setup_gen_dir(base_path)
     # Copy the starlark docs over. docusaurus does not handle upward path traversal very well.
     for x in Path("starlark-rust/docs").glob("*.md"):
