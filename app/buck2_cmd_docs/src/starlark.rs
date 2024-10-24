@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-mod markdown;
-
 use std::path::Path;
 
 use async_trait::async_trait;
@@ -23,11 +21,10 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-
-use crate::starlark::markdown::MarkdownFileOptions;
 
 #[derive(Debug, Clone, Dupe, clap::ValueEnum)]
 #[clap(rename_all = "snake_case")]
@@ -48,8 +45,15 @@ pub(crate) struct DocsStarlarkCommand {
     )]
     patterns: Vec<String>,
 
-    #[clap(flatten)]
-    markdown_file_opts: MarkdownFileOptions,
+    #[structopt(
+        long = "markdown-files-destination-dir",
+        required_if_eq("format", "markdown_files")
+    )]
+    destination_dir: Option<PathArg>,
+    #[structopt(long = "markdown-files-native-subdir", default_value = "native")]
+    native_subdir: String,
+    #[structopt(long = "markdown-files-starlark-subdir", default_value = "starlark")]
+    starlark_subdir: String,
 
     #[clap(
         long = "format",
@@ -79,12 +83,11 @@ impl StreamingCommand for DocsStarlarkCommand {
             DocsOutputFormatArg::Json => DocsOutputFormat::Json,
             DocsOutputFormatArg::MarkdownFiles => {
                 let p = self
-                    .markdown_file_opts
                     .destination_dir
                     .as_ref()
                     .internal_error_anyhow("Args definition requires this")?
                     .resolve(&ctx.working_dir)
-                    .join(Path::new(&self.markdown_file_opts.starlark_subdir));
+                    .join(Path::new(&self.starlark_subdir));
                 DocsOutputFormat::Markdown(p)
             }
         };
