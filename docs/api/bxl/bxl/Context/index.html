@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-api/bxl/bxl/Context" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.5.1">
+<title data-rh="true">Context | Buck2</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://buck2.build/docs/api/bxl/bxl/Context/"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Context | Buck2"><meta data-rh="true" name="description" content="The bxl context that the top level bxl implementation receives as parameter. This context contains all the core bxl functions to query, build, create actions, etc."><meta data-rh="true" property="og:description" content="The bxl context that the top level bxl implementation receives as parameter. This context contains all the core bxl functions to query, build, create actions, etc."><link data-rh="true" rel="icon" href="/img/logo.png"><link data-rh="true" rel="canonical" href="https://buck2.build/docs/api/bxl/bxl/Context/"><link data-rh="true" rel="alternate" href="https://buck2.build/docs/api/bxl/bxl/Context/" hreflang="en"><link data-rh="true" rel="alternate" href="https://buck2.build/docs/api/bxl/bxl/Context/" hreflang="x-default"><link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://www.googletagmanager.com">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-GEGGHE39PE"></script>
+<script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-GEGGHE39PE",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.c6c35c65.css">
+<script src="/assets/js/runtime~main.f8272ddd.js" defer="defer"></script>
+<script src="/assets/js/main.1d2c083c.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<script>!function(){function t(t){document.documentElement.setAttribute("data-theme",t)}var e=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();t(null!==e?e:"light")}(),function(){try{const n=new URLSearchParams(window.location.search).entries();for(var[t,e]of n)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script>
+<div style="display: none; text-align: center; background-color: white; color: black;" id="internaldocs-banner"></div><div id="__docusaurus"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><nav aria-label="Main" class="navbar navbar--fixed-top"><div class="navbar__inner"><div class="navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/"><div class="navbar__logo"><img src="/img/logo.svg" alt="My Site Logo" class="themedComponent_mlkZ themedComponent--light_NVdE"><img src="/img/logo.svg" alt="My Site Logo" class="themedComponent_mlkZ themedComponent--dark_xIcU"></div><b class="navbar__title text--truncate">Buck2</b></a><a class="navbar__item navbar__link" href="/docs/">Docs</a><a aria-current="page" class="navbar__item navbar__link navbar__link--active" href="/docs/api/">API</a><a class="navbar__item navbar__link" href="/docs/prelude/globals/">Rules</a></div><div class="navbar__items navbar__items--right"><a href="https://github.com/facebook/buck2" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link">GitHub<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="Switch between dark and light mode (currently light mode)" aria-label="Switch between dark and light mode (currently light mode)" aria-live="polite"><svg viewBox="0 0 24 24" width="24" height="24" class="lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" class="darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"><div class="navbar__search"><span aria-label="expand searchbar" role="button" class="search-icon" tabindex="0"></span><input id="search_input_react" type="search" placeholder="Loading..." aria-label="Search" class="navbar__search-input search-bar" disabled=""></div></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="main-wrapper mainWrapper_z2l0"><div class="docsWrapper_hBAB"><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type="button"></button><div class="docRoot_UBD9"><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class="sidebarViewport_aRkj"><div class="sidebar_njMd"><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/docs/api/">APIs</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/docs/prelude/globals/">Rules</a></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/docs/api/starlark/">Starlark APIs</a><button aria-label="Expand sidebar category &#x27;Starlark APIs&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/docs/api/build/">Build APIs</a><button aria-label="Expand sidebar category &#x27;Build APIs&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--active" href="/docs/api/bxl/">BXL APIs</a><button aria-label="Collapse sidebar category &#x27;BXL APIs&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul style="display:block;overflow:visible;height:auto" class="menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--active" tabindex="0" href="/docs/api/bxl/bxl/">bxl</a><button aria-label="Collapse sidebar category &#x27;bxl&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul style="display:block;overflow:visible;height:auto" class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/ActionQueryNode/">ActionQueryNode</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/Actions/">Actions</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/AnalysisResult/">AnalysisResult</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/AqueryContext/">AqueryContext</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/AuditContext/">AuditContext</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/BuildResult/">BuildResult</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/CliArgs/">CliArgs</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/ConfiguredTargetNode/">ConfiguredTargetNode</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/ConfiguredTargetSet/">ConfiguredTargetSet</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link menu__link--active" aria-current="page" tabindex="0" href="/docs/api/bxl/bxl/Context/">Context</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/CqueryContext/">CqueryContext</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/EnsuredArtifact/">EnsuredArtifact</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/Error/">Error</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/FileNode/">FileNode</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/Filesystem/">Filesystem</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/Lazy/">Lazy</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/LazyContext/">LazyContext</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/LazyResolvedAttrs/">LazyResolvedAttrs</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/OutputStream/">OutputStream</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/Result/">Result</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/TargetUniverse/">TargetUniverse</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/UnconfiguredTargetNode/">UnconfiguredTargetNode</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/UnconfiguredTargetSet/">UnconfiguredTargetSet</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/UqueryContext/">UqueryContext</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/bxl/cli_args/">cli_args</a></li></ul></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/api/bxl/cli_args/">cli_args</a></li></ul></li></ul></nav><button type="button" title="Collapse sidebar" aria-label="Collapse sidebar" class="button button--secondary button--outline collapseSidebarButton_PEFL"><svg width="20" height="20" aria-hidden="true" class="collapseSidebarButtonIcon_kv0_"><g fill="#7a7a7a"><path d="M9.992 10.023c0 .2-.062.399-.172.547l-4.996 7.492a.982.982 0 01-.828.454H1c-.55 0-1-.453-1-1 0-.2.059-.403.168-.551l4.629-6.942L.168 3.078A.939.939 0 010 2.528c0-.548.45-.997 1-.997h2.996c.352 0 .649.18.828.45L9.82 9.472c.11.148.172.347.172.55zm0 0"></path><path d="M19.98 10.023c0 .2-.058.399-.168.547l-4.996 7.492a.987.987 0 01-.828.454h-3c-.547 0-.996-.453-.996-1 0-.2.059-.403.168-.551l4.625-6.942-4.625-6.945a.939.939 0 01-.168-.55 1 1 0 01.996-.997h3c.348 0 .649.18.828.45l4.996 7.492c.11.148.168.347.168.55zm0 0"></path></g></svg></button></div></div></aside><main class="docMainContainer_TBSr"><div class="container padding-top--md padding-bottom--lg"><div class="row"><div class="col docItemCol_VOVn"><div class="docItemContainer_Djhp"><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Breadcrumbs"><ul class="breadcrumbs" itemscope="" itemtype="https://schema.org/BreadcrumbList"><li class="breadcrumbs__item"><a aria-label="Home page" class="breadcrumbs__link" href="/"><svg viewBox="0 0 24 24" class="breadcrumbHomeIcon_YNFT"><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill="currentColor"></path></svg></a></li><li itemscope="" itemprop="itemListElement" itemtype="https://schema.org/ListItem" class="breadcrumbs__item"><a class="breadcrumbs__link" itemprop="item" href="/docs/api/bxl/"><span itemprop="name">BXL APIs</span></a><meta itemprop="position" content="1"></li><li itemscope="" itemprop="itemListElement" itemtype="https://schema.org/ListItem" class="breadcrumbs__item"><a class="breadcrumbs__link" itemprop="item" href="/docs/api/bxl/bxl/"><span itemprop="name">bxl</span></a><meta itemprop="position" content="2"></li><li itemscope="" itemprop="itemListElement" itemtype="https://schema.org/ListItem" class="breadcrumbs__item breadcrumbs__item--active"><span class="breadcrumbs__link" itemprop="name">Context</span><meta itemprop="position" content="3"></li></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type="button" class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1 id="context">Context</h1></header>
+<p>The bxl context that the top level bxl implementation receives as parameter. This context contains all the core bxl functions to query, build, create actions, etc.</p>
+<h2 id="contextanalysis">Context.analysis</h2>
+<pre><code class="language-python">def Context.analysis(
+    labels: bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | label | providers_label | str | target_label | target_set | target_set | list[bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | label | providers_label | str | target_label],
+    target_platform: None | str | target_label = ...,
+    *,
+    skip_incompatible: bool = True,
+) -&gt; None | bxl.AnalysisResult | dict[label, bxl.AnalysisResult]
+</code></pre>
+<p>Runs analysis on the given <code>labels</code>, accepting an optional <code>target_platform</code> which is the target platform configuration used to resolve configurations of any unconfigured target nodes, and an optional <code>skip_incompatible</code> boolean that indicates whether to skip analysis of nodes that are incompatible with the target platform. The <code>target_platform</code> is either a string that can be parsed as a target label, or a target label.</p>
+<p>The given <code>labels</code> is a providers expression, which is either:
+- a single string that is a <code>target pattern</code>.
+- a single target node or label, configured or unconfigured
+- a single sub target label, configured or unconfigured
+- a list of the two options above.</p>
+<p>This returns either a single <code>analysis_result</code> if the given <code>labels</code> argument is &quot;singular&quot;,
+or a dict keyed by sub target labels of <code>analysis</code> if the given <code>labels</code> argument
+is list-like</p>
+<hr>
+<h2 id="contextaquery">Context.aquery</h2>
+<pre><code class="language-python">def Context.aquery(
+    target_platform: None | str | target_label = ...,
+) -&gt; bxl.AqueryContext
+</code></pre>
+<p>Returns the <code>aqueryctx</code> that holds all the aquery functions. This function takes an optional parameter <code>target_platform</code>, which is the target platform configuration used to configured any unconfigured target nodes.</p>
+<p>The <code>target_platform</code> is a target label, or a string that is a target label.</p>
+<hr>
+<h2 id="contextaudit">Context.audit</h2>
+<pre><code class="language-python">def Context.audit() -&gt; bxl.AuditContext
+</code></pre>
+<p>Returns the <code>audit_ctx</code> that holds all the audit functions.</p>
+<hr>
+<h2 id="contextbuild">Context.build</h2>
+<pre><code class="language-python">def Context.build(
+    labels: bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | label | providers_label | str | target_label | target_set | target_set | list[bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | label | providers_label | str | target_label],
+    target_platform: None | str | target_label = ...,
+    *,
+    materializations: str = &quot;default&quot;,
+) -&gt; dict[label, bxl.BuildResult]
+</code></pre>
+<p>Runs a build on the given <code>labels</code>, accepting an optional <code>target_platform</code> which is the target platform configuration used to resolve configurations. Note that when <code>build()</code> is called, the artifacts are materialized without needing to additionally call <code>ensure()</code> on them.</p>
+<p>The given <code>labels</code> is a providers expression, which is either:
+- a single string that is a <code>target pattern</code>.
+- a single target node or label, configured or unconfigured
+- a single provider label, configured or unconfigured
+- a list of the two options above.</p>
+<p>This returns a dict keyed by sub target labels mapped to <code>bxl_build_result</code>s if the
+given <code>labels</code> argument is list-like.</p>
+<p>This function is not available on the <code>bxl_ctx</code> when called from <code>dynamic_output</code>.</p>
+<hr>
+<h2 id="contextbxl_actions">Context.bxl_actions</h2>
+<pre><code class="language-python">def Context.bxl_actions(
+    *,
+    exec_deps: None | bxl.UnconfiguredTargetNode | providers_label | str | target_label | target_set | list[bxl.UnconfiguredTargetNode | providers_label | str | target_label] = None,
+    toolchains: None | bxl.UnconfiguredTargetNode | providers_label | str | target_label | target_set | list[bxl.UnconfiguredTargetNode | providers_label | str | target_label] = None,
+    target_platform: None | str | target_label = ...,
+    exec_compatible_with: None | bxl.UnconfiguredTargetNode | str | target_label | target_set | list[bxl.UnconfiguredTargetNode | str | target_label] = None,
+) -&gt; bxl.Actions
+</code></pre>
+<p>Returns the bxl actions to create and register actions for this bxl function. This will have the execution platform resolved according to the execution deps and toolchains you pass into this function. You&#x27;ll be able to access the analysis action factory of the correct execution platform, toolchains, and execution deps of the corresponding configuration via this context.</p>
+<p>Actions created by bxl will not be built by default. Instead, they are marked to be built
+by <code>ctx.output.ensure(artifact)</code> on the output module of the <code>bxl_ctx</code>. Only artifacts
+marked by ensure will be built.</p>
+<p>Sample usage:</p>
+<pre><code class="language-python">def _impl_write_action(ctx):
+    bxl_actions = ctx.bxl_actions()
+    output = bxl_actions.actions.write(&quot;my_output&quot;, &quot;my_content&quot;)
+    ensured = ctx.output.ensure(output)
+    ctx.output.print(ensured)
+</code></pre>
+<p>There are several optional named parameters:</p>
+<p><code>exec_deps</code> - These are dependencies you wish to access as executables for creating the action.
+This is usually the same set of targets one would pass to rule&#x27;s <code>attr.exec_dep</code>.
+<code>toolchains</code> - The set of toolchains needed for the actions you intend to create.
+<code>target_platform</code> - The intended target platform for your toolchains
+<code>exec_compatible_with</code> - Explicit list of configuration nodes (like platforms or constraints)
+that these actions are compatible with. This is the &#x27;exec_compatible_with&#x27; attribute of a target.</p>
+<p>If you passed in <code>exec_deps</code> or <code>toolchains</code>, you can access the resolved dependencies using the <code>exec_deps</code>
+and <code>toolchains</code> attributes on the <code>bxl_actions</code>, which both return a <code>dict</code> of unconfigured subtarget labels
+and their configured/resolved <code>dependency</code> objects.</p>
+<p>Note that the keys of <code>exec_deps</code> and <code>toolchains</code> must be unconfigured subtarget labels (<code>providers_label</code>s),
+and not unconfigured target labels. You can use <code>ctx.unconfigured_sub_targets(...)</code> or <code>with_sub_target()</code> on
+<code>target_label</code> to create the label.</p>
+<pre><code class="language-python">def _impl_run_action(ctx):
+   my_exec_dep = ctx.unconfigured_sub_targets(&quot;foo//bar:baz&quot;) # has some provider that you would use in the action
+   bxl_actions = ctx.bxl_actions(exec_deps = [my_exec_dep]) # call once, reuse wherever needed
+   output = bxl_actions.actions.run(
+       [
+           &quot;python3&quot;,
+           bxl_actions.exec_deps[my_exec_dep][RunInfo], # access resolved exec_deps on the `bxl_actions`
+           out.as_output(),
+       ],
+       category = &quot;command&quot;,
+       local_only = True,
+   )
+   ctx.output.ensure(output)
+</code></pre>
+<p>When called from a <code>dynamic_output</code>, <code>bxl_actions()</code> cannot be configured with a different execution
+platform resolution from the parent BXL.</p>
+<hr>
+<h2 id="contextcell_root">Context.cell_root</h2>
+<pre><code class="language-python">def Context.cell_root() -&gt; str
+</code></pre>
+<p>Returns the absolute path to the cell of the repository</p>
+<p>This function is not available on the <code>bxl_ctx</code> when called from <code>dynamic_output</code>.</p>
+<hr>
+<h2 id="contextcli_args">Context.cli_args</h2>
+<pre><code class="language-python">Context.cli_args: struct(..)
+</code></pre>
+<p>A struct of the command line args as declared using the [<code>cli_args</code>] module. These command lines are resolved per the users input on the cli when invoking the bxl script.</p>
+<p>If you wish to pass in a kebab-cased arg, the arg accessed from the BXL context&#x27;s <code>cli_args</code>
+attrbute will always be in snakecase. For example, if you passed in <code>my-arg</code>, accessing it
+within BXL would look like <code>ctx.cli_args.my_arg</code>.</p>
+<p>This attribute is not available on the bxl context within the a dynamic lambda.</p>
+<hr>
+<h2 id="contextconfigured_targets">Context.configured_targets</h2>
+<pre><code class="language-python">def Context.configured_targets(
+    labels: bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | str | target_label | target_set | target_set | list[bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | str | target_label],
+    /,
+    target_platform: None | str | target_label = ...,
+    *,
+    modifiers: None | list[str] = None,
+) -&gt; None | bxl.ConfiguredTargetNode | target_set
+</code></pre>
+<p>Gets the target nodes for the <code>labels</code>, accepting an optional <code>target_platform</code> which is the target platform configuration used to resolve configurations of any unconfigured target nodes. The <code>target_platform</code> is either a string that can be parsed as a target label, or a target label.</p>
+<p>The given <code>labels</code> is a [<code>TargetListExpr</code>], which is either:
+- a single string that is a <code>target pattern</code>.
+- a single target node or label, configured or unconfigured
+- a list of the two options above.</p>
+<p>Note that this function does not accept <code>Label</code> (which is a configured provider label), since this
+is the label of a subtarget. You can get the underlying configured target label on the <code>Label</code>
+using <code>configured_targets()</code> (ex: <code>my_label.configured_target()</code>).</p>
+<p>This returns either a single <code>target_node</code> if the given <code>labels</code>
+is &quot;singular&quot;, a dict keyed by target labels of <code>target_node</code> if the
+given <code>labels</code> is list-like</p>
+<hr>
+<h2 id="contextcquery">Context.cquery</h2>
+<pre><code class="language-python">def Context.cquery(
+    target_platform: None | str | target_label = ...,
+) -&gt; bxl.CqueryContext
+</code></pre>
+<p>Returns the <code>cqueryctx</code> that holds all the cquery functions. This function takes an optional parameter <code>target_platform</code>, which is the target platform configuration used to configured any unconfigured target nodes.</p>
+<p>The <code>target_platform</code> is a target label, or a string that is a target label.</p>
+<hr>
+<h2 id="contextfs">Context.fs</h2>
+<pre><code class="language-python">Context.fs: bxl.Filesystem
+</code></pre>
+<p>Returns the <code>bxl.Filesystem</code> for performing a basic set of filesystem operations within bxl</p>
+<hr>
+<h2 id="contextinstant_event">Context.instant_event</h2>
+<pre><code class="language-python">def Context.instant_event(*, id: str, metadata) -&gt; None
+</code></pre>
+<p>Emits a user-defined instant event, taking in a required string id and a metadata dictionary where the keys are strings, and values are either strings, bools, or ints. The id is user-supplied, and used to identify the instant events in the event logs more easily.</p>
+<p>You may pass in an ensured artifact as a value in the metadata. The resulting output would be the ensured
+artifact&#x27;s relative or absolute path as a string.</p>
+<hr>
+<h2 id="contextlazy">Context.lazy</h2>
+<pre><code class="language-python">Context.lazy: bxl.LazyContext
+</code></pre>
+<p>Lazy/batch/error handling operations.</p>
+<hr>
+<h2 id="contextmodifiers">Context.modifiers</h2>
+<pre><code class="language-python">Context.modifiers: list[str]
+</code></pre>
+<p>The modfiers from the bxl invocation. It is from the <code>--modifier</code> flag.</p>
+<hr>
+<h2 id="contextoutput">Context.output</h2>
+<pre><code class="language-python">Context.output: bxl.OutputStream
+</code></pre>
+<p>Gets the output stream to the console via stdout. Items written to the output stream are considered to be the results of a bxl script, which will be displayed to stdout by buck2 even when the script is cached.</p>
+<p>Prints that are not result of the bxl should be printed via stderr via the stdlib <code>print</code>
+and <code>pprint</code>.</p>
+<p>This function is not available on the <code>bxl_ctx</code> when called from <code>dynamic_output</code>.</p>
+<hr>
+<h2 id="contextresolve">Context.resolve</h2>
+<pre><code class="language-python">def Context.resolve(action_factory: actions, promise: promise)
+</code></pre>
+<p>Awaits a promise and returns an optional value of the promise.</p>
+<p>Sample usage:</p>
+<pre><code class="language-python">load(&quot;//path/to/rules:rules.bzl&quot;, &quot;my_anon_targets_rule&quot;, &quot;my_map_function&quot;)
+
+def _resolve_impl(ctx):
+    actions = ctx.bxl_actions().actions
+    my_attrs = {
+        &quot;false&quot;: False,
+        &quot;int&quot;: 42,
+        &quot;list_string&quot;: [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],
+        &quot;string&quot;: &quot;a-string&quot;,
+        &quot;true&quot;: True,
+    }
+
+    promise = actions.anon_target(my_anon_targets_rule, attrs).promise.map(my_map_function)
+    providers_result = ctx.resolve(actions, promise) # result is `provider_collection` type, which is a collection of `provider`s
+    ctx.output.print(providers_result[0].my_field)
+</code></pre>
+<hr>
+<h2 id="contextroot">Context.root</h2>
+<pre><code class="language-python">def Context.root() -&gt; str
+</code></pre>
+<p>Returns the absolute path to the root of the repository</p>
+<p>This function is not available on the <code>bxl_ctx</code> when called from <code>dynamic_output</code>.</p>
+<hr>
+<h2 id="contexttarget_exists">Context.target_exists</h2>
+<pre><code class="language-python">def Context.target_exists(label: str) -&gt; bool
+</code></pre>
+<p>Checks if a target label exists. Target label must be a string literal, and an exact target.</p>
+<hr>
+<h2 id="contexttarget_platform">Context.target_platform</h2>
+<pre><code class="language-python">Context.target_platform: None | target_label
+</code></pre>
+<p>The target_platform from the bxl invocation. It is from the <code>--target-platforms</code> flag.</p>
+<hr>
+<h2 id="contexttarget_universe">Context.target_universe</h2>
+<pre><code class="language-python">def Context.target_universe(
+    labels: bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | str | target_label | target_set | target_set | list[bxl.ConfiguredTargetNode | bxl.UnconfiguredTargetNode | configured_target_label | str | target_label],
+    target_platform: None | str | target_label = ...,
+    *,
+    keep_going: bool = False,
+) -&gt; bxl.TargetUniverse
+</code></pre>
+<p>Returns the <code>target_universe</code> that can lookup valid configured nodes in the universe.</p>
+<p>The given <code>labels</code> is a target expression, which is either:
+- a single string that is a <code>target pattern</code>.
+- a single target node or label, configured or unconfigured
+- a single subtarget label, configured or unconfigured
+- a list of the two options above.</p>
+<p>Also takes in an optional <code>target_platform</code> param to configure the nodes with, and a <code>keep_going`` flag to skip any loading or configuration errors. Note that </code>keep_going` currently can only be used
+if the input labels is a single target pattern as a string literal.</p>
+<hr>
+<h2 id="contextunconfigured_sub_targets">Context.unconfigured_sub_targets</h2>
+<pre><code class="language-python">def Context.unconfigured_sub_targets(
+    labels: bxl.UnconfiguredTargetNode | providers_label | str | target_label | target_set | list[bxl.UnconfiguredTargetNode | providers_label | str | target_label],
+) -&gt; providers_label | dict[str, providers_label]
+</code></pre>
+<p>Gets the unconfigured subtargets for the given <code>labels</code></p>
+<p>The given <code>labels</code> is a providers expression, which is either:
+- a single string that is a <code>target pattern</code>.
+- a single target node or label, configured or unconfigured
+- a single subtarget label, configured or unconfigured
+- a list of the two options above.</p>
+<p>This returns either a single <code>providers_label</code> if the given <code>labels</code> argument
+is &quot;singular&quot;, or dict of the subtarget string representation to the
+<code>providers_label</code> if the given <code>labels</code> argument is list-like.</p>
+<p>Note that this function does not check that this subtarget exists in the repo.</p>
+<hr>
+<h2 id="contextunconfigured_targets">Context.unconfigured_targets</h2>
+<pre><code class="language-python">def Context.unconfigured_targets(
+    labels: bxl.UnconfiguredTargetNode | str | target_label | target_set | list[bxl.UnconfiguredTargetNode | str | target_label],
+) -&gt; bxl.UnconfiguredTargetNode | target_set
+</code></pre>
+<p>Gets the unconfigured target nodes for the <code>labels</code></p>
+<p>The given <code>labels</code> is either:
+- a single string that is a <code>target pattern</code>.
+- a single unconfigured  target node or label
+- a list of the two options above.</p>
+<p>This returns either a single [<code>StarlarkTargetNode</code>] if the given <code>labels</code>
+is &quot;singular&quot;, a dict keyed by target labels of [<code>StarlarkTargetNode</code>] if the
+given <code>labels</code> is list-like</p>
+<hr>
+<h2 id="contextuquery">Context.uquery</h2>
+<pre><code class="language-python">def Context.uquery() -&gt; bxl.UqueryContext
+</code></pre>
+<p>Returns the <code>uqueryctx</code> that holds all uquery functions.</p></div></article><nav class="pagination-nav docusaurus-mt-lg" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/api/bxl/bxl/ConfiguredTargetSet/"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">ConfiguredTargetSet</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/api/bxl/bxl/CqueryContext/"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">CqueryContext</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#contextanalysis" class="table-of-contents__link toc-highlight">Context.analysis</a></li><li><a href="#contextaquery" class="table-of-contents__link toc-highlight">Context.aquery</a></li><li><a href="#contextaudit" class="table-of-contents__link toc-highlight">Context.audit</a></li><li><a href="#contextbuild" class="table-of-contents__link toc-highlight">Context.build</a></li><li><a href="#contextbxl_actions" class="table-of-contents__link toc-highlight">Context.bxl_actions</a></li><li><a href="#contextcell_root" class="table-of-contents__link toc-highlight">Context.cell_root</a></li><li><a href="#contextcli_args" class="table-of-contents__link toc-highlight">Context.cli_args</a></li><li><a href="#contextconfigured_targets" class="table-of-contents__link toc-highlight">Context.configured_targets</a></li><li><a href="#contextcquery" class="table-of-contents__link toc-highlight">Context.cquery</a></li><li><a href="#contextfs" class="table-of-contents__link toc-highlight">Context.fs</a></li><li><a href="#contextinstant_event" class="table-of-contents__link toc-highlight">Context.instant_event</a></li><li><a href="#contextlazy" class="table-of-contents__link toc-highlight">Context.lazy</a></li><li><a href="#contextmodifiers" class="table-of-contents__link toc-highlight">Context.modifiers</a></li><li><a href="#contextoutput" class="table-of-contents__link toc-highlight">Context.output</a></li><li><a href="#contextresolve" class="table-of-contents__link toc-highlight">Context.resolve</a></li><li><a href="#contextroot" class="table-of-contents__link toc-highlight">Context.root</a></li><li><a href="#contexttarget_exists" class="table-of-contents__link toc-highlight">Context.target_exists</a></li><li><a href="#contexttarget_platform" class="table-of-contents__link toc-highlight">Context.target_platform</a></li><li><a href="#contexttarget_universe" class="table-of-contents__link toc-highlight">Context.target_universe</a></li><li><a href="#contextunconfigured_sub_targets" class="table-of-contents__link toc-highlight">Context.unconfigured_sub_targets</a></li><li><a href="#contextunconfigured_targets" class="table-of-contents__link toc-highlight">Context.unconfigured_targets</a></li><li><a href="#contextuquery" class="table-of-contents__link toc-highlight">Context.uquery</a></li></ul></div></div></div></div></main></div></div></div><footer class="footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="col footer__col"><div class="footer__title">Docs</div><ul class="footer__items clean-list"><li class="footer__item"><a class="footer__link-item" href="/docs/">User guide</a></li></ul></div><div class="col footer__col"><div class="footer__title">Community</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://github.com/facebook/buck2/issues" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub issues<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a></li></ul></div><div class="col footer__col"><div class="footer__title">More</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://github.com/facebook/buck2" target="_blank" rel="noopener noreferrer" class="footer__link-item">Code<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a></li><li class="footer__item"><a href="https://opensource.fb.com/legal/terms" target="_blank" rel="noopener noreferrer" class="footer__link-item">Terms of Use<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a></li><li class="footer__item"><a href="https://opensource.fb.com/legal/privacy" target="_blank" rel="noopener noreferrer" class="footer__link-item">Privacy Policy<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a></li></ul></div></div><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2024 Meta Platforms, Inc. Built with Docusaurus.</div></div></div></footer></div>
+</body>
+</html>
