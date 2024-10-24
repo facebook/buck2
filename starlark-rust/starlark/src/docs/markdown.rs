@@ -26,6 +26,7 @@ use crate::docs::DocMember;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
+use crate::docs::DocType;
 use crate::typing::Ty;
 
 /// What to render from a [`DocString`].
@@ -174,6 +175,15 @@ pub(super) fn render_members<'a>(
     format!("# {name}{summary}\n\n{members_details}")
 }
 
+pub(super) fn render_doc_type(name: &str, prefix: &str, t: &DocType) -> String {
+    render_members(
+        &name,
+        &t.docs,
+        &prefix,
+        t.members.iter().map(|(n, m)| (&**n, m.clone())),
+    )
+}
+
 /// Used by LSP.
 pub fn render_doc_item(name: &str, item: &DocItem) -> String {
     match item {
@@ -187,12 +197,7 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
                     .map(|m| (&**n, m))
             }),
         ),
-        DocItem::Type(o) => render_members(
-            &format!("`{name}` type"),
-            &o.docs,
-            &format!("{name}."),
-            o.members.iter().map(|(n, m)| (&**n, m.clone())),
-        ),
+        DocItem::Type(o) => render_doc_type(&format!("`{name}` type"), &format!("{name}."), o),
         DocItem::Member(DocMember::Function(f)) => render_function(name, f),
         DocItem::Member(DocMember::Property(p)) => render_property(name, p),
     }

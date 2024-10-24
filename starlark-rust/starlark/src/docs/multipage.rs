@@ -17,6 +17,7 @@
 
 use std::collections::HashMap;
 
+use crate::docs::markdown::render_doc_type;
 use crate::docs::markdown::render_members;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
@@ -49,12 +50,7 @@ fn render_markdown_multipage_inner(
                 result.extend(render_markdown_multipage_inner(m, &name, &path));
             }
             DocItem::Type(t) => {
-                let rendered = render_members(
-                    &name,
-                    &t.docs,
-                    &format!("{name}."),
-                    t.members.iter().map(|(n, m)| (&**n, m.clone())),
-                );
+                let rendered = render_doc_type(&name, &format!("{name}."), &t);
                 result.insert(path, rendered);
             }
             DocItem::Member(m) => {
