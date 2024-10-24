@@ -115,7 +115,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DownloadFileHeadRequest => rank!(environment),
         ErrorTag::ServerStderrUnknown => rank!(unspecified),
         ErrorTag::ServerMemoryPressure => rank!(environment),
-        ErrorTag::ServerStderrEmpty => rank!(unspecified),
+        // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
+        ErrorTag::ServerStderrEmpty => rank!(environment),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::Analysis => rank!(input),
         ErrorTag::AnyActionExecution => rank!(unspecified),
