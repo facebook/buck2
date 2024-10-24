@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::path::Path;
-
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsRequest;
@@ -45,15 +43,13 @@ pub(crate) struct DocsStarlarkCommand {
     )]
     patterns: Vec<String>,
 
-    #[structopt(
-        long = "markdown-files-destination-dir",
-        required_if_eq("format", "markdown_files")
+    /// Directory to write markdown files to. Required if format is markdown_files.
+    #[clap(
+        long = "output-dir",
+        required_if_eq("format", "markdown_files"),
+        help = "Directory to write markdown files to. Required if format is markdown_files."
     )]
-    destination_dir: Option<PathArg>,
-    #[structopt(long = "markdown-files-native-subdir", default_value = "native")]
-    native_subdir: String,
-    #[structopt(long = "markdown-files-starlark-subdir", default_value = "starlark")]
-    starlark_subdir: String,
+    output_dir: Option<PathArg>,
 
     #[clap(
         long = "format",
@@ -83,11 +79,10 @@ impl StreamingCommand for DocsStarlarkCommand {
             DocsOutputFormatArg::Json => DocsOutputFormat::Json,
             DocsOutputFormatArg::MarkdownFiles => {
                 let p = self
-                    .destination_dir
+                    .output_dir
                     .as_ref()
-                    .internal_error_anyhow("Args definition requires this")?
-                    .resolve(&ctx.working_dir)
-                    .join(Path::new(&self.starlark_subdir));
+                    .internal_error_anyhow("Checked by clap")?
+                    .resolve(&ctx.working_dir);
                 DocsOutputFormat::Markdown(p)
             }
         };

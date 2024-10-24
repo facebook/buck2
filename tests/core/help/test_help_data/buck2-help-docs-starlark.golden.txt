@@ -10,14 +10,8 @@ Arguments:
           only returns the documentation for the symbol 'baz' in //foo:bar.bzl
 
 Options:
-      --markdown-files-destination-dir <DESTINATION_DIR>
-
-
-      --markdown-files-native-subdir <NATIVE_SUBDIR>
-          [default: native]
-
-      --markdown-files-starlark-subdir <STARLARK_SUBDIR>
-          [default: starlark]
+      --output-dir <OUTPUT_DIR>
+          Directory to write markdown files to. Required if format is markdown_files.
 
       --format <FORMAT>
           how to format the returned documentation

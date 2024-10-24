@@ -72,14 +72,14 @@ def generate_api_docs(buck: str) -> None:
         print("Running Buck...")
         subprocess.run(
             buck
-            + " docs starlark --format=markdown_files --markdown-files-destination-dir="
+            + " docs starlark --format=markdown_files --output-dir="
             + tmp
             + " prelude//docs:rules.bzl",
             shell=True,
             check=True,
         )
 
-        src = read_file(Path(tmp) / "starlark" / "prelude" / "docs" / "rules.bzl.md")
+        src = read_file(Path(tmp) / "prelude" / "docs" / "rules.bzl.md")
         dest = base_dir / "globals.generated.md"
 
         prefix = "---\nid: globals\n---\n"
