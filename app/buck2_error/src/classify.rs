@@ -97,6 +97,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),
         ErrorTag::Visibility => rank!(input),
+        ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanTimeout => rank!(tier0),
         ErrorTag::WatchmanConnectionError => rank!(tier0),
         ErrorTag::WatchmanConnectionLost => rank!(tier0),

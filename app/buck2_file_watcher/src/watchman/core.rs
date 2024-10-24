@@ -33,7 +33,13 @@ fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
         watchman_client::Error::ConnectionError { .. } => ErrorTag::WatchmanConnectionError,
         watchman_client::Error::ConnectionLost(_) => ErrorTag::WatchmanConnectionLost,
         watchman_client::Error::ConnectionDiscovery { .. } => ErrorTag::WatchmanConnectionDiscovery,
-        watchman_client::Error::WatchmanServerError { .. } => ErrorTag::WatchmanServerError,
+        watchman_client::Error::WatchmanServerError { message, .. } => {
+            if message.contains("RootNotConnectedError") {
+                ErrorTag::WatchmanRootNotConnectedError
+            } else {
+                ErrorTag::WatchmanServerError
+            }
+        }
         watchman_client::Error::WatchmanResponseError { .. } => ErrorTag::WatchmanResponseError,
         watchman_client::Error::MissingField { .. } => ErrorTag::WatchmanMissingField,
         watchman_client::Error::Deserialize { .. } => ErrorTag::WatchmanDeserialize,
