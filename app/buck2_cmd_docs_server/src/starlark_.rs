@@ -23,8 +23,8 @@ use buck2_interpreter::parse_import::parse_bzl_path_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use dice::DiceComputations;
 use dice::DiceTransaction;
+use futures::FutureExt;
 use starlark::collections::SmallMap;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -66,10 +66,7 @@ fn parse_import_paths(
         .collect()
 }
 
-async fn get_docs_from_module(
-    ctx: &mut DiceComputations<'_>,
-    import_path: &ImportPath,
-) -> anyhow::Result<Vec<Doc>> {
+fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
     let import_path_string = format!(
@@ -77,9 +74,6 @@ async fn get_docs_from_module(
         import_path.path().parent().unwrap(),
         import_path.path().path().file_name().unwrap()
     );
-    let module = ctx.get_loaded_module_from_import_path(import_path).await?;
-    let frozen_module = module.env();
-    let module_docs = frozen_module.documentation();
 
     let mut docs = vec![];
 
@@ -114,7 +108,7 @@ async fn get_docs_from_module(
         })
     }));
 
-    Ok(docs)
+    docs
 }
 
 pub(crate) async fn docs_starlark(
@@ -137,24 +131,33 @@ pub(crate) async fn docs_starlark(
         &request.symbol_patterns,
     )?;
 
-    let dice_ref = &dice_ctx;
-    let module_calcs: Vec<_> =
-        lookups
-            .iter()
-            .map(|import_path| async move {
-                get_docs_from_module(&mut dice_ref.clone(), import_path).await
-            })
-            .collect();
-
-    let docs: Vec<_> = buck2_util::future::try_join_all(module_calcs)
-        .await?
-        .into_iter()
-        .flatten()
-        .collect();
+    let docs: Vec<_> = dice_ctx
+        .try_compute_join(lookups, |ctx, import_path| {
+            async move {
+                let doc = ctx
+                    .get_loaded_module_from_import_path(&import_path)
+                    .await?
+                    .env()
+                    .documentation();
+                anyhow::Ok((import_path, doc))
+            }
+            .boxed()
+        })
+        .await?;
 
     let json_output = match &request.format {
-        DocsOutputFormat::Json => Some(json::to_json(docs)?),
+        DocsOutputFormat::Json => {
+            let docs = docs
+                .into_iter()
+                .flat_map(|(import_path, doc)| to_docs_list(&import_path, doc))
+                .collect();
+            Some(json::to_json(docs)?)
+        }
         DocsOutputFormat::Markdown(path) => {
+            let docs = docs
+                .into_iter()
+                .flat_map(|(import_path, doc)| to_docs_list(&import_path, doc))
+                .collect();
             let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
             let native_subdir = Path::new(&request.markdown_native_subdir);
             generate_markdown_files(&path, starlark_subdir, native_subdir, docs)?;
