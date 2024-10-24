@@ -31,6 +31,41 @@ def _create_all_dep_manifests(
         dep_manifests: typing.Any) -> typing.Any:
     return source_manifests + [dep for dep in dep_manifests.traverse() if dep]
 
+def _create_batched_type_check(
+        ctx: AnalysisContext,
+        executable: RunInfo,
+        typeshed_manifest: Artifact,
+        py_version: str | None,
+        source_manifests: list[Artifact],
+        dep_manifests: typing.Any,
+        hidden: typing.Any) -> Artifact:
+    # Create input configs
+    input_config = {
+        "dependencies": dep_manifests,
+        "py_version": py_version or DEFAULT_PY_VERSION,
+        "sources": source_manifests,
+        "system_platform": get_default_sys_platform(),
+        "typeshed": typeshed_manifest,
+    }
+
+    input_file = ctx.actions.write_json(
+        "type_check_config.json",
+        input_config,
+        with_inputs = True,
+    )
+    output_file = ctx.actions.declare_output("type_check_result.json")
+    cmd = cmd_args(
+        executable,
+        input_file,
+        "--output",
+        output_file.as_output(),
+        hidden = hidden,
+    )
+
+    ctx.actions.run(cmd, category = "type_check")
+
+    return output_file
+
 def _create_sharded_type_check(
         ctx: AnalysisContext,
         executable: RunInfo,
@@ -84,41 +119,6 @@ def _create_sharded_type_check(
         commands[shard_name] = [DefaultInfo(default_output = output_file)]
 
     return commands
-
-def _create_batched_type_check(
-        ctx: AnalysisContext,
-        executable: RunInfo,
-        typeshed_manifest: Artifact,
-        py_version: str | None,
-        source_manifests: list[Artifact],
-        dep_manifests: typing.Any,
-        hidden: typing.Any) -> Artifact:
-    # Create input configs
-    input_config = {
-        "dependencies": dep_manifests,
-        "py_version": py_version or DEFAULT_PY_VERSION,
-        "sources": source_manifests,
-        "system_platform": get_default_sys_platform(),
-        "typeshed": typeshed_manifest,
-    }
-
-    input_file = ctx.actions.write_json(
-        "type_check_config.json",
-        input_config,
-        with_inputs = True,
-    )
-    output_file = ctx.actions.declare_output("type_check_result.json")
-    cmd = cmd_args(
-        executable,
-        input_file,
-        "--output",
-        output_file.as_output(),
-        hidden = hidden,
-    )
-
-    ctx.actions.run(cmd, category = "type_check")
-
-    return output_file
 
 def create_per_target_type_check(
         ctx: AnalysisContext,
