@@ -33,17 +33,9 @@ use starlark::docs::DocModule;
 use crate::json;
 use crate::markdown::generate_markdown_files;
 
-pub(crate) struct Location {
-    pub(crate) path: String,
-}
-
-pub(crate) struct Identifier {
-    pub(crate) name: String,
-    pub(crate) location: Option<Location>,
-}
-
 pub(crate) struct Doc {
-    pub(crate) id: Identifier,
+    pub(crate) name: String,
+    pub(crate) location: String,
     pub(crate) item: DocItem,
 }
 
@@ -79,12 +71,8 @@ fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
 
     if let Some(module_doc) = module_docs.docs {
         docs.push(Doc {
-            id: Identifier {
-                name: import_path_string.clone(),
-                location: Some(Location {
-                    path: import_path_string.clone(),
-                }),
-            },
+            name: import_path_string.clone(),
+            location: import_path_string.clone(),
             item: DocItem::Module(DocModule {
                 docs: Some(module_doc),
                 members: SmallMap::new(),
@@ -94,12 +82,8 @@ fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
     docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
         Some(Doc {
             // TODO(nmj): Map this back into the codemap to get a line/column
-            id: Identifier {
-                name: symbol,
-                location: Some(Location {
-                    path: import_path_string.clone(),
-                }),
-            },
+            name: symbol,
+            location: import_path_string.clone(),
             // FIXME(JakobDegen): Loses information
             item: match d.try_as_member_with_collapsed_object().ok()? {
                 DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
@@ -159,8 +143,7 @@ pub(crate) async fn docs_starlark(
                 .flat_map(|(import_path, doc)| to_docs_list(&import_path, doc))
                 .collect();
             let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
-            let native_subdir = Path::new(&request.markdown_native_subdir);
-            generate_markdown_files(&path, starlark_subdir, native_subdir, docs)?;
+            generate_markdown_files(&path, starlark_subdir, docs)?;
             None
         }
     };

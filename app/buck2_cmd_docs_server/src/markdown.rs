@@ -46,20 +46,8 @@ impl MarkdownOutput {
     }
 
     /// Get the output path for the markdown for a given [`Doc`], whether it's in a starlark file, or a native symbol.
-    fn markdown_path_for_doc(
-        starlark_subdir: &Path,
-        native_subdir: &Path,
-        doc: &Doc,
-    ) -> anyhow::Result<PathBuf> {
-        let path = match &doc.id.location {
-            Some(loc) => starlark_subdir.join(Self::path_from_location(&loc.path)?),
-            None => match &doc.item {
-                // Functions all go in one file.
-                // Objects get their on file (e.g. each provider, Artifact, etc)
-                DocItem::Member(_) => native_subdir.join("native"),
-                DocItem::Module(_) | DocItem::Type(_) => native_subdir.join(&doc.id.name),
-            },
-        };
+    fn markdown_path_for_doc(starlark_subdir: &Path, doc: &Doc) -> anyhow::Result<PathBuf> {
+        let path = starlark_subdir.join(Self::path_from_location(&doc.location)?);
         let path = path.with_extension(match path.extension() {
             None => "md".to_owned(),
             Some(e) => format!("{}.md", e.to_str().expect("path if not UTF-8")),
@@ -72,29 +60,27 @@ impl MarkdownOutput {
 pub(crate) fn generate_markdown_files(
     destination_dir: &AbsPath,
     starlark_subdir: &Path,
-    native_subdir: &Path,
     docs: Vec<Doc>,
 ) -> anyhow::Result<()> {
     let mut outputs = HashMap::new();
 
     fn item_ordering(l: &Doc, r: &Doc) -> Ordering {
         match (&l.item, &r.item) {
-            (DocItem::Module(_), DocItem::Module(_)) => l.id.name.cmp(&r.id.name),
+            (DocItem::Module(_), DocItem::Module(_)) => l.name.cmp(&r.name),
             (DocItem::Module(_), _) => Ordering::Less,
             (_, DocItem::Module(_)) => Ordering::Greater,
-            _ => l.id.name.cmp(&r.id.name),
+            _ => l.name.cmp(&r.name),
         }
     }
 
     for doc in docs.into_iter().sorted_by(item_ordering) {
-        let markdown_path =
-            MarkdownOutput::markdown_path_for_doc(starlark_subdir, native_subdir, &doc)?;
+        let markdown_path = MarkdownOutput::markdown_path_for_doc(starlark_subdir, &doc)?;
         let markdown_file = outputs
             .entry(markdown_path)
             .or_insert_with(MarkdownOutput::default);
         markdown_file
             .sections
-            .push(render_doc_item(&doc.id.name, &doc.item));
+            .push(render_doc_item(&doc.name, &doc.item));
     }
 
     for (relative_path, markdown_file) in outputs.iter() {

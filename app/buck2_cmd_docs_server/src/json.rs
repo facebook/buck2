@@ -32,29 +32,10 @@ struct JsonDoc {
     custom_attrs: HashMap<String, String>,
 }
 
-impl JsonDoc {
-    fn from_starlark(doc: crate::starlark_::Doc) -> Self {
-        Self {
-            id: JsonIdentifier::from_starlark(doc.id),
-            item: JsonDocItem::from_starlark(doc.item),
-            custom_attrs: HashMap::new(),
-        }
-    }
-}
-
 #[derive(Serialize)]
 struct JsonIdentifier {
     name: String,
     location: Option<JsonLocation>,
-}
-
-impl JsonIdentifier {
-    fn from_starlark(id: crate::starlark_::Identifier) -> Self {
-        Self {
-            name: id.name,
-            location: id.location.map(JsonLocation::from_starlark),
-        }
-    }
 }
 
 #[derive(Serialize)]
@@ -62,9 +43,16 @@ struct JsonLocation {
     path: String,
 }
 
-impl JsonLocation {
-    fn from_starlark(loc: crate::starlark_::Location) -> Self {
-        Self { path: loc.path }
+impl JsonDoc {
+    fn from_starlark(doc: crate::starlark_::Doc) -> Self {
+        Self {
+            id: JsonIdentifier {
+                name: doc.name,
+                location: Some(JsonLocation { path: doc.location }),
+            },
+            item: JsonDocItem::from_starlark(doc.item),
+            custom_attrs: HashMap::new(),
+        }
     }
 }
 
