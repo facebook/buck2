@@ -9,9 +9,13 @@
 
 use std::collections::HashMap;
 
+use buck2_core::bzl::ImportPath;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark::collections::SmallMap;
+use starlark::docs::DocItem;
+use starlark::docs::DocMember;
+use starlark::docs::DocModule;
 use starlark::typing::Ty;
 
 fn serialize_ty<S: serde::Serializer>(ty: &Ty, s: S) -> Result<S::Ok, S::Error> {
@@ -44,7 +48,7 @@ struct JsonLocation {
 }
 
 impl JsonDoc {
-    fn from_starlark(doc: crate::starlark_::Doc) -> Self {
+    fn from_starlark(doc: Doc) -> Self {
         Self {
             id: JsonIdentifier {
                 name: doc.name,
@@ -282,7 +286,54 @@ impl JsonDocString {
     }
 }
 
-pub(crate) fn to_json(docs: Vec<crate::starlark_::Doc>) -> anyhow::Result<String> {
-    let docs: Vec<_> = docs.into_iter().map(JsonDoc::from_starlark).collect();
+// Note(JakobDegen): The particular format of the output is not really by design, but mostly a
+// historical accident.
+pub(crate) fn to_json(docs: Vec<(ImportPath, DocModule)>) -> anyhow::Result<String> {
+    let docs: Vec<_> = docs
+        .into_iter()
+        .flat_map(|(p, d)| to_docs_list(&p, d))
+        .map(JsonDoc::from_starlark)
+        .collect();
     Ok(serde_json::to_string(&docs)?)
+}
+
+struct Doc {
+    name: String,
+    location: String,
+    item: DocItem,
+}
+
+fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
+    // Do this so that we don't get the '@' in the display if we're printing targets from a
+    // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
+    let import_path_string = format!(
+        "{}:{}",
+        import_path.path().parent().unwrap(),
+        import_path.path().path().file_name().unwrap()
+    );
+
+    let mut docs = vec![];
+
+    if let Some(module_doc) = module_docs.docs {
+        docs.push(Doc {
+            name: import_path_string.clone(),
+            location: import_path_string.clone(),
+            item: DocItem::Module(DocModule {
+                docs: Some(module_doc),
+                members: SmallMap::new(),
+            }),
+        });
+    }
+    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
+        Some(Doc {
+            name: symbol,
+            location: import_path_string.clone(),
+            item: match d.try_as_member_with_collapsed_object().ok()? {
+                DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
+                DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
+            },
+        })
+    }));
+
+    docs
 }

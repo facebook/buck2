@@ -25,19 +25,9 @@ use buck2_interpreter::parse_import::RelativeImports;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceTransaction;
 use futures::FutureExt;
-use starlark::collections::SmallMap;
-use starlark::docs::DocItem;
-use starlark::docs::DocMember;
-use starlark::docs::DocModule;
 
 use crate::json;
 use crate::markdown::generate_markdown_files;
-
-pub(crate) struct Doc {
-    pub(crate) name: String,
-    pub(crate) location: String,
-    pub(crate) item: DocItem,
-}
 
 fn parse_import_paths(
     cell_resolver: &CellAliasResolver,
@@ -56,43 +46,6 @@ fn parse_import_paths(
             parse_bzl_path_with_config(cell_resolver, symbol_pattern, &parse_options, current_cell)
         })
         .collect()
-}
-
-fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
-    // Do this so that we don't get the '@' in the display if we're printing targets from a
-    // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
-    let import_path_string = format!(
-        "{}:{}",
-        import_path.path().parent().unwrap(),
-        import_path.path().path().file_name().unwrap()
-    );
-
-    let mut docs = vec![];
-
-    if let Some(module_doc) = module_docs.docs {
-        docs.push(Doc {
-            name: import_path_string.clone(),
-            location: import_path_string.clone(),
-            item: DocItem::Module(DocModule {
-                docs: Some(module_doc),
-                members: SmallMap::new(),
-            }),
-        });
-    }
-    docs.extend(module_docs.members.into_iter().filter_map(|(symbol, d)| {
-        Some(Doc {
-            // TODO(nmj): Map this back into the codemap to get a line/column
-            name: symbol,
-            location: import_path_string.clone(),
-            // FIXME(JakobDegen): Loses information
-            item: match d.try_as_member_with_collapsed_object().ok()? {
-                DocMember::Function(f) => DocItem::Member(DocMember::Function(f)),
-                DocMember::Property(p) => DocItem::Member(DocMember::Property(p)),
-            },
-        })
-    }));
-
-    docs
 }
 
 pub(crate) async fn docs_starlark(
@@ -130,18 +83,8 @@ pub(crate) async fn docs_starlark(
         .await?;
 
     let json_output = match &request.format {
-        DocsOutputFormat::Json => {
-            let docs = docs
-                .into_iter()
-                .flat_map(|(import_path, doc)| to_docs_list(&import_path, doc))
-                .collect();
-            Some(json::to_json(docs)?)
-        }
+        DocsOutputFormat::Json => Some(json::to_json(docs)?),
         DocsOutputFormat::Markdown(path) => {
-            let docs = docs
-                .into_iter()
-                .flat_map(|(import_path, doc)| to_docs_list(&import_path, doc))
-                .collect();
             let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
             generate_markdown_files(&path, starlark_subdir, docs)?;
             None
