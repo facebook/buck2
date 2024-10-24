@@ -9,7 +9,6 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
