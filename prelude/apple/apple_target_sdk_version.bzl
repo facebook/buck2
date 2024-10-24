@@ -43,8 +43,9 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "17.3": "14.3",
     "17.4": "14.4",
     "17.5": "14.5",
-    "18.0": "15.0",
+    "18.0": "15.0",  # Sequoia
     "18.1": "15.1",
+    "18.2": "15.2",
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
