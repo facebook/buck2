@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use buck2_core::bzl::ImportPath;
 use buck2_core::fs::fs_util;
@@ -29,8 +28,7 @@ fn add_md(mut p: AbsPathBuf) -> AbsPathBuf {
 }
 
 pub(crate) fn generate_markdown_files(
-    destination_dir: &AbsPath,
-    starlark_subdir: &Path,
+    output_dir: &AbsPath,
     docs: Vec<(ImportPath, DocModule)>,
 ) -> anyhow::Result<()> {
     let mut outputs = HashMap::new();
@@ -38,8 +36,7 @@ pub(crate) fn generate_markdown_files(
     for (path, docs) in docs {
         let rendered = render_doc_item(&path.to_string(), &DocItem::Module(docs));
         let cell = FileName::new(path.cell().as_str())?;
-        let path = destination_dir
-            .join(starlark_subdir)
+        let path = output_dir
             .join(cell)
             .join(path.path().path().as_forward_relative_path().as_path());
         outputs.insert(add_md(path), rendered);

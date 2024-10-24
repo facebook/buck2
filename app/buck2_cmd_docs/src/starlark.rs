@@ -9,6 +9,8 @@
 
 mod markdown;
 
+use std::path::Path;
+
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsRequest;
@@ -81,7 +83,8 @@ impl StreamingCommand for DocsStarlarkCommand {
                     .destination_dir
                     .as_ref()
                     .internal_error_anyhow("Args definition requires this")?
-                    .resolve(&ctx.working_dir);
+                    .resolve(&ctx.working_dir)
+                    .join(Path::new(&self.markdown_file_opts.starlark_subdir));
                 DocsOutputFormat::Markdown(p)
             }
         };
@@ -94,8 +97,6 @@ impl StreamingCommand for DocsStarlarkCommand {
                     DocsStarlarkRequest {
                         symbol_patterns: self.patterns.clone(),
                         format,
-                        markdown_starlark_subdir: self.markdown_file_opts.starlark_subdir.clone(),
-                        markdown_native_subdir: self.markdown_file_opts.native_subdir.clone(),
                     },
                 )),
                 ctx.stdin()

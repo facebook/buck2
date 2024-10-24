@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashSet;
-use std::path::Path;
 
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsResponse;
@@ -85,8 +84,7 @@ pub(crate) async fn docs_starlark(
     let json_output = match &request.format {
         DocsOutputFormat::Json => Some(json::to_json(docs)?),
         DocsOutputFormat::Markdown(path) => {
-            let starlark_subdir = Path::new(&request.markdown_starlark_subdir);
-            generate_markdown_files(&path, starlark_subdir, docs)?;
+            generate_markdown_files(&path, docs)?;
             None
         }
     };
