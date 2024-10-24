@@ -72,7 +72,7 @@ impl CoercedAttrExr for CoercedAttr {
             }
 
             match *selector {
-                StarlarkSelectorGen::Inner(v) => {
+                StarlarkSelectorGen::Primary(v) => {
                     if let Some(dict) = DictRef::from_value(v) {
                         let has_default = dict.get_str("DEFAULT").is_some();
                         let mut entries =
@@ -110,7 +110,7 @@ impl CoercedAttrExr for CoercedAttr {
                         Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
                     }
                 }
-                StarlarkSelectorGen::Added(l, r) => {
+                StarlarkSelectorGen::Sum(l, r) => {
                     if !attr.supports_concat() {
                         return Err(anyhow::anyhow!(SelectError::ConcatNotSupported(
                             attr.to_string(),

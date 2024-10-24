@@ -43,19 +43,21 @@ use starlark::values::ValueOf;
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
 #[repr(C)]
 pub enum StarlarkSelectorGen<ValueType> {
-    Inner(ValueType),
-    Added(ValueType, ValueType),
+    /// Simplest form, backed by dictionary representation
+    /// wrapped into `select` function call.
+    Primary(ValueType),
+    Sum(ValueType, ValueType),
 }
 
 impl<V: Display> Display for StarlarkSelectorGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StarlarkSelectorGen::Inner(v) => {
+            StarlarkSelectorGen::Primary(v) => {
                 f.write_str("select(")?;
                 v.fmt(f)?;
                 f.write_str(")")
             }
-            StarlarkSelectorGen::Added(l, r) => {
+            StarlarkSelectorGen::Sum(l, r) => {
                 l.fmt(f)?;
                 f.write_str(" + ")?;
                 r.fmt(f)
@@ -70,11 +72,11 @@ starlark_complex_value!(pub StarlarkSelector);
 
 impl<'v> StarlarkSelector<'v> {
     pub fn new(d: Value<'v>) -> Self {
-        StarlarkSelector::Inner(d)
+        StarlarkSelector::Primary(d)
     }
 
-    fn added(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> Value<'v> {
-        heap.alloc(StarlarkSelector::Added(left, right))
+    fn sum(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> Value<'v> {
+        heap.alloc(StarlarkSelector::Sum(left, right))
     }
 
     pub fn from_concat<I>(iter: I, heap: &'v Heap) -> Value<'v>
@@ -93,7 +95,7 @@ impl<'v> StarlarkSelector<'v> {
                 (None, None) => NoneOr::None,
                 (None, Some(v)) => {
                     if let Some(next_v) = values.next() {
-                        let head = StarlarkSelector::Added(v, next_v);
+                        let head = StarlarkSelector::Sum(v, next_v);
                         values_to_selector(Some(head), values, heap)
                     } else {
                         NoneOr::Other(StarlarkSelector::new(v))
@@ -101,7 +103,7 @@ impl<'v> StarlarkSelector<'v> {
                 }
                 (Some(s), None) => NoneOr::Other(s),
                 (Some(s), Some(v)) => {
-                    let head = Some(StarlarkSelector::Added(heap.alloc(s), v));
+                    let head = Some(StarlarkSelector::Sum(heap.alloc(s), v));
                     values_to_selector(head, values, heap)
                 }
             }
@@ -125,7 +127,7 @@ impl<'v> StarlarkSelector<'v> {
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                StarlarkSelectorGen::Inner(selector) => {
+                StarlarkSelectorGen::Primary(selector) => {
                     let selector = DictRef::from_value(selector).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
@@ -135,8 +137,8 @@ impl<'v> StarlarkSelector<'v> {
                         .heap()
                         .alloc(StarlarkSelector::new(eval.heap().alloc(Dict::new(mapped)))))
                 }
-                StarlarkSelectorGen::Added(left, right) => {
-                    Ok(eval.heap().alloc(StarlarkSelectorGen::Added(
+                StarlarkSelectorGen::Sum(left, right) => {
+                    Ok(eval.heap().alloc(StarlarkSelectorGen::Sum(
                         Self::select_map(left, eval, func)?,
                         Self::select_map(right, eval, func)?,
                     )))
@@ -168,7 +170,7 @@ impl<'v> StarlarkSelector<'v> {
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                StarlarkSelectorGen::Inner(selector) => {
+                StarlarkSelectorGen::Primary(selector) => {
                     let selector = DictRef::from_value(selector).unwrap();
                     for v in selector.values() {
                         let result = invoke(eval, func, v)?;
@@ -178,7 +180,7 @@ impl<'v> StarlarkSelector<'v> {
                     }
                     Ok(false)
                 }
-                StarlarkSelectorGen::Added(left, right) => {
+                StarlarkSelectorGen::Sum(left, right) => {
                     Ok(Self::select_test(left, eval, func)?
                         || Self::select_test(right, eval, func)?)
                 }
@@ -200,8 +202,8 @@ impl<'v> StarlarkSelectorBase<'v> for StarlarkSelector<'v> {
 unsafe impl<'v> Trace<'v> for StarlarkSelector<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         match self {
-            Self::Inner(a) => tracer.trace(a),
-            Self::Added(a, b) => {
+            Self::Primary(a) => tracer.trace(a),
+            Self::Sum(a, b) => {
                 tracer.trace(a);
                 tracer.trace(b);
             }
@@ -213,9 +215,9 @@ impl<'v> Freeze for StarlarkSelector<'v> {
     type Frozen = FrozenStarlarkSelector;
     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
         Ok(match self {
-            StarlarkSelector::Inner(v) => FrozenStarlarkSelector::Inner(v.freeze(freezer)?),
-            StarlarkSelector::Added(l, r) => {
-                FrozenStarlarkSelector::Added(l.freeze(freezer)?, r.freeze(freezer)?)
+            StarlarkSelector::Primary(v) => FrozenStarlarkSelector::Primary(v.freeze(freezer)?),
+            StarlarkSelector::Sum(l, r) => {
+                FrozenStarlarkSelector::Sum(l.freeze(freezer)?, r.freeze(freezer)?)
             }
         })
     }
@@ -236,21 +238,19 @@ where
 
     fn radd(&self, left: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let right = heap.alloc(match self {
-            StarlarkSelectorGen::Inner(x) => StarlarkSelectorGen::Inner(x.to_value()),
-            StarlarkSelectorGen::Added(x, y) => {
-                StarlarkSelectorGen::Added(x.to_value(), y.to_value())
-            }
+            StarlarkSelectorGen::Primary(x) => StarlarkSelectorGen::Primary(x.to_value()),
+            StarlarkSelectorGen::Sum(x, y) => StarlarkSelectorGen::Sum(x.to_value(), y.to_value()),
         });
-        Some(Ok(StarlarkSelector::added(left, right, heap)))
+        Some(Ok(StarlarkSelector::sum(left, right, heap)))
     }
 
     fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
         let this = match self {
-            Self::Inner(ref v) => heap.alloc(StarlarkSelector::new(v.to_value())),
-            Self::Added(ref l, ref r) => StarlarkSelector::added(l.to_value(), r.to_value(), heap),
+            Self::Primary(ref v) => heap.alloc(StarlarkSelector::new(v.to_value())),
+            Self::Sum(ref l, ref r) => StarlarkSelector::sum(l.to_value(), r.to_value(), heap),
         };
 
-        Some(Ok(StarlarkSelector::added(this, other, heap)))
+        Some(Ok(StarlarkSelector::sum(this, other, heap)))
     }
 }
 
