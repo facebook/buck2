@@ -14,6 +14,7 @@ load(
 load(":python.bzl", "PythonLibraryManifestsTSet")
 
 DEFAULT_PY_VERSION = "3.10"
+DEFAULT_SHARDING_ENABLED = True
 
 # Best-effort guess on what the host sys.platform is
 def get_default_sys_platform() -> str | None:
@@ -38,7 +39,8 @@ def _create_batched_type_check(
         py_version: str | None,
         source_manifests: list[Artifact],
         dep_manifests: typing.Any,
-        hidden: typing.Any) -> Artifact:
+        hidden: typing.Any,
+        is_sharded_fallback: bool) -> Artifact:
     # Create input configs
     input_config = {
         "dependencies": dep_manifests,
@@ -48,12 +50,14 @@ def _create_batched_type_check(
         "typeshed": typeshed_manifest,
     }
 
+    file_suffix = "_sharding_fallback" if is_sharded_fallback else ""
+
     input_file = ctx.actions.write_json(
-        "type_check_config.json",
+        "type_check_config{}.json".format(file_suffix),
         input_config,
         with_inputs = True,
     )
-    output_file = ctx.actions.declare_output("type_check_result.json")
+    output_file = ctx.actions.declare_output("type_check_result{}.json".format(file_suffix))
     cmd = cmd_args(
         executable,
         input_file,
@@ -62,7 +66,8 @@ def _create_batched_type_check(
         hidden = hidden,
     )
 
-    ctx.actions.run(cmd, category = "type_check")
+    identifier = "_sharding_fallback" if is_sharded_fallback else "batched"
+    ctx.actions.run(cmd, category = "type_check", identifier = identifier)
 
     return output_file
 
@@ -74,7 +79,22 @@ def _create_sharded_type_check(
         source_manifests: list[Artifact],
         source_artifacts: list[typing.Any],
         dep_manifests: typing.Any,
-        hidden: typing.Any) -> dict[str, list[DefaultInfo]]:
+        hidden: typing.Any,
+        sharding_enabled: bool | None) -> dict[str, list[DefaultInfo]]:
+    if sharding_enabled == None or not DEFAULT_SHARDING_ENABLED:
+        return {
+            "shard_default": [DefaultInfo(default_output = _create_batched_type_check(
+                ctx,
+                executable,
+                typeshed_manifest,
+                py_version,
+                source_manifests,
+                dep_manifests,
+                hidden,
+                True,
+            ))],
+        }
+
     commands = {}
     output_files = []
     all_dep_manifests = _create_all_dep_manifests(source_manifests, dep_manifests)
@@ -127,7 +147,8 @@ def create_per_target_type_check(
         deps: list[PythonLibraryInfo],
         typeshed: ManifestInfo | None,
         py_version: str | None,
-        typing_enabled: bool) -> DefaultInfo:
+        typing_enabled: bool,
+        sharding_enabled: bool | None = None) -> DefaultInfo:
     if not typing_enabled:
         # Use empty dict to signal that no type checking was performed.
         output_file = ctx.actions.write_json("type_check_result.json", {})
@@ -176,6 +197,7 @@ def create_per_target_type_check(
             source_manifests,
             dep_manifests,
             hidden,
+            False,
         ),
         sub_targets = _create_sharded_type_check(
             ctx,
@@ -186,5 +208,6 @@ def create_per_target_type_check(
             source_artifacts,
             dep_manifests,
             hidden,
+            sharding_enabled,
         ),
     )
