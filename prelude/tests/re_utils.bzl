@@ -57,7 +57,18 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
 
     re_props = _get_re_arg(ctx).re_props
     if re_props == None:
-        return None, {}
+        # If no RE args are set and an RE config is specified
+        if bool(read_config("tpx", "force_re_props")):
+            re_props = {
+                "capabilities": {
+                    "platform": read_config("remoteexecution", "platform"),
+                    "subplatform": read_config("remoteexecution", "subplatform"),
+                },
+                "use_case": read_config("remoteexecution", "use_case"),
+            }
+
+        else:
+            return None, {}
 
     re_props_copy = dict(re_props)
     capabilities = re_props_copy.pop("capabilities")
