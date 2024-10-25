@@ -340,7 +340,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                                 this.global_cfg_options_override.clone(),
                             )
                             .await?,
-                        eval,
+                        eval.heap(),
                     )
                 }
                 .boxed_local()

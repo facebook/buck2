@@ -495,7 +495,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                             .get()?
                             .eval_uquery(dice, &this.ctx.working_dir()?, query, &query_args)
                             .await?,
-                        eval,
+                        eval.heap(),
                     )
                 }
                 .boxed_local()

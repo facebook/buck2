@@ -530,7 +530,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             )
                             .await?
                             .0,
-                        eval,
+                        eval.heap(),
                     )
                 }
                 .boxed_local()
