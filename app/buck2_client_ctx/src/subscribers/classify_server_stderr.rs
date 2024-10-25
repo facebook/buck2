@@ -42,6 +42,10 @@ pub(crate) fn classify_server_stderr(
     let error = if let Some(trace) = extract_trace(stderr) {
         if tag != ErrorTag::ServerSigterm {
             error.context_for_key(&format!("crash({})", trace.trace_key()))
+        } else if let Some(signal_line) = trace.signal_line {
+            // Keep this because the PID that (might have) sent it could be useful.
+            // *** Signal 15 (SIGTERM) (0x2b08100000ab5) received by PID 1762297 (pthread TID 0x7f6650339640) (linux TID 1762297) (maybe from PID 2741, UID 176257) (code: 0), stack trace: ***
+            error.context(signal_line)
         } else {
             error
         }
@@ -122,7 +126,7 @@ const UNINTERESTING_SEGMENTS: [&str; 7] = [
 ];
 
 struct StackTraceInfo {
-    _signal_line: Option<String>,
+    signal_line: Option<String>,
     stack_trace_lines: Vec<String>,
 }
 
@@ -182,7 +186,7 @@ fn extract_trace(stderr: &str) -> Option<StackTraceInfo> {
     }
 
     stack_trace_type.map(|_| StackTraceInfo {
-        _signal_line: signal_line,
+        signal_line,
         stack_trace_lines,
     })
 }
