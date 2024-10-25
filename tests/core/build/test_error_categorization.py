@@ -26,7 +26,7 @@ ENVIRONMENT_ERROR = 3
 ACTION_COMMAND_FAILURE = 2
 
 STARLARK_FAIL_TAG = 1
-ANY_STARKLARK_EVALUATION_TAG = 2001
+ANY_STARLARK_EVALUATION_TAG = 2001
 
 
 @buck_test()
@@ -140,7 +140,7 @@ async def test_buck2_fail(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_starlark_error_categorization(buck: Buck) -> None:
+async def test_starlark_fail_error_categorization(buck: Buck) -> None:
     await expect_failure(
         buck.build("//starlark_fail:foobar"),
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
@@ -157,6 +157,54 @@ async def test_starlark_error_categorization(buck: Buck) -> None:
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Fail")
     assert errors[0]["tier"] == USER_ERROR
+
+
+@buck_test()
+async def test_starlark_parse_error_categorization(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("//starlark_parse_error:starlark_parse_error"),
+        stderr_regex=".*Parse error:.*",
+    )
+    errors_events = await filter_events(
+        buck,
+        "Result",
+        "result",
+        "build_response",
+        "errors",
+    )
+
+    assert len(errors_events) == 1
+    errors = errors_events[0]
+
+    assert len(errors) == 1
+    assert errors[0]["source_location"].endswith("StarlarkError::Parser")
+    assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
+    # TODO(minglunli): Tier is wrong
+    assert errors[0]["tier"] == None
+
+
+@buck_test()
+async def test_starlark_scope_error_categorization(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("//starlark_scope_error:value_err"),
+        stderr_regex="evaluating build file: .* not found",
+    )
+    errors_events = await filter_events(
+        buck,
+        "Result",
+        "result",
+        "build_response",
+        "errors",
+    )
+
+    assert len(errors_events) == 1
+    errors = errors_events[0]
+
+    assert len(errors) == 1
+    assert errors[0]["source_location"].endswith("StarlarkError::Scope")
+    assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
+    # TODO(minglunli): Tier is wrong
+    assert errors[0]["tier"] == None
 
 
 @buck_test()
