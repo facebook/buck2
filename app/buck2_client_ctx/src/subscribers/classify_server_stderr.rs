@@ -39,18 +39,17 @@ pub(crate) fn classify_server_stderr(
         ErrorTag::ServerStderrUnknown
     };
 
-    let trace_key = if tag != ErrorTag::ServerSigterm {
-        find_trace_key(stderr)
-    } else {
-        None
-    };
-
-    if let Some(trace_key) = trace_key {
-        error.context_for_key(&format!("crash({})", trace_key))
+    let error = if let Some(trace) = extract_trace(stderr) {
+        if tag != ErrorTag::ServerSigterm {
+            error.context_for_key(&format!("crash({})", trace.trace_key()))
+        } else {
+            error
+        }
     } else {
         error
-    }
-    .tag([tag])
+    };
+
+    error.tag([tag])
 }
 
 //    0: rust_begin_unwind
@@ -122,11 +121,50 @@ const UNINTERESTING_SEGMENTS: [&str; 7] = [
     "_sigtramp",
 ];
 
-fn extract_sanitized_trace(stderr: &str) -> Vec<String> {
+struct StackTraceInfo {
+    _signal_line: Option<String>,
+    stack_trace_lines: Vec<String>,
+}
+
+impl StackTraceInfo {
+    fn sanitized_trace(self) -> Vec<String> {
+        // Exclude some lines to reduce churn in trace keys.
+        // Changes higher up the stack are less likely to be related to the crash.
+        if self.stack_trace_lines.len() > 5 {
+            // 'uninteresting' lines shouldn't cause churn but exclude them if we are shortening the stack
+            // to get enough unique data.
+
+            self.stack_trace_lines
+                .into_iter()
+                .filter(|line| !UNINTERESTING_SEGMENTS.iter().any(|s| line.contains(s)))
+                .take(5)
+                .collect()
+        } else {
+            self.stack_trace_lines.clone()
+        }
+    }
+
+    fn trace_key(self) -> String {
+        // blake3 just because the default rust hasher isn't intended to be stable.
+        let mut hasher = blake3::Hasher::new();
+        for s in self.sanitized_trace() {
+            hasher.update(s.as_bytes());
+        }
+        let mut digest = hasher.finalize().to_string();
+        // Truncate to keep category_key relatively short and readable.
+        // This should be enough to avoid collisions since there should be very few unique crashes.
+        digest.truncate(6);
+        digest
+    }
+}
+
+fn extract_trace(stderr: &str) -> Option<StackTraceInfo> {
     let mut stack_trace_lines: Vec<String> = vec![];
+    let mut signal_line = None;
     let mut stack_trace_type = None;
     for line in stderr.split('\n') {
         if line.starts_with("*** Signal") {
+            signal_line = Some(line.to_owned());
             stack_trace_type = Some(TraceType::Folly);
         } else if line.starts_with("stack backtrace:") {
             stack_trace_type = Some(TraceType::Rust);
@@ -142,34 +180,11 @@ fn extract_sanitized_trace(stderr: &str) -> Vec<String> {
             }
         }
     }
-    // Exclude some lines to reduce churn in trace keys.
-    // Changes higher up the stack are less likely to be related to the crash.
-    if stack_trace_lines.len() > 5 {
-        // 'uninteresting' lines shouldn't cause churn but exclude them if we are shortening the stack
-        // to get enough unique data.
-        stack_trace_lines.retain(|line| !UNINTERESTING_SEGMENTS.iter().any(|s| line.contains(s)));
-        stack_trace_lines.into_iter().take(5).collect()
-    } else {
-        stack_trace_lines
-    }
-}
 
-fn find_trace_key(stderr: &str) -> Option<String> {
-    let trace_lines = extract_sanitized_trace(stderr);
-    if trace_lines.is_empty() {
-        None
-    } else {
-        // blake3 just because the default rust hasher isn't intended to be stable.
-        let mut hasher = blake3::Hasher::new();
-        for s in trace_lines {
-            hasher.update(s.as_bytes());
-        }
-        let mut digest = hasher.finalize().to_string();
-        // Truncate to keep category_key relatively short and readable.
-        // This should be enough to avoid collisions since there should be very few unique crashes.
-        digest.truncate(6);
-        Some(digest)
-    }
+    stack_trace_type.map(|_| StackTraceInfo {
+        _signal_line: signal_line,
+        stack_trace_lines,
+    })
 }
 
 #[cfg(test)]
@@ -185,10 +200,10 @@ mod tests {
     }
 
     #[test]
-    fn test_generated_stack_trace_hash() {
+    fn test_generated_stack_trace() {
         let backtrace = std::backtrace::Backtrace::force_capture();
         let stderr = format!("stack backtrace:\n{}", backtrace);
-        assert!(find_trace_key(&stderr).is_some());
+        assert!(extract_trace(&stderr).is_some());
     }
 
     #[test]
@@ -223,7 +238,12 @@ stack backtrace:
         <futures_util::future::future::map::Map<futures_util::future::try_future::into_future::IntoFuture<core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = core::result::Result<http::response::Response<http_body::combinators::box_body::UnsyncBoxBody<bytes::bytes::Bytes, tonic::status::Status>>, core::convert::Infallible>> + core::marker::Send>>>, futures_util::fns::MapOkFn<<tonic::transport::service::router::Routes>::add_service<buck2_test_proto::test_executor_server::TestExecutorServer<buck2_test_api::grpc::executor::Service<buck2_test_runner::executor::Buck2TestExecutor>>>::{closure#0}>> as core::future::future::Future>::poll
         <futures_util::future::future::map::Map<futures_util::future::try_future::into_future::IntoFuture<tower::util::map_response::MapResponseFuture<core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = core::result::Result<http::response::Response<http_body::combinators::box_body::UnsyncBoxBody<bytes::bytes::Bytes, tonic::status::Status>>, core::convert::Infallible>> + core::marker::Send>>, <tonic::transport::service::router::Routes>::add_service<buck2_forkserver_proto::forkserver_server::ForkserverServer<buck2_forkserver::unix::service::UnixForkserverService>>::{closure#0}>>, futures_util::fns::MapOkFn<<http::response::Response<http_body::combinators::box_body::UnsyncBoxBody<bytes::bytes::Bytes, axum_core::error::Error>> as axum_core::response::into_response::IntoResponse>::into_response>> as core::future::future::Future>::poll
         ");
-        assert_eq!(extract_sanitized_trace(panic_trace), panic_sanitized_trace);
+        assert_eq!(
+            extract_trace(panic_trace)
+                .expect("no trace found")
+                .sanitized_trace(),
+            panic_sanitized_trace
+        );
     }
 
     #[test]
@@ -265,7 +285,9 @@ stack backtrace:
         <buck2_cli_proto::daemon_api_server::DaemonApiServer<buck2_server::daemon::server::BuckdServer> as tower_service::Service<http::request::Request<hyper::body::body::Body>>>::call::{closure#20}
         ");
         assert_eq!(
-            extract_sanitized_trace(linux_folly_trace),
+            extract_trace(linux_folly_trace)
+                .expect("no trace found")
+                .sanitized_trace(),
             linux_sanitized_trace
         );
 
@@ -294,7 +316,9 @@ stack backtrace:
         ");
 
         assert_eq!(
-            extract_sanitized_trace(mac_folly_trace),
+            extract_trace(mac_folly_trace)
+                .expect("no trace found")
+                .sanitized_trace(),
             mac_sanitized_trace
         );
     }
