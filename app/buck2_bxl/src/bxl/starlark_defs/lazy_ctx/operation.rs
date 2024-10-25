@@ -48,7 +48,7 @@ use crate::bxl::starlark_defs::target_list_expr::SingleOrCompatibleConfiguredTar
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
 #[derive(Derivative, Debug, Allocative)]
-pub(crate) enum LazyOperation {
+enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
     ConfiguredTargetNode {
         arg: OwnedConfiguredTargetNodeArg,
@@ -61,7 +61,7 @@ pub(crate) enum LazyOperation {
 }
 
 #[derive(Allocative)]
-pub(crate) enum LazyResult {
+enum LazyResult {
     Analysis(StarlarkAnalysisResult),
     ConfiguredTargetNode(SingleOrCompatibleConfiguredTargets),
     UnconfiguredTargetNode(Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>),
@@ -164,7 +164,7 @@ impl LazyOperation {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct StarlarkLazy {
-    pub(crate) lazy: Arc<LazyOperation>,
+    lazy: Arc<LazyOperation>,
 }
 
 starlark_simple_value!(StarlarkLazy);

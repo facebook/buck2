@@ -14,6 +14,7 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use operation::StarlarkLazy;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -30,13 +31,14 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::lazy_operation::StarlarkLazy;
 use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersLabelArg;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
+
+pub(crate) mod operation;
 
 /// Context for lazy/batch/error handling operations.
 /// Available as `ctx.lazy`, has type `bxl.LazyContext`.
