@@ -19,3 +19,9 @@ buck2_e2e_test(
     srcs = ["test_git.py"],
     data_dir = "test_git_data",
 )
+
+buck2_e2e_test(
+    name = "test_in_subdir",
+    srcs = ["test_in_subdir.py"],
+    data_dir = "test_in_subdir_data",
+)
