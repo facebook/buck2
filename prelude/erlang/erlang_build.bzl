@@ -74,12 +74,12 @@ def _prepare_build_environment(
     input_mapping = {}
 
     # for duplication detection
-    apps = {}
+    apps = set()
 
     for name, dep in dependencies.items():
         if name in apps:
             fail("duplicated application name found %s" % (name,))
-        apps[name] = True
+        apps.add(name)
 
         if ErlangAppInfo in dep:
             dep_info = dep[ErlangAppInfo]

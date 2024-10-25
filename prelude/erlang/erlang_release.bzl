@@ -155,13 +155,13 @@ def _build_boot_script(
     reverse_start_order = list(root_set.traverse())
     reverse_start_order.pop(0)
 
-    seen = {}
+    seen = set()
     release_applications = []
     root_apps_spec = {}
     for spec in reverse_start_order[::-1]:
         if spec.name in seen:
             continue
-        seen[spec.name] = True
+        seen.add(spec.name)
 
         app_spec = {
             "name": spec.name,
