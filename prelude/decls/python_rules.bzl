@@ -17,6 +17,9 @@ def _typing_arg():
         "py_version_for_type_checking": attrs.option(attrs.string(), default = None, doc = """
     This option will force the type checker to perform checking under a specific version of Python interpreter.
 """),
+        "shard_typing": attrs.option(attrs.bool(), default = None, doc = """
+    Determines if sharding should be enabled on a given target.
+"""),
         # NOTE(grievejia): Setting default to True here may have non-trivial impact on build memory
         # usage (see S395002)
         "typing": attrs.bool(default = False, doc = """

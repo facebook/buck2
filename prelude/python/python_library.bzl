@@ -378,6 +378,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 typeshed = python_toolchain.typeshed_stubs,
                 py_version = ctx.attrs.py_version_for_type_checking,
                 typing_enabled = ctx.attrs.typing,
+                sharding_enabled = ctx.attrs.shard_typing,
             ),
         ]
 
