@@ -202,6 +202,7 @@ pub(crate) struct InvocationRecorder<'a> {
     active_networks_kinds: HashSet<i32>,
     target_cfg: Option<TargetCfg>,
     version_control_revision: Option<buck2_data::VersionControlRevision>,
+    concurrent_commands: bool,
 }
 
 struct ErrorsReport {
@@ -348,6 +349,7 @@ impl<'a> InvocationRecorder<'a> {
             active_networks_kinds: HashSet::new(),
             target_cfg: None,
             version_control_revision: None,
+            concurrent_commands: false,
         }
     }
 
@@ -587,6 +589,7 @@ impl<'a> InvocationRecorder<'a> {
                 self.last_snapshot.as_ref(),
                 &self.system_info,
                 self.re_avg_download_speed.avg_per_second(),
+                self.concurrent_commands,
             ) {
                 self.tags.push("slow_network_speed".to_owned());
             }
@@ -1175,6 +1178,8 @@ impl<'a> InvocationRecorder<'a> {
         concurrent_commands.trace_ids.iter().for_each(|c| {
             self.concurrent_command_ids.insert(c.clone());
         });
+        self.concurrent_commands =
+            self.concurrent_commands || concurrent_commands.trace_ids.len() > 1;
         Ok(())
     }
 

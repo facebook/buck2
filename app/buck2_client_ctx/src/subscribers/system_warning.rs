@@ -135,7 +135,14 @@ pub(crate) fn check_download_speed(
     last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
     avg_re_download_speed: Option<u64>,
+    concurrent_commands: bool,
 ) -> bool {
+    // RE download/upload stats is collected per daemon.
+    // If there are concurrent commands we get stats for both.
+    // It's incorrect to display the warning in this case.
+    if concurrent_commands {
+        return false;
+    }
     inner_check_download_speed(
         first_snapshot,
         last_snapshot,

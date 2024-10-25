@@ -40,6 +40,7 @@ pub struct EventObserver<E> {
     re_avg_download_speed: NetworkSpeedAverage,
     pub cold_build_detector: Option<ColdBuildDetector>,
     dice_state: DiceState,
+    pub concurrent_commands: bool,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -67,6 +68,7 @@ where
             re_avg_download_speed: NetworkSpeedAverage::default(),
             cold_build_detector,
             dice_state: DiceState::new(),
+            concurrent_commands: false,
             extra: E::new(),
         }
     }
@@ -154,6 +156,10 @@ where
                         }
                         DiceStateSnapshot(dice) => {
                             self.dice_state.update(dice);
+                        }
+                        ConcurrentCommands(concurrent_commands) => {
+                            self.concurrent_commands =
+                                self.concurrent_commands || concurrent_commands.trace_ids.len() > 1;
                         }
                         _ => {}
                     }

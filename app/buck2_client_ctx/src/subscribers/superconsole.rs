@@ -218,6 +218,7 @@ impl<'s> Component for BuckRootComponent<'s> {
         );
         let system_info = self.state.simple_console.observer.system_info();
         let action_stats = self.state.simple_console.observer.action_stats();
+        let concurrent_commands = self.state.simple_console.observer.concurrent_commands;
         {
             draw.draw(
                 &SystemWarningComponent {
@@ -228,6 +229,7 @@ impl<'s> Component for BuckRootComponent<'s> {
                     action_stats,
                     first_build_since_rebase,
                     estimated_completion_percent,
+                    concurrent_commands,
                 },
                 mode,
             )?;

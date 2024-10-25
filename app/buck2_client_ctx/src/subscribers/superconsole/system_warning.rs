@@ -35,6 +35,7 @@ pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) action_stats: &'a ActionStats,
     pub(crate) estimated_completion_percent: u8,
     pub(crate) first_build_since_rebase: bool,
+    pub(crate) concurrent_commands: bool,
 }
 
 fn warning_styled(text: &str) -> anyhow::Result<Line> {
@@ -68,6 +69,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
             self.last_snapshot,
             self.system_info,
             self.avg_re_download_speed,
+            self.concurrent_commands,
         ) {
             lines.push(warning_styled(&slow_download_speed_msg(
                 self.avg_re_download_speed,

@@ -665,6 +665,7 @@ where
                         last_snapshot,
                         sysinfo,
                         avg_re_download_speed,
+                        self.observer().concurrent_commands,
                     ) {
                         echo_system_warning_exponential(
                             SystemWarningTypes::SlowDownloadSpeed,
