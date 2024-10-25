@@ -80,6 +80,13 @@ fn from_starlark_impl(
     };
 
     let category = match e.kind() {
+        starlark_syntax::ErrorKind::Fail(_)
+        | starlark_syntax::ErrorKind::StackOverflow(_)
+        | starlark_syntax::ErrorKind::Value(_)
+        | starlark_syntax::ErrorKind::Function(_)
+        | starlark_syntax::ErrorKind::Scope(_)
+        | starlark_syntax::ErrorKind::Parser(_) => Some(crate::Tier::Input),
+        starlark_syntax::ErrorKind::Internal(_) => Some(crate::Tier::Tier0),
         starlark_syntax::ErrorKind::Native(_) | starlark_syntax::ErrorKind::Other(_)
             if error_handling == NativeErrorHandling::InputError =>
         {

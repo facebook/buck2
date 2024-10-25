@@ -179,8 +179,7 @@ async def test_starlark_parse_error_categorization(buck: Buck) -> None:
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Parser")
     assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
-    # TODO(minglunli): Tier is wrong
-    assert errors[0]["tier"] == None
+    assert errors[0]["tier"] == USER_ERROR
 
 
 @buck_test()
@@ -203,8 +202,7 @@ async def test_starlark_scope_error_categorization(buck: Buck) -> None:
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Scope")
     assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
-    # TODO(minglunli): Tier is wrong
-    assert errors[0]["tier"] == None
+    assert errors[0]["tier"] == USER_ERROR
 
 
 @buck_test()
