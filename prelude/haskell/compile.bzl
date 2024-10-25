@@ -140,6 +140,7 @@ def compile_args(
 
     compile_args = cmd_args()
     compile_args.add("-no-link", "-i")
+    compile_args.add("-package-env=-")
 
     if enable_profiling:
         compile_args.add("-prof")
