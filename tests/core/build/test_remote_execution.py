@@ -70,8 +70,8 @@ async def test_re_use_case_override(buck: Buck) -> None:
         "--remote-only",
         "--no-remote-cache",
         "--config",
-        "buck2_re_client.override_use_case=buck2-testing",
+        "buck2_re_client.override_use_case=buck2-user",
     )
     use_cases = await filter_re_use_case(buck)
     assert len(use_cases) == 4
-    assert all(use_case == "buck2-testing" for use_case in use_cases)
+    assert all(use_case == "buck2-user" for use_case in use_cases)
