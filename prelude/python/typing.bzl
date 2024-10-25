@@ -81,7 +81,7 @@ def _create_sharded_type_check(
         dep_manifests: typing.Any,
         hidden: typing.Any,
         sharding_enabled: bool | None) -> dict[str, list[DefaultInfo]]:
-    if sharding_enabled == None or not DEFAULT_SHARDING_ENABLED:
+    if sharding_enabled == False or not DEFAULT_SHARDING_ENABLED:
         return {
             "shard_default": [DefaultInfo(default_output = _create_batched_type_check(
                 ctx,
