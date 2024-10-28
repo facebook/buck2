@@ -57,10 +57,7 @@ fn escape_name(name: &str) -> String {
 }
 
 fn render_property(name: &str, property: &DocProperty) -> String {
-    let prototype = render_code_block(&format!(
-        "{name}: {}",
-        TypeRenderer::Type(&property.typ).render_markdown()
-    ));
+    let prototype = render_code_block(&format!("{name}: {}", &property.typ));
     let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
     let details = render_doc_string(DSOpts::Details, &property.docs);
@@ -109,13 +106,7 @@ fn render_function_parameters<'a>(
 }
 
 fn render_function(name: &str, function: &DocFunction, include_header: bool) -> String {
-    let prototype = render_code_block(
-        &(TypeRenderer::Function {
-            function_name: name,
-            f: function,
-        }
-        .render_markdown()),
-    );
+    let prototype = render_code_block(&render_function_prototype(name, function));
     let header = if include_header {
         format!("## {}\n\n{prototype}", escape_name(name))
     } else {
@@ -231,51 +222,27 @@ const MAX_ARGS_BEFORE_MULTILINE: usize = 3;
 /// If the prototype ends up longer than this length, we'll split it anyway
 const MAX_LENGTH_BEFORE_MULTILINE: usize = 80;
 
-/// Render a "type". This is either a [`Type`] object, or details about a function to
-/// produce a function prototype.
-enum TypeRenderer<'a> {
-    /// A general "type".
-    Type(&'a Ty),
-    /// A function, with some extra formatting options.
-    Function {
-        /// The function name in the prototype as well.
-        function_name: &'a str,
-        f: &'a DocFunction,
-    },
+fn raw_type_prefix(prefix: &str, t: &Ty) -> String {
+    if t.is_any() {
+        String::new()
+    } else {
+        format!("{prefix}{}", t)
+    }
 }
 
-impl<'a> TypeRenderer<'a> {
-    fn render_markdown(&self) -> String {
-        fn raw_type(t: &Ty) -> String {
-            t.to_string()
-        }
+fn render_function_prototype(function_name: &str, f: &DocFunction) -> String {
+    let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
+    let prefix = format!("def {}", function_name);
+    let one_line_params = f.params.render_code(None);
+    let single_line_result = format!("{}({}){}", prefix, one_line_params, ret_type);
 
-        fn raw_type_prefix(prefix: &str, t: &Ty) -> String {
-            if t.is_any() {
-                String::new()
-            } else {
-                format!("{prefix}{}", raw_type(t))
-            }
-        }
-
-        match self {
-            TypeRenderer::Type(t) => raw_type(t),
-            TypeRenderer::Function { function_name, f } => {
-                let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
-                let prefix = format!("def {}", function_name);
-                let one_line_params = f.params.render_code(None);
-                let single_line_result = format!("{}({}){}", prefix, one_line_params, ret_type);
-
-                if f.params.doc_params().count() > MAX_ARGS_BEFORE_MULTILINE
-                    || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
-                {
-                    let chunked_params = f.params.render_code(Some("    "));
-                    format!("{}(\n{}){}", prefix, chunked_params, ret_type)
-                } else {
-                    single_line_result
-                }
-            }
-        }
+    if f.params.doc_params().count() > MAX_ARGS_BEFORE_MULTILINE
+        || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
+    {
+        let chunked_params = f.params.render_code(Some("    "));
+        format!("{}(\n{}){}", prefix, chunked_params, ret_type)
+    } else {
+        single_line_result
     }
 }
 
