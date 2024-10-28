@@ -58,11 +58,12 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     re_props = _get_re_arg(ctx).re_props
     if re_props == None:
         # If no RE args are set and an RE config is specified
-        if bool(read_config("tpx", "force_re_props")):
+        if read_config("tpx", "force_mac_re_props") == "True":
+            # In the case we want to force tests on mac RE
             re_props = {
                 "capabilities": {
-                    "platform": read_config("remoteexecution", "platform"),
-                    "subplatform": read_config("remoteexecution", "subplatform"),
+                    "platform": "mac",
+                    "subplatform": "any",
                 },
                 "use_case": read_config("remoteexecution", "use_case"),
             }
