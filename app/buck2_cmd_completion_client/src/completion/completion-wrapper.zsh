@@ -93,7 +93,6 @@ __buck2_fix()
     if __buck2_takes_target "$(__buck2_subcommand)"; then
         if [[ $cur =~ ^- ]]; then
             _buck2 "$@"
-            return
         else
             _buck2 "$@"
             if ! __buck2_completions_queued; then
@@ -103,6 +102,8 @@ __buck2_fix()
     else
         _buck2 "$@"
     fi
+
+    compstate[insert]="automenu-unambiguous"
 }
 
 compdef __buck2_fix buck buck2
