@@ -266,6 +266,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
     let this_outer_param = this_outer_param.into_iter();
 
     let struct_def: syn::ItemStruct = syn::parse_quote! {
+        #[allow(non_camel_case_types)]
         struct #struct_name {
             #( #struct_fields, )*
         }
