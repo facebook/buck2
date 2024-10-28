@@ -773,7 +773,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// * `relative_to` - make all artifact paths relative to a given location.
     /// * `replace_regex` - replaces arguments with a regular expression.
     ///
-    /// ## `ignore_artifacts`
+    /// ### `ignore_artifacts`
     ///
     /// `ignore_artifacts=True` makes `cmd_args` to have no declared dependencies.
     /// Allows you to reference the path of an artifact _without_ introducing dependencies on it.
@@ -793,7 +793,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// you will either error out due to missing dependencies (if running actions remotely)
     /// or have untracked dependencies that will fail to rebuild when it should.
     ///
-    /// ## `hidden`
+    /// ### `hidden`
     ///
     /// Things to add to the command line which do not show up but are added as dependencies.
     /// The values can be anything normally permissible to pass to `add`.
@@ -801,7 +801,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// Typically used if the command you are running implicitly depends on files that are not
     /// passed on the command line, e.g. headers in the case of a C compilation.
     ///
-    /// ## `absolute_prefix` and `absolute_suffix`
+    /// ### `absolute_prefix` and `absolute_suffix`
     ///
     /// Adds a prefix to the start or end of every artifact.
     ///
@@ -816,14 +816,14 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// cmd_args(script, absolute_prefix = "call", absolute_suffix = ")")
     /// ```
     ///
-    /// # `parent
-    /// `
+    /// ### `parent`
+    ///
     /// For all the artifacts use their parent directory.
     ///
     /// Typically used when the file name is passed one way, and the directory another,
     /// e.g. `cmd_args(artifact, format="-L{}", parent=1)`.
     ///
-    /// # `relative_to=dir` or `relative_to=(dir, parent)`
+    /// ### `relative_to=dir` or `relative_to=(dir, parent)`
     ///
     /// Make all artifact paths relative to a given location. Typically used when the command
     /// you are running changes directory.
@@ -840,7 +840,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
     /// ]
     /// ```
     ///
-    /// # `replace_regex`
+    /// ### `replace_regex`
     ///
     /// Replaces all parts matching pattern regular expression (or regular expressions)
     /// in each argument with replacement strings.
