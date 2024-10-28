@@ -19,7 +19,7 @@ use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
 
@@ -108,7 +108,7 @@ impl StatusCommand {
 }
 
 fn timestamp_to_string(seconds: u64, nanos: u32) -> anyhow::Result<String> {
-    Ok(NaiveDateTime::from_timestamp_opt(seconds as i64, nanos)
+    Ok(DateTime::from_timestamp(seconds as i64, nanos)
         .context(StatusError::NativeDateTime)?
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string())

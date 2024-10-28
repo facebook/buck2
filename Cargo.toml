@@ -139,7 +139,7 @@ bumpalo = "3.11.1"
 byteorder = "1.4.3"
 bytes = "1.0"
 bytesize = "1.1.0"
-chrono = "=0.4.34"
+chrono = "0.4.38"
 clap = { version = "4.5.6", features = ["derive", "env", "string"] }
 clap_complete = "4.5.5"
 common-path = "1.0.0"
@@ -167,7 +167,7 @@ env_logger = "0.9.0"
 equivalent = "1.0.0"
 erased-serde = "0.3.20"
 faccess = "0.2.3"
-fancy-regex = "0.10.0"
+fancy-regex = "0.14.0"
 flate2 = "1.0.22"
 fs4 = { version = "0.6", features = ["sync"] }
 futures = { version = "0.3.28", features = ["async-await", "compat"] }

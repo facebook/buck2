@@ -78,7 +78,7 @@ use buck2_server_ctx::template::run_server_command;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_util::future::try_join_all;
 use buck2_util::process::background_command;
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use chrono::Utc;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -339,9 +339,8 @@ fn get_random_tcp_port() -> anyhow::Result<u16> {
 }
 
 fn get_timestamp_as_string() -> anyhow::Result<String> {
-    let nt = NaiveDateTime::from_timestamp_opt(Utc::now().timestamp(), 0)
+    let dt = DateTime::from_timestamp(Utc::now().timestamp(), 0)
         .context(InstallError::NativeDateTime)?;
-    let dt = nt.and_utc();
     Ok(dt.format("%Y%m%d-%H%M%S").to_string())
 }
 
