@@ -273,8 +273,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
                 # windows exec platform.
                 "DEFAULT": None,
                 # FIXME: prelude// should be standalone (not refer to fbsource//)
-                "ovr_config//cpu:x86_32": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x86_and_tools",
-                "ovr_config//cpu:x86_64": "fbsource//arvr/third-party/toolchains/visual_studio:cl_x64_and_tools",
+                "ovr_config//cpu:x86_32": "fbsource//third-party/toolchains/visual_studio:cl_x86_and_tools",
+                "ovr_config//cpu:x86_64": "fbsource//third-party/toolchains/visual_studio:cl_x64_and_tools",
             }),
         }) if is_full_meta_repo() else None)),
         "_internal_tools": attrs.default_only(dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools")),
