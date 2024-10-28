@@ -16,6 +16,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter_for_build::interpreter::globals::register_analysis_natives;
 use buck2_interpreter_for_build::interpreter::globals::register_bxl_natives;
@@ -24,6 +25,7 @@ use buck2_interpreter_for_build::interpreter::globals::starlark_library_extensio
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceTransaction;
 use starlark::docs::multipage::render_markdown_multipage;
+use starlark::docs::DocItem;
 use starlark::docs::DocModule;
 use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
@@ -93,10 +95,13 @@ pub(crate) async fn docs_starlark_builtins(
         .documentation();
     write_docs_to_subdir(build, path, FileName::unchecked_new("build"), "Build APIs")?;
 
-    let bxl = GlobalsBuilder::new()
+    let mut bxl = GlobalsBuilder::new()
         .with(register_bxl_natives)
         .build()
         .documentation();
+    let Some(DocItem::Module(bxl)) = bxl.members.shift_remove("bxl") else {
+        return Err(internal_error_anyhow!("bxl namespace should exist"));
+    };
     write_docs_to_subdir(bxl, path, FileName::unchecked_new("bxl"), "Bxl APIs")?;
 
     Ok(DocsResponse { json_output: None })
