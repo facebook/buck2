@@ -47,9 +47,12 @@ use crate::starlark::values::ValueLike;
 #[repr(C)]
 pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     /// Command to run to initialize a local resource.
+    ///
     /// Running this command writes a JSON to stdout.
     /// This JSON represents a pool of local resources which are ready to be used.
     /// Example JSON would be:
+    ///
+    /// ```text
     /// {
     ///   "pid": 42,
     ///   "resources": [
@@ -57,7 +60,9 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     ///     {"socket_address": "bar:2"}
     ///   ]
     /// }
-    /// Where '"pid"` maps to a PID of a process which should be sent SIGTERM to release the pool of resources
+    /// ```
+    ///
+    /// Where `"pid"` maps to a PID of a process which should be sent SIGTERM to release the pool of resources
     /// when they are no longer needed. `"resources"` maps to the pool of resources.
     /// When a local resource from this particular pool is needed for an execution command, single entity
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
