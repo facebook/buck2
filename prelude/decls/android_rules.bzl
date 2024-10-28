@@ -675,7 +675,7 @@ android_library = prelude_rule(
          `android_resource()` rule.
         This would be a common arrangement for a standard Android Library project
         as defined by
-         <http://developer.android.com/tools/projects/index.html>
+         [http://developer.android.com/tools/projects/index.html](http://developer.android.com/tools/projects/index.html)
 
         ```
 
