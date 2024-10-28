@@ -27,7 +27,6 @@ use starlark_derive::NoSerialize;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
-use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
@@ -142,7 +141,7 @@ pub(crate) struct NativeFunction {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) docs: DocFunction,
+    pub(crate) docs: DocItem,
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
@@ -197,7 +196,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
     }
 
     fn documentation(&self) -> DocItem {
-        DocItem::Member(DocMember::Function(self.docs.clone()))
+        self.docs.clone()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -262,7 +261,7 @@ pub(crate) struct NativeMethod {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
-    pub(crate) docs: DocFunction,
+    pub(crate) docs: DocItem,
 }
 
 starlark_simple_value!(NativeMethod);
@@ -270,7 +269,7 @@ starlark_simple_value!(NativeMethod);
 #[starlark_value(type = "native_method")]
 impl<'v> StarlarkValue<'v> for NativeMethod {
     fn documentation(&self) -> DocItem {
-        DocItem::Member(DocMember::Function(self.docs.clone()))
+        self.docs.clone()
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

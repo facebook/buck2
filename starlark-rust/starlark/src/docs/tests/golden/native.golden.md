@@ -14,6 +14,14 @@ MAGIC: int
 
 ---
 
+## Magic
+
+```python
+Magic: magic
+```
+
+---
+
 ## Obj
 
 ```python
@@ -47,34 +55,6 @@ The string 'func1'
 
 ```python
 def func2() -> str
-```
-
----
-
-## func3
-
-```python
-def func3(a1: int, a2: int = ..., step: int = 1, /) -> str
-```
-
-A function with only positional arguments.
-
-#### `.type` attribute
-
-Produces `"magic"`
-
-#### Details
-
-And a slightly longer description. With some example code:
-
-```python
-func3(1)
-```
-
-And some assertions:
-
-```rust
-1 == 1
 ```
 
 ---

@@ -64,6 +64,7 @@ fn render_markdown_multipage_inner(
         &docs.docs,
         "",
         members.iter().map(|(n, m)| (&**n, m.clone())),
+        None,
     );
 
     result.insert(base_path.to_owned(), rendered);

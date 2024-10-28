@@ -65,7 +65,6 @@ pub(crate) fn get_doc_item_for_def<P: AstPayload>(
             // TODO: Figure out how to get a `Ty` from the `def.return_type`.
             Ty::any(),
             Some(doc_string),
-            None,
         );
         Some(doc_function)
     } else {

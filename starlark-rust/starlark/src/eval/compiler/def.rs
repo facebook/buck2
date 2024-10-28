@@ -664,7 +664,6 @@ where
                 .documentation(parameter_types, HashMap::new()),
             return_type,
             self.def_info.docstring.as_ref().map(String::as_ref),
-            None,
         );
 
         DocItem::Member(DocMember::Function(function_docs))

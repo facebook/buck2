@@ -236,7 +236,6 @@ impl<'v> RuleCallable<'v> {
             parameters_spec.documentation(parameter_types, parameter_docs),
             Ty::none(),
             self.docs.as_deref(),
-            None,
         );
 
         DocItem::Member(DocMember::Function(function_docs))

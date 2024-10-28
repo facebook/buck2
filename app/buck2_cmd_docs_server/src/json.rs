@@ -183,7 +183,7 @@ impl JsonDocFunction {
                 .map(JsonDocParam::from_starlark)
                 .collect(),
             ret: JsonDocReturn::from_starlark(f.ret),
-            as_type: f.as_type,
+            as_type: None,
         }
     }
 }

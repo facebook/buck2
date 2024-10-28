@@ -74,8 +74,6 @@ pub struct DocFunction {
     pub params: DocParams,
     /// Details about what this function returns.
     pub ret: DocReturn,
-    /// Does this function act as type?
-    pub as_type: Option<Ty>,
 }
 
 impl DocFunction {
@@ -218,6 +216,7 @@ pub struct DocType {
     /// Name and details of each attr/function that can be accessed on this type.
     pub members: SmallMap<String, DocMember>,
     pub ty: Ty,
+    pub constructor: Option<DocFunction>,
 }
 
 impl DocType {
@@ -229,6 +228,7 @@ impl DocType {
                 docs: None,
                 members: SmallMap::new(),
                 ty,
+                constructor: None,
             },
         }
     }

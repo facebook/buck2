@@ -141,7 +141,7 @@ fn module(builder: &mut GlobalsBuilder) {
     /// And a slightly longer description. With some example code:
     ///
     /// ```python
-    /// func3(1)
+    /// Magic(1)
     /// ```
     ///
     /// And some assertions:
@@ -152,7 +152,7 @@ fn module(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(as_type = Magic)]
-    fn func3(
+    fn Magic(
         #[starlark(require = pos)] a1: i32,
         #[starlark(require = pos)] a2: Option<i32>,
         #[starlark(require = pos, default = 1)] step: i32,
@@ -278,7 +278,7 @@ fn native_docs_module() {
 #[test]
 fn globals_multipage_render() {
     let res = render_markdown_multipage(get_globals().documentation(), "globals");
-    let expected_keys = vec!["", "Obj", "submod"];
+    let expected_keys = vec!["", "Magic", "Obj", "submod"];
     assert_eq!(&res.keys().sorted().collect::<Vec<_>>(), &expected_keys);
     for (k, v) in res {
         let k = if k.is_empty() { "globals" } else { &k };

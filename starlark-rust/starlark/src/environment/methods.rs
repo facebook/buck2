@@ -119,6 +119,7 @@ impl Methods {
                 })
                 .collect(),
             ty,
+            constructor: None,
         }
     }
 }

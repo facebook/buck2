@@ -108,7 +108,7 @@ fn render_function_parameters<'a>(
     param_list
 }
 
-fn render_function(name: &str, function: &DocFunction) -> String {
+fn render_function(name: &str, function: &DocFunction, include_header: bool) -> String {
     let prototype = render_code_block(
         &(TypeRenderer::Function {
             function_name: name,
@@ -116,7 +116,11 @@ fn render_function(name: &str, function: &DocFunction) -> String {
         }
         .render_markdown()),
     );
-    let header = format!("## {}\n\n{prototype}", escape_name(name));
+    let header = if include_header {
+        format!("## {}\n\n{prototype}", escape_name(name))
+    } else {
+        prototype
+    };
     let summary = render_doc_string(DSOpts::Summary, &function.docs);
     let details = render_doc_string(DSOpts::Details, &function.docs);
 
@@ -137,12 +141,8 @@ fn render_function(name: &str, function: &DocFunction) -> String {
         body.push_str("\n\n#### Returns\n\n");
         body.push_str(returns);
     }
-    if let Some(dot_type) = function.as_type.as_ref().and_then(|t| t.as_name()) {
-        body.push_str("\n\n#### `.type` attribute\n\n");
-        body.push_str(&format!("Produces `{dot_type:?}`"));
-    }
     if let Some(details) = &details {
-        if parameter_docs.is_some() || return_docs.is_some() || function.as_type.is_some() {
+        if parameter_docs.is_some() || return_docs.is_some() {
             body.push_str("\n\n#### Details\n\n");
         } else {
             // No need to aggressively separate the defaults from the summary if there
@@ -160,27 +160,33 @@ pub(super) fn render_members<'a>(
     docs: &Option<DocString>,
     prefix: &str,
     members: impl IntoIterator<Item = (&'a str, DocMember)>,
+    after_summary: Option<String>,
 ) -> String {
     let summary = render_doc_string(DSOpts::Combined, docs)
         .map(|s| format!("\n\n{}", s))
         .unwrap_or_default();
 
-    let member_details: Vec<String> = members
+    let member_details = members
         .into_iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(child, member)| render_doc_member(&format!("{prefix}{child}"), &member))
-        .collect();
+        .map(|(child, member)| render_doc_member(&format!("{prefix}{child}"), &member));
+    let member_details: Vec<_> = after_summary.into_iter().chain(member_details).collect();
     let members_details = member_details.join("\n\n---\n\n");
 
     format!("# {name}{summary}\n\n{members_details}")
 }
 
 pub(super) fn render_doc_type(name: &str, prefix: &str, t: &DocType) -> String {
+    let constructor = t
+        .constructor
+        .as_ref()
+        .map(|c| render_function(name, c, false));
     render_members(
         &name,
         &t.docs,
         &prefix,
         t.members.iter().map(|(n, m)| (&**n, m.clone())),
+        constructor,
     )
 }
 
@@ -196,9 +202,10 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
                     .ok()
                     .map(|m| (&**n, m))
             }),
+            None,
         ),
         DocItem::Type(o) => render_doc_type(&format!("`{name}` type"), &format!("{name}."), o),
-        DocItem::Member(DocMember::Function(f)) => render_function(name, f),
+        DocItem::Member(DocMember::Function(f)) => render_function(name, f, true),
         DocItem::Member(DocMember::Property(p)) => render_property(name, p),
     }
 }
@@ -206,7 +213,7 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
 /// Used by LSP.
 pub fn render_doc_member(name: &str, item: &DocMember) -> String {
     match item {
-        DocMember::Function(f) => render_function(name, f),
+        DocMember::Function(f) => render_function(name, f, true),
         DocMember::Property(p) => render_property(name, p),
     }
 }

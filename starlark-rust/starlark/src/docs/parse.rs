@@ -301,7 +301,6 @@ impl DocFunction {
         mut params: DocParams,
         return_type: Ty,
         raw_docstring: Option<&str>,
-        as_type: Option<Ty>,
     ) -> Self {
         match raw_docstring.and_then(|raw| DocString::from_docstring(kind, raw)) {
             Some(ds) => {
@@ -334,7 +333,6 @@ impl DocFunction {
                         docs: return_docs,
                         typ: return_type,
                     },
-                    as_type,
                 }
             }
             None => DocFunction {
@@ -344,7 +342,6 @@ impl DocFunction {
                     docs: None,
                     typ: return_type,
                 },
-                as_type,
             },
         }
     }
@@ -725,7 +722,6 @@ mod tests {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(
@@ -739,7 +735,6 @@ mod tests {
             },
             return_type,
             Some(docstring),
-            None,
         );
 
         assert_eq!(expected, function_docs);
@@ -796,7 +791,6 @@ mod tests {
                 docs: DocString::from_docstring(kind, "A value"),
                 typ: return_type.clone(),
             },
-            as_type: None,
         };
 
         let function_docs = DocFunction::from_docstring(
@@ -807,7 +801,6 @@ mod tests {
             },
             return_type,
             Some(docstring),
-            None,
         );
 
         assert_eq!(expected, function_docs);
