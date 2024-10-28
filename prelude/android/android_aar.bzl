@@ -29,7 +29,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if not excluded_java_packaging_deps_targets.contains(packaging_dep.label.raw_target())]
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
-    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries = {}, should_replace_application_id_placeholders = False)
+    android_manifest = get_manifest(ctx, android_packageable_info, ctx.attrs.manifest_entries, should_replace_application_id_placeholders = False)
 
     if ctx.attrs.include_build_config_class:
         build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []

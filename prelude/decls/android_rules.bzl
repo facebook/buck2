@@ -126,6 +126,7 @@ android_aar = prelude_rule(
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "manifest": attrs.option(attrs.source(), default = None),
+            "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
