@@ -125,6 +125,7 @@ PythonLibraryManifestsTSet = transitive_set(
 # Information about a python library and its dependencies.
 # TODO(nmj): Resources in general, and mapping of resources to new paths too.
 PythonLibraryInfo = provider(fields = {
+    "extension_shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
     "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
     "shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
 })
@@ -132,6 +133,7 @@ PythonLibraryInfo = provider(fields = {
 def info_to_interface(info: PythonLibraryInfo) -> PythonLibraryInterface:
     return PythonLibraryInterface(
         shared_libraries = lambda: traverse_shared_library_info(info.shared_libraries),
+        extension_shared_libraries = lambda: traverse_shared_library_info(info.extension_shared_libraries),
         iter_manifests = lambda: info.manifests.traverse(),
         manifests = lambda: manifests_to_interface(info.manifests),
         has_hidden_resources = lambda: info.manifests.reduce("has_hidden_resources"),

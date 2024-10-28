@@ -13,6 +13,10 @@ PythonLibraryInterface = record(
     # dict[str, SharedLibraryInfo]
     shared_libraries = field(typing.Callable),
 
+    # Shared libraries used by this Python library.
+    # dict[str, SharedLibraryInfo]
+    extension_shared_libraries = field(typing.Callable),
+
     # An iterator of PythonLibraryManifests objects. This is used to collect extensions.
     # iterator of PythonLibraryManifests
     iter_manifests = field(typing.Callable),

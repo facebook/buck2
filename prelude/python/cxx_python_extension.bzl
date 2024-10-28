@@ -270,13 +270,14 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     raw_deps.extend(
         get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     )
+
     deps, shared_deps = gather_dep_libraries(raw_deps)
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         extensions = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension}),
         deps = deps,
-        shared_libraries = shared_deps,
+        extension_shared_libraries = shared_deps,
         src_types = src_type_manifest,
     )
     providers.append(library_info)

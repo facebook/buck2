@@ -122,7 +122,8 @@ def create_python_library_info(
         resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo] = [],
-        shared_libraries: list[SharedLibraryInfo] = []):
+        shared_libraries: list[SharedLibraryInfo] = [],
+        extension_shared_libraries: list[SharedLibraryInfo] = []):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -155,9 +156,15 @@ def create_python_library_info(
         deps = shared_libraries + [dep.shared_libraries for dep in deps],
     )
 
+    new_extension_shared_libraries = merge_shared_libraries(
+        actions,
+        deps = extension_shared_libraries + [dep.extension_shared_libraries for dep in deps],
+    )
+
     return PythonLibraryInfo(
         manifests = actions.tset(PythonLibraryManifestsTSet, value = manifests, children = [dep.manifests for dep in deps]),
         shared_libraries = new_shared_libraries,
+        extension_shared_libraries = new_extension_shared_libraries,
     )
 
 def gather_dep_libraries(raw_deps: list[Dependency]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
