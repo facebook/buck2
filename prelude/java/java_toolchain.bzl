@@ -60,6 +60,7 @@ JavaToolchainInfo = provider(
         "src_root_elements": provider_field(typing.Any, default = None),
         "src_root_prefixes": provider_field(typing.Any, default = None),
         "target_level": provider_field(typing.Any, default = None),
+        "track_class_usage": provider_field(bool, default = True),
         "use_graalvm_java_for_javacd": provider_field(typing.Any, default = None),
         "zip_scrubber": provider_field(typing.Any, default = None),
     },
