@@ -3,6 +3,12 @@
 This website is built using [Docusaurus 2](https://docusaurus.io/), a modern
 static website generator.
 
+## Mac Setup
+
+`yarn` and `node` are installed by default on devservers, but not on Macs. To
+work on this site on Macs, add `fbsource/xplat/third-party/node/bin` and
+`fbsource/third-party/yarn` to your `PATH`.
+
 ## Installation
 
 The very first time:
@@ -77,8 +83,11 @@ In all cases, you'll need to be either on lighthouse or VPN for this to work.
 ## Prod Build
 
 You can perform a production build via `yarn build` or `yarn build-fb`. This
-generates a static site into `build/`, which can be served by any static site
-viewer. Iterating on this is slower than on the local server.
+generates a static site into `build/`. This site can be served via any static
+site viewer - docusaurus has one built in that you can run via `yarn serve`. As
+of Oct 2024 this only works on Macs, not on devservers.
+
+Iterating on the prod build is slower than on the local `yarn start` server.
 
 ## Deployment
 
