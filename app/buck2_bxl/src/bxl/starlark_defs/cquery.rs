@@ -151,15 +151,24 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(move |dice, ctx| {
             dice.via(|dice| {
                 async move {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_cquery_env(ctx, &this.global_cfg_options_override)
                         .await?
-                        .allpaths(dice, &from, &to)
+                        .allpaths(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
@@ -173,15 +182,25 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
+
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_cquery_env(ctx, &this.global_cfg_options_override)
                         .await?
-                        .somepath(dice, &from, &to)
+                        .somepath(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
@@ -350,10 +369,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 dice,
                                 &targets,
                                 depth.into_option(),
-                                filter
-                                    .as_ref()
-                                    .map(|span| CapturedExpr { expr: span })
-                                    .as_ref(),
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
                             )
                             .await
                     }
@@ -470,16 +486,26 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         universe: ConfiguredTargetListExprArg<'v>,
         from: ConfiguredTargetListExprArg<'v>,
         depth: Option<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         this.ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
+                        let filter = filter
+                            .into_option()
+                            .try_map(buck2_query_parser::parse_expr)?;
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
                         get_cquery_env(ctx, &this.global_cfg_options_override)
                             .await?
-                            .rdeps(dice, &universe, &targets, depth)
+                            .rdeps(
+                                dice,
+                                &universe,
+                                &targets,
+                                depth,
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                            )
                             .await
                     }
                     .boxed_local()

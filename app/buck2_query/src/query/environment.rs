@@ -181,19 +181,21 @@ pub trait QueryEnvironment: Send + Sync {
         &self,
         from: &TargetSet<Self::Target>,
         to: &TargetSet<Self::Target>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
-        self.rdeps(from, to, None).await
+        self.rdeps(from, to, None, filter).await
     }
 
     async fn somepath(
         &self,
         from: &TargetSet<Self::Target>,
         to: &TargetSet<Self::Target>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
         let path = async_bfs_find_path(
             from.iter(),
             QueryEnvironmentAsNodeLookup { env: self },
-            QueryTargetDepsSuccessors,
+            QueryTargetFilteredDepsSuccesors { filter },
             |t| to.get(t).duped(),
         )
         .await?
@@ -220,11 +222,12 @@ pub trait QueryEnvironment: Send + Sync {
         universe: &TargetSet<Self::Target>,
         from: &TargetSet<Self::Target>,
         depth: Option<i32>,
+        filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> anyhow::Result<TargetSet<Self::Target>> {
         let graph = Graph::build_stable_dfs(
             &QueryEnvironmentAsNodeLookup { env: self },
             universe.iter().map(|n| n.node_key().clone()),
-            QueryTargetDepsSuccessors,
+            QueryTargetFilteredDepsSuccesors { filter },
         )
         .await?;
 
@@ -368,50 +371,22 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
 ) -> anyhow::Result<TargetSet<Env::Target>> {
     let mut deps = TargetSet::new();
 
-    struct Delegate<'a, Q: QueryTarget> {
-        filter: Option<&'a dyn TraversalFilter<Q>>,
-    }
-
+    let visitor = QueryTargetFilteredDepsSuccesors { filter };
     let visit = |target| {
         deps.insert_unique_unchecked(target);
         Ok(())
     };
-
-    impl<'a, Q: QueryTarget> AsyncChildVisitor<Q> for Delegate<'a, Q> {
-        async fn for_each_child(
-            &self,
-            target: &Q,
-            mut func: impl ChildVisitor<Q>,
-        ) -> anyhow::Result<()> {
-            let res: anyhow::Result<_> = try {
-                match self.filter {
-                    Some(filter) => {
-                        for dep in filter.get_children(target).await?.iter() {
-                            func.visit(dep.node_key())?;
-                        }
-                    }
-                    None => {
-                        for dep in target.deps() {
-                            func.visit(dep)?;
-                        }
-                    }
-                }
-            };
-            res.with_context(|| format!("Error traversing children of `{}`", target.node_key()))
-        }
-    }
 
     match depth {
         // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
         // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
         // and so to specify a filter you need to specify a depth.
         Some(v) if (0..1_000_000_000).contains(&v) => {
-            env.depth_limited_traversal(targets, Delegate { filter }, visit, v as u32)
+            env.depth_limited_traversal(targets, visitor, visit, v as u32)
                 .await?;
         }
         _ => {
-            env.dfs_postorder(targets, Delegate { filter }, visit)
-                .await?;
+            env.dfs_postorder(targets, visitor, visit).await?;
         }
     }
 
@@ -454,5 +429,33 @@ impl<'q, Q: QueryEnvironment + ?Sized> AsyncNodeLookup<Q::Target>
 {
     async fn get(&self, label: &<Q::Target as LabeledNode>::Key) -> anyhow::Result<Q::Target> {
         self.env.get_node(label).await
+    }
+}
+
+pub struct QueryTargetFilteredDepsSuccesors<'a, Q: QueryTarget> {
+    filter: Option<&'a dyn TraversalFilter<Q>>,
+}
+
+impl<'a, Q: QueryTarget> AsyncChildVisitor<Q> for QueryTargetFilteredDepsSuccesors<'a, Q> {
+    async fn for_each_child(
+        &self,
+        target: &Q,
+        mut func: impl ChildVisitor<Q>,
+    ) -> anyhow::Result<()> {
+        let res: anyhow::Result<_> = try {
+            match self.filter {
+                Some(filter) => {
+                    for dep in filter.get_children(target).await?.iter() {
+                        func.visit(dep.node_key())?;
+                    }
+                }
+                None => {
+                    for dep in target.deps() {
+                        func.visit(dep)?;
+                    }
+                }
+            }
+        };
+        res.with_context(|| format!("Error traversing children of `{}`", target.node_key()))
     }
 }

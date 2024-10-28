@@ -85,23 +85,21 @@ pub(crate) struct DepsFunction<Env: QueryEnvironment> {
     pub(crate) _marker: PhantomData<Env>,
 }
 
-impl<Env: QueryEnvironment> DepsFunction<Env> {
-    pub(crate) async fn invoke_deps(
-        &self,
-        env: &Env,
-        functions: &dyn QueryFunctions<Env = Env>,
-        targets: &TargetSet<Env::Target>,
-        depth: Option<i32>,
-        captured_expr: Option<&CapturedExpr<'_>>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
-        let filter = match captured_expr {
-            Some(expr) => {
-                struct Filter<'a, Env: QueryEnvironment> {
-                    inner_env: &'a Env,
-                    functions: &'a dyn QueryFunctions<Env = Env>,
-                    expr: &'a CapturedExpr<'a>,
-                }
+struct Filter<'a, Env: QueryEnvironment> {
+    inner_env: &'a Env,
+    functions: &'a dyn QueryFunctions<Env = Env>,
+    expr: &'a CapturedExpr<'a>,
+}
 
+impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
+    fn make_filter(
+        &'a self,
+        env: &'a Env,
+        functions: &'a dyn QueryFunctions<Env = Env>,
+        captured_expr: Option<&'a CapturedExpr>,
+    ) -> Option<Filter<'a, Env>> {
+        match captured_expr {
+            Some(expr) => {
                 #[async_trait]
                 impl<'a, T: QueryTarget, Env: QueryEnvironment<Target = T>> TraversalFilter<T> for Filter<'a, Env> {
                     async fn get_children(&self, target: &T) -> anyhow::Result<TargetSet<T>> {
@@ -124,19 +122,78 @@ impl<Env: QueryEnvironment> DepsFunction<Env> {
                     }
                 }
 
-                Some(Filter {
-                    inner_env: env,
+                Some(Filter::<'a, Env> {
+                    inner_env: &env,
                     functions,
                     expr,
                 })
             }
             None => None,
-        };
+        }
+    }
 
+    pub(crate) async fn invoke_deps(
+        &self,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
+        targets: &TargetSet<Env::Target>,
+        depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        let filter = self.make_filter(&env, functions, captured_expr);
         let filter_ref = filter
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
 
         env.deps(targets, depth, filter_ref).await
+    }
+
+    pub(crate) async fn invoke_rdeps(
+        &self,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
+        universe: &TargetSet<Env::Target>,
+        from: &TargetSet<Env::Target>,
+        depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter_ref = filter
+            .as_ref()
+            .map(|v| v as &dyn TraversalFilter<Env::Target>);
+
+        env.rdeps(universe, from, depth, filter_ref).await
+    }
+
+    pub(crate) async fn invoke_somepath(
+        &self,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
+        from: &TargetSet<Env::Target>,
+        to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter_ref = filter
+            .as_ref()
+            .map(|v| v as &dyn TraversalFilter<Env::Target>);
+
+        env.somepath(from, to, filter_ref).await
+    }
+
+    pub(crate) async fn invoke_allpaths(
+        &self,
+        env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
+        from: &TargetSet<Env::Target>,
+        to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
+    ) -> anyhow::Result<TargetSet<Env::Target>> {
+        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter_ref = filter
+            .as_ref()
+            .map(|v| v as &dyn TraversalFilter<Env::Target>);
+
+        env.allpaths(from, to, filter_ref).await
     }
 }

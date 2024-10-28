@@ -117,15 +117,24 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         from: TargetListExprArg<'v>,
         to: TargetListExprArg<'v>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_uquery_env(ctx)
                         .await?
-                        .allpaths(dice, &from, &to)
+                        .allpaths(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
@@ -139,15 +148,25 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         from: TargetListExprArg<'v>,
         to: TargetListExprArg<'v>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
+                    let filter = filter
+                        .into_option()
+                        .try_map(buck2_query_parser::parse_expr)?;
+
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_uquery_env(ctx)
                         .await?
-                        .somepath(dice, &from, &to)
+                        .somepath(
+                            dice,
+                            &from,
+                            &to,
+                            filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                        )
                         .await
                         .map(StarlarkTargetSet::from)
                 }
@@ -255,10 +274,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                                 dice,
                                 &targets,
                                 depth.into_option(),
-                                filter
-                                    .as_ref()
-                                    .map(|span| CapturedExpr { expr: span })
-                                    .as_ref(),
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
                             )
                             .await
                     }
@@ -280,18 +296,29 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         universe: TargetListExprArg<'v>,
         from: TargetListExprArg<'v>,
-        depth: Option<i32>,
+        #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
+        #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
         this.ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
+                        let filter = filter
+                            .into_option()
+                            .try_map(buck2_query_parser::parse_expr)?;
+
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
 
                         get_uquery_env(ctx)
                             .await?
-                            .rdeps(dice, &universe, &targets, depth)
+                            .rdeps(
+                                dice,
+                                &universe,
+                                &targets,
+                                depth.into_option(),
+                                filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
+                            )
                             .await
                     }
                     .boxed_local()

@@ -211,20 +211,42 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Graphviz is an open-source graph-visualization software tool. Graphviz uses the dot language to describe graphs.
     async fn allpaths(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         from: TargetSet<Env::Target>,
         to: TargetSet<Env::Target>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
-        Ok(self.implementation.allpaths(env, &from, &to).await?.into())
+        Ok(self
+            .implementation
+            .allpaths(
+                evaluator.env(),
+                evaluator.functions(),
+                &from,
+                &to,
+                captured_expr.as_ref(),
+            )
+            .await?
+            .into())
     }
 
     async fn somepath(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         from: TargetSet<Env::Target>,
         to: TargetSet<Env::Target>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
-        Ok(self.implementation.somepath(env, &from, &to).await?.into())
+        Ok(self
+            .implementation
+            .somepath(
+                evaluator.env(),
+                evaluator.functions(),
+                &from,
+                &to,
+                captured_expr.as_ref(),
+            )
+            .await?
+            .into())
     }
 
     /// The `attrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute contains the specified value.
@@ -380,14 +402,22 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 
     async fn rdeps(
         &self,
-        env: &Env,
+        evaluator: &QueryEvaluator<'_, Env>,
         universe: TargetSet<Env::Target>,
         targets: TargetSet<Env::Target>,
         depth: Option<u64>,
+        captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
         Ok(self
             .implementation
-            .rdeps(env, &universe, &targets, depth.map(|v| v as i32))
+            .rdeps(
+                evaluator.env(),
+                evaluator.functions(),
+                &universe,
+                &targets,
+                depth.map(|v| v as i32),
+                captured_expr.as_ref(),
+            )
             .await?
             .into())
     }
@@ -527,10 +557,16 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     pub async fn allpaths(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         from: &TargetSet<Env::Target>,
         to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(env.allpaths(from, to).await?)
+        Ok(DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_allpaths(env, functions, from, to, captured_expr)
+        .await?)
     }
 
     /// Find the shortest path (dependency chain) from one target set to another.
@@ -556,10 +592,16 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     pub async fn somepath(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         from: &TargetSet<Env::Target>,
         to: &TargetSet<Env::Target>,
+        captured_expr: Option<&CapturedExpr<'_>>,
     ) -> Result<TargetSet<Env::Target>, QueryError> {
-        Ok(env.somepath(from, to).await?)
+        Ok(DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_somepath(env, functions, from, to, captured_expr)
+        .await?)
     }
 
     pub fn attrfilter(
@@ -669,11 +711,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     pub async fn rdeps(
         &self,
         env: &Env,
+        functions: &dyn QueryFunctions<Env = Env>,
         universe: &TargetSet<Env::Target>,
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr<'_>>,
     ) -> anyhow::Result<TargetSet<Env::Target>> {
-        env.rdeps(universe, targets, depth).await
+        DepsFunction::<Env> {
+            _marker: PhantomData,
+        }
+        .invoke_rdeps(env, functions, universe, targets, depth, captured_expr)
+        .await
     }
 
     pub async fn testsof(

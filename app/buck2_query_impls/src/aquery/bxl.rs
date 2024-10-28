@@ -99,13 +99,16 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .allpaths(
                     &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -116,13 +119,16 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .somepath(
                     &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -154,14 +160,17 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             aquery_functions()
                 .rdeps(
                     &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     universe,
                     targets,
                     depth,
+                    captured_expr,
                 )
                 .await
         })

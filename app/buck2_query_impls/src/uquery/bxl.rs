@@ -79,13 +79,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(uquery_functions()
                 .allpaths(
                     &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -96,13 +99,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(uquery_functions()
                 .somepath(
                     &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -134,14 +140,17 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             uquery_functions()
                 .rdeps(
                     &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                    &DefaultQueryFunctionsModule::new(),
                     universe,
                     targets,
                     depth,
+                    captured_expr,
                 )
                 .await
         })

@@ -93,6 +93,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(cquery_functions()
@@ -100,8 +101,10 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
                     &self
                         .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
                         .await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -113,6 +116,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(cquery_functions()
@@ -120,8 +124,10 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
                     &self
                         .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
                         .await?,
+                    &DefaultQueryFunctionsModule::new(),
                     from,
                     to,
+                    captured_expr,
                 )
                 .await?)
         })
@@ -171,6 +177,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         universe: &TargetSet<ConfiguredTargetNode>,
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             cquery_functions()
@@ -178,9 +185,11 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
                     &self
                         .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
                         .await?,
+                    &DefaultQueryFunctionsModule::new(),
                     universe,
                     targets,
                     depth,
+                    captured_expr,
                 )
                 .await
         })

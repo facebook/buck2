@@ -254,11 +254,11 @@ async fn test_one_path() -> anyhow::Result<()> {
     env.edge(1, 12);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.somepath(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
@@ -278,11 +278,11 @@ async fn test_many_paths() -> anyhow::Result<()> {
     env.edge(10, 20);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,10,11,2,3")?;
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("3")?).await?;
+    let path = env.somepath(&env.set("1")?, &env.set("3")?, None).await?;
     let expected = env.set("1,2,3")?;
     assert_eq!(path, expected);
 
@@ -298,12 +298,16 @@ async fn test_distinct_paths() -> anyhow::Result<()> {
     env.edge(20, 200);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1,2")?, &env.set("100,200")?).await?;
+    let path = env
+        .allpaths(&env.set("1,2")?, &env.set("100,200")?, None)
+        .await?;
     let expected = env.set("2,20,200,1,10,100")?;
     assert_eq!(path, expected);
 
     // Same as above
-    let path = env.somepath(&env.set("1,2")?, &env.set("100,200")?).await?;
+    let path = env
+        .somepath(&env.set("1,2")?, &env.set("100,200")?, None)
+        .await?;
     let expected = env.set("1,10,100")?;
     assert_eq!(path, expected);
 
@@ -317,11 +321,11 @@ async fn test_no_path() -> anyhow::Result<()> {
     env.edge(2, 20);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("20")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("20")?, None).await?;
     let expected = TargetSet::new();
     assert_eq!(path, expected);
 
-    let path = env.somepath(&env.set("1")?, &env.set("20")?).await?;
+    let path = env.somepath(&env.set("1")?, &env.set("20")?, None).await?;
     let expected = TargetSet::new();
     assert_eq!(path, expected);
 
@@ -336,10 +340,10 @@ async fn test_nested_paths() -> anyhow::Result<()> {
     env.edge(3, 4);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("1")?, &env.set("2,4")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("2,4")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4")?);
 
-    let path = env.somepath(&env.set("1")?, &env.set("2,4")?).await?;
+    let path = env.somepath(&env.set("1")?, &env.set("2,4")?, None).await?;
     assert_eq!(path, env.set("1,2")?);
 
     Ok(())
@@ -357,16 +361,18 @@ async fn test_paths_with_cycles_present() -> anyhow::Result<()> {
     env.edge(4, 3);
     let env = env.build();
 
-    let path = env.allpaths(&env.set("3")?, &env.set("4")?).await?;
+    let path = env.allpaths(&env.set("3")?, &env.set("4")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4")?);
 
-    let path = env.allpaths(&env.set("1")?, &env.set("1")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("1")?, None).await?;
     assert_eq!(path, env.set("2,3,4,1")?);
 
-    let path = env.allpaths(&env.set("1")?, &env.set("5")?).await?;
+    let path = env.allpaths(&env.set("1")?, &env.set("5")?, None).await?;
     assert_eq!(path, env.set("1,2,3,4,5")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("3")?, Some(2)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("3")?, Some(2), None)
+        .await?;
     assert_eq!(path, env.set("4,1,2,3")?);
 
     Ok(())
@@ -383,22 +389,34 @@ async fn test_rdeps() -> anyhow::Result<()> {
     env.edge(3, 6);
     let env = env.build();
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(0)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(0), None)
+        .await?;
     assert_eq!(path, env.set("6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(1)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(1), None)
+        .await?;
     assert_eq!(path, env.set("3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(2)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(2), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(3)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(3), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, Some(4)).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(4), None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
-    let path = env.rdeps(&env.set("1")?, &env.set("6")?, None).await?;
+    let path = env
+        .rdeps(&env.set("1")?, &env.set("6")?, None, None)
+        .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
     Ok(())

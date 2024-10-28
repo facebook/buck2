@@ -35,12 +35,14 @@ pub trait BxlCqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn owner(
         &self,
@@ -61,6 +63,7 @@ pub trait BxlCqueryFunctions: Send {
         universe: &TargetSet<ConfiguredTargetNode>,
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
     async fn testsof(
         &self,
@@ -81,12 +84,14 @@ pub trait BxlUqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn deps(
         &self,
@@ -101,6 +106,7 @@ pub trait BxlUqueryFunctions: Send {
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<TargetNode>>;
     async fn testsof(
         &self,
@@ -126,12 +132,14 @@ pub trait BxlAqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn deps(
         &self,
@@ -146,6 +154,7 @@ pub trait BxlAqueryFunctions: Send {
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
+        captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
     async fn testsof(
         &self,
