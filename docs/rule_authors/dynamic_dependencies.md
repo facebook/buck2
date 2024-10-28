@@ -3,6 +3,8 @@ id: dynamic_dependencies
 title: Dynamic Dependencies
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 Dynamic dependencies allow a rule to use information that was not available when
 the rule was first run at analysis time. Dynamic dependencies in Buck2 are
 implemented using `dynamic_output` and are restricted in their power compared to

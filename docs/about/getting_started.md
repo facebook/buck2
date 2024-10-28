@@ -3,6 +3,8 @@ id: getting_started
 title: Getting Started
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Installing Buck2
 
 The latest set of `buck2` executables can be found under the

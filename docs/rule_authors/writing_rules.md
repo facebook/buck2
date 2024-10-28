@@ -3,6 +3,8 @@ id: writing_rules
 title: Writing Rules
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 This page describes how to write rules for Buck2 and explains the flow for
 implementing rules that are already defined in Buck1.
 

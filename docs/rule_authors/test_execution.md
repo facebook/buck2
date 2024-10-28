@@ -3,6 +3,9 @@ id: test_execution
 title: Test Execution
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 Test execution in Buck2 is a collaboration with a separate test runner process.
 
 <OssOnly>

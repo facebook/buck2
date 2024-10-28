@@ -3,6 +3,8 @@ id: optimization
 title: Observability and Optimization
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 Optimization involves the use of techniques for determining and improving the
 performance of Buck2 and specific actions performed by Buck2. This page covers
 the internals for developers of Buck2 and provides details of Starlark that are

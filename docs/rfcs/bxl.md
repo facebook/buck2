@@ -1,3 +1,5 @@
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 # Buck Extension Language (BXL)
 
 Buck2 will allow more complex introspection and interaction with its graphs via

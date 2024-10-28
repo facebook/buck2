@@ -3,6 +3,9 @@ id: what-ran
 title: Finding Commands That Buck2 Ran
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 Buck2 logs all the commands it runs. So, after you've run a build, you can query
 Buck2 to get access to the exact command it used.
 

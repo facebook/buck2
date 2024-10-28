@@ -3,6 +3,8 @@ id: deferred_materialization
 title: Deferred Materialization
 ---
 
+import { OssOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 When using [Remote Execution](../remote_execution.md), Buck2 can optionally
 operate with Deferred Materialization, which means that Buck2 will avoid
 downloading outputs until they are required by a local action.

@@ -3,6 +3,8 @@ id: index
 title: Introduction
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 Welcome to Buck2, a large scale, fast, reliable, and extensible build tool
 developed and used by Meta. Buck2 supports a variety of languages on many
 platforms.

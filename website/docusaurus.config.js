@@ -215,6 +215,6 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
 
   markdown: ({
     // Use mdx for `.mdx` files and commonmark for `.md` files
-    format: 'detect',
+    format: 'mdx',
   }),
 });

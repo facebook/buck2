@@ -3,6 +3,8 @@ id: common_issues
 title: Common Issues
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Why is stdin being swallowed?
 
 Buck2 offers an interactive console by default.

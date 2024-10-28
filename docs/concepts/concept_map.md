@@ -5,6 +5,8 @@ title: Concept Map
 
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 The Concept Map provides an at-a-glance overview of the relationships between
 widely used Buck2 concepts. It is meant to be a tool to help those onboarding to
 Buck2 to quickly gain an understanding of the Buck2 environment.

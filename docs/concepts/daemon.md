@@ -3,6 +3,8 @@ id: daemon
 title: Daemon (buckd)
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 The first time that a Buck2 command is run, Buck2 starts a daemon process for
 the current project. For subsequent commands, Buck2 checks for the running
 daemon process and, if found, uses the daemon to execute the command. Using the

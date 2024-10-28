@@ -3,6 +3,8 @@ id: compared_to_buck1
 title: Benefits When Compared to Buck1
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 <FbInternalOnly>
 
 For reports from real users, see the [Testimonials](testimonials.fb.md), which
@@ -13,16 +15,13 @@ include Workplace posts and their full context.
 ## Benefits for end users
 
 > _"`buck2 build SOME_TARGET_I_ALREADY_BUILT_BEFORE` is basically instantaneous
-> and is a super delightful experience. 🙂"_ - End user
-> experience<FbInternalOnly>
-> ([source](https://fb.prod.workplace.com/groups/buck2users/posts/3030704467185914))
-> </FbInternalOnly>
+> and is a super delightful experience. 🙂"_ - End user experience
+> <FbInternalOnly>([source](https://fb.prod.workplace.com/groups/buck2users/posts/3030704467185914))</FbInternalOnly>
 
 > _"Buck2 is largely faster and more memory efficient than buck1, and where I’ve
 > seen counter-examples, the buck2 team quickly optimizes and fixes that.🙂"_ -
-> Software Engineer feedback<FbInternalOnly>
-> ([source](https://fb.prod.workplace.com/groups/devx.ci.bffs/posts/616830502778501))
-> </FbInternalOnly>
+> Software Engineer feedback
+> <FbInternalOnly>([source](https://fb.prod.workplace.com/groups/devx.ci.bffs/posts/616830502778501))</FbInternalOnly>
 
 For people who use Buck on a daily basis (such as using Buck build as part of
 their development inner loop), switching to Buck2 provides the following

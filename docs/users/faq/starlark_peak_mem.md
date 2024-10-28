@@ -3,6 +3,9 @@ id: starlark_peak_mem
 title: Debugging Excess Starlark Peak Memory
 ---
 
+import { FbInternalOnly, OssOnly } from
+'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Wut memory?
 
 Peak memory is the maximum amount of memory used during evaluation of that

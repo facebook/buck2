@@ -3,6 +3,8 @@ id: bxl_how_tos
 title: Common How-Tos
 ---
 
+import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
 ## Passing in and using CLI args
 
 A BXL function can accept a `cli_args` attribute where args names and types are
