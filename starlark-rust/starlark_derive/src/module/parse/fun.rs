@@ -229,7 +229,7 @@ fn parse_fn_attrs(span: Span, xs: Vec<Attribute>) -> syn::Result<FnAttrs> {
     for x in xs {
         if x.path().is_ident("starlark") {
             parse_starlark_fn_attr(&x, &mut res)?;
-        } else if let Some(ds) = is_attribute_docstring(&x) {
+        } else if let Some(ds) = is_attribute_docstring(&x)? {
             match &mut res.docstring {
                 None => res.docstring = Some(ds),
                 Some(docstring) => {
