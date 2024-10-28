@@ -26,11 +26,11 @@
   * in "developers/" are included in the developers glob, e.g.
   */
 
-const { isInternal } = require("docusaurus-plugin-internaldocs-fb/internal");
+import { isInternal } from "docusaurus-plugin-internaldocs-fb/internal";
 import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 
-const sidebars: SidebarsConfig = {
+export const sidebars: SidebarsConfig = {
   main: [
     'index',
     {
@@ -247,7 +247,7 @@ const sidebars: SidebarsConfig = {
   ],
 };
 
-function postProcessItems(items) {
+export function postProcessItems(items) {
   // First, handle recursive categories
   const result = items.map((item) => {
     if (item.type === 'category') {
@@ -265,8 +265,3 @@ function postProcessItems(items) {
     }
   });
 }
-
-module.exports = {
-  postProcessItems: postProcessItems,
-  sidebars,
-};

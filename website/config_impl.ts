@@ -7,13 +7,13 @@
  * of this source tree.
  */
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
-const { postProcessItems } = require('./sidebars.js');
-const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/internal');
-
+import lightCodeTheme from 'prism-react-renderer/themes/github';
+import darkCodeTheme from 'prism-react-renderer/themes/dracula';
+import { fbContent, isInternal } from 'docusaurus-plugin-internaldocs-fb/internal';
 import type { ThemeConfig as ClassicPresetConfig, Options as ClassicPresetOptions } from '@docusaurus/preset-classic';
 import type { DocusaurusConfig } from '@docusaurus/types';
+
+import { postProcessItems } from './sidebars.js';
 import { redirects } from './redirects';
 
 const presetOptions: ClassicPresetOptions = ({
@@ -68,6 +68,7 @@ const themeConfig: ClassicPresetConfig = ({
           internal: 'https://www.internalfb.com/code/buck2',
           external: 'https://github.com/facebook/buck2',
         }),
+        // @ts-ignore : The type signature for `fbContent` incorrectly claims it might return a `[]`
         label: fbContent({
           internal: 'CodeHub',
           external: 'GitHub',
