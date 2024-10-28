@@ -59,7 +59,11 @@ impl std::error::Error for ActionError {
             ExecuteError::MissingOutputs { .. } => Some(buck2_error::Tier::Input),
             // Or if the action produced the wrong type
             ExecuteError::WrongOutputType { .. } => Some(buck2_error::Tier::Input),
-            ExecuteError::Error { .. } => None,
+            ExecuteError::Error { error } => {
+                let err = buck2_error::Error::from_anyhow_ref(error);
+                tags.extend(err.tags());
+                err.get_tier()
+            }
         };
 
         buck2_error::provide_metadata(
@@ -161,4 +165,54 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
         write!(res, "`{}`", x).unwrap();
     }
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_error::buck2_error;
+    use buck2_error::ErrorTag;
+
+    use super::*;
+
+    #[test]
+    fn test_error_conversion() {
+        let error = buck2_error!([ErrorTag::Http], "error");
+
+        let execute_error = ExecuteError::Error {
+            error: error.into(),
+        };
+
+        let action_error = ActionError::new(
+            execute_error,
+            buck2_data::ActionName {
+                category: "category".to_owned(),
+                identifier: "identifier".to_owned(),
+            },
+            buck2_data::ActionKey {
+                id: vec![],
+                key: "key".to_owned(),
+                owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                    buck2_data::ConfiguredTargetLabel {
+                        label: Some(buck2_data::TargetLabel {
+                            package: "package".to_owned(),
+                            name: "name".to_owned(),
+                        }),
+                        configuration: Some(buck2_data::Configuration {
+                            full_name: "conf".into(),
+                        }),
+                        execution_configuration: None,
+                    },
+                )),
+            },
+            None,
+            None,
+        );
+
+        let buck2_error: buck2_error::Error = action_error.into();
+
+        assert_eq!(
+            buck2_error.tags(),
+            vec![ErrorTag::AnyActionExecution, ErrorTag::Http]
+        );
+    }
 }

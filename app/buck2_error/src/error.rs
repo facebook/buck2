@@ -15,6 +15,7 @@ use either::Either;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
+use crate::__for_macro::AsDynError;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
@@ -64,6 +65,14 @@ impl Error {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
         crate::any::recover_crate_error(&e, source_location)
+    }
+
+    #[track_caller]
+    #[cold]
+    pub fn from_anyhow_ref(e: &anyhow::Error) -> Self {
+        let source_location =
+            crate::source_location::from_file(std::panic::Location::caller().file(), None);
+        crate::any::recover_crate_error(e.as_dyn_error(), source_location)
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
