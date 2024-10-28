@@ -147,6 +147,29 @@ completion_test(
 )
 
 completion_test(
+    name="test_completes_dir_from_trailing_slash",
+    input="build other/",
+    # FIXME(JakobDegen): Bug
+    # expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
+    expected=[],
+    shells=["bash", "zsh"],
+)
+
+completion_test(
+    name="test_completes_dir_from_trailing_slash",
+    input="build other/",
+    # FIXME(JakobDegen): Bug
+    # expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
+    expected=[
+        "other//other/far/",
+        "other//other/far:",
+        "other//other/foo/",
+        "other//other/foo:",
+    ],
+    shells=["fish"],
+)
+
+completion_test(
     name="test_completes_simple_cells",
     input="build cell",
     expected=["cell2a//", "cell2a//:", "cell3//", "cell3//:"],
