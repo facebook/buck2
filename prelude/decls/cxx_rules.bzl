@@ -1034,7 +1034,6 @@ cxx_toolchain = prelude_rule(
             "strip_all_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
-            "use_arg_file": attrs.bool(default = False),
             "use_header_map": attrs.bool(default = False),
         }
     ),
