@@ -12,7 +12,8 @@
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_BXL_GLOBALS;
 use starlark::environment::GlobalsBuilder;
 
-use crate::bxl::starlark_defs::bxl_function::register_bxl_function;
+use crate::bxl::starlark_defs::bxl_function::register_bxl_main_function;
+use crate::bxl::starlark_defs::bxl_function::register_bxl_prefixed_main_function;
 use crate::bxl::starlark_defs::cli_args;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
@@ -22,6 +23,7 @@ use crate::bxl::starlark_defs::functions::register_target_function;
 use crate::bxl::starlark_defs::type_names::register_bxl_type_names_in_bxl_namespace;
 
 fn bxl_namespace(g: &mut GlobalsBuilder) {
+    register_bxl_main_function(g);
     g.namespace("cli_args", cli_args::register_cli_args_module);
     // TODO(nga): add `main` function here.
     register_artifact_function(g);
@@ -37,7 +39,7 @@ pub(crate) fn init_bxl_specific_globals() {
         g.namespace("bxl", bxl_namespace);
         // TODO(nga): move these into `bxl` namespace.
         g.namespace("cli_args", cli_args::register_cli_args_module);
-        register_bxl_function(g);
+        register_bxl_prefixed_main_function(g);
         register_artifact_function(g);
         register_target_function(g);
         register_file_set_function(g);

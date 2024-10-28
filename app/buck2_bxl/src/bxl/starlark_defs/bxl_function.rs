@@ -46,8 +46,20 @@ use crate::bxl::starlark_defs::cli_args::CliArgError;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 #[starlark_module]
-pub(crate) fn register_bxl_function(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_bxl_prefixed_main_function(builder: &mut GlobalsBuilder) {
     fn bxl_main<'v>(
+        #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
+        #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
+        #[starlark(require = named, default = "")] doc: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> anyhow::Result<Value<'v>> {
+        bxl_impl(r#impl, cli_args, doc, eval)
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_bxl_main_function(builder: &mut GlobalsBuilder) {
+    fn main<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<'v>,
         #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
