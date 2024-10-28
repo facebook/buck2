@@ -14,6 +14,7 @@ const { fbContent, isInternal } = require('docusaurus-plugin-internaldocs-fb/int
 
 import type { ThemeConfig as ClassicPresetConfig, Options as ClassicPresetOptions } from '@docusaurus/preset-classic';
 import type { DocusaurusConfig } from '@docusaurus/types';
+import { redirects } from './redirects';
 
 const presetOptions: ClassicPresetOptions = ({
   docs: {
@@ -163,50 +164,7 @@ const config: DocusaurusConfig = ({
     [
       '@docusaurus/plugin-client-redirects',
       {
-        redirects: [
-          {
-            to: '/docs/about/why',
-            from: '/docs/why',
-          },
-          {
-            to: '/docs/about/getting_started',
-            from: '/docs/getting_started',
-          },
-          {
-            to: '/docs/about/benefits/compared_to_buck1',
-            from: '/docs/benefits',
-          },
-          {
-            to: '/docs/about/bootstrapping',
-            from: '/docs/bootstrapping',
-          },
-          {
-            to: '/docs/prelude/globals',
-            from: '/docs/api/rules',
-          },
-          {
-            to: '/docs/api/starlark',
-            from: '/docs/api/starlark/globals',
-          },
-          {
-            to: '/docs/api/build',
-            from: '/docs/api/build/globals',
-          },
-          {
-            to: '/docs/api/bxl',
-            from: '/docs/api/bxl/globals',
-          },
-        ].concat(!isInternal() ? [] : [
-          // Internal-only redirects
-          {
-            to: '/docs/about/benefits/testimonials',
-            from: '/docs/testimonials',
-          },
-          {
-            to: '/docs/about/knowledge_sharing',
-            from: '/docs/knowledge_sharing',
-          },
-        ]),
+        redirects: redirects,
       },
     ],
   ],
