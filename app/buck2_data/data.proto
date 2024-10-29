@@ -2274,6 +2274,15 @@ message ProcessedErrorReport {
   optional string category_key = 9;
 }
 
+message CommandReport {
+  // A globally-unique ID (UUIDv4) to ensure it's for the right command.
+  string trace_id = 1;
+  // Command ExitCode
+  uint32 exit_code = 2;
+  // List of error messages seen during the command execution
+  repeated string error_messages = 3;
+}
+
 message MaterializerStateInfo {
   // Number of entries loaded from sqlite
   uint64 num_entries_from_sqlite = 1;

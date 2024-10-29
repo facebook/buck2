@@ -16,8 +16,12 @@ use std::io::Write;
 use std::ops::FromResidual;
 use std::process::Command;
 
+use buck2_core::fs::fs_util;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_error::ErrorTag;
+use buck2_wrapper_common::invocation_id::TraceId;
 
 #[derive(Debug)]
 pub struct ExecArgs {
@@ -48,6 +52,9 @@ pub struct ExitResult {
     /// Some stdout output that should be emitted prior to exiting. This allows commands to buffer
     /// their final output and choose not to send it if we opt to restart the command.
     stdout: Vec<u8>,
+
+    // List of error messages that was observed during the command. Used for error reporting.
+    error_messages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -100,6 +107,7 @@ impl ExitResult {
         Self {
             variant: ExitResultVariant::Status(status),
             stdout: Vec::new(),
+            error_messages: Vec::new(),
         }
     }
 
@@ -110,6 +118,14 @@ impl ExitResult {
         } else {
             // The exit code isn't an allowable value, so just switch to generic failure
             Self::status(ExitCode::UnknownFailure)
+        }
+    }
+
+    fn status_with_error_report(status: ExitCode, errors: &[buck2_data::ErrorReport]) -> Self {
+        Self {
+            variant: ExitResultVariant::Status(status),
+            stdout: Vec::new(),
+            error_messages: errors.iter().map(|e| e.message.clone()).collect(),
         }
     }
 
@@ -127,6 +143,7 @@ impl ExitResult {
                 env,
             }),
             stdout: Vec::new(),
+            error_messages: Vec::new(),
         }
     }
 
@@ -135,6 +152,7 @@ impl ExitResult {
     }
 
     pub fn err(err: anyhow::Error) -> Self {
+        let err_msg = format!("{:#}", err);
         let err: buck2_error::Error = err.into();
         let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
             ExitCode::BrokenPipe
@@ -145,13 +163,16 @@ impl ExitResult {
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
+            error_messages: vec![err_msg],
         }
     }
 
     pub fn err_with_exit_code(err: anyhow::Error, exit_code: ExitCode) -> Self {
+        let err_msg = format!("{:#}", err);
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
             stdout: Vec::new(),
+            error_messages: vec![err_msg],
         }
     }
 
@@ -176,37 +197,38 @@ impl ExitResult {
         }
     }
 
-    pub fn from_errors<'a>(errors: impl IntoIterator<Item = &'a buck2_data::ErrorReport>) -> Self {
+    pub fn from_errors<'a>(errors: &'a Vec<buck2_data::ErrorReport>) -> Self {
         let mut has_infra = false;
         let mut has_user = false;
+
         for e in errors {
             if e.tags
                 .contains(&(buck2_data::error::ErrorTag::DaemonIsBusy as i32))
             {
-                return Self::status(ExitCode::DaemonIsBusy);
+                return Self::status_with_error_report(ExitCode::DaemonIsBusy, errors);
             }
             if e.tags
                 .contains(&(buck2_data::error::ErrorTag::DaemonPreempted as i32))
             {
-                return Self::status(ExitCode::DaemonPreempted);
+                return Self::status_with_error_report(ExitCode::DaemonPreempted, errors);
             }
             match e.tier.and_then(buck2_data::error::ErrorTier::from_i32) {
-                Some(buck2_data::error::ErrorTier::Tier0) => has_infra = true,
-                Some(buck2_data::error::ErrorTier::Environment) => has_infra = true,
+                Some(buck2_data::error::ErrorTier::Tier0)
+                | Some(buck2_data::error::ErrorTier::Environment) => has_infra = true,
                 Some(buck2_data::error::ErrorTier::Input) => has_user = true,
                 Some(buck2_data::error::ErrorTier::UnusedDefaultCategory) | None => (),
             }
         }
         if has_infra {
-            return Self::status(ExitCode::InfraError);
+            return Self::status_with_error_report(ExitCode::InfraError, errors);
         }
         if has_user {
-            return Self::status(ExitCode::UserError);
+            return Self::status_with_error_report(ExitCode::UserError, errors);
         }
         // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
         // here. However, it would be more honest to return the `1` status code that we use for
         // "unknown"
-        Self::status(ExitCode::InfraError)
+        Self::status_with_error_report(ExitCode::InfraError, errors)
     }
 
     /// Buck2 supports being built as both a "full" binary as well as a "client-only" binary.
@@ -227,6 +249,45 @@ impl ExitResult {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn write_command_report(
+        &self,
+        trace_id: TraceId,
+        buck_log_dir: &AbsNormPathBuf,
+        command_report_path: &Option<AbsPathBuf>,
+    ) -> anyhow::Result<()> {
+        let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
+        fs_util::create_dir_all(&dir)?;
+
+        let path = dir.join(ForwardRelativePath::new("command_report.json")?);
+        let file = fs_util::create_file(&path)?;
+        let mut file = std::io::BufWriter::new(file);
+
+        match &self.variant {
+            ExitResultVariant::Status(exit_code)
+            | ExitResultVariant::StatusWithErr(exit_code, _) => {
+                serde_json::to_writer_pretty(
+                    &mut file,
+                    &buck2_data::CommandReport {
+                        trace_id: trace_id.to_string(),
+                        exit_code: exit_code.exit_code(),
+                        error_messages: self.error_messages.clone(),
+                    },
+                )?;
+
+                if let Some(report_path) = command_report_path {
+                    if let Some(parent) = report_path.parent() {
+                        fs_util::create_dir_all(parent)?;
+                    }
+                    file.flush()?;
+                    fs_util::copy(path, report_path)?;
+                }
+            }
+            _ => {}
+        }
+
+        Ok(())
     }
 }
 
@@ -373,7 +434,7 @@ pub enum ExitCode {
 }
 
 impl ExitCode {
-    pub fn exit_code(self) -> u8 {
+    pub fn exit_code(self) -> u32 {
         use ExitCode::*;
         match self {
             Success => 0,
@@ -386,7 +447,7 @@ impl ExitCode {
             ConnectError => 11,
             BrokenPipe => 130,
             SignalInterrupt => 141,
-            Explicit(code) => code,
+            Explicit(code) => code.into(),
         }
     }
 }

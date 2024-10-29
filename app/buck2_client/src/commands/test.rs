@@ -256,7 +256,7 @@ impl StreamingCommand for TestCommand {
         // command).
         let build_errors = response
             .errors
-            .iter()
+            .into_iter()
             .filter(|e| !e.tags().any(|t| t == ErrorTag::TestDeadlineExpired))
             .collect::<Vec<_>>();
 
@@ -311,7 +311,7 @@ impl StreamingCommand for TestCommand {
 
         let exit_result = if !build_errors.is_empty() {
             // If we had build errors, those take precedence and we return their exit code.
-            ExitResult::from_errors(build_errors.iter().copied())
+            ExitResult::from_errors(&build_errors)
         } else if let Some(exit_code) = response.exit_code {
             // Otherwise, use the exit code from Tpx.
             ExitResult::status_extended(exit_code)

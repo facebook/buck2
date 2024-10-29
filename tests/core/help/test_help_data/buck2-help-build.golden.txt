@@ -287,6 +287,10 @@ Event Log Options:
           Write the invocation record (as JSON) to this path. No guarantees whatsoever are made
           regarding the stability of the format
 
+      --command-report-path <PATH>
+          Write the command report to this path. A command report is always written to
+          `buck-out/v2/<uuid>/command_report` even without this flag
+
 Universal Options:
   -v, --verbose <VERBOSITY>
           How verbose buck should be while logging.

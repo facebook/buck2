@@ -162,6 +162,13 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     /// Actual call that runs a `StreamingCommand`.
     /// Handles all of the business of setting up a runtime, server, and subscribers.
     fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let buck_log_dir = &ctx.paths()?.log_dir();
+        let command_report_path = &self
+            .event_log_opts()
+            .command_report_path
+            .as_ref()
+            .map(|path| path.resolve(&ctx.working_dir));
+
         ctx.with_runtime(|mut ctx| async move {
             let work = async {
                 let constraints = if T::existing_only() {
@@ -206,9 +213,12 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 command_result
             };
 
-            with_simple_sigint_handler(work)
+            let result = with_simple_sigint_handler(work)
                 .await
-                .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
+                .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
+
+            result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
+            result
         })
     }
 }
