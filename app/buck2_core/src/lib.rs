@@ -47,6 +47,7 @@ pub mod target;
 pub mod target_aliases;
 pub mod unsafe_send_future;
 
+pub use env::__macro_refs::buck2_env;
 pub use env::__macro_refs::buck2_env_anyhow;
 pub use env::__macro_refs::buck2_env_name;
 

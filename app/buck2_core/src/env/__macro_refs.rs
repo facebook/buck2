@@ -13,10 +13,10 @@ use std::str::FromStr;
 
 pub use linkme;
 
-pub fn convert_from_str<T>(v: &str) -> buck2_error::Result<T>
+pub fn convert_from_str<T>(v: &str) -> anyhow::Result<T>
 where
     T: FromStr,
-    buck2_error::Error: From<<T as FromStr>::Err>,
+    anyhow::Error: From<<T as FromStr>::Err>,
 {
     Ok(T::from_str(v)?)
 }
@@ -45,13 +45,13 @@ pub macro buck2_env {
             match s.to_lowercase().as_str() {
                 "1" | "true" => Ok(true),
                 "0" | "false" => Ok(false),
-                _ => Err(anyhow::anyhow!("Invalid bool value: {}", s)),
+                _ => Err(buck2_error::buck2_error!("Invalid bool value: {}", s)),
             }
         }, $($($rest)*)?);
         v
     }},
     ($var:expr, type=$ty:ty, default=$default:expr, converter=$converter:expr $(, $($rest:tt)*)?) => {{
-        $crate::env::__macro_refs::parse_anyhow!(
+        $crate::env::__macro_refs::parse2!(
             (
             var=$var,
             parser=$converter,
@@ -193,14 +193,6 @@ macro register($var:expr, ty=$ty:ty, default=$default:expr, applicability=$appli
 /// Code below returns anyhow::Error, it is used while we transition from anyhow to buck2_error in buck2/app
 /// TODO(minglunli): Delete the code below once we have fully transitioned to buck2_error
 
-pub fn convert_from_str_to_anyhow<T>(v: &str) -> anyhow::Result<T>
-where
-    T: FromStr,
-    anyhow::Error: From<<T as FromStr>::Err>,
-{
-    Ok(T::from_str(v)?)
-}
-
 /// This macro is used to register environment variables that are used by Buck2.
 ///
 /// The first argument to the macro must always be a string literal with the name of the environment
@@ -247,7 +239,7 @@ pub macro buck2_env_anyhow {
         $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied().unwrap_or_else(|| $default),
             output_type=$ty,
@@ -273,7 +265,7 @@ pub macro buck2_env_anyhow {
         $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=$ty,
             processor=|x| x.copied(),
             output_type=std::option::Option<$ty>,
@@ -286,7 +278,7 @@ pub macro buck2_env_anyhow {
         $crate::env::__macro_refs::parse_anyhow!(
             (
             var=$var,
-            parser=$crate::env::__macro_refs::convert_from_str_to_anyhow,
+            parser=$crate::env::__macro_refs::convert_from_str,
             stored_type=std::string::String,
             processor=|x| x.map(|x| x.as_str()),
             output_type=std::option::Option<&'static str>,
@@ -340,6 +332,6 @@ macro expand_anyhow(
     );
     static ENV_HELPER: $crate::env::helper::EnvHelper<$stored_ty> =
         $crate::env::helper::EnvHelper::with_converter_from_macro($var, $parser);
-    let v: anyhow::Result<$output_ty> = ENV_HELPER.get().map($processor);
+    let v: anyhow::Result<$output_ty> = ENV_HELPER.get_anyhow().map($processor);
     v
 }}

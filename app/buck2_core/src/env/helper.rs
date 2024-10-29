@@ -11,7 +11,8 @@ use std::env;
 use std::env::VarError;
 use std::sync::OnceLock;
 
-use anyhow::Context;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 
 pub struct EnvHelper<T> {
     convert: fn(&str) -> anyhow::Result<T>,
@@ -35,7 +36,7 @@ impl<T> EnvHelper<T> {
     // `EnvHelper` caches computed value. When it is used like
     // `EnvHelper::new(...).get(...)`, it performs unnecessary work.
     // To avoid it, we require `'static` lifetime, to force placing `EnvHelper` in static variable.
-    pub fn get(&'static self) -> anyhow::Result<Option<&T>> {
+    pub fn get(&'static self) -> buck2_error::Result<Option<&T>> {
         let var = self.var;
         let convert = self.convert;
 
@@ -46,9 +47,15 @@ impl<T> EnvHelper<T> {
                     Ok(Some((convert)(&v).map_err(anyhow::Error::from)?))
                 }
                 Err(VarError::NotPresent) => Ok(None),
-                Err(VarError::NotUnicode(..)) => Err(anyhow::anyhow!("Variable is not unicode")),
+                Err(VarError::NotUnicode(..)) => {
+                    Err(buck2_error::buck2_error!([], "Variable is not unicode"))
+                }
             })
             .map(Option::as_ref)
-            .with_context(|| format!("Invalid value for ${}", var))
+            .with_buck_error_context(|| format!("Invalid value for ${}", var))
+    }
+
+    pub fn get_anyhow(&'static self) -> anyhow::Result<Option<&T>> {
+        self.get().map_err(anyhow::Error::from)
     }
 }
