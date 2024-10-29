@@ -222,13 +222,4 @@ completion_test(
     name="test_default_completions_after_run_dash_dash",
     input="run :sometarget -- d",
     expected=["dir1/", "dir2/"],
-    shells=["bash", "fish"],
-)
-
-completion_test(
-    name="test_default_completions_after_run_dash_dash",
-    input="run :sometarget -- d",
-    # FIXME(JakobDegen): Bug: Bash gets it right
-    expected=[],
-    shells=["zsh"],
 )

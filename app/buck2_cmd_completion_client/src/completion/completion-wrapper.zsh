@@ -33,10 +33,6 @@ __buck2_subcommand()
     local subcommand=
     for w in "${words[@]:1:$CURRENT - 1}"; do
         case "$w" in
-        --)
-            # This marker should only occur after certain subcommands
-            exit 1
-            ;;
         -*|@*)
             ;;
         *)
@@ -72,6 +68,15 @@ __buck2_completions_queued()
 
 __buck2_fix()
 {
+    for w in "${words[@]:1:$CURRENT - 1}"; do
+        if [[ "$w" = '--' ]]; then
+            # We're running completions after a `--` - just report file completions and otherwise
+            # exit out
+            _files
+            return
+        fi
+    done
+
     local cur="${words[CURRENT]}"
     local prev="${words[CURRENT-1]}"
     local pprev="${words[CURRENT-2]}"
