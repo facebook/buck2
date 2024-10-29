@@ -1,0 +1,15 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Traceback (most recent call last):
+  File <builtin>, in <module>
+  * fail_no_stacktrace.bxl:9, in _fail_no_stacktrace_impl
+      fail_no_stacktrace("failing with no stacktrace")
+error: fail: failing with no stacktrace
+ --> fail_no_stacktrace.bxl:9:5
+  |
+9 |     fail_no_stacktrace("failing with no stacktrace")
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+
+BXL FAILED
