@@ -18,7 +18,6 @@
 ## oncall
 ## package
 ## package\_name
-## plugins
 ## provider
 ## provider\_field
 ## read\_config

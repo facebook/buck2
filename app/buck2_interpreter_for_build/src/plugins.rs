@@ -17,9 +17,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -177,15 +174,12 @@ starlark_simple_value!(AllPlugins);
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
 #[starlark_module]
-fn plugins_module(registry: &mut MethodsBuilder) {
+fn register_plugins_methods(r: &mut GlobalsBuilder) {
     /// Create a new plugin kind.
     ///
     /// The value returned should always be immediately bound to a global, like `MyPluginKind =
     /// plugins.kind()`
-    fn kind<'v>(
-        #[starlark(this)] _this: Value<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkPluginKind> {
+    fn kind<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<StarlarkPluginKind> {
         let cell_path = BuildContext::from_context(eval)?
             .starlark_path()
             .path()
@@ -203,34 +197,14 @@ fn plugins_module(registry: &mut MethodsBuilder) {
     ///
     /// This value is not supported on `uses_plugins` at this time, and hence it is not useful on
     /// `pulls_plugins` either.
-    #[starlark(attribute)]
-    fn All<'v>(#[starlark(this)] _this: Value<'v>) -> anyhow::Result<AllPlugins> {
-        Ok(AllPlugins)
-    }
+    const All: AllPlugins = AllPlugins;
 
     /// Type symbol for `PluginKind`.
-    #[starlark(attribute, speculative_exec_safe)]
-    fn PluginKind(
-        #[starlark(this)] _this: Value,
-    ) -> anyhow::Result<StarlarkValueAsType<StarlarkPluginKind>> {
-        Ok(StarlarkValueAsType::new())
-    }
-}
-
-#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
-#[display("<plugins>")]
-struct Plugins;
-
-#[starlark_value(type = "plugins")]
-impl<'v> StarlarkValue<'v> for Plugins {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(plugins_module)
-    }
+    const PluginKind: StarlarkValueAsType<StarlarkPluginKind> = StarlarkValueAsType::new();
 }
 
 pub(crate) fn register_plugins(globals: &mut GlobalsBuilder) {
-    globals.set("plugins", globals.frozen_heap().alloc_simple(Plugins));
+    globals.namespace("plugins", register_plugins_methods);
 }
 
 pub(crate) fn init_plugin_kind_from_value_impl() {
