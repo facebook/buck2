@@ -68,7 +68,6 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
-load("@prelude//cxx:link.bzl", "ExtraLinkerOutputs")
 load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
@@ -82,6 +81,7 @@ load(
 load("@prelude//cxx:target_sdk_version.bzl", "get_unversioned_target_triple")
 load(
     "@prelude//linking:link_info.bzl",
+    "ExtraLinkerOutputs",
     "LibOutputStyle",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")

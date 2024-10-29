@@ -33,6 +33,7 @@ load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "L
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
+    "ExtraLinkerOutputs",
     "LinkArgs",
     "LinkOrdering",
     "LinkedObject",
@@ -94,14 +95,6 @@ CxxLinkResult = record(
     extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
 )
 
-ExtraLinkerOutputs = record(
-    # The unbound extra outputs produced by a link action
-    # stored by key for lookup in the flag factory.
-    artifacts = field(dict[str, Artifact], {}),
-    # The output providers for the extra linker output.
-    providers = field(dict[str, list[DefaultInfo]], {}),
-)
-
 def link_external_debug_info(
         ctx: AnalysisContext,
         links: list[LinkArgs],
@@ -154,12 +147,6 @@ def cxx_link_into(
         linker_map = None
         linker_map_data = None
 
-    # Declare any extra outputs here so they can be propagated to
-    # distributed thin LTO link actions. This is only supported
-    # for Darwin currently.
-    # TODO: thread this through dlto logic
-    extra_linker_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory != None else ExtraLinkerOutputs()
-
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
@@ -169,7 +156,7 @@ def cxx_link_into(
 
         linker_type = linker_info.type
         if linker_type == LinkerType("darwin"):
-            exe = cxx_darwin_dist_link(
+            exe, extra_outputs = cxx_darwin_dist_link(
                 ctx,
                 output,
                 opts,
@@ -186,6 +173,7 @@ def cxx_link_into(
                 should_generate_dwp,
                 is_result_executable,
             )
+            extra_outputs = {}
         else:
             fail("Linker type {} not supported for distributed thin-lto".format(linker_type))
 
@@ -196,6 +184,7 @@ def cxx_link_into(
                 preference = opts.link_execution_preference,
             ),
             sanitizer_runtime_files = [],
+            extra_outputs = extra_outputs,
         )
 
     if linker_info.generate_linker_maps:
@@ -208,6 +197,7 @@ def cxx_link_into(
     all_link_args.add(get_output_flags(linker_info.type, output))
 
     # Add the linker args required for any extra linker outputs requested
+    extra_linker_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory != None else ExtraLinkerOutputs()
     if len(extra_linker_outputs.artifacts) > 0:
         if opts.extra_linker_outputs_flags_factory == None:
             fail("Extra outputs requested but missing flag factory")

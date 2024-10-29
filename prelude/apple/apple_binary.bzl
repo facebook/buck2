@@ -43,7 +43,6 @@ load(
     "prepare_headers",
 )
 load("@prelude//cxx:index_store.bzl", "create_index_store_subtargets_and_provider")
-load("@prelude//cxx:link.bzl", "ExtraLinkerOutputs")
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
@@ -56,6 +55,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "CxxSanitizerRuntimeInfo",
+    "ExtraLinkerOutputs",
     "LinkCommandDebugOutputInfo",
     "UnstrippedLinkOutputInfo",
 )

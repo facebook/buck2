@@ -23,6 +23,7 @@ load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
+    "ExtraLinkerOutputs",
     "FrameworksLinkable",  # @unused Used as a type
     "LinkInfo",
     "LinkedObject",
@@ -81,7 +82,7 @@ def cxx_darwin_dist_link(
         opts: LinkOptions,
         premerger_enabled: bool,
         executable_link: bool,
-        linker_map: Artifact | None = None) -> LinkedObject:
+        linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
     """
     Perform a distributed thin-lto link into the supplied output
 
@@ -574,6 +575,9 @@ def cxx_darwin_dist_link(
 
     linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_link_argsfile")
 
+    # Declare any extra outputs here so we can look them up in the final_link closure
+    extra_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory else ExtraLinkerOutputs()
+
     def thin_lto_final_link(ctx: AnalysisContext, artifacts, outputs):
         plan = artifacts[link_plan_out].read_json()
         link_args = cmd_args()
@@ -600,6 +604,11 @@ def cxx_darwin_dist_link(
         link_cmd.add(common_link_flags)
         link_cmd_hidden = []
 
+        if opts.extra_linker_outputs_flags_factory != None:
+            # We need the inner artifacts here
+            mapped_outputs = {output_type: outputs[artifact] for output_type, artifact in extra_outputs.artifacts.items()}
+            link_cmd.add(opts.extra_linker_outputs_flags_factory(ctx, mapped_outputs))
+
         # buildifier: disable=uninitialized
         for artifact in sorted_index_link_data:
             if artifact.data_type == _DataType("archive"):
@@ -624,10 +633,16 @@ def cxx_darwin_dist_link(
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
 
     final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
+    final_link_outputs = [output.as_output(), linker_argsfile_out.as_output()]
+    if linker_map:
+        final_link_outputs.append(linker_map.as_output())
+
+    final_link_outputs += [o.as_output() for o in extra_outputs.artifacts.values()]
+
     ctx.actions.dynamic_output(
         dynamic = final_link_inputs,
         inputs = [],
-        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []) + [linker_argsfile_out.as_output()],
+        outputs = final_link_outputs,
         f = thin_lto_final_link,
     )
 
@@ -649,4 +664,4 @@ def cxx_darwin_dist_link(
         index_argsfile = index_argsfile_out,
         dist_thin_lto_codegen_argsfile = opt_flags_for_debugging_argsfile,
         dist_thin_lto_index_argsfile = index_flags_for_debugging_argsfile,
-    )
+    ), extra_outputs.providers

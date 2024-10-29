@@ -24,6 +24,14 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
+ExtraLinkerOutputs = record(
+    # The unbound extra outputs produced by a link action
+    # stored by key for lookup in the flag factory.
+    artifacts = field(dict[str, Artifact], {}),
+    # The output providers for the extra linker output.
+    providers = field(dict[str, list[DefaultInfo]], {}),
+)
+
 # Represents an archive (.a file)
 Archive = record(
     artifact = field(Artifact),
