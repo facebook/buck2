@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_core::soft_error;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -45,6 +44,7 @@ use starlark::values::ValueOf;
 pub enum StarlarkSelectorGen<ValueType> {
     /// Simplest form, backed by dictionary representation
     /// wrapped into `select` function call.
+    // TODO: add a type restriction here that ValueType should be a dict
     Primary(ValueType),
     Sum(ValueType, ValueType),
 }
@@ -259,10 +259,8 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
 
     fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
-        if let Err(e) = ValueOf::<DictType<StringValue, Value>>::unpack_value_err(d) {
-            soft_error!("select_not_dict", e.into())?;
-        }
-        Ok(StarlarkSelector::new(d))
+        let d = ValueOf::<DictType<StringValue, Value>>::unpack_value_err(d)?;
+        Ok(StarlarkSelector::new(*d))
     }
 
     /// Maps a selector.
