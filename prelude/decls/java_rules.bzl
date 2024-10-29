@@ -163,6 +163,8 @@ java_binary = prelude_rule(
             "generate_wrapper": attrs.bool(default = False),
             "do_not_create_inner_jar": attrs.bool(default = False),
             "incremental_target_prefix": attrs.option(attrs.string(), default = None),
+            "java_version": attrs.option(attrs.string(), default = None, doc = "Expected java version used at compile time"),
+            "java_runtime": attrs.option(attrs.string(), default = None, doc = "Expected java version used at runtime"),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
         }
