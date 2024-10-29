@@ -395,6 +395,7 @@ def build_kotlin_library(
                 "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
                 "friend_paths": ctx.attrs.friend_paths,
+                "incremental": ctx.attrs.incremental,
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
@@ -417,7 +418,6 @@ def build_kotlin_library(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
-                incremental = ctx.attrs.incremental,
                 **common_kotlincd_kwargs
             )
 
@@ -450,7 +450,6 @@ def build_kotlin_library(
                         # To make sure that even for pure Kotlin targets empty output dir is always present
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
-                        incremental = False,
                         **common_kotlincd_kwargs
                     )
 

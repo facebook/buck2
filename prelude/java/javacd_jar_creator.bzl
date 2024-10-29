@@ -200,8 +200,7 @@ def create_jar_artifact_javacd(
             target_type: TargetType,
             path_to_class_hashes: Artifact | None,
             is_creating_subtarget: bool = False,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
-            should_action_run_incrementally: bool | None = False):  # @unused
+            source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
         proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
