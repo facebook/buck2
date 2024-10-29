@@ -83,7 +83,7 @@ load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_transition")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_attributes", "constraint_overrides_transition")
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
@@ -266,11 +266,6 @@ def _cxx_python_extension_attrs():
     })
     return res
 
-def _constraint_overrides_attr():
-    return {
-        "constraint_overrides": attrs.list(attrs.string(), default = []),
-    }
-
 # Attrs common between python binary/test
 def _python_executable_attrs():
     cxx_binary_attrs = {k: v for k, v in cxx_rules.cxx_binary.attrs.items()}
@@ -284,7 +279,7 @@ def _python_executable_attrs():
         if key not in python_executable_attrs
     }
 
-    updated_attrs.update(_constraint_overrides_attr())
+    updated_attrs.update(constraint_overrides_attributes())
 
     # allow non-default value for the args below
     updated_attrs.update({
@@ -391,7 +386,7 @@ def _cxx_binary_and_test_attrs():
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
     }
-    ret.update(_constraint_overrides_attr())
+    ret.update(constraint_overrides_attributes())
     return ret
 
 NativeLinkStrategy = ["separate", "native", "merged"]
@@ -650,7 +645,7 @@ inlined_extra_attributes = {
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
     "rust_test": {},
-    "sh_test": _constraint_overrides_attr(),
+    "sh_test": constraint_overrides_attributes(),
     "windows_resource": {
         "_cxx_toolchain": toolchains_common.cxx(),
     },

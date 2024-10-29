@@ -84,3 +84,11 @@ constraint_overrides_transition = transition(
         "constraint_overrides",
     ],
 )
+
+def constraint_overrides_attributes() -> dict:
+    return {
+        "constraint_overrides": attrs.list(attrs.string(), default = []),
+        "constraint_overrides_strict": attrs.bool(default = False),
+        "constraint_passthroughs": attrs.list(attrs.string(), default = []),
+        "platform_override": attrs.option(attrs.string(), default = None),
+    }

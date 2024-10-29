@@ -16,6 +16,7 @@ load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/core_rules.bzl", "TargetCpuType")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_attributes")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
@@ -107,7 +108,6 @@ extra_attributes = {
         "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "constraint_overrides": attrs.list(attrs.string(), default = []),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "dex_tool": attrs.string(default = "d8"),  # Match default in V1
         "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
@@ -129,7 +129,7 @@ extra_attributes = {
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
-    },
+    } | constraint_overrides_attributes(),
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
