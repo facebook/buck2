@@ -33,7 +33,8 @@ def buck_e2e_test(
         require_nano_prelude = None,
         cfg_modifiers = (),
         ci_srcs = [],
-        ci_deps = []):
+        ci_deps = [],
+        compatible_with = None):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -139,6 +140,7 @@ def buck_e2e_test(
         pytest_confcutdir = pytest_confcutdir,
         labels = labels,
         metadata = metadata,
+        compatible_with = compatible_with,
     )
 
     if e2e_flavor == "buck2_non_isolated":
@@ -194,7 +196,8 @@ def buck2_e2e_test(
         serialize_test_cases = None,
         require_nano_prelude = None,
         ci_srcs = [],
-        ci_deps = []):
+        ci_deps = [],
+        compatible_with = None):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -219,6 +222,7 @@ def buck2_e2e_test(
         "base_module": base_module,
         "ci_deps": ci_deps,
         "ci_srcs": ci_srcs,
+        "compatible_with": compatible_with,
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
