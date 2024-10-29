@@ -84,7 +84,7 @@ ONE-SHOT START
 Configure a remote build with persistent workers:
 ```
 $ cd examples/persistent_worker
-$ echo '<file:.buckconfig.buildbuddy>' > .buckconfig.local
+$ echo '<file:.buckconfig.buildbuddy-persistent-workers>' > .buckconfig.local
 ```
 
 Run a clean build:
