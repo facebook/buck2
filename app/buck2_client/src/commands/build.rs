@@ -36,6 +36,7 @@ use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_core::buck2_env_anyhow;
 use dupe::Dupe;
 
 use crate::commands::build::out::copy_to_out;
@@ -267,6 +268,10 @@ impl StreamingCommand for BuildCommand {
             }
         } else {
             print_build_failed(&console)?;
+        }
+
+        if buck2_env_anyhow!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {
+            return anyhow::anyhow!("Injected Build Response Error").into();
         }
 
         // Most build errors are returned in the `result.errors` field, but some are not and printed

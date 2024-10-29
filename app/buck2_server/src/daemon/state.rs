@@ -243,6 +243,15 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
     ) -> anyhow::Result<Arc<DaemonStateData>> {
+        if buck2_env_anyhow!(
+            "BUCK2_TEST_INIT_DAEMON_ERROR",
+            bool,
+            applicability = testing
+        )? {
+            // TODO(minglunli): Errors here don't actually make it to invocation records which should be fixed
+            return Err(anyhow::anyhow!("Injected init daemon error"));
+        }
+
         let daemon_state_data_rt = rt.clone();
         rt.spawn(async move {
             let fs = paths.project_root().clone();
