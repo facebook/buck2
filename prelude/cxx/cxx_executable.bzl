@@ -297,10 +297,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
 
     # Gather link inputs.
-    own_link_flags = cxx_attr_linker_flags(ctx) + impl_params.extra_link_flags + impl_params.extra_exported_link_flags
+    own_link_flags = (
+        get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags +
+        cxx_attr_linker_flags(ctx) +
+        impl_params.extra_link_flags +
+        impl_params.extra_exported_link_flags
+    )
 
     # ctx.attrs.binary_linker_flags should come after default link flags so it can be used to override default settings
-    own_binary_link_flags = impl_params.extra_binary_link_flags + own_link_flags + ctx.attrs.binary_linker_flags
+    own_exe_link_flags = impl_params.extra_binary_link_flags + own_link_flags + ctx.attrs.binary_linker_flags
     deps_merged_link_infos = [d.merged_link_info for d in link_deps]
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
@@ -378,7 +383,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 auto_link_groups[name] = linked_link_group.artifact
                 if linked_link_group.library != None:
                     link_group_libs[name] = linked_link_group.library
-            own_binary_link_flags += linked_link_groups.symbol_ldflags
+            own_exe_link_flags += linked_link_groups.symbol_ldflags
             targets_consumed_by_link_groups = linked_link_groups.targets_consumed_by_link_groups
 
         else:
@@ -513,7 +518,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         LinkArgs(infos = [
             LinkInfo(
                 dist_thin_lto_codegen_flags = getattr(ctx.attrs, "dist_thin_lto_codegen_flags", []),
-                pre_flags = own_binary_link_flags,
+                pre_flags = own_exe_link_flags,
                 linkables = [ObjectsLinkable(
                     objects = [out.object for out in cxx_outs] + impl_params.extra_link_input,
                     linker_type = linker_info.type,

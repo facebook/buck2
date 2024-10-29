@@ -964,6 +964,17 @@ cxx_toolchain = prelude_rule(
             "assembler_preprocessor_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "assembler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "binary_extension": attrs.option(attrs.string(), default = None),
+            "binary_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that apply to all links coordinated by a binary
+                rule.  One key distinction between these and `executable_linker_flags`
+                is that these will also apply to library links coordinated by
+                binary rules (e.g. linking roots/deps when using native python or
+                omnibus link strategies).
+                """,
+            ),
             "c_compiler": attrs.source(),
             "c_compiler_flags": attrs.list(attrs.arg(), default = []),
             "c_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),

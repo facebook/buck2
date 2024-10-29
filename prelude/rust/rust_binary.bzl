@@ -185,7 +185,7 @@ def _rust_binary_common(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        extra_link_args = executable_args.extra_link_args,
+        extra_link_args = compile_ctx.cxx_toolchain_info.linker_info.binary_linker_flags + executable_args.extra_link_args,
         predeclared_output = output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
