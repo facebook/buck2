@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::is_open_source;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
@@ -131,4 +132,30 @@ def test():
             ))
             .is_err()
     );
+}
+
+#[test]
+#[should_panic]
+fn test_failing_nested_select() {
+    let mut tester = Tester::new().unwrap();
+    let test = indoc!(
+        r#"
+def _test_func(value):
+    return "TEST" in value
+
+def test():
+    expr_select = select_test(select(select({"config/windows:x86_64": "flag_TEST"})), _test_func)
+    "#
+    );
+    if is_open_source() {
+        // soft errors are hard errors in oss
+        assert!(
+            tester
+                .run_starlark_test(test)
+                .is_err_and(|e| e.to_string().contains("select_not_dict"))
+        );
+    } else {
+        // TODO: nested select panics, to be fixed.
+        let _panic = tester.run_starlark_test(test);
+    }
 }
