@@ -574,6 +574,7 @@ def generate_abi_jars(
                 source_abi_dir,
                 source_abi_target_type,
                 path_to_class_hashes = None,
+                should_action_run_incrementally = False,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -601,6 +602,7 @@ def generate_abi_jars(
                 source_only_abi_target_type,
                 path_to_class_hashes = None,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+                should_action_run_incrementally = False,
             )
             source_only_abi = source_only_abi_output_paths.jar
 
