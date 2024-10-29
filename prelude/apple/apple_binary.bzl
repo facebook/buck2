@@ -9,7 +9,7 @@ load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
@@ -43,6 +43,7 @@ load(
     "prepare_headers",
 )
 load("@prelude//cxx:index_store.bzl", "create_index_store_subtargets_and_provider")
+load("@prelude//cxx:link.bzl", "ExtraLinkerOutputs")
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group_info",
@@ -95,12 +96,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             objc_bridging_header_flags,
         )
         swift_object_files = swift_compile.object_files if swift_compile else []
-
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
-
-        extra_linker_output_flags, extra_linker_output_providers = [], {} # @oss-enable
-        # @oss-disable: extra_linker_output_flags, extra_linker_output_providers = add_extra_linker_outputs(ctx) 
-        extra_link_flags = entitlements_link_flags(ctx) + extra_linker_output_flags
+        extra_link_flags = entitlements_link_flags(ctx)
 
         framework_search_path_pre = CPreprocessor(
             args = CPreprocessorArgs(args = [framework_search_path_flags]),
@@ -161,6 +158,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             error_handler = apple_build_error_handler,
             index_stores = swift_compile.index_stores if swift_compile else None,
             executable_name = ctx.attrs.executable_name,
+            extra_linker_outputs_factory = _get_extra_linker_outputs,
+            extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
         )
         cxx_output = cxx_executable(ctx, constructor_params)
 
@@ -182,7 +181,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             action_identifier = unstripped_binary.short_path,
         )
         cxx_output.sub_targets[DSYM_SUBTARGET] = [DefaultInfo(default_output = dsym_artifact)]
-        cxx_output.sub_targets.update(extra_linker_output_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
         min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
@@ -233,6 +231,16 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
     else:
         return get_apple_binary_providers([])
+
+def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
+    _ = ctx  # buildifier: disable=unused-variable
+    # @oss-disable: return get_extra_linker_outputs(ctx) 
+    return ExtraLinkerOutputs() # @oss-enable
+
+def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
+    _ = ctx  # buildifier: disable=unused-variable
+    # @oss-disable: return get_extra_linker_output_flags(ctx, outputs) 
+    return [] # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []

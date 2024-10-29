@@ -207,8 +207,13 @@ CxxRuleConstructorParams = record(
     # Whether link groups liking should make `preferred_linkage = "static"` libs
     # "follow" their dependents across link group boundaries.
     link_groups_force_static_follows_dependents = field(bool, True),
-    # The intended return type is: (list[ArgLike], dict[str, list[DefaultInfo]]).
-    extra_linker_outputs_factory = field(typing.Callable, lambda _context: ([], {})),
+    # A factory function to produce extra artifacts and output providers for a rule
+    # with signature: f(ctx) -> ExtraLinkerOutputs
+    extra_linker_outputs_factory = field(typing.Callable | None, None),
+    # A factory function to produce linker flags for the extra linker outputs
+    # returned from the extra_linker_outputs_factory. It should have the signature
+    # f(ctx, dict[str, Artifact]) -> list[ArgLike]
+    extra_linker_outputs_flags_factory = field(typing.Callable | None, None),
     # Whether to allow cache uploads for locally-linked executables.
     exe_allow_cache_upload = field(bool, False),
     # Extra shared library interfaces to propagate, eg from mixed Swift libraries.

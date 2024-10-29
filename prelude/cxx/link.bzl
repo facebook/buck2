@@ -89,6 +89,17 @@ CxxLinkResult = record(
     link_execution_preference_info = LinkExecutionPreferenceInfo,
     # A list of runtime shared libraries
     sanitizer_runtime_files = field(list[Artifact]),
+    # A dictionary of extra linker outputs generated from
+    # the extra_linker_outputs_factory
+    extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
+)
+
+ExtraLinkerOutputs = record(
+    # The unbound extra outputs produced by a link action
+    # stored by key for lookup in the flag factory.
+    artifacts = field(dict[str, Artifact], {}),
+    # The output providers for the extra linker output.
+    providers = field(dict[str, list[DefaultInfo]], {}),
 )
 
 def link_external_debug_info(
@@ -143,6 +154,12 @@ def cxx_link_into(
         linker_map = None
         linker_map_data = None
 
+    # Declare any extra outputs here so they can be propagated to
+    # distributed thin LTO link actions. This is only supported
+    # for Darwin currently.
+    # TODO: thread this through dlto logic
+    extra_linker_outputs = opts.extra_linker_outputs_factory(ctx) if opts.extra_linker_outputs_factory != None else ExtraLinkerOutputs()
+
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
@@ -189,6 +206,13 @@ def cxx_link_into(
     link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
     all_link_args = cmd_args(link_cmd_parts.linker_flags)
     all_link_args.add(get_output_flags(linker_info.type, output))
+
+    # Add the linker args required for any extra linker outputs requested
+    if len(extra_linker_outputs.artifacts) > 0:
+        if opts.extra_linker_outputs_flags_factory == None:
+            fail("Extra outputs requested but missing flag factory")
+
+        all_link_args.add(opts.extra_linker_outputs_flags_factory(ctx, extra_linker_outputs.artifacts))
 
     # Darwin LTO requires extra link outputs to preserve debug info
     split_debug_output = None
@@ -362,6 +386,7 @@ def cxx_link_into(
         linker_map_data = linker_map_data,
         link_execution_preference_info = link_execution_preference_info,
         sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
+        extra_outputs = extra_linker_outputs.providers,
     )
 
 _AnonLinkInfo = provider(fields = {

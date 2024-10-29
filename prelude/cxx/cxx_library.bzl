@@ -99,7 +99,6 @@ load(
     "create_third_party_build_info",
 )
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
-load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
@@ -1286,8 +1285,6 @@ def _form_library_outputs(
 
                 gcno_files += compiled_srcs.pic.gcno_files
 
-                extra_linker_flags, extra_linker_outputs = impl_params.extra_linker_outputs_factory(ctx)
-
                 result = _shared_library(
                     ctx = ctx,
                     impl_params = impl_params,
@@ -1295,13 +1292,13 @@ def _form_library_outputs(
                     external_debug_info = external_debug_info,
                     dep_infos = dep_infos,
                     gnu_use_link_groups = gnu_use_link_groups,
-                    extra_linker_flags = extra_linker_flags,
                     link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
                     link_execution_preference = link_execution_preference,
                     shared_interface_info = shared_interface_info,
                 )
                 shlib = result.link_result.linked_object
                 info = result.info
+                extra_outputs = result.link_result.extra_outputs
 
                 link_cmd_debug_output_file = None
                 link_cmd_debug_output = make_link_command_debug_output(shlib)
@@ -1318,7 +1315,7 @@ def _form_library_outputs(
                     external_debug_info = shlib.external_debug_info,
                     dwp = shlib.dwp,
                     linker_map = result.link_result.linker_map_data,
-                    sub_targets = extra_linker_outputs | {
+                    sub_targets = extra_outputs | {
                         "linker.argsfile": [DefaultInfo(
                             default_output = shlib.linker_argsfile,
                         )],
@@ -1654,7 +1651,6 @@ def _shared_library(
         external_debug_info: ArtifactTSet,
         dep_infos: LinkArgs,
         gnu_use_link_groups: bool,
-        extra_linker_flags: list[ArgLike],
         link_execution_preference: LinkExecutionPreference,
         link_ordering: [LinkOrdering, None],
         shared_interface_info: [SharedInterfaceInfo, None]) -> _CxxSharedLibraryResult:
@@ -1690,7 +1686,6 @@ def _shared_library(
         post_flags = (
             impl_params.extra_exported_link_flags +
             impl_params.extra_link_flags +
-            extra_linker_flags +
             linker_flags.post_flags +
             (linker_info.shared_dep_runtime_ld_flags or [])
             # TODO(cjhopman): Why doesn't this add exported_linker_flags.post_flags?
@@ -1718,6 +1713,8 @@ def _shared_library(
             strip_args_factory = impl_params.strip_args_factory,
             link_execution_preference = link_execution_preference,
             error_handler = impl_params.error_handler,
+            extra_linker_outputs_factory = impl_params.extra_linker_outputs_factory,
+            extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
         ),
         name = soname if impl_params.use_soname else None,
         shared_library_flags = impl_params.shared_library_flags,

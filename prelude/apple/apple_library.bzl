@@ -18,7 +18,7 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions") 
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "add_extra_linker_outputs") 
+# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "SwiftLibraryForDistributionOutput",  # @unused Used as a type
@@ -68,6 +68,7 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
+load("@prelude//cxx:link.bzl", "ExtraLinkerOutputs")
 load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
@@ -482,7 +483,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
-        extra_linker_outputs_factory = _get_extra_linker_flags_and_outputs,
+        extra_linker_outputs_factory = _get_extra_linker_outputs,
+        extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
         extra_shared_library_interfaces = [swift_compile.exported_symbols] if (swift_compile and swift_compile.exported_symbols) else None,
         compiler_flags = ctx.attrs.compiler_flags,
@@ -499,11 +501,15 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         index_stores = swift_compile.index_stores if swift_compile else None,
     )
 
-def _get_extra_linker_flags_and_outputs(
-        ctx: AnalysisContext) -> (list[ArgLike], dict[str, list[DefaultInfo]]):
+def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable: return add_extra_linker_outputs(ctx) 
-    return [], {} # @oss-enable
+    # @oss-disable: return get_extra_linker_outputs(ctx) 
+    return ExtraLinkerOutputs() # @oss-enable
+
+def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
+    _ = ctx  # buildifier: disable=unused-variable
+    # @oss-disable: return get_extra_linker_output_flags(ctx, outputs) 
+    return [] # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):
     cxx_srcs = []

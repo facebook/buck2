@@ -563,6 +563,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             category_suffix = impl_params.exe_category_suffix,
             allow_cache_upload = impl_params.exe_allow_cache_upload,
             error_handler = impl_params.error_handler,
+            extra_linker_outputs_factory = impl_params.extra_linker_outputs_factory,
+            extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
         ),
     )
     binary = link_result.exe
@@ -767,6 +769,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers
 
+    sub_targets.update(link_result.extra_outputs)
+
     return CxxExecutableOutput(
         binary = binary.output,
         unstripped_binary = binary.unstripped_output,
@@ -805,6 +809,8 @@ _CxxLinkExecutableResult = record(
     shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
     sanitizer_runtime_files = list[Artifact],
+    # Extra output providers produced by extra_linker_outputs_factory
+    extra_outputs = dict[str, list[DefaultInfo]],
 )
 
 def _link_into_executable(
@@ -843,6 +849,7 @@ def _link_into_executable(
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         linker_map_data = link_result.linker_map_data,
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
+        extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
     )
 
 def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
