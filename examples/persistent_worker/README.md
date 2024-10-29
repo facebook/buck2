@@ -10,23 +10,20 @@ support for remote persistent workers to Buck2, see [#776].
 
 ## Requirements
 
-The demo uses Nix to provide required system dependencies, such as
-Python and grpc-io. As well as direnv to set up the environment.
+This demo uses BuildBuddy remote execution to demonstrate remote
+persistent workers. You will need an API token for at least a free open
+source account. You can use [direnv] to set up the environment:
 
-- [Nix](https://nixos.org/)
-- [direnv](https://direnv.net/)
-
-Credentials for [BuildBuddy](https://www.buildbuddy.io/) and
-[GHCR](https://ghcr.io) stored in `.envrc.private`:
+Credentials for [BuildBuddy] stored in `.envrc.private`:
 ```
 export BUILDBUDDY_API_KEY=...
-export BUILDBUDDY_CONTAINER_USER=...  # GitHub user name
-export BUILDBUDDY_CONTAINER_PASSWORD=...  # GitHub access token
-export GITHUB_USER=... # GitHub user name
 ```
 
 Upload the Nix Docker image for remote execution as described in
 `platforms/buildbuddy.bzl`.
+
+[direnv]: https://direnv.net/
+[BuildBuddy]: https://www.buildbuddy.io/
 
 ## Local Build
 
