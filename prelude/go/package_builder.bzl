@@ -20,6 +20,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 def build_package(
         ctx: AnalysisContext,
         pkg_name: str,
+        main: bool,
         srcs: list[Artifact],
         package_root: str | None,
         pkgs: dict[str, GoPkg] = {},
@@ -37,7 +38,7 @@ def build_package(
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
-    out = ctx.actions.declare_output(paths.basename(pkg_name) + ".a")
+    out = ctx.actions.declare_output(paths.basename(pkg_name) + "_non-shared.a")
     out_shared = ctx.actions.declare_output(paths.basename(pkg_name) + "_shared.a")
 
     cgo_gen_dir = ctx.actions.declare_output(cgo_gen_dir_name, dir = True)
@@ -71,15 +72,15 @@ def build_package(
         covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
-        symabis = _symabis(ctx, pkg_name, go_list.s_files, go_list.h_files, assembler_flags)
+        symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)
 
         def build_variant(shared: bool) -> Artifact:
-            suffix = "__shared" if shared else ""  # suffix to make artifacts unique
+            suffix = ",shared" if shared else ",non-shared"  # suffix to make artifacts unique
             go_files_to_compile = covered_go_files + ((go_list.test_go_files + go_list.x_test_go_files) if tests else [])
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
-            go_a_file, asmhdr = _compile(ctx, pkg_name, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, suffix, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
+            go_a_file, asmhdr = _compile(ctx, pkg_name, main, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, suffix, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
 
-            asm_o_files = _asssembly(ctx, pkg_name, go_list.s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
+            asm_o_files = _asssembly(ctx, pkg_name, main, go_list.s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
 
             return _pack(ctx, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
 
@@ -104,6 +105,7 @@ def build_package(
 def _compile(
         ctx: AnalysisContext,
         pkg_name: str,
+        main: bool,
         go_srcs: list[Artifact],
         importcfg: cmd_args,
         compiler_flags: list[str],
@@ -139,7 +141,7 @@ def _compile(
             "-buildid=",
             "-nolocalimports",
             ["-trimpath", "%cwd%"],
-            ["-p", pkg_name],
+            ["-p", "main" if main else pkg_name],
             ["-importcfg", importcfg],
             ["-o", out.as_output()],
             ["-race"] if race else [],
@@ -158,7 +160,7 @@ def _compile(
 
     return (out, asmhdr)
 
-def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_files: list[Artifact], assembler_flags: list[str]) -> Artifact | None:
+def _symabis(ctx: AnalysisContext, pkg_name: str, main: bool, s_files: list[Artifact], h_files: list[Artifact], assembler_flags: list[str]) -> Artifact | None:
     if len(s_files) == 0:
         return None
 
@@ -174,7 +176,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_fil
         go_toolchain.assembler,
         go_toolchain.assembler_flags,
         assembler_flags,
-        _asm_args(ctx, pkg_name, False),  # flag -shared doesn't matter for symabis
+        _asm_args(ctx, pkg_name, main, False),  # flag -shared doesn't matter for symabis
         "-gensymabis",
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
@@ -187,7 +189,7 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_fil
 
     return symabis
 
-def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_files: list[Artifact], asmhdr: Artifact | None, assembler_flags: list[str], shared: bool, suffix: str) -> list[Artifact]:
+def _asssembly(ctx: AnalysisContext, pkg_name: str, main: bool, s_files: list[Artifact], h_files: list[Artifact], asmhdr: Artifact | None, assembler_flags: list[str], shared: bool, suffix: str) -> list[Artifact]:
     if len(s_files) == 0:
         return []
 
@@ -204,7 +206,7 @@ def _asssembly(ctx: AnalysisContext, pkg_name: str, s_files: list[Artifact], h_f
             go_toolchain.assembler,
             go_toolchain.assembler_flags,
             assembler_flags,
-            _asm_args(ctx, pkg_name, shared),
+            _asm_args(ctx, pkg_name, main, shared),
             ["-o", o_file.as_output()],
             ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
             ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
@@ -238,10 +240,10 @@ def _pack(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, o_files: list[A
 
     return pkg_file
 
-def _asm_args(ctx: AnalysisContext, pkg_name: str, shared: bool):
+def _asm_args(ctx: AnalysisContext, pkg_name: str, main: bool, shared: bool):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     return [
-        ["-p", pkg_name],
+        ["-p", "main" if main else pkg_name],
         ["-I", cmd_args(go_toolchain.env_go_root, absolute_suffix = "/pkg/include")],
         ["-D", "GOOS_" + go_toolchain.env_go_os] if go_toolchain.env_go_os else [],
         ["-D", "GOARCH_" + go_toolchain.env_go_arch] if go_toolchain.env_go_arch else [],

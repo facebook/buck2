@@ -63,6 +63,7 @@ go_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         go_common.link_style_arg() |
@@ -145,6 +146,7 @@ go_exported_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        go_common.package_name_arg() |
         go_common.srcs_arg() |
         go_common.deps_arg() |
         {

@@ -18,6 +18,7 @@ load(
 )
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
+load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -25,8 +26,9 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     lib, pkg_info = build_package(
         ctx,
-        "main",
-        ctx.attrs.srcs,
+        go_attr_pkg_name(ctx),
+        main = True,
+        srcs = ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
