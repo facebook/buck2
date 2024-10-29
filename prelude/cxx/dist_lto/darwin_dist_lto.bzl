@@ -80,6 +80,7 @@ def cxx_darwin_dist_link(
         output: Artifact,
         opts: LinkOptions,
         premerger_enabled: bool,
+        executable_link: bool,
         linker_map: Artifact | None = None) -> LinkedObject:
     """
     Perform a distributed thin-lto link into the supplied output
@@ -344,7 +345,7 @@ def cxx_darwin_dist_link(
     # The flags used for the thin-link action. Unlike index_args, this does not include input files, and
     # is only used for debugging and testing, and can be determined without dynamic output.
     index_flags_for_debugging = cmd_args()
-    index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+    index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
     index_flags_for_debugging.add(index_cmd_parts.linker_flags)
     index_flags_for_debugging.add(common_link_flags)
     index_flags_for_debugging.add(index_cmd_parts.post_linker_flags)
@@ -371,7 +372,7 @@ def cxx_darwin_dist_link(
             index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
             index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
 
-            index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+            index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
 
             index_cmd = index_cmd_parts.link_cmd
             index_cmd.add(common_link_flags)
@@ -594,7 +595,7 @@ def cxx_darwin_dist_link(
                 elif idx in non_lto_objects:
                     opt_objects.append(artifact.link_data.initial_object)
 
-        link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain)
+        link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         link_cmd = link_cmd_parts.link_cmd
         link_cmd.add(common_link_flags)
         link_cmd_hidden = []

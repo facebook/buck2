@@ -988,6 +988,13 @@ cxx_toolchain = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "detailed_untracked_header_messages": attrs.bool(default = False),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
+            "executable_linker_flags": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                Linker flags that only apply when linking an executable.
+                """,
+            ),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "headers_whitelist": attrs.list(attrs.string(), default = []),
             "hip_compiler": attrs.option(attrs.source(), default = None),

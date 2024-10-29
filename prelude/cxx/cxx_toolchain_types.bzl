@@ -42,6 +42,7 @@ LinkerInfo = provider(
         "link_ordering": provider_field(typing.Any, default = None),  # LinkOrdering
         "linker": provider_field(typing.Any, default = None),
         "linker_flags": provider_field(typing.Any, default = None),
+        "executable_linker_flags": provider_field(typing.Any, default = []),
         "lto_mode": provider_field(typing.Any, default = None),
         "mk_shlib_intf": provider_field(typing.Any, default = None),
         # "o" on Unix, "obj" on Windows

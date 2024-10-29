@@ -157,6 +157,7 @@ def cxx_link_into(
                 output,
                 opts,
                 linker_info.thin_lto_premerger_enabled,
+                is_result_executable,
                 linker_map,
             )
         elif linker_type == LinkerType("gnu"):
@@ -185,7 +186,7 @@ def cxx_link_into(
     else:
         links_with_linker_map = opts.links
 
-    link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info)
+    link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
     all_link_args = cmd_args(link_cmd_parts.linker_flags)
     all_link_args.add(get_output_flags(linker_info.type, output))
 

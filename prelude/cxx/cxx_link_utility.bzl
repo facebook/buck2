@@ -292,7 +292,7 @@ LinkCmdParts = record(
     link_cmd = cmd_args,
 )
 
-def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
+def cxx_link_cmd_parts(toolchain: CxxToolchainInfo, executable: bool) -> LinkCmdParts:
     # `toolchain_linker_flags` can either be a list of strings, `cmd_args` or `None`,
     # so we need to do a bit more work to satisfy the type checker
     toolchain_linker_flags = toolchain.linker_info.linker_flags
@@ -301,6 +301,12 @@ def cxx_link_cmd_parts(toolchain: CxxToolchainInfo) -> LinkCmdParts:
         toolchain_linker_flags = cmd_args()
     elif not type(toolchain_linker_flags) == "cmd_args":
         toolchain_linker_flags = cmd_args(toolchain_linker_flags)
+
+    if executable:
+        toolchain_linker_flags = cmd_args(
+            toolchain_linker_flags,
+            toolchain.linker_info.executable_linker_flags,
+        )
 
     if toolchain_post_linker_flags == None:
         toolchain_post_linker_flags = cmd_args()
