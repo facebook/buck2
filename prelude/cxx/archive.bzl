@@ -49,7 +49,13 @@ def _archive_flags(
     return [flags]
 
 # Create a static library from a list of object files.
-def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool) -> Artifact:
+def _archive(
+        ctx: AnalysisContext,
+        name: str,
+        args: cmd_args,
+        thin: bool,
+        prefer_local: bool,
+        allow_cache_upload: bool) -> Artifact:
     archive_output = ctx.actions.declare_output(name)
     toolchain = get_cxx_toolchain_info(ctx)
     command = cmd_args(toolchain.linker_info.archiver)
@@ -97,6 +103,7 @@ def _archive(ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer
         identifier = name,
         env = env,
         prefer_local = prefer_local,
+        allow_cache_upload = allow_cache_upload,
     )
     return archive_output
 
@@ -105,6 +112,9 @@ def _archive_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
     if hasattr(ctx.attrs, "_archive_objects_locally_override"):
         return value_or(ctx.attrs._archive_objects_locally_override, archive_locally)
     return archive_locally
+
+def _archive_allow_cache_upload(ctx: AnalysisContext) -> bool:
+    return getattr(ctx.attrs, "archive_allow_cache_upload", False)
 
 # Creates a static library given a list of object files.
 def make_archive(
@@ -119,7 +129,14 @@ def make_archive(
     thin = linker_info.archive_contents == "thin"
     object_args = cmd_args(objects, ignore_artifacts = not linker_info.archiver_reads_inputs)
     args = cmd_args(object_args, hidden = hidden)
-    archive = _archive(ctx, name, args, thin = thin, prefer_local = _archive_locally(ctx, linker_info))
+    archive = _archive(
+        ctx,
+        name,
+        args,
+        thin = thin,
+        prefer_local = _archive_locally(ctx, linker_info),
+        allow_cache_upload = _archive_allow_cache_upload(ctx),
+    )
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.
     # TODO(T110378123): for BSD archiver, split long args over multiple invocations.
