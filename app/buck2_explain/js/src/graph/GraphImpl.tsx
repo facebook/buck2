@@ -14,6 +14,7 @@ import {Node} from './GraphView'
 import {GraphViz} from './GraphViz'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
 import {longestPathTree, shortestPathTree} from './graph'
+import {formatTargetLabel} from '../formatTargetLabel'
 
 enum NodeSizeOption {
   transitiveDeps,
@@ -127,7 +128,7 @@ export function GraphImpl(props: {
     // Intersection of 'includes', minus 'excludes'
     for (const [k, node] of nodeMap) {
       const target = build.targets(k)!
-      const label = target.configuredTargetLabel()!
+      const label = formatTargetLabel(target.label()!)
 
       // When null, means it wasn't affected by any of the filters and to use default
       let passesFilters = null
@@ -225,9 +226,9 @@ export function GraphImpl(props: {
     data.push({
       val: translateValues(sizeValue, maxValue) + 0.5, // controls size
       id: k,
-      name: target.configuredTargetLabel()!,
+      name: formatTargetLabel(target.label()!),
       color: colorByCfg ? undefined : displayTypeColors[node.displayType],
-      cfg: target.configuredTargetLabel()!.split('#')[1],
+      cfg: target.label()!.cfg()!,
     })
   }
 

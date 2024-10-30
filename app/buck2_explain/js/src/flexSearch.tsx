@@ -9,6 +9,7 @@
 
 import {Index} from 'flexsearch-ts'
 import {Build, TargetField, TargetValue, TargetValueType} from './fbs/explain'
+import {formatTargetLabel} from './formatTargetLabel'
 
 export let indexCache: Index | null = null
 
@@ -95,20 +96,30 @@ export async function indexEverything(build: Build): Promise<void> {
   // TODO iguridi: make this in a js worker
   const searchIndex = new Index({tokenize: 'forward', stemmer: 'false'})
   for (let i = 0; i < build.targetsLength(); i++) {
-    let target = build.targets(i)
-    const label = target?.configuredTargetLabel()
-    if (target == null || label == null) {
-      continue
-    }
-    addIfExists(searchIndex, label, target.name())
-    addIfExists(searchIndex, label, target.oncall())
-    addIfExists(searchIndex, label, target.executionPlatform())
-    addIfExists(searchIndex, label, target.package_())
-    addIfExists(searchIndex, label, target.targetConfiguration())
-    addIfExists(searchIndex, label, target.type())
-    addIfExists(searchIndex, label, label)
-    addListOfStrings(searchIndex, label, i => target.deps(i), target.depsLength())
-    addListOfTargetFields(searchIndex, label, (i: number) => target.attrs(i), target.attrsLength())
+    let target = build.targets(i)!
+    const label = target.label()!
+    let identifier = formatTargetLabel(label)
+    addIfExists(searchIndex, identifier, target.name())
+    addIfExists(searchIndex, identifier, target.oncall())
+    addIfExists(searchIndex, identifier, target.executionPlatform())
+    addIfExists(searchIndex, identifier, target.package_())
+    addIfExists(searchIndex, identifier, target.targetConfiguration())
+    addIfExists(searchIndex, identifier, target.type())
+    addIfExists(searchIndex, identifier, label.targetLabel()!)
+    addIfExists(searchIndex, identifier, label.cfg()!)
+    addIfExists(searchIndex, identifier, label.execCfg()!)
+    addListOfStrings(
+      searchIndex,
+      identifier,
+      i => formatTargetLabel(target.deps(i)!),
+      target.depsLength(),
+    )
+    addListOfTargetFields(
+      searchIndex,
+      identifier,
+      (i: number) => target.attrs(i),
+      target.attrsLength(),
+    )
   }
   indexCache = searchIndex
 }

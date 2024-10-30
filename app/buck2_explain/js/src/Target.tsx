@@ -11,6 +11,7 @@ import React, {useContext} from 'react'
 import {DataContext} from './App'
 import {ConfiguredTargetNode, TargetValueType, TargetField, TargetValue} from './fbs/explain'
 import {Link} from './Router'
+import {formatTargetLabel} from './formatTargetLabel'
 
 const TARGET_ATTRS = 'target_attrs'
 const TARGET_DEPS = 'target_deps'
@@ -144,7 +145,7 @@ function Attrs(props: {attr: (i: number) => TargetField | null; length: number})
 }
 
 export function Target(props: {target: ConfiguredTargetNode; tab: string | null}) {
-  const target = props.target
+  const target = props.target!
   const tab = props.tab ?? TARGET_ATTRS
 
   const filePath = target.codePointer()?.filePath()
@@ -152,7 +153,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   // TODO iguridi: make it work outside of fbsource
   const codePointer = `https://www.internalfb.com/code/fbsource/${filePath}?lines=${lineNumber}`
 
-  const targetLabel = target.configuredTargetLabel()?.split(' ')[0]
+  const targetLabel = target.label()!.targetLabel()
 
   return (
     <div>
@@ -171,7 +172,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
             <Link
               className="no-underline icon-text"
-              to={{target: target.configuredTargetLabel(), target_tab: TARGET_ATTRS}}>
+              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_ATTRS}}>
               Attributes
               <span className="icon">
                 <i className="fa fa-list"></i>
@@ -181,7 +182,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
             <Link
               className="no-underline"
-              to={{target: target.configuredTargetLabel(), target_tab: TARGET_DEPS}}>
+              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_DEPS}}>
               Dependencies
               <span className="icon">
                 <i className="fa fa-arrow-down"></i>
@@ -191,7 +192,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
             <Link
               className="no-underline"
-              to={{target: target.configuredTargetLabel(), target_tab: TARGET_RDEPS}}>
+              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_RDEPS}}>
               Reverse dependencies
               <span className="icon">
                 <i className="fa fa-arrow-up"></i>
@@ -209,7 +210,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
 
 function TargetDeps(props: {target: ConfiguredTargetNode}) {
   const {target} = props
-  return <List attr={i => target.deps(i)} length={target.depsLength()} />
+  return <List attr={i => formatTargetLabel(target!.deps(i)!)} length={target.depsLength()} />
 }
 
 function TargetRdeps(props: {target: ConfiguredTargetNode}) {
@@ -220,16 +221,16 @@ function TargetRdeps(props: {target: ConfiguredTargetNode}) {
     return
   }
 
-  const label = target?.configuredTargetLabel()
+  const label = formatTargetLabel(target!.label()!)
 
   let rdeps: Array<string> = []
   Object.values(allTargets).forEach(i => {
     let target2 = build?.targets(i)
     let depsLength = target2?.depsLength() ?? 0
     for (let i = 0; i < depsLength; i++) {
-      const dep = target2?.deps(i)
-      const rdepLabel = target2?.configuredTargetLabel()
-      if (dep === label && rdepLabel != null) {
+      const dep = formatTargetLabel(target2?.deps(i)!)
+      const rdepLabel = formatTargetLabel(target2!.label()!)
+      if (dep === label) {
         rdeps.push(rdepLabel)
       }
     }

@@ -29,7 +29,7 @@ export function Navbar() {
           <span className="icon mr-1">
             <i className="fa fa-bullseye" />
           </span>
-          {rootTarget.configuredTargetLabel()?.split(' ')[0]}
+          {rootTarget.label()!.targetLabel()}
         </Link>
       </div>
       <div className="navbar-menu">

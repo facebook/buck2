@@ -32,11 +32,17 @@ table TargetField {
   value: TargetValue (required);
 }
 
+table ConfiguredTargetLabel {
+  target_label: string;
+  cfg: string;
+  exec_cfg: string;
+}
+
 table ConfiguredTargetNode {
     name: string;
     // special attrs
     type: string;
-    deps: [string];
+    deps: [ConfiguredTargetLabel];
     package: string;
     oncall: string;
     target_configuration: string;
@@ -45,7 +51,7 @@ table ConfiguredTargetNode {
     // user attrs
     attrs: [TargetField];
     // extras
-    configured_target_label: string;
+    label: ConfiguredTargetLabel;
     srcs: long;
     code_pointer: CodePointer;
 }

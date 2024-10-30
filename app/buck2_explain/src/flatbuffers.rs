@@ -24,6 +24,8 @@ mod fbs {
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::CodePointer;
     pub use crate::explain_generated::explain::CodePointerArgs;
+    pub use crate::explain_generated::explain::ConfiguredTargetLabel;
+    pub use crate::explain_generated::explain::ConfiguredTargetLabelArgs;
     pub use crate::explain_generated::explain::ConfiguredTargetNode;
     pub use crate::explain_generated::explain::ConfiguredTargetNodeArgs;
     pub use crate::explain_generated::explain::TargetField;
@@ -68,17 +70,22 @@ fn target_to_fbs<'a>(
 ) -> anyhow::Result<WIPOffset<fbs::ConfiguredTargetNode<'a>>, anyhow::Error> {
     // special attrs
     let name = builder.create_shared_string(&node.name());
-    let label = builder.create_shared_string(&node.label().to_string());
+    let target_label = get_target_label(builder, node);
+
     let oncall = node.oncall().map(|v| builder.create_shared_string(v));
     let type_ = builder.create_shared_string(node.rule_type().name());
     let package = builder.create_shared_string(&node.buildfile_path().to_string());
     let target_configuration =
         builder.create_shared_string(&node.target_configuration().to_string());
     let execution_platform = builder.create_shared_string(&node.execution_platform()?.id());
-    let deps = list_of_strings_to_fbs(
-        builder,
-        node.deps().map(|dep| dep.label().to_string()).collect(),
-    );
+    let deps = {
+        let res = &node
+            .deps()
+            .map(|d| get_target_label(builder, d))
+            .collect::<Vec<WIPOffset<fbs::ConfiguredTargetLabel>>>();
+        builder.create_vector(res)
+    };
+
     let plugins = list_of_strings_to_fbs(
         builder,
         node.plugin_lists()
@@ -205,9 +212,9 @@ fn target_to_fbs<'a>(
         &fbs::ConfiguredTargetNodeArgs {
             name: Some(name),
             // special attrs
-            configured_target_label: Some(label),
+            label: Some(target_label),
             type_: Some(type_),
-            deps,
+            deps: Some(deps),
             package: Some(package),
             oncall,
             target_configuration: Some(target_configuration),
@@ -220,6 +227,27 @@ fn target_to_fbs<'a>(
         },
     );
     Ok(target)
+}
+
+fn get_target_label<'a>(
+    builder: &mut FlatBufferBuilder<'static>,
+    node: &ConfiguredTargetNode,
+) -> WIPOffset<fbs::ConfiguredTargetLabel<'a>> {
+    let label = &node.label();
+    let target_label = builder.create_shared_string(&label.unconfigured().to_string());
+    let cfg = builder.create_shared_string(&label.cfg().to_string());
+    let exec_cfg = label
+        .exec_cfg()
+        .as_ref()
+        .map(|c| builder.create_shared_string(&c.to_string()));
+    fbs::ConfiguredTargetLabel::create(
+        builder,
+        &fbs::ConfiguredTargetLabelArgs {
+            target_label: Some(target_label),
+            cfg: Some(cfg),
+            exec_cfg,
+        },
+    )
 }
 
 fn categorize<'a>(a: ConfiguredAttr, name: &'a str) -> AttrField<'a> {
@@ -991,12 +1019,9 @@ mod tests {
 
     fn assert_things(target: fbs::ConfiguredTargetNode<'_>, build: fbs::Build<'_>) {
         // special attrs
-        assert!(
-            target
-                .configured_target_label()
-                .unwrap()
-                .contains("cell//pkg:foo (<testing>#")
-        );
+        let label = target.label().unwrap();
+        assert!(label.cfg().unwrap().contains("<testing>#"));
+        assert_eq!(label.target_label().unwrap(), "cell//pkg:foo");
         assert_eq!(target.name(), Some("foo"));
         assert_eq!(target.type_(), Some("foo_lib"));
         assert_eq!(target.package(), Some("cell//pkg:BUCK"));
@@ -1011,11 +1036,9 @@ mod tests {
         assert_eq!(target.plugins().unwrap().is_empty(), true);
 
         let target2 = build.targets().unwrap().get(1);
-        assert!(
-            target2
-                .configured_target_label()
-                .unwrap()
-                .contains("cell//pkg:baz (<testing>#"),
+        assert_eq!(
+            target2.label().unwrap().target_label(),
+            Some("cell//pkg:baz"),
         );
     }
 

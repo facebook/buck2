@@ -11,6 +11,7 @@ import React, {useContext} from 'react'
 import {DataContext} from '../App'
 import {GraphImpl} from './GraphImpl'
 import {QueryKey} from '../Router'
+import {formatTargetLabel} from '../formatTargetLabel'
 
 export interface Node {
   value: number
@@ -63,8 +64,7 @@ export function GraphView(props: {view: QueryKey}) {
     node.srcs = srcs
 
     for (let i = 0; i < target.depsLength(); i++) {
-      const dep = target.deps(i)!
-      const d = allTargets[dep]
+      const d = allTargets[formatTargetLabel(target.deps(i)!)]
 
       // Deps
       graphDeps.get(k)!.deps.push(d)

@@ -21,6 +21,7 @@ import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
 import {GraphView} from './graph/GraphView'
 import {Navbar} from './Navbar'
+import {formatTargetLabel} from './formatTargetLabel'
 
 const INITIAL_STATE = {
   build: null,
@@ -68,11 +69,9 @@ function App() {
 
       const allTargets: {[key: string]: number} = {}
       for (let i = 0; i < build.targetsLength(); i++) {
-        let target = build.targets(i)
-        let label = target?.configuredTargetLabel()
-        if (label == null) {
-          continue
-        }
+        let target = build.targets(i)!
+        // Unique identifier for target
+        let label = formatTargetLabel(target.label()!)
         allTargets[label] = i
       }
 
