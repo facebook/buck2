@@ -27,14 +27,14 @@ export function GraphViz(props: {
   let paintMode: ForceGraphProps['nodeCanvasObjectMode'] = undefined
   if (showLabels) {
     paintLabels = (node, ctx, _globalScale) => {
-      const label = node.name.split(' ')[0]
-      const fontSize = 5
+      const label = node.name.split(' ')[0].split(':')[1]
+      const fontSize = 2
       ctx.font = `${fontSize}px Sans-Serif`
       const textWidth = ctx.measureText(label).width
-      const padding = fontSize * 0.5
+      const padding = fontSize * 0.1
       const bckgDimensions = [textWidth + padding, fontSize + padding] // some padding
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
       ctx.fillRect(node.x!, node.y! - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1])
 
       ctx.textAlign = 'left'
