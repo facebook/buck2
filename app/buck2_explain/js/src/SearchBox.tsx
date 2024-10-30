@@ -32,7 +32,7 @@ export function SearchBox() {
     <>
       <input
         type="text"
-        className="input mr-2 is-small has-text-info-bold"
+        className="input mr-2 has-text-info-bold"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
         placeholder="Search targets"
@@ -40,7 +40,7 @@ export function SearchBox() {
           event.key == 'Enter' ? goSearch() : null
         }}
       />
-      <button type="submit" onPointerDown={goSearch} className="button is-small has-text-info-bold">
+      <button type="submit" onPointerDown={goSearch} className="button has-text-info-bold">
         <span>Search</span>
         <span className="icon">
           <i className="fa fa-search"></i>
