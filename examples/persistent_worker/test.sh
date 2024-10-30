@@ -23,6 +23,7 @@ buck2 log what-ran --show-std-err --format json \
           error("expected local without persistent worker, got " + ([.reproducer.executor, .std_err] | tostring))
         end
     '
+echo "::endgroup::" >&2
 
 echo "::group::Local build with persistent worker" >&2
 echo '<file:.buckconfig.local-persistent-workers>' > .buckconfig.local
@@ -46,6 +47,7 @@ buck2 log what-ran --show-std-err --format json \
           error("expected local without persistent worker, got " + ([.reproducer.executor, .std_err] | tostring))
         end
     '
+echo "::endgroup::" >&2
 
 echo "::group::Remote build without persistent worker" >&2
 echo '<file:.buckconfig.buildbuddy>' > .buckconfig.local
@@ -69,6 +71,7 @@ buck2 log what-ran --show-std-err --format json \
           error("expected local without persistent worker, got " + ([.reproducer.executor, .std_err] | tostring))
         end
     '
+echo "::endgroup::" >&2
 
 echo "::group::Remote build with persistent worker" >&2
 echo '<file:.buckconfig.buildbuddy-persistent-workers>' > .buckconfig.local
@@ -92,3 +95,4 @@ buck2 log what-ran --show-std-err --format json \
           error("expected remote persistent worker, got " + ([.reproducer.executor, .std_err] | tostring))
         end
     '
+echo "::endgroup::" >&2
