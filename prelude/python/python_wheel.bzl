@@ -42,7 +42,7 @@ load(
     "depth_first_traversal_by",
 )
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_attributes", "constraint_overrides_transition")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
 
 def _link_deps(
         link_infos: dict[Label, LinkableNode],
@@ -186,7 +186,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
 python_wheel = rule(
     impl = _impl,
-    cfg = constraint_overrides_transition,
+    cfg = constraint_overrides.transition,
     attrs = dict(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
@@ -228,5 +228,5 @@ python_wheel = rule(
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
-    ) | constraint_overrides_attributes(),
+    ) | constraint_overrides.attributes,
 )

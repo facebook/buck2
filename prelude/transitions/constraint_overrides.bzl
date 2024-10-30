@@ -77,7 +77,14 @@ def _constraint_overrides_transition_impl(
         ),
     )
 
-constraint_overrides_transition = transition(
+_attributes = {
+    "constraint_overrides": attrs.list(attrs.string(), default = []),
+    "constraint_overrides_strict": attrs.bool(default = False),
+    "constraint_passthroughs": attrs.list(attrs.string(), default = []),
+    "platform_override": attrs.option(attrs.string(), default = None),
+}
+
+_transition = transition(
     impl = _constraint_overrides_transition_impl,
     refs = {constraint: constraint for constraint in _CONSTRAINTS},
     attrs = [
@@ -85,10 +92,7 @@ constraint_overrides_transition = transition(
     ],
 )
 
-def constraint_overrides_attributes() -> dict:
-    return {
-        "constraint_overrides": attrs.list(attrs.string(), default = []),
-        "constraint_overrides_strict": attrs.bool(default = False),
-        "constraint_passthroughs": attrs.list(attrs.string(), default = []),
-        "platform_override": attrs.option(attrs.string(), default = None),
-    }
+constraint_overrides = struct(
+    transition = _transition,
+    attributes = _attributes,
+)

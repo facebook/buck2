@@ -16,7 +16,7 @@ load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/core_rules.bzl", "TargetCpuType")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//genrule.bzl", "genrule_attributes")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_attributes")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
@@ -129,7 +129,7 @@ extra_attributes = {
         "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
         "_java_toolchain": toolchains_common.java_for_android(),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
-    } | constraint_overrides_attributes(),
+    } | constraint_overrides.attributes,
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),

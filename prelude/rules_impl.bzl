@@ -83,7 +83,7 @@ load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides_attributes", "constraint_overrides_transition")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
 load(":alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
 load(":command_alias.bzl", "command_alias_impl")
 load(":export_file.bzl", "export_file_impl")
@@ -279,7 +279,7 @@ def _python_executable_attrs():
         if key not in python_executable_attrs
     }
 
-    updated_attrs.update(constraint_overrides_attributes())
+    updated_attrs.update(constraint_overrides.attributes)
 
     # allow non-default value for the args below
     updated_attrs.update({
@@ -386,7 +386,7 @@ def _cxx_binary_and_test_attrs():
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
     }
-    ret.update(constraint_overrides_attributes())
+    ret.update(constraint_overrides.attributes)
     return ret
 
 NativeLinkStrategy = ["separate", "native", "merged"]
@@ -645,7 +645,7 @@ inlined_extra_attributes = {
         "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
     },
     "rust_test": {},
-    "sh_test": constraint_overrides_attributes(),
+    "sh_test": constraint_overrides.attributes,
     "windows_resource": {
         "_cxx_toolchain": toolchains_common.cxx(),
     },
@@ -669,23 +669,23 @@ extra_attributes = struct(**all_extra_attributes)
 
 # Configuration transitions to pass `cfg` for builtin rules.
 transitions = {
-    "android_binary": constraint_overrides_transition,
+    "android_binary": constraint_overrides.transition,
     "apple_asset_catalog": apple_resource_transition,
     "apple_binary": target_sdk_version_transition,
     "apple_bundle": target_sdk_version_transition,
     "apple_library": target_sdk_version_transition,
     "apple_resource": apple_resource_transition,
     "apple_test": target_sdk_version_transition,
-    "cxx_binary": constraint_overrides_transition,
-    "cxx_test": constraint_overrides_transition,
+    "cxx_binary": constraint_overrides.transition,
+    "cxx_test": constraint_overrides.transition,
     "go_binary": go_binary_transition,
     "go_exported_library": go_exported_library_transition,
     "go_library": go_library_transition,
     "go_stdlib": go_stdlib_transition,
     "go_test": go_test_transition,
-    "python_binary": constraint_overrides_transition,
-    "python_test": constraint_overrides_transition,
-    "sh_test": constraint_overrides_transition,
+    "python_binary": constraint_overrides.transition,
+    "python_test": constraint_overrides.transition,
+    "sh_test": constraint_overrides.transition,
 }
 
 toolchain_rule_names = [
