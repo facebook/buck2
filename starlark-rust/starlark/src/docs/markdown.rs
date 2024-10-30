@@ -23,6 +23,7 @@ use itertools::Itertools;
 use crate::docs::DocFunction;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
+use crate::docs::DocModule;
 use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
@@ -248,4 +249,24 @@ fn render_function_prototype(function_name: &str, f: &DocFunction) -> String {
 
 fn render_code_block(contents: &str) -> String {
     format!("```python\n{contents}\n```")
+}
+
+impl DocModule {
+    pub(super) fn render_markdown_page_for_multipage_render(&self, name: &str) -> String {
+        render_members(
+            name,
+            &self.docs,
+            "",
+            self.members
+                .iter()
+                .filter_map(|(n, m)| m.try_as_member().map(|m| (&**n, m))),
+            None,
+        )
+    }
+}
+
+impl DocType {
+    pub(super) fn render_markdown_page_for_multipage_render(&self, name: &str) -> String {
+        render_doc_type(&name, &format!("{name}."), self)
+    }
 }

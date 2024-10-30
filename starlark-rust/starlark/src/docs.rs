@@ -271,6 +271,13 @@ impl DocItem {
             })),
         }
     }
+
+    pub fn try_as_member(&self) -> Option<DocMember> {
+        match self {
+            DocItem::Member(m) => Some(m.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl DocMember {

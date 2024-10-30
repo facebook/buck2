@@ -17,57 +17,148 @@
 
 use std::collections::HashMap;
 
-use crate::docs::markdown::render_doc_type;
-use crate::docs::markdown::render_members;
+use dupe::Dupe;
+
 use crate::docs::DocItem;
 use crate::docs::DocModule;
+use crate::docs::DocType;
+use crate::typing::Ty;
 
-/// Renders the contents of a `DocModule` into a multi-page tree structure
+pub struct DocModuleInfo<'a> {
+    pub module: &'a DocModule,
+    pub name: String,
+    /// A prefix to attach to all of the pages rendered from this module
+    pub page_path: String,
+}
+
+impl<'a> DocModuleInfo<'a> {
+    fn into_page_renders(&self) -> Vec<PageRender<'a>> {
+        Self::traverse_inner(&self.module, &self.name, &self.page_path)
+    }
+
+    fn traverse_inner(
+        docs: &'a DocModule,
+        module_name: &str,
+        base_path: &str,
+    ) -> Vec<PageRender<'a>> {
+        let mut result = vec![];
+
+        result.push(PageRender {
+            page: DocPageRef::Module(docs),
+            path: base_path.to_owned(),
+            name: module_name.to_owned(),
+            ty: None,
+        });
+
+        for (name, doc) in &docs.members {
+            let path = if base_path.is_empty() {
+                name.to_owned()
+            } else {
+                format!("{}/{}", base_path, name)
+            };
+            match doc {
+                DocItem::Module(doc_module) => {
+                    result.extend(Self::traverse_inner(&doc_module, &name, &path))
+                }
+                DocItem::Type(doc_type) => result.push(PageRender {
+                    page: DocPageRef::Type(doc_type),
+                    path,
+                    name: name.to_owned(),
+                    ty: Some(doc_type.ty.dupe()),
+                }),
+
+                DocItem::Member(_) => (),
+            }
+        }
+
+        result
+    }
+}
+
+/// A reference to a page to render
+/// DocsRender will have all the PageRender it needs to render the docs
+/// Since types and some modules are owned by other modules, we need to use the reference here
+enum DocPageRef<'a> {
+    Module(&'a DocModule),
+    Type(&'a DocType),
+}
+
+/// A single page to render
+struct PageRender<'a> {
+    page: DocPageRef<'a>,
+    path: String,
+    name: String,
+    /// The type of the page, if it is a type page. This is used to get the link to the type.
+    ty: Option<Ty>,
+}
+
+impl<'a> PageRender<'a> {
+    fn render_markdown(&self) -> String {
+        match self.page {
+            DocPageRef::Module(doc_module) => {
+                doc_module.render_markdown_page_for_multipage_render(&self.name)
+            }
+            DocPageRef::Type(doc_type) => {
+                doc_type.render_markdown_page_for_multipage_render(&self.name)
+            }
+        }
+    }
+}
+
+/// Renders the contents into a multi-page tree structure
 ///
 /// The output will contain page-paths like ``, `type1`, `mod1`, and `mod1/type2`, each mapped to
 /// the contents of that page. That means that some of the paths may be prefixes of each other,
 /// which will need consideration if this is to be materialized to a filesystem.
-pub fn render_markdown_multipage(docs: DocModule, name: &str) -> HashMap<String, String> {
-    render_markdown_multipage_inner(docs, name, "")
+struct MultipageRender<'a> {
+    page_renders: Vec<PageRender<'a>>,
+    // used for the linkable type in the markdown
+    #[allow(dead_code)]
+    ty_to_path_map: HashMap<Ty, String>,
 }
 
-fn render_markdown_multipage_inner(
-    docs: DocModule,
-    name: &str,
-    base_path: &str,
-) -> HashMap<String, String> {
-    let mut result = HashMap::new();
-    let mut members = Vec::new();
-
-    for (name, doc) in docs.members {
-        let path = if base_path.is_empty() {
-            name.clone()
-        } else {
-            format!("{}/{}", base_path, name)
-        };
-        match doc {
-            DocItem::Module(m) => {
-                result.extend(render_markdown_multipage_inner(m, &name, &path));
+impl<'a> MultipageRender<'a> {
+    /// Create a new MultipageRender from a list of DocModuleInfo, and an optional function to map a type path to a linkable path
+    /// If the function is not provided, the type will not be linkable
+    fn new(docs: Vec<DocModuleInfo<'a>>, ty_path_mapper: Option<&dyn Fn(&str) -> String>) -> Self {
+        let mut res = vec![];
+        for doc in docs {
+            res.extend(doc.into_page_renders());
+        }
+        let mut ty_to_path_map = HashMap::new();
+        if let Some(path_mapper) = ty_path_mapper {
+            for page in res.iter() {
+                if let Some(ty) = &page.ty {
+                    ty_to_path_map.insert(ty.dupe(), path_mapper(&page.path));
+                }
             }
-            DocItem::Type(t) => {
-                let rendered = render_doc_type(&name, &format!("{name}."), &t);
-                result.insert(path, rendered);
-            }
-            DocItem::Member(m) => {
-                members.push((name, m));
-            }
+        }
+        Self {
+            page_renders: res,
+            ty_to_path_map,
         }
     }
 
-    let rendered = render_members(
-        name,
-        &docs.docs,
-        "",
-        members.iter().map(|(n, m)| (&**n, m.clone())),
-        None,
-    );
+    /// Render the docs into a map of markdown paths to markdown content
+    fn render_markdown_pages(&self) -> HashMap<String, String> {
+        self.page_renders
+            .iter()
+            .map(|page| (page.path.clone(), page.render_markdown()))
+            .collect()
+    }
+}
 
-    result.insert(base_path.to_owned(), rendered);
-
-    result
+/// Renders the contents into a multi-page tree structure
+///
+/// The output will contain page-paths like ``, `type1`, `mod1`, and `mod1/type2`, each mapped to
+/// the contents of that page. That means that some of the paths may be prefixes of each other,
+/// which will need consideration if this is to be materialized to a filesystem.
+///
+/// It accepts a list of DocModuleInfo, and an optional function to map a type path to a linkable path
+pub fn render_markdown_multipage(
+    modules_infos: Vec<DocModuleInfo<'_>>,
+    ty_path_mapper: Option<&dyn Fn(&str) -> String>,
+) -> HashMap<String, String> {
+    let multipage_render = MultipageRender::new(modules_infos, ty_path_mapper);
+    multipage_render.render_markdown_pages()
 }

@@ -30,6 +30,7 @@ use crate::any::ProvidesStaticType;
 use crate::assert;
 use crate::docs::markdown::render_doc_item;
 use crate::docs::multipage::render_markdown_multipage;
+use crate::docs::multipage::DocModuleInfo;
 use crate::docs::DocItem;
 use crate::docs::DocType;
 use crate::environment::Globals;
@@ -276,8 +277,15 @@ fn native_docs_module() {
 }
 
 #[test]
-fn globals_multipage_render() {
-    let res = render_markdown_multipage(get_globals().documentation(), "globals");
+fn globals_docs_render() {
+    let global = get_globals().documentation();
+    let modules_info = DocModuleInfo {
+        module: &global,
+        name: "globals".to_owned(),
+        page_path: "".to_owned(),
+    };
+
+    let res = render_markdown_multipage(vec![modules_info], None);
     let expected_keys = vec!["", "Magic", "Obj", "submod"];
     assert_eq!(&res.keys().sorted().collect::<Vec<_>>(), &expected_keys);
     for (k, v) in res {
