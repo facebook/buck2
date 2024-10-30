@@ -51,7 +51,7 @@ echo "::endgroup::" >&2
 
 echo "::group::Remote build without persistent worker" >&2
 if [[ -z ${BUILDBUDDY_API_KEY:+x} ]]; then
-  echo "::notice file=${BASH_SOURCE[0]},line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
+  echo "::notice file=$(realpath --relative-to=../.. ${BASH_SOURCE[0]}),line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
 else
   echo '<file:.buckconfig.buildbuddy>' > .buckconfig.local
   buck2 clean; buck2 build : -vstderr
@@ -79,7 +79,7 @@ echo "::endgroup::" >&2
 
 echo "::group::Remote build with persistent worker" >&2
 if [[ -z ${BUILDBUDDY_API_KEY:+x} ]]; then
-  echo "::notice file=${BASH_SOURCE[0]},line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
+  echo "::notice file=$(realpath --relative-to=../.. ${BASH_SOURCE[0]}),line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
 else
   echo '<file:.buckconfig.buildbuddy-persistent-workers>' > .buckconfig.local
   buck2 clean; buck2 build : -vstderr
