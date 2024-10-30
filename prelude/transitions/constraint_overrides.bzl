@@ -5,94 +5,103 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# NOTE: Currently, constraints can't be propagated via rule attrs and so need
-# to be hard-coded here.
-# We use a `read_config` to avoid hard-coding these repo-specific constraints
-# into the buck2 prelude.
-_CONSTRAINTS = [
-    constraint.strip()
-    for constraint in read_root_config("buck2", "constraint_overrides", "").split(",")
-    if constraint.strip()
-]
+# NOTE: Currently, constraints can't be propagated via rule attrs and so need to be
+#       hard-coded here. We use a read_config to avoid hard-coding these repo-specific
+#       constraints into the prelude.
 
-# Apparently, `==` doesn't do value comparison for `ConstraintValueInfo`, so
-# impl a hacky eq impl to workaround.
-def _constr_eq(a, b):
-    return a.label == b.label
+def _constraint_overrides() -> list[str]:
+    overrides = read_root_config("buck2", "constraint_overrides", "")
+    return [override.strip() for override in overrides.split(",") if override.strip()]
 
-# It's possible that we multiple constraints for the same setting, so drop all
-# but the last one.
-def _dedupe(constraints):
-    deduped = []
+def _constraint_passthroughs() -> list[str]:
+    passthroughs = read_root_config("buck2", "constraint_passthroughs", "")
+    return [passthrough.strip() for passthrough in passthroughs.split(",") if passthrough.strip()]
 
-    # Walk the constraints in reverse, so that the last one trakes precedence.
-    settings = {}
-    for constraint in reversed(constraints):
-        if constraint.setting.label in settings:
-            # we've already seen this setting
-            continue
-        settings[constraint.setting.label] = None
-        deduped.append(constraint)
+_CONSTRAINT_OVERRIDES = _constraint_overrides()
+_CONSTRAINT_PASSTHROUGHS = _constraint_passthroughs()
 
-    return reversed(deduped)
+def _apply(
+        old_platform: PlatformInfo,
+        *,
+        platform: PlatformInfo | None = None,
+        constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
+    # Store passthrough constraint values.
+    passthrough_constraints = []
+    for constraint in _CONSTRAINT_PASSTHROUGHS:
+        if constraint in old_platform.configuration.constraints:
+            passthrough_constraints.append(
+                old_platform.configuration.constraints[constraint],
+            )
 
-def _constraint_overrides_transition_impl(
-        platform: PlatformInfo,
-        refs: struct,
-        attrs: struct) -> PlatformInfo:
-    # Extract actual constraint value objects.
-    new_constraints = [
-        getattr(refs, constraint)[ConstraintValueInfo]
-        for constraint in attrs.constraint_overrides
-    ]
+    # Switch target platform.
+    platform = platform or old_platform
 
-    # Filter out redundant constraints.
-    new_constraints = _dedupe(new_constraints)
+    # Add passthrough constraint values and apply constraint value overrides.
+    new_constraints = {
+        label: constraint
+        for label, constraint in platform.configuration.constraints.items()
+    }
+    for constraint in passthrough_constraints:
+        new_constraints[constraint.setting.label] = constraint
+    for constraint in constraints:
+        new_constraints[constraint.setting.label] = constraint
 
-    # Filter out new constraints which are already a part of the platform.
-    new_constraints = [
-        constraint
-        for constraint in new_constraints
-        if (
-            constraint.setting.label not in platform.configuration.constraints or
-            not _constr_eq(constraint, platform.configuration.constraints[constraint.setting.label])
-        )
-    ]
-
-    # Nothing to do.
-    if not new_constraints:
-        return platform
-
-    # Generate new constraints.
-    constraints = {}
-    constraints.update(platform.configuration.constraints)
-    for constraint in new_constraints:
-        constraints[constraint.setting.label] = constraint
-
-    return PlatformInfo(
+    new_platform = PlatformInfo(
         label = platform.label,
         configuration = ConfigurationInfo(
-            constraints = constraints,
+            constraints = new_constraints,
             values = platform.configuration.values,
         ),
     )
 
+    return new_platform
+
+def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
+    # Resolve target platform override.
+    override = None
+    if hasattr(attrs, "platform_override"):
+        override = getattr(attrs, "platform_override")
+    platform_override = None
+    if override:
+        if not hasattr(refs, override):
+            fail("Target platform override not supported: {override}".format(
+                override = override,
+            ))
+        ref = getattr(refs, override)
+        platform_override = ref[PlatformInfo]
+
+    # Resolve constraint value overrides.
+    overrides = []
+    if hasattr(attrs, "constraint_overrides"):
+        overrides = getattr(attrs, "constraint_overrides", [])
+    constraint_overrides = []
+    for override in overrides:
+        if not hasattr(refs, override):
+            fail("Constraint value override not supported: {override}".format(
+                override = override,
+            ))
+        ref = getattr(refs, override)
+        constraint_overrides.append(ref[ConstraintValueInfo])
+
+    return _apply(
+        platform,
+        platform = platform_override,
+        constraints = constraint_overrides,
+    )
+
 _attributes = {
     "constraint_overrides": attrs.list(attrs.string(), default = []),
-    "constraint_overrides_strict": attrs.bool(default = False),
-    "constraint_passthroughs": attrs.list(attrs.string(), default = []),
     "platform_override": attrs.option(attrs.string(), default = None),
 }
 
 _transition = transition(
-    impl = _constraint_overrides_transition_impl,
-    refs = {constraint: constraint for constraint in _CONSTRAINTS},
-    attrs = [
-        "constraint_overrides",
-    ],
+    impl = _impl,
+    attrs = _attributes.keys(),
+    refs = {override: override for override in _CONSTRAINT_OVERRIDES},
 )
 
 constraint_overrides = struct(
+    apply = _apply,
     transition = _transition,
     attributes = _attributes,
 )
