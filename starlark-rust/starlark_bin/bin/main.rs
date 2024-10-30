@@ -33,7 +33,7 @@ use dupe::Dupe;
 use eval::Context;
 use itertools::Either;
 use starlark::analysis::LintMessage;
-use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::docs::DocItem;
 use starlark::environment::Globals;
 use starlark::errors::EvalMessage;
@@ -335,7 +335,7 @@ fn main() -> anyhow::Result<()> {
                     println!(
                         "{}",
                         if docs == ArgsDoc::Markdown {
-                            render_doc_item("globals", &global_module)
+                            render_doc_item_no_link("globals", &global_module)
                         } else {
                             String::new()
                         }

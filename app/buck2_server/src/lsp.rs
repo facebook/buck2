@@ -61,7 +61,7 @@ use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
-use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::docs::DocModule;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
@@ -259,7 +259,7 @@ impl DocsCache {
 
                         let url =
                             LspUrl::try_from(Url::parse(&format!("starlark:{}", path.display()))?)?;
-                        let rendered = render_doc_item(sym, mem);
+                        let rendered = render_doc_item_no_link(sym, mem);
                         let prev = native_starlark_files.insert(url.clone(), rendered);
                         assert!(prev.is_none());
 

@@ -29,7 +29,7 @@ use lsp_types::MarkupKind;
 use lsp_types::Range;
 use lsp_types::TextEdit;
 use starlark::codemap::ResolvedSpan;
-use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::docs::markdown::render_doc_param;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -105,7 +105,7 @@ impl<T: LspContext> Backend<T> {
                         .map(|doc| {
                             Documentation::MarkupContent(MarkupContent {
                                 kind: MarkupKind::Markdown,
-                                value: render_doc_item(&value.name, &doc),
+                                value: render_doc_item_no_link(&value.name, &doc),
                             })
                         })
                         .or_else(|| {

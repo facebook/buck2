@@ -22,6 +22,7 @@ use dupe::Dupe;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
 use crate::docs::DocType;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 
 pub struct DocModuleInfo<'a> {
@@ -93,13 +94,13 @@ struct PageRender<'a> {
 }
 
 impl<'a> PageRender<'a> {
-    fn render_markdown(&self) -> String {
+    fn render_markdown(&self, render_config: &TypeRenderConfig) -> String {
         match self.page {
             DocPageRef::Module(doc_module) => {
-                doc_module.render_markdown_page_for_multipage_render(&self.name)
+                doc_module.render_markdown_page_for_multipage_render(&self.name, render_config)
             }
             DocPageRef::Type(doc_type) => {
-                doc_type.render_markdown_page_for_multipage_render(&self.name)
+                doc_type.render_markdown_page_for_multipage_render(&self.name, render_config)
             }
         }
     }
@@ -113,8 +114,7 @@ impl<'a> PageRender<'a> {
 struct MultipageRender<'a> {
     page_renders: Vec<PageRender<'a>>,
     // used for the linkable type in the markdown
-    #[allow(dead_code)]
-    ty_to_path_map: HashMap<Ty, String>,
+    render_config: TypeRenderConfig,
 }
 
 impl<'a> MultipageRender<'a> {
@@ -125,17 +125,19 @@ impl<'a> MultipageRender<'a> {
         for doc in docs {
             res.extend(doc.into_page_renders());
         }
-        let mut ty_to_path_map = HashMap::new();
+        let mut render_config = TypeRenderConfig::Default;
         if let Some(path_mapper) = ty_path_mapper {
+            let mut ty_to_path_map = HashMap::new();
             for page in res.iter() {
                 if let Some(ty) = &page.ty {
                     ty_to_path_map.insert(ty.dupe(), path_mapper(&page.path));
                 }
             }
+            render_config = TypeRenderConfig::LinkedType { ty_to_path_map };
         }
         Self {
             page_renders: res,
-            ty_to_path_map,
+            render_config,
         }
     }
 
@@ -143,7 +145,7 @@ impl<'a> MultipageRender<'a> {
     fn render_markdown_pages(&self) -> HashMap<String, String> {
         self.page_renders
             .iter()
-            .map(|page| (page.path.clone(), page.render_markdown()))
+            .map(|page| (page.path.clone(), page.render_markdown(&self.render_config)))
             .collect()
     }
 }

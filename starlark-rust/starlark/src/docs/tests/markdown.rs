@@ -28,7 +28,7 @@ use starlark_syntax::golden_test_template::golden_test_template;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::assert;
-use crate::docs::markdown::render_doc_item;
+use crate::docs::markdown::render_doc_item_no_link;
 use crate::docs::multipage::render_markdown_multipage;
 use crate::docs::multipage::DocModuleInfo;
 use crate::docs::DocItem;
@@ -49,7 +49,7 @@ fn docs_golden_test(test_file_name: &str, doc: DocItem) -> String {
     assert!(test_file_name.ends_with(".golden.md"));
     assert!(!test_file_name.contains('/'));
 
-    let output = render_doc_item("name", &doc);
+    let output = render_doc_item_no_link("name", &doc);
 
     golden_test_template(&format!("src/docs/tests/golden/{test_file_name}"), &output);
 

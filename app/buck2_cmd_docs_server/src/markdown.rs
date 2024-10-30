@@ -18,6 +18,7 @@ use buck2_events::dispatch::console_message;
 use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 use starlark::docs::DocModule;
+use starlark::typing::TypeRenderConfig;
 
 fn add_md(mut p: AbsPathBuf) -> AbsPathBuf {
     let mut file = p.file_name().unwrap().to_owned();
@@ -34,7 +35,11 @@ pub(crate) fn generate_markdown_files(
     let mut outputs = HashMap::new();
 
     for (path, docs) in docs {
-        let rendered = render_doc_item(&path.to_string(), &DocItem::Module(docs));
+        let rendered = render_doc_item(
+            &path.to_string(),
+            &DocItem::Module(docs),
+            &TypeRenderConfig::Default,
+        );
         let cell = FileName::new(path.cell().as_str())?;
         let path = output_dir
             .join(cell)

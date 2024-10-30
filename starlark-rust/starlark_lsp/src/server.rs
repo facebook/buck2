@@ -88,7 +88,7 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::codemap::ResolvedSpan;
 use starlark::codemap::Span;
-use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::docs::markdown::render_doc_param;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
@@ -915,7 +915,7 @@ impl<T: LspContext> Backend<T> {
                 detail: documentation.get_doc_summary().map(|str| str.to_owned()),
                 documentation: Some(Documentation::MarkupContent(MarkupContent {
                     kind: MarkupKind::Markdown,
-                    value: render_doc_item(&symbol, &documentation),
+                    value: render_doc_item_no_link(&symbol, &documentation),
                 })),
                 ..Default::default()
             })
@@ -1081,7 +1081,7 @@ impl<T: LspContext> Backend<T> {
                         .doc
                         .map(|docs| Hover {
                             contents: HoverContents::Array(vec![MarkedString::String(
-                                render_doc_item(&symbol.name, &docs),
+                                render_doc_item_no_link(&symbol.name, &docs),
                             )]),
                             range: Some(source.into()),
                         })
@@ -1105,7 +1105,7 @@ impl<T: LspContext> Backend<T> {
                     ast.find_exported_symbol(&name).and_then(|symbol| {
                         symbol.docs.map(|docs| Hover {
                             contents: HoverContents::Array(vec![MarkedString::String(
-                                render_doc_item(&symbol.name, &docs),
+                                render_doc_item_no_link(&symbol.name, &docs),
                             )]),
                             range: Some(source.into()),
                         })
@@ -1157,7 +1157,7 @@ impl<T: LspContext> Backend<T> {
                     .find(|symbol| symbol.0 == name)
                     .map(|symbol| Hover {
                         contents: HoverContents::Array(vec![MarkedString::String(
-                            render_doc_item(&symbol.0, &symbol.1),
+                            render_doc_item_no_link(&symbol.0, &symbol.1),
                         )]),
                         range: Some(source.into()),
                     })

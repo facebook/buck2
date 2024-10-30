@@ -28,6 +28,7 @@ use crate::docs::DocParam;
 use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocType;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 
 /// What to render from a [`DocString`].
@@ -57,8 +58,11 @@ fn escape_name(name: &str) -> String {
     name.replace('_', "\\_")
 }
 
-fn render_property(name: &str, property: &DocProperty) -> String {
-    let prototype = render_code_block(&format!("{name}: {}", &property.typ));
+fn render_property(name: &str, property: &DocProperty, render_config: &TypeRenderConfig) -> String {
+    let prototype = render_code_block(
+        &format!("{name}: {}", &property.typ.display_with(render_config)),
+        render_config,
+    );
     let header = format!("## {}\n\n{prototype}", escape_name(name));
     let summary = render_doc_string(DSOpts::Summary, &property.docs);
     let details = render_doc_string(DSOpts::Details, &property.docs);
@@ -106,8 +110,16 @@ fn render_function_parameters<'a>(
     param_list
 }
 
-fn render_function(name: &str, function: &DocFunction, include_header: bool) -> String {
-    let prototype = render_code_block(&render_function_prototype(name, function));
+fn render_function(
+    name: &str,
+    function: &DocFunction,
+    include_header: bool,
+    render_config: &TypeRenderConfig,
+) -> String {
+    let prototype = render_code_block(
+        &render_function_prototype(name, function, render_config),
+        render_config,
+    );
     let header = if include_header {
         format!("## {}\n\n{prototype}", escape_name(name))
     } else {
@@ -153,6 +165,7 @@ pub(super) fn render_members<'a>(
     prefix: &str,
     members: impl IntoIterator<Item = (&'a str, DocMember)>,
     after_summary: Option<String>,
+    render_config: &TypeRenderConfig,
 ) -> String {
     let summary = render_doc_string(DSOpts::Combined, docs)
         .map(|s| format!("\n\n{}", s))
@@ -161,29 +174,42 @@ pub(super) fn render_members<'a>(
     let member_details = members
         .into_iter()
         .sorted_by(|(l_m, _), (r_m, _)| l_m.cmp(r_m))
-        .map(|(child, member)| render_doc_member(&format!("{prefix}{child}"), &member));
+        .map(|(child, member)| {
+            render_doc_member(&format!("{prefix}{child}"), &member, render_config)
+        });
     let member_details: Vec<_> = after_summary.into_iter().chain(member_details).collect();
     let members_details = member_details.join("\n\n---\n\n");
 
     format!("# {name}{summary}\n\n{members_details}")
 }
 
-pub(super) fn render_doc_type(name: &str, prefix: &str, t: &DocType) -> String {
+pub(super) fn render_doc_type(
+    name: &str,
+    prefix: &str,
+    t: &DocType,
+    render_config: &TypeRenderConfig,
+) -> String {
     let constructor = t
         .constructor
         .as_ref()
-        .map(|c| render_function(name, c, false));
+        .map(|c| render_function(name, c, false, render_config));
     render_members(
         &name,
         &t.docs,
         &prefix,
         t.members.iter().map(|(n, m)| (&**n, m.clone())),
         constructor,
+        render_config,
     )
 }
 
 /// Used by LSP.
-pub fn render_doc_item(name: &str, item: &DocItem) -> String {
+/// It will not render the type signatures with link to types
+pub fn render_doc_item_no_link(name: &str, item: &DocItem) -> String {
+    render_doc_item(name, item, &TypeRenderConfig::Default)
+}
+
+pub fn render_doc_item(name: &str, item: &DocItem, render_config: &TypeRenderConfig) -> String {
     match item {
         DocItem::Module(m) => render_members(
             name,
@@ -195,18 +221,24 @@ pub fn render_doc_item(name: &str, item: &DocItem) -> String {
                     .map(|m| (&**n, m))
             }),
             None,
+            render_config,
         ),
-        DocItem::Type(o) => render_doc_type(&format!("`{name}` type"), &format!("{name}."), o),
-        DocItem::Member(DocMember::Function(f)) => render_function(name, f, true),
-        DocItem::Member(DocMember::Property(p)) => render_property(name, p),
+        DocItem::Type(o) => render_doc_type(
+            &format!("`{name}` type"),
+            &format!("{name}."),
+            o,
+            render_config,
+        ),
+        DocItem::Member(DocMember::Function(f)) => render_function(name, f, true, render_config),
+        DocItem::Member(DocMember::Property(p)) => render_property(name, p, render_config),
     }
 }
 
 /// Used by LSP.
-pub fn render_doc_member(name: &str, item: &DocMember) -> String {
+pub fn render_doc_member(name: &str, item: &DocMember, render_config: &TypeRenderConfig) -> String {
     match item {
-        DocMember::Function(f) => render_function(name, f, true),
-        DocMember::Property(p) => render_property(name, p),
+        DocMember::Function(f) => render_function(name, f, true, render_config),
+        DocMember::Property(p) => render_property(name, p, render_config),
     }
 }
 
@@ -223,36 +255,57 @@ const MAX_ARGS_BEFORE_MULTILINE: usize = 3;
 /// If the prototype ends up longer than this length, we'll split it anyway
 const MAX_LENGTH_BEFORE_MULTILINE: usize = 80;
 
-fn raw_type_prefix(prefix: &str, t: &Ty) -> String {
+fn raw_type_prefix(prefix: &str, t: &Ty, render_config: &TypeRenderConfig) -> String {
     if t.is_any() {
         String::new()
     } else {
-        format!("{prefix}{}", t)
+        format!("{prefix}{}", t.display_with(render_config))
     }
 }
 
-fn render_function_prototype(function_name: &str, f: &DocFunction) -> String {
-    let ret_type = raw_type_prefix(" -> ", &f.ret.typ);
+fn render_function_prototype(
+    function_name: &str,
+    f: &DocFunction,
+    render_config: &TypeRenderConfig,
+) -> String {
+    let ret_type = raw_type_prefix(" -> ", &f.ret.typ, render_config);
     let prefix = format!("def {}", function_name);
-    let one_line_params = f.params.render_code(None);
+    let one_line_params = f.params.render_code(None, render_config);
     let single_line_result = format!("{}({}){}", prefix, one_line_params, ret_type);
 
     if f.params.doc_params().count() > MAX_ARGS_BEFORE_MULTILINE
         || single_line_result.len() > MAX_LENGTH_BEFORE_MULTILINE
     {
-        let chunked_params = f.params.render_code(Some("    "));
+        let chunked_params = f.params.render_code(Some("    "), render_config);
         format!("{}(\n{}){}", prefix, chunked_params, ret_type)
     } else {
         single_line_result
     }
 }
 
-fn render_code_block(contents: &str) -> String {
-    format!("```python\n{contents}\n```")
+// For LikedType render in markdown, for code block ``` ``` we cannot contain the link in it
+// We need to use the html block here,
+// example:
+// <pre class="language-python">
+//  <code>
+//    def soome_function() -> <a href="/path/to/type">Artifact</a>
+//  </code>
+//</pre>
+fn render_code_block(contents: &str, render_config: &TypeRenderConfig) -> String {
+    match render_config {
+        TypeRenderConfig::Default => format!("```python\n{contents}\n```"),
+        TypeRenderConfig::LinkedType { ty_to_path_map: _ } => {
+            format!(r#"<pre class="language-python"><code>{contents}</code></pre>"#)
+        }
+    }
 }
 
 impl DocModule {
-    pub(super) fn render_markdown_page_for_multipage_render(&self, name: &str) -> String {
+    pub(super) fn render_markdown_page_for_multipage_render(
+        &self,
+        name: &str,
+        render_config: &TypeRenderConfig,
+    ) -> String {
         render_members(
             name,
             &self.docs,
@@ -261,12 +314,17 @@ impl DocModule {
                 .iter()
                 .filter_map(|(n, m)| m.try_as_member().map(|m| (&**n, m))),
             None,
+            render_config,
         )
     }
 }
 
 impl DocType {
-    pub(super) fn render_markdown_page_for_multipage_render(&self, name: &str) -> String {
-        render_doc_type(&name, &format!("{name}."), self)
+    pub(super) fn render_markdown_page_for_multipage_render(
+        &self,
+        name: &str,
+        render_config: &TypeRenderConfig,
+    ) -> String {
+        render_doc_type(&name, &format!("{name}."), self, render_config)
     }
 }

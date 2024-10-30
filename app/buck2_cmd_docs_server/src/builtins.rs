@@ -33,7 +33,8 @@ fn write_docs_to_subdir(
     base_path: &str,
 ) -> anyhow::Result<()> {
     let base_path = AbsPathBuf::new(base_path)?;
-    let mut docs: BTreeMap<_, _> = render_markdown_multipage(modules_infos, None)
+    let path_mapper = |p: &str| format!("/docs/api/{}", p);
+    let mut docs: BTreeMap<_, _> = render_markdown_multipage(modules_infos, Some(&path_mapper))
         .into_iter()
         .collect();
     while let Some((mut doc_path, rendered)) = docs.pop_first() {

@@ -22,7 +22,7 @@ use lsp_types::MarkupContent;
 use lsp_types::MarkupKind;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
-use starlark::docs::markdown::render_doc_item;
+use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::syntax::AstModule;
@@ -88,7 +88,7 @@ impl From<Symbol> for CompletionItem {
         let documentation = value.docs.map(|docs| {
             Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: render_doc_item(&value.name, &docs),
+                value: render_doc_item_no_link(&value.name, &docs),
             })
         });
         Self {

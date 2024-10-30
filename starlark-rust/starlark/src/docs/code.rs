@@ -31,6 +31,7 @@ use crate::docs::DocString;
 use crate::docs::DocType;
 use crate::eval::runtime::params::display::fmt_param_spec_maybe_multiline;
 use crate::eval::runtime::params::display::ParamFmt;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 
 /// There have been bugs around line endings in the textwrap crate. Just join
@@ -124,10 +125,14 @@ impl DocFunction {
     }
 
     pub fn render_as_code(&self, name: &str) -> String {
-        let params_one_line = self.params.render_code(None);
+        let params_one_line = self.params.render_code(None, &TypeRenderConfig::Default);
 
         let params = if params_one_line.len() > 60 {
-            format!("(\n{})", self.params.render_code(Some("    ")))
+            format!(
+                "(\n{})",
+                self.params
+                    .render_code(Some("    "), &TypeRenderConfig::Default),
+            )
         } else {
             format!("({})", params_one_line)
         };
@@ -156,14 +161,21 @@ impl DocParam {
         Some(indented)
     }
 
-    fn fmt_param(&self) -> ParamFmt<'_, impl Display + '_, impl Display + '_> {
+    fn fmt_param<'a>(
+        &'a self,
+        render_config: &'a TypeRenderConfig,
+    ) -> ParamFmt<'a, impl Display + 'a, impl Display + 'a> {
         let DocParam {
             name,
             docs: _,
             typ,
             default_value,
         } = self;
-        let ty = if typ.is_any() { None } else { Some(typ) };
+        let ty = if typ.is_any() {
+            None
+        } else {
+            Some(typ.display_with(render_config))
+        };
         ParamFmt {
             name,
             ty,
@@ -174,16 +186,20 @@ impl DocParam {
 
 impl DocParams {
     /// Render multiline if `indent` is `Some`.
-    pub(crate) fn render_code(&self, indent: Option<&str>) -> String {
+    pub(crate) fn render_code(
+        &self,
+        indent: Option<&str>,
+        render_config: &TypeRenderConfig,
+    ) -> String {
         let mut s = String::new();
         fmt_param_spec_maybe_multiline(
             &mut s,
             indent,
-            self.pos_only.iter().map(DocParam::fmt_param),
-            self.pos_or_named.iter().map(DocParam::fmt_param),
-            self.args.as_ref().map(DocParam::fmt_param),
-            self.named_only.iter().map(DocParam::fmt_param),
-            self.kwargs.as_ref().map(DocParam::fmt_param),
+            self.pos_only.iter().map(|p| p.fmt_param(render_config)),
+            self.pos_or_named.iter().map(|p| p.fmt_param(render_config)),
+            self.args.as_ref().map(|p| p.fmt_param(render_config)),
+            self.named_only.iter().map(|p| p.fmt_param(render_config)),
+            self.kwargs.as_ref().map(|p| p.fmt_param(render_config)),
         )
         .unwrap();
         s
