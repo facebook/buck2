@@ -30,6 +30,8 @@ use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::typing::small_arc_vec_or_static::SmallArcVec1OrStatic;
+use crate::typing::ty::TyDisplay;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 
@@ -137,7 +139,20 @@ pub struct ParamSpec {
 
 impl Display for ParamSpec {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        fn pf(p: &'_ Param) -> ParamFmt<'_, &'_ Ty, &'static str> {
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
+    }
+}
+
+impl ParamSpec {
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
+        fn pf<'a>(
+            p: &'a Param,
+            config: &'a TypeRenderConfig,
+        ) -> ParamFmt<'a, TyDisplay<'a>, &'static str> {
             ParamFmt {
                 name: match &p.mode {
                     ParamMode::PosOrName(name, _) | ParamMode::NameOnly(name, _) => name.as_str(),
@@ -145,7 +160,7 @@ impl Display for ParamSpec {
                     ParamMode::Args => "args",
                     ParamMode::Kwargs => "kwargs",
                 },
-                ty: Some(&p.ty),
+                ty: Some(p.ty.display_with(config)),
                 default: match p.mode {
                     ParamMode::PosOnly(ParamIsRequired::Yes)
                     | ParamMode::PosOrName(_, ParamIsRequired::Yes)
@@ -168,16 +183,21 @@ impl Display for ParamSpec {
 
         fmt_param_spec(
             f,
-            pos_only.iter().map(pf),
-            pos_or_named.iter().map(pf),
-            args.map(pf),
-            named_only.iter().map(pf),
-            kwargs.map(pf),
+            pos_only.iter().map(|p| pf(p, config)),
+            pos_or_named.iter().map(|p| pf(p, config)),
+            args.map(|p| pf(p, config)),
+            named_only.iter().map(|p| pf(p, config)),
+            kwargs.map(|p| pf(p, config)),
         )
     }
-}
 
-impl ParamSpec {
+    pub(crate) fn display_with<'a>(&'a self, config: &'a TypeRenderConfig) -> ParamSpecDisplay<'a> {
+        ParamSpecDisplay {
+            param_spec: self,
+            config,
+        }
+    }
+
     pub(crate) fn params(&self) -> &[Param] {
         &self.params
     }
@@ -371,6 +391,17 @@ impl ParamSpec {
             }
             _ => None,
         }
+    }
+}
+
+pub(crate) struct ParamSpecDisplay<'a> {
+    param_spec: &'a ParamSpec,
+    config: &'a TypeRenderConfig,
+}
+
+impl Display for ParamSpecDisplay<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.param_spec.fmt_with_config(f, self.config)
     }
 }
 

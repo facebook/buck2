@@ -30,6 +30,7 @@ use starlark_syntax::codemap::Span;
 
 use crate::typing::error::TypingError;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -97,11 +98,7 @@ impl Debug for TyStarlarkValue {
 
 impl Display for TyStarlarkValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.vtable.type_name {
-            "string" => write!(f, "str"),
-            "NoneType" => write!(f, "None"),
-            type_name => write!(f, "{}", type_name),
-        }
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
     }
 }
 
@@ -334,6 +331,30 @@ impl TyStarlarkValue {
             matcher.str()
         } else {
             matcher.alloc(StarlarkTypeIdMatcher::new(self))
+        }
+    }
+
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
+        let type_name = match self.vtable.type_name {
+            "string" => "str",
+            "NoneType" => "None",
+            name => name,
+        };
+        match config {
+            TypeRenderConfig::Default => write!(f, "{}", type_name),
+            TypeRenderConfig::LinkedType { ty_to_path_map } => {
+                if let Some(link_path) =
+                    ty_to_path_map.get(&Ty::basic(TyBasic::StarlarkValue(self.dupe())))
+                {
+                    write!(f, "<a href=\"{link_path}\">{type_name}</a>")
+                } else {
+                    write!(f, "{}", type_name)
+                }
+            }
         }
     }
 }

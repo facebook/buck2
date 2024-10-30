@@ -64,6 +64,7 @@ pub use starlark_value::TyStarlarkValue;
 pub use structs::TyStruct;
 pub use ty::Approximation;
 pub use ty::Ty;
+pub use ty::TypeRenderConfig;
 pub use typecheck::AstModuleTypecheck;
 pub use typecheck::TypeMap;
 pub use user::TyUser;

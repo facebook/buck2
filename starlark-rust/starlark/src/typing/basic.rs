@@ -27,6 +27,7 @@ use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TyFunction;
 use crate::values::none::NoneType;
@@ -152,39 +153,52 @@ impl TyBasic {
     pub(crate) fn is_list(&self) -> bool {
         self.as_name() == Some("list")
     }
-}
 
-impl Display for TyBasic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
         match self {
             TyBasic::Any => write!(f, "{}", TypingAny::TYPE),
-            TyBasic::StarlarkValue(x) => write!(f, "{}", x),
+            TyBasic::StarlarkValue(x) => x.fmt_with_config(f, config),
             TyBasic::Iter(x) => {
                 if x.is_any() {
                     write!(f, "typing.Iterable")
                 } else {
-                    write!(f, "typing.Iterable[{}]", x)
+                    write!(f, "typing.Iterable[{}]", x.display_with(config))
                 }
             }
-            TyBasic::Callable(c) => write!(f, "{}", c),
+            TyBasic::Callable(c) => c.fmt_with_config(f, config),
             TyBasic::List(x) => {
                 if x.is_any() {
                     write!(f, "list")
                 } else {
-                    write!(f, "list[{}]", x)
+                    write!(f, "list[{}]", x.display_with(config))
                 }
             }
-            TyBasic::Tuple(tuple) => Display::fmt(tuple, f),
+            TyBasic::Tuple(tuple) => tuple.fmt_with_config(f, config),
             TyBasic::Dict(k, v) => {
                 if k.is_any() && v.is_any() {
                     write!(f, "dict")
                 } else {
-                    write!(f, "dict[{}, {}]", k, v)
+                    write!(
+                        f,
+                        "dict[{}, {}]",
+                        k.display_with(config),
+                        v.display_with(config)
+                    )
                 }
             }
             TyBasic::Type => write!(f, "type"),
             TyBasic::Custom(c) => Display::fmt(c, f),
-            TyBasic::Set(x) => write!(f, "set[{}]", x),
+            TyBasic::Set(x) => write!(f, "set[{}]", x.display_with(config)),
         }
+    }
+}
+
+impl Display for TyBasic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
     }
 }

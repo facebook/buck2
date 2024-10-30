@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -505,21 +506,55 @@ impl Ty {
             Some(type_attr) => Ok(Ty::ctor_function(type_attr, params, result)),
         }
     }
-}
 
-impl Display for Ty {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.alternatives.as_slice() {
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
+        match self.iter_union() {
             [] => write!(f, "{}", TypingNever::TYPE),
             xs => {
                 for (i, x) in xs.iter().enumerate() {
                     if i != 0 {
                         write!(f, " | ")?;
                     }
-                    write!(f, "{}", x)?;
+                    x.fmt_with_config(f, config)?;
                 }
                 Ok(())
             }
         }
+    }
+
+    pub(crate) fn display_with<'a>(&'a self, config: &'a TypeRenderConfig) -> TyDisplay<'a> {
+        TyDisplay { ty: self, config }
+    }
+}
+
+/// Configuration for rendering types.
+pub enum TypeRenderConfig {
+    /// Uses the default rendering configuration.
+    Default,
+    /// Uses for linked type in doc
+    LinkedType {
+        /// The map from type to it's path link
+        ty_to_path_map: HashMap<Ty, String>,
+    },
+}
+
+pub(crate) struct TyDisplay<'a> {
+    ty: &'a Ty,
+    config: &'a TypeRenderConfig,
+}
+
+impl Display for TyDisplay<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.ty.fmt_with_config(f, self.config)
+    }
+}
+
+impl Display for Ty {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_with_config(f, &TypeRenderConfig::Default)
     }
 }

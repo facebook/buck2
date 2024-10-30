@@ -24,6 +24,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 
 #[derive(Dupe, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
@@ -102,6 +103,10 @@ impl ArcTy {
             ArcTy::new(Ty::union2(a.to_ty(), b.to_ty()))
         }
     }
+
+    pub(crate) fn display_with<'a>(&'a self, config: &'a TypeRenderConfig) -> ArcTyDisplay<'a> {
+        ArcTyDisplay { ty: self, config }
+    }
 }
 
 impl Deref for ArcTy {
@@ -135,5 +140,16 @@ impl Deref for ArcTy {
             }
             ArcTyInner::Arc(ty) => ty,
         }
+    }
+}
+
+pub(crate) struct ArcTyDisplay<'a> {
+    ty: &'a ArcTy,
+    config: &'a TypeRenderConfig,
+}
+
+impl Display for ArcTyDisplay<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.ty.deref().fmt_with_config(f, self.config)
     }
 }

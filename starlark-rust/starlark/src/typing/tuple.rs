@@ -26,6 +26,7 @@ use dupe::Dupe;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::error::InternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
+use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
@@ -124,6 +125,31 @@ impl TyTuple {
                 } else {
                     let item = TypeMatcherBoxAlloc.ty(item);
                     type_compiled_factory.alloc(IsTupleOf(item))
+                }
+            }
+        }
+    }
+
+    pub(crate) fn fmt_with_config(
+        &self,
+        f: &mut Formatter<'_>,
+        config: &TypeRenderConfig,
+    ) -> fmt::Result {
+        match self {
+            TyTuple::Elems(elems) => match &**elems {
+                [x] => write!(f, "({},)", x.display_with(config)),
+                xs => display_container::fmt_container(
+                    f,
+                    "(",
+                    ")",
+                    xs.iter().map(|x| x.display_with(config)),
+                ),
+            },
+            TyTuple::Of(item) => {
+                if item.is_any() {
+                    write!(f, "tuple")
+                } else {
+                    write!(f, "tuple[{}, ...]", item.display_with(config))
                 }
             }
         }
