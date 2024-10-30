@@ -2,6 +2,7 @@ name: Build and test
 on:
   push:
   pull_request:
+  workflow_dispatch: # allows manual triggering
 jobs:
   linux-build-and-test:
     runs-on: 4-core-ubuntu
