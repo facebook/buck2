@@ -21,6 +21,7 @@ BUCK2_SCRIBE_CATEGORY                   String
 BUCK2_TERMINATE_AFTER                   u64
 BUCK2_TESTING_INACTIVITY_TIMEOUT        bool                  false
 BUCK2_TEST_BLOCK_ON_UPLOAD              bool                  false
+BUCK2_TEST_BUILD_ERROR                  bool                  false
 BUCK2_TEST_DISABLE_CACHING              bool
 BUCK2_TEST_DISABLE_LOG_UPLOAD           bool                  false
 BUCK2_TEST_ERROR_ON_CACHE_UPLOAD        bool                  false
@@ -30,6 +31,7 @@ BUCK2_TEST_FAIL_CONNECT                 bool                  false
 BUCK2_TEST_FAIL_RE_DOWNLOADS            bool                  false
 BUCK2_TEST_FORCE_CACHE_UPLOAD           bool                  false
 BUCK2_TEST_FORCE_DECLARE_MISMATCH       bool                  false
+BUCK2_TEST_INIT_DAEMON_ERROR            bool                  false
 BUCK2_TEST_INJECTED_MISSING_DIGESTS     Vec<FileDigest>
 BUCK2_TEST_MANIFOLD_CHUNK_BYTES         u64
 BUCK2_TEST_MANIFOLD_TTL_S               u64
