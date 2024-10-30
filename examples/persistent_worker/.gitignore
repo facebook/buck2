@@ -1,6 +1,4 @@
 .buckconfig.local
 .direnv
 .envrc.private
-image.digest
 prelude
-toolchains/.buckconfig.nix
