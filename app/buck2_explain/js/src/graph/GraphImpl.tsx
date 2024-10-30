@@ -16,11 +16,6 @@ import {LinkObject, NodeObject} from 'react-force-graph-2d'
 import {longestPathTree, shortestPathTree} from './graph'
 import {formatTargetLabel} from '../formatTargetLabel'
 
-enum NodeSizeOption {
-  transitiveDeps,
-  transitiveSrcs,
-}
-
 enum ShowPaths {
   Shortest,
   Longest,
@@ -53,7 +48,7 @@ function showNode(node: DisplayNode) {
   return node.displayType != DisplayType.hidden
 }
 
-type DepsGraph = Map<number, {deps: number[]; rdeps: number[]}>
+type DepsGraph = Map<number, Node>
 
 function toLeanGraph(graph: DepsGraph): Map<number, number[]> {
   let newGraph = new Map()
@@ -66,7 +61,7 @@ function toLeanGraph(graph: DepsGraph): Map<number, number[]> {
 function fromLeanGraph(graph: Map<number, number[]>): DepsGraph {
   let newGraph = new Map()
   for (const [k, deps] of graph) {
-    newGraph.set(k, {deps, rdeps: []})
+    newGraph.set(k, {deps, rdeps: [], value: k})
   }
   for (const [k, deps] of graph) {
     for (const d of deps) {
@@ -81,12 +76,10 @@ function fromLeanGraph(graph: Map<number, number[]>): DepsGraph {
 export function GraphImpl(props: {
   nodes: Map<number, Node>
   build: Build
-  graphDeps: DepsGraph
-  maxSrcs: number
   allTargets: {[key: string]: number}
   categoryOptions: {category: string; count: number; checked: boolean}[]
 }) {
-  const {nodes, build, categoryOptions, allTargets, maxSrcs} = props
+  const {nodes, build, categoryOptions, allTargets} = props
 
   const nodeMap: Map<number, DisplayNode> = new Map()
   for (const [k, node] of nodes) {
@@ -101,7 +94,6 @@ export function GraphImpl(props: {
   const [somepath, setSomepath] = useState<Set<number>>(new Set())
   const [highlighted, setHighlighted] = useState<string | null>(null)
   const [showPaths, setShowPaths] = useState(ShowPaths.All)
-  const [selectedOption, setSelectedOption] = useState(NodeSizeOption.transitiveDeps)
 
   // Choose which edges to show
   const chooseEdges = (graph: DepsGraph, show: ShowPaths) => {
@@ -116,7 +108,7 @@ export function GraphImpl(props: {
     }
     return fromLeanGraph(newGraph)
   }
-  const graphDeps = chooseEdges(props.graphDeps, showPaths)
+  const graphDeps = chooseEdges(props.nodes, showPaths)
 
   const activeCategories = categories.filter(v => v.checked).map(v => v.category)
 
@@ -215,16 +207,9 @@ export function GraphImpl(props: {
   for (const [k, node] of filteredNodes) {
     const target = build.targets(k)!
 
-    const [sizeValue, maxValue] =
-      selectedOption === NodeSizeOption.transitiveDeps
-        ? [nodeMap.get(k)!.transitiveDeps, nodeMap.size]
-        : selectedOption === NodeSizeOption.transitiveSrcs
-        ? [nodeMap.get(k)!.transitiveSrcs, maxSrcs - 1]
-        : [1, 1] // This should never happen
-
     // Add nodes to graph
     data.push({
-      val: translateValues(sizeValue, maxValue) + 0.5, // controls size
+      val: 0.5,
       id: k,
       name: formatTargetLabel(target.label()!),
       color: colorByCfg ? undefined : displayTypeColors[node.displayType],
@@ -361,14 +346,6 @@ export function GraphImpl(props: {
         </div>
         <div className="cell">
           <div className="select">
-            <select
-              value={selectedOption}
-              onChange={e => setSelectedOption(parseInt(e.target.value))}>
-              <option value={NodeSizeOption.transitiveDeps}>Size by transitive deps count</option>
-              <option value={NodeSizeOption.transitiveSrcs}>Size by transitive srcs count</option>
-            </select>
-          </div>
-          <div className="select">
             <select value={showPaths} onChange={e => setShowPaths(parseInt(e.target.value))}>
               <option value={ShowPaths.All}>Show all edges</option>
               <option value={ShowPaths.Shortest}>Show shortest path from root</option>
@@ -440,12 +417,4 @@ export function GraphImpl(props: {
       />
     </>
   )
-}
-
-function translateValues(inputValue: number, maxValue: number) {
-  const outputMin = 0.01
-  const outputMax = 4
-  const normalized = inputValue / maxValue
-  const scaled = normalized * outputMax + outputMin
-  return scaled
 }

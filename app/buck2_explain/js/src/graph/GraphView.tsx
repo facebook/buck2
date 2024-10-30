@@ -15,9 +15,8 @@ import {formatTargetLabel} from '../formatTargetLabel'
 
 export interface Node {
   value: number
-  transitiveDeps: number
-  transitiveSrcs: number
-  srcs: number
+  deps: number[]
+  rdeps: number[]
 }
 
 type CategoryOption = {category: string; count: number; checked: false}
@@ -25,9 +24,8 @@ type CategoryOption = {category: string; count: number; checked: false}
 function defaultNode(): Node {
   return {
     value: 0,
-    transitiveDeps: 0,
-    transitiveSrcs: 0,
-    srcs: 0,
+    deps: [],
+    rdeps: [],
   }
 }
 
@@ -40,7 +38,6 @@ export function GraphView(props: {view: QueryKey}) {
 
   // Build better data structure
   let nodeMap = new Map<number, Node>()
-  let graphDeps: Map<number, {deps: number[]; rdeps: number[]}> = new Map()
 
   // Create nodes
   for (let i = 0; i < build.targetsLength(); i++) {
@@ -49,57 +46,24 @@ export function GraphView(props: {view: QueryKey}) {
         ...defaultNode(),
         value: i,
       })
-      graphDeps.set(i, {deps: [], rdeps: []})
     }
   }
 
-  // Record deps, rdeps and srcs
-  let maxSrcs = 0
+  // Record deps and rdeps
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
-
-    // Srcs
-    const srcs = Number(target.srcs()) // TODO iguridi: long type for srcs is not needed
-    maxSrcs += srcs
-    node.srcs = srcs
 
     for (let i = 0; i < target.depsLength(); i++) {
       const d = allTargets[formatTargetLabel(target.deps(i)!)]
 
       // Deps
-      graphDeps.get(k)!.deps.push(d)
+      node.deps.push(d)
 
       // Rdeps
       if (d === k) {
         throw Error('wth')
       }
-      graphDeps.get(d)!.rdeps.push(k)
-    }
-  }
-
-  // Sum transitive deps and srcs. For each node, we traverse all the transitive rdeps
-  for (const [k, node] of nodeMap) {
-    let visited = new Set()
-    let rdeps = new Set(graphDeps.get(k)!.rdeps)
-
-    while (rdeps.size > 0) {
-      let next: Set<number> = new Set()
-      for (const r of rdeps) {
-        if (!visited.has(r)) {
-          // Add transitive deps
-          const rnode = nodeMap.get(r)!
-          const rdeps2 = graphDeps.get(r)!.rdeps
-          rnode.transitiveDeps += 1
-          // Add transitive srcs
-          rnode.transitiveSrcs += node.srcs
-
-          visited.add(r)
-          for (const r2 of rdeps2) {
-            next.add(r2)
-          }
-        }
-      }
-      rdeps = next
+      node.rdeps.push(k)
     }
   }
 
@@ -130,12 +94,10 @@ export function GraphView(props: {view: QueryKey}) {
   return (
     <div className="mx-4">
       <GraphImpl
-        graphDeps={graphDeps}
         nodes={nodeMap}
         build={build}
         categoryOptions={categoryOptions}
         allTargets={allTargets}
-        maxSrcs={maxSrcs}
       />
     </div>
   )

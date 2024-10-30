@@ -63,7 +63,7 @@ export function GraphViz(props: {
       warmupTicks={100}
       // looks
       nodeAutoColorBy={props.colorByCfg ? 'cfg' : undefined}
-      linkDirectionalArrowLength={10 / Math.pow(nodes.length, 0.2)}
+      linkDirectionalArrowLength={3 / Math.pow(nodes.length, 0.2)}
       linkDirectionalArrowRelPos={1}
       linkCurvature={0.2}
       linkWidth={10 / Math.pow(links.length, 0.5)}
