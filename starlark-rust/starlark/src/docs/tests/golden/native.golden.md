@@ -62,7 +62,7 @@ def func2() -> str
 ## pos\_either\_named
 
 ```python
-def pos_either_named(a: int, /, b: int, *, c: int) -> None
+def pos_either_named(a: int, /, b: int, *, c: int) -> magic
 ```
 
 ---

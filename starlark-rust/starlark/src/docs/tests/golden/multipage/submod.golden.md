@@ -6,6 +6,14 @@
 
 # submod
 
+## new\_obj
+
+```python
+def new_obj() -> obj
+```
+
+---
+
 ## notypes
 
 ```python

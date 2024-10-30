@@ -19,6 +19,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use itertools::Itertools;
 use serde::Serialize;
+use starlark::starlark_simple_value;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_derive::NoSerialize;
@@ -111,6 +112,8 @@ def _do_not_export():
 #[display("magic")]
 struct Magic;
 
+starlark_simple_value!(Magic);
+
 #[starlark_value(type = "magic")]
 impl<'v> StarlarkValue<'v> for Magic {}
 
@@ -175,9 +178,9 @@ fn module(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a: i32,
         b: i32,
         #[starlark(require = named)] c: i32,
-    ) -> anyhow::Result<NoneType> {
+    ) -> anyhow::Result<Magic> {
         let _unused = (a, b, c);
-        Ok(NoneType)
+        Ok(Magic)
     }
 }
 
@@ -198,6 +201,10 @@ fn submodule(builder: &mut GlobalsBuilder) {
         let _ignore = kwargs;
         Ok(NoneType)
     }
+
+    fn new_obj() -> anyhow::Result<Obj> {
+        Ok(Obj)
+    }
 }
 
 fn get_globals() -> Globals {
@@ -210,6 +217,8 @@ fn get_globals() -> Globals {
 #[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
 #[display("obj")]
 struct Obj;
+
+starlark_simple_value!(Obj);
 
 #[starlark_value(type = "obj")]
 impl<'v> StarlarkValue<'v> for Obj {
@@ -276,25 +285,43 @@ fn native_docs_module() {
     assert!(res.contains(r#"string_default: str = "my_default"#));
 }
 
-#[test]
-fn globals_docs_render() {
+fn test_globals_docs_render(with_linked_type: bool) {
     let global = get_globals().documentation();
     let modules_info = DocModuleInfo {
         module: &global,
         name: "globals".to_owned(),
         page_path: "".to_owned(),
     };
-
-    let res = render_markdown_multipage(vec![modules_info], None);
+    let path_mapper = |p: &str| format!("/path/to/{}", p);
+    let res = if with_linked_type {
+        render_markdown_multipage(vec![modules_info], Some(&path_mapper))
+    } else {
+        render_markdown_multipage(vec![modules_info], None)
+    };
+    let subfolder_name = if with_linked_type {
+        "multipage_linked_type"
+    } else {
+        "multipage"
+    };
     let expected_keys = vec!["", "Magic", "Obj", "submod"];
     assert_eq!(&res.keys().sorted().collect::<Vec<_>>(), &expected_keys);
     for (k, v) in res {
         let k = if k.is_empty() { "globals" } else { &k };
         golden_test_template(
-            &format!("src/docs/tests/golden/multipage/{}.golden.md", k),
+            &format!("src/docs/tests/golden/{subfolder_name}/{}.golden.md", k),
             &v,
         );
     }
+}
+
+#[test]
+fn globals_docs_render() {
+    test_globals_docs_render(false);
+}
+
+#[test]
+fn globals_docs_render_with_linked_type() {
+    test_globals_docs_render(true);
 }
 
 #[test]
