@@ -113,6 +113,9 @@ def create_jar_artifact_kotlincd(
         if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
             kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
 
+        if kotlin_toolchain.kosabi_source_modifier_plugin != None:
+            kosabiPluginOptionsMap["kosabi_source_modifier_plugin"] = kotlin_toolchain.kosabi_source_modifier_plugin
+
         if kotlin_toolchain.kosabi_applicability_plugin != None:
             kosabiPluginOptionsMap["kosabi_applicability_plugin"] = kotlin_toolchain.kosabi_applicability_plugin
 
