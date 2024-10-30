@@ -32,9 +32,12 @@ def set_cfg_modifiers(
 
     # To ensure that modifiers set in PACKAGE files are easily codemoddable
     # We want to enforce that `set_cfg_modifiers` is only invokable from a PACKAGE file and not a bzl file
-    module_path = call_stack_frame(1).module_path
-    if not module_path.endswith(("/PACKAGE", "/BUCK_TREE")) and module_path not in ("PACKAGE", "BUCK_TREE"):
-        fail("set_cfg_modifiers is only allowed to be used from PACKAGE files, not a bzl file")
+    frame1 = call_stack_frame(1)
+    if not _is_buck_tree_file(frame1.module_path):
+        # Now check the old bzl file for `set_cfg_modifiers` in case it is invoked through that one.
+        frame2 = call_stack_frame(2)
+        if not (frame2 and frame1.module_path == "fbcode/buck2/cfg/experimental/set_cfg_modifiers.bzl" and _is_buck_tree_file(frame2.module_path)):
+            fail("set_cfg_modifiers is only allowed to be used from a PACKAGE or BUCK_TREE file, not a bzl file.")
 
     cfg_modifiers = cfg_modifiers or []
     extra_cfg_modifiers_per_rule = extra_cfg_modifiers_per_rule or {}
@@ -71,3 +74,6 @@ def _get_package_path() -> str:
     get_cell_name = getattr(native, "get_cell_name", None)
     get_base_path = getattr(native, "get_base_path", None)
     return "{}//{}/PACKAGE".format(get_cell_name(), get_base_path())
+
+def _is_buck_tree_file(path: str) -> bool:
+    return path.endswith(("/PACKAGE", "/BUCK_TREE")) or path in ("PACKAGE", "BUCK_TREE")

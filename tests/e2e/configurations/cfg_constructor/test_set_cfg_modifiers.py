@@ -84,5 +84,5 @@ async def test_set_cfg_modifiers_from_package_file_only(
             "-c",
             "buck_e2e.testing_failure=true",
         ),
-        stderr_regex="set_cfg_modifiers is only allowed to be used from PACKAGE files, not a bzl file",
+        stderr_regex="set_cfg_modifiers is only allowed to be used from a PACKAGE or BUCK_TREE file, not a bzl file",
     )
