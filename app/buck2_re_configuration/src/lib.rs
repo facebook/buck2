@@ -224,12 +224,13 @@ mod fbcode {
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
                 execute_over_thrift: legacy_config
-                    .parse(BuckconfigKeyRef {
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
                         property: "execute_over_thrift",
                     })?
-                    // TODO: Change to true (T203734691)
-                    .unwrap_or(false),
+                    // TODO: Change to always (T203734691)
+                    .unwrap_or(RolloutPercentage::never())
+                    .roll(),
             })
         }
 
