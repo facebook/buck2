@@ -24,6 +24,7 @@ use crate::legacy_configs::args::ResolvedConfigFile;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
 
 #[derive(Clone, Dupe, Debug, Allocative)]
@@ -242,6 +243,31 @@ impl LegacyBuckConfig {
         Self(Arc::new(ConfigData {
             values: SortedMap::new(),
         }))
+    }
+
+    pub fn filter_values<F>(&self, filter: F) -> Self
+    where
+        F: Fn(&BuckconfigKeyRef) -> bool,
+    {
+        let values = self
+            .0
+            .values
+            .iter()
+            .filter_map(|(section, section_data)| {
+                let values: SortedMap<_, _> = section_data
+                    .values
+                    .iter()
+                    .filter(|(property, _)| filter(&BuckconfigKeyRef { section, property }))
+                    .map(|(property, value)| (property.clone(), value.clone()))
+                    .collect();
+                if values.is_empty() {
+                    None
+                } else {
+                    Some((section.clone(), LegacyBuckConfigSection { values }))
+                }
+            })
+            .collect();
+        Self(Arc::new(ConfigData { values }))
     }
 
     pub(crate) async fn start_parse_for_external_files(

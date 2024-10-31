@@ -45,6 +45,7 @@ use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::file_ops::DefaultConfigParserFileOps;
 use crate::legacy_configs::file_ops::DiceConfigFileOps;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
 use crate::legacy_configs::path::ExternalConfigSource;
 use crate::legacy_configs::path::ProjectConfigSource;
@@ -64,6 +65,30 @@ impl ExternalBuckconfigData {
         Self {
             parse_state: LegacyConfigParser::new(),
             args: Vec::new(),
+        }
+    }
+
+    pub fn filter_values<F>(&self, filter: F) -> Self
+    where
+        F: Fn(&BuckconfigKeyRef) -> bool,
+    {
+        Self {
+            parse_state: self.parse_state.clone(),
+            args: self
+                .args
+                .iter()
+                .filter(|arg| match arg {
+                    ResolvedLegacyConfigArg::Flag(flag) => {
+                        flag.cell.is_some()
+                            || filter(&BuckconfigKeyRef {
+                                section: &flag.section,
+                                property: &flag.key,
+                            })
+                    }
+                    _ => true,
+                })
+                .cloned()
+                .collect(),
         }
     }
 }

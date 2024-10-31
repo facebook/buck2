@@ -38,6 +38,7 @@ use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::CommonBuildOptions;
+use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
@@ -170,7 +171,7 @@ pub struct ServerCommandContext<'a> {
     host_xcode_version_override: Option<String>,
 
     reuse_current_config: bool,
-    config_overrides: Vec<buck2_cli_proto::ConfigOverride>,
+    config_overrides: Vec<ConfigOverride>,
 
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We

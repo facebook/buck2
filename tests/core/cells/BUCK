@@ -35,3 +35,10 @@ buck2_e2e_test(
     srcs = ["test_empty_buckconfig.py"],
     data_dir = "test_empty_buckconfig_data",
 )
+
+buck2_e2e_test(
+    name = "test_ignore_state_invalidation",
+    srcs = ["test_ignore_state_invalidation.py"],
+    data_dir = "test_ignore_state_invalidation_data",
+    deps = ["//buck2/tests/e2e_util:utils"],
+)
