@@ -4,11 +4,13 @@
 # STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
 # ```
 
+import Link from '@docusaurus/Link';
+
 # submod
 
 ## new\_obj
 
-<pre class="language-python"><code>def new_obj() -> <a href="/path/to/Obj">obj</a></code></pre>
+<pre class="language-python"><code>def new_obj() -> <Link to="/path/to/Obj">obj</Link></code></pre>
 
 ---
 

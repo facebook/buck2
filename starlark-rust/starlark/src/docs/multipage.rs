@@ -95,12 +95,18 @@ struct PageRender<'a> {
 
 impl<'a> PageRender<'a> {
     fn render_markdown(&self, render_config: &TypeRenderConfig) -> String {
-        match self.page {
+        let content = match self.page {
             DocPageRef::Module(doc_module) => {
                 doc_module.render_markdown_page_for_multipage_render(&self.name, render_config)
             }
             DocPageRef::Type(doc_type) => {
                 doc_type.render_markdown_page_for_multipage_render(&self.name, render_config)
+            }
+        };
+        match render_config {
+            TypeRenderConfig::Default => content,
+            TypeRenderConfig::LinkedType { ty_to_path_map: _ } => {
+                format!("{}\n\n{}", "import Link from '@docusaurus/Link';", content)
             }
         }
     }

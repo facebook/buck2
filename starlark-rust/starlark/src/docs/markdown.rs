@@ -288,7 +288,7 @@ fn render_function_prototype(
 // example:
 // <pre class="language-python">
 //  <code>
-//    def soome_function() -> <a href="/path/to/type">Artifact</a>
+//    def soome_function() -> <Link to="/path/to/type">Artifact</Link>
 //  </code>
 //</pre>
 fn render_code_block(contents: &str, render_config: &TypeRenderConfig) -> String {

@@ -350,7 +350,7 @@ impl TyStarlarkValue {
                 if let Some(link_path) =
                     ty_to_path_map.get(&Ty::basic(TyBasic::StarlarkValue(self.dupe())))
                 {
-                    write!(f, "<a href=\"{link_path}\">{type_name}</a>")
+                    write!(f, "<Link to=\"{link_path}\">{type_name}</Link>")
                 } else {
                     write!(f, "{}", type_name)
                 }

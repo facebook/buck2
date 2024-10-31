@@ -4,6 +4,8 @@
 # STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
 # ```
 
+import Link from '@docusaurus/Link';
+
 # Obj
 
 These are where the module docs go
