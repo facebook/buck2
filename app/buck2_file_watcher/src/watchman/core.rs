@@ -36,6 +36,10 @@ fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
         watchman_client::Error::WatchmanServerError { message, .. } => {
             if message.contains("RootNotConnectedError") {
                 ErrorTag::WatchmanRootNotConnectedError
+            } else if message
+                .contains("cannot compute status while a checkout is currently in progress")
+            {
+                ErrorTag::WatchmanCheckoutInProgress
             } else {
                 ErrorTag::WatchmanServerError
             }
