@@ -43,3 +43,21 @@ toolchain_utilities(
     ],
     visibility = ["PUBLIC"],
 )
+
+# exported for use in shell & test binary, they have a runtime dependency on json
+# can be removed once we're on OTP 27
+erlang_application(
+    name = "toolchain_json",
+    srcs = ["json.erl"],
+    applications = [
+        "kernel",
+        "stdlib",
+    ],
+    erl_opts = [
+        "+deterministic",
+        "+warnings_as_errors",
+    ],
+    shell_libs = [],
+    use_global_parse_transforms = False,
+    visibility = ["PUBLIC"],
+)
