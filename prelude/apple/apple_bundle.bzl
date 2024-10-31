@@ -162,16 +162,20 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         filtered_external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = flatten(filtered_debug_info.map.values()),
+            infos = filtered_debug_info.infos,
         )
 
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
         dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
+        filtered_map = {}
+        for info in filtered_debug_info.infos:
+            filtered_map.setdefault(info.label, []).extend(info.artifacts)
+
         debuggable_info = AppleDebuggableInfo(
             dsyms = [dsym_artifact],
             debug_info_tset = filtered_external_debug_info,
-            filtered_map = filtered_debug_info.map,
+            filtered_map = filtered_map,
             selective_metadata = [
                 AppleSelectiveDebuggableMetadata(
                     dsym = dsym_artifact,
