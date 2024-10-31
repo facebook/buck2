@@ -188,6 +188,9 @@ JavaLibraryInfo = provider(
         # Shows if the library can be exported or not
         "may_not_be_exported": provider_field(typing.Any, default = None),
 
+        # Shows if the library can be packaged or not
+        "may_not_be_packaged": provider_field(typing.Any, default = None),
+
         # An output that is used solely by the system to have an artifact bound to the target (that the core can then use to find
         # the right target from the given artifact).
         "output_for_classpath_macro": provider_field(typing.Any, default = None),  # "artifact"
@@ -546,6 +549,12 @@ def _create_non_template_providers(
         runtime_deps: dependencies that are used for packaging only
     """
     packaging_deps = declared_deps + exported_deps + runtime_deps
+    for dep in packaging_deps:
+        if JavaLibraryInfo in dep and dep[JavaLibraryInfo].may_not_be_packaged:
+            fail("{} has 'may_not_be_packaged' label but is present in {}. If you need to use it in order to build the library, move it into 'provided_deps'".format(
+                dep.label.raw_target(),
+                ctx.label.raw_target(),
+            ))
     shared_library_info, cxx_resource_info, linkable_graph = create_native_providers(ctx, ctx.label, packaging_deps)
 
     output_for_classpath_macro = library_output.abi if (library_output and library_output.abi.owner != None) else ctx.actions.write("dummy_output_for_classpath_macro.txt", "Unused")
@@ -586,6 +595,7 @@ def _create_non_template_providers(
             library_output = library_output,
             output_for_classpath_macro = output_for_classpath_macro,
             may_not_be_exported = "may_not_be_exported" in (ctx.attrs.labels or []),
+            may_not_be_packaged = "may_not_be_packaged" in (ctx.attrs.labels or []),
         ),
         java_packaging_info,
         global_code_info,
