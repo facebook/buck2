@@ -8,19 +8,31 @@
  */
 
 use buck2_data::error::ErrorTag;
+use buck2_data::error::ErrorTier;
 
 use crate::Tier;
 
 /// When there's no tag, but we want to put something in Scuba, we use this.
 pub const ERROR_TAG_UNCLASSIFIED: &str = "UNCLASSIFIED";
 
+fn tier_rank(tier: Option<Tier>) -> u32 {
+    match tier {
+        Some(tier) => match tier {
+            Tier::Environment => 10000,
+            Tier::Tier0 => 10001,
+            Tier::Input => 20000,
+        },
+        None => 30000,
+    }
+}
+
 macro_rules! rank {
     ( $tier:ident ) => {
         match stringify!($tier) {
             "environment" => (Some(Tier::Environment), line!()),
             "tier0" => (Some(Tier::Tier0), line!()),
-            "input" => (Some(Tier::Input), line!()),
-            "unspecified" => (None, line!()),
+            "input" => (Some(Tier::Input), tier_rank(Some(Tier::Tier0)) + line!()),
+            "unspecified" => (None, tier_rank(Some(Tier::Input)) + line!()),
             _ => unreachable!(),
         }
     };
@@ -135,6 +147,10 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
 
 pub trait ErrorLike {
     fn best_tag(&self) -> Option<ErrorTag>;
+
+    fn get_tier(&self) -> Option<Tier>;
+
+    fn error_rank(&self) -> u32;
 }
 
 impl ErrorLike for buck2_data::ErrorReport {
@@ -145,14 +161,34 @@ impl ErrorLike for buck2_data::ErrorReport {
             ErrorTag::from_i32(*t)
         }))
     }
+
+    fn get_tier(&self) -> Option<Tier> {
+        self.tier
+            .map(|tier| match ErrorTier::from_i32(tier) {
+                Some(tier) => match tier {
+                    ErrorTier::Tier0 => Some(Tier::Tier0),
+                    ErrorTier::Environment => Some(Tier::Environment),
+                    ErrorTier::Input => Some(Tier::Input),
+                    ErrorTier::UnusedDefaultCategory => None,
+                },
+                None => None,
+            })
+            .flatten()
+    }
+
+    fn error_rank(self: &buck2_data::ErrorReport) -> u32 {
+        let tag_rank = self.best_tag().map(tag_rank).unwrap_or(u32::MAX);
+        let tier_rank = tier_rank(self.get_tier());
+
+        std::cmp::min(tag_rank, tier_rank)
+    }
 }
 
 /// Pick the most interesting error by best tag.
 pub fn best_error<'a>(
     tags: impl IntoIterator<Item = &'a buck2_data::ErrorReport>,
 ) -> Option<&'a buck2_data::ErrorReport> {
-    tags.into_iter()
-        .min_by_key(|e| e.best_tag().map(tag_rank).unwrap_or(u32::MAX))
+    tags.into_iter().min_by_key(|e| e.error_rank())
 }
 
 /// Pick the most interesting tag from a list of tags.
