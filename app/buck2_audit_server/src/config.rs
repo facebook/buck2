@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::io::Write;
 
@@ -17,6 +18,7 @@ use buck2_audit::config::OutputFormat;
 use buck2_audit::config::ValueStyle;
 use buck2_cli_proto::ClientContext;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::configs::LegacyBuckConfigLocation;
 use buck2_common::legacy_configs::configs::LegacyBuckConfigValue;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -25,6 +27,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use gazebo::prelude::*;
 use serde_json::json;
 
@@ -171,6 +174,136 @@ impl<'a> Matches<'a> {
                 .find_map(|x| x.filter(default_cell, cell, section, key))
         }
     }
+
+    fn cells(&self) -> BTreeSet<CellName> {
+        self.matches.iter().filter_map(|x| x.cell).collect()
+    }
+}
+
+trait CellConfigRenderer {
+    fn render_cell_header(&mut self, cell: CellName) -> anyhow::Result<()>;
+    fn render_section_header(&mut self, section: &str) -> anyhow::Result<()>;
+    fn render_config_key(
+        &mut self,
+        spec: &str,
+        cell: CellName,
+        section: &str,
+        key: &str,
+        value: LegacyBuckConfigValue<'_>,
+    ) -> anyhow::Result<()>;
+    fn flush(&mut self) -> anyhow::Result<()>;
+}
+
+struct SimpleCellConfigRenderer<'a> {
+    stdout: StdoutPartialOutput<'a>,
+    render_cell_headers: bool,
+    value_style: ValueStyle,
+    location_style: LocationStyle,
+}
+
+impl<'a> CellConfigRenderer for SimpleCellConfigRenderer<'a> {
+    fn render_cell_header(&mut self, cell: CellName) -> anyhow::Result<()> {
+        if self.render_cell_headers {
+            writeln!(&mut self.stdout, "# Cell: {cell}")?;
+        }
+
+        Ok(())
+    }
+
+    fn render_section_header(&mut self, section: &str) -> anyhow::Result<()> {
+        writeln!(&mut self.stdout, "[{section}]")?;
+
+        Ok(())
+    }
+
+    fn render_config_key(
+        &mut self,
+        _spec: &str,
+        _cell: CellName,
+        _section: &str,
+        key: &str,
+        value: LegacyBuckConfigValue<'_>,
+    ) -> anyhow::Result<()> {
+        print_value(&mut self.stdout, key, &value, self.value_style)?;
+        print_location(&mut self.stdout, &value, self.location_style)?;
+
+        Ok(())
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+struct JsonCellConfigRenderer<'a> {
+    stdout: StdoutPartialOutput<'a>,
+    scope_keys_to_cell: bool,
+    json_output: HashMap<String, String>,
+}
+
+impl<'a> CellConfigRenderer for JsonCellConfigRenderer<'a> {
+    fn render_cell_header(&mut self, _cell: CellName) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn render_section_header(&mut self, _section: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn render_config_key(
+        &mut self,
+        spec: &str,
+        cell: CellName,
+        _section: &str,
+        _key: &str,
+        value: LegacyBuckConfigValue<'_>,
+    ) -> anyhow::Result<()> {
+        let key = if self.scope_keys_to_cell && !spec.contains("//") {
+            format!("{cell}//{spec}")
+        } else {
+            spec.to_owned()
+        };
+
+        self.json_output.insert(key, value.as_str().to_owned());
+
+        Ok(())
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        writeln!(&mut self.stdout, "{}", json!(self.json_output))?;
+
+        Ok(())
+    }
+}
+
+fn render_cell_config(
+    renderer: &mut dyn CellConfigRenderer,
+    relevant_cell: Option<CellName>,
+    cell: CellName,
+    cell_config: LegacyBuckConfig,
+    specs: &Matches<'_>,
+) -> anyhow::Result<()> {
+    let mut rendered_cell_header = false;
+    for (section, values) in cell_config.all_sections() {
+        let mut rendered_section_header = false;
+        for (key, value) in values.iter() {
+            if let Some(spec) = specs.filter(relevant_cell.unwrap_or(cell), cell, section, key) {
+                if !rendered_cell_header {
+                    renderer.render_cell_header(cell)?;
+                    rendered_cell_header = true;
+                }
+
+                if !rendered_section_header {
+                    renderer.render_section_header(section.as_str())?;
+                    rendered_section_header = true;
+                }
+
+                renderer.render_config_key(&spec, cell, section, key, value)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[async_trait]
@@ -187,55 +320,62 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                 let cell_resolver = ctx.get_cell_resolver().await?;
                 let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
 
-                let relevant_cell = if self.all_cells {
-                    None
-                } else {
-                    Some(cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?)
+                let stdout = stdout.as_writer();
+                let mut renderer: Box<dyn CellConfigRenderer + Send> = match self.output_format() {
+                    OutputFormat::Simple => Box::new(SimpleCellConfigRenderer {
+                        stdout,
+                        render_cell_headers: self.all_cells,
+                        value_style: self.value_style,
+                        location_style: self.location_style,
+                    }),
+                    OutputFormat::Json => Box::new(JsonCellConfigRenderer {
+                        stdout,
+                        scope_keys_to_cell: self.all_cells,
+                        json_output: HashMap::new(),
+                    }),
                 };
 
                 let specs = Matches::parse(&cell_alias_resolver, &self.specs)?;
-                let mut stdout = stdout.as_writer();
 
-                let output_format = self.output_format();
-                let mut json_output = HashMap::new();
-                for (cell, _) in cell_resolver.cells() {
-                    let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
-                    let mut printed_cell = false;
-                    for (section, values) in cell_config.all_sections() {
-                        let mut printed_section = false;
-                        for (key, value) in values.iter() {
-                            if let Some(mut spec) =
-                                specs.filter(relevant_cell.unwrap_or(cell), cell, section, key)
-                            {
-                                match output_format {
-                                    OutputFormat::Json => {
-                                        if self.all_cells && !spec.contains("//") {
-                                            spec = format!("{cell}//{spec}");
-                                        }
-                                        json_output.insert(spec, value.as_str().to_owned());
-                                    }
-                                    OutputFormat::Simple => {
-                                        if self.all_cells && !printed_cell {
-                                            writeln!(&mut stdout, "# Cell: {cell}")?;
-                                            printed_cell = true;
-                                        }
-                                        if !printed_section {
-                                            writeln!(&mut stdout, "[{section}]")?;
-                                            printed_section = true;
-                                        }
-                                        print_value(&mut stdout, key, &value, self.value_style)?;
-                                        print_location(&mut stdout, &value, self.location_style)?;
-                                    }
-                                }
-                            }
-                        }
+                if self.all_cells {
+                    for (cell, _) in cell_resolver.cells() {
+                        let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
+                        render_cell_config(renderer.as_mut(), None, cell, cell_config, &specs)?;
+                    }
+                } else {
+                    let cell =
+                        cell_alias_resolver.resolve(self.cell.as_deref().unwrap_or_default())?;
+
+                    {
+                        // Render the target cell first
+                        let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
+                        render_cell_config(
+                            renderer.as_mut(),
+                            Some(cell),
+                            cell,
+                            cell_config,
+                            &specs,
+                        )?;
+                    }
+
+                    // Allow callers to specify a "cell//<foo>" spec without --all-cells
+                    let mut cells_to_render = specs.cells();
+                    cells_to_render.remove(&cell);
+                    let relevant_cell = Some(cell);
+
+                    for cell in cells_to_render {
+                        let cell_config = ctx.get_legacy_config_for_cell(cell).await?;
+                        render_cell_config(
+                            renderer.as_mut(),
+                            relevant_cell,
+                            cell,
+                            cell_config,
+                            &specs,
+                        )?;
                     }
                 }
-                if output_format == OutputFormat::Json {
-                    writeln!(&mut stdout, "{}", json!(json_output))?;
-                }
 
-                Ok(())
+                renderer.flush()
             })
             .await
     }
