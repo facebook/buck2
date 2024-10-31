@@ -260,7 +260,8 @@ def create_jar_artifact_kotlincd(
             target_type: TargetType,
             source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
             is_creating_subtarget: bool = False,
-            incremental_state_dir: Artifact | None = None):
+            incremental_state_dir: Artifact | None = None,
+            should_action_run_incrementally: bool = False):
         _unused = source_only_abi_compiling_deps
 
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
@@ -337,11 +338,11 @@ def create_jar_artifact_kotlincd(
 
             dep_files["classpath_jars"] = classpath_jars_tag
 
-        common_params = {
+        incremental_run_params = {
             "metadata_env_var": "ACTION_METADATA",
             "metadata_path": "action_metadata.json",
             "no_outputs_cleanup": True,
-        } if (incremental_state_dir != None) and ("nullsafe" != actions_identifier) else {}
+        } if should_action_run_incrementally else {}
         actions.run(
             args,
             env = {
@@ -357,7 +358,7 @@ def create_jar_artifact_kotlincd(
             low_pass_filter = False,
             weight = 2,
             error_handler = kotlin_toolchain.kotlin_error_handler,
-            **common_params
+            **incremental_run_params
         )
         return proto
 
@@ -374,6 +375,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
         incremental_state_dir = incremental_state_dir,
+        should_action_run_incrementally = should_kotlinc_run_incrementally,
     )
 
     final_jar_output = prepare_final_jar(
