@@ -34,7 +34,6 @@ load(
     "encode_jar_params",
     "generate_abi_jars",
     "get_compiling_deps_tset",
-    "output_paths_to_hidden_cmd_args",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -259,7 +258,6 @@ def create_jar_artifact_kotlincd(
             classpath_jars_tag: ArtifactTag,
             abi_dir: Artifact | None,
             target_type: TargetType,
-            path_to_class_hashes: Artifact | None,
             source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
             is_creating_subtarget: bool = False,
             incremental_state_dir: Artifact | None = None):
@@ -322,8 +320,6 @@ def create_jar_artifact_kotlincd(
                 "--incremental-state-dir",
                 incremental_state_dir.as_output(),
             )
-        args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
-
         dep_files = {}
         if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
             used_classes_json_outputs = [
@@ -376,7 +372,6 @@ def create_jar_artifact_kotlincd(
         classpath_jars_tag = library_classpath_jars_tag,
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
-        path_to_class_hashes = path_to_class_hashes_out,
         is_creating_subtarget = is_creating_subtarget,
         incremental_state_dir = incremental_state_dir,
     )

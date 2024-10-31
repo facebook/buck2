@@ -127,17 +127,6 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
         annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
     )
 
-# buildifier: disable=uninitialized
-def output_paths_to_hidden_cmd_args(output_paths: OutputPaths, path_to_class_hashes: Artifact | None) -> cmd_args:
-    hidden = []
-    if path_to_class_hashes != None:
-        hidden.append(path_to_class_hashes.as_output())
-    hidden.append(output_paths.jar_parent.as_output())
-    hidden.append(output_paths.jar.as_output())
-    hidden.append(output_paths.classes.as_output())
-    hidden.append(output_paths.annotations.as_output())
-    return cmd_args(hidden = hidden)
-
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(
         classesDir = paths.classes.as_output(),
@@ -573,7 +562,6 @@ def generate_abi_jars(
                 source_abi_classpath_jars_tag,
                 source_abi_dir,
                 source_abi_target_type,
-                path_to_class_hashes = None,
             )
             source_abi = source_abi_output_paths.jar
 
@@ -599,7 +587,6 @@ def generate_abi_jars(
                 source_only_abi_classpath_jars_tag,
                 source_only_abi_dir,
                 source_only_abi_target_type,
-                path_to_class_hashes = None,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar

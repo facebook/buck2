@@ -40,7 +40,6 @@ load(
     "generate_abi_jars",
     "get_abi_generation_mode",
     "get_compiling_deps_tset",
-    "output_paths_to_hidden_cmd_args",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -198,7 +197,6 @@ def create_jar_artifact_javacd(
             classpath_jars_tag: ArtifactTag,
             abi_dir: Artifact | None,
             target_type: TargetType,
-            path_to_class_hashes: Artifact | None,
             is_creating_subtarget: bool = False,
             source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
@@ -246,8 +244,6 @@ def create_jar_artifact_javacd(
                 "--abi-output-dir",
                 abi_dir.as_output(),
             )
-
-        args.add(output_paths_to_hidden_cmd_args(output_paths, path_to_class_hashes))
 
         dep_files = {}
         if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
@@ -301,7 +297,6 @@ def create_jar_artifact_javacd(
         library_classpath_jars_tag,
         class_abi_output_dir if should_create_class_abi else None,
         TargetType("library"),
-        path_to_class_hashes_out,
         is_creating_subtarget,
     )
     jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
