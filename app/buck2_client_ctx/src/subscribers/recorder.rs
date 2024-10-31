@@ -36,7 +36,6 @@ use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::classify::best_error;
 use buck2_error::classify::best_tag;
-use buck2_error::classify::error_category;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -429,6 +428,7 @@ impl<'a> InvocationRecorder<'a> {
         let best_error = best_error(&errors);
         let best_error_category_key = best_error.map(|e| e.category_key.clone()).flatten();
         let best_tag = best_error.map(|e| e.best_tag()).flatten();
+        let error_category = best_error.map(|error| error.category());
 
         let errors = errors.into_map(process_error_report);
 
@@ -446,13 +446,6 @@ impl<'a> InvocationRecorder<'a> {
                     )
                     .to_owned(),
             )
-        };
-
-        // TODO(ctolliday) derive category from `best_error`
-        let error_category = if !errors.is_empty() {
-            Some(error_category(&errors).to_owned())
-        } else {
-            None
         };
 
         ErrorsReport {

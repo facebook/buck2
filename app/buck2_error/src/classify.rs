@@ -151,7 +151,13 @@ pub trait ErrorLike {
     fn get_tier(&self) -> Option<Tier>;
 
     fn error_rank(&self) -> u32;
+
+    fn category(&self) -> String;
 }
+
+const TIER0: &str = "INFRA";
+const ENVIRONMENT: &str = "ENVIRONMENT";
+const INPUT: &str = "USER";
 
 impl ErrorLike for buck2_data::ErrorReport {
     fn best_tag(&self) -> Option<ErrorTag> {
@@ -182,6 +188,21 @@ impl ErrorLike for buck2_data::ErrorReport {
 
         std::cmp::min(tag_rank, tier_rank)
     }
+
+    fn category(&self) -> String {
+        let tier = self
+            .best_tag()
+            .map(|t| category_and_rank(t).0)
+            .flatten()
+            .or(self.get_tier())
+            .unwrap_or(Tier::Tier0);
+
+        match tier {
+            Tier::Tier0 => TIER0.to_owned(),
+            Tier::Environment => ENVIRONMENT.to_owned(),
+            Tier::Input => INPUT.to_owned(),
+        }
+    }
 }
 
 /// Pick the most interesting error by best tag.
@@ -206,42 +227,11 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
     category_and_rank(tag).0
 }
 
-const TIER0: &str = "INFRA";
-const ENVIRONMENT: &str = "ENVIRONMENT";
-const INPUT: &str = "USER";
-
-pub fn error_category(errors: &[buck2_data::ProcessedErrorReport]) -> &'static str {
-    let mut has_input_error = false;
-    for error in errors {
-        if let Some(category) = error.tier {
-            let Some(category) = buck2_data::error::ErrorTier::from_i32(category) else {
-                continue;
-            };
-            match category {
-                buck2_data::error::ErrorTier::Tier0 => {
-                    return TIER0;
-                }
-                buck2_data::error::ErrorTier::Environment => {
-                    return ENVIRONMENT;
-                }
-                buck2_data::error::ErrorTier::Input => has_input_error = true,
-                _ => {}
-            }
-        }
-    }
-
-    if has_input_error {
-        return INPUT;
-    }
-
-    TIER0
-}
-
 #[cfg(test)]
 mod tests {
     use buck2_data::error::ErrorTag;
     use buck2_data::error::ErrorTier;
-    use buck2_data::ProcessedErrorReport;
+    use buck2_data::ErrorReport;
 
     use super::*;
     use crate::classify::best_tag;
@@ -265,28 +255,81 @@ mod tests {
     #[test]
     fn test_user_and_infra() {
         let errors = vec![
-            ProcessedErrorReport {
+            ErrorReport {
                 tier: Some(ErrorTier::Input as i32),
-                ..ProcessedErrorReport::default()
+                ..ErrorReport::default()
             },
-            ProcessedErrorReport {
+            ErrorReport {
                 tier: Some(ErrorTier::Tier0 as i32),
-                ..ProcessedErrorReport::default()
+                ..ErrorReport::default()
             },
         ];
 
-        let category = error_category(&errors);
-        assert_eq!(category, TIER0);
+        assert_eq!(
+            best_error(&errors).map(|e| e.category()),
+            Some(TIER0.to_owned())
+        );
     }
 
     #[test]
     fn test_default_is_infra() {
-        let errors = vec![ProcessedErrorReport {
+        let errors = vec![ErrorReport {
             tier: Some(ErrorTier::UnusedDefaultCategory as i32),
-            ..ProcessedErrorReport::default()
+            ..ErrorReport::default()
         }];
 
-        let category = error_category(&errors);
-        assert_eq!(category, TIER0);
+        assert_eq!(
+            best_error(&errors).map(|e| e.category()),
+            Some(TIER0.to_owned())
+        );
+    }
+
+    #[test]
+    fn test_ranked_infra() {
+        let errors = vec![
+            ErrorReport {
+                tags: vec![ErrorTag::ServerJemallocAssert as i32],
+                ..ErrorReport::default()
+            },
+            ErrorReport {
+                tier: Some(ErrorTier::Tier0 as i32),
+                ..ErrorReport::default()
+            },
+        ];
+
+        assert_eq!(
+            best_error(&errors).map(|e| e.tags.clone()),
+            Some(vec![ErrorTag::ServerJemallocAssert as i32]),
+        );
+    }
+
+    #[test]
+    fn test_tag_overrides_tier() {
+        let errors = vec![ErrorReport {
+            tier: Some(ErrorTier::Tier0 as i32),
+            tags: vec![ErrorTag::StarlarkFail as i32],
+            ..ErrorReport::default()
+        }];
+
+        assert_eq!(
+            best_error(&errors).map(|e| e.category()),
+            Some(INPUT.to_owned())
+        );
+    }
+
+    #[test]
+    fn test_ranked_tags() {
+        let errors = vec![ErrorReport {
+            tags: vec![
+                ErrorTag::ServerStderrEmpty as i32,
+                ErrorTag::ClientGrpc as i32,
+            ],
+            ..ErrorReport::default()
+        }];
+
+        assert_eq!(
+            best_error(&errors).map(|e| e.category()),
+            Some(ENVIRONMENT.to_owned())
+        );
     }
 }
