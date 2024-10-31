@@ -340,10 +340,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)
 
-    should_enable_incremental_bundling = True
+    incremental_bundling_override = None
     sdk_name = get_apple_sdk_name(ctx)
     if sdk_name == MacOSXSdkMetadata.name or sdk_name == MacOSXCatalystSdkMetadata.name:
-        should_enable_incremental_bundling = False
+        incremental_bundling_override = False
 
     bundle_result = assemble_bundle(
         ctx,
@@ -352,7 +352,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
-        incremental_bundling_override = should_enable_incremental_bundling,
+        incremental_bundling_override = incremental_bundling_override,
     )
     sub_targets = bundle_result.sub_targets
     sub_targets.update(aggregated_debug_info.sub_targets)
