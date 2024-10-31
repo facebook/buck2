@@ -37,7 +37,13 @@ class SimulatorInfo:
     device_set_path: str
 
 
-def managed_simulators_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
+def managed_simulator_from_stdout(stdout: Optional[str]) -> IdbTarget:
+    if not stdout:
+        return None
+    return IdbTarget.from_dict(json.loads(stdout))
+
+
+def managed_simulators_list_from_stdout(stdout: Optional[str]) -> List[IdbTarget]:
     if not stdout:
         return []
     targets = map(

@@ -16,7 +16,8 @@ from .idb_companion import IdbCompanion
 
 from .idb_target import (
     IdbTarget,
-    managed_simulators_from_stdout,
+    managed_simulator_from_stdout,
+    managed_simulators_list_from_stdout,
     SimState,
     SimulatorInfo,
 )
@@ -112,27 +113,32 @@ def _spawn_companion_for_simulator_command(
     ]
 
 
-async def _generic_managed_simulators_command(
+async def _generic_managed_simulators_list_command(
     name: str, cmd: List[str]
 ) -> List[IdbTarget]:
     stdout = await execute_generic_text_producing_command(name=name, cmd=cmd)
-    return managed_simulators_from_stdout(stdout)
+    return managed_simulators_list_from_stdout(stdout)
+
+
+async def _generic_managed_simulator_command(name: str, cmd: List[str]) -> IdbTarget:
+    stdout = await execute_generic_text_producing_command(name=name, cmd=cmd)
+    return managed_simulator_from_stdout(stdout)
 
 
 async def _list_managed_simulators(simulator_manager: str) -> List[IdbTarget]:
     list_cmd = _list_managed_simulators_command(simulator_manager=simulator_manager)
-    return await _generic_managed_simulators_command(
+    return await _generic_managed_simulators_list_command(
         name="list managed simulators", cmd=list_cmd
     )
 
 
-async def _create_simulator(simulator_manager: str) -> List[IdbTarget]:
+async def _create_simulator(simulator_manager: str) -> IdbTarget:
     runtimes = await list_ios_runtimes()
     spec = _select_latest_simulator_spec(runtimes)
     create_cmd = _create_simulator_command(
         simulator_manager=simulator_manager, sim_spec=spec
     )
-    return await _generic_managed_simulators_command(
+    return await _generic_managed_simulator_command(
         name="create simulators", cmd=create_cmd
     )
 
@@ -146,9 +152,9 @@ async def _get_managed_simulators_create_if_needed(
     if managed_simulators:
         return managed_simulators
 
-    managed_simulators = await _create_simulator(simulator_manager=simulator_manager)
-    if managed_simulators:
-        return managed_simulators
+    managed_simulator = await _create_simulator(simulator_manager=simulator_manager)
+    if managed_simulator:
+        return [managed_simulator]
 
     raise RuntimeError(
         "Failed to create an iOS simulator. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
