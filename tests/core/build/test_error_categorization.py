@@ -293,24 +293,31 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     assert len(errors) == 1
     [error] = errors
 
+    category_key = invocation_record["best_error_category_key"].split(":")
+
     if is_running_on_windows():
         # TODO get windows to dump a stack trace
         assert "buckd stderr is empty" in error["message"]
+        assert category_key[0:3] == [
+            "buck2_client_ctx/src/daemon/client.rs",
+            "CLIENT_GRPC",
+            "SERVER_STDERR_EMPTY",
+        ]
+        assert invocation_record["best_error_tag"] == "SERVER_STDERR_EMPTY"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
+        assert category_key[0:3] == [
+            "buck2_client_ctx/src/daemon/client.rs",
+            "CLIENT_GRPC",
+            "SERVER_STDERR_UNKNOWN",
+        ]
+        assert invocation_record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
 
-    assert invocation_record["best_error_tag"] == "CLIENT_GRPC"
-    category_key = invocation_record["best_error_category_key"].split(":")
-    category_key[0:2] = [
-        "buck2_client_ctx/src/daemon/client.rs",
-        "CLIENT_GRPC",
-        "SERVER_PANICKED",
-    ]
     # TODO dump stack trace on mac and windows
     if is_running_on_linux():
-        assert category_key[4].startswith("crash("), category_key[4]
+        assert category_key[3].startswith("crash("), category_key[3]
 
 
 @buck_test()

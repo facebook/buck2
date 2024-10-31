@@ -29,24 +29,28 @@ macro_rules! rank {
 /// Ordering determines tag rank, more interesting tags first
 pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
     match tag {
+        // Environment errors
+        ErrorTag::NoValidCerts => rank!(environment),
+        ErrorTag::ServerSigterm => rank!(environment),
+        ErrorTag::IoMaterializerFileBusy => rank!(environment),
+        ErrorTag::IoClientBrokenPipe => rank!(environment),
+        ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
+        ErrorTag::DownloadFileHeadRequest => rank!(environment),
+        ErrorTag::ServerMemoryPressure => rank!(environment),
+        // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
+        ErrorTag::ServerStderrEmpty => rank!(environment),
+
+        // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
-        ErrorTag::ServerSigterm => rank!(environment),
+        ErrorTag::DaemonConnect => rank!(tier0),
+        ErrorTag::ServerStderrUnknown => rank!(tier0),
         ErrorTag::InternalError => rank!(tier0),
-        // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
-        // happens, it's probably because the user tried to shut down with Ctrl+C and something
-        // about that didn't work
-        ErrorTag::InterruptedByDaemonShutdown => rank!(input),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
-        ErrorTag::DaemonIsBusy => rank!(input),
-        ErrorTag::DaemonPreempted => rank!(input),
-        ErrorTag::DaemonConnect => rank!(unspecified),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
         ErrorTag::ClientGrpc => rank!(tier0),
-        ErrorTag::ConfigureAttr => rank!(input),
-        ErrorTag::NoValidCerts => rank!(environment),
         ErrorTag::ReUnknownTcode => rank!(tier0),
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
@@ -64,22 +68,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ReUnavailable => rank!(tier0),
         ErrorTag::ReDataLoss => rank!(tier0),
         ErrorTag::ReUnauthenticated => rank!(tier0),
-        ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoConnectionAborted => rank!(tier0),
-        ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
-        ErrorTag::IoExecutableFileBusy => rank!(input),
-        ErrorTag::IoStorageFull => rank!(input),
         ErrorTag::IoTimeout => rank!(tier0),
-        ErrorTag::IoMaterializerFileBusy => rank!(environment),
-        ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
-        ErrorTag::IoPermissionDenied => rank!(input),
-        ErrorTag::IoNotFound => rank!(unspecified),
-        ErrorTag::IoSource => rank!(unspecified),
-        ErrorTag::IoSystem => rank!(unspecified),
-        ErrorTag::IoEden => rank!(unspecified),
-        ErrorTag::IoEdenConnectionError => rank!(unspecified),
-        ErrorTag::IoEdenRequestError => rank!(unspecified),
-        ErrorTag::IoEdenMountDoesNotExist => rank!(input),
         ErrorTag::IoEdenMountNotReady => rank!(tier0),
         // TODO(minglunli): Check how often Win32 Errors are actually hit, potentially do the same as POSIX
         ErrorTag::IoEdenWin32Error => rank!(tier0),
@@ -88,16 +78,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoEdenGenericError => rank!(tier0),
         ErrorTag::IoEdenMountGenerationChanged => rank!(tier0),
         ErrorTag::IoEdenJournalTruncated => rank!(tier0),
-        ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
         ErrorTag::IoEdenOutOfDateParent => rank!(tier0),
-        ErrorTag::IoEdenUnknownField => rank!(unspecified),
-        ErrorTag::IoClientBrokenPipe => rank!(environment),
-        ErrorTag::MaterializationError => rank!(unspecified),
-        ErrorTag::ProjectMissingPath => rank!(input),
-        ErrorTag::StarlarkFail => rank!(input),
-        ErrorTag::StarlarkStackOverflow => rank!(input),
-        ErrorTag::Visibility => rank!(input),
-        ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanTimeout => rank!(tier0),
         ErrorTag::WatchmanConnectionError => rank!(tier0),
         ErrorTag::WatchmanConnectionLost => rank!(tier0),
@@ -110,19 +91,45 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::WatchmanConnect => rank!(tier0),
         ErrorTag::WatchmanRequestError => rank!(tier0),
         ErrorTag::HttpServer => rank!(tier0),
+
+        // Input errors
+        // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
+        // happens, it's probably because the user tried to shut down with Ctrl+C and something
+        // about that didn't work
+        ErrorTag::InterruptedByDaemonShutdown => rank!(input),
+        ErrorTag::DaemonIsBusy => rank!(input),
+        ErrorTag::DaemonPreempted => rank!(input),
+        ErrorTag::ConfigureAttr => rank!(input),
+        ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
+        ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
+        ErrorTag::IoExecutableFileBusy => rank!(input),
+        ErrorTag::IoStorageFull => rank!(input),
+        ErrorTag::IoPermissionDenied => rank!(input),
+        ErrorTag::IoEdenMountDoesNotExist => rank!(input),
+        ErrorTag::ProjectMissingPath => rank!(input),
+        ErrorTag::StarlarkFail => rank!(input),
+        ErrorTag::StarlarkStackOverflow => rank!(input),
+        ErrorTag::Visibility => rank!(input),
         ErrorTag::HttpClient => rank!(input),
-        ErrorTag::Http => rank!(unspecified),
-        ErrorTag::DownloadFileHeadRequest => rank!(environment),
-        ErrorTag::ServerStderrUnknown => rank!(unspecified),
-        ErrorTag::ServerMemoryPressure => rank!(environment),
-        // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
-        ErrorTag::ServerStderrEmpty => rank!(environment),
-        ErrorTag::Install => rank!(unspecified),
         ErrorTag::Analysis => rank!(input),
+        ErrorTag::TestDeadlineExpired => rank!(input),
+
+        // Unspecified errors
+        ErrorTag::IoBrokenPipe => rank!(unspecified),
+        ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
+        ErrorTag::IoNotFound => rank!(unspecified),
+        ErrorTag::IoSource => rank!(unspecified),
+        ErrorTag::IoSystem => rank!(unspecified),
+        ErrorTag::IoEden => rank!(unspecified),
+        ErrorTag::IoEdenConnectionError => rank!(unspecified),
+        ErrorTag::IoEdenRequestError => rank!(unspecified),
+        ErrorTag::IoEdenUnknownField => rank!(unspecified),
+        ErrorTag::MaterializationError => rank!(unspecified),
+        ErrorTag::Http => rank!(unspecified),
+        ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
         ErrorTag::AnyStarlarkEvaluation => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
-        ErrorTag::TestDeadlineExpired => rank!(input),
     }
 }
 
