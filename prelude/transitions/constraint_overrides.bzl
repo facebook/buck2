@@ -9,6 +9,10 @@
 #       hard-coded here. We use a read_config to avoid hard-coding these repo-specific
 #       constraints into the prelude.
 
+def _platform_overrides() -> list[str]:
+    config = read_root_config("buck2", "platform_overrides", "")
+    return [override.strip() for override in config.split(",") if override.strip()]
+
 def _constraint_overrides() -> list[str]:
     overrides = read_root_config("buck2", "constraint_overrides", "")
     return [override.strip() for override in overrides.split(",") if override.strip()]
@@ -17,6 +21,7 @@ def _constraint_passthroughs() -> list[str]:
     passthroughs = read_root_config("buck2", "constraint_passthroughs", "")
     return [passthrough.strip() for passthrough in passthroughs.split(",") if passthrough.strip()]
 
+_PLATFORM_OVERRIDES = _platform_overrides()
 _CONSTRAINT_OVERRIDES = _constraint_overrides()
 _CONSTRAINT_PASSTHROUGHS = _constraint_passthroughs()
 
@@ -97,7 +102,7 @@ _attributes = {
 _transition = transition(
     impl = _impl,
     attrs = _attributes.keys(),
-    refs = {override: override for override in _CONSTRAINT_OVERRIDES},
+    refs = {override: override for override in _PLATFORM_OVERRIDES + _CONSTRAINT_OVERRIDES},
 )
 
 constraint_overrides = struct(
