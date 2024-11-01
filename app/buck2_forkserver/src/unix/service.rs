@@ -18,6 +18,9 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_common::init::ResourceControlConfig;
+use buck2_common::systemd::SystemdPropertySetType;
+use buck2_common::systemd::SystemdRunner;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -61,18 +64,26 @@ pub struct UnixForkserverService {
 
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
+
+    /// Systemd runner for resource control
+    #[allow(dead_code)]
+    systemd_runner: Option<SystemdRunner>,
 }
 
 impl UnixForkserverService {
     pub fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
+        resource_control: ResourceControlConfig,
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
+        let systemd_runner =
+            SystemdRunner::create_if_enabled(SystemdPropertySetType::Daemon, &resource_control)?;
 
         Ok(Self {
             log_reload_handle,
             miniperf,
+            systemd_runner,
         })
     }
 }

@@ -43,8 +43,6 @@ impl ForkserverCommand {
     ) -> anyhow::Result<()> {
         fs_util::create_dir_all(&self.state_dir)?;
 
-        let _todo_resource_control = self.resource_control;
-
         #[cfg(unix)]
         {
             // For us to get this FD it must be non-CLOEXEC but we don't want our children to
@@ -59,6 +57,7 @@ impl ForkserverCommand {
                 self.fd,
                 log_reload_handle,
                 self.state_dir,
+                self.resource_control,
             ))
         }
 

@@ -13,6 +13,7 @@ use std::os::unix::net::UnixStream as StdUnixStream;
 use std::sync::Arc;
 
 use anyhow::Context as _;
+use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_forkserver_proto::forkserver_server;
@@ -25,6 +26,7 @@ pub async fn run_forkserver(
     fd: RawFd,
     log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     state_dir: AbsNormPathBuf,
+    resource_control: ResourceControlConfig,
 ) -> anyhow::Result<()> {
     // SAFETY: At worst, we just read (or close) the wrong FD.
     let io = UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(fd) })
@@ -35,7 +37,7 @@ pub async fn run_forkserver(
         DuplexChannel::new(read, write)
     };
 
-    let service = UnixForkserverService::new(log_reload_handle, &state_dir)
+    let service = UnixForkserverService::new(log_reload_handle, &state_dir, resource_control)
         .context("Failed to create UnixForkserverService")?;
 
     let router = tonic::transport::Server::builder().add_service(
