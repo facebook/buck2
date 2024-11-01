@@ -33,6 +33,7 @@ use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_grpc::to_tonic;
+use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use futures::future::select;
 use futures::future::FutureExt;
@@ -48,6 +49,7 @@ use tonic::Streaming;
 use crate::convert::encode_event_stream;
 use crate::run::maybe_absolutize_exe;
 use crate::run::process_group::ProcessCommand;
+use crate::run::status_decoder::CGroupStatusDecoder;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
@@ -65,8 +67,8 @@ pub struct UnixForkserverService {
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
 
-    /// Systemd runner for resource control
-    systemd_runner: Option<SystemdRunner>,
+    /// Systemd for resource control
+    systemd: Option<SystemdContainer>,
 }
 
 impl UnixForkserverService {
@@ -76,17 +78,12 @@ impl UnixForkserverService {
         resource_control: ResourceControlConfig,
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let systemd_runner = SystemdRunner::create_if_enabled(
-            SystemdPropertySetType::Daemon,
-            &resource_control,
-            "forkserver",
-            true,
-        )?;
+        let systemd = SystemdContainer::new(&resource_control)?;
 
         Ok(Self {
             log_reload_handle,
             miniperf,
-            systemd_runner,
+            systemd,
         })
     }
 }
@@ -143,10 +140,10 @@ impl Forkserver for UnixForkserverService {
                 .context("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
-            let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
+            let systemd_context = self.systemd.as_ref().zip(action_digest);
 
             let (mut cmd, miniperf_output) =
-                match (enable_miniperf, &self.miniperf, systemd_context) {
+                match (enable_miniperf, &self.miniperf, &systemd_context) {
                     (true, Some(miniperf), None) => {
                         let mut cmd = background_command(miniperf.miniperf.as_path());
                         let output_path = miniperf.allocate_output_path();
@@ -154,8 +151,8 @@ impl Forkserver for UnixForkserverService {
                         cmd.arg(exe.as_ref());
                         (cmd, Some(output_path))
                     }
-                    (_, _, Some((systemd_runner, action_digest))) => (
-                        systemd_runner.background_command_linux(
+                    (_, _, Some((systemd, action_digest))) => (
+                        systemd.runner.background_command_linux(
                             exe.as_ref(),
                             &action_digest,
                             &AbsNormPath::new(cwd)?,
@@ -210,18 +207,31 @@ impl Forkserver for UnixForkserverService {
                     stream_stdio,
                 )?
                 .left_stream(),
-                None => stream_command_events(
-                    process_group,
-                    cancellation,
-                    DefaultStatusDecoder,
-                    DefaultKillProcess {
-                        graceful_shutdown_timeout_s,
-                    },
-                    stream_stdio,
-                )?
+                None => if let Some((systemd, action_digest)) = systemd_context {
+                    stream_command_events(
+                        process_group,
+                        cancellation,
+                        CGroupStatusDecoder::new(systemd.get_cgroup_path(&action_digest).await?),
+                        DefaultKillProcess {
+                            graceful_shutdown_timeout_s,
+                        },
+                        stream_stdio,
+                    )?
+                    .left_stream()
+                } else {
+                    stream_command_events(
+                        process_group,
+                        cancellation,
+                        DefaultStatusDecoder,
+                        DefaultKillProcess {
+                            graceful_shutdown_timeout_s,
+                        },
+                        stream_stdio,
+                    )?
+                    .right_stream()
+                }
                 .right_stream(),
             };
-
             let stream = encode_event_stream(stream);
             Ok(Box::pin(stream) as _)
         })
@@ -304,5 +314,33 @@ impl MiniperfContainer {
         let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
         self.output_dir
             .join(ForwardRelativePath::unchecked_new(&name))
+    }
+}
+
+struct SystemdContainer {
+    runner: SystemdRunner,
+}
+
+impl SystemdContainer {
+    const SLICE_NAME: &'static str = "forkserver";
+
+    fn new(resource_control: &ResourceControlConfig) -> anyhow::Result<Option<Self>> {
+        let runner = SystemdRunner::create_if_enabled(
+            SystemdPropertySetType::Daemon,
+            &resource_control,
+            Self::SLICE_NAME,
+            // we want to create forkserver in the same hierarchy where buck-daemon scope
+            // for this we inherit slice
+            true,
+        )?;
+        Ok(runner.map(|runner| Self { runner }))
+    }
+
+    async fn get_cgroup_path(&self, action_digest: &str) -> anyhow::Result<AbsNormPathBuf> {
+        let cgroup_path = CGroupInfo::read_async()
+            .await?
+            .join_hierarchically(&[Self::SLICE_NAME, action_digest])
+            .context("Can't create cgroup path")?;
+        AbsNormPathBuf::from(cgroup_path)
     }
 }
