@@ -46,10 +46,16 @@ pub enum SystemdPropertySetType {
 
 pub struct SystemdRunner {
     fixed_systemd_args: Vec<String>,
+    parent_slice: String,
 }
 
 impl SystemdRunner {
-    fn create(property_set_type: SystemdPropertySetType, config: &ResourceControlConfig) -> Self {
+    fn create(
+        property_set_type: SystemdPropertySetType,
+        config: &ResourceControlConfig,
+        parent_slice: &str,
+        slice_inherit: bool,
+    ) -> Self {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -80,15 +86,20 @@ impl SystemdRunner {
             SystemdPropertySetType::Worker => { // TODO
             }
         }
-
+        if slice_inherit {
+            args.push("--slice-inherit".to_owned());
+        }
         Self {
             fixed_systemd_args: args,
+            parent_slice: parent_slice.to_owned(),
         }
     }
 
     pub fn create_if_enabled(
         property_set_type: SystemdPropertySetType,
         config: &ResourceControlConfig,
+        parent_slice: &str,
+        slice_inherit: bool,
     ) -> anyhow::Result<Option<Self>> {
         match config.status {
             ResourceControlStatus::Off => Ok(None),
@@ -103,7 +114,12 @@ impl SystemdRunner {
                     );
                     Ok(None)
                 } else {
-                    Ok(Some(Self::create(property_set_type, config)))
+                    Ok(Some(Self::create(
+                        property_set_type,
+                        config,
+                        parent_slice,
+                        slice_inherit,
+                    )))
                 }
             }
         }
@@ -119,6 +135,7 @@ impl SystemdRunner {
     ) -> std::process::Command {
         let mut cmd = process::background_command("systemd-run");
         cmd.args(&self.fixed_systemd_args);
+        cmd.arg(format!("--slice={}-{}", self.parent_slice, unit_name));
         cmd.arg(format!("--working-directory={}", working_directory))
             .arg(format!("--unit={}", unit_name));
         cmd.arg(program);

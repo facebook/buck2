@@ -379,12 +379,14 @@ impl<'a> BuckdLifecycle<'a> {
         let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
             SystemdPropertySetType::Daemon,
             &daemon_startup_config.resource_control,
+            "buck2",
+            false,
         )? {
             systemd_runner
                 .background_command_linux(
                     daemon_exe,
                     &format!(
-                        "buck2-daemon-{}-{}",
+                        "daemon.{}.{}",
                         project_dir.name().unwrap_or("unknown_project"),
                         self.paths.isolation.as_str()
                     ),

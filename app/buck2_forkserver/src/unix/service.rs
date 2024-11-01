@@ -76,8 +76,12 @@ impl UnixForkserverService {
         resource_control: ResourceControlConfig,
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let systemd_runner =
-            SystemdRunner::create_if_enabled(SystemdPropertySetType::Daemon, &resource_control)?;
+        let systemd_runner = SystemdRunner::create_if_enabled(
+            SystemdPropertySetType::Daemon,
+            &resource_control,
+            "forkserver",
+            true,
+        )?;
 
         Ok(Self {
             log_reload_handle,
