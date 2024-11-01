@@ -185,7 +185,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
             continue
         app_folder = dep[ErlangAppInfo].app_folders[primary_toolchain_name]
         cmd.add(["-pa", cmd_args(app_folder, format = "{}/ebin", delimiter = "")])
-    cmd.add(["-pa", primary_toolchain.utility_modules])
 
     cmd.add(["--"])
 
@@ -209,7 +208,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     output_dir = link_output(ctx, suite_name, build_environment, data_dir, property_dir)
     test_info_file = _write_test_info_file(
         ctx = ctx,
-        extra_code_paths = [primary_toolchain.utility_modules],
         test_suite = suite_name,
         dependencies = dependencies,
         test_dir = output_dir,
@@ -226,7 +224,6 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     for config_file in config_files:
         hidden_args.append(config_file)
 
-    hidden_args.append(primary_toolchain.utility_modules)
     hidden_args.append(output_dir)
     cmd.add(cmd_args(hidden = hidden_args))
 
@@ -235,7 +232,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
         dep[ErlangTestInfo].output_dir
         for dep in dependencies.values()
         if ErlangTestInfo in dep
-    ] + [primary_toolchain.utility_modules, output_dir]
+    ] + [output_dir]
 
     # NB. We can't use `quote="shell"` since we need $REPO_ROOT to be expanded by the shell.
     # So we wrap everything in extra double-quotes to protect from spaces in the path
@@ -298,14 +295,12 @@ def _build_default_info(ctx: AnalysisContext, dependencies: ErlAppDependencies, 
 
 def _write_test_info_file(
         ctx: AnalysisContext,
-        extra_code_paths: list[Artifact],
         test_suite: str,
         dependencies: ErlAppDependencies,
         test_dir: Artifact,
         config_files: list[Artifact],
         erl_cmd: [cmd_args, Artifact]) -> Artifact:
     dependency_paths = _list_code_paths(ctx, dependencies)
-    dependency_paths.extend(extra_code_paths)
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "common_app_env": ctx.attrs.common_app_env,

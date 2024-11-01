@@ -18,6 +18,9 @@ erlang_application(
         "prelude//erlang/common_test/common:common",
         "prelude//erlang/common_test/cth_hooks:cth_hooks",
         "prelude//erlang/common_test/test_exec:test_exec",
+        # test interface relies on json, until fully on OTP 27 we must depend on
+        # the vendored version for a self-contained library
+        "prelude//erlang/toolchain:toolchain_json",
     ],
     erl_opts = [
         "+debug_info",

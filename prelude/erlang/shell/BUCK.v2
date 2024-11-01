@@ -10,6 +10,9 @@ erlang_application(
     applications = [
         "kernel",
         "stdlib",
+        # search relies on json, until fully on OTP 27 we must depend on
+        # the vendored version for a self-contained library
+        "prelude//erlang/toolchain:toolchain_json",
     ],
     erl_opts = [
         "+debug_info",
