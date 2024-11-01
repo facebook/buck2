@@ -66,7 +66,6 @@ pub struct UnixForkserverService {
     miniperf: Option<MiniperfContainer>,
 
     /// Systemd runner for resource control
-    #[allow(dead_code)]
     systemd_runner: Option<SystemdRunner>,
 }
 
@@ -126,12 +125,13 @@ impl Forkserver for UnixForkserverService {
                 enable_miniperf,
                 std_redirects,
                 graceful_shutdown_timeout_s,
-                ..
+                action_digest,
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
             let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
             let cwd = AbsPath::new(Path::new(cwd)).context("Inalid cwd")?;
+
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
@@ -139,17 +139,27 @@ impl Forkserver for UnixForkserverService {
                 .context("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
+            let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
 
-            let (mut cmd, miniperf_output) = match (enable_miniperf, &self.miniperf) {
-                (true, Some(miniperf)) => {
-                    let mut cmd = background_command(miniperf.miniperf.as_path());
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(exe.as_ref());
-                    (cmd, Some(output_path))
-                }
-                _ => (background_command(exe.as_ref()), None),
-            };
+            let (mut cmd, miniperf_output) =
+                match (enable_miniperf, &self.miniperf, systemd_context) {
+                    (true, Some(miniperf), None) => {
+                        let mut cmd = background_command(miniperf.miniperf.as_path());
+                        let output_path = miniperf.allocate_output_path();
+                        cmd.arg(output_path.as_path());
+                        cmd.arg(exe.as_ref());
+                        (cmd, Some(output_path))
+                    }
+                    (_, _, Some((systemd_runner, action_digest))) => (
+                        systemd_runner.background_command_linux(
+                            exe.as_ref(),
+                            &action_digest,
+                            &AbsNormPath::new(cwd)?,
+                        ),
+                        None,
+                    ),
+                    _ => (background_command(exe.as_ref()), None),
+                };
 
             cmd.current_dir(cwd);
             cmd.args(argv);

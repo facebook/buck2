@@ -383,12 +383,12 @@ impl<'a> BuckdLifecycle<'a> {
             systemd_runner
                 .background_command_linux(
                     daemon_exe,
-                    format!(
+                    &format!(
                         "buck2-daemon-{}-{}",
                         project_dir.name().unwrap_or("unknown_project"),
                         self.paths.isolation.as_str()
                     ),
-                    project_dir.root().to_buf(),
+                    &project_dir.root(),
                 )
                 .into()
         } else {

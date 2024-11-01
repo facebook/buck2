@@ -12,7 +12,7 @@ use std::io::ErrorKind;
 use std::num::ParseIntError;
 use std::sync::OnceLock;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 
 use crate::init::ResourceControlConfig;
@@ -114,8 +114,8 @@ impl SystemdRunner {
     pub fn background_command_linux<S: AsRef<OsStr>>(
         &self,
         program: S,
-        unit_name: String,
-        working_directory: AbsNormPathBuf,
+        unit_name: &str,
+        working_directory: &AbsNormPath,
     ) -> std::process::Command {
         let mut cmd = process::background_command("systemd-run");
         cmd.args(&self.fixed_systemd_args);
