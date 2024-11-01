@@ -14,6 +14,7 @@ load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
+load("@prelude//apple/user:enable_testing_transition.bzl", "enable_testing_transition")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
@@ -127,6 +128,8 @@ def apple_test_extra_attrs():
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
+        # Deps of apple_test need to set -enable-testing for Swift code.
+        "deps": attrs.list(attrs.transition_dep(cfg = enable_testing_transition), default = []),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
