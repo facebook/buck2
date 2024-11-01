@@ -90,6 +90,7 @@ def _apple_binary_extra_attrs():
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
         "_stripped_default": attrs.bool(default = False),
+        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
     }
@@ -123,6 +124,10 @@ def _apple_library_extra_attrs():
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
         "_stripped_default": attrs.bool(default = False),
+        "_swift_enable_testing": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//features/apple:swift_enable_testing_enabled": True,
+        })),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,

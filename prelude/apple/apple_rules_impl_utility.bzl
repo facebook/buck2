@@ -156,6 +156,7 @@ def apple_test_extra_attrs():
         "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
         "_macos_idb_companion": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:macos_idb_companion", providers = [LocalResourceInfo]),
+        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs
