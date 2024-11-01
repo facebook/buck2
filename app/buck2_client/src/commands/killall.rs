@@ -30,6 +30,7 @@ impl KillallCommand {
             .then_some(())
             .ok_or(anyhow::anyhow!("Killall command failed"))
         })
+        .into()
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

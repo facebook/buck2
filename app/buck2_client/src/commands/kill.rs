@@ -49,6 +49,7 @@ impl KillCommand {
             )
             .await
         })
+        .into()
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

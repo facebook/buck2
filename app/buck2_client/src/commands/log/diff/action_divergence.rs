@@ -147,7 +147,7 @@ fn print_divergence_msg(
 
 impl ActionDivergenceCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.with_runtime(|ctx| async move {
+        ctx.instant_command_no_log("log-diff-action-divergence", |ctx| async move {
             let options1 = EventLogOptions {
                 recent: self.recent1,
                 path: self.path1,
@@ -197,8 +197,7 @@ impl ActionDivergenceCommand {
                 buck2_client_ctx::println!("No divergent actions found.")?;
             }
             anyhow::Ok(())
-        })?;
-
-        ExitResult::success()
+        })
+        .into()
     }
 }

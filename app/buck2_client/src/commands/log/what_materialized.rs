@@ -176,7 +176,7 @@ impl WhatMaterializedCommand {
         } = self;
         buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
             let mut output = transform_format(output, w);
-            ctx.with_runtime(|ctx| async move {
+            ctx.instant_command_no_log("log-what-materialized", |ctx| async move {
                 let log_path = event_log.get(&ctx).await?;
 
                 let (invocation, mut events) = log_path.unpack_stream().await?;
@@ -223,8 +223,7 @@ impl WhatMaterializedCommand {
                 }
 
                 anyhow::Ok(())
-            })?;
-            anyhow::Ok(())
+            })
         })?;
         ExitResult::success()
     }

@@ -51,7 +51,7 @@ impl CriticalPathCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log, format } = self;
 
-        ctx.with_runtime(|ctx| async move {
+        ctx.instant_command_no_log("log-critical-path", |ctx| async move {
             let log_path = event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
@@ -80,9 +80,8 @@ impl CriticalPathCommand {
             }
 
             anyhow::Ok(())
-        })?;
-
-        ExitResult::success()
+        })
+        .into()
     }
 }
 

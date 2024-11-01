@@ -114,6 +114,7 @@ impl CleanCommand {
                 clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
             },
         )
+        .into()
     }
 
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {

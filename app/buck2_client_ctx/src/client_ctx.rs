@@ -34,7 +34,6 @@ use crate::common::PreemptibleWhen;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
-use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
@@ -137,7 +136,7 @@ impl<'a> ClientCommandContext<'a> {
         command_name: &'static str,
         event_log_opts: &CommonEventLogOptions,
         func: F,
-    ) -> ExitResult
+    ) -> anyhow::Result<()>
     where
         Fut: Future<Output = anyhow::Result<()>> + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
@@ -156,6 +155,27 @@ impl<'a> ClientCommandContext<'a> {
 
         recorder.instant_command_outcome(result.is_ok());
         result.into()
+    }
+
+    /// Invoke a command without writing event log.
+    /// (For example, we don't write logs in `buck2 log` command.)
+    pub fn instant_command_no_log<Fut, F>(
+        self,
+        command_name: &'static str,
+        func: F,
+    ) -> anyhow::Result<()>
+    where
+        Fut: Future<Output = anyhow::Result<()>> + 'a,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+    {
+        self.instant_command(
+            command_name,
+            &CommonEventLogOptions {
+                no_event_log: true,
+                ..CommonEventLogOptions::default()
+            },
+            func,
+        )
     }
 
     pub fn stdin(&mut self) -> &mut Stdin {

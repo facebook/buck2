@@ -52,7 +52,7 @@ impl WhatUpCommand {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 
-        ctx.with_runtime(|ctx| async move {
+        ctx.instant_command_no_log("log-what-up", |ctx| async move {
             let log_path = event_log.get(&ctx).await?;
 
             // Get events

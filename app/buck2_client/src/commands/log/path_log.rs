@@ -33,7 +33,7 @@ impl PathLogCommand {
             all,
         } = self;
 
-        ctx.with_runtime(|ctx| async move {
+        ctx.instant_command_no_log("log-path", |ctx| async move {
             let paths = if all {
                 retrieve_all_logs(ctx.paths().context("Error identifying log dir")?)?
             } else {
@@ -43,8 +43,7 @@ impl PathLogCommand {
                 buck2_client_ctx::println!("{}", path.path().display())?;
             }
             anyhow::Ok(())
-        })?;
-
-        ExitResult::success()
+        })
+        .into()
     }
 }

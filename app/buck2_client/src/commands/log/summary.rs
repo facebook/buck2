@@ -243,7 +243,7 @@ pub struct SummaryCommand {
 
 impl SummaryCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.with_runtime(|ctx| async move {
+        ctx.instant_command_no_log("log-summary", |ctx| async move {
             let log_path = self.event_log.get(&ctx).await?;
 
             let (invocation, mut events) = log_path.unpack_stream().await?;
@@ -276,8 +276,7 @@ impl SummaryCommand {
             }
             buck2_client_ctx::eprintln!("{}", stats)?;
             anyhow::Ok(())
-        })?;
-
-        ExitResult::success()
+        })
+        .into()
     }
 }
