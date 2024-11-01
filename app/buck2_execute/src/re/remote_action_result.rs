@@ -214,6 +214,7 @@ fn convert_perf_counts(
             cpu_instructions_kernel: kernel_counter.map(|p| p.adjusted_count()),
             userspace_events: userspace_counter.map(|p| p.to_proto()),
             kernel_events: kernel_counter.map(|p| p.to_proto()),
+            memory_peak: None,
         }
     })
 }

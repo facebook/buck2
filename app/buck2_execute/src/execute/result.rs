@@ -402,6 +402,7 @@ mod tests {
                     time_enabled: 50,
                     time_running: 100,
                 }),
+                memory_peak: None,
             }),
             input_materialization_duration: Duration::from_secs(6),
             hashing_duration: Duration::from_secs(7),
@@ -452,6 +453,7 @@ mod tests {
                 time_enabled: 50,
                 time_running: 100,
             }),
+            memory_peak: None,
         };
         let command_execution_metadata = buck2_data::CommandExecutionMetadata {
             wall_time: Some(Duration {
