@@ -40,6 +40,9 @@ message CommandRequest {
   // before sending SIGKILL.
   // Should only be needed for daemonized processes (workers).
   optional uint32 graceful_shutdown_timeout_s = 14;
+  // Action digest is used when run actions through systemd,
+  // as we use it to create an unique cgroup name for action
+  optional string action_digest = 15;
 }
 
 message WorkingDirectory {

@@ -145,6 +145,7 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
+        action_digest: &'a str,
     ) -> impl futures::future::Future<
         Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
     > + Send
@@ -166,13 +167,14 @@ impl LocalExecutor {
                             env_inheritance,
                             liveliness_observer,
                             self.knobs.enable_miniperf && !disable_miniperf,
+                            action_digest,
                         )
                         .await
                     }
 
                     #[cfg(not(unix))]
                     {
-                        let _unused = (forkserver, disable_miniperf);
+                        let _unused = (forkserver, disable_miniperf, action_digest);
                         Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
                     }
                 }
@@ -441,6 +443,7 @@ impl LocalExecutor {
                         request.local_environment_inheritance(),
                         liveliness_observer,
                         request.disable_miniperf(),
+                        &action_digest.to_string(),
                     )
                     .await
                 };
@@ -1086,6 +1089,7 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
+        action_digest: &str,
     ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
@@ -1103,6 +1107,7 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
+            action_digest: Some(action_digest.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
@@ -1222,6 +1227,7 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
+                "",
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
@@ -1258,6 +1264,7 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
+                "",
             )
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));

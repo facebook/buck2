@@ -115,6 +115,7 @@ impl Forkserver for UnixForkserverService {
                 enable_miniperf,
                 std_redirects,
                 graceful_shutdown_timeout_s,
+                ..
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
