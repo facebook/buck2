@@ -176,6 +176,13 @@ def _meta_apple_library_validation_enabled_default_value():
         return False
 
     meta_apple_library_validation_enabled_default = (read_root_config("apple", "meta_apple_library_validation", "false").lower() == "true")
+
+    is_arvr_build = (read_root_config("fb", "arvr_build", "false").lower() == "true")
+    if is_arvr_build:
+        # Not all arvr builds have `arvr_mode_enabled` constraint, so under arvr
+        # build mode, always disable suffixing checks as those graphs are not suffixed
+        return False
+
     return select({
         "DEFAULT": select({
             "DEFAULT": meta_apple_library_validation_enabled_default,
