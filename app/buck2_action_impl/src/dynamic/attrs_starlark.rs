@@ -35,7 +35,7 @@ use crate::dynamic::attrs::DynamicAttrType;
     NoSerialize
 )]
 #[display("{}", ty)]
-pub(crate) struct StarlarkDynamicAttrType {
+pub struct StarlarkDynamicAttrType {
     pub(crate) ty: DynamicAttrType,
 }
 

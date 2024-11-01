@@ -50,11 +50,11 @@ use crate::dynamic::attrs::DynamicAttrValues;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
 use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
 
-pub(crate) struct DynamicActionsCallbackParamSpec;
+pub struct DynamicActionsCallbackParamSpec;
 
-pub(crate) struct DynamicActionsCallbackParam {
-    pub(crate) name: &'static str,
-    pub(crate) ty: LazyLock<Ty>,
+pub struct DynamicActionsCallbackParam {
+    pub name: &'static str,
+    pub ty: LazyLock<Ty>,
 }
 
 pub(crate) static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
@@ -79,7 +79,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
     }
 }
 
-pub(crate) type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
+pub type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
 
 #[derive(Debug, thiserror::Error)]
 enum DynamicActionCallableError {
@@ -102,7 +102,7 @@ enum DynamicActionCallableError {
     "DynamicActionCallable[{}]",
     self.name.get().map(|s| s.as_str()).unwrap_or("(unbound)")
 )]
-pub(crate) struct DynamicActionsCallable<'v> {
+pub struct DynamicActionsCallable<'v> {
     pub(crate) self_ty: Ty,
     pub(crate) implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,

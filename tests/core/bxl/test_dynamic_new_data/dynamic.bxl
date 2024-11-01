@@ -1,0 +1,40 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _basic_f_impl(bxl_ctx: bxl.Context, src: ArtifactValue, out: OutputArtifact):
+    src = src.read_string()
+    if src != "foo":
+        fail("Expect input 'foo' but got '{}'".format(src))
+    bxl_actions = bxl_ctx.bxl_actions().actions
+    bxl_actions.write(out, src + "bar")
+    return []
+
+_basic_f = bxl.dynamic_actions(
+    impl = _basic_f_impl,
+    attrs = {
+        "out": dynattrs.output(),
+        "src": dynattrs.artifact_value(),
+    },
+)
+
+def _basic(ctx):
+    bxl_actions = ctx.bxl_actions().actions
+    input = bxl_actions.write("input", "foo")
+    output = bxl_actions.declare_output("output")
+
+    bxl_actions.dynamic_output_new(_basic_f(
+        src = input,
+        out = output.as_output(),
+    ))
+    res = ctx.output.ensure(output)
+
+    ctx.output.print(res.abs_path())
+
+basic = bxl_main(
+    impl = _basic,
+    cli_args = {},
+)

@@ -15,6 +15,7 @@ use starlark::environment::GlobalsBuilder;
 use crate::bxl::starlark_defs::bxl_function::register_bxl_main_function;
 use crate::bxl::starlark_defs::bxl_function::register_bxl_prefixed_main_function;
 use crate::bxl::starlark_defs::cli_args;
+use crate::bxl::starlark_defs::context::dynamic::register_dynamic_actions;
 use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_file_set_function;
@@ -32,6 +33,7 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
     register_instant_function(g);
     register_error_handling_function(g);
     register_bxl_type_names_in_bxl_namespace(g);
+    register_dynamic_actions(g);
 }
 
 pub(crate) fn init_bxl_specific_globals() {

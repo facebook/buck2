@@ -86,6 +86,11 @@ pub enum DynamicLambdaArgs<'v> {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
         attr_values: Box<[(String, Value<'v>)]>,
     },
+    DynamicActionsBxlNamed {
+        // cannot import BxlContext because it bxl is depends on this crate
+        bxl_ctx: Value<'v>,
+        attr_values: Box<[(String, Value<'v>)]>,
+    },
 }
 
 pub fn invoke_dynamic_output_lambda<'v>(
@@ -113,6 +118,15 @@ pub fn invoke_dynamic_output_lambda<'v>(
                 .collect::<Vec<(&str, Value)>>();
             (&[], &named)
         }
+        DynamicLambdaArgs::DynamicActionsBxlNamed {
+            bxl_ctx,
+            attr_values,
+        } => {
+            named = iter::once(("bxl_ctx", bxl_ctx.dupe()))
+                .chain(attr_values.iter().map(|(k, v)| (k.as_str(), *v)))
+                .collect::<Vec<(&str, Value)>>();
+            (&[], &named)
+        }
     };
     let return_value = eval
         .eval_function(lambda, pos, named)
@@ -132,6 +146,9 @@ pub fn invoke_dynamic_output_lambda<'v>(
             )?
         }
         DynamicLambdaArgs::DynamicActionsNamed { .. } => {
+            ProviderCollection::try_from_value_dynamic_output(return_value)?
+        }
+        DynamicLambdaArgs::DynamicActionsBxlNamed { .. } => {
             ProviderCollection::try_from_value_dynamic_output(return_value)?
         }
     };

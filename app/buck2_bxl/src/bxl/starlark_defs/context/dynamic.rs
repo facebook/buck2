@@ -10,13 +10,20 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
+use buck2_action_impl::dynamic::attrs_starlark::StarlarkDynamicAttrType;
 use buck2_action_impl::dynamic::bxl::EVAL_BXL_FOR_DYNAMIC_OUTPUT;
 use buck2_action_impl::dynamic::deferred::dynamic_lambda_ctx_data;
 use buck2_action_impl::dynamic::deferred::invoke_dynamic_output_lambda;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaArgs;
 use buck2_action_impl::dynamic::deferred::DynamicLambdaCtxDataSpec;
 use buck2_action_impl::dynamic::deferred::InputArtifactsMaterialized;
+use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallable;
+use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackParam;
+use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
+use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackReturnType;
+use buck2_action_impl::dynamic::new_dynamic_actions_callable;
 use buck2_action_impl::dynamic::params::FrozenDynamicLambdaParams;
 use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -39,7 +46,12 @@ use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
 use dupe::Dupe;
 use itertools::Itertools;
+use starlark::collections::SmallMap;
+use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
+use starlark::starlark_module;
+use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::ValueTyped;
 
@@ -206,10 +218,11 @@ impl BxlDynamicOutputEvaluator<'_> {
                     artifact_values: *artifact_values,
                     outputs: *outputs,
                 },
-                (Some(_arg), DynamicLambdaCtxDataSpec::New { .. }) => {
-                    return Err(anyhow::anyhow!(
-                        "New `dynamic_actions` API is not implemented for BXL"
-                    ));
+                (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
+                    DynamicLambdaArgs::DynamicActionsBxlNamed {
+                        bxl_ctx: ctx.to_value(),
+                        attr_values: attr_values.clone(),
+                    }
                 }
                 (None, DynamicLambdaCtxDataSpec::New { .. })
                 | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
@@ -251,4 +264,25 @@ pub(crate) fn init_eval_bxl_for_dynamic_output() {
             ))
         },
     );
+}
+
+static P_BXLCTX: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+    name: "bxl_ctx",
+    ty: LazyLock::new(BxlContext::starlark_type_repr),
+};
+
+#[starlark_module]
+pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
+    /// Create new bxl dynamic action callable. Returned object will be callable,
+    /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
+    fn dynamic_actions<'v>(
+        #[starlark(require = named)] r#impl: StarlarkCallableChecked<
+            'v,
+            DynamicActionsCallbackParamSpec,
+            DynamicActionsCallbackReturnType,
+        >,
+        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
+    ) -> anyhow::Result<DynamicActionsCallable<'v>> {
+        new_dynamic_actions_callable(r#impl, attrs, &P_BXLCTX)
+    }
 }

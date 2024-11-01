@@ -22,6 +22,15 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_dynamic_new",
+    srcs = ["test_dynamic_new.py"],
+    data_dir = "test_dynamic_new_data",
+    deps = [
+        "//buck2/tests/e2e_util:utils",
+    ],
+)
+
+buck2_e2e_test(
     name = "test_typecheck",
     srcs = ["test_typecheck.py"],
     data_dir = "test_typecheck_data",
