@@ -51,7 +51,9 @@ use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_common::invocation_roots::BuckCliError;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
@@ -294,25 +296,44 @@ impl CommandKind {
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
         let roots = find_invocation_roots(process.working_dir.path());
-        let paths = roots
-            .map(|r| InvocationPaths {
-                roots: r,
-                isolation: common_opts.isolation_dir.clone(),
-            })
-            .map_err(buck2_error::Error::from);
+        let paths_anyhow = roots.map(|r| InvocationPaths {
+            roots: r,
+            isolation: common_opts.isolation_dir.clone(),
+        });
 
+        let paths_result = match paths_anyhow {
+            Ok(paths) => InvocationPathsResult::Paths(paths.clone()),
+            Err(err) => match err.downcast_ref::<BuckCliError>() {
+                Some(BuckCliError::NoBuckRoot(_)) => {
+                    InvocationPathsResult::OutsideOfRepo(buck2_error::Error::from(err))
+                }
+                None => InvocationPathsResult::OtherError(buck2_error::Error::from(err)),
+            },
+        };
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
         #[cfg(not(client_only))]
         if let CommandKind::Daemon(cmd) = self {
             return cmd
-                .exec(process.log_reload_handle.dupe(), paths?, false, || {})
+                .exec(
+                    process.log_reload_handle.dupe(),
+                    paths_result.get_result()?,
+                    false,
+                    || {},
+                )
                 .into();
         }
         thread::scope(|scope| {
             // Spawn a thread to have stack size independent on linker/environment.
             match thread_spawn_scoped("buck2-main", scope, move || {
-                self.exec_no_daemon(common_opts, process, immediate_config, matches, argv, paths)
+                self.exec_no_daemon(
+                    common_opts,
+                    process,
+                    immediate_config,
+                    matches,
+                    argv,
+                    paths_result,
+                )
             }) {
                 Ok(t) => match t.join() {
                     Ok(res) => res,
@@ -330,7 +351,7 @@ impl CommandKind {
         immediate_config: &ImmediateConfigContext,
         matches: &clap::ArgMatches,
         argv: Argv,
-        paths: buck2_error::Result<InvocationPaths>,
+        paths: InvocationPathsResult,
     ) -> ExitResult {
         if common_opts.no_buckd {
             // `no_buckd` can't work in a client-only binary
@@ -348,7 +369,7 @@ impl CommandKind {
             #[cfg(not(client_only))]
             let v = buck2_daemon::no_buckd::start_in_process_daemon(
                 immediate_config.daemon_startup_config()?,
-                paths.clone()?,
+                paths.clone().get_result()?,
                 &runtime,
             )?;
             #[cfg(client_only)]
@@ -375,6 +396,7 @@ impl CommandKind {
             &runtime,
             common_opts.oncall,
             common_opts.client_metadata,
+            common_opts.isolation_dir,
         );
 
         match self {

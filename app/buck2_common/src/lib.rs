@@ -39,6 +39,7 @@ pub mod http;
 pub mod ignores;
 pub mod init;
 pub mod invocation_paths;
+pub mod invocation_paths_result;
 pub mod invocation_roots;
 pub mod io;
 pub mod kill_util;

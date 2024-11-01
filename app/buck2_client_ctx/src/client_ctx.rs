@@ -16,7 +16,9 @@ use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
@@ -42,7 +44,7 @@ use crate::subscribers::recorder::try_get_invocation_recorder;
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
     pub(crate) immediate_config: &'a ImmediateConfigContext<'a>,
-    paths: buck2_error::Result<InvocationPaths>,
+    paths: InvocationPathsResult,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,
     /// When set, this function is called to launch in process daemon.
@@ -59,13 +61,14 @@ pub struct ClientCommandContext<'a> {
     runtime: &'a Runtime,
     oncall: Option<String>,
     pub(crate) client_metadata: Vec<ClientMetadata>,
+    pub(crate) isolation: FileNameBuf,
 }
 
 impl<'a> ClientCommandContext<'a> {
     pub fn new(
         init: fbinit::FacebookInit,
         immediate_config: &'a ImmediateConfigContext<'a>,
-        paths: buck2_error::Result<InvocationPaths>,
+        paths: InvocationPathsResult,
         working_dir: WorkingDir,
         verbosity: Verbosity,
         start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
@@ -78,6 +81,7 @@ impl<'a> ClientCommandContext<'a> {
         runtime: &'a Runtime,
         oncall: Option<String>,
         client_metadata: Vec<ClientMetadata>,
+        isolation: FileNameBuf,
     ) -> Self {
         ClientCommandContext {
             init,
@@ -95,6 +99,7 @@ impl<'a> ClientCommandContext<'a> {
             runtime,
             oncall,
             client_metadata,
+            isolation,
         }
     }
 
@@ -104,8 +109,18 @@ impl<'a> ClientCommandContext<'a> {
 
     pub fn paths(&self) -> anyhow::Result<&InvocationPaths> {
         match &self.paths {
-            Ok(p) => Ok(p),
-            Err(e) => Err(e.dupe().into()),
+            InvocationPathsResult::Paths(p) => Ok(p),
+            InvocationPathsResult::OutsideOfRepo(e) | InvocationPathsResult::OtherError(e) => {
+                Err(e.dupe().into())
+            }
+        }
+    }
+
+    pub fn maybe_paths(&self) -> anyhow::Result<Option<&InvocationPaths>> {
+        match &self.paths {
+            InvocationPathsResult::Paths(p) => Ok(Some(p)),
+            InvocationPathsResult::OutsideOfRepo(_) => Ok(None), // commands like log don't need a root but still need to create an invocation record
+            InvocationPathsResult::OtherError(e) => Err(e.dupe().into()),
         }
     }
 

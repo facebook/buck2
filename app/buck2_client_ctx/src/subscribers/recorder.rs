@@ -93,7 +93,7 @@ pub(crate) struct InvocationRecorder<'a> {
     isolation_dir: String,
     start_time: Instant,
     async_cleanup_context: AsyncCleanupContext<'a>,
-    build_count_manager: BuildCountManager,
+    build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
     command_duration: Option<prost_types::Duration>,
@@ -220,7 +220,7 @@ impl<'a> InvocationRecorder<'a> {
         sanitized_argv: Vec<String>,
         trace_id: TraceId,
         isolation_dir: String,
-        build_count_manager: BuildCountManager,
+        build_count_manager: Option<BuildCountManager>,
         filesystem: String,
         restarted_trace_id: Option<TraceId>,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
@@ -360,7 +360,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         is_success: bool,
         command_name: &str,
-    ) -> anyhow::Result<BuildCount> {
+    ) -> anyhow::Result<Option<BuildCount>> {
         if let Some(stats) = &self.file_watcher_stats {
             if let Some(merge_base) = &stats.branched_from_revision {
                 match &self.parsed_target_patterns {
@@ -374,11 +374,17 @@ impl<'a> InvocationRecorder<'a> {
                         // fallthrough to 0 below
                     }
                     Some(v) => {
-                        return self
-                            .build_count_manager
-                            .increment(merge_base, v, is_success)
-                            .await
-                            .context("Error recording build count");
+                        return if let Some(build_count) = &self.build_count_manager {
+                            Some(
+                                build_count
+                                    .increment(merge_base, v, is_success)
+                                    .await
+                                    .context("Error recording build count"),
+                            )
+                            .transpose()
+                        } else {
+                            Ok(None)
+                        };
                     }
                 };
             }
@@ -876,7 +882,8 @@ impl<'a> InvocationRecorder<'a> {
                     .build_count(command.is_success, command_data.variant_name())
                     .await
                 {
-                    Ok(build_count) => build_count,
+                    Ok(Some(build_count)) => build_count,
+                    Ok(None) => Default::default(),
                     Err(e) => {
                         let _ignored = soft_error!("build_count_error", e.into());
                         Default::default()
@@ -1709,11 +1716,16 @@ pub(crate) fn try_get_invocation_recorder<'a>(
         .as_ref()
         .map(|path| path.resolve(&ctx.working_dir));
 
+    let paths = ctx.maybe_paths()?;
+
     let filesystem;
     #[cfg(fbcode_build)]
     {
-        let root = std::path::Path::to_owned(ctx.paths()?.project_root().root().to_buf().as_ref());
-        if detect_eden::is_eden(root).unwrap_or(false) {
+        let is_eden = paths.map_or(false, |paths| {
+            let root = std::path::Path::to_owned(paths.project_root().root().to_buf().as_ref());
+            detect_eden::is_eden(root).unwrap_or(false)
+        });
+        if is_eden {
             filesystem = "eden".to_owned();
         } else {
             filesystem = "default".to_owned();
@@ -1724,6 +1736,8 @@ pub(crate) fn try_get_invocation_recorder<'a>(
         filesystem = "default".to_owned();
     }
 
+    let build_count = paths.map(|p| BuildCountManager::new(p.build_count_dir()));
+
     let recorder = InvocationRecorder::new(
         ctx.fbinit(),
         ctx.async_cleanup_context().dupe(),
@@ -1731,8 +1745,8 @@ pub(crate) fn try_get_invocation_recorder<'a>(
         command_name,
         sanitized_argv,
         ctx.trace_id.dupe(),
-        ctx.paths()?.isolation.as_str().to_owned(),
-        BuildCountManager::new(ctx.paths()?.build_count_dir()),
+        ctx.isolation.to_string(),
+        build_count,
         filesystem,
         ctx.restarted_trace_id.dupe(),
         log_size_counter_bytes,

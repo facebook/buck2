@@ -21,7 +21,7 @@ use buck2_core::fs::project::ProjectRoot;
 use once_cell::sync::Lazy;
 
 #[derive(Debug, buck2_error::Error)]
-enum BuckCliError {
+pub enum BuckCliError {
     #[error(
         "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.display()
     )]
