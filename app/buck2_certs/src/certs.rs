@@ -10,7 +10,8 @@
 use std::ffi::OsString;
 use std::path::Path;
 
-use anyhow::Context;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use gazebo::prelude::VecExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
@@ -19,9 +20,9 @@ use rustls::RootCertStore;
 
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
-async fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
+async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     let native_certs = rustls_native_certs::load_native_certs()
-        .context("Error loading system root certificates native frameworks");
+        .buck_error_context("Error loading system root certificates native frameworks");
 
     let root_certs =
           // Load the system root certificates using native frameworks.
@@ -35,13 +36,13 @@ async fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
               );
               load_certs(&path)
                   .await
-                  .with_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
+                  .with_buck_error_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
           } else {
               if let Err(e) = native_certs {
-                  return Err(e);
+                  return Err(e.into());
               }
 
-              return Err(anyhow::anyhow!("Unable to load system root certificates"));
+              return Err(buck2_error!([], "Unable to load system root certificates"));
           };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
@@ -55,7 +56,8 @@ async fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
     // But make sure we get at least _one_ valid cert, otherwise we legitimately won't be
     // able to make any connections via https.
     if valid == 0 {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error!(
+            [],
             "Error loading system certs: unable to find any valid system certs"
         ));
     }
@@ -65,17 +67,19 @@ async fn load_system_root_certs() -> anyhow::Result<RootCertStore> {
 }
 
 // Load private key from the given path
-async fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
+async fn load_key<P: AsRef<Path>>(key: P) -> buck2_error::Result<PrivateKey> {
     let key = key.as_ref();
 
     let key_data = tokio::fs::read(key)
         .await
-        .with_context(|| format!("Error opening key file `{}`", key.display()))?;
+        .with_buck_error_context(|| format!("Error opening key file `{}`", key.display()))?;
 
     let private_key = rustls_pemfile::pkcs8_private_keys(&mut key_data.as_slice())
-        .with_context(|| format!("Error parsing key file `{}`", key.display()))?
+        .with_buck_error_context(|| format!("Error parsing key file `{}`", key.display()))?
         .pop()
-        .with_context(|| format!("Found no private key in key file `{}`", key.display()))?;
+        .with_buck_error_context(|| {
+            format!("Found no private key in key file `{}`", key.display())
+        })?;
     let key = PrivateKey(private_key);
 
     Ok(key)
@@ -86,14 +90,14 @@ async fn load_key<P: AsRef<Path>>(key: P) -> anyhow::Result<PrivateKey> {
 async fn load_cert_pair<P: AsRef<Path>>(
     cert: P,
     key: P,
-) -> anyhow::Result<(Vec<Certificate>, PrivateKey)> {
+) -> buck2_error::Result<(Vec<Certificate>, PrivateKey)> {
     let certs = load_certs(cert).await?.into_map(Certificate);
     let key = load_key(key).await?;
 
     Ok((certs, key))
 }
 
-pub async fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
+pub async fn tls_config_with_system_roots() -> buck2_error::Result<ClientConfig> {
     let system_roots = load_system_root_certs().await?;
     Ok(ClientConfig::builder()
         .with_safe_defaults()
@@ -104,28 +108,31 @@ pub async fn tls_config_with_system_roots() -> anyhow::Result<ClientConfig> {
 pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
     cert_path: P,
     key_path: P,
-) -> anyhow::Result<ClientConfig> {
+) -> buck2_error::Result<ClientConfig> {
     let system_roots = load_system_root_certs().await?;
     let (cert, key) = load_cert_pair(cert_path, key_path)
         .await
-        .context("Error loading certificate pair")?;
+        .buck_error_context("Error loading certificate pair")?;
     ClientConfig::builder()
         .with_safe_defaults()
         .with_root_certificates(system_roots)
         .with_client_auth_cert(cert, key)
-        .context("Error creating TLS config with cert and key path")
+        .buck_error_context("Error creating TLS config with cert and key path")
 }
 
 // Load certs from the given path, returns the bytes of the certs so caller can decide what to do with it
-pub(crate) async fn load_certs<P: AsRef<Path>>(cert_path: P) -> anyhow::Result<Vec<Vec<u8>>> {
+pub(crate) async fn load_certs<P: AsRef<Path>>(cert_path: P) -> buck2_error::Result<Vec<Vec<u8>>> {
     let cert_path = cert_path.as_ref();
 
     let cert_data = tokio::fs::read(cert_path)
         .await
-        .with_context(|| format!("Error reading certificate file `{}`", cert_path.display()))?;
+        .with_buck_error_context(|| {
+            format!("Error reading certificate file `{}`", cert_path.display())
+        })?;
 
-    let certs = rustls_pemfile::certs(&mut cert_data.as_slice())
-        .with_context(|| format!("Error parsing certificate file `{}`", cert_path.display()))?;
+    let certs = rustls_pemfile::certs(&mut cert_data.as_slice()).with_buck_error_context(|| {
+        format!("Error parsing certificate file `{}`", cert_path.display())
+    })?;
 
     Ok(certs)
 }

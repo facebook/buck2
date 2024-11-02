@@ -10,6 +10,7 @@
 use std::ffi::OsString;
 use std::sync::Arc;
 
+use buck2_error::buck2_error;
 use buck2_util::process::async_background_command;
 use dupe::Dupe;
 use tokio::sync::Mutex;
@@ -57,11 +58,12 @@ async fn is_vpnless_cert_valid() -> bool {
 }
 
 /// Check if the provided certs exists and if it is still valid at the current time.
-async fn verify(path: &OsString) -> anyhow::Result<()> {
+async fn verify(path: &OsString) -> buck2_error::Result<()> {
     let certs = load_certs(path).await?;
     if certs.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Could not find any certs to validate at '{}'",
+        return Err(buck2_error!(
+            [],
+            "Could not find any certs to validate at '{0}'",
             path.to_string_lossy()
         ));
     }
@@ -76,8 +78,9 @@ async fn verify(path: &OsString) -> anyhow::Result<()> {
     });
 
     if !valid {
-        return Err(anyhow::anyhow!(
-            "Certificate Expired: expired certs found at '{}'",
+        return Err(buck2_error!(
+            [],
+            "Certificate Expired: expired certs found at '{0}'",
             path.to_string_lossy()
         ));
     }
@@ -85,7 +88,7 @@ async fn verify(path: &OsString) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn validate_certs() -> anyhow::Result<()> {
+pub async fn validate_certs() -> buck2_error::Result<()> {
     if cfg!(not(fbcode_build)) {
         return Ok(());
     }
@@ -134,7 +137,7 @@ impl CertState {
     }
 }
 
-pub async fn check_cert_state(cert_state: CertState) -> Option<anyhow::Error> {
+pub async fn check_cert_state(cert_state: CertState) -> Option<buck2_error::Error> {
     let mut valid = cert_state.state.lock().await;
 
     // If previous state is error, then we need to check regardless of the current state

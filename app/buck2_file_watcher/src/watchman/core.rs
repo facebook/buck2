@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
 use buck2_core::buck2_env_anyhow;
 use buck2_error::internal_error_anyhow;
+use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use dupe::Dupe;
 use futures::future::Future;
@@ -179,11 +180,15 @@ async fn with_timeout<R>(
     match tokio::time::timeout(Duration::from_secs(timeout), fut).await {
         Ok(Ok(res)) => Ok(res),
         Ok(Err(e)) => {
-            validate_certs().await.context("Watchman Request Failed")?;
+            validate_certs()
+                .await
+                .buck_error_context("Watchman Request Failed")?;
             Err(WatchmanClientError::RequestFailed { source: e }.into())
         }
         Err(_) => {
-            validate_certs().await.context("Watchman Timed Out")?;
+            validate_certs()
+                .await
+                .buck_error_context("Watchman Timed Out")?;
             Err(WatchmanClientError::Timeout(timeout).into())
         }
     }
