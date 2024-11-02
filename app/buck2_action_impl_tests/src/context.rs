@@ -29,12 +29,11 @@ use starlark::syntax::AstModule;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 fn run_ctx_test(
     content: &str,
-    result_handler: impl FnOnce(anyhow::Result<Value>) -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
+    result_handler: impl FnOnce(starlark::Result<Value>) -> buck2_error::Result<()>,
+) -> buck2_error::Result<()> {
     let func_mod = Module::new();
     let globals = GlobalsBuilder::standard().with(register_rule_defs).build();
     let prelude = indoc!(
@@ -90,14 +89,12 @@ fn run_ctx_test(
         DigestConfig::testing_default(),
     ));
 
-    let returned = eval
-        .eval_function(test_function, &[ctx], &[])
-        .into_anyhow_result();
+    let returned = eval.eval_function(test_function, &[ctx], &[]);
     result_handler(returned)
 }
 
 #[test]
-fn ctx_instantiates() -> anyhow::Result<()> {
+fn ctx_instantiates() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(ctx):
@@ -114,7 +111,7 @@ fn ctx_instantiates() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_declares_outputs() -> anyhow::Result<()> {
+fn declare_output_declares_outputs() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
@@ -132,7 +129,7 @@ fn declare_output_declares_outputs() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_with_prefix() -> anyhow::Result<()> {
+fn declare_output_with_prefix() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
@@ -150,7 +147,7 @@ fn declare_output_with_prefix() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_dot() -> anyhow::Result<()> {
+fn declare_output_dot() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
@@ -169,7 +166,7 @@ fn declare_output_dot() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_dot_bad() -> anyhow::Result<()> {
+fn declare_output_dot_bad() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
@@ -188,7 +185,7 @@ fn declare_output_dot_bad() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_dotdot() -> anyhow::Result<()> {
+fn declare_output_dotdot() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
@@ -207,7 +204,7 @@ fn declare_output_dotdot() -> anyhow::Result<()> {
 }
 
 #[test]
-fn declare_output_require_bound() -> anyhow::Result<()> {
+fn declare_output_require_bound() -> buck2_error::Result<()> {
     let content = indoc!(
         r#"
          def test(c):
