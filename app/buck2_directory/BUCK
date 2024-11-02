@@ -8,7 +8,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     test_deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:assert_matches",
     ],
     deps = [
