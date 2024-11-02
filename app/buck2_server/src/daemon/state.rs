@@ -38,6 +38,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
+use buck2_error::AnyhowContextForError;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;

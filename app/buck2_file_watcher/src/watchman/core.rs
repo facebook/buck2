@@ -14,11 +14,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
-use buck2_core::buck2_env_anyhow;
-use buck2_error::internal_error_anyhow;
+use buck2_core::buck2_env;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use dupe::Dupe;
@@ -172,8 +171,8 @@ impl Debug for WatchmanClient {
 
 async fn with_timeout<R>(
     fut: impl Future<Output = Result<R, watchman_client::Error>> + Send,
-) -> anyhow::Result<R> {
-    let timeout = buck2_env_anyhow!("BUCK2_WATCHMAN_TIMEOUT", type=u64, default=57)?;
+) -> buck2_error::Result<R> {
+    let timeout = buck2_env!("BUCK2_WATCHMAN_TIMEOUT", type=u64, default=57)?;
     if timeout == 0 {
         return Err(WatchmanClientError::ZeroTimeout.into());
     }
@@ -195,20 +194,23 @@ async fn with_timeout<R>(
 }
 
 impl WatchmanClient {
-    async fn connect(connector: &Connector, path: CanonicalPath) -> anyhow::Result<WatchmanClient> {
+    async fn connect(
+        connector: &Connector,
+        path: CanonicalPath,
+    ) -> buck2_error::Result<WatchmanClient> {
         let client = with_timeout(connector.connect())
             .await
-            .context("Connecting to watchman")?;
+            .buck_error_context("Connecting to watchman")?;
         let root = with_timeout(client.resolve_root(path))
             .await
-            .context("Resolving watchman root")?;
+            .buck_error_context("Resolving watchman root")?;
         Ok(Self(Arc::new((client, root))))
     }
 
     async fn query<F: serde::de::DeserializeOwned + std::fmt::Debug + Clone + QueryFieldList>(
         &self,
         query: QueryRequestCommon,
-    ) -> anyhow::Result<QueryResult<F>> {
+    ) -> buck2_error::Result<QueryResult<F>> {
         let fut = self.client().query(self.root(), query);
 
         with_timeout(fut).await
@@ -235,7 +237,7 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
     async fn on_fresh_instance(
@@ -244,12 +246,12 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, Self::Payload)>;
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 }
 
 /// commands to be sent to the SyncableQueryHandler.
 enum SyncableQueryCommand<T, P> {
-    Sync(P, oneshot::Sender<anyhow::Result<(T, P)>>),
+    Sync(P, oneshot::Sender<buck2_error::Result<(T, P)>>),
 }
 
 /// A SyncableQuery is similar to a subscription. When created, it accepts a query expression
@@ -334,10 +336,13 @@ where
         &mut self,
         payload: P,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<(T, P)> {
+    ) -> buck2_error::Result<(T, P)> {
         let sync_res = match self.sync_query(client).await {
             Ok(res) => Ok(res),
-            Err(e) => self.reconnect_and_sync_query(client).await.context(e),
+            Err(e) => self
+                .reconnect_and_sync_query(client)
+                .await
+                .buck_error_context(e.to_string()),
         }?;
 
         let (res, new_mergebase, clock) = match sync_res {
@@ -387,13 +392,13 @@ where
         Ok(res)
     }
 
-    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> anyhow::Result<()> {
+    async fn reconnect(&mut self, client: &mut Option<WatchmanClient>) -> buck2_error::Result<()> {
         self.last_clock = Default::default();
         self.last_mergebase = None;
         *client = Some(
             WatchmanClient::connect(&self.connector, self.path.clone())
                 .await
-                .context("Error reconnecting to Watchman")?,
+                .buck_error_context("Error reconnecting to Watchman")?,
         );
         Ok(())
     }
@@ -401,7 +406,7 @@ where
     async fn reconnect_and_sync_query(
         &mut self,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<WatchmanSyncResult> {
+    ) -> buck2_error::Result<WatchmanSyncResult> {
         self.reconnect(client).await?;
 
         let out = self.sync_query(client).await?;
@@ -412,8 +417,10 @@ where
     async fn sync_query(
         &mut self,
         client: &mut Option<WatchmanClient>,
-    ) -> anyhow::Result<WatchmanSyncResult> {
-        let client = client.as_mut().context("No Watchman connection")?;
+    ) -> buck2_error::Result<WatchmanSyncResult> {
+        let client = client
+            .as_mut()
+            .buck_error_context("No Watchman connection")?;
 
         let make_query = |last_clock, last_mergebase| {
             let mut query = self.query.clone();
@@ -474,7 +481,7 @@ where
         let events = match files {
             None if is_fresh_instance => vec![],
             None => {
-                return Err(internal_error_anyhow!(
+                return Err(internal_error!(
                     "unexpected missing files in watchman query"
                 ));
             }
@@ -527,19 +534,23 @@ where
     pub(crate) fn sync(
         &self,
         dice: P,
-    ) -> impl Future<Output = anyhow::Result<(T, P)>> + Send + 'static {
+    ) -> impl Future<Output = buck2_error::Result<(T, P)>> + Send + 'static {
         let (sync_done_tx, sync_done_rx) = tokio::sync::oneshot::channel();
         let tx_res = self
             .control_tx
             .send(SyncableQueryCommand::Sync(dice, sync_done_tx));
 
         async move {
-            tx_res.ok().context("SyncableQueryHandler has exited")?;
+            tx_res
+                .ok()
+                .buck_error_context("SyncableQueryHandler has exited")?;
 
             let out = sync_done_rx
                 .await
-                .context("SyncableQueryHandler did not return a response for sync request")?
-                .context("SyncableQueryHandler returned an error")?;
+                .buck_error_context(
+                    "SyncableQueryHandler did not return a response for sync request",
+                )?
+                .buck_error_context("SyncableQueryHandler returned an error")?;
 
             Ok(out)
         }
@@ -552,10 +563,10 @@ where
         processor: Box<dyn SyncableQueryProcessor<Output = T, Payload = P>>,
         mergebase_with: Option<String>,
         empty_on_fresh_instance: bool,
-    ) -> anyhow::Result<SyncableQuery<T, P>> {
+    ) -> buck2_error::Result<SyncableQuery<T, P>> {
         let path = path.as_ref();
         let path = CanonicalPath::canonicalize(path)
-            .with_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
+            .with_buck_error_context(|| format!("Error canonicalizing: `{}`", path.display()))?;
 
         let query = QueryRequestCommon {
             expression: Some(expr),

@@ -7,7 +7,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 notify = { workspace = true }

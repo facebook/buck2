@@ -12,7 +12,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
@@ -23,6 +22,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
@@ -66,7 +66,7 @@ impl WatchmanQueryProcessor {
         mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         base_stats: buck2_data::FileWatcherStats,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut handler = FileChangeTracker::new();
 
         let mut stats = FileWatcherStats::new(base_stats, events.len());
@@ -82,7 +82,7 @@ impl WatchmanQueryProcessor {
                     // If we error out here then we might miss other changes. This seems like
                     // it shouldn't happen, since the empty path should always be a valid path.
                     let path = find_first_valid_parent(&ev.path)
-                        .with_context(|| {
+                        .with_buck_error_context(|| {
                             format!("Invalid path had no valid parent: `{}`", ev.path.display())
                         })
                         .unwrap();
@@ -106,7 +106,7 @@ impl WatchmanQueryProcessor {
         ev: ChangeEvent<'_>,
         handler: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let cell_path = self.cells.get_cell_path(path)?;
 
         let ignore = self
@@ -243,7 +243,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(Self::Output, DiceTransactionUpdater)> {
         self.last_mergebase = mergebase.clone();
         self.process_events_impl(
             dice,
@@ -264,7 +264,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
-    ) -> anyhow::Result<(Self::Output, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(Self::Output, DiceTransactionUpdater)> {
         let has_new_mergebase = self.last_mergebase.as_ref() != mergebase.as_ref();
 
         let clear_dep_files = has_new_mergebase;
@@ -337,7 +337,7 @@ impl WatchmanFileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let watchman_merge_base = root_config
             .get(BuckconfigKeyRef {
                 section: "project",
@@ -399,7 +399,7 @@ impl FileWatcher for WatchmanFileWatcher {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::Watchman as i32,

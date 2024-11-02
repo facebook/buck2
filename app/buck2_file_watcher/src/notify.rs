@@ -99,7 +99,7 @@ impl NotifyFileData {
         root: &ProjectRoot,
         cells: &CellResolver,
         ignore_specs: &HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let event = event?;
         let change_type = ChangeType::new(event.kind);
         for path in event.paths {
@@ -180,7 +180,7 @@ impl NotifyFileData {
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
     watcher: RecommendedWatcher,
-    data: Arc<Mutex<anyhow::Result<NotifyFileData>>>,
+    data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
 }
 
 impl NotifyFileWatcher {
@@ -188,7 +188,7 @@ impl NotifyFileWatcher {
         root: &ProjectRoot,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
@@ -207,7 +207,7 @@ impl NotifyFileWatcher {
     fn sync2(
         &self,
         mut dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let mut guard = self.data.lock().unwrap();
         let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
         let (stats, changes) = old?.sync();
@@ -221,7 +221,7 @@ impl FileWatcher for NotifyFileWatcher {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::RustNotify as i32,
