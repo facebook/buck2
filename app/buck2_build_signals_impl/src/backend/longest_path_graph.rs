@@ -18,6 +18,7 @@ use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_critical_path::PushError;
+use buck2_error::BuckErrorContext;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
 use smallvec::SmallVec;
@@ -172,7 +173,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
         let (critical_path, critical_path_cost, replacement_durations) =
             compute_critical_path_potentials(&graph, &durations)
-                .context("Error computing critical path potentials")?;
+                .buck_error_context("Error computing critical path potentials")?;
 
         drop(durations);
 

@@ -9,7 +9,7 @@
 
 use std::collections::BinaryHeap;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use crossbeam::thread;
 
 use crate::graph::Graph;
@@ -23,7 +23,7 @@ use crate::types::VertexId;
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     CriticalPathVertexData<VertexId>,
     PathCost,
     CriticalPathVertexData<PathCost>,
@@ -40,7 +40,7 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     let rdeps = rdeps.unwrap();
     let topo_order = topo_order.unwrap()?;
@@ -61,7 +61,7 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     let cost_to_sink = cost_to_sink.unwrap();
     let cost_from_source = cost_from_source.unwrap();
@@ -155,7 +155,7 @@ pub fn compute_critical_path_potentials(
         });
     })
     .ok()
-    .context("Threads panicked")?;
+    .buck_error_context("Threads panicked")?;
 
     // Compute the cost of the longest path through each vertex. We do this here instead of inline
     // later to avoid jumping around 3 arrays later (whereas here we can do so linearly).

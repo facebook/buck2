@@ -11,7 +11,6 @@ rust_library(
         "fbsource//third-party/rust:rand_distr",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:crossbeam",
         "fbsource//third-party/rust:derive_more",
         "//buck2/app/buck2_error:buck2_error",
