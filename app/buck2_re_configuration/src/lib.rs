@@ -21,7 +21,7 @@ static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 /// We put functions here that both things need to implement for code that isn't gated behind a
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
-    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self>;
+    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
     fn cas_semaphore_size(&self) -> usize;
 }
 
@@ -79,7 +79,7 @@ mod fbcode {
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
             Ok(Self {
                 cas_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
@@ -249,7 +249,7 @@ mod not_fbcode {
     pub struct RemoteExecutionStaticMetadata(pub Buck2OssReConfiguration);
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
             Ok(Self(Buck2OssReConfiguration::from_legacy_config(
                 legacy_config,
             )?))
@@ -313,7 +313,7 @@ pub struct HttpHeader {
 }
 
 impl FromStr for HttpHeader {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut iter = s.split(':');
@@ -322,7 +322,8 @@ impl FromStr for HttpHeader {
                 key: key.trim().to_owned(),
                 value: value.trim().to_owned(),
             }),
-            _ => Err(anyhow::anyhow!(
+            _ => Err(buck2_error::buck2_error!(
+                [],
                 "Invalid header (expect exactly one `:`): `{}`",
                 s
             )),
@@ -331,7 +332,7 @@ impl FromStr for HttpHeader {
 }
 
 impl Buck2OssReConfiguration {
-    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         // this is used for all three services by default, if given; if one of
         // them has an explicit address given as well though, use that instead
         let default_address: Option<String> = legacy_config.parse(BuckconfigKeyRef {
