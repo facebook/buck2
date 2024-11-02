@@ -7,8 +7,7 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]
-anyhow = { workspace = true }
-
+buck2_error = { workspace = true }
 dupe = { workspace = true }
 
 buck2_core = { workspace = true }
