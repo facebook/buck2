@@ -16,7 +16,7 @@ use std::hash::Hasher;
 use std::str::FromStr;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use uuid::Uuid;
 
@@ -88,9 +88,9 @@ impl TraceId {
     }
 
     /// Fetch `TraceId` from environment variable or generate a new one.
-    pub fn from_env_or_new() -> anyhow::Result<TraceId> {
+    pub fn from_env_or_new() -> buck2_error::Result<TraceId> {
         match env::var(BUCK_WRAPPER_UUID_ENV_VAR) {
-            Ok(s) => Ok(TraceId::from_str(&s).with_context(|| {
+            Ok(s) => Ok(TraceId::from_str(&s).with_buck_error_context(|| {
                 format!(
                     "Parsing buck2 invocation id from env variable {}",
                     BUCK_WRAPPER_UUID_ENV_VAR

@@ -21,6 +21,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_error::buck2_error;
 use is_buck2::WhoIsAsking;
 use sysinfo::System;
 
@@ -149,7 +150,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
             format!("{} {} ({}). {}", status, process.name, process.pid, cmd,)
         }
 
-        fn failed_to_kill(&mut self, process: &ProcessInfo, error: anyhow::Error) {
+        fn failed_to_kill(&mut self, process: &ProcessInfo, error: buck2_error::Error) {
             let mut message = self.fmt_status(process, "Failed to kill");
             for line in format!("{:?}", error).lines() {
                 message.push_str("\n  ");
@@ -201,7 +202,10 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
             for process in processes_still_alive {
                 printer.failed_to_kill(
                     &process.0,
-                    anyhow::anyhow!("Process still alive after {timeout_secs}s after kill sent"),
+                    buck2_error::buck2_error!(
+                        [],
+                        "Process still alive after {timeout_secs}s after kill sent"
+                    ),
                 );
             }
             break;

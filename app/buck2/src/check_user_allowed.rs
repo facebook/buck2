@@ -16,6 +16,7 @@ pub(crate) fn check_user_allowed() -> anyhow::Result<()> {
 
     use anyhow::Context;
     use buck2_core::ci::is_ci;
+    use buck2_error::AnyhowContextForError;
     use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
     use winapi::ctypes::c_void;
     use winapi::shared::minwindef::DWORD;

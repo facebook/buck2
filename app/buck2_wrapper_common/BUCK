@@ -30,7 +30,6 @@ rust_library(
         "//buck2/app/buck2_util:buck2_util",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:shlex",

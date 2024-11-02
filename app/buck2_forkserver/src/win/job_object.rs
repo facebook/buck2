@@ -13,7 +13,7 @@ use std::mem;
 use std::ptr;
 use std::sync::Arc;
 
-use anyhow::Context;
+use buck2_error::AnyhowContextForError;
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use dupe::Dupe;
 use winapi::shared::basetsd::ULONG_PTR;

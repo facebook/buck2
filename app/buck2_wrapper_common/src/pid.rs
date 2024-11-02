@@ -9,7 +9,7 @@
 
 use std::num::NonZeroU32;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 
 /// Process id.
@@ -20,16 +20,16 @@ pub struct Pid {
 }
 
 impl Pid {
-    pub fn from_u32(pid: u32) -> anyhow::Result<Self> {
+    pub fn from_u32(pid: u32) -> buck2_error::Result<Self> {
         Ok(Pid {
-            pid: NonZeroU32::new(pid).context("pid must be non-zero")?,
+            pid: NonZeroU32::new(pid).buck_error_context("pid must be non-zero")?,
         })
     }
 
-    pub fn from_i64(pid: i64) -> anyhow::Result<Self> {
+    pub fn from_i64(pid: i64) -> buck2_error::Result<Self> {
         Self::from_u32(
             pid.try_into()
-                .context("integer overflow converting pid to u32")?,
+                .buck_error_context("integer overflow converting pid to u32")?,
         )
     }
 
@@ -38,12 +38,12 @@ impl Pid {
     }
 
     #[cfg(unix)]
-    pub fn to_nix(self) -> anyhow::Result<nix::unistd::Pid> {
+    pub fn to_nix(self) -> buck2_error::Result<nix::unistd::Pid> {
         Ok(nix::unistd::Pid::from_raw(
             self.pid
                 .get()
                 .try_into()
-                .context("Integer overflow converting pid to pid_t")?,
+                .buck_error_context("Integer overflow converting pid to pid_t")?,
         ))
     }
 }

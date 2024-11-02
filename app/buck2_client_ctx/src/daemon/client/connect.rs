@@ -592,7 +592,7 @@ impl BootstrapBuckdClient {
 
     pub(crate) async fn kill(&mut self, reason: &str) -> anyhow::Result<Pid> {
         kill::kill(&mut self.client, &self.info, reason).await?;
-        Pid::from_i64(self.info.pid)
+        Ok(Pid::from_i64(self.info.pid)?)
     }
 
     async fn kill_for_constraints_mismatch(&mut self) -> anyhow::Result<Pid> {
@@ -1018,7 +1018,7 @@ impl<'a> BuckdProcessInfo<'a> {
     }
 
     pub fn pid(&self) -> anyhow::Result<Pid> {
-        Pid::from_i64(self.info.pid)
+        Ok(Pid::from_i64(self.info.pid)?)
     }
 }
 
