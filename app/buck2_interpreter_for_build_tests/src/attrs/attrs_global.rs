@@ -10,7 +10,7 @@
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 
 #[test]
-fn test_attr_display() -> anyhow::Result<()> {
+fn test_attr_display() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.run_starlark_bzl_test(r#"
 def assert_eq(a, b):

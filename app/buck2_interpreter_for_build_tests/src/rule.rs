@@ -33,7 +33,7 @@ fn rule_tester() -> Tester {
 }
 
 #[test]
-fn rule_creates_callable() -> anyhow::Result<()> {
+fn rule_creates_callable() -> buck2_error::Result<()> {
     let mut tester = rule_tester();
     tester.run_starlark_test(indoc!(
         r#"
@@ -267,7 +267,7 @@ fn udr_rejects_invalid_parameters() {
 }
 
 #[test]
-fn option_allows_none() -> anyhow::Result<()> {
+fn option_allows_none() -> buck2_error::Result<()> {
     let mut tester = rule_tester();
     tester.run_starlark_test_expecting_error(
         "def test():\n attrs.option(attrs.string(), default = 'test')",
@@ -290,7 +290,7 @@ fn option_allows_none() -> anyhow::Result<()> {
 }
 
 #[test]
-fn returns_documentation() -> anyhow::Result<()> {
+fn returns_documentation() -> buck2_error::Result<()> {
     let bzl = indoc::indoc!(
         r#"def impl(ctx):
             pass

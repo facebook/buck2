@@ -316,7 +316,7 @@ fn test_root_import() {
 }
 
 #[test]
-fn prelude_is_included() -> anyhow::Result<()> {
+fn prelude_is_included() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     let prelude_path = ImportPath::testing_new("root//prelude:prelude.bzl");
     tester.set_prelude(prelude_path.clone());
@@ -362,7 +362,7 @@ fn prelude_is_included() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_package_import() -> anyhow::Result<()> {
+fn test_package_import() -> buck2_error::Result<()> {
     let mut tester = Tester::with_cells(buck2_interpreter_for_build::interpreter::testing::cells(
         Some(indoc!(
             r#"
@@ -426,7 +426,7 @@ fn test_package_import() -> anyhow::Result<()> {
 }
 
 #[test]
-fn eval() -> anyhow::Result<()> {
+fn eval() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     let content = indoc!(
         r#"
@@ -456,7 +456,7 @@ fn eval() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_builtins() -> anyhow::Result<()> {
+fn test_builtins() -> buck2_error::Result<()> {
     // Test that most things end up on __buck2_builtins__
     run_simple_starlark_test(indoc!(
         r#"
@@ -480,7 +480,7 @@ fn test_builtins() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_oncall() -> anyhow::Result<()> {
+fn test_oncall() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
     tester.run_starlark_test(indoc!(

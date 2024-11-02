@@ -38,7 +38,7 @@ fn cannot_register_target_twice() {
 // Dummy module just to make sure that our integration test framework is working...
 #[starlark_module]
 fn extra_provider_module(builder: &mut GlobalsBuilder) {
-    fn add_one(i: i32) -> anyhow::Result<i32> {
+    fn add_one(i: i32) -> starlark::Result<i32> {
         Ok(i + 1)
     }
 }

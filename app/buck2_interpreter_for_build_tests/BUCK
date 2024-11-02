@@ -7,7 +7,6 @@ rust_unittest(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:indoc",

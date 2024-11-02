@@ -105,7 +105,7 @@ fn enum_works() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn attr_coercer_coerces() -> anyhow::Result<()> {
+fn attr_coercer_coerces() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let some_cells = cells(None)?;
     let cell_resolver = some_cells.1;
@@ -280,7 +280,7 @@ fn source_works() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn coercing_src_to_path_works() -> anyhow::Result<()> {
+fn coercing_src_to_path_works() -> buck2_error::Result<()> {
     let cell_resolver = cells(None).unwrap().1;
     let cell_alias_resolver = cells(None).unwrap().0;
     let package = PackageLabel::new(

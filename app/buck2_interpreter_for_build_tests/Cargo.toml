@@ -7,7 +7,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]
-anyhow = { workspace = true }
 ctor = { workspace = true }
 indoc = { workspace = true }
 serde_json = { workspace = true }
