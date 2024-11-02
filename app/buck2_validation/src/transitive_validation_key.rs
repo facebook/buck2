@@ -110,7 +110,7 @@ impl Key for TransitiveValidationKey {
             .get_validations(&self.0)
             .await?
             .require_compatible()
-            .internal_error_anyhow("Incompatible node is not expected")?;
+            .internal_error("Incompatible node is not expected")?;
         let transitive_validations = match transitive_validations {
             Some(x) => x,
             // Means there are no transitive `ValidationInfo` providers, validation is nop.
@@ -169,12 +169,6 @@ impl From<buck2_error::Error> for TreatValidationFailureAsError {
     }
 }
 
-impl From<anyhow::Error> for TreatValidationFailureAsError {
-    fn from(value: anyhow::Error) -> Self {
-        TreatValidationFailureAsError::Transient(buck2_error::Error::from(value))
-    }
-}
-
 impl From<DiceError> for TreatValidationFailureAsError {
     fn from(value: DiceError) -> Self {
         TreatValidationFailureAsError::Transient(buck2_error::Error::from(value))
@@ -193,7 +187,7 @@ async fn compute_single_validation(
 ) -> Result<(), TreatValidationFailureAsError> {
     let action_key = validation_result
         .action_key()
-        .internal_error_anyhow("Expected validation to be a build artifact")?;
+        .internal_error("Expected validation to be a build artifact")?;
     let key = SingleValidationKey(action_key.dupe());
     let result = ctx.compute(&key).await?;
     tighten_cached_validation_result(result)

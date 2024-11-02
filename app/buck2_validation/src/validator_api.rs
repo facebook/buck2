@@ -53,7 +53,7 @@ enum ValidationApiError {
     },
 }
 
-pub(crate) fn parse_validation_result(content: &str) -> anyhow::Result<ValidationResult> {
+pub(crate) fn parse_validation_result(content: &str) -> buck2_error::Result<ValidationResult> {
     let result: ValidationStaticSchema = match serde_json::from_str(content) {
         Ok(x) => x,
         Err(error) => return Err((ValidationApiError::InvalidJson { error }).into()),
@@ -72,8 +72,6 @@ pub(crate) fn parse_validation_result(content: &str) -> anyhow::Result<Validatio
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
-
     use super::*;
 
     #[test]
@@ -83,10 +81,12 @@ mod tests {
                 "version": 1
         "#;
         let error = parse_validation_result(json).expect_err("Expected parsing to fail");
-        assert_matches!(
-            error.downcast_ref::<ValidationApiError>(),
-            Some(ValidationApiError::InvalidJson { .. })
-        );
+
+        assert!(
+            error
+                .to_string()
+                .contains("Validation result should contain valid JSON.")
+        )
     }
 
     #[test]
@@ -100,10 +100,11 @@ mod tests {
             }
         "#;
         let error = parse_validation_result(json).expect_err("Expected parsing to fail");
-        assert_matches!(
-            error.downcast_ref::<ValidationApiError>(),
-            Some(ValidationApiError::InvalidJson { .. })
-        );
+        assert!(
+            error
+                .to_string()
+                .contains("Validation result should contain valid JSON.")
+        )
     }
 
     #[test]
@@ -136,10 +137,11 @@ mod tests {
             }
         "#;
         let error = parse_validation_result(json).expect_err("Expected parsing to fail");
-        assert_matches!(
-            error.downcast_ref::<ValidationApiError>(),
-            Some(ValidationApiError::IncompatibleVersion(..))
-        );
+        assert!(
+            error
+                .to_string()
+                .contains("Incompatible version of validation result")
+        )
     }
 
     #[test]
@@ -153,9 +155,10 @@ mod tests {
             }
         "#;
         let error = parse_validation_result(json).expect_err("Expected parsing to fail");
-        assert_matches!(
-            error.downcast_ref::<ValidationApiError>(),
-            Some(ValidationApiError::JsonNotMatchingSchema { .. })
-        );
+        assert!(
+            error
+                .to_string()
+                .contains("JSON content doesn't match schema.")
+        )
     }
 }

@@ -128,7 +128,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_error_rendering() -> anyhow::Result<()> {
+    fn test_error_rendering() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let path = AbsNormPathBuf::from("/my/path/to/validation/result".to_owned())?;

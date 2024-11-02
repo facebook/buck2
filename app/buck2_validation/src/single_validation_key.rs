@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -59,7 +58,7 @@ impl Key for SingleValidationKey {
             let (gen_path, ..) = build_result
                 .iter()
                 .next()
-                .internal_error_anyhow("Just checked single element")?;
+                .internal_error("Just checked single element")?;
             gen_path.dupe()
         };
 
@@ -76,7 +75,7 @@ impl Key for SingleValidationKey {
 
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
-            .context("Reading validation result")?;
+            .buck_error_context("Reading validation result")?;
 
         match parse_validation_result(&content) {
             Ok(r) => Ok(CachedValidationResult::new(
