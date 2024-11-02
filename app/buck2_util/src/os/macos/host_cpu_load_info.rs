@@ -9,6 +9,8 @@
 
 #![cfg(target_os = "macos")]
 
+use buck2_error::buck2_error;
+
 use crate::os::macos::mach_error_string::mach_error_string;
 
 /// CPU usage sum for all cores from the system start.
@@ -26,7 +28,7 @@ pub struct HostCpuLoadInfo {
 }
 
 /// Query `HOST_CPU_LOAD_INFO`. This is low-level API.
-pub fn host_cpu_load_info() -> anyhow::Result<HostCpuLoadInfo> {
+pub fn host_cpu_load_info() -> buck2_error::Result<HostCpuLoadInfo> {
     unsafe {
         let mut count: libc::mach_msg_type_number_t = libc::HOST_CPU_LOAD_INFO_COUNT;
 
@@ -47,7 +49,8 @@ pub fn host_cpu_load_info() -> anyhow::Result<HostCpuLoadInfo> {
             &mut count,
         );
         if res != libc::KERN_SUCCESS {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                [],
                 "host_statistics64 failed: {}",
                 mach_error_string(res)
             ));

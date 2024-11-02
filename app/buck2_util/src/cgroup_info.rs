@@ -9,7 +9,7 @@
 
 use std::path::MAIN_SEPARATOR;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 
 const SLICE_EXT: &str = ".slice";
 
@@ -18,34 +18,34 @@ pub struct CGroupInfo {
 }
 
 impl CGroupInfo {
-    pub async fn read_async() -> anyhow::Result<CGroupInfo> {
+    pub async fn read_async() -> buck2_error::Result<CGroupInfo> {
         tokio::fs::read_to_string("/proc/self/cgroup")
             .await
-            .with_context(|| "Failed to read /proc/self/cgroup")?
+            .with_buck_error_context(|| "Failed to read /proc/self/cgroup")?
             .lines()
             .nth(0)
-            .context("Failed to read the first line of /proc/self/cgroup")
+            .buck_error_context("Failed to read the first line of /proc/self/cgroup")
             .map(|s| CGroupInfo::parse(&s))?
     }
 
-    pub fn parse(cgroup: &str) -> anyhow::Result<CGroupInfo> {
+    pub fn parse(cgroup: &str) -> buck2_error::Result<CGroupInfo> {
         let cgroup = cgroup
             .splitn(3, ':')
             .nth(2)
-            .context("Failed to parse cgroup path")?;
+            .buck_error_context("Failed to parse cgroup path")?;
         Ok(CGroupInfo {
             path: format!("/sys/fs/cgroup{}", cgroup),
         })
     }
 
-    pub fn join_hierarchically(&self, parts: &[&str]) -> anyhow::Result<String> {
+    pub fn join_hierarchically(&self, parts: &[&str]) -> buck2_error::Result<String> {
         let mut name = self
             .get_slice_name()
-            .context("Can't find slice in cgroup path")?
+            .buck_error_context("Can't find slice in cgroup path")?
             .to_owned();
         let mut path = self
             .get_slice()
-            .context("Can't get slice name in cgroup path")?
+            .buck_error_context("Can't get slice name in cgroup path")?
             .to_owned();
         let name_separator = '-';
         for part in parts {

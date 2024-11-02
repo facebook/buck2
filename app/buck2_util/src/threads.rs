@@ -15,7 +15,8 @@ use std::pin::Pin;
 use std::task::Poll;
 use std::thread;
 
-use anyhow::Context;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 
 /// Default stack size for buck2.
 ///
@@ -113,19 +114,14 @@ pub(crate) fn on_thread_stop() {
     assert!(range.is_some(), "stack range must be set in a thread");
 }
 
-pub fn check_stack_overflow() -> anyhow::Result<()> {
-    let stack_range = STACK_RANGE
-        .get()
-        .context("stack range not set (internal error)")?;
+pub fn check_stack_overflow() -> buck2_error::Result<()> {
+    let stack_range = STACK_RANGE.get().internal_error("stack range not set")?;
     let stack_pointer = stack_pointer();
     if stack_pointer > stack_range.start {
-        return Err(anyhow::anyhow!(
-            "stack underflow, should not happen (internal error)"
-        ));
+        return Err(internal_error!("stack underflow, should not happen"));
     }
     if stack_pointer < stack_range.end {
-        // TODO(nga): need to tag this error, but we don't have tags in `buck2_util`.
-        return Err(anyhow::anyhow!("stack overflow (internal error)"));
+        return Err(internal_error!("stack overflow"));
     }
     Ok(())
 }
@@ -175,7 +171,7 @@ pub(crate) mod tests {
     use crate::threads::check_stack_overflow;
     use crate::threads::thread_spawn;
 
-    pub(crate) fn recursive_function(frames: u32) -> anyhow::Result<()> {
+    pub(crate) fn recursive_function(frames: u32) -> buck2_error::Result<()> {
         let Some(frames) = frames.checked_sub(1) else {
             return Ok(());
         };

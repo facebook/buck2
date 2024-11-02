@@ -42,9 +42,9 @@ unsafe impl<S: StringInside + ?Sized + Sync + Send> Sync for ArcS<S> {}
 impl<S: StringInside + ?Sized> ArcS<S> {
     // Cannot implement `TryFrom` trait, something about conflicting implementations.
     #[inline]
-    pub fn try_from<'a>(s: &'a str) -> anyhow::Result<ArcS<S>>
+    pub fn try_from<'a>(s: &'a str) -> buck2_error::Result<ArcS<S>>
     where
-        &'a S: TryFrom<&'a str, Error = anyhow::Error>,
+        &'a S: TryFrom<&'a str, Error = buck2_error::Error>,
         S: 'a,
     {
         let s: &S = TryFrom::try_from(s)?;
@@ -106,9 +106,9 @@ unsafe impl<S: StringInside + ?Sized + Sync + Send> Sync for ThinArcS<S> {}
 impl<S: StringInside + ?Sized> ThinArcS<S> {
     // Cannot implement `TryFrom` trait, something about conflicting implementations.
     #[inline]
-    pub fn try_from<'a>(s: &'a str) -> anyhow::Result<ThinArcS<S>>
+    pub fn try_from<'a>(s: &'a str) -> buck2_error::Result<ThinArcS<S>>
     where
-        &'a S: TryFrom<&'a str, Error = anyhow::Error>,
+        &'a S: TryFrom<&'a str, Error = buck2_error::Error>,
         S: 'a,
     {
         let s: &S = TryFrom::try_from(s)?;

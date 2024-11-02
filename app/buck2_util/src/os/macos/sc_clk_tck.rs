@@ -11,10 +11,11 @@
 
 use std::sync::OnceLock;
 
-use anyhow::Context;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 
 #[allow(clippy::absurd_extreme_comparisons)]
-pub fn sc_clk_tck() -> anyhow::Result<u32> {
+pub fn sc_clk_tck() -> buck2_error::Result<u32> {
     static TICKS: OnceLock<u32> = OnceLock::new();
     TICKS
         .get_or_try_init(|| {
@@ -22,10 +23,10 @@ pub fn sc_clk_tck() -> anyhow::Result<u32> {
                 let rate = libc::sysconf(libc::_SC_CLK_TCK);
                 let rate: u32 = rate
                     .try_into()
-                    .context("Integer overflow converting ticks per second")?;
+                    .buck_error_context("Integer overflow converting ticks per second")?;
                 // Practically it is always 100. But we have to check it.
                 if rate <= 0 || rate > 10_000 {
-                    return Err(anyhow::anyhow!("Invalid ticks per second: {}", rate));
+                    return Err(buck2_error!([], "Invalid ticks per second: {}", rate));
                 }
                 Ok(rate)
             }

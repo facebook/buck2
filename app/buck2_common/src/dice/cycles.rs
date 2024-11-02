@@ -39,14 +39,17 @@ pub struct CycleDetectorAdapter<D: CycleAdapterDescriptor> {
     inner: LazyCycleDetector<D>,
 }
 
-pub struct CycleGuardResult<R, E>(anyhow::Result<Result<R, E>>);
+pub struct CycleGuardResult<R, E>(buck2_error::Result<Result<R, E>>);
 
 impl<R, E> CycleGuardResult<R, E> {
-    /// Converts the result from GuardThis into an anyhow::Result.
+    /// Converts the result from GuardThis into an buck2_error::Result.
     ///
     /// This is a separate function to get the borrowing of the &mut DiceComputations, (which in
     /// guard_this will have been borrowed by the passed in future).
-    pub async fn into_result(self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Result<R, E>> {
+    pub async fn into_result(
+        self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<Result<R, E>> {
         match &self.0 {
             Ok(Ok(_)) => {}
             _ => {
@@ -84,7 +87,7 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D> {
         fut: Fut,
     ) -> CycleGuardResult<R, D::Error> {
         #[allow(clippy::redundant_closure_call)]
-        let res: anyhow::Result<Result<R, D::Error>> = (|| async move {
+        let res: buck2_error::Result<Result<R, D::Error>> = (|| async move {
             match &self.0 {
                 Some(v) => v.guard.guard_this(fut).await,
                 None => Ok(Ok(fut.await)),

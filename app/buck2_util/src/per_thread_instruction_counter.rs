@@ -20,12 +20,12 @@ impl PerThreadInstructionCounter {
     /// Create a new instruction counter.
     ///
     /// Return `Err` is `perf_event` failed, `None` on unsupported platforms.
-    pub fn init() -> anyhow::Result<Option<PerThreadInstructionCounter>> {
+    pub fn init() -> buck2_error::Result<Option<PerThreadInstructionCounter>> {
         Self::init_impl()
     }
 
     #[cfg(target_os = "linux")]
-    fn init_impl() -> anyhow::Result<Option<PerThreadInstructionCounter>> {
+    fn init_impl() -> buck2_error::Result<Option<PerThreadInstructionCounter>> {
         let mut counter = perf_event::Builder::new()
             .observe_self()
             .any_cpu()
@@ -37,21 +37,23 @@ impl PerThreadInstructionCounter {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn init_impl() -> anyhow::Result<Option<PerThreadInstructionCounter>> {
+    fn init_impl() -> buck2_error::Result<Option<PerThreadInstructionCounter>> {
         Ok(None)
     }
 
     /// Collect the number of instructions executed by the thread.
-    pub fn collect(self) -> anyhow::Result<u64> {
+    pub fn collect(self) -> buck2_error::Result<u64> {
         self.collect_impl()
     }
 
     #[cfg(target_os = "linux")]
-    fn collect_impl(mut self) -> anyhow::Result<u64> {
+    fn collect_impl(mut self) -> buck2_error::Result<u64> {
+        use buck2_error::buck2_error;
+
         self.counter.disable()?;
         let count = self.counter.read_count_and_time()?;
         if count.time_running == 0 {
-            Err(anyhow::anyhow!("No counter data collected"))
+            Err(buck2_error!([], "No counter data collected"))
         } else {
             let count =
                 (count.count as u128) * (count.time_enabled as u128) / (count.time_running as u128);
@@ -60,7 +62,7 @@ impl PerThreadInstructionCounter {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn collect_impl(self) -> anyhow::Result<u64> {
+    fn collect_impl(self) -> buck2_error::Result<u64> {
         match self.non_linux {}
     }
 }
