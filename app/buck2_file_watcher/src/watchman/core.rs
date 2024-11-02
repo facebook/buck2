@@ -410,19 +410,45 @@ where
     ) -> anyhow::Result<WatchmanSyncResult> {
         let client = client.as_mut().context("No Watchman connection")?;
 
-        let mut query = self.query.clone();
-        query.since = if let Some(mergebase_with) = self.mergebase_with.as_ref() {
-            Some(Clock::ScmAware(FatClockData {
-                clock: self.last_clock.clone(),
-                scm: Some(ScmAwareClockData {
-                    mergebase: self.last_mergebase.clone(),
-                    mergebase_with: Some(mergebase_with.clone()),
-                    saved_state: None,
-                }),
-            }))
-        } else {
-            Some(Clock::Spec(self.last_clock.clone()))
+        let make_query = |last_clock, last_mergebase| {
+            let mut query = self.query.clone();
+            query.since = if let Some(mergebase_with) = self.mergebase_with.as_ref() {
+                Some(Clock::ScmAware(FatClockData {
+                    clock: last_clock,
+                    scm: Some(ScmAwareClockData {
+                        mergebase: last_mergebase,
+                        mergebase_with: Some(mergebase_with.clone()),
+                        saved_state: None,
+                    }),
+                }))
+            } else {
+                Some(Clock::Spec(last_clock))
+            };
+            query
         };
+
+        let mut query = make_query(self.last_clock.clone(), self.last_mergebase.clone());
+
+        // watchman currently has a performance problem when using scm-aware queries and empty_on_fresh_instance=false
+        // in that scenario, you would expect that when the merge base changes the performance with and without a since clock
+        // would have the same performance as both simply need to return the new mergebase and the changes since the mergebase,
+        // but actually watchman is extremely slow when including the previous clock.
+        //
+        // To work around that, in our queries we pass empty_on_fresh_instance=true and then on a fresh instance send a new
+        // query with empty_on_fresh_instance=false and no previous clock.
+
+        let needs_watchman_perf_workaround =
+            self.last_mergebase.is_some() && !query.empty_on_fresh_instance;
+
+        if needs_watchman_perf_workaround {
+            query.empty_on_fresh_instance = true;
+        }
+
+        let mut query_result = client.query::<BuckQueryResult>(query).await?;
+        if needs_watchman_perf_workaround && query_result.is_fresh_instance {
+            let query = make_query(ClockSpec::default(), None);
+            query_result = client.query::<BuckQueryResult>(query).await?;
+        }
 
         let QueryResult {
             version,
@@ -435,7 +461,7 @@ where
             // state_metadata,
             // saved_state_info,
             ..
-        } = client.query::<BuckQueryResult>(query).await?;
+        } = query_result;
 
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
