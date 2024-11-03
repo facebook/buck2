@@ -494,7 +494,13 @@ def _convert_python_library_to_executable(
         omnibus_libs = create_omnibus_libraries(
             ctx,
             omnibus_graph,
-            python_toolchain.linker_flags + ctx.attrs.linker_flags,
+            extra_ldflags = (
+                # TODO(agallagher): Should these "binary" linker flags comes
+                # from the Python toolchain instead?
+                get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags +
+                python_toolchain.linker_flags +
+                ctx.attrs.linker_flags
+            ),
             prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         )
 
