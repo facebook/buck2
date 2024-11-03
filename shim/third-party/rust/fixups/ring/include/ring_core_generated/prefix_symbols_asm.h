@@ -1,6 +1,4 @@
-
-#ifndef ring_core_generated_PREFIX_SYMBOLS_ASM_H
-#define ring_core_generated_PREFIX_SYMBOLS_ASM_H
+#pragma once
 
 #if defined(__APPLE__)
 #define _ecp_nistz256_point_double _p256_point_double
@@ -232,5 +230,4 @@
 #define x25519_scalar_mult_adx ring_core_0_17_5_x25519_scalar_mult_adx
 #define x25519_scalar_mult_generic_masked ring_core_0_17_5_x25519_scalar_mult_generic_masked
 
-#endif
 #endif
