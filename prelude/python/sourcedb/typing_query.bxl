@@ -26,11 +26,14 @@ def has_any_python_targets_with_typing(
 
 def get_files_per_target_typed(
         query: bxl.UqueryContext,
-        sources: list[str]) -> dict[str, bool]:
+        sources: list[str]) -> dict[str, dict[str, bool]]:
     files_to_owners = get_owners_for_files(query, sources)
 
     return {
-        file: has_any_python_targets_with_typing(query, owners)
+        file: {
+            "has_owning_targets": len(owners) != 0,
+            "typing_enabled": has_any_python_targets_with_typing(query, owners),
+        }
         for file, owners in files_to_owners.items()
     }
 
