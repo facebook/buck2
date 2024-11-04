@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -537,8 +536,8 @@ pub enum TypeRenderConfig {
     Default,
     /// Uses for linked type in doc
     LinkedType {
-        /// The map from type to it's path link
-        ty_to_path_map: HashMap<Ty, String>,
+        /// The function to render linked type element
+        render_linked_ty_starlark_value: Box<dyn Fn(&TyStarlarkValue) -> String>,
     },
 }
 

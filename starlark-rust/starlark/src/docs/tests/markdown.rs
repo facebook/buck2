@@ -292,9 +292,11 @@ fn test_globals_docs_render(with_linked_type: bool) {
         name: "globals".to_owned(),
         page_path: "".to_owned(),
     };
-    let path_mapper = |p: &str| format!("/path/to/{}", p);
+    fn linked_ty_mapper(path: &str, type_name: &str) -> String {
+        format!("<a to=\"/path/to/{path}\">{type_name}</a>")
+    }
     let res = if with_linked_type {
-        render_markdown_multipage(vec![modules_info], Some(&path_mapper))
+        render_markdown_multipage(vec![modules_info], Some(linked_ty_mapper))
     } else {
         render_markdown_multipage(vec![modules_info], None)
     };

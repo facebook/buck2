@@ -24,6 +24,8 @@ use crate::docs::DocModule;
 use crate::docs::DocType;
 use crate::typing::ty::TypeRenderConfig;
 use crate::typing::Ty;
+use crate::typing::TyBasic;
+use crate::typing::TyStarlarkValue;
 
 pub struct DocModuleInfo<'a> {
     pub module: &'a DocModule,
@@ -95,18 +97,12 @@ struct PageRender<'a> {
 
 impl<'a> PageRender<'a> {
     fn render_markdown(&self, render_config: &TypeRenderConfig) -> String {
-        let content = match self.page {
+        match self.page {
             DocPageRef::Module(doc_module) => {
                 doc_module.render_markdown_page_for_multipage_render(&self.name, render_config)
             }
             DocPageRef::Type(doc_type) => {
                 doc_type.render_markdown_page_for_multipage_render(&self.name, render_config)
-            }
-        };
-        match render_config {
-            TypeRenderConfig::Default => content,
-            TypeRenderConfig::LinkedType { ty_to_path_map: _ } => {
-                format!("{}\n\n{}", "import Link from '@docusaurus/Link';", content)
             }
         }
     }
@@ -126,20 +122,38 @@ struct MultipageRender<'a> {
 impl<'a> MultipageRender<'a> {
     /// Create a new MultipageRender from a list of DocModuleInfo, and an optional function to map a type path to a linkable path
     /// If the function is not provided, the type will not be linkable
-    fn new(docs: Vec<DocModuleInfo<'a>>, ty_path_mapper: Option<&dyn Fn(&str) -> String>) -> Self {
+    /// linked_ty_mapper is used to map the **type path** and **type name** to a linkable element in the markdown
+    fn new(
+        docs: Vec<DocModuleInfo<'a>>,
+        linked_ty_mapper: Option<fn(&str, &str) -> String>,
+    ) -> Self {
         let mut res = vec![];
         for doc in docs {
             res.extend(doc.into_page_renders());
         }
         let mut render_config = TypeRenderConfig::Default;
-        if let Some(path_mapper) = ty_path_mapper {
+        if let Some(linked_ty_mapper) = linked_ty_mapper {
             let mut ty_to_path_map = HashMap::new();
             for page in res.iter() {
                 if let Some(ty) = &page.ty {
-                    ty_to_path_map.insert(ty.dupe(), path_mapper(&page.path));
+                    ty_to_path_map.insert(ty.dupe(), page.path.clone());
                 }
             }
-            render_config = TypeRenderConfig::LinkedType { ty_to_path_map };
+
+            let render_linked_ty_starlark_value = move |ty: &TyStarlarkValue| {
+                let type_name = ty.to_string();
+                if let Some(type_path) =
+                    ty_to_path_map.get(&Ty::basic(TyBasic::StarlarkValue(ty.dupe())))
+                {
+                    linked_ty_mapper(type_path, &type_name)
+                } else {
+                    type_name.to_owned()
+                }
+            };
+
+            render_config = TypeRenderConfig::LinkedType {
+                render_linked_ty_starlark_value: Box::new(render_linked_ty_starlark_value),
+            };
         }
         Self {
             page_renders: res,
@@ -162,11 +176,12 @@ impl<'a> MultipageRender<'a> {
 /// the contents of that page. That means that some of the paths may be prefixes of each other,
 /// which will need consideration if this is to be materialized to a filesystem.
 ///
-/// It accepts a list of DocModuleInfo, and an optional function to map a type path to a linkable path
+/// It accepts a list of DocModuleInfo, and an optional function linked_ty_mapper
+/// linked_ty_mapper is used to map the **type path** and **type name** to a linkable element in the markdown
 pub fn render_markdown_multipage(
     modules_infos: Vec<DocModuleInfo<'_>>,
-    ty_path_mapper: Option<&dyn Fn(&str) -> String>,
+    linked_ty_mapper: Option<fn(&str, &str) -> String>,
 ) -> HashMap<String, String> {
-    let multipage_render = MultipageRender::new(modules_infos, ty_path_mapper);
+    let multipage_render = MultipageRender::new(modules_infos, linked_ty_mapper);
     multipage_render.render_markdown_pages()
 }

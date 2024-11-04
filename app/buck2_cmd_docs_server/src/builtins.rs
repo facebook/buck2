@@ -33,8 +33,10 @@ fn write_docs_to_subdir(
     base_path: &str,
 ) -> anyhow::Result<()> {
     let base_path = AbsPathBuf::new(base_path)?;
-    let path_mapper = |p: &str| format!("/docs/api/{}", p);
-    let mut docs: BTreeMap<_, _> = render_markdown_multipage(modules_infos, Some(&path_mapper))
+    fn linked_ty_mapper(path: &str, type_name: &str) -> String {
+        format!("<Link to=\"/docs/api/{path}\">{type_name}</Link>")
+    }
+    let mut docs: BTreeMap<_, _> = render_markdown_multipage(modules_infos, Some(linked_ty_mapper))
         .into_iter()
         .collect();
     while let Some((mut doc_path, rendered)) = docs.pop_first() {
@@ -66,7 +68,9 @@ fn write_docs_to_subdir(
         if let Some(parent) = path.parent() {
             fs_util::create_dir_all(parent)?;
         }
-        fs_util::write(path, &rendered)?;
+        // Since we just <Link> to the docs, we need to import the Link component at the top of the file
+        let final_rendered_conent = format!("import Link from '@docusaurus/Link';\n\n{rendered}");
+        fs_util::write(path, &final_rendered_conent)?;
     }
 
     Ok(())

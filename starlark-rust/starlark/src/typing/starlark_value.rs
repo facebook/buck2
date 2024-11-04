@@ -346,14 +346,10 @@ impl TyStarlarkValue {
         };
         match config {
             TypeRenderConfig::Default => write!(f, "{}", type_name),
-            TypeRenderConfig::LinkedType { ty_to_path_map } => {
-                if let Some(link_path) =
-                    ty_to_path_map.get(&Ty::basic(TyBasic::StarlarkValue(self.dupe())))
-                {
-                    write!(f, "<Link to=\"{link_path}\">{type_name}</Link>")
-                } else {
-                    write!(f, "{}", type_name)
-                }
+            TypeRenderConfig::LinkedType {
+                render_linked_ty_starlark_value,
+            } => {
+                write!(f, "{}", render_linked_ty_starlark_value(self))
             }
         }
     }

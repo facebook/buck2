@@ -294,7 +294,9 @@ fn render_function_prototype(
 fn render_code_block(contents: &str, render_config: &TypeRenderConfig) -> String {
     match render_config {
         TypeRenderConfig::Default => format!("```python\n{contents}\n```"),
-        TypeRenderConfig::LinkedType { ty_to_path_map: _ } => {
+        TypeRenderConfig::LinkedType {
+            render_linked_ty_starlark_value: _,
+        } => {
             format!(r#"<pre class="language-python"><code>{contents}</code></pre>"#)
         }
     }
