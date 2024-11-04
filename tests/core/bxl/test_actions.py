@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_actions(buck: Buck) -> None:
     result = await buck.bxl(
         "//artifact_test/artifacts.bxl:artifact_test",
@@ -24,7 +24,7 @@ async def test_bxl_actions(buck: Buck) -> None:
     assert "[<source artifact_test/TARGETS.fixture>]" in result.stdout
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_create_build_actions(buck: Buck) -> None:
     result = await buck.bxl(
         "//actions_test:actions.bxl:build_actions_test",
@@ -35,7 +35,7 @@ async def test_bxl_create_build_actions(buck: Buck) -> None:
     assert (buck.cwd / Path(result.stdout.strip())).read_text() == "my_content"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_resolve(buck: Buck) -> None:
     result = await buck.bxl(
         "//resolve_test:resolve.bxl:resolve_test",
@@ -44,7 +44,7 @@ async def test_resolve(buck: Buck) -> None:
     assert "a-string\n" == result.stdout
 
 
-@buck_test(inplace=False, skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"])
 async def test_bxl_declared_artifact_path(buck: Buck) -> None:
     result = await buck.bxl(
         "//actions_test/declared_artifact_path.bxl:declared_artifact_path_test",
@@ -55,7 +55,7 @@ async def test_bxl_declared_artifact_path(buck: Buck) -> None:
     assert output[0] == output[1]
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_build_and_write(buck: Buck) -> None:
     # Performs a failed build and a successful action.
     res = await buck.bxl(

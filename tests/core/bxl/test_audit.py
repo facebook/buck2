@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_audit_output(buck: Buck) -> None:
     await buck.bxl(
         "//audit.bxl:audit_output_action_exists",

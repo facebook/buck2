@@ -17,7 +17,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_cli(buck: Buck) -> None:
     result = await buck.bxl(
         "//cli_args.bxl:cli_test",
@@ -278,7 +278,7 @@ async def test_bxl_cli(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_cli_json_args(buck: Buck) -> None:
     json_args = {}
     json_args.update({"int": 1})
@@ -313,7 +313,7 @@ async def test_bxl_cli_json_args(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_cli_short_bad(buck: Buck) -> None:
     # duplicate "short"
     await expect_failure(
@@ -337,7 +337,7 @@ async def test_bxl_cli_short_bad(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cli_target_pattern(buck: Buck) -> None:
     result = await buck.bxl(
         "//cli_args.bxl:target_expr_test",
@@ -375,7 +375,7 @@ async def test_cli_target_pattern(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_cli_sub_target_pattern(buck: Buck) -> None:
     # Tests where no sub-target is specified; should ensure functionality
     # of regular target patterns work with these subtarget patterns.

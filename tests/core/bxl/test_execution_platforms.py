@@ -18,7 +18,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_exec_platform_dynamic_output(buck: Buck) -> None:
     result = await buck.bxl(
         "//executor_fallback_tests/dynamic.bxl:test_dynamic_output",
@@ -41,7 +41,7 @@ async def test_bxl_exec_platform_dynamic_output(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_execution_platforms(buck: Buck) -> None:
     result = await buck.bxl(
         "//executor_fallback_tests/test.bxl:test_exec_platforms",

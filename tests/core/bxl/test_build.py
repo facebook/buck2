@@ -17,7 +17,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import replace_hash
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_build(buck: Buck) -> None:
     result = await buck.bxl(
         "//build.bxl:build_test",
@@ -35,7 +35,7 @@ async def test_bxl_build(buck: Buck) -> None:
     assert (buck.cwd / Path(outputs)).read_text() == "abcd"
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_build_stats(buck: Buck) -> None:
     result = await buck.bxl(
         "//build.bxl:build_stats",
@@ -50,7 +50,7 @@ async def test_bxl_build_stats(buck: Buck) -> None:
     assert stats["root//build:fail"]["failures"] == 1
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_target_platform_from_unpacking_providers_expr(buck: Buck) -> None:
     # Pass in explicit target platform from client. Result should be configured with this target platform.
     result = await buck.bxl(
@@ -95,12 +95,12 @@ async def test_bxl_target_platform_from_unpacking_providers_expr(buck: Buck) -> 
     )
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_build_order(buck: Buck) -> None:
     await buck.bxl("//build_artifacts_order/check.bxl:check")
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_build_no_materialization(buck: Buck) -> None:
     result = await buck.bxl(
         "//materializations.bxl:build",

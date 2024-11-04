@@ -12,7 +12,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_analysis(buck: Buck) -> None:
     result = await buck.bxl(
         "//analysis.bxl:providers_test",
@@ -32,7 +32,7 @@ async def test_bxl_analysis(buck: Buck) -> None:
     ]
 
 
-@buck_test(inplace=False, allow_soft_errors=True)
+@buck_test(allow_soft_errors=True)
 async def test_bxl_analysis_incompatible_targets_list(buck: Buck) -> None:
     # multiple incompatible targets should be skipped and the analysis should return empty dict
     result = await buck.bxl("//analysis.bxl:incompatible_targets")
@@ -41,7 +41,7 @@ async def test_bxl_analysis_incompatible_targets_list(buck: Buck) -> None:
     assert "{}" == result.stdout.strip()
 
 
-@buck_test(inplace=False, allow_soft_errors=True)
+@buck_test(allow_soft_errors=True)
 async def test_bxl_analysis_incompatible_targets_single(buck: Buck) -> None:
     # single incompatible target should be skipped and the analysis should return None
     result = await buck.bxl("//analysis.bxl:incompatible_targets_single")
@@ -50,7 +50,7 @@ async def test_bxl_analysis_incompatible_targets_single(buck: Buck) -> None:
     assert "None" == result.stdout.strip()
 
 
-@buck_test(inplace=False)
+@buck_test()
 async def test_bxl_analysis_missing_subtarget(buck: Buck) -> None:
     await expect_failure(
         buck.bxl("//analysis.bxl:missing_subtarget_test"),
