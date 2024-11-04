@@ -1,22 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_compare_providers",
-    srcs = ["test_compare_providers.py"],
-    data_dir = "test_compare_providers_data",
-    deps = ["fbcode//buck2/tests/e2e_util:golden"],
-)
-
-buck2_e2e_test(
-    name = "test_allow_eden",
-    srcs = ["test_allow_eden.py"],
-    data_dir = "test_allow_eden_data",
-)
-
-buck2_e2e_test(
-    name = "test_modify_eden",
-    srcs = ["test_modify_eden.py"],
-    data_dir = "test_modify_eden_data",
-)
+buck2_core_tests()

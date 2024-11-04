@@ -1,24 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_root_directory",
-    srcs = ["test_root_directory.py"],
-    data_dir = "test_root_directory_data",
-    deps = [
-        "fbcode//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_forward_node",
-    srcs = ["test_forward_node.py"],
-    data_dir = "test_forward_node_data",
-    deps = [
-        "fbsource//third-party/pypi/pyre-extensions:pyre-extensions",
-        "//buck2/tests/e2e_util:utilities",
-        "//buck2/tests/e2e_util:utils",
-        "//buck2/tests/e2e_util/api:api",
-    ],
-)
+buck2_core_tests()

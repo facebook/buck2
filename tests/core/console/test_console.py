@@ -20,7 +20,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 def fixture(name: str) -> str:
-    p = Path(os.environ["FIXTURES"]) / "fixtures" / f"{name}.proto"
+    p = Path(os.environ["FIXTURES"]) / f"{name}.proto"
     return str(p.absolute())
 
 

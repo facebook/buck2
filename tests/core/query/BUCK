@@ -1,28 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_buildfiles",
-    srcs = ["test_buildfiles.py"],
-    data_dir = "test_buildfiles_data",
-    deps = ["//buck2/tests/e2e_util:golden"],
-)
-
-buck2_e2e_test(
-    name = "test_target_call_stacks",
-    srcs = ["test_target_call_stacks.py"],
-    data_dir = "test_target_call_stacks_data",
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_target_configuration_toolchain_deps_traversal",
-    srcs = ["test_target_configuration_toolchain_deps_traversal.py"],
-    data_dir = "test_target_configuration_toolchain_deps_traversal_data",
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-    ],
-)
+buck2_core_tests()

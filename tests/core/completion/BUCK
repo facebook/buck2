@@ -1,14 +1,14 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_completion",
-    srcs = ["test_completion.py"],
-    data_dir = "test_completion_data",
-    env = {
-        "BUCK2_COMPLETION_VERIFY": "$(location //buck2/shed/completion_verify:completion_verify)",
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_completion": {
+            "env": {
+                "BUCK2_COMPLETION_VERIFY": "$(location //buck2/shed/completion_verify:completion_verify)",
+            },
+            "skip_for_os": ["windows"],
+        },
     },
-    serialize_test_cases = False,
-    skip_for_os = ["windows"],
 )

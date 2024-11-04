@@ -1,15 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_run",
-    srcs = ["test_run.py"],
-    data_dir = "test_run_data",
-)
-
-buck2_e2e_test(
-    name = "test_build_id_env",
-    srcs = ["test_build_id_env.py"],
-    data_dir = "test_build_id_env_data",
-)
+buck2_core_tests()

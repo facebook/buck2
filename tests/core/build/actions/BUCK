@@ -1,54 +1,17 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_actions",
-    srcs = ["test_actions.py"],
-    data_dir = "test_actions_data",
-    env = {
-        # `cpe::x2p` resolves `localhost` incorrectly, and test fails.
-        "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_actions": {
+            "deps": [
+                "fbsource//third-party/pypi/aiohttp:aiohttp",
+            ],
+            "env": {
+                # `cpe::x2p` resolves `localhost` incorrectly, and test fails.
+                "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
+            },
+        },
     },
-    serialize_test_cases = False,
-    deps = [
-        "fbcode//buck2/tests/e2e_util:assert_occurrences",
-        "fbcode//buck2/tests/e2e_util:utils",
-        "fbsource//third-party/pypi/aiohttp:aiohttp",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_dynamic_value",
-    srcs = ["test_dynamic_value.py"],
-    data_dir = "test_dynamic_value_data",
-)
-
-buck2_e2e_test(
-    name = "test_dynamic_output",
-    srcs = ["test_dynamic_output.py"],
-    data_dir = "test_dynamic_output_data",
-)
-
-buck2_e2e_test(
-    name = "test_output_artifact_twice",
-    srcs = ["test_output_artifact_twice.py"],
-    data_dir = "test_output_artifact_twice_data",
-)
-
-buck2_e2e_test(
-    name = "test_projected_output_artifact",
-    srcs = ["test_projected_output_artifact.py"],
-    data_dir = "test_projected_output_artifact_data",
-)
-
-buck2_e2e_test(
-    name = "test_write",
-    srcs = ["test_write.py"],
-    data_dir = "test_write_data",
-    serialize_test_cases = False,
-    deps = [
-        "fbcode//buck2/tests/e2e_util:assert_occurrences",
-        "fbcode//buck2/tests/e2e_util:utils",
-    ],
 )

@@ -1,0 +1,8 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+
+oncall("build_infra")
+
+buck_filegroup(
+    name = "fixtures",
+    srcs = glob(["**"]),
+)

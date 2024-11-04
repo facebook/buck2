@@ -1,32 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_errors",
-    srcs = ["test_errors.py"],
-    data_dir = "test_errors_data",
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_exit_code",
-    srcs = ["test_exit_code.py"],
-    data_dir = "test_exit_code_data",
-)
-
-buck2_e2e_test(
-    name = "test_command_report",
-    srcs = ["test_command_report.py"],
-    data_dir = "test_command_report_data",
-    deps = ["fbcode//buck2/tests/e2e_util:golden"],
-)
-
-buck2_e2e_test(
-    name = "test_formatting",
-    srcs = ["test_formatting.py"],
-    data_dir = "test_formatting_data",
-    deps = ["fbcode//buck2/tests/e2e_util:golden"],
-)
+buck2_core_tests()

@@ -1,29 +1,13 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_emit_console_preferences",
-    srcs = ["test_emit_console_preferences.py"],
-    data_dir = "test_emit_console_preferences_data",
-    deps = [
-        "fbcode//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_console",
-    srcs = ["test_console.py"],
-    data_dir = "test_console_data",
-    env = {
-        "FIXTURES": "$(location :fixtures)",
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_console": {
+            "env": {
+                "FIXTURES": "$(location //buck2/tests/core/console/fixtures:fixtures)",
+            },
+        },
     },
-)
-
-buck_filegroup(
-    name = "fixtures",
-    srcs = glob(
-        ["fixtures/**"],
-    ),
 )

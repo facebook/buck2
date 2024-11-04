@@ -1,45 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_access_attr",
-    srcs = ["test_access_attr.py"],
-    data_dir = "test_access_attr_data",
-)
-
-buck2_e2e_test(
-    name = "test_attr",
-    srcs = ["test_attr.py"],
-    data_dir = "test_attr_data",
-)
-
-buck2_e2e_test(
-    name = "test_attr_split",
-    srcs = ["test_attr_split.py"],
-    data_dir = "test_attr_split_data",
-)
-
-buck2_e2e_test(
-    name = "test_constructor_validation",
-    srcs = ["test_constructor_validation.py"],
-    data_dir = "test_constructor_validation_data",
-)
-
-buck2_e2e_test(
-    name = "test_rule",
-    srcs = ["test_rule.py"],
-    data_dir = "test_rule_data",
-)
-
-buck2_e2e_test(
-    name = "test_rule_infinite_bug",
-    srcs = ["test_rule_infinite_bug.py"],
-    data_dir = "test_rule_infinite_bug_data",
-)
-
-buck2_e2e_test(
-    name = "test_select_in_transition_attr",
-    srcs = ["test_select_in_transition_attr.py"],
-    data_dir = "test_select_in_transition_attr_data",
-)
+buck2_core_tests()

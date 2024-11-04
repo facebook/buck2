@@ -1,13 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_aquery",
-    srcs = ["test_aquery.py"],
-    data_dir = "test_aquery_data",
-    serialize_test_cases = False,
-    deps = [
-        "//buck2/tests/e2e_util:golden",
-    ],
-)
+buck2_core_tests()

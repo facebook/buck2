@@ -1,11 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_restart",
-    srcs = ["test_restart.py"],
-    data_dir = "test_restart_data",
-    serialize_test_cases = False,
-    deps = [],
-)
+buck2_core_tests()

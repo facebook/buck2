@@ -1,21 +1,5 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_daemon",
-    srcs = ["test_daemon.py"],
-    data_dir = "test_daemon_data",
-)
-
-buck2_e2e_test(
-    name = "test_daemon_buster",
-    srcs = ["test_daemon_buster.py"],
-    data_dir = "test_daemon_buster_data",
-)
-
-buck2_e2e_test(
-    name = "test_nested_invocations",
-    srcs = ["test_nested_invocations.py"],
-    data_dir = "test_nested_invocations_data",
-)
+buck2_core_tests()

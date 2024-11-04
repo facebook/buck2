@@ -1,66 +1,9 @@
-load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_e2e_test(
-    name = "test_internal_runner",
-    srcs = ["test_internal_runner.py"],
-    data_dir = "test_internal_runner_data",
-    serialize_test_cases = False,
-    use_compiled_buck2_client_and_tpx = True,
-)
-
-buck2_e2e_test(
-    name = "test_platform_resolution",
-    srcs = ["test_platform_resolution.py"],
-    data_dir = "test_platform_resolution_data",
-    serialize_test_cases = False,
-)
-
-buck2_e2e_test(
-    name = "test_selection",
-    srcs = ["test_selection.py"],
-    data_dir = "test_selection_data",
-    serialize_test_cases = False,
-    use_compiled_buck2_client_and_tpx = True,
-)
-
-buck2_e2e_test(
-    name = "test_listing",
-    srcs = ["test_listing.py"],
-    data_dir = "test_listing_data",
-    serialize_test_cases = False,
-    use_compiled_buck2_client_and_tpx = True,
-    deps = ["//buck2/tests/e2e_util:utils"],
-)
-
-buck2_e2e_test(
-    name = "test_startup",
-    srcs = ["test_startup.py"],
-    data_dir = "test_startup_data",
-    serialize_test_cases = False,
-)
-
-buck2_e2e_test(
-    name = "test_skip_incompatible_targets",
-    srcs = ["test_skip_incompatible_targets.py"],
-    data_dir = "test_skip_incompatible_targets_data",
-    serialize_test_cases = False,
-)
-
-buck2_e2e_test(
-    name = "test_build_report",
-    srcs = ["test_build_report.py"],
-    data_dir = "test_build_report_data",
-    serialize_test_cases = False,
-    use_compiled_buck2_client_and_tpx = True,
-    deps = [
-        "fbcode//buck2/tests/e2e_util:golden",
-    ],
-)
-
-buck2_e2e_test(
-    name = "test_local_resources",
-    srcs = ["test_local_resources.py"],
-    data_dir = "test_local_resources_data",
+buck2_core_tests(
+    extra_attrs = {
+        "use_compiled_buck2_client_and_tpx": True,
+    },
 )
