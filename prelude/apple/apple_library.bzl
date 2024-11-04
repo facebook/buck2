@@ -224,7 +224,8 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
         cmd,
         category = category,
         identifier = identifier,
-        allow_cache_upload = True,
+        allow_cache_upload = False,
+        local_only = True,
     )
 
     return index_store

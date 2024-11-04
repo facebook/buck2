@@ -532,6 +532,7 @@ def _compile_index_store(
         additional_flags,
         toolchain,
         module_name,
+        cacheable = False,
     )
 
     return index_store_output
@@ -545,7 +546,8 @@ def _compile_with_argsfile(
         additional_flags: cmd_args,
         toolchain: SwiftToolchainInfo,
         identifier: str | None = None,
-        num_threads: int = 1) -> CompileArgsfiles:
+        num_threads: int = 1,
+        cacheable: bool = True) -> CompileArgsfiles:
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
     argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
     input_args = [shared_flags]
@@ -568,7 +570,7 @@ def _compile_with_argsfile(
     # because there's no shared module cache across different libraries.
     prefer_local = not explicit_modules_enabled
 
-    if build_swift_incrementally and not toolchain.supports_relative_resource_dir:
+    if (not cacheable) or (build_swift_incrementally and not toolchain.supports_relative_resource_dir):
         # When Swift code is built incrementally, the swift-driver embeds
         # absolute paths into the artifacts without relative resource dir
         # support. In this case we can only build locally.
