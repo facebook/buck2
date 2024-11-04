@@ -301,3 +301,66 @@ def buck2_e2e_test(
             deps = deps,
             **kwargs
         )
+
+def buck2_core_tests(
+        extra_attrs = {},
+        target_extra_attrs = {}):
+    """
+    A little wrapper that generates `buck2_e2e_test`s for core tests.
+
+    extra_attrs:
+        Extra attributes that are applied to all generated targets.
+    target_extra_attrs:
+        A map of target name to extra attrs to apply to that target.
+    """
+
+    # @lint-ignore BUCKRESTRICTEDSYNTAX
+    items = set([i.split("/")[0] for i in glob(["**/*", "**/.*"])])
+    items = list(items)
+
+    generated_targets = []
+
+    for item in items:
+        if item in ["TARGETS", "TARGETS.v2", "BUCK", "BUCK.v2"]:
+            continue
+        if item.startswith("test_") and item.endswith("_data"):
+            # Just make sure the associated test exists
+            if item[:-5] + ".py" not in items:
+                fail("Test data directory {} exists but has no matching test!".format(item))
+            continue
+        if item.startswith("test_") and item.endswith(".py"):
+            target = item[:-3]
+            generated_targets.append(target)
+
+            attrs = dict(extra_attrs)
+            attrs.update(target_extra_attrs.get(target) or {})
+
+            data_dir = target + "_data"
+            if data_dir not in items:
+                data_dir = None
+            if "data_dir" in attrs:
+                fail("May not set data dir in `extra_attrs`")
+            attrs["data_dir"] = data_dir
+
+            if "srcs" not in attrs:
+                # Allowing people to override `srcs` seems fine
+                attrs["srcs"] = [item]
+
+            IMPLICIT_DEPS = [
+                "//buck2/tests/e2e_util:utils",
+                "//buck2/tests/e2e_util:golden",
+            ]
+            attrs["deps"] = list(attrs.get("deps") or [])
+            attrs["deps"].extend(IMPLICIT_DEPS)
+
+            buck2_e2e_test(
+                name = target,
+                **attrs
+            )
+            continue
+        fail("Expected all directory entries to look like `test_*_data` or `test_*.py`, not {}".format(item))
+
+    # Check that all target attrs actually correspond to a target
+    for t in target_extra_attrs.keys():
+        if t not in generated_targets:
+            fail("No such target {}".format(t))
