@@ -556,37 +556,25 @@ def _compile_with_argsfile(
     cmd.add(additional_flags)
     cmd.add(cmd_form)
 
-    # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
-    # so that CI builds populate caches used by developer machines.
+    build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
-    build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
+    # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
+    # so that CI builds populate caches used by developer machines.
+    allow_cache_upload = True
+    local_only = False
 
-    # When Swift code is built incrementally, the swift-driver embeds absolute paths into the artifacts.
-    # Unfortunately, this compels us to execute these actions locally.
-    run_extra_args = {
-        # Even though the incremental artifacts (`.priors`, `.swiftdeps`) contain abs paths and
-        # are not cacheable, it's actually fine to still upload to the cache. This is because
-        # the downside of cached incremental artifacts with abs paths is that it will perform
-        # a full module compile on the first source change in a module (or any of its transitive
-        # deps where the public API changes). But this is exactly what would happen if we did not
-        # allow any caching at all - instead, every cold build would have to rebuild *everything*
-        # as there will be zero caching (as all incremental actions must run locally and do not
-        # allow cache upload).
-        #
-        # Thus, by allowing cache uploads, we get cold build caching, even if we end up caching
-        # non-hermetic Swift incremental artifacts. It's just that those non-hermetic artifacts
-        # do not result in further build perf efficiency later on when modules need to be recompiled.
-        "allow_cache_upload": True,
-    }
+    # Swift compilation on RE without explicit modules is impractically expensive
+    # because there's no shared module cache across different libraries.
+    prefer_local = not explicit_modules_enabled
+
     if build_swift_incrementally and not toolchain.supports_relative_resource_dir:
-        # When adding -working-directory= we end up with absolute paths in the
-        # swiftdeps files.
-        run_extra_args["local_only"] = True
-    else:
-        # Swift compilation on RE without explicit modules is impractically expensive
-        # because there's no shared module cache across different libraries.
-        run_extra_args["prefer_local"] = not explicit_modules_enabled
+        # When Swift code is built incrementally, the swift-driver embeds
+        # absolute paths into the artifacts without relative resource dir
+        # support. In this case we can only build locally.
+        allow_cache_upload = False
+        local_only = True
+        prefer_local = False
 
     # Make it easier to debug whether Swift actions get compiled with explicit modules or not
     category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
@@ -598,7 +586,9 @@ def _compile_with_argsfile(
         no_outputs_cleanup = build_swift_incrementally,
         error_handler = apple_build_error_handler,
         weight = num_threads,
-        **run_extra_args
+        allow_cache_upload = allow_cache_upload,
+        local_only = local_only,
+        prefer_local = prefer_local,
     )
 
     argsfile = CompileArgsfile(
