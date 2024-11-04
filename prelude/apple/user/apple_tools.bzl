@@ -23,6 +23,7 @@ def _apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             selective_debugging_scrubber = ctx.attrs.selective_debugging_scrubber[RunInfo],
             xcframework_maker = ctx.attrs.xcframework_maker[RunInfo],
             framework_sanitizer = ctx.attrs.framework_sanitizer[RunInfo],
+            static_archive_linker = ctx.attrs.static_archive_linker[RunInfo],
         ),
     ]
 
@@ -43,6 +44,7 @@ registration_spec = RuleRegistrationSpec(
         "make_vfsoverlay": attrs.dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.dep(providers = [RunInfo]),
         "split_arch_combine_dsym_bundles_tool": attrs.dep(providers = [RunInfo]),
+        "static_archive_linker": attrs.dep(providers = [RunInfo]),
         "xcframework_maker": attrs.dep(providers = [RunInfo]),
     },
 )

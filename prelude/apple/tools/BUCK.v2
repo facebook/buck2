@@ -17,6 +17,7 @@ apple_tools(
     make_vfsoverlay = ":make_vfsoverlay",
     selective_debugging_scrubber = "prelude//apple/tools/selective_debugging:tool",
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
+    static_archive_linker = ":static_archive_linker",
     visibility = ["PUBLIC"],
     xcframework_maker = ":xcframework_maker",
 )
@@ -87,5 +88,11 @@ python_binary(
 python_bootstrap_binary(
     name = "swift_exec",
     main = "swift_exec.py",
+    visibility = ["PUBLIC"],
+)
+
+python_binary(
+    name = "static_archive_linker",
+    main = "static_archive_linker.py",
     visibility = ["PUBLIC"],
 )
