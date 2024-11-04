@@ -101,26 +101,28 @@ impl SystemdRunner {
         parent_slice: &str,
         slice_inherit: bool,
     ) -> anyhow::Result<Option<Self>> {
-        match config.status {
-            ResourceControlStatus::Off => Ok(None),
-            ResourceControlStatus::IfAvailable | ResourceControlStatus::Required => {
-                if let Err(e) = is_available() {
-                    if config.status == ResourceControlStatus::Required {
-                        return Err(e.context("Systemd is unavailable but required by buckconfig"));
-                    }
-                    tracing::warn!(
-                        "Systemd is not available on this system. Continuing without resource control: {:#}",
-                        e
-                    );
-                    Ok(None)
-                } else {
-                    Ok(Some(Self::create(
-                        property_set_type,
-                        config,
-                        parent_slice,
-                        slice_inherit,
-                    )))
-                }
+        if config.status == ResourceControlStatus::Off {
+            return Ok(None);
+        }
+        match (&config.status, is_available()) {
+            (ResourceControlStatus::Off, _) => unreachable!("Checked earlier"),
+            (ResourceControlStatus::IfAvailable | ResourceControlStatus::Required, Ok(_)) => {
+                Ok(Some(Self::create(
+                    property_set_type,
+                    config,
+                    parent_slice,
+                    slice_inherit,
+                )))
+            }
+            (ResourceControlStatus::IfAvailable, Err(e)) => {
+                tracing::warn!(
+                    "Systemd is not available on this system. Continuing without resource control: {:#}",
+                    e
+                );
+                Ok(None)
+            }
+            (ResourceControlStatus::Required, Err(e)) => {
+                Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
         }
     }
