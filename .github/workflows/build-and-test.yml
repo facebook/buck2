@@ -2,6 +2,7 @@ name: Build and test
 on:
   push:
   pull_request:
+  workflow_dispatch: # allows manual triggering
 jobs:
   linux-build-and-test:
     runs-on: 4-core-ubuntu
@@ -69,6 +70,9 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_conan
     - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_persistent_worker
+      with:
+        buildbuddyApiKey: ${{ secrets.BUILDBUDDY_API_KEY }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   windows-build-examples:
