@@ -35,6 +35,7 @@ XcodeDataInfoKeys = struct(
     SWIFT_VERSION = "swift_version",
     TARGET = "target",
     TEST_HOST_APP_BINARY = "test_host_app_binary",
+    TEST_HOST_APP_TARGET = "test_host_app_target",
     TEST_TARGET = "test_target",
     TEST_TYPE = "test_type",
     XCTOOLCHAIN_BUNDLE_ID_TARGET = "xctoolchain_bundle_id_target",
