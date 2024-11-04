@@ -156,7 +156,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
             lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
             error_handler = apple_build_error_handler,
-            index_stores = swift_compile.index_stores if swift_compile else None,
+            index_stores = [swift_compile.index_store] if swift_compile else None,
             executable_name = ctx.attrs.executable_name,
             extra_linker_outputs_factory = _get_extra_linker_outputs,
             extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
@@ -208,8 +208,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         attrs_validators_providers, attrs_validators_subtargets = get_attrs_validators_outputs(ctx)
 
         index_stores = []
-        if swift_compile and swift_compile.index_stores:
-            index_stores.extend(swift_compile.index_stores)
+        if swift_compile:
+            index_stores.append(swift_compile.index_store)
         index_stores.extend(cxx_output.index_stores)
 
         index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)

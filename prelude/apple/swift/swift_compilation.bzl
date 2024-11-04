@@ -12,7 +12,6 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
@@ -128,7 +127,7 @@ SwiftCompilationOutput = record(
     # An optional artifact with files that support consuming the generated library with later versions of the swift compiler.
     swift_library_for_distribution_output = field(SwiftLibraryForDistributionOutput | None),
     # A list of artifacts that stores the index data
-    index_stores = field(list[Artifact]),
+    index_store = field(Artifact),
     # A list of artifacts of the swiftdeps files produced during incremental compilation.
     swiftdeps = field(list[Artifact]),
 )
@@ -328,7 +327,7 @@ def compile_swift(
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
-    index_stores = _compile_index_stores(ctx, toolchain, shared_flags, srcs)
+    index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
     modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
@@ -370,7 +369,7 @@ def compile_swift(
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,
-        index_stores = index_stores,
+        index_store = index_store,
         swiftdeps = object_output.swiftdeps,
     ), swift_interface_info)
 
@@ -495,56 +494,47 @@ def _compile_object(
         swiftdeps = swiftdeps,
     )
 
-def _compile_index_stores(
+def _compile_index_store(
         ctx: AnalysisContext,
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
-        srcs: list[CxxSrcWithFlags]) -> list[Artifact]:
-    index_stores = []
+        srcs: list[CxxSrcWithFlags]) -> Artifact:
+    module_name = get_module_name(ctx)
+
+    # We need an output file map with index-unit-output-path entries to be able
+    # to index all of the srcs in a single pass.
+    output_file_map = {}
     for src in srcs:
-        additional_flags = cmd_args()
+        output_file_map[src.file] = {
+            # The output here is only used for the identifier of the index unit file
+            "index-unit-output-path": src.file,
+            "object": "/dev/null",
+        }
 
-        # With -index-file flag, swiftc will not go through all phases of the compiler
-        # and will not ouput anything except the index data
-        # The output here is only used for the identifier of the index unit file
-        # The output path is used for computing the hash value in the unit file name
-        output_name = paths.join(
-            ctx.label.cell,
-            ctx.label.package,
-            ctx.label.name,
-            "{}.indexData".format(src.file.short_path),
-        )
-        additional_flags.add(["-o", output_name])
+    output_file_map_json = ctx.actions.write_json("__indexstore__/{}_output_file_map.json".format(module_name), output_file_map)
+    index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
+    additional_flags = cmd_args([
+        "-output-file-map",
+        output_file_map_json,
+        "-index-ignore-system-modules",
+        "-index-store-path",
+        index_store_output.as_output(),
+        "-c",
+        "-disable-batch-mode",
+    ])
 
-        index_store_folder_name = paths.join("__indexstore__", get_module_name(ctx), src.file.short_path, "index_store")
-        index_store = ctx.actions.declare_output(index_store_folder_name, dir = True)
+    _compile_with_argsfile(
+        ctx,
+        "swift_index_compile",
+        module_name,
+        shared_flags,
+        srcs,
+        additional_flags,
+        toolchain,
+        module_name,
+    )
 
-        additional_flags.add([
-            "-index-file",
-            "-index-ignore-system-modules",
-            "-index-store-path",
-            index_store.as_output(),
-        ])
-
-        # -index-file-path only can accept one file, so we need to build index data for each source file
-        additional_flags.add([
-            "-index-file-path",
-            src.file,
-        ])
-
-        _compile_with_argsfile(
-            ctx,
-            "swift_index_compile",
-            index_store_folder_name,
-            shared_flags,
-            srcs,
-            additional_flags,
-            toolchain,
-            index_store_folder_name,
-        )
-        index_stores.append(index_store)
-
-    return index_stores
+    return index_store_output
 
 def _compile_with_argsfile(
         ctx: AnalysisContext,

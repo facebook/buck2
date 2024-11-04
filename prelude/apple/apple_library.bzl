@@ -498,7 +498,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         swift_objc_header = swift_objc_header,
         error_handler = apple_build_error_handler,
         index_store_factory = _compile_index_store,
-        index_stores = swift_compile.index_stores if swift_compile else None,
+        index_stores = [swift_compile.index_store] if swift_compile else None,
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
