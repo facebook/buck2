@@ -44,6 +44,13 @@ pub enum SystemdPropertySetType {
     Worker,
 }
 
+enum SystemdCreationDecision {
+    SkipNotNeeded,
+    SkipPreferredButNotRequired { e: anyhow::Error },
+    SkipRequiredButUnavailable { e: anyhow::Error },
+    Create,
+}
+
 pub struct SystemdRunner {
     fixed_systemd_args: Vec<String>,
     parent_slice: String,
@@ -95,35 +102,49 @@ impl SystemdRunner {
         }
     }
 
+    fn creation_decision(config: &ResourceControlConfig) -> SystemdCreationDecision {
+        if config.status == ResourceControlStatus::Off {
+            return SystemdCreationDecision::SkipNotNeeded;
+        }
+        match (&config.status, is_available()) {
+            (ResourceControlStatus::Off, _) => unreachable!("Checked earlier"),
+            (ResourceControlStatus::IfAvailable | ResourceControlStatus::Required, Ok(_)) => {
+                SystemdCreationDecision::Create
+            }
+            (ResourceControlStatus::IfAvailable, Err(e)) => {
+                SystemdCreationDecision::SkipPreferredButNotRequired { e }
+            }
+            (ResourceControlStatus::Required, Err(e)) => {
+                SystemdCreationDecision::SkipRequiredButUnavailable { e }
+            }
+        }
+    }
+
     pub fn create_if_enabled(
         property_set_type: SystemdPropertySetType,
         config: &ResourceControlConfig,
         parent_slice: &str,
         slice_inherit: bool,
     ) -> anyhow::Result<Option<Self>> {
-        if config.status == ResourceControlStatus::Off {
-            return Ok(None);
-        }
-        match (&config.status, is_available()) {
-            (ResourceControlStatus::Off, _) => unreachable!("Checked earlier"),
-            (ResourceControlStatus::IfAvailable | ResourceControlStatus::Required, Ok(_)) => {
-                Ok(Some(Self::create(
-                    property_set_type,
-                    config,
-                    parent_slice,
-                    slice_inherit,
-                )))
-            }
-            (ResourceControlStatus::IfAvailable, Err(e)) => {
+        let decision = Self::creation_decision(config);
+        match decision {
+            SystemdCreationDecision::SkipNotNeeded => Ok(None),
+            SystemdCreationDecision::SkipPreferredButNotRequired { e } => {
                 tracing::warn!(
                     "Systemd is not available on this system. Continuing without resource control: {:#}",
                     e
                 );
                 Ok(None)
             }
-            (ResourceControlStatus::Required, Err(e)) => {
+            SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
+            SystemdCreationDecision::Create => Ok(Some(Self::create(
+                property_set_type,
+                config,
+                parent_slice,
+                slice_inherit,
+            ))),
         }
     }
 
