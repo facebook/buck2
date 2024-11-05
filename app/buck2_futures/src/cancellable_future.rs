@@ -504,10 +504,8 @@ where
     }
 }
 
-pub struct DisableCancellationGuard {
-    /// This might be None if we are not in a CancellableFuture.
-    pub(crate) _guard: Option<StrongRefCount>,
-}
+/// A marker that indicates that cancellations have been disabled indefinitely for this task.
+pub struct DisableCancellationGuard;
 
 #[cfg(test)]
 mod tests {

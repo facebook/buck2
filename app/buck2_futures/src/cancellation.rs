@@ -139,7 +139,7 @@ impl<'a> IgnoreCancellationGuard<'a> {
     /// cancellations again
     pub fn keep_going_on_cancellations_if_not_cancelled(self) -> Option<DisableCancellationGuard> {
         if self.guard.try_to_disable_cancellation() {
-            Some(DisableCancellationGuard { _guard: None })
+            Some(DisableCancellationGuard)
         } else {
             None
         }
