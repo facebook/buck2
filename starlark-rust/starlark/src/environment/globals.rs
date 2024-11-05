@@ -36,6 +36,7 @@ pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;
 use crate::values::function::NativeFunc;
 use crate::values::function::SpecialBuiltinFunction;
+use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::namespace::FrozenNamespace;
 use crate::values::types::function::NativeFunction;
 use crate::values::AllocFrozenValue;
@@ -49,10 +50,12 @@ use crate::values::Value;
 #[derive(Clone, Dupe, Debug, Allocative)]
 pub struct Globals(Arc<GlobalsData>);
 
+type GlobalValue = MaybeDocHiddenValue<'static, FrozenValue>;
+
 #[derive(Debug, Allocative)]
 struct GlobalsData {
     heap: FrozenHeapRef,
-    variables: SymbolMap<FrozenValue>,
+    variables: SymbolMap<GlobalValue>,
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
 }
@@ -63,9 +66,9 @@ pub struct GlobalsBuilder {
     // The heap everything is allocated in
     heap: FrozenHeap,
     // Normal top-level variables, e.g. True/hash
-    variables: SymbolMap<FrozenValue>,
+    variables: SymbolMap<GlobalValue>,
     // The list of struct fields, pushed to the end
-    namespace_fields: Vec<SmallMap<FrozenStringValue, FrozenValue>>,
+    namespace_fields: Vec<SmallMap<FrozenStringValue, GlobalValue>>,
     /// The raw docstring for this module
     ///
     /// FIXME(JakobDegen): This should probably be removed. Having a docstring on a `GlobalsBuilder`
@@ -116,7 +119,7 @@ impl Globals {
     /// This function is only safe if you first call `heap` and keep a reference to it.
     /// Therefore, don't expose it on the public API.
     pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValue> {
-        self.0.variables.get_str(name).copied()
+        self.0.variables.get_str(name).map(|x| x.value)
     }
 
     /// Get all the names defined in this environment.
@@ -127,7 +130,7 @@ impl Globals {
     /// Iterate over all the items in this environment.
     /// Note returned values are owned by this globals.
     pub fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
-        self.0.variables.iter().map(|(n, v)| (n.as_str(), *v))
+        self.0.variables.iter().map(|(n, v)| (n.as_str(), v.value))
     }
 
     pub(crate) fn heap(&self) -> &FrozenHeapRef {
@@ -139,7 +142,7 @@ impl Globals {
         self.0
             .variables
             .iter()
-            .map(|(name, val)| val.to_value().describe(name.as_str()))
+            .map(|(name, val)| val.value.to_value().describe(name.as_str()))
             .join("\n")
     }
 
@@ -152,7 +155,11 @@ impl Globals {
     pub fn documentation(&self) -> DocModule {
         let (docs, members) = common_documentation(
             &self.0.docstring,
-            self.0.variables.iter().map(|(n, v)| (n.as_str(), *v)),
+            self.0
+                .variables
+                .iter()
+                .filter(|(_, v)| !v.doc_hidden)
+                .map(|(n, v)| (n.as_str(), v.value)),
         );
         DocModule {
             docs,
@@ -197,10 +204,28 @@ impl GlobalsBuilder {
     /// Add a nested namespace to the builder. If `f` adds the definition `foo`,
     /// it will end up on a namespace `name`, accessible as `name.foo`.
     pub fn namespace(&mut self, name: &str, f: impl FnOnce(&mut GlobalsBuilder)) {
+        self.namespace_inner(name, false, f)
+    }
+
+    /// Same as `namespace`, but this value will not show up in generated documentation.
+    pub fn namespace_no_docs(&mut self, name: &str, f: impl FnOnce(&mut GlobalsBuilder)) {
+        self.namespace_inner(name, true, f)
+    }
+
+    fn namespace_inner(
+        &mut self,
+        name: &str,
+        doc_hidden: bool,
+        f: impl FnOnce(&mut GlobalsBuilder),
+    ) {
         self.namespace_fields.push(SmallMap::new());
         f(self);
         let fields = self.namespace_fields.pop().unwrap();
-        self.set(name, self.heap.alloc(FrozenNamespace::new(fields)));
+        self.set_inner(
+            name,
+            self.heap.alloc(FrozenNamespace::new(fields)),
+            doc_hidden,
+        );
     }
 
     /// A fluent API for modifying [`GlobalsBuilder`] and returning the result.
@@ -234,6 +259,15 @@ impl GlobalsBuilder {
     /// Set a value in the [`GlobalsBuilder`].
     pub fn set<'v, V: AllocFrozenValue>(&'v mut self, name: &str, value: V) {
         let value = value.alloc_frozen_value(&self.heap);
+        self.set_inner(name, value, false)
+    }
+
+    fn set_inner<'v>(&'v mut self, name: &str, value: FrozenValue, doc_hidden: bool) {
+        let value = MaybeDocHiddenValue {
+            value,
+            doc_hidden,
+            phantom: Default::default(),
+        };
         match self.namespace_fields.last_mut() {
             None => {
                 // TODO(nga): do not quietly ignore redefinitions.
@@ -326,7 +360,7 @@ impl GlobalsStatic {
                 .join(", ")
         );
 
-        *globals.0.variables.values().next().unwrap()
+        globals.0.variables.values().next().unwrap().value
     }
 
     /// Move all the globals in this [`GlobalsBuilder`] into a new one. All variables will
@@ -334,7 +368,7 @@ impl GlobalsStatic {
     pub fn populate(&'static self, x: impl FnOnce(&mut GlobalsBuilder), out: &mut GlobalsBuilder) {
         let globals = self.globals(x);
         for (name, value) in globals.0.variables.iter() {
-            out.set(name.as_str(), *value)
+            out.set_inner(name.as_str(), value.value, value.doc_hidden)
         }
         out.docstring = globals.0.docstring.clone();
     }
@@ -357,12 +391,40 @@ pub(crate) fn common_documentation<'a>(
 
 #[cfg(test)]
 mod tests {
+    use starlark_derive::starlark_module;
+
     use super::*;
+    use crate as starlark;
 
     #[test]
     fn test_send_sync()
     where
         Globals: Send + Sync,
     {
+    }
+
+    #[starlark_module]
+    fn register_foo(builder: &mut GlobalsBuilder) {
+        fn foo() -> anyhow::Result<i32> {
+            Ok(1)
+        }
+    }
+
+    #[test]
+    fn test_doc_hidden() {
+        let mut globals = GlobalsBuilder::new();
+        globals.namespace_no_docs("ns_hidden", |_| {});
+        globals.namespace("ns", |globals| {
+            globals.namespace_no_docs("nested_ns_hidden", |_| {});
+            globals.set("x", FrozenValue::new_none());
+        });
+        let docs = globals.build().documentation();
+
+        let (k, v) = docs.members.into_iter().exactly_one().ok().unwrap();
+        assert_eq!(&k, "ns");
+        let DocItem::Module(docs) = v else {
+            unreachable!()
+        };
+        assert_eq!(&docs.members.into_keys().exactly_one().ok().unwrap(), "x");
     }
 }

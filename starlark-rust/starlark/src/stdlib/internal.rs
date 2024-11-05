@@ -34,7 +34,7 @@ fn starlark_rust_internal_members(globals: &mut GlobalsBuilder) {
 }
 
 pub(crate) fn register_internal(globals: &mut GlobalsBuilder) {
-    globals.namespace("starlark_rust_internal", |s| {
+    globals.namespace_no_docs("starlark_rust_internal", |s| {
         starlark_rust_internal_members(s)
     });
 }

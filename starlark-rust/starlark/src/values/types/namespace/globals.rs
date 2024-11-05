@@ -21,6 +21,7 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::values::namespace::typing::TyNamespaceFunction;
+use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::namespace::FrozenNamespace;
 use crate::values::namespace::Namespace;
 use crate::values::Heap;
@@ -34,6 +35,20 @@ pub fn register_namespace(builder: &mut GlobalsBuilder) {
     fn namespace<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> starlark::Result<Namespace<'v>> {
         args.no_positional_args(heap)?;
 
-        Ok(Namespace::new(args.names_map()?))
+        Ok(Namespace::new(
+            args.names_map()?
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        MaybeDocHiddenValue {
+                            value: v,
+                            doc_hidden: false,
+                            phantom: Default::default(),
+                        },
+                    )
+                })
+                .collect(),
+        ))
     }
 }

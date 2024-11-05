@@ -17,6 +17,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::marker::PhantomData;
 
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
@@ -43,20 +44,28 @@ use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueLike;
 
+#[derive(Clone, Coerce, Debug, Trace, Freeze, Allocative)]
+#[repr(C)]
+pub(crate) struct MaybeDocHiddenValue<'v, V: ValueLike<'v>> {
+    pub(crate) value: V,
+    pub(crate) doc_hidden: bool,
+    pub(crate) phantom: PhantomData<&'v ()>,
+}
+
 /// The return value of `namespace()`
 #[derive(Clone, Debug, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct NamespaceGen<'v, V: ValueLike<'v>> {
-    fields: SmallMap<V::String, V>,
+    fields: SmallMap<V::String, MaybeDocHiddenValue<'v, V>>,
 }
 
 impl<'v, V: ValueLike<'v>> NamespaceGen<'v, V> {
-    pub fn new(fields: SmallMap<V::String, V>) -> Self {
+    pub(crate) fn new(fields: SmallMap<V::String, MaybeDocHiddenValue<'v, V>>) -> Self {
         Self { fields }
     }
 
     pub fn get(&self, key: &str) -> Option<V> {
-        self.fields.get_hashed(Hashed::new(key)).copied()
+        self.fields.get_hashed(Hashed::new(key)).map(|v| v.value)
     }
 }
 
@@ -71,7 +80,7 @@ impl<'v, V: ValueLike<'v>> Display for NamespaceGen<'v, V> {
             "namespace(",
             ")",
             "=",
-            self.fields.iter().map(|(k, v)| (k.as_str(), v)),
+            self.fields.iter().map(|(k, v)| (k.as_str(), v.value)),
         )
     }
 }
@@ -90,7 +99,9 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
-        self.fields.get_hashed(attribute).map(|v| v.to_value())
+        self.fields
+            .get_hashed(attribute)
+            .map(|v| v.value.to_value())
     }
 
     fn dir_attr(&self) -> Vec<String> {
@@ -103,7 +114,8 @@ where
             members: self
                 .fields
                 .iter()
-                .map(|(k, v)| (k.as_str().to_owned(), v.to_value().documentation()))
+                .filter(|(_, v)| !v.doc_hidden)
+                .map(|(k, v)| (k.as_str().to_owned(), v.value.to_value().documentation()))
                 .collect(),
         })
     }
@@ -120,7 +132,12 @@ where
             fields: self
                 .fields
                 .iter()
-                .map(|(name, value)| (ArcStr::from(name.as_str()), Ty::of_value(value.to_value())))
+                .map(|(name, value)| {
+                    (
+                        ArcStr::from(name.as_str()),
+                        Ty::of_value(value.value.to_value()),
+                    )
+                })
                 .collect(),
             extra: false,
         }))
@@ -132,7 +149,7 @@ impl<'v, V: ValueLike<'v>> Serialize for NamespaceGen<'v, V> {
     where
         S: serde::Serializer,
     {
-        serializer.collect_map(self.fields.iter())
+        serializer.collect_map(self.fields.iter().map(|(k, v)| (k, v.value)))
     }
 }
 
