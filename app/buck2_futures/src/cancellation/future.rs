@@ -317,26 +317,21 @@ impl ExecutionContext {
 }
 
 pub(crate) struct CriticalSectionGuard<'a> {
-    shared: Option<&'a Mutex<ExecutionContextData>>,
+    shared: &'a Mutex<ExecutionContextData>,
 }
 
 impl<'a> CriticalSectionGuard<'a> {
     fn new(shared: &'a Mutex<ExecutionContextData>) -> Self {
-        Self {
-            shared: Some(shared),
-        }
+        Self { shared }
     }
 
-    pub(crate) fn exit_prevent_cancellation(mut self) -> bool {
-        self.shared
-            .take()
-            .expect("should be set")
-            .lock()
-            .exit_prevent_cancellation()
+    pub(crate) fn exit_prevent_cancellation(self) -> bool {
+        Self::take(self).lock().exit_prevent_cancellation()
     }
 
-    pub(crate) fn try_to_disable_cancellation(mut self) -> bool {
-        let mut shared = self.shared.take().expect("should be set").lock();
+    pub(crate) fn try_to_disable_cancellation(self) -> bool {
+        let shared = Self::take(self);
+        let mut shared = shared.lock();
         if shared.try_to_disable_cancellation() {
             true
         } else {
@@ -345,16 +340,19 @@ impl<'a> CriticalSectionGuard<'a> {
             false
         }
     }
+
+    fn take(this: Self) -> &'a Mutex<ExecutionContextData> {
+        let r = this.shared;
+        std::mem::forget(this);
+        r
+    }
 }
 
 impl<'a> Drop for CriticalSectionGuard<'a> {
     fn drop(&mut self) {
-        if let Some(shared) = self.shared.take() {
-            // never actually exited during normal poll, but dropping this means we'll never poll
-            // again, so just release the `prevent_cancellation`
-
-            shared.lock().exit_prevent_cancellation();
-        }
+        // never actually exited during normal poll, but dropping this means we'll never poll
+        // again, so just release the `prevent_cancellation`
+        self.shared.lock().exit_prevent_cancellation();
     }
 }
 
