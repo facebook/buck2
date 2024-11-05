@@ -84,50 +84,17 @@ impl SharedState {
 }
 
 struct ExecutionContext {
-    ref_count: WeakRefCount,
     shared: Arc<Mutex<ExecutionContextShared>>,
 }
 
 impl ExecutionContext {
-    fn new(ref_count: WeakRefCount) -> Self {
+    fn new() -> Self {
         Self {
-            ref_count,
             shared: Arc::new(Mutex::new(ExecutionContextShared {
                 critical_section: None,
                 structured_cancellation: None,
             })),
         }
-    }
-
-    fn enter_critical_section(&mut self) {
-        let mut shared = self.shared.lock();
-
-        let critical_section = shared
-            .critical_section
-            .get_or_insert_with(|| CriticalSection {
-                observers: 0,
-                _guard: self.ref_count.upgrade(),
-            });
-
-        critical_section.observers += 1;
-    }
-
-    fn enter_structured_cancellation(&mut self) -> CancellationObserver {
-        let mut shared = self.shared.lock();
-
-        let cancellation = shared.structured_cancellation.get_or_insert_with(|| {
-            let (tx, rx) = oneshot::channel();
-            StructuredCancellation {
-                observers: 0,
-                tx: Some(tx),
-                rx: rx.shared(),
-            }
-        });
-
-        cancellation.observers += 1;
-        CancellationObserver(CancellationObserverInner::Legacy(Some(
-            cancellation.rx.clone(),
-        )))
     }
 }
 
@@ -152,41 +119,9 @@ impl ExecutionContextShared {
             }
         }
     }
-
-    fn exit_critical_section(&mut self) {
-        let observers = {
-            let critical_section = self
-                .critical_section
-                .as_mut()
-                .expect("Cannot have more exits than enters");
-            critical_section.observers -= 1;
-            critical_section.observers
-        };
-
-        if observers == 0 {
-            self.critical_section.take();
-        }
-    }
-
-    fn exit_structured_cancellation(&mut self) {
-        let observers = {
-            let cancellation = self
-                .structured_cancellation
-                .as_mut()
-                .expect("Cannot have more exits than enters");
-            cancellation.observers -= 1;
-            cancellation.observers
-        };
-
-        if observers == 0 {
-            self.structured_cancellation.take();
-        }
-    }
 }
 
 struct CriticalSection {
-    /// How many callers are in a critical_section (they can be nested).
-    observers: usize,
     /// We keep a strong ref count in critical sections so that callers don't attempt to cancel
     /// this future if we know it will not care. It is possible for this be None if we get
     /// cancelled while polling. This is unlike what we do in StructuredCancellation where since we
@@ -196,10 +131,7 @@ struct CriticalSection {
 }
 
 struct StructuredCancellation {
-    /// How many observers we are tracking.
-    observers: usize,
     tx: Option<oneshot::Sender<()>>,
-    rx: Shared<oneshot::Receiver<()>>,
 }
 
 /// NOTE: this future is intended only to be polled in a consistent tokio runtime, and never moved
@@ -361,91 +293,12 @@ impl<F> CancellableFuture<F> {
         (
             CancellableFuture {
                 shared,
-                execution: Some(Box::new(ExecutionContext::new(ref_count.downgrade()))),
+                execution: Some(Box::new(ExecutionContext::new())),
                 started: false,
                 future,
             },
             ref_count,
         )
-    }
-}
-
-struct WithExecutionContext<F: FnOnce(&mut ExecutionContextShared)> {
-    exit: Option<(F, Arc<Mutex<ExecutionContextShared>>)>,
-}
-
-impl<F> WithExecutionContext<F>
-where
-    F: FnOnce(&mut ExecutionContextShared),
-{
-    fn enter<Enter, T>(enter: Enter, exit: F) -> (T, Self)
-    where
-        Enter: FnOnce(&mut ExecutionContext) -> T,
-        T: Default,
-    {
-        let (t, exit) = CURRENT.with(|g| match g.borrow_mut().as_mut() {
-            Some(ctx) => {
-                let t = enter(ctx);
-                (t, Some((exit, ctx.shared.dupe())))
-            }
-            None => (T::default(), None),
-        });
-
-        (t, Self { exit })
-    }
-
-    async fn exit(mut self) {
-        let mut should_yield = false;
-
-        if let Some((exit, ctx)) = self.exit.take() {
-            let mut ctx = ctx.lock();
-            exit(&mut ctx);
-            should_yield = ctx.can_exit();
-        }
-
-        // If the current future should actually be cancelled now, we try to return control to it
-        // immediately to allow cancellation to kick in faster.
-        if should_yield {
-            tokio::task::yield_now().await;
-        }
-    }
-}
-
-impl<F> Drop for WithExecutionContext<F>
-where
-    F: for<'a> FnOnce(&'a mut ExecutionContextShared),
-{
-    fn drop(&mut self) {
-        if let Some((exit, ctx)) = self.exit.take() {
-            exit(&mut ctx.lock())
-        }
-
-        // TODO: make it a soft_error if the current future isn't the one that entered the critical
-        // section
-    }
-}
-
-/// Enter a critical section during which the current future (if any) should not be dropped. If the
-/// future was not cancelled before entering the critical section, it becomes non-cancellable
-/// during the critical section. If it *was* cancelled before entering the critical section (i.e.
-/// the last ref was dropped during `poll`), then the future is allowed to continue executing until
-/// this future resolves.
-pub(crate) fn critical_section<F, Fut>(make: F) -> impl Future<Output = <Fut as Future>::Output>
-where
-    F: FnOnce() -> Fut,
-    Fut: Future,
-{
-    let ((), guard) = WithExecutionContext::enter(
-        ExecutionContext::enter_critical_section,
-        ExecutionContextShared::exit_critical_section,
-    );
-
-    let fut = make();
-
-    async move {
-        let res = fut.await;
-        guard.exit().await;
-        res
     }
 }
 
@@ -488,30 +341,6 @@ impl Future for CancellationObserver {
     }
 }
 
-/// Enter a structured cancellation section. The caller receives a CancellationObserver. The
-/// CancellationObserver is a future that resolves when cancellation is requested (or when this
-/// section exits).
-pub(crate) fn with_structured_cancellation<F, Fut>(
-    make: F,
-) -> impl Future<Output = <Fut as Future>::Output>
-where
-    Fut: Future,
-    F: FnOnce(CancellationObserver) -> Fut,
-{
-    let (obs, guard) = WithExecutionContext::enter(
-        ExecutionContext::enter_structured_cancellation,
-        ExecutionContextShared::exit_structured_cancellation,
-    );
-
-    let fut = make(obs);
-
-    async move {
-        let res = fut.await;
-        guard.exit().await;
-        res
-    }
-}
-
 /// A marker that indicates that cancellations have been disabled indefinitely for this task.
 pub struct DisableCancellationGuard;
 
@@ -522,18 +351,6 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
-
-    struct MaybePanicOnDrop {
-        panic: bool,
-    }
-
-    impl Drop for MaybePanicOnDrop {
-        fn drop(&mut self) {
-            if self.panic {
-                panic!()
-            }
-        }
-    }
 
     #[tokio::test]
     async fn test_ready() {
@@ -601,245 +418,5 @@ mod tests {
 
         task.await.unwrap();
         assert!(*dropped.lock());
-    }
-
-    #[tokio::test]
-    async fn test_critical_section() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            {
-                critical_section(tokio::task::yield_now).await;
-            }
-            futures::future::pending::<()>().await
-        });
-        futures::pin_mut!(fut);
-
-        // We reach the first yield. At this point there are 2 guards: ours and the one held via
-        // critical_section().
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        // Drop our guard, then poll again. Cancellation is checked, *then* the guard in the future
-        // is dropped, so at this point we proceed to the pending() step after havin cancelled the
-        // future (we would get notified for wakeup if we weren't manually polling).
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        // Poll again, this time we don't enter the future's poll because it is cancelled.
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-    }
-
-    #[tokio::test]
-    async fn test_nested_critical_section() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            {
-                critical_section(|| async move { tokio::task::yield_now().await }).await;
-            }
-            futures::future::pending::<()>().await
-        });
-        futures::pin_mut!(fut);
-
-        // We reach the first yield.
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        fut.await;
-    }
-
-    #[tokio::test]
-    async fn test_critical_section_cancelled_during_poll() {
-        let guard_slot = Mutex::new(None);
-
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            {
-                guard_slot
-                    .lock()
-                    .take()
-                    .expect("Expected the guard to be here by now");
-
-                critical_section(|| async {
-                    let mut panic = MaybePanicOnDrop { panic: true };
-                    tokio::task::yield_now().await;
-                    panic.panic = false;
-                })
-                .await;
-            }
-            futures::future::pending::<()>().await
-        });
-        futures::pin_mut!(fut);
-
-        *guard_slot.lock() = Some(guard);
-
-        // Run the future. It'll drop the guard (and cancel itself) after entering the critical
-        // section while it's being polled, but it'll proceed to the end.
-        fut.await;
-    }
-
-    // Cases to test:
-    // - Basic
-    // - Reentrant
-    // - Cancel when exiting critical section (with no further wakeups)
-
-    #[tokio::test]
-    async fn test_structured_cancellation_notifies() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|observer| observer).await;
-        });
-        futures::pin_mut!(fut);
-
-        // Proceed all the way to awaiting the observer
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        // Drop our guard. At this point we'll cancel, and notify the observer.
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-    }
-
-    #[tokio::test]
-    async fn test_structured_cancellation_is_blocking() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|_observer| async move {
-                let mut panic = MaybePanicOnDrop { panic: true };
-                tokio::task::yield_now().await;
-                panic.panic = false;
-            })
-            .await;
-        });
-        futures::pin_mut!(fut);
-
-        // Proceed all the way to the first pending.
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        // Drop our guard. We should resume and disarm the guard.
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-    }
-
-    #[tokio::test]
-    async fn test_structured_cancellation_cancels_on_exit() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|observer| observer).await;
-            futures::future::pending::<()>().await
-        });
-        futures::pin_mut!(fut);
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-    }
-
-    // This is a bit of an implementation detail.
-    #[tokio::test]
-    async fn test_structured_cancellation_returns_to_executor() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|observer| observer).await
-        });
-        futures::pin_mut!(fut);
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-    }
-
-    #[tokio::test]
-    async fn test_structured_cancellation_is_reentrant() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|o1| async move {
-                with_structured_cancellation(|o2| async move {
-                    o2.await;
-                    o1.await;
-                })
-                .await;
-            })
-            .await;
-        });
-        futures::pin_mut!(fut);
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-    }
-
-    #[tokio::test]
-    async fn test_structured_cancellation_can_be_reentered() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|_o1| async move {}).await;
-            with_structured_cancellation(|o2| async move {
-                o2.await;
-            })
-            .await;
-        });
-        futures::pin_mut!(fut);
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(..));
-    }
-
-    #[tokio::test]
-    async fn test_structured_cancellation_works_after_cancel() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            with_structured_cancellation(|_o1| async move {
-                tokio::task::yield_now().await;
-                // At this point we'll get cancelled.
-                with_structured_cancellation(|o2| async move {
-                    o2.await;
-                })
-                .await;
-            })
-            .await;
-        });
-        futures::pin_mut!(fut);
-
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-
-        drop(guard);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
-    }
-
-    #[tokio::test]
-    async fn noop_drop_is_allowed() {
-        let section = critical_section(futures::future::pending::<()>);
-
-        let (fut, _guard) = CancellableFuture::new_refcounted(async {
-            drop(section); // Drop it within an ExecutionContext
-        });
-
-        fut.await;
-    }
-
-    #[allow(clippy::async_yields_async)]
-    #[tokio::test]
-    async fn drop_outside_of_task_is_allowed() {
-        let (fut, _guard) = CancellableFuture::new_refcounted(async {
-            critical_section(futures::future::pending::<()>)
-        });
-
-        let section = fut.await;
-
-        drop(section)
-    }
-
-    #[tokio::test]
-    async fn drop_outside_of_task_takes_effect() {
-        let (fut, guard) = CancellableFuture::new_refcounted(async {
-            let section = critical_section(futures::future::pending::<()>);
-            std::thread::spawn(move || drop(section));
-            loop {
-                tokio::task::yield_now().await;
-            }
-        });
-        futures::pin_mut!(fut);
-
-        // Advance to the yield then cance.
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
-        drop(guard);
-
-        assert_matches!(
-            tokio::time::timeout(Duration::from_millis(1000), fut).await,
-            Ok(None)
-        );
     }
 }
