@@ -34,6 +34,7 @@ use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::Location;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
+use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::resolver::ConfigResolver;
 
 mod resolver;
@@ -175,6 +176,20 @@ impl LegacyConfigParser {
                     .values
                     .insert(key.to_owned(), value.clone());
             }
+        }
+    }
+
+    pub(crate) fn filter_values<F>(&mut self, filter: F)
+    where
+        F: Fn(&BuckconfigKeyRef) -> bool,
+    {
+        for (section, section_builder) in self.values.iter_mut() {
+            section_builder.values.retain(|key, _| {
+                filter(&BuckconfigKeyRef {
+                    section,
+                    property: key,
+                })
+            });
         }
     }
 }

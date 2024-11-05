@@ -7,6 +7,7 @@
 
 # pyre-strict
 
+import os
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -138,3 +139,37 @@ async def test_re_use_case_override_with_external_config(buck: Buck) -> None:
     use_cases = await filter_re_use_case(buck)
     assert len(use_cases) == 4
     assert all(use_case == "buck2-user" for use_case in use_cases)
+
+
+@buck_test()
+async def test_re_use_case_override_with_external_config_source(buck: Buck) -> None:
+    with tempfile.NamedTemporaryFile("w", delete=False) as temp:
+        env = os.environ.copy()
+        env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = temp.name
+        # Make sure action is not cached
+        with open(buck.cwd / "input.txt", "w") as f:
+            f.write(random_string())
+        await buck.build(
+            "root//:simple",
+            "--remote-only",
+            "--no-remote-cache",
+            env=env,
+        )
+        use_cases = await filter_re_use_case(buck)
+        assert len(use_cases) == 4
+        assert all(use_case == "buck2-default" for use_case in use_cases)
+        # Change the target input
+        with open(buck.cwd / "input.txt", "w") as f:
+            f.write(random_string())
+        temp.write("[buck2_re_client]\n")
+        temp.write("override_use_case = buck2-user\n")
+        temp.flush()
+        await buck.build(
+            "root//:simple",
+            "--remote-only",
+            "--no-remote-cache",
+            env=env,
+        )
+        use_cases = await filter_re_use_case(buck)
+        assert len(use_cases) == 4
+        assert all(use_case == "buck2-user" for use_case in use_cases)

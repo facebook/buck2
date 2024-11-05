@@ -73,7 +73,11 @@ impl ExternalBuckconfigData {
         F: Fn(&BuckconfigKeyRef) -> bool,
     {
         Self {
-            parse_state: self.parse_state.clone(),
+            parse_state: {
+                let mut parse_state = self.parse_state.clone();
+                parse_state.filter_values(&filter);
+                parse_state
+            },
             args: self
                 .args
                 .iter()

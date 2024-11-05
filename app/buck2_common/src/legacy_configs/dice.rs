@@ -191,7 +191,7 @@ impl Key for LegacyBuckConfigForCellKey {
         let this_cell = cells.get(self.cell_name)?;
         let config =
             BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path()).await?;
-        let config = config.filter_values(should_ignore_config_change);
+        let config = config.filter_values(should_keep_config_change);
 
         ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
 
@@ -348,7 +348,7 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
         data: Arc<ExternalBuckconfigData>,
     ) -> anyhow::Result<()> {
         // Don't invalidate state if RE use case is overridden.
-        let data = data.filter_values(should_ignore_config_change);
+        let data = data.filter_values(should_keep_config_change);
         Ok(self.changed_to(vec![(
             LegacyExternalBuckConfigDataKey,
             Some(Arc::new(data)),
@@ -360,7 +360,7 @@ impl SetLegacyConfigs for DiceTransactionUpdater {
     }
 }
 
-fn should_ignore_config_change(config_key: &BuckconfigKeyRef) -> bool {
+fn should_keep_config_change(config_key: &BuckconfigKeyRef) -> bool {
     !(config_key.section == "buck2_re_client" && config_key.property == "override_use_case")
 }
 

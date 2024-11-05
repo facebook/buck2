@@ -8,6 +8,7 @@
 # pyre-strict
 
 
+import os
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -101,3 +102,31 @@ async def test_ignore_state_invalidation_with_re_override_in_external_config(
         f.close()
         await buck.build("root//:simple", "--config-file", f.name)
     await check_config_is_the_same(buck)
+
+
+@buck_test()
+async def test_ignore_state_invalidation_with_re_override_in_external_config_source(
+    buck: Buck,
+) -> None:
+    with tempfile.NamedTemporaryFile("w", delete=False) as temp:
+        env = os.environ.copy()
+        env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = temp.name
+
+        # Default is buck2-default
+        await buck.build("root//:simple", env=env)
+
+        # Add config to switch to buck2-user
+        temp.write("[buck2_re_client]\n")
+        temp.write("override_use_case = buck2-user\n")
+        temp.flush()
+        await buck.build("root//:simple", env=env)
+        await check_config_is_the_same(buck)
+
+        # Add config to return to buck2-default
+        temp.seek(0)
+        temp.truncate()
+        temp.write("[buck2_re_client]\n")
+        temp.write("override_use_case = buck2-default\n")
+        temp.flush()
+        await buck.build("root//:simple", env=env)
+        await check_dice_equality(buck)
