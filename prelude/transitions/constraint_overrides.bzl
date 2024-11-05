@@ -21,9 +21,41 @@ def _constraint_passthroughs() -> list[str]:
     passthroughs = read_root_config("buck2", "constraint_passthroughs", "")
     return [passthrough.strip() for passthrough in passthroughs.split(",") if passthrough.strip()]
 
-_PLATFORM_OVERRIDES = _platform_overrides()
-_CONSTRAINT_OVERRIDES = _constraint_overrides()
-_CONSTRAINT_PASSTHROUGHS = _constraint_passthroughs()
+_overrides = _platform_overrides() + _constraint_overrides()
+_passthroughs = _constraint_passthroughs()
+
+def _resolve(
+        refs: struct,
+        attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
+    args = {}
+
+    # Resolve target platform override.
+    override = None
+    if hasattr(attrs, "platform_override"):
+        override = getattr(attrs, "platform_override")
+    args["platform"] = None
+    if override:
+        if not hasattr(refs, override):
+            fail("Target platform override not supported: {override}".format(
+                override = override,
+            ))
+        ref = getattr(refs, override)
+        args["platform"] = ref[PlatformInfo]
+
+    # Resolve constraint value overrides.
+    overrides = []
+    if hasattr(attrs, "constraint_overrides"):
+        overrides = getattr(attrs, "constraint_overrides", [])
+    args["constraints"] = []
+    for override in overrides:
+        if not hasattr(refs, override):
+            fail("Constraint value override not supported: {override}".format(
+                override = override,
+            ))
+        ref = getattr(refs, override)
+        args["constraints"].append(ref[ConstraintValueInfo])
+
+    return args
 
 def _apply(
         old_platform: PlatformInfo,
@@ -31,10 +63,10 @@ def _apply(
         platform: PlatformInfo | None = None,
         constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
     # Store passthrough constraint values.
-    passthrough_constraints = []
-    for constraint in _CONSTRAINT_PASSTHROUGHS:
+    old_constraints = []
+    for constraint in _passthroughs:
         if constraint in old_platform.configuration.constraints:
-            passthrough_constraints.append(
+            old_constraints.append(
                 old_platform.configuration.constraints[constraint],
             )
 
@@ -46,7 +78,7 @@ def _apply(
         label: constraint
         for label, constraint in platform.configuration.constraints.items()
     }
-    for constraint in passthrough_constraints:
+    for constraint in old_constraints:
         new_constraints[constraint.setting.label] = constraint
     for constraint in constraints:
         new_constraints[constraint.setting.label] = constraint
@@ -62,37 +94,9 @@ def _apply(
     return new_platform
 
 def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
-    # Resolve target platform override.
-    override = None
-    if hasattr(attrs, "platform_override"):
-        override = getattr(attrs, "platform_override")
-    platform_override = None
-    if override:
-        if not hasattr(refs, override):
-            fail("Target platform override not supported: {override}".format(
-                override = override,
-            ))
-        ref = getattr(refs, override)
-        platform_override = ref[PlatformInfo]
+    return _apply(platform, **_resolve(refs, attrs))
 
-    # Resolve constraint value overrides.
-    overrides = []
-    if hasattr(attrs, "constraint_overrides"):
-        overrides = getattr(attrs, "constraint_overrides", [])
-    constraint_overrides = []
-    for override in overrides:
-        if not hasattr(refs, override):
-            fail("Constraint value override not supported: {override}".format(
-                override = override,
-            ))
-        ref = getattr(refs, override)
-        constraint_overrides.append(ref[ConstraintValueInfo])
-
-    return _apply(
-        platform,
-        platform = platform_override,
-        constraints = constraint_overrides,
-    )
+_refs = {override: override for override in _overrides}
 
 _attributes = {
     "constraint_overrides": attrs.list(attrs.string(), default = []),
@@ -101,11 +105,13 @@ _attributes = {
 
 _transition = transition(
     impl = _impl,
+    refs = _refs,
     attrs = _attributes.keys(),
-    refs = {override: override for override in _PLATFORM_OVERRIDES + _CONSTRAINT_OVERRIDES},
 )
 
 constraint_overrides = struct(
+    refs = _refs,
+    resolve = _resolve,
     apply = _apply,
     transition = _transition,
     attributes = _attributes,
