@@ -57,6 +57,7 @@ erlang_application(
         "+deterministic",
         "+warnings_as_errors",
     ],
+    labels = ["otp_compatibility_polyfill_application"],
     shell_libs = [],
     use_global_parse_transforms = False,
     visibility = ["PUBLIC"],

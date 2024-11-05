@@ -60,16 +60,16 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
                                check_dependencies(ctx.attrs.extra_includes, [ErlangAppIncludeInfo]))
     dependencies = flatten_dependencies(ctx, all_direct_dependencies)
 
-    return build_application(ctx, toolchains, dependencies, _build_erlang_application)
+    return build_application(ctx, toolchains, dependencies)
 
-def build_application(ctx, toolchains, dependencies, build_fun) -> list[Provider]:
+def build_application(ctx, toolchains, dependencies) -> list[Provider]:
     name = ctx.attrs.name
 
     build_environments = {}
     app_folders = {}
     start_dependencies = {}
     for toolchain in toolchains.values():
-        build_environment = build_fun(ctx, toolchain, dependencies)
+        build_environment = _build_erlang_application(ctx, toolchain, dependencies)
         build_environments[toolchain.name] = build_environment
 
         # link final output
@@ -290,6 +290,9 @@ def _app_info_content(
         srcs: list[Artifact],
         output: Artifact) -> Artifact:
     """build an app_info.json file that contains the meta information for building the .app file"""
+    if "otp_compatibility_polyfill_application" in ctx.attrs.labels:
+        srcs = []
+
     data = {
         "applications": [
             app[ErlangAppInfo].name
