@@ -764,7 +764,7 @@ impl SharedLiveTransactionCtx {
 
                         promise
                     },
-                    MaybeCancelled::Cancelled => {
+                    MaybeCancelled::Cancelled(_reason) => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         let eval = eval.dupe();
@@ -848,7 +848,7 @@ impl SharedLiveTransactionCtx {
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => promise,
-                    MaybeCancelled::Cancelled => {
+                    MaybeCancelled::Cancelled(_reason) => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                             sync_dice_task(key)

@@ -117,14 +117,14 @@ impl Allocative for DiceTaskInternalCritical {
 
 pub(crate) enum MaybeCancelled {
     Ok(DicePromise),
-    Cancelled,
+    Cancelled(CancellationReason),
 }
 
 impl MaybeCancelled {
     pub(crate) fn not_cancelled(self) -> Option<DicePromise> {
         match self {
             MaybeCancelled::Ok(promise) => Some(promise),
-            MaybeCancelled::Cancelled => None,
+            MaybeCancelled::Cancelled(..) => None,
         }
     }
 }
@@ -162,12 +162,12 @@ impl DiceTask {
         if let Some(result) = self.internal.read_value() {
             match result {
                 Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                Err(_err) => MaybeCancelled::Cancelled,
+                Err(err) => MaybeCancelled::Cancelled(err),
             }
         } else {
             let mut critical = self.internal.critical.lock();
-            if self.cancellations.is_cancelled(&critical) {
-                return MaybeCancelled::Cancelled;
+            if let Some(reason) = self.cancellations.is_cancelled(&critical) {
+                return MaybeCancelled::Cancelled(reason);
             }
             match &mut critical.dependants {
                 None => {
@@ -177,7 +177,7 @@ impl DiceTask {
                         .expect("invalid state where deps are taken before state is ready")
                     {
                         Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                        Err(_err) => MaybeCancelled::Cancelled,
+                        Err(reason) => MaybeCancelled::Cancelled(reason),
                     }
                 }
                 Some(ref mut wakers) => {
@@ -214,9 +214,9 @@ impl DiceTask {
             .map(|deps| deps.iter().map(|(_, (k, _))| *k).collect())
     }
 
-    pub(crate) fn cancel(&self) {
+    pub(crate) fn cancel(&self, reason: CancellationReason) {
         let lock = self.internal.critical.lock();
-        self.cancellations.cancel(&lock);
+        self.cancellations.cancel(&lock, reason);
     }
 
     pub(crate) fn await_termination(&self) -> TerminationObserver {
@@ -261,7 +261,7 @@ impl DiceTaskInternal {
                 Some(ref mut deps) => {
                     deps.remove(*id);
                     if deps.is_empty() {
-                        cancellations.cancel(&critical);
+                        cancellations.cancel(&critical, CancellationReason::AllDependentsDropped);
                     }
                 }
             },
@@ -270,7 +270,7 @@ impl DiceTaskInternal {
                 Some(ref mut deps) => {
                     deps.remove(*id);
                     if deps.is_empty() {
-                        cancellations.cancel(&critical);
+                        cancellations.cancel(&critical, CancellationReason::AllObserversDropped);
                     }
                 }
             },
@@ -399,7 +399,7 @@ pub(super) struct Cancellations {
 
 enum CancellationsInternal {
     NotCancelled(CancellationHandle),
-    Cancelled,
+    Cancelled(CancellationReason),
 }
 
 impl Cancellations {
@@ -415,7 +415,11 @@ impl Cancellations {
         Self { internal: None }
     }
 
-    pub(super) fn cancel(&self, _lock: &MutexGuard<DiceTaskInternalCritical>) {
+    pub(super) fn cancel(
+        &self,
+        _lock: &MutexGuard<DiceTaskInternalCritical>,
+        reason: CancellationReason,
+    ) {
         GlobalStats::record_cancellation();
         if let Some(internal) = self.internal.as_ref() {
             take_mut::take(
@@ -426,7 +430,7 @@ impl Cancellations {
                 |internal| match internal {
                     CancellationsInternal::NotCancelled(handle) => {
                         handle.cancel();
-                        CancellationsInternal::Cancelled
+                        CancellationsInternal::Cancelled(reason)
                     }
                     cancelled => cancelled,
                 },
@@ -434,14 +438,17 @@ impl Cancellations {
         };
     }
 
-    pub(super) fn is_cancelled(&self, _lock: &MutexGuard<DiceTaskInternalCritical>) -> bool {
-        self.internal.as_ref().map_or(false, |internal| {
+    pub(super) fn is_cancelled(
+        &self,
+        _lock: &MutexGuard<DiceTaskInternalCritical>,
+    ) -> Option<CancellationReason> {
+        self.internal.as_ref().and_then(|internal| {
             match unsafe {
                 // SAFETY: locked by the MutexGuard of Slab
                 &*internal.get()
             } {
-                CancellationsInternal::NotCancelled(_) => false,
-                CancellationsInternal::Cancelled => true,
+                CancellationsInternal::NotCancelled(_) => None,
+                CancellationsInternal::Cancelled(reason) => Some(*reason),
             }
         })
     }

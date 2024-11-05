@@ -203,6 +203,7 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
+    use crate::result::CancellationReason;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRanges;
 
@@ -288,7 +289,7 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel();
+        finished_cancelling_tasks.cancel(CancellationReason::ByTest);
 
         finished_cancelling_tasks.await_termination().await;
 

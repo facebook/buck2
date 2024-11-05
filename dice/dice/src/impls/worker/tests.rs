@@ -64,6 +64,7 @@ use crate::impls::worker::testing::CheckDependenciesResultExt;
 use crate::impls::worker::CheckDependenciesResult;
 use crate::impls::worker::DiceTaskWorker;
 use crate::result::CancellableResult;
+use crate::result::CancellationReason;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -447,7 +448,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         None,
     );
 
-    previous_task.cancel();
+    previous_task.cancel(CancellationReason::ByTest);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
@@ -526,7 +527,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         .unwrap()
         .await
         .unwrap();
-    previous_task.cancel();
+    previous_task.cancel(CancellationReason::ByTest);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask {
         previous: previous_task,
@@ -692,7 +693,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         None,
     );
     is_started.notified().await;
-    first_task.cancel();
+    first_task.cancel(CancellationReason::ByTest);
 
     let cycles = UserCycleDetectorData::testing_new();
     let second_task = DiceTaskWorker::spawn(
@@ -706,7 +707,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }),
     );
 
-    second_task.cancel();
+    second_task.cancel(CancellationReason::ByTest);
 
     let cycles = UserCycleDetectorData::testing_new();
     let third_task = DiceTaskWorker::spawn(

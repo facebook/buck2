@@ -380,10 +380,7 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
             .sync_get_or_complete(|| DiceSyncResult {
                 sync_result: v_sync,
                 state_future: rx
-                    .map(|res| {
-                        res.map_err(|_| CancellationReason::TransactionCancelled)
-                            .flatten()
-                    })
+                    .map(|res| { res.map_err(|_| CancellationReason::ByTest).flatten() })
                     .boxed(),
             })?
             .value()
@@ -714,7 +711,7 @@ async fn dropping_all_waiters_cancels_task() {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled => {}
+        MaybeCancelled::Cancelled(_) => {}
     }
 
     task.await_termination().await;
@@ -730,13 +727,13 @@ async fn task_that_already_cancelled_returns_cancelled() {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    task.cancel();
+    task.cancel(CancellationReason::ByTest);
     task.await_termination().await;
 
     match task.depended_on_by(ParentKey::None) {
         MaybeCancelled::Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled => {}
+        MaybeCancelled::Cancelled(_) => {}
     }
 }

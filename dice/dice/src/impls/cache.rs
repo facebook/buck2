@@ -22,6 +22,7 @@ use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::value::DiceComputedValue;
+use crate::result::CancellationReason;
 
 #[derive(Allocative)]
 struct Data {
@@ -146,7 +147,7 @@ impl SharedCache {
             .iter()
             .filter_map(|entry| {
                 if entry.value().is_pending() {
-                    entry.value().cancel();
+                    entry.value().cancel(CancellationReason::TransactionDropped);
                     Some(entry.value().clone())
                 } else {
                     None
@@ -206,6 +207,7 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
+    use crate::result::CancellationReason;
     use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
@@ -261,7 +263,7 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel();
+        finished_cancelling_tasks.cancel(CancellationReason::ByTest);
 
         finished_cancelling_tasks.await_termination().await;
 
