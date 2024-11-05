@@ -53,6 +53,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::eval::runtime::profile::bc::BcProfile;
 use crate::eval::runtime::profile::data::ProfileData;
+use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::heap::HeapProfile;
 use crate::eval::runtime::profile::heap::HeapProfileFormat;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
@@ -321,6 +322,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             ProfileMode::Typecheck => {
                 self.typecheck_profile.enabled = true;
             }
+            ProfileMode::None => {}
         }
         Ok(())
     }
@@ -364,6 +366,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             ProfileMode::BytecodePairs => self.gen_bc_pairs_profile(),
             ProfileMode::TimeFlame => self.time_flame_profile.gen(),
             ProfileMode::Typecheck => self.typecheck_profile.gen(),
+            ProfileMode::None => Ok(ProfileData {
+                profile: ProfileDataImpl::None,
+            }),
         }
     }
 

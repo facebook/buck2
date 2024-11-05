@@ -37,6 +37,7 @@ pub fn proto_to_profile_mode(proto: buck2_cli_proto::ProfileMode) -> ProfileMode
         buck2_cli_proto::ProfileMode::BytecodePairs => ProfileMode::BytecodePairs,
         buck2_cli_proto::ProfileMode::Typecheck => ProfileMode::Typecheck,
         buck2_cli_proto::ProfileMode::Coverage => ProfileMode::Coverage,
+        buck2_cli_proto::ProfileMode::None => ProfileMode::None,
     }
 }
 

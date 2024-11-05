@@ -67,6 +67,7 @@ pub(crate) enum BuckProfileMode {
     BytecodePairs,
     Typecheck,
     Coverage,
+    None,
 }
 
 /// Profile BXL script.
@@ -156,6 +157,7 @@ pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto:
         BuckProfileMode::BytecodePairs => buck2_cli_proto::ProfileMode::BytecodePairs,
         BuckProfileMode::Typecheck => buck2_cli_proto::ProfileMode::Typecheck,
         BuckProfileMode::Coverage => buck2_cli_proto::ProfileMode::Coverage,
+        BuckProfileMode::None => buck2_cli_proto::ProfileMode::None,
     }
 }
 

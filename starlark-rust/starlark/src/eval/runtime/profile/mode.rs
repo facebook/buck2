@@ -49,6 +49,8 @@ pub enum ProfileMode {
     TimeFlame,
     /// Profile runtime typechecking.
     Typecheck,
+    /// Don't record any profile information.
+    None,
 }
 
 impl Display for ProfileMode {
@@ -58,7 +60,7 @@ impl Display for ProfileMode {
 }
 
 impl ProfileMode {
-    pub(crate) const ALL: [ProfileMode; 10] = [
+    pub(crate) const ALL: [ProfileMode; 11] = [
         ProfileMode::HeapSummaryAllocated,
         ProfileMode::HeapSummaryRetained,
         ProfileMode::HeapFlameAllocated,
@@ -69,6 +71,7 @@ impl ProfileMode {
         ProfileMode::BytecodePairs,
         ProfileMode::TimeFlame,
         ProfileMode::Typecheck,
+        ProfileMode::None,
     ];
 
     pub(crate) fn name(&self) -> &str {
@@ -83,6 +86,7 @@ impl ProfileMode {
             ProfileMode::BytecodePairs => "bytecode-pairs",
             ProfileMode::TimeFlame => "time-flame",
             ProfileMode::Typecheck => "typecheck",
+            ProfileMode::None => "none",
         }
     }
 

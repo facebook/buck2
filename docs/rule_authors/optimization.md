@@ -49,6 +49,7 @@ Possible values for profiling modes are as follows:
 - bytecode-pairs: The bytecode profile mode provides information about bytecode
   instruction pairs.
 - typecheck: Profile runtime typechecking.
+- none: Do no profiling.
 
 ### Summary profiling
 

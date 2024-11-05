@@ -794,6 +794,7 @@ enum ProfileMode {
   BYTECODE_PAIRS = 5;
   TYPECHECK = 6;
   COVERAGE = 7;
+  NONE = 8;
 }
 
 message ProfileRequest {

@@ -58,6 +58,7 @@ pub(crate) enum ProfileDataImpl {
     Statement(StmtProfileData),
     Coverage(StmtProfileData),
     Typecheck(TypecheckProfileData),
+    None,
 }
 
 impl ProfileDataImpl {
@@ -73,6 +74,7 @@ impl ProfileDataImpl {
             ProfileDataImpl::Statement(_) => ProfileMode::Statement,
             ProfileDataImpl::Coverage(_) => ProfileMode::Coverage,
             ProfileDataImpl::Typecheck(_) => ProfileMode::Typecheck,
+            ProfileDataImpl::None => ProfileMode::None,
         }
     }
 }
@@ -107,6 +109,7 @@ impl ProfileData {
             ProfileDataImpl::Statement(data) => Ok(data.write_to_string()),
             ProfileDataImpl::Coverage(data) => Ok(data.write_coverage()),
             ProfileDataImpl::Typecheck(data) => Ok(data.gen_csv()),
+            ProfileDataImpl::None => Ok("".to_owned()),
         }
     }
 
@@ -166,6 +169,7 @@ impl ProfileData {
             ProfileMode::Typecheck => TypecheckProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::Statement => StmtProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::Coverage => CoverageProfileType::merge_profiles(&profiles)?.profile,
+            ProfileMode::None => ProfileDataImpl::None,
         };
         Ok(ProfileData { profile })
     }
