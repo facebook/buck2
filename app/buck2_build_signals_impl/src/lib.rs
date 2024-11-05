@@ -439,27 +439,18 @@ where
                         // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
                         // in our data (unless we didn't actually run it because of e.g. early
                         // cutoff, in which case omitting it is what we want).
-                        let action_with_extra_data = data.action_with_extra_data.as_ref()?;
+                        let ActionWithExtraData { action, extra_data } =
+                            data.action_with_extra_data.as_ref()?;
 
                         buck2_data::critical_path_entry2::ActionExecution {
                             owner: Some(owner),
                             name: Some(buck2_data::ActionName {
-                                category: action_with_extra_data
-                                    .action
-                                    .category()
-                                    .as_str()
-                                    .to_owned(),
-                                identifier: action_with_extra_data
-                                    .action
-                                    .identifier()
-                                    .unwrap_or("")
-                                    .to_owned(),
+                                category: action.category().as_str().to_owned(),
+                                identifier: action.identifier().unwrap_or("").to_owned(),
                             }),
-                            execution_kind: action_with_extra_data.execution_kind.into(),
-                            target_rule_type_name: action_with_extra_data
-                                .target_rule_type_name
-                                .to_owned(),
-                            action_digest: action_with_extra_data.action_digest.to_owned(),
+                            execution_kind: extra_data.execution_kind.into(),
+                            target_rule_type_name: extra_data.target_rule_type_name.to_owned(),
+                            action_digest: extra_data.action_digest.to_owned(),
                         }
                         .into()
                     }

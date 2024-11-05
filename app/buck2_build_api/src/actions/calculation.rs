@@ -170,11 +170,7 @@ async fn build_action_no_redirect(
     ctx.store_evaluation_data(BuildKeyActivationData {
         action_with_extra_data: ActionWithExtraData {
             action: action.dupe(),
-            execution_kind: action_execution_data
-                .execution_kind
-                .unwrap_or(buck2_data::ActionExecutionKind::NotSet),
-            target_rule_type_name: action_execution_data.target_rule_type_name,
-            action_digest: action_execution_data.action_digest,
+            extra_data: action_execution_data.extra_data,
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
@@ -341,14 +337,18 @@ async fn build_action_inner(
         None
     };
 
+    let execution_kind = execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet);
+
     (
         ActionExecutionData {
             action_result,
             wall_time,
             queue_duration,
-            execution_kind,
-            target_rule_type_name,
-            action_digest,
+            extra_data: ActionExtraData {
+                execution_kind,
+                target_rule_type_name,
+                action_digest,
+            },
         },
         Box::new(buck2_data::ActionExecutionEnd {
             key: Some(action_key),
@@ -358,8 +358,7 @@ async fn build_action_inner(
             error,
             always_print_stderr: action.always_print_stderr(),
             wall_time: wall_time.and_then(|d| d.try_into().ok()),
-            execution_kind: execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet)
-                as i32,
+            execution_kind: execution_kind as i32,
             output_size,
             commands,
             outputs,
@@ -452,6 +451,11 @@ pub struct BuildKeyActivationData {
 #[derive(Clone)]
 pub struct ActionWithExtraData {
     pub action: Arc<RegisteredAction>,
+    pub extra_data: ActionExtraData,
+}
+
+#[derive(Clone)]
+pub struct ActionExtraData {
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub target_rule_type_name: Option<String>,
     pub action_digest: Option<String>,
@@ -461,9 +465,7 @@ struct ActionExecutionData {
     action_result: anyhow::Result<ActionOutputs>,
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
-    execution_kind: Option<buck2_data::ActionExecutionKind>,
-    target_rule_type_name: Option<String>,
-    action_digest: Option<String>,
+    extra_data: ActionExtraData,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls
