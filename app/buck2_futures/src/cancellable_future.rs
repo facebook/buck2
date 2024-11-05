@@ -452,8 +452,15 @@ where
 #[derive(Clone, Default)]
 pub struct CancellationObserver(pub(crate) CancellationObserverInner);
 
+impl CancellationObserver {
+    pub(crate) fn never_cancelled() -> Self {
+        CancellationObserver(CancellationObserverInner::NeverCancelled)
+    }
+}
+
 #[derive(Clone)]
 pub(crate) enum CancellationObserverInner {
+    NeverCancelled,
     Legacy(Option<Shared<oneshot::Receiver<()>>>),
     Explicit(CancellationNotificationFuture),
 }
@@ -476,6 +483,7 @@ impl Future for CancellationObserver {
                 None => Poll::Pending,
             },
             CancellationObserverInner::Explicit(fut) => fut.poll_unpin(cx),
+            CancellationObserverInner::NeverCancelled => Poll::Pending,
         }
     }
 }

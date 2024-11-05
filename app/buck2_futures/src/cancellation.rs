@@ -17,7 +17,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
-use futures::FutureExt;
+use futures::future::Either;
 use once_cell::sync::Lazy;
 
 use crate::cancellable_future::critical_section;
@@ -30,8 +30,12 @@ use crate::cancellation::future::CancellationNotificationFuture;
 use crate::cancellation::future::CriticalSectionGuard;
 use crate::cancellation::future::ExecutionContext;
 
-static INSTANCE: Lazy<CancellationContext> =
+static THREAD_LOCAL: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::ThreadLocal));
+
+#[allow(unused)]
+static NEVER_CANCELLED: Lazy<CancellationContext> =
+    Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
 
 /// Context available to the function running inside the future to control and manage it's own
 /// cancellation
@@ -39,12 +43,12 @@ pub struct CancellationContext<'a>(CancellationContextInner<'a>);
 
 impl<'a> CancellationContext<'a> {
     pub fn testing() -> &'a Self {
-        &INSTANCE
+        &THREAD_LOCAL
     }
 
     /// Create a new context from a thread that is never canceled
     pub fn never_cancelled() -> &'static Self {
-        &INSTANCE
+        &THREAD_LOCAL
     }
 
     /// Enter a critical section during which the current future (if supports explicit cancellation)
@@ -225,6 +229,9 @@ impl ExplicitCancellationContext {
 enum CancellationContextInner<'a> {
     /// The old thread local based implementation
     ThreadLocal,
+    /// A context where the outer future will not be dropped (for example, because it is known to be the outermost
+    /// future in a spawn call).
+    NeverCancelled,
     /// The cancellation context passed explicitly
     Explicit(&'a ExplicitCancellationContext),
 }
@@ -244,9 +251,12 @@ impl<'a> CancellationContextInner<'a> {
         Fut: Future + 'a,
     {
         match self {
-            CancellationContextInner::ThreadLocal => critical_section(make).left_future(),
+            CancellationContextInner::ThreadLocal => {
+                Either::Left(Either::Left(critical_section(make)))
+            }
+            CancellationContextInner::NeverCancelled => Either::Left(Either::Right(make())),
             CancellationContextInner::Explicit(context) => {
-                context.critical_section(make).right_future()
+                Either::Right(context.critical_section(make))
             }
         }
     }
@@ -264,10 +274,13 @@ impl<'a> CancellationContextInner<'a> {
     {
         match self {
             CancellationContextInner::ThreadLocal => {
-                with_structured_cancellation(make).left_future()
+                Either::Left(Either::Left(with_structured_cancellation(make)))
+            }
+            CancellationContextInner::NeverCancelled => {
+                Either::Left(Either::Right(make(CancellationObserver::never_cancelled())))
             }
             CancellationContextInner::Explicit(context) => {
-                context.with_structured_cancellation(make).right_future()
+                Either::Right(context.with_structured_cancellation(make))
             }
         }
     }
