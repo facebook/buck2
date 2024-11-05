@@ -348,6 +348,7 @@ async fn build_action_inner(
                 execution_kind,
                 target_rule_type_name,
                 action_digest,
+                invalidation_info: invalidation_info.clone(),
             },
         },
         Box::new(buck2_data::ActionExecutionEnd {
@@ -459,6 +460,7 @@ pub struct ActionExtraData {
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub target_rule_type_name: Option<String>,
     pub action_digest: Option<String>,
+    pub invalidation_info: Option<buck2_data::CommandInvalidationInfo>,
 }
 
 struct ActionExecutionData {

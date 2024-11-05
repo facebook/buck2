@@ -451,6 +451,7 @@ where
                             execution_kind: extra_data.execution_kind.into(),
                             target_rule_type_name: extra_data.target_rule_type_name.to_owned(),
                             action_digest: extra_data.action_digest.to_owned(),
+                            invalidation_info: extra_data.invalidation_info.to_owned(),
                         }
                         .into()
                     }

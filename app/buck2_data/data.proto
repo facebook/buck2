@@ -453,6 +453,7 @@ message CriticalPathEntry2 {
 
     optional string target_rule_type_name = 6;
     optional string action_digest = 7;
+    optional CommandInvalidationInfo invalidation_info = 8;
   }
 
   message Materialization {
