@@ -21,7 +21,6 @@ use futures::FutureExt;
 use once_cell::sync::Lazy;
 
 use crate::cancellable_future::critical_section;
-use crate::cancellable_future::try_to_disable_cancellation;
 use crate::cancellable_future::with_structured_cancellation;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellable_future::CancellationObserverInner;
@@ -78,17 +77,6 @@ impl<'a> CancellationContext<'a> {
         F: FnOnce(CancellationObserver) -> Fut + 'a,
     {
         self.0.with_structured_cancellation(make)
-    }
-
-    /// For CancellableFutures futures, obtain a StrongRefCount for the current task and prevent
-    /// cancellation while the guard is held.
-    ///
-    /// For ExplicitCancellationFutures, disables the cancellation of the future from here on out
-    /// so that it will never end with canceled.
-    ///
-    /// This will return None if the task *is* within a cancellable future but has already been cancelled.
-    pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
-        self.0.try_to_disable_cancellation()
     }
 }
 
@@ -280,17 +268,6 @@ impl<'a> CancellationContextInner<'a> {
             }
             CancellationContextInner::Explicit(context) => {
                 context.with_structured_cancellation(make).right_future()
-            }
-        }
-    }
-
-    /// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
-    /// CancellableFuture but has already been cancelled.
-    pub fn try_to_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
-        match self {
-            CancellationContextInner::ThreadLocal => try_to_disable_cancellation(),
-            CancellationContextInner::Explicit(context) => {
-                context.try_to_keep_going_on_cancellation()
             }
         }
     }

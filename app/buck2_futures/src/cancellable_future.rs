@@ -509,18 +509,6 @@ pub struct DisableCancellationGuard {
     pub(crate) _guard: Option<StrongRefCount>,
 }
 
-/// Obtain a StrongRefCount for the current task. This will return None if the task *is* within a
-/// CancellableFuture but has already been cancelled.
-pub(crate) fn try_to_disable_cancellation() -> Option<DisableCancellationGuard> {
-    CURRENT.with(
-        |g| match g.borrow().as_ref().map(|g| g.ref_count.upgrade()) {
-            Some(Some(g)) => Some(DisableCancellationGuard { _guard: Some(g) }),
-            Some(None) => None,
-            None => Some(DisableCancellationGuard { _guard: None }),
-        },
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
