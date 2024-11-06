@@ -47,11 +47,9 @@ use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::cache_misses_msg;
 use crate::subscribers::system_warning::check_cache_misses;
-use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
 use crate::subscribers::system_warning::low_disk_space_msg;
-use crate::subscribers::system_warning::slow_download_speed_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
@@ -642,11 +640,8 @@ where
                         remaining
                     )?;
 
-                    let first_snapshot = self.observer().re_state().first_snapshot();
                     let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
                     let sysinfo = self.observer().system_info();
-                    let avg_re_download_speed =
-                        self.observer().re_avg_download_speed().avg_per_second();
                     if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
                         echo_system_warning_exponential(
                             SystemWarningTypes::MemoryPressure,
@@ -660,18 +655,7 @@ where
                             &low_disk_space_msg(&low_disk_space),
                         )?;
                     }
-                    if check_download_speed(
-                        first_snapshot,
-                        last_snapshot,
-                        sysinfo,
-                        avg_re_download_speed,
-                        self.observer().concurrent_commands,
-                    ) {
-                        echo_system_warning_exponential(
-                            SystemWarningTypes::SlowDownloadSpeed,
-                            &slow_download_speed_msg(avg_re_download_speed),
-                        )?;
-                    }
+
                     let first_build_since_rebase = self
                         .observer
                         .cold_build_detector
