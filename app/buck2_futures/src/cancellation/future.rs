@@ -491,10 +491,12 @@ mod tests {
     use parking_lot::Mutex;
     use pin_project::pin_project;
     use pin_project::pinned_drop;
+    use tokio::sync::Barrier;
 
     use crate::cancellation::future::make_cancellable_future;
     use crate::cancellation::future::CancellationHandle;
 
+    #[derive(Debug)]
     struct MaybePanicOnDrop {
         panic: bool,
     }
@@ -1126,37 +1128,47 @@ mod tests {
 
     #[tokio::test]
     async fn test_prevent_cancellation_is_reentrant() {
-        let mut panic = MaybePanicOnDrop { panic: true };
-        tokio::task::yield_now().await;
-        panic.set(false);
+        let mut panic = MaybePanicOnDrop::new(true);
+
+        let barrier = Arc::new(Barrier::new(2));
 
         let (fut, handle) = make_cancellable_future(|cancellations| {
+            let barrier = barrier.dupe();
             async move {
                 {
                     let prevent1 = cancellations.begin_ignore_cancellation();
                     let prevent2 = cancellations.begin_ignore_cancellation();
+                    // 1
+                    barrier.wait().await;
 
-                    tokio::task::yield_now().await;
+                    // 2
+                    barrier.wait().await;
 
                     prevent1.allow_cancellations_again().await;
 
                     panic.set(false);
-
                     prevent2.allow_cancellations_again().await;
+
+                    // should never hit this line as the cancellation should be applied immediately at the await above.
+                    panic.set(true);
                 }
                 futures::future::pending::<()>().await
             }
             .boxed()
         });
-        futures::pin_mut!(fut);
 
-        // We reach the first yield.
-        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+        let fut = tokio::task::spawn(fut);
 
+        // 1
+        barrier.wait().await;
         handle.cancel();
+
+        // 2
+        barrier.wait().await;
         let res = fut.await;
 
-        assert_eq!(res, None);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), None);
     }
 
     #[tokio::test]
