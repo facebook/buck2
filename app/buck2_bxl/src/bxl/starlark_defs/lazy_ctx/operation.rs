@@ -16,6 +16,8 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_node::nodes::unconfigured::TargetNode;
+use cquery::LazyCqueryOperation;
+use cquery::LazyCqueryResult;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -47,6 +49,8 @@ use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::SingleOrCompatibleConfiguredTargets;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 
+pub(crate) mod cquery;
+
 #[derive(Derivative, Debug, Allocative)]
 enum LazyOperation {
     Analysis(ConfiguredProvidersLabel),
@@ -55,16 +59,17 @@ enum LazyOperation {
         global_cfg_options: buck2_error::Result<GlobalCfgOptions>,
     },
     UnconfiguredTargetNode(OwnedTargetNodeArg),
+    Cquery(LazyCqueryOperation),
     Join(Arc<LazyOperation>, Arc<LazyOperation>),
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
 }
 
-#[derive(Allocative)]
 enum LazyResult {
     Analysis(StarlarkAnalysisResult),
     ConfiguredTargetNode(SingleOrCompatibleConfiguredTargets),
     UnconfiguredTargetNode(Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>),
+    Cquery(LazyCqueryResult),
     Join(Box<(LazyResult, LazyResult)>),
     Batch(Vec<LazyResult>),
     Catch(Box<anyhow::Result<LazyResult>>),
@@ -80,6 +85,7 @@ impl LazyResult {
             LazyResult::Analysis(analysis_res) => Ok(heap.alloc(analysis_res)),
             LazyResult::ConfiguredTargetNode(res) => res.into_value(heap, bxl_eval_extra),
             LazyResult::UnconfiguredTargetNode(node) => Ok(heap.alloc(node)),
+            LazyResult::Cquery(res) => res.into_value(heap),
             LazyResult::Join(res) => Ok(heap.alloc((
                 res.0.into_value(heap, bxl_eval_extra)?,
                 res.1.into_value(heap, bxl_eval_extra)?,
@@ -125,6 +131,7 @@ impl LazyOperation {
                 let node = expr.to_unconfigured_target_node(core_data, dice).await?;
                 Ok(LazyResult::UnconfiguredTargetNode(node))
             }
+            LazyOperation::Cquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Cquery),
             LazyOperation::Join(lazy0, lazy1) => {
                 let compute0 = DiceComputations::declare_closure(|dice| {
                     async move { lazy0.resolve(dice, core_data).await }.boxed()
@@ -205,6 +212,12 @@ impl StarlarkLazy {
     pub(crate) fn new_join(lazy0: StarlarkLazy, lazy1: StarlarkLazy) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::Join(lazy0.lazy, lazy1.lazy)),
+        }
+    }
+
+    pub(crate) fn new_cquery(op: LazyCqueryOperation) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::Cquery(op)),
         }
     }
 }

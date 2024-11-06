@@ -14,6 +14,7 @@ use buck2_common::global_cfg_options::GlobalCfgOptions;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use lazy_cquery_ctx::StarlarkLazyCqueryCtx;
 use operation::StarlarkLazy;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -38,6 +39,7 @@ use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetNodeOrTargetLabelOrStr;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
+pub(crate) mod lazy_cquery_ctx;
 pub(crate) mod operation;
 
 /// Context for lazy/batch/error handling operations.
@@ -209,5 +211,28 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkLazy> {
         let expr = OwnedTargetNodeArg::from_ref(&expr);
         Ok(StarlarkLazy::new_unconfigured_target_node(expr))
+    }
+
+    /// Gets the lazy cquery context.
+    fn cquery<'v>(
+        this: &'v StarlarkLazyCtx,
+        #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
+        target_platform: ValueAsStarlarkTargetLabel<'v>,
+        #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
+    ) -> anyhow::Result<StarlarkLazyCqueryCtx> {
+        let bxl_ctx = this.ctx;
+        let target_platform = target_platform.parse_target_platforms(
+            bxl_ctx.target_alias_resolver(),
+            bxl_ctx.cell_resolver(),
+            bxl_ctx.cell_alias_resolver(),
+            bxl_ctx.cell_name(),
+            &bxl_ctx.global_cfg_options().target_platform,
+        );
+        let cli_modifiers = modifiers.items;
+        let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
+            target_platform,
+            cli_modifiers: Arc::new(cli_modifiers),
+        })?;
+        Ok(StarlarkLazyCqueryCtx::new(global_cfg_options))
     }
 }

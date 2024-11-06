@@ -3,6 +3,7 @@
 # LazyContext
 ## LazyContext.analysis
 ## LazyContext.configured\_target\_node
+## LazyContext.cquery
 ## LazyContext.join
 ## LazyContext.join\_all
 ## LazyContext.unconfigured\_target\_node
