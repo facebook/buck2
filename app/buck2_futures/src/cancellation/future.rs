@@ -205,8 +205,16 @@ mod shared {
             // `TerminationObserver` ourselves.
             self.inner.cancelled.store(true, Ordering::SeqCst);
 
-            match &mut *self.inner.state.lock() {
-                State::Cancelled { .. } => {
+            let future = std::mem::replace(&mut *self.inner.state.lock(), State::Cancelled);
+            match future {
+                State::Pending => {
+                    // When the future starts, it'll see its cancellation;
+                }
+                State::Polled { waker } => {
+                    waker.wake();
+                }
+                State::Cancelled => {
+                    // We were already cancelled, no need to so again.
                     unreachable!(
                         "We consume the CancellationHandle on cancel, so this isn't possible"
                     )
@@ -214,22 +222,7 @@ mod shared {
                 State::Exited => {
                     // Nothing to do, that future is done.
                 }
-                state @ State::Pending => {
-                    // we wait for the future to `poll` once even if it has yet to do so.
-                    // Since we always should be spawning the `ExplicitlyCancellableFuture` on tokio,
-                    // it should be polled once.
-                    let _old = std::mem::replace(state, State::Cancelled);
-                }
-                state @ State::Polled { .. } => {
-                    let old = std::mem::replace(state, State::Cancelled);
-                    match old {
-                        State::Polled { waker } => waker.wake(),
-                        _ => {
-                            unreachable!()
-                        }
-                    }
-                }
-            };
+            }
         }
 
         pub(super) fn is_cancelled(&self) -> bool {
