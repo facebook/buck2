@@ -39,18 +39,19 @@ pub(crate) fn make_cancellable_future<F, T>(
 where
     F: for<'a> FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
 {
-    let context = ExecutionContext::new();
+    let (outer_context, inner_context) = ExecutionContextOuter::new();
 
     let fut = {
-        let context = context.dupe();
-        let cancel = ExplicitCancellationContext { inner: context };
+        let cancel = ExplicitCancellationContext {
+            inner: inner_context,
+        };
 
         OwningFuture::new(cancel, |d| f(d))
     };
 
     let (state1, state2) = SharedState::new();
 
-    let fut = ExplicitlyCancellableFuture::new(fut, state1, context);
+    let fut = ExplicitlyCancellableFuture::new(fut, state1, outer_context);
     let handle = CancellationHandle::new(state2);
 
     (fut, handle)
@@ -73,7 +74,7 @@ pub struct ExplicitlyCancellableFuture<T> {
 struct ExplicitlyCancellableFutureInner<T> {
     shared: SharedState,
 
-    execution: ExecutionContext,
+    execution: ExecutionContextOuter,
 
     /// NOTE: this is duplicative of the `SharedState`, but unlike that state this is not behind a
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
@@ -86,7 +87,7 @@ impl<T> ExplicitlyCancellableFuture<T> {
     fn new(
         future: Pin<Box<OwningFuture<T, ExplicitCancellationContext>>>,
         shared: SharedState,
-        execution: ExecutionContext,
+        execution: ExecutionContextOuter,
     ) -> Self {
         ExplicitlyCancellableFuture {
             fut: DropOnReadyFuture::new(ExplicitlyCancellableFutureInner {
@@ -113,18 +114,16 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
         let is_cancelled = self.shared.is_cancelled();
 
         if is_cancelled {
-            let mut execution = self.execution.shared.lock();
-            if execution.can_exit() {
+            if self.execution.notify_cancelled() {
                 return Poll::Ready(None);
             }
-            execution.notify_cancelled();
         }
 
         let res = Pin::new(&mut self.future).poll(cx).map(Some);
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
-        if is_cancelled && self.execution.shared.lock().can_exit() {
+        if is_cancelled && self.execution.can_exit() {
             return Poll::Ready(None);
         }
 
@@ -153,7 +152,7 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         if poll.is_ready() {
             let was_cancelled = self.shared.set_exited();
             if was_cancelled {
-                if self.execution.shared.lock().can_exit() {
+                if self.execution.can_exit() {
                     return Poll::Ready(None);
                 }
             }
@@ -182,18 +181,91 @@ impl CancellationHandle {
     }
 }
 
-/// Context relating to execution of the `poll` of the future. This will contain the information
-/// required for the `CancellationContext` that the future holds to enter critical sections and
-/// structured cancellations.
-#[derive(Clone, Dupe)]
-pub(crate) struct ExecutionContext {
-    shared: Arc<Mutex<ExecutionContextData>>,
-}
+pub(crate) mod context {
+    use super::*;
 
-impl ExecutionContext {
-    fn new() -> Self {
-        Self {
-            shared: Arc::new(Mutex::new(ExecutionContextData {
+    struct ExecutionContextData {
+        cancellation_notification: CancellationNotificationData,
+
+        /// How many observers are preventing immediate cancellation.
+        prevent_cancellation: usize,
+    }
+
+    impl ExecutionContextData {
+        /// Does this future not currently prevent its cancellation?
+        fn can_exit(&self) -> bool {
+            self.prevent_cancellation == 0
+        }
+
+        fn enter_structured_cancellation(&mut self) -> CancellationNotificationData {
+            self.prevent_cancellation += 1;
+
+            self.cancellation_notification.dupe()
+        }
+
+        fn notify_cancelled(&mut self) {
+            let updated = self.cancellation_notification.inner.notified.fetch_update(
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+                |old| match CancellationNotificationStatus::from(old) {
+                    CancellationNotificationStatus::Pending => {
+                        Some(CancellationNotificationStatus::Notified.into())
+                    }
+                    CancellationNotificationStatus::Notified => None,
+                    CancellationNotificationStatus::Disabled => None,
+                },
+            );
+            if updated.is_ok() {
+                if let Some(mut wakers) = self.cancellation_notification.inner.wakers.lock().take()
+                {
+                    wakers.drain().for_each(|waker| waker.wake());
+                }
+            }
+        }
+
+        fn exit_prevent_cancellation(&mut self) -> bool {
+            self.prevent_cancellation -= 1;
+
+            self.prevent_cancellation == 0
+        }
+
+        fn try_to_disable_cancellation(&mut self) -> bool {
+            let maybe_updated = self.cancellation_notification.inner.notified.fetch_update(
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+                |old| match CancellationNotificationStatus::from(old) {
+                    CancellationNotificationStatus::Pending => {
+                        Some(CancellationNotificationStatus::Disabled.into())
+                    }
+                    CancellationNotificationStatus::Notified => None,
+                    CancellationNotificationStatus::Disabled => None,
+                },
+            );
+
+            match maybe_updated {
+                Ok(_) => true,
+                Err(old) => {
+                    let old = CancellationNotificationStatus::from(old);
+                    matches!(old, CancellationNotificationStatus::Disabled)
+                }
+            }
+        }
+    }
+
+    /// Context relating to execution of the `poll` of the future. This will contain the information
+    /// required for the `CancellationContext` that the future holds to enter critical sections and
+    /// structured cancellations.
+    pub(crate) struct ExecutionContextOuter {
+        shared: Arc<Mutex<ExecutionContextData>>,
+    }
+
+    pub(crate) struct ExecutionContextInner {
+        shared: Arc<Mutex<ExecutionContextData>>,
+    }
+
+    impl ExecutionContextOuter {
+        pub(crate) fn new() -> (ExecutionContextOuter, ExecutionContextInner) {
+            let shared = Arc::new(Mutex::new(ExecutionContextData {
                 cancellation_notification: {
                     CancellationNotificationData {
                         inner: Arc::new(CancellationNotificationDataInner {
@@ -203,53 +275,85 @@ impl ExecutionContext {
                     }
                 },
                 prevent_cancellation: 0,
-            })),
+            }));
+            (
+                ExecutionContextOuter {
+                    shared: shared.dupe(),
+                },
+                ExecutionContextInner { shared },
+            )
+        }
+
+        pub(crate) fn notify_cancelled(&self) -> bool {
+            let mut lock = self.shared.lock();
+            if lock.can_exit() {
+                true
+            } else {
+                lock.notify_cancelled();
+                false
+            }
+        }
+
+        pub(crate) fn can_exit(&self) -> bool {
+            self.shared.lock().can_exit()
         }
     }
 
-    pub fn testing() -> Self {
-        Self::new()
-    }
+    impl ExecutionContextInner {
+        pub(crate) fn enter_structured_cancellation(
+            &self,
+        ) -> (CancellationNotificationData, CriticalSectionGuard) {
+            let mut shared = self.shared.lock();
 
-    pub(crate) fn enter_structured_cancellation(
-        &self,
-    ) -> (CancellationNotificationData, CriticalSectionGuard) {
-        let mut shared = self.shared.lock();
+            let notification = shared.enter_structured_cancellation();
 
-        let notification = shared.enter_structured_cancellation();
+            (notification, CriticalSectionGuard::new(self))
+        }
 
-        (notification, CriticalSectionGuard::new(&self.shared))
+        pub(crate) fn try_to_disable_cancellation(&self) -> bool {
+            let mut shared = self.shared.lock();
+            if shared.try_to_disable_cancellation() {
+                true
+            } else {
+                // couldn't prevent cancellation, so release our hold onto the counter
+                shared.exit_prevent_cancellation();
+                false
+            }
+        }
+
+        pub(crate) fn exit_prevent_cancellation(&self) -> bool {
+            let mut shared = self.shared.lock();
+            shared.exit_prevent_cancellation()
+        }
+
+        pub(crate) fn testing() -> ExecutionContextInner {
+            ExecutionContextOuter::new().1
+        }
     }
 }
+use context::ExecutionContextInner;
+use context::ExecutionContextOuter;
 
 pub(crate) struct CriticalSectionGuard<'a> {
-    shared: &'a Mutex<ExecutionContextData>,
+    context: &'a ExecutionContextInner,
 }
 
 impl<'a> CriticalSectionGuard<'a> {
-    fn new(shared: &'a Mutex<ExecutionContextData>) -> Self {
-        Self { shared }
+    fn new(context: &'a ExecutionContextInner) -> Self {
+        Self { context }
     }
 
     pub(crate) fn exit_prevent_cancellation(self) -> bool {
-        Self::take(self).lock().exit_prevent_cancellation()
+        self.take().exit_prevent_cancellation()
     }
 
     pub(crate) fn try_to_disable_cancellation(self) -> bool {
-        let shared = Self::take(self);
-        let mut shared = shared.lock();
-        if shared.try_to_disable_cancellation() {
-            true
-        } else {
-            // couldn't prevent cancellation, so release our hold onto the counter
-            shared.exit_prevent_cancellation();
-            false
-        }
+        self.take().try_to_disable_cancellation()
     }
 
-    fn take(this: Self) -> &'a Mutex<ExecutionContextData> {
-        let r = this.shared;
-        std::mem::forget(this);
+    fn take(self) -> &'a ExecutionContextInner {
+        let r = self.context;
+        std::mem::forget(self);
         r
     }
 }
@@ -258,74 +362,7 @@ impl<'a> Drop for CriticalSectionGuard<'a> {
     fn drop(&mut self) {
         // never actually exited during normal poll, but dropping this means we'll never poll
         // again, so just release the `prevent_cancellation`
-        self.shared.lock().exit_prevent_cancellation();
-    }
-}
-
-struct ExecutionContextData {
-    cancellation_notification: CancellationNotificationData,
-
-    /// How many observers are preventing immediate cancellation.
-    prevent_cancellation: usize,
-}
-
-impl ExecutionContextData {
-    /// Does this future not currently prevent its cancellation?
-    fn can_exit(&self) -> bool {
-        self.prevent_cancellation == 0
-    }
-
-    fn enter_structured_cancellation(&mut self) -> CancellationNotificationData {
-        self.prevent_cancellation += 1;
-
-        self.cancellation_notification.dupe()
-    }
-
-    fn notify_cancelled(&mut self) {
-        let updated = self.cancellation_notification.inner.notified.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |old| match CancellationNotificationStatus::from(old) {
-                CancellationNotificationStatus::Pending => {
-                    Some(CancellationNotificationStatus::Notified.into())
-                }
-                CancellationNotificationStatus::Notified => None,
-                CancellationNotificationStatus::Disabled => None,
-            },
-        );
-        if updated.is_ok() {
-            if let Some(mut wakers) = self.cancellation_notification.inner.wakers.lock().take() {
-                wakers.drain().for_each(|waker| waker.wake());
-            }
-        }
-    }
-
-    fn exit_prevent_cancellation(&mut self) -> bool {
-        self.prevent_cancellation -= 1;
-
-        self.prevent_cancellation == 0
-    }
-
-    fn try_to_disable_cancellation(&mut self) -> bool {
-        let maybe_updated = self.cancellation_notification.inner.notified.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |old| match CancellationNotificationStatus::from(old) {
-                CancellationNotificationStatus::Pending => {
-                    Some(CancellationNotificationStatus::Disabled.into())
-                }
-                CancellationNotificationStatus::Notified => None,
-                CancellationNotificationStatus::Disabled => None,
-            },
-        );
-
-        match maybe_updated {
-            Ok(_) => true,
-            Err(old) => {
-                let old = CancellationNotificationStatus::from(old);
-                matches!(old, CancellationNotificationStatus::Disabled)
-            }
-        }
+        self.context.exit_prevent_cancellation();
     }
 }
 

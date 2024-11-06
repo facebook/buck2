@@ -23,10 +23,10 @@ use once_cell::sync::Lazy;
 use crate::cancellable_future::CancellationObserver;
 use crate::cancellable_future::CancellationObserverInner;
 use crate::cancellable_future::DisableCancellationGuard;
+use crate::cancellation::future::context::ExecutionContextInner;
 use crate::cancellation::future::CancellationNotificationData;
 use crate::cancellation::future::CancellationNotificationFuture;
 use crate::cancellation::future::CriticalSectionGuard;
-use crate::cancellation::future::ExecutionContext;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
@@ -80,7 +80,7 @@ impl<'a> CancellationContext<'a> {
 
 /// Context available to only explicitly cancellable futures to manage their own cancellation
 pub struct ExplicitCancellationContext {
-    inner: ExecutionContext,
+    inner: ExecutionContextInner,
 }
 
 /// When held, prevents cancellation of the current explicitly cancellable future.
@@ -213,7 +213,7 @@ impl ExplicitCancellationContext {
     pub fn testing<'a>() -> &'a Self {
         static INSTANCE: Lazy<ExplicitCancellationContext> =
             Lazy::new(|| ExplicitCancellationContext {
-                inner: ExecutionContext::testing(),
+                inner: ExecutionContextInner::testing(),
             });
 
         &INSTANCE
