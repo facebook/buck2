@@ -499,10 +499,21 @@ mod tests {
         panic: bool,
     }
 
+    impl MaybePanicOnDrop {
+        fn new(panic: bool) -> Self {
+            Self { panic }
+        }
+
+        // We use set() rather than changing panic directly due to some unexpected behavior of rust disjoint captures.
+        fn set(&mut self, panic: bool) {
+            self.panic = panic;
+        }
+    }
+
     impl Drop for MaybePanicOnDrop {
         fn drop(&mut self) {
             if self.panic {
-                panic!()
+                panic!("MaybePanicOnDrop dropped with panic=true")
             }
         }
     }
@@ -681,9 +692,9 @@ mod tests {
 
                         cancellations
                             .critical_section(|| async {
-                                let mut panic = MaybePanicOnDrop { panic: true };
+                                let mut panic = MaybePanicOnDrop::new(true);
                                 tokio::task::yield_now().await;
-                                panic.panic = false;
+                                panic.set(false);
                             })
                             .await;
                     }
@@ -732,9 +743,9 @@ mod tests {
             async {
                 cancellations
                     .with_structured_cancellation(|_observer| async move {
-                        let mut panic = MaybePanicOnDrop { panic: true };
+                        let mut panic = MaybePanicOnDrop::new(true);
                         tokio::task::yield_now().await;
-                        panic.panic = false;
+                        panic.set(false);
                     })
                     .await;
             }
@@ -824,9 +835,9 @@ mod tests {
                     .critical_section(|| async move {
                         cancellations
                             .with_structured_cancellation(|observer| async move {
-                                let mut panic = MaybePanicOnDrop { panic: true };
+                                let mut panic = MaybePanicOnDrop::new(true);
                                 tokio::task::yield_now().await;
-                                panic.panic = false;
+                                panic.set(false);
 
                                 // we should get the cancel notification
                                 observer.await;
@@ -1046,12 +1057,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_lambda_is_ran_without_poll() {
-        let mut panic = MaybePanicOnDrop { panic: true };
+        let mut panic = MaybePanicOnDrop::new(true);
         tokio::task::yield_now().await;
-        panic.panic = false;
+        panic.set(false);
 
         let (fut, handle) = make_cancellable_future(move |_cancellations| {
-            panic.panic = false;
+            panic.set(false);
 
             async move {
                 panic!("polled");
@@ -1117,7 +1128,7 @@ mod tests {
     async fn test_prevent_cancellation_is_reentrant() {
         let mut panic = MaybePanicOnDrop { panic: true };
         tokio::task::yield_now().await;
-        panic.panic = false;
+        panic.set(false);
 
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
@@ -1129,7 +1140,7 @@ mod tests {
 
                     prevent1.allow_cancellations_again().await;
 
-                    panic.panic = false;
+                    panic.set(false);
 
                     prevent2.allow_cancellations_again().await;
                 }
