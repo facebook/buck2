@@ -7,10 +7,7 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -177,19 +174,9 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
     ) -> anyhow::Result<StarlarkLazy> {
-        let bxl_ctx = this.ctx;
-        let target_platform = target_platform.parse_target_platforms(
-            bxl_ctx.target_alias_resolver(),
-            bxl_ctx.cell_resolver(),
-            bxl_ctx.cell_alias_resolver(),
-            bxl_ctx.cell_name(),
-            &bxl_ctx.global_cfg_options().target_platform,
-        );
-        let cli_modifiers = modifiers.items;
-        let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
-            target_platform,
-            cli_modifiers: Arc::new(cli_modifiers),
-        });
+        let global_cfg_options = this
+            .ctx
+            .resolve_global_cfg_options(target_platform, modifiers.items);
         let owned = OwnedConfiguredTargetNodeArg::from_ref(expr);
         Ok(StarlarkLazy::new_configured_target_node(
             owned,
@@ -220,19 +207,9 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
     ) -> anyhow::Result<StarlarkLazyCqueryCtx> {
-        let bxl_ctx = this.ctx;
-        let target_platform = target_platform.parse_target_platforms(
-            bxl_ctx.target_alias_resolver(),
-            bxl_ctx.cell_resolver(),
-            bxl_ctx.cell_alias_resolver(),
-            bxl_ctx.cell_name(),
-            &bxl_ctx.global_cfg_options().target_platform,
-        );
-        let cli_modifiers = modifiers.items;
-        let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
-            target_platform,
-            cli_modifiers: Arc::new(cli_modifiers),
-        })?;
+        let global_cfg_options = this
+            .ctx
+            .resolve_global_cfg_options(target_platform, modifiers.items)?;
         Ok(StarlarkLazyCqueryCtx::new(global_cfg_options))
     }
 }

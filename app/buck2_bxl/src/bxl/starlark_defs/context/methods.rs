@@ -16,7 +16,6 @@ use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -164,17 +163,11 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<
         Either<NoneOr<StarlarkConfiguredTargetNode>, StarlarkTargetSet<ConfiguredTargetNode>>,
     > {
-        let target_platform = target_platform.parse_target_platforms(
-            this.target_alias_resolver(),
-            this.cell_resolver(),
-            this.cell_alias_resolver(),
-            this.cell_name(),
-            &this.global_cfg_options().target_platform,
-        )?;
         let cli_modifiers = match modifiers.into_option() {
             Some(cli_modifiers) => cli_modifiers.items,
             None => Vec::new(),
         };
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, cli_modifiers)?;
 
         this.via_dice(|dice, this| {
             dice.via(|ctx| {
@@ -182,10 +175,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     let target_expr =
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
-                            &GlobalCfgOptions {
-                                target_platform,
-                                cli_modifiers: Arc::new(cli_modifiers),
-                            },
+                            &global_cfg_options,
                             this,
                             ctx,
                         )
@@ -296,13 +286,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = false)] keep_going: bool,
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
-        let target_platform = target_platform.parse_target_platforms(
-            this.target_alias_resolver(),
-            this.cell_resolver(),
-            this.cell_alias_resolver(),
-            this.cell_name(),
-            &this.global_cfg_options().target_platform,
-        )?;
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
 
         this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
@@ -310,10 +294,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     let target_expr = if keep_going {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_keep_going(
                             labels,
-                            &GlobalCfgOptions {
-                                target_platform,
-                                cli_modifiers: vec![].into(),
-                            },
+                            &global_cfg_options,
                             this_no_dice,
                             ctx,
                         )
@@ -321,10 +302,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     } else {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
-                            &GlobalCfgOptions {
-                                target_platform,
-                                cli_modifiers: vec![].into(),
-                            },
+                            &global_cfg_options,
                             this_no_dice,
                             ctx,
                         )
@@ -358,7 +336,8 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        StarlarkCQueryCtx::new(this, target_platform, this.data.global_cfg_options())
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
+        StarlarkCQueryCtx::new(this, global_cfg_options)
     }
 
     /// Returns the `aqueryctx` that holds all the aquery functions.
@@ -371,11 +350,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
-        StarlarkAQueryCtx::new(
-            this,
-            target_platform,
-            &this.data.global_cfg_options().target_platform,
-        )
+        StarlarkAQueryCtx::new(this, target_platform)
     }
 
     /// Returns the bxl actions to create and register actions for this
@@ -452,13 +427,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 async {
                     let (exec_deps, toolchains) = match &this.context_type {
                         BxlContextType::Root { .. } => {
-                            let target_platform = target_platform.parse_target_platforms(
-                                this.target_alias_resolver(),
-                                this.cell_resolver(),
-                                this.cell_alias_resolver(),
-                                this.cell_name(),
-                                &this.global_cfg_options().target_platform,
-                            )?;
+                            let target_platform = this.resolve_target_platfrom(target_platform)?;
                             let exec_deps = match exec_deps {
                                 NoneOr::None => Vec::new(),
                                 NoneOr::Other(exec_deps) => {
@@ -583,23 +552,14 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             )?;
         }
 
-        let target_platform = target_platform.parse_target_platforms(
-            this.data.target_alias_resolver(),
-            this.data.cell_resolver(),
-            this.cell_alias_resolver(),
-            this.data.cell_name(),
-            &this.data.global_cfg_options().target_platform,
-        )?;
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
 
         let res: anyhow::Result<_> = this.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                         labels,
-                        &GlobalCfgOptions {
-                            target_platform,
-                            cli_modifiers: vec![].into(),
-                        },
+                        &global_cfg_options,
                         ctx,
                         dice,
                     )

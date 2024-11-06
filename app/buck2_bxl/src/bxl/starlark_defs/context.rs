@@ -14,6 +14,7 @@ use std::io::Write;
 use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -37,6 +38,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use derivative::Derivative;
@@ -65,6 +67,7 @@ use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub(crate) mod actions;
 pub(crate) mod analysis;
@@ -298,6 +301,32 @@ impl BxlContextCoreData {
             self.cell_root_abs(),
             self.project_root(),
         )
+    }
+
+    pub(crate) fn resolve_target_platfrom(
+        &self,
+        target_platform: ValueAsStarlarkTargetLabel<'_>,
+    ) -> anyhow::Result<Option<TargetLabel>> {
+        target_platform.parse_target_platforms(
+            self.target_alias_resolver(),
+            self.cell_resolver(),
+            self.cell_alias_resolver(),
+            self.cell_name(),
+            &self.global_cfg_options().target_platform,
+        )
+    }
+
+    pub(crate) fn resolve_global_cfg_options(
+        &self,
+        target_platform: ValueAsStarlarkTargetLabel<'_>,
+        modifiers: Vec<String>,
+    ) -> anyhow::Result<GlobalCfgOptions> {
+        let target_platform = self.resolve_target_platfrom(target_platform);
+        let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
+            target_platform,
+            cli_modifiers: Arc::new(modifiers),
+        })?;
+        Ok(global_cfg_options)
     }
 }
 

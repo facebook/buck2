@@ -21,7 +21,6 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use derive_more::Display;
@@ -185,23 +184,14 @@ pub(crate) fn build<'v>(
         ValueTyped<'v, StarlarkBxlBuildResult>,
     >,
 > {
-    let target_platform = target_platform.parse_target_platforms(
-        ctx.target_alias_resolver(),
-        ctx.cell_resolver(),
-        ctx.cell_alias_resolver(),
-        ctx.cell_name(),
-        &ctx.data.global_cfg_options().target_platform,
-    )?;
+    let global_cfg_options = ctx.resolve_global_cfg_options(target_platform, vec![].into())?;
 
     let build_result = ctx.via_dice(|dice, ctx| {
         dice.via(|dice| {
             async {
                 let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                     spec,
-                    &GlobalCfgOptions {
-                        target_platform,
-                        cli_modifiers: vec![].into(),
-                    },
+                    &global_cfg_options,
                     ctx,
                     dice,
                 )

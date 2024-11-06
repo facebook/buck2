@@ -48,7 +48,6 @@ use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
 use crate::bxl::starlark_defs::target_list_expr::TargetListExpr;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
-use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 #[derive(
     ProvidesStaticType,
@@ -118,23 +117,11 @@ async fn unpack_targets<'v>(
 impl<'v> StarlarkCQueryCtx<'v> {
     pub(crate) fn new(
         ctx: ValueTyped<'v, BxlContext<'v>>,
-        global_target_platform: ValueAsStarlarkTargetLabel<'v>,
-        global_cfg_options: &GlobalCfgOptions,
+        global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
-        let target_platform = global_target_platform.parse_target_platforms(
-            ctx.target_alias_resolver(),
-            ctx.cell_resolver(),
-            ctx.cell_alias_resolver(),
-            ctx.cell_name(),
-            &global_cfg_options.target_platform,
-        )?;
-
         Ok(Self {
             ctx,
-            global_cfg_options_override: GlobalCfgOptions {
-                target_platform,
-                cli_modifiers: vec![].into(),
-            },
+            global_cfg_options_override: global_cfg_options,
         })
     }
 }

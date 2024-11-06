@@ -15,7 +15,6 @@ use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -94,22 +93,13 @@ impl<'v> StarlarkAQueryCtx<'v> {
     pub(crate) fn new(
         ctx: ValueTyped<'v, BxlContext<'v>>,
         global_target_platform: ValueAsStarlarkTargetLabel<'v>,
-        default_target_platform: &Option<TargetLabel>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
-        let target_platform = global_target_platform.parse_target_platforms(
-            ctx.target_alias_resolver(),
-            ctx.cell_resolver(),
-            ctx.cell_alias_resolver(),
-            ctx.cell_name(),
-            default_target_platform,
-        )?;
+        let global_cfg_options =
+            ctx.resolve_global_cfg_options(global_target_platform, vec![].into())?;
 
         Ok(Self {
             ctx,
-            global_cfg_options_override: GlobalCfgOptions {
-                target_platform,
-                cli_modifiers: vec![].into(),
-            },
+            global_cfg_options_override: global_cfg_options,
         })
     }
 }

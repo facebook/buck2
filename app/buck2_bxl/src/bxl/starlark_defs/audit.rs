@@ -12,7 +12,6 @@ use anyhow::Context as _;
 use buck2_build_api::audit_cell::audit_cell;
 use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -121,13 +120,9 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         // TODO(nga): used precise type.
         NoneOr<Value<'v>>,
     > {
-        let target_platform = target_platform.parse_target_platforms(
-            this.ctx.target_alias_resolver(),
-            this.ctx.cell_resolver(),
-            this.ctx.cell_alias_resolver(),
-            this.ctx.cell_name(),
-            &this.ctx.global_cfg_options().target_platform,
-        )?;
+        let global_cfg_options = this
+            .ctx
+            .resolve_global_cfg_options(target_platform, vec![].into())?;
 
         this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async move {
@@ -136,10 +131,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                     &this.working_dir,
                     &this.cell_resolver,
                     ctx,
-                    &GlobalCfgOptions {
-                        target_platform,
-                        cli_modifiers: vec![].into(),
-                    },
+                    &global_cfg_options,
                 )
                 .await?;
                 match output {
