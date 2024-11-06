@@ -1655,6 +1655,8 @@ message FileWatcherStats {
   // Present on a fresh instance. This is a bit duplicative of field 1
   // (`fresh_instance`), but we keep that for backwards compatibility.
   optional FreshInstance fresh_instance_data = 9;
+  // Timestamp in seconds of the 'Branched From Revision' commit
+  optional uint64 branched_from_revision_timestamp = 11;
 }
 
 message FreshInstance {
