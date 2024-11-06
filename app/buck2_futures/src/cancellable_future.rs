@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::cell::RefCell;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -28,11 +27,6 @@ use pin_project::pin_project;
 use tokio::sync::oneshot;
 
 use crate::cancellation::future::CancellationNotificationFuture;
-
-thread_local! {
-    /// The ExecutionContext for the currently executing CancellableFuture.
-    static CURRENT: RefCell<Option<Box<ExecutionContext>>> = const { RefCell::new(None) };
-}
 
 enum State {
     /// This future has been constructed, but not polled yet.
@@ -169,25 +163,7 @@ where
             }
         }
 
-        struct ReplaceOnDrop<'a> {
-            me: &'a mut Option<Box<ExecutionContext>>,
-            previous: Option<Box<ExecutionContext>>,
-        }
-
-        impl Drop for ReplaceOnDrop<'_> {
-            fn drop(&mut self) {
-                *self.me = CURRENT.with(|g| g.replace(self.previous.take()))
-            }
-        }
-
-        let res = {
-            let previous = CURRENT.with(|g| g.replace(Some(self.execution.take().unwrap())));
-            let _replace = ReplaceOnDrop {
-                previous,
-                me: self.execution,
-            };
-            self.future.as_mut().poll(cx).map(Some)
-        };
+        let res = self.future.as_mut().poll(cx).map(Some);
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
