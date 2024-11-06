@@ -103,6 +103,15 @@ impl<'a> IgnoreCancellationGuard<'a> {
     /// right now, at this specific await point.
     pub async fn allow_cancellations_again(self) {
         if self.guard.exit_prevent_cancellation() {
+            // TODO(cjhopman): It seems like this is likely unreliable behavior. The intent here is that by returning
+            // Poll::Pending at an await point here, that that Poll::Pending be essentially propagated all the way out
+            // of the corresponding cancellable future's poll call so that we can reenter that outermost poll and it can notice
+            // that we were cancelled.
+            //
+            // But, just like tokio::task::yield_now(), that isn't guaranteed. If this behavior is unreliable, code using
+            // this is already generally really complex and we could be introducing extremely difficult to diagnose bugs
+            // by depending on this behavior.
+
             // If the current future should actually be cancelled now, we try to return
             // control to it immediately to allow cancellation to kick in faster.
             // We don't use tokio's yield now as that changes the scheduling of the future so that
