@@ -14,7 +14,6 @@
 //! It is not intended to be polled directly.
 
 use std::future::Future;
-use std::mem;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
@@ -24,9 +23,7 @@ use std::task::Context;
 use std::task::Poll;
 use std::task::Waker;
 
-use dupe::Clone_;
 use dupe::Dupe;
-use dupe::Dupe_;
 use futures::future::BoxFuture;
 use futures::task::AtomicWaker;
 use parking_lot::Mutex;
@@ -52,10 +49,10 @@ where
         OwningFuture::new(cancel, |d| f(d))
     };
 
-    let state = SharedState::new();
+    let (state1, state2) = SharedState::new();
 
-    let fut = ExplicitlyCancellableFuture::new(fut, state.dupe(), context);
-    let handle = CancellationHandle::new(state);
+    let fut = ExplicitlyCancellableFuture::new(fut, state1, context);
+    let handle = CancellationHandle::new(state2);
 
     (fut, handle)
 }
@@ -118,7 +115,7 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
 
 impl<T> ExplicitlyCancellableFutureInner<T> {
     fn poll_inner(self: &mut Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        let is_cancelled = self.shared.inner.cancelled.load(Ordering::SeqCst);
+        let is_cancelled = self.shared.is_cancelled();
 
         if is_cancelled {
             let mut execution = self.execution.shared.lock();
@@ -150,20 +147,7 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // Once we start, the `poll_inner` will check whether we are actually canceled and return
         // the proper poll value.
         if !self.started {
-            // we only update the Waker once at the beginning of the poll. For the same tokio
-            // runtime, this is always safe and behaves correctly, as such, this future is
-            // restricted to be ran on the same tokio executor and never moved from one runtime to
-            // another
-            take_mut::take(
-                &mut *self.shared.inner.state.lock(),
-                |future| match future {
-                    State::Pending => State::Polled {
-                        waker: cx.waker().clone(),
-                    },
-                    other => other,
-                },
-            );
-
+            self.shared.set_waker(cx);
             self.started = true;
         }
 
@@ -172,17 +156,11 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let inner = self.shared.inner.dupe();
-            let mut locked_state = inner.state.lock();
-            let state = mem::replace(&mut *locked_state, State::Exited);
-
-            match state {
-                State::Cancelled => {
-                    if self.execution.shared.lock().can_exit() {
-                        return Poll::Ready(None);
-                    }
+            let was_cancelled = self.shared.set_exited();
+            if was_cancelled {
+                if self.execution.shared.lock().can_exit() {
+                    return Poll::Ready(None);
                 }
-                _ => {}
             }
         }
 
@@ -202,79 +180,111 @@ impl CancellationHandle {
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
     pub fn cancel(self) {
-        // Store to the boolean first before we write to state.
-        // This is because on `poll`, the future will update the state first then check the boolean.
-        // This ordering ensures that either the `poll` has read our cancellation, and hence will
-        // later notify the termination observer via the channel we store in `State::Cancelled`,
-        // or that we will observe the terminated state of the future and directly notify the
-        // `TerminationObserver` ourselves.
-        self.shared_state
-            .inner
-            .cancelled
-            .store(true, Ordering::SeqCst);
-
-        match &mut *self.shared_state.inner.state.lock() {
-            State::Cancelled { .. } => {
-                unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
-            }
-            State::Exited => {
-                // Nothing to do, that future is done.
-            }
-            state @ State::Pending => {
-                // we wait for the future to `poll` once even if it has yet to do so.
-                // Since we always should be spawning the `ExplicitlyCancellableFuture` on tokio,
-                // it should be polled once.
-                let _old = std::mem::replace(state, State::Cancelled);
-            }
-            state @ State::Polled { .. } => {
-                let old = std::mem::replace(state, State::Cancelled);
-                match old {
-                    State::Polled { waker } => waker.wake(),
-                    _ => {
-                        unreachable!()
-                    }
-                }
-            }
-        };
+        self.shared_state.cancel()
     }
 }
 
-#[derive(Clone_, Dupe_)]
-struct SharedState {
-    inner: Arc<SharedStateData>,
-}
+mod shared {
+    use super::*;
 
-impl SharedState {
-    fn new() -> Self {
-        Self {
-            inner: Arc::new(SharedStateData {
+    pub(super) struct SharedState {
+        inner: Arc<SharedStateData>,
+    }
+
+    impl SharedState {
+        pub(super) fn new() -> (Self, Self) {
+            let data = Arc::new(SharedStateData {
                 state: Mutex::new(State::Pending),
                 cancelled: AtomicBool::new(false),
-            }),
+            });
+            (Self { inner: data.dupe() }, Self { inner: data })
+        }
+
+        pub(super) fn cancel(&self) {
+            // Store to the boolean first before we write to state.
+            // This is because on `poll`, the future will update the state first then check the boolean.
+            // This ordering ensures that either the `poll` has read our cancellation, and hence will
+            // later notify the termination observer via the channel we store in `State::Cancelled`,
+            // or that we will observe the terminated state of the future and directly notify the
+            // `TerminationObserver` ourselves.
+            self.inner.cancelled.store(true, Ordering::SeqCst);
+
+            match &mut *self.inner.state.lock() {
+                State::Cancelled { .. } => {
+                    unreachable!(
+                        "We consume the CancellationHandle on cancel, so this isn't possible"
+                    )
+                }
+                State::Exited => {
+                    // Nothing to do, that future is done.
+                }
+                state @ State::Pending => {
+                    // we wait for the future to `poll` once even if it has yet to do so.
+                    // Since we always should be spawning the `ExplicitlyCancellableFuture` on tokio,
+                    // it should be polled once.
+                    let _old = std::mem::replace(state, State::Cancelled);
+                }
+                state @ State::Polled { .. } => {
+                    let old = std::mem::replace(state, State::Cancelled);
+                    match old {
+                        State::Polled { waker } => waker.wake(),
+                        _ => {
+                            unreachable!()
+                        }
+                    }
+                }
+            };
+        }
+
+        pub(super) fn is_cancelled(&self) -> bool {
+            self.inner.cancelled.load(Ordering::SeqCst)
+        }
+
+        pub(super) fn set_waker(&self, cx: &mut Context<'_>) {
+            // we only update the Waker once at the beginning of the poll. For the same tokio
+            // runtime, this is always safe and behaves correctly, as such, this future is
+            // restricted to be ran on the same tokio executor and never moved from one runtime to
+            // another
+            let mut lock = self.inner.state.lock();
+            if let State::Pending = &*lock {
+                *lock = State::Polled {
+                    waker: cx.waker().clone(),
+                }
+            };
+        }
+
+        pub(super) fn set_exited(&self) -> bool {
+            let mut lock = self.inner.state.lock();
+            let state = std::mem::replace(&mut *lock, State::Exited);
+            match state {
+                State::Cancelled => true,
+                _ => false,
+            }
         }
     }
+
+    struct SharedStateData {
+        state: Mutex<State>,
+
+        /// When set, this future has been cancelled and should attempt to exit as soon as possible.
+        cancelled: AtomicBool,
+    }
+
+    enum State {
+        /// This future has been constructed, but not polled yet.
+        Pending,
+
+        /// This future has been polled. A waker is available.
+        Polled { waker: Waker },
+
+        /// This future has already been cancelled.
+        Cancelled,
+
+        /// This future has already finished executing.
+        Exited,
+    }
 }
-
-struct SharedStateData {
-    state: Mutex<State>,
-
-    /// When set, this future has been cancelled and should attempt to exit as soon as possible.
-    cancelled: AtomicBool,
-}
-
-enum State {
-    /// This future has been constructed, but not polled yet.
-    Pending,
-
-    /// This future has been polled. A waker is available.
-    Polled { waker: Waker },
-
-    /// This future has already been cancelled.
-    Cancelled,
-
-    /// This future has already finished executing.
-    Exited,
-}
+use shared::SharedState;
 
 /// Context relating to execution of the `poll` of the future. This will contain the information
 /// required for the `CancellationContext` that the future holds to enter critical sections and
