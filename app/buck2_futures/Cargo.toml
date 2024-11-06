@@ -19,7 +19,6 @@ slab = "0.4.7"
 take_mut = { workspace = true }
 thiserror = { workspace = true }
 tokio = { version = "1.5", features = ["full"] }
-tracing = "0.1.22"
 
 [dev-dependencies]
 assert_matches = { workspace = true }
