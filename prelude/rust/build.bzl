@@ -845,7 +845,7 @@ def dynamic_symlinked_dirs(
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
-        [lint for lint in lints if str(lint).startswith("\"clippy::") == clippy],
+        [lint for lint in lints if clippy or not str(lint).startswith("\"clippy::")],
         format = "-{}{{}}".format(flag),
     )
 
