@@ -223,7 +223,7 @@ _BUILD_PARAMS = {
         platform_to_affix = _library_prefix_suffix,
         # cdylibs statically link all rust code and export a single C-style dylib
         # for consumption by other languages
-        link_strategy = LinkStrategy("static_pic"),
+        link_strategy = LinkStrategy("shared"),
     ),
     _RUST_DYLIB_SHARED: RustcFlags(
         crate_type = CrateType("dylib"),
