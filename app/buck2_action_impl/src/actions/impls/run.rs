@@ -323,23 +323,24 @@ impl RunAction {
     /// Get the command line expansion for this RunAction.
     fn expand_command_line_and_worker(
         &self,
-        fs: &ExecutorFs,
+        action_execution_ctx: &dyn ActionExecutionCtx,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
     ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
-        let mut ctx = DefaultCommandLineContext::new(fs);
+        let fs = &action_execution_ctx.executor_fs();
+        let mut cli_ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values)?;
 
         let mut exe_rendered = Vec::<String>::new();
         values
             .exe
-            .add_to_command_line(&mut exe_rendered, &mut ctx)?;
+            .add_to_command_line(&mut exe_rendered, &mut cli_ctx)?;
         values.exe.visit_artifacts(artifact_visitor)?;
 
         let worker = if let Some(worker) = values.worker {
             let mut worker_rendered = Vec::<String>::new();
             worker
                 .exe
-                .add_to_command_line(&mut worker_rendered, &mut ctx)?;
+                .add_to_command_line(&mut worker_rendered, &mut cli_ctx)?;
             worker.exe.visit_artifacts(artifact_visitor)?;
             Some(WorkerSpec {
                 exe: worker_rendered,
@@ -353,7 +354,7 @@ impl RunAction {
         let mut args_rendered = Vec::<String>::new();
         values
             .args
-            .add_to_command_line(&mut args_rendered, &mut ctx)?;
+            .add_to_command_line(&mut args_rendered, &mut cli_ctx)?;
         values.args.visit_artifacts(artifact_visitor)?;
 
         let cli_env: anyhow::Result<SortedVectorMap<_, _>> = values
@@ -415,8 +416,7 @@ impl RunAction {
         let executor_fs = ctx.executor_fs();
         let fs = executor_fs.fs();
 
-        let (expanded, worker) =
-            self.expand_command_line_and_worker(&ctx.executor_fs(), visitor)?;
+        let (expanded, worker) = self.expand_command_line_and_worker(ctx, visitor)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
         // those things in a HashMap is just not very useful.
