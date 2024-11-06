@@ -157,6 +157,17 @@ pub struct FileChangeTracker {
     files_to_dirty: HashSet<ReadFileKey>,
     dirs_to_dirty: HashSet<ReadDirKey>,
     paths_to_dirty: HashSet<PathMetadataKey>,
+
+    /// Normally, we ignore directory modification events from file watchers and instead compute
+    /// them ourselves when a file in the directory is reported as having been added or removed.
+    /// However, watchman has a bug in which it sometimes incorrectly doesn't report files as having
+    /// been added/removed. We work around this by implementing some logic that marks a directory
+    /// listing as being invalid if both the directory and at least one of its entries is reported
+    /// as having been modified.
+    ///
+    /// We cannot unconditionally respect directory modification events from the file watcher, as it
+    /// is not aware of our ignore rules.
+    maybe_modified_dirs: HashSet<CellPath>,
 }
 
 impl FileChangeTracker {
@@ -165,10 +176,20 @@ impl FileChangeTracker {
             files_to_dirty: Default::default(),
             dirs_to_dirty: Default::default(),
             paths_to_dirty: Default::default(),
+            maybe_modified_dirs: Default::default(),
         }
     }
 
-    pub fn write_to_dice(self, ctx: &mut DiceTransactionUpdater) -> anyhow::Result<()> {
+    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> anyhow::Result<()> {
+        // See comment on `maybe_modified_dirs`
+        for p in self.paths_to_dirty.clone() {
+            if let Some(dir) = p.0.parent() {
+                if self.maybe_modified_dirs.contains(&dir.to_owned()) {
+                    self.insert_dir_keys(dir.to_owned());
+                }
+            }
+        }
+
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
@@ -233,6 +254,10 @@ impl FileChangeTracker {
     pub fn dir_changed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
         self.insert_dir_keys(path);
+    }
+
+    pub fn dir_maybe_changed(&mut self, path: CellPath) {
+        self.maybe_modified_dirs.insert(path);
     }
 
     pub fn dir_added(&mut self, path: CellPath) {

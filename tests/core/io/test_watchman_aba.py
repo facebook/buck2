@@ -24,7 +24,7 @@ async def _get_files(buck: Buck) -> list[str]:
     raise Exception("Missing files output: " + res.stderr)
 
 
-async def _run_test(buck: Buck, expect_bug: bool) -> None:
+async def _run_test(buck: Buck) -> None:
     # Fails on eden because the repo exists, that's ok
     subprocess.run(["sl", "init"], cwd=buck.cwd)
     subprocess.run(["sl", "commit", "--addremove", "-m", "temp"], cwd=buck.cwd)
@@ -38,18 +38,14 @@ async def _run_test(buck: Buck, expect_bug: bool) -> None:
     assert (await _get_files(buck)) == ["files/d/abc", "files/d/empty"]
 
     subprocess.run(["sl", "shelve"], cwd=buck.cwd, check=True)
-    out = await _get_files(buck)
-    if expect_bug:
-        assert out == ["files/d/empty"]
-    else:
-        assert out == ["files/abc", "files/d/empty"]
+    assert (await _get_files(buck)) == ["files/abc", "files/d/empty"]
 
 
 @buck_test(setup_eden=False)
 async def test_watchman_aba_no_eden(buck: Buck) -> None:
-    await _run_test(buck, False)
+    await _run_test(buck)
 
 
 @buck_test(setup_eden=True)
 async def test_watchman_aba_eden(buck: Buck) -> None:
-    await _run_test(buck, True)
+    await _run_test(buck)

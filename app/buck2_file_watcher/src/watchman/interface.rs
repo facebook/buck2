@@ -127,67 +127,63 @@ impl WatchmanQueryProcessor {
             let log_event;
 
             match ev {
-                ChangeEvent::Watchman(ev) => {
-                    match (&ev.kind, &ev.event) {
-                        (WatchmanKind::File, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::File;
-                            match typ {
-                                WatchmanEventType::Modify => {
-                                    handler.file_changed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Modify;
-                                }
-                                WatchmanEventType::Create => {
-                                    handler.file_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create;
-                                }
-                                WatchmanEventType::Delete => {
-                                    handler.file_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete;
-                                }
+                ChangeEvent::Watchman(ev) => match (&ev.kind, &ev.event) {
+                    (WatchmanKind::File, typ) => {
+                        log_kind = buck2_data::FileWatcherKind::File;
+                        match typ {
+                            WatchmanEventType::Modify => {
+                                handler.file_changed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Modify;
                             }
-                        }
-                        (WatchmanKind::Directory, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::Directory;
-                            match typ {
-                                WatchmanEventType::Modify => {
-                                    // We can safely ignore this, as it corresponds to files being added or removed,
-                                    // but there are always file add/remove notifications sent too.
-                                    // See https://fb.workplace.com/groups/watchman.users/permalink/2858842194433249
-                                    return Ok(());
-                                }
-                                WatchmanEventType::Create => {
-                                    handler.dir_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create;
-                                }
-                                WatchmanEventType::Delete => {
-                                    handler.dir_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete;
-                                }
+                            WatchmanEventType::Create => {
+                                handler.file_added(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Create;
                             }
-                        }
-                        (WatchmanKind::Symlink, typ) => {
-                            log_kind = buck2_data::FileWatcherKind::Symlink;
-                            match typ {
-                                WatchmanEventType::Modify => {
-                                    handler.file_changed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Modify;
-                                }
-                                WatchmanEventType::Create => {
-                                    warn!(
-                                        "New symlink detected (source symlinks are not supported): {}",
-                                        cell_path
-                                    );
-                                    handler.file_added(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Create;
-                                }
-                                WatchmanEventType::Delete => {
-                                    handler.file_removed(cell_path);
-                                    log_event = buck2_data::FileWatcherEventType::Delete;
-                                }
+                            WatchmanEventType::Delete => {
+                                handler.file_removed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Delete;
                             }
                         }
                     }
-                }
+                    (WatchmanKind::Directory, typ) => {
+                        log_kind = buck2_data::FileWatcherKind::Directory;
+                        match typ {
+                            WatchmanEventType::Modify => {
+                                handler.dir_maybe_changed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Modify;
+                            }
+                            WatchmanEventType::Create => {
+                                handler.dir_added(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Create;
+                            }
+                            WatchmanEventType::Delete => {
+                                handler.dir_removed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Delete;
+                            }
+                        }
+                    }
+                    (WatchmanKind::Symlink, typ) => {
+                        log_kind = buck2_data::FileWatcherKind::Symlink;
+                        match typ {
+                            WatchmanEventType::Modify => {
+                                handler.file_changed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Modify;
+                            }
+                            WatchmanEventType::Create => {
+                                warn!(
+                                    "New symlink detected (source symlinks are not supported): {}",
+                                    cell_path
+                                );
+                                handler.file_added(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Create;
+                            }
+                            WatchmanEventType::Delete => {
+                                handler.file_removed(cell_path);
+                                log_event = buck2_data::FileWatcherEventType::Delete;
+                            }
+                        }
+                    }
+                },
                 ChangeEvent::SyntheticDirectoryChange => {
                     log_kind = buck2_data::FileWatcherKind::Directory;
                     log_event = buck2_data::FileWatcherEventType::Modify;
