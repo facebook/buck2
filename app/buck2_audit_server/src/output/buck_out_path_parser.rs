@@ -258,28 +258,21 @@ impl BuckOutPathParser {
     // Validates and parses the buck-out path, returning the `BuckOutPathType`. Assumes
     // that the inputted path is not a symlink.
     pub(crate) fn parse(&self, output_path: &str) -> anyhow::Result<BuckOutPathType> {
-        match self.parse_inner(output_path) {
-            Ok(res) => Ok(res),
-            Err(e) => {
-                if let Some(BuckOutPathParserError::MaybeBuck1Path(_)) =
-                    e.downcast_ref::<BuckOutPathParserError>()
-                {
-                    Err(e)
-                } else {
-                    Err(e.context(BuckOutPathParserError::MalformedOutputPath(
-                        output_path.to_owned(),
-                    )))
-                }
-            }
-        }
-    }
-
-    fn parse_inner(&self, output_path: &str) -> anyhow::Result<BuckOutPathType> {
         let path_as_forward_rel_path = ForwardRelativePathBuf::new(output_path.to_owned())?;
         let mut iter = path_as_forward_rel_path.iter().peekable();
 
         validate_buck_out_and_isolation_prefix(&mut iter, output_path)?;
 
+        self.parse_after_isolation_dir(iter)
+            .context(BuckOutPathParserError::MalformedOutputPath(
+                output_path.to_owned(),
+            ))
+    }
+
+    fn parse_after_isolation_dir<'v>(
+        &'v self,
+        mut iter: Peekable<impl Iterator<Item = &'v FileName> + Clone>,
+    ) -> anyhow::Result<BuckOutPathType> {
         // Advance the iterator to the prefix (tmp, test, gen, gen-anon, or gen-bxl)
         match iter.next() {
             Some(part) => {
@@ -455,7 +448,12 @@ mod tests {
         let buck1_path = ".some-isolation-buck-out/gen/bar/path/to/target/__foo__/bar";
 
         let res = buck_out_parser.parse(malformed_path1);
-        assert!(res.err().unwrap().to_string().contains("Malformed"));
+        assert!(
+            res.err()
+                .unwrap()
+                .to_string()
+                .contains("Path does not start with")
+        );
 
         let res = buck_out_parser.parse(malformed_path2);
         assert!(res.err().unwrap().to_string().contains("Malformed"));

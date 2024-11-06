@@ -22,7 +22,7 @@ async def test_audit_output_malformed_path(buck: Buck) -> None:
         buck.audit_output(
             "blah",
         ),
-        stderr_regex="Malformed buck-out path",
+        stderr_regex="Path does not start with buck-out",
     )
 
 
