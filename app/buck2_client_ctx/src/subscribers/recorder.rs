@@ -59,7 +59,6 @@ use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 
-use super::system_warning::check_download_speed;
 use super::system_warning::check_memory_pressure;
 use super::system_warning::check_remaining_disk_space;
 use crate::client_ctx::ClientCommandContext;
@@ -70,6 +69,7 @@ use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_cache_misses;
+use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::is_vpn_enabled;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
@@ -590,7 +590,7 @@ impl<'a> InvocationRecorder<'a> {
                 self.re_avg_download_speed.avg_per_second(),
                 self.concurrent_commands,
             ) {
-                self.tags.push("slow_network_speed".to_owned());
+                self.tags.push("slow_network_speed_ui_only".to_owned());
             }
             if is_vpn_enabled() {
                 self.tags.push("vpn_enabled".to_owned());

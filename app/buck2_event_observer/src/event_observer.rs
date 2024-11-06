@@ -13,7 +13,6 @@ use std::time::Instant;
 use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_events::BuckEvent;
-use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
@@ -37,10 +36,8 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
-    re_avg_download_speed: NetworkSpeedAverage,
     pub cold_build_detector: Option<ColdBuildDetector>,
     dice_state: DiceState,
-    pub concurrent_commands: bool,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
     extra: E,
@@ -65,10 +62,8 @@ where
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            re_avg_download_speed: NetworkSpeedAverage::default(),
             cold_build_detector,
             dice_state: DiceState::new(),
-            concurrent_commands: false,
             extra: E::new(),
         }
     }
@@ -113,8 +108,6 @@ where
                         Snapshot(snapshot) => {
                             self.re_state.update(snapshot);
                             self.two_snapshots.update(event.timestamp(), snapshot);
-                            self.re_avg_download_speed
-                                .update(event.timestamp(), snapshot.re_download_bytes);
                         }
                         TestDiscovery(discovery) => {
                             use buck2_data::test_discovery::Data::*;
@@ -156,10 +149,6 @@ where
                         }
                         DiceStateSnapshot(dice) => {
                             self.dice_state.update(dice);
-                        }
-                        ConcurrentCommands(concurrent_commands) => {
-                            self.concurrent_commands =
-                                self.concurrent_commands || concurrent_commands.trace_ids.len() > 1;
                         }
                         _ => {}
                     }
@@ -203,10 +192,6 @@ where
 
     pub fn test_state(&self) -> &TestState {
         &self.test_state
-    }
-
-    pub fn re_avg_download_speed(&self) -> &NetworkSpeedAverage {
-        &self.re_avg_download_speed
     }
 
     pub fn extra(&self) -> &E {

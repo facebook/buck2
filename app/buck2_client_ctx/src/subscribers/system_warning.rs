@@ -10,7 +10,6 @@
 use buck2_core::is_open_source;
 use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::humanized::HumanizedBytesPerSecond;
 
 use crate::subscribers::recorder::process_memory;
 
@@ -28,7 +27,6 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
-pub const DOWNLOAD_SPEED_LOW_LINK: &str = "https://fburl.com/buck2_slow_download";
 pub const CACHE_MISS_LINK: &str = "https://fburl.com/buck2_cache_miss";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
@@ -55,23 +53,6 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
             DISK_REMEDIATION_LINK
         }
     )
-}
-
-pub(crate) fn slow_download_speed_msg(avg_re_download_speed: Option<u64>) -> String {
-    let avg_speed = if let Some(avg_re_download_speed) = avg_re_download_speed {
-        format!(": {}", HumanizedBytesPerSecond::new(avg_re_download_speed))
-    } else {
-        String::new()
-    };
-    let msg = format!(
-        "Slow download speed is detected{}. This may significantly impact build speed",
-        avg_speed
-    );
-    if !is_open_source() {
-        format!("{msg}: {DOWNLOAD_SPEED_LOW_LINK}.")
-    } else {
-        format!("{msg}.")
-    }
 }
 
 pub(crate) fn cache_misses_msg(action_stats: &ActionStats) -> String {
