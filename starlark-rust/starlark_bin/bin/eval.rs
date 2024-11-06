@@ -124,7 +124,7 @@ impl Context {
         let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
         for (name, item) in globals.documentation().members {
-            let uri = Url::parse(&format!("starlark:{name}.bzl"))?;
+            let uri = Url::parse(&format!("starlark:/{name}.bzl"))?;
             let uri = LspUrl::try_from(uri)?;
             builtin_docs.insert(uri.clone(), item.render_as_code(&name));
             builtin_symbols.insert(name, uri);
