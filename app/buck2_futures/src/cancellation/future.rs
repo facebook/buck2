@@ -31,7 +31,7 @@ use pin_project::pin_project;
 use slab::Slab;
 
 use crate::cancellation::ExplicitCancellationContext;
-use crate::maybe_future::MaybeFuture;
+use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
 
 pub(crate) fn make_cancellable_future<F, T>(
@@ -64,8 +64,11 @@ where
 /// The general safe way of using this future is to spawn it directly via `tokio::spawn`.
 #[pin_project]
 pub struct ExplicitlyCancellableFuture<T> {
+    // TODO(cjhopman): It's not clear DropOnReady is necessary. If it is, we should probably figure
+    // out the specific ordering that we are getting wrong and ensure that we explicitly drop or
+    // process things in the correct order.
     #[pin]
-    fut: MaybeFuture<ExplicitlyCancellableFutureInner<T>>,
+    fut: DropOnReadyFuture<ExplicitlyCancellableFutureInner<T>>,
 }
 
 struct ExplicitlyCancellableFutureInner<T> {
@@ -87,7 +90,7 @@ impl<T> ExplicitlyCancellableFuture<T> {
         execution: ExecutionContext,
     ) -> Self {
         ExplicitlyCancellableFuture {
-            fut: MaybeFuture::Fut(ExplicitlyCancellableFutureInner {
+            fut: DropOnReadyFuture::new(ExplicitlyCancellableFutureInner {
                 shared,
                 execution,
                 started: false,
@@ -102,14 +105,7 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
-
-        match this.fut.as_mut().poll(cx) {
-            Poll::Ready(res) => {
-                this.fut.take();
-                Poll::Ready(res)
-            }
-            Poll::Pending => Poll::Pending,
-        }
+        this.fut.as_mut().poll(cx)
     }
 }
 
