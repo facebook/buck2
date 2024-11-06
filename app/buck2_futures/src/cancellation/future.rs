@@ -163,6 +163,7 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
     }
 }
 
+/// A handle providing the ability to explicitly cancel the associated ExplicitlyCancellableFuture.
 pub struct CancellationHandle {
     shared_state: SharedState,
 }
