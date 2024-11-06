@@ -7,16 +7,4 @@
  * of this source tree.
  */
 
-#![feature(assert_matches)]
-#![feature(pin_deref_mut)]
-
-pub mod cancellable_future;
-pub mod cancellation;
-mod details;
-pub mod drop;
-pub mod drop_on_ready;
-pub mod instrumented_shared;
-mod maybe_future;
-pub mod owning_future;
-pub mod spawn;
-pub mod spawner;
+pub(crate) mod shared_state;
