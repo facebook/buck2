@@ -176,7 +176,9 @@ impl CancellationHandle {
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
     pub fn cancel(self) {
-        self.shared_state.cancel()
+        if !self.shared_state.cancel() {
+            unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
+        }
     }
 }
 
@@ -196,7 +198,7 @@ mod shared {
             (Self { inner: data.dupe() }, Self { inner: data })
         }
 
-        pub(super) fn cancel(&self) {
+        pub(super) fn cancel(&self) -> bool {
             // Store to the boolean first before we write to state.
             // This is because on `poll`, the future will update the state first then check the boolean.
             // This ordering ensures that either the `poll` has read our cancellation, and hence will
@@ -209,18 +211,19 @@ mod shared {
             match future {
                 State::Pending => {
                     // When the future starts, it'll see its cancellation;
+                    true
                 }
                 State::Polled { waker } => {
                     waker.wake();
+                    true
                 }
                 State::Cancelled => {
                     // We were already cancelled, no need to so again.
-                    unreachable!(
-                        "We consume the CancellationHandle on cancel, so this isn't possible"
-                    )
+                    false
                 }
                 State::Exited => {
                     // Nothing to do, that future is done.
+                    true
                 }
             }
         }
