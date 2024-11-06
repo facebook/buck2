@@ -384,6 +384,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # Gather preprocessor inputs.
     (own_non_exported_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx = ctx,
+        raw_headers = ctx.attrs.raw_headers,
         headers_layout = impl_params.headers_layout,
         extra_preprocessors = impl_params.extra_preprocessors,
         non_exported_deps = non_exported_deps,
