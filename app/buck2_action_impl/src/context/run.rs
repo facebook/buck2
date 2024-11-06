@@ -80,10 +80,11 @@ pub(crate) enum RunActionError {
 
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
-    /// Runs a command
+    /// Run a command to produce one or more artifacts.
     ///
     /// * `arguments`: must be of type `cmd_args`, or a type convertible to such (such as a list of
-    ///   strings and artifacts) and must contain at least one `.as_output()` artifact
+    ///   strings and artifacts). See below for detailed description of artifact arguments.
+    /// * `env`: environment variables to set when the command is executed.
     /// * `category`: category and identifier - when used together, identify the action in Buck2's
     ///   event stream, and must be unique for a given target
     /// * `weight`: used to note how heavy the command is and will typically be set to a higher
@@ -130,6 +131,26 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     /// executes.
     ///
     /// When actions run locally, the scratch path is also used as the `TMPDIR`.
+    ///
+    /// ### Input and output artifacts
+    ///
+    /// Run action consumes arbitrary number of input artifacts
+    /// and produces at least one output artifact.
+    ///
+    /// Both input and output artifacts can be passed in:
+    /// - positional `arguments` parameters
+    /// - `env` dict
+    ///
+    /// Input artifacts must be already bound prior to this call,
+    /// meaning these artifacts must be either:
+    /// - source artifacts
+    /// - coming from dependencies
+    /// - declared locally and bound to another action (passed to `.as_output()`)
+    ///   *before* this `run()` call
+    /// - or created already bound with some simple action like `write()`
+    ///
+    /// Output artifacts must be declared locally (within the same analysis),
+    /// and must not be already bound. Output artifacts become "bound" after this call.
     fn run<'v>(
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] arguments: StarlarkCommandLineValueUnpack<'v>,
@@ -217,6 +238,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
+        // TODO(nga): we should not accept output artifacts in worker.
         let (starlark_exe, starlark_worker) = match exe {
             Some(Either::Left(worker_run)) => {
                 let worker: ValueTypedComplex<WorkerInfo> = worker_run.typed.worker();
