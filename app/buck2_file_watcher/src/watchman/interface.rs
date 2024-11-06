@@ -51,6 +51,7 @@ struct WatchmanQueryProcessor {
     report_global_rev: bool,
     last_mergebase: Option<String>,
     last_mergebase_global_rev: Option<u64>,
+    last_mergebase_timestamp: Option<u64>,
 }
 
 /// Used in process_one_change
@@ -209,12 +210,23 @@ fn find_first_valid_parent(mut path: &Path) -> Option<&ProjectRelativePath> {
     }
 }
 
-async fn try_fetch_global_rev(hash: &str) -> Option<u64> {
+struct RevisionDetails {
+    global_rev: u64,
+    timestamp: u64,
+}
+
+async fn try_fetch_revision_details(hash: &str) -> Option<RevisionDetails> {
     // There's a variety of ways in which this might go wrong: `PATH` is messed up, this somehow got
     // turned on in a non-`hg` repo, etc. To make sure we don't fail any builds from this, ignore
     // all errors.
     let command = async_background_command("hg")
-        .args(["log", "-r", hash, "-T", "{get(extras, \"global_rev\")}"])
+        .args([
+            "log",
+            "-r",
+            hash,
+            "-T",
+            "{get(extras, \"global_rev\")}\n{date}",
+        ])
         .env("HPGPLAIN", "1")
         .output();
     let output = tokio::time::timeout(std::time::Duration::from_millis(500), command)
@@ -225,7 +237,11 @@ async fn try_fetch_global_rev(hash: &str) -> Option<u64> {
         return None;
     }
     let stdout = String::from_utf8(output.stdout).ok()?;
-    stdout.trim().parse::<u64>().ok()
+    let (global_rev_string, time_string) = stdout.trim().split_once('\n')?;
+    Some(RevisionDetails {
+        global_rev: global_rev_string.parse::<u64>().ok()?,
+        timestamp: time_string.parse::<f64>().ok()? as u64, // hg returns the fractional seconds
+    })
 }
 
 #[async_trait]
@@ -247,6 +263,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             buck2_data::FileWatcherStats {
                 branched_from_revision: self.last_mergebase.clone(),
                 branched_from_global_rev: self.last_mergebase_global_rev,
+                branched_from_revision_timestamp: self.last_mergebase_timestamp,
                 watchman_version,
                 ..Default::default()
             },
@@ -285,7 +302,13 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
 
         if let Some(hash) = self.last_mergebase.as_ref() {
             if self.report_global_rev {
-                self.last_mergebase_global_rev = try_fetch_global_rev(hash).await;
+                if let Some(revision_details) = try_fetch_revision_details(hash).await {
+                    self.last_mergebase_global_rev = Some(revision_details.global_rev);
+                    self.last_mergebase_timestamp = Some(revision_details.timestamp);
+                } else {
+                    self.last_mergebase_global_rev = None;
+                    self.last_mergebase_timestamp = None;
+                }
             }
         }
 
@@ -299,6 +322,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             fresh_instance: true,
             branched_from_revision: mergebase.clone(),
             branched_from_global_rev: self.last_mergebase_global_rev,
+            branched_from_revision_timestamp: self.last_mergebase_timestamp,
             watchman_version,
             fresh_instance_data: Some(buck2_data::FreshInstance {
                 new_mergebase: has_new_mergebase,
@@ -381,6 +405,7 @@ impl WatchmanFileWatcher {
                 report_global_rev,
                 last_mergebase: None,
                 last_mergebase_global_rev: None,
+                last_mergebase_timestamp: None,
             }),
             watchman_merge_base,
             empty_on_fresh_instance,

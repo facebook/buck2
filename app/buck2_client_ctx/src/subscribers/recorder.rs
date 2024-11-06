@@ -1698,6 +1698,9 @@ fn merge_file_watcher_stats(
     a.events_processed += b.events_processed;
     a.branched_from_revision = a.branched_from_revision.or(b.branched_from_revision);
     a.branched_from_global_rev = a.branched_from_global_rev.or(b.branched_from_global_rev);
+    a.branched_from_revision_timestamp = a
+        .branched_from_revision_timestamp
+        .or(b.branched_from_revision_timestamp);
     a.events.extend(b.events);
     a.incomplete_events_reason = a.incomplete_events_reason.or(b.incomplete_events_reason);
     a.watchman_version = a.watchman_version.or(b.watchman_version);
