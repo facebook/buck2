@@ -53,7 +53,7 @@ impl Counters {
             .enable_on_exec()
             .build()
             .map_err(|error| CounterError {
-                stage: "open user",
+                stage: "open kernel",
                 error,
             })?;
 
@@ -76,7 +76,7 @@ impl Counters {
             self.kernel_counter
                 .read_count_and_time()
                 .map_err(|error| CounterError {
-                    stage: "collect user",
+                    stage: "collect kernel",
                     error,
                 })?;
 
