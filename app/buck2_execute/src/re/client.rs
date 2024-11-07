@@ -649,6 +649,9 @@ impl RemoteExecutionClientImpl {
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
 
                 re_client_config.execute_over_thrift = static_metadata.execute_over_thrift;
+                re_client_config
+                    .thrift_execution_client_config
+                    .concurrency_limit = static_metadata.execution_concurrency_limit;
 
                 // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
                 let logger = slog::Logger::root(slog::Discard, slog::o!());

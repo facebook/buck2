@@ -76,6 +76,7 @@ mod fbcode {
         pub disable_fallocate: bool,
         pub respect_file_symlinks: bool,
         pub execute_over_thrift: bool,
+        pub execution_concurrency_limit: i32,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -231,6 +232,12 @@ mod fbcode {
                     // TODO: Change to always (T203734691)
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
+                execution_concurrency_limit: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "execution_concurrency_limit",
+                    })?
+                    .unwrap_or(4000),
             })
         }
 
