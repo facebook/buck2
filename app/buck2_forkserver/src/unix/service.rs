@@ -19,7 +19,6 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
-use buck2_common::systemd::SystemdPropertySetType;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
@@ -77,7 +76,6 @@ impl UnixForkserverService {
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
         let systemd_runner = SystemdRunner::create_if_enabled(
-            SystemdPropertySetType::Daemon,
             &resource_control,
             "forkserver",
             // we want to create forkserver in the same hierarchy where buck-daemon scope

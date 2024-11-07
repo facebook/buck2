@@ -39,11 +39,6 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
 }
 
-pub enum SystemdPropertySetType {
-    Daemon,
-    Worker,
-}
-
 enum SystemdCreationDecision {
     SkipNotNeeded,
     SkipPreferredButNotRequired { e: anyhow::Error },
@@ -56,17 +51,13 @@ pub struct SystemdRunner {
 }
 
 impl SystemdRunner {
-    fn create(
-        property_set_type: SystemdPropertySetType,
-        config: &ResourceControlConfig,
-        parent_slice: &str,
-        slice_inherit: bool,
-    ) -> Self {
+    fn create(config: &ResourceControlConfig, parent_slice: &str, slice_inherit: bool) -> Self {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
             "--scope".to_owned(),
             "--quiet".to_owned(),
+            "--collect".to_owned(),
         ];
         if let Some(memory_max) = &config.memory_max {
             args.push(format!("--property=MemoryMax={}", memory_max.to_owned()));
@@ -81,17 +72,6 @@ impl SystemdRunner {
             args.push("--property=OOMPolicy=kill".to_owned());
         }
 
-        // Type-specific settings
-        match property_set_type {
-            SystemdPropertySetType::Daemon => {
-                // Set `--collect` because this is the outermost scope in buck2's context
-                // and we don't assume the upper-layer unit collects the garbage of this
-                // scope after being killed.
-                args.push("--collect".to_owned());
-            }
-            SystemdPropertySetType::Worker => { // TODO
-            }
-        }
         args.push(format!("--slice={}", parent_slice));
         if slice_inherit {
             args.push("--slice-inherit".to_owned());
@@ -120,7 +100,6 @@ impl SystemdRunner {
     }
 
     pub fn create_if_enabled(
-        property_set_type: SystemdPropertySetType,
         config: &ResourceControlConfig,
         parent_slice: &str,
         slice_inherit: bool,
@@ -138,12 +117,9 @@ impl SystemdRunner {
             SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
-            SystemdCreationDecision::Create => Ok(Some(Self::create(
-                property_set_type,
-                config,
-                parent_slice,
-                slice_inherit,
-            ))),
+            SystemdCreationDecision::Create => {
+                Ok(Some(Self::create(config, parent_slice, slice_inherit)))
+            }
         }
     }
 
