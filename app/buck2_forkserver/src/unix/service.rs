@@ -27,14 +27,12 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
-use buck2_error::AnyhowContextForError;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_grpc::to_tonic;
-use buck2_util::cgroup_info::CGroupInfo;
 use buck2_util::process::background_command;
 use futures::future::select;
 use futures::future::FutureExt;
@@ -50,7 +48,6 @@ use tonic::Streaming;
 use crate::convert::encode_event_stream;
 use crate::run::maybe_absolutize_exe;
 use crate::run::process_group::ProcessCommand;
-use crate::run::status_decoder::CGroupStatusDecoder;
 use crate::run::status_decoder::DefaultStatusDecoder;
 use crate::run::status_decoder::MiniperfStatusDecoder;
 use crate::run::stream_command_events;
@@ -152,14 +149,17 @@ impl Forkserver for UnixForkserverService {
                         cmd.arg(exe.as_ref());
                         (cmd, Some(output_path))
                     }
-                    (_, _, Some((systemd, action_digest))) => (
-                        systemd.runner.background_command_linux(
-                            exe.as_ref(),
+                    (_, Some(miniperf), Some((systemd, action_digest))) => {
+                        let mut cmd = systemd.runner.background_command_linux(
+                            miniperf.miniperf.as_path(),
                             &action_digest,
                             &AbsNormPath::new(cwd)?,
-                        ),
-                        None,
-                    ),
+                        );
+                        let output_path = miniperf.allocate_output_path();
+                        cmd.arg(output_path.as_path());
+                        cmd.arg(exe.as_ref());
+                        (cmd, Some(output_path))
+                    }
                     _ => (background_command(exe.as_ref()), None),
                 };
 
@@ -213,29 +213,15 @@ impl Forkserver for UnixForkserverService {
                     stream_stdio,
                 )?
                 .left_stream(),
-                None => if let Some((systemd, action_digest)) = systemd_context {
-                    stream_command_events(
-                        process_group,
-                        cancellation,
-                        CGroupStatusDecoder::new(systemd.get_cgroup_path(&action_digest).await?),
-                        DefaultKillProcess {
-                            graceful_shutdown_timeout_s,
-                        },
-                        stream_stdio,
-                    )?
-                    .left_stream()
-                } else {
-                    stream_command_events(
-                        process_group,
-                        cancellation,
-                        DefaultStatusDecoder,
-                        DefaultKillProcess {
-                            graceful_shutdown_timeout_s,
-                        },
-                        stream_stdio,
-                    )?
-                    .right_stream()
-                }
+                None => stream_command_events(
+                    process_group,
+                    cancellation,
+                    DefaultStatusDecoder,
+                    DefaultKillProcess {
+                        graceful_shutdown_timeout_s,
+                    },
+                    stream_stdio,
+                )?
                 .right_stream(),
             };
             let stream = encode_event_stream(stream);
@@ -340,13 +326,5 @@ impl SystemdContainer {
             true,
         )?;
         Ok(runner.map(|runner| Self { runner }))
-    }
-
-    async fn get_cgroup_path(&self, action_digest: &str) -> anyhow::Result<AbsNormPathBuf> {
-        let cgroup_path = CGroupInfo::read_async()
-            .await?
-            .join_hierarchically(&[Self::SLICE_NAME, action_digest])
-            .context("Can't create cgroup path")?;
-        AbsNormPathBuf::from(cgroup_path)
     }
 }

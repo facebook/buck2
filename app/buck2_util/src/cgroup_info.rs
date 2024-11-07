@@ -14,6 +14,7 @@ use buck2_error::BuckErrorContext;
 
 const SLICE_EXT: &str = ".slice";
 
+#[derive(Debug)]
 pub struct CGroupInfo {
     pub path: String,
 }
