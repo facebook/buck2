@@ -11,9 +11,7 @@ use std::process::ExitStatus;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_miniperf_proto::MiniperfOutput;
 
 pub(crate) enum DecodedStatus {
@@ -161,60 +159,5 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 self.out_path
             ))),
         }
-    }
-}
-
-pub(crate) struct CGroupStatusDecoder {
-    cgroup_path: AbsNormPathBuf,
-}
-
-impl CGroupStatusDecoder {
-    #[allow(dead_code)]
-    pub fn new(cgroup_path: AbsNormPathBuf) -> Self {
-        Self { cgroup_path }
-    }
-}
-
-#[async_trait]
-impl StatusDecoder for CGroupStatusDecoder {
-    async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
-        if !status.success() {
-            return Ok(DecodedStatus::Status {
-                exit_code: default_decode_exit_code(status),
-                execution_stats: None,
-            });
-        }
-
-        // The maximum value that the cgroup and its descendants has ever reached.
-        // It includes page cache, in-kernel data structures such as inodes, and network buffers
-        let mem_peak_path = self.cgroup_path.join(FileName::new("memory.peak")?);
-        let mem_peak = async_fs_util::read_to_string(&mem_peak_path)
-            .await
-            .with_context(|| format!("Error reading cgroup peak memory `{}`", mem_peak_path))?
-            .lines()
-            .nth(0)
-            .and_then(|s| s.parse().ok());
-
-        // We ignore error here as sometimes systemd hasn't released scope yet
-        // and slice we are trying to remove is busy.
-        // It's not a big problem as systemd will later collect the slice
-        // TODO(yurysamkevich): a better solution would be to run miniperf in cgroup
-        // and collect memory peak there without creating additional slice
-        let _err = tokio::fs::remove_dir(&self.cgroup_path).await;
-
-        Ok(DecodedStatus::Status {
-            exit_code: default_decode_exit_code(status),
-            execution_stats: Some(buck2_data::CommandExecutionStats {
-                cpu_instructions_user: None,
-                cpu_instructions_kernel: None,
-                userspace_events: None,
-                kernel_events: None,
-                memory_peak: mem_peak,
-            }),
-        })
-    }
-
-    async fn cancel(self) -> anyhow::Result<()> {
-        Ok(())
     }
 }
