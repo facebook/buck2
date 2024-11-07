@@ -7,11 +7,18 @@
 
 # pyre-strict
 
+from enum import Enum
 from typing import Any, Dict, List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import filter_events, random_string
+
+
+class TestDiscovery(Enum):
+    EXECUTED = 1
+    CACHED = 2
+    SKIPPED = 3
 
 
 @buck_test()
@@ -21,8 +28,8 @@ async def test_discovery_cached_on_dice(buck: Buck) -> None:
         "buck2.cache_test_listings=//:ok",
         "//:ok",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)
-    await run_test_and_check_discovery_presence(buck, True, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.SKIPPED, args)
 
 
 @buck_test()
@@ -32,8 +39,8 @@ async def test_discovery_not_cached_for_not_matching_pattern(buck: Buck) -> None
         "buck2.cache_test_listings=//:not_ok",
         "//:ok",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)
-    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
 
 
 @buck_test()
@@ -41,8 +48,8 @@ async def test_discovery_cache_turned_off(buck: Buck) -> None:
     args = [
         "//:ok",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)
-    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
 
 
 @buck_test()
@@ -61,9 +68,9 @@ async def test_discovery_cached_on_re(buck: Buck) -> None:
         "test.remote_cache_enabled=true",
         "//:test",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
     await buck.kill()
-    await run_test_and_check_discovery_presence(buck, True, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.CACHED, args)
     await buck.kill()
     args = [
         "-c",
@@ -78,7 +85,7 @@ async def test_discovery_cached_on_re(buck: Buck) -> None:
         "test.remote_cache_enabled=true",
         "//:test",
     ]
-    await run_test_and_check_discovery_presence(buck, True, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.CACHED, args)
 
 
 @buck_test()
@@ -96,7 +103,7 @@ async def test_local_discovery_uploaded_to_cache(buck: Buck) -> None:
         "test.remote_cache_enabled=true",
         "//:ok",
     ]
-    await run_test_and_check_discovery_presence(buck, False, args)
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
     await _check_cache_uploaded(buck)
 
 
@@ -112,14 +119,31 @@ async def _cache_uploads(buck: Buck) -> List[Dict[str, Any]]:
 
 async def run_test_and_check_discovery_presence(
     buck: Buck,
-    is_absent: bool,
+    discovery: TestDiscovery,
     args: List[str],
 ) -> None:
     await buck.test(*args)
     stdout = (await buck.log("what-ran")).stdout
 
     assert "test.run" in stdout
-    if is_absent:
-        assert "test.discovery" not in stdout
-    else:
-        assert "test.discovery" in stdout
+    match discovery:
+        case TestDiscovery.EXECUTED:
+            for line in stdout.splitlines():
+                if "test.discovery" in line:
+                    if "cached" in line:
+                        raise Exception("test.discovery was cached")
+                    else:
+                        return
+            raise Exception("test.discovery was not skipped")
+        case TestDiscovery.CACHED:
+            for line in stdout.splitlines():
+                if "test.discovery" in line:
+                    if "cache" in line:
+                        return
+                    else:
+                        raise Exception("test.discovery was executed")
+            raise Exception("test.discovery was not skipped")
+        case TestDiscovery.SKIPPED:
+            assert "test.discovery" not in stdout
+        case _:
+            raise Exception("Unexpected discovery type")

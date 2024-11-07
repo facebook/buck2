@@ -928,90 +928,83 @@ impl<'b> BuckTestOrchestrator<'b> {
             digest_config,
         };
 
-        let action_cache = match stage {
-            TestStage::Listing(_) => {
-                executor
-                    .action_cache(manager, &prepared_command, cancellation)
-                    .await
-            }
-            TestStage::Testing { .. } => ControlFlow::Continue(manager),
-        };
-
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
-
-        let (command_exec_result, cached) = match action_cache {
-            ControlFlow::Break(result) => (result, true),
-            ControlFlow::Continue(manager) => {
-                let command = executor.exec_cmd(manager, &prepared_command, cancellation);
-                let result = match stage {
-                    TestStage::Listing(listing) => {
-                        let start = TestDiscoveryStart {
-                            suite_name: listing.clone(),
-                        };
-                        events
-                            .span_async(start, async move {
-                                let result = command.await;
-                                let end = TestDiscoveryEnd {
-                                    suite_name: listing.clone(),
-                                    command_report: Some(
-                                        result
-                                            .report
-                                            .to_command_execution_proto(true, true, false)
-                                            .await,
-                                    ),
-                                };
-                                (result, end)
-                            })
-                            .await
-                    }
-                    TestStage::Testing { suite, testcases } => {
-                        let test_suite = Some(TestSuite {
-                            suite_name: suite.clone(),
-                            test_names: testcases.clone(),
-                            target_label: Some(test_target.target.as_proto()),
-                        });
-                        let start = TestRunStart {
-                            suite: test_suite.clone(),
-                        };
-                        events
-                            .span_async(start, async move {
-                                let result = command.await;
-                                let end = TestRunEnd {
-                                    suite: test_suite,
-                                    command_report: Some(
-                                        result
-                                            .report
-                                            .to_command_execution_proto(true, true, false)
-                                            .await,
-                                    ),
-                                };
-                                (result, end)
-                            })
-                            .await
-                    }
+        let command_exec_result = match stage {
+            TestStage::Listing(listing) => {
+                let start = TestDiscoveryStart {
+                    suite_name: listing.clone(),
                 };
-                (result, false)
+                let (result, cached) = events
+                    .span_async(start, async move {
+                        let (result, cached) = match executor
+                            .action_cache(manager, &prepared_command, cancellation)
+                            .await
+                        {
+                            ControlFlow::Continue(manager) => {
+                                let result = executor
+                                    .exec_cmd(manager, &prepared_command, cancellation)
+                                    .await;
+                                (result, false)
+                            }
+                            ControlFlow::Break(result) => (result, true),
+                        };
+                        let end = TestDiscoveryEnd {
+                            suite_name: listing.clone(),
+                            command_report: Some(
+                                result
+                                    .report
+                                    .to_command_execution_proto(true, true, false)
+                                    .await,
+                            ),
+                        };
+                        ((result, cached), end)
+                    })
+                    .await;
+                if !cached && check_cache_listings_experiment(dice, &test_target_label).await? {
+                    let info = CacheUploadInfo {
+                        target: &test_target as _,
+                        digest_config,
+                    };
+                    let _result = executor
+                        .cache_upload(
+                            &info,
+                            &result,
+                            None,
+                            None,
+                            &prepared_action.action_and_blobs,
+                        )
+                        .await?;
+                }
+                result
+            }
+            TestStage::Testing { suite, testcases } => {
+                let command = executor.exec_cmd(manager, &prepared_command, cancellation);
+                let test_suite = Some(TestSuite {
+                    suite_name: suite.clone(),
+                    test_names: testcases.clone(),
+                    target_label: Some(test_target.target.as_proto()),
+                });
+                let start = TestRunStart {
+                    suite: test_suite.clone(),
+                };
+                events
+                    .span_async(start, async move {
+                        let result = command.await;
+                        let end = TestRunEnd {
+                            suite: test_suite,
+                            command_report: Some(
+                                result
+                                    .report
+                                    .to_command_execution_proto(true, true, false)
+                                    .await,
+                            ),
+                        };
+                        (result, end)
+                    })
+                    .await
             }
         };
-
-        if let TestStage::Listing(_) = stage {
-            if !cached && check_cache_listings_experiment(dice, &test_target_label).await? {
-                let info = CacheUploadInfo {
-                    target: &test_target as _,
-                    digest_config,
-                };
-                let _result = executor
-                    .cache_upload(
-                        &info,
-                        &command_exec_result,
-                        None,
-                        None,
-                        &prepared_action.action_and_blobs,
-                    )
-                    .await?;
-            }
-        }
 
         let CommandExecutionResult {
             outputs,
