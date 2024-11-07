@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cfg/modifier:common.bzl", _get_modifier_info = "get_modifier_info")
-load("@prelude//cfg/modifier:types.bzl", "Modifier", "ModifierInfo", "ModifierLocation")
+load("@prelude//cfg/modifier:conditional_modifier.bzl", _get_modifier_info = "get_modifier_info")
+load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo", "Modifier", "ModifierInfo")
 load("@prelude//configurations:util.bzl", "util")
 
 _TARGETS = [
@@ -62,15 +62,23 @@ def get_test_refs(ctx: bxl.Context) -> TestRefs:
     def make_cfg(targets: list[str]) -> ConfigurationInfo:
         return util.configuration_info_union([self._refs[target][ConfigurationInfo] for target in targets])
 
-    def get_modifier_info(
-            modifier: Modifier,
-            location: ModifierLocation) -> ModifierInfo:
-        _constraint_setting, modifier_info = _get_modifier_info(
-            self._refs,
+    def get_modifier_info(modifier: Modifier) -> ModifierInfo:
+        key_to_provider = {
+            target: providers[ConfigurationInfo]
+            for target, providers in self._refs.items()
+            if ConfigurationInfo in providers
+        }
+        value_to_provider = {
+            target: providers[ConditionalModifierInfo]
+            for target, providers in self._refs.items()
+            if ConditionalModifierInfo in providers
+        }
+        conditional_modifier_info = _get_modifier_info(
             modifier,
-            location,
+            key_to_provider,
+            value_to_provider,
         )
-        return modifier_info
+        return conditional_modifier_info.inner
 
     self = TestRefs(
         _refs = _get_providers(ctx, _TARGETS),
