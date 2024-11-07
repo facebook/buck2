@@ -162,7 +162,7 @@ def apple_test_extra_attrs():
         "_enable_library_evolution": get_enable_library_evolution(),
         "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
-        "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
+        "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
     }
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs
