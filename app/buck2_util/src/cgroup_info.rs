@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fs;
 use std::path::MAIN_SEPARATOR;
 
 use buck2_error::BuckErrorContext;
@@ -19,10 +20,22 @@ pub struct CGroupInfo {
 
 impl CGroupInfo {
     pub async fn read_async() -> buck2_error::Result<CGroupInfo> {
-        tokio::fs::read_to_string("/proc/self/cgroup")
-            .await
-            .with_buck_error_context(|| "Failed to read /proc/self/cgroup")?
-            .lines()
+        Self::read_from_str(
+            &tokio::fs::read_to_string("/proc/self/cgroup")
+                .await
+                .with_buck_error_context(|| "Failed to read /proc/self/cgroup")?,
+        )
+    }
+
+    pub fn read() -> buck2_error::Result<CGroupInfo> {
+        Self::read_from_str(
+            &fs::read_to_string("/proc/self/cgroup")
+                .with_buck_error_context(|| "Failed to read /proc/self/cgroup")?,
+        )
+    }
+
+    fn read_from_str(s: &str) -> buck2_error::Result<CGroupInfo> {
+        s.lines()
             .nth(0)
             .buck_error_context("Failed to read the first line of /proc/self/cgroup")
             .map(|s| CGroupInfo::parse(&s))?
@@ -124,10 +137,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cgroup_info_read() {
+    async fn test_cgroup_info_read_async() {
         // check if cgroups are supported
         if Path::new("/sys/fs/cgroup").exists() {
             let info = CGroupInfo::read_async().await.unwrap();
+            assert!(Path::new(&info.path).exists());
+        }
+    }
+
+    #[test]
+    fn test_cgroup_info_read() {
+        // check if cgroups are supported
+        if Path::new("/sys/fs/cgroup").exists() {
+            let info = CGroupInfo::read().unwrap();
             assert!(Path::new(&info.path).exists());
         }
     }
