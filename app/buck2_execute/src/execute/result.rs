@@ -271,6 +271,9 @@ pub struct CommandExecutionReport {
     /// No exit_code means the command did not finish executing. Signals get mapped into this as
     /// 128 + SIGNUM, which is the convention shells follow.
     pub exit_code: Option<i32>,
+    /// Any additional message that a command's executor wants to be user visible in case of a
+    /// failure. Provided by non-Meta RE server.
+    pub additional_message: Option<String>,
 }
 
 impl CommandExecutionReport {
@@ -350,6 +353,7 @@ impl CommandExecutionReport {
             command_kind,
             signed_exit_code,
             metadata: Some(self.timing.to_proto()),
+            additional_message: self.additional_message.clone(),
         }
     }
 }
@@ -420,6 +424,7 @@ mod tests {
             timing,
             std_streams,
             exit_code: Some(456),
+            additional_message: None,
         }
     }
 
@@ -489,6 +494,7 @@ mod tests {
             stderr: "DEF".to_owned(),
             command_kind: Some(command_execution_kind),
             metadata: Some(command_execution_metadata),
+            additional_message: None,
         };
 
         buck2_data::CommandExecution {

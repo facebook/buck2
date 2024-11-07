@@ -892,15 +892,18 @@ fn lines_for_command_details(
                 )]));
             }
             Some(Command::RemoteCommand(remote_command)) => {
-                if !buck2_core::is_open_source() {
-                    lines.push(Line::from_iter([Span::new_styled_lossy(
-                        format!(
-                            "Reproduce locally: `frecli cas download-action {}`",
-                            remote_command.action_digest
-                        )
-                        .with(Color::DarkRed),
-                    )]));
-                }
+                let help_message = if buck2_core::is_open_source() {
+                    format!("Remote action digest: `{}`", remote_command.action_digest)
+                } else {
+                    format!(
+                        "Reproduce locally: `frecli cas download-action {}`",
+                        remote_command.action_digest
+                    )
+                };
+
+                lines.push(Line::from_iter([Span::new_styled_lossy(
+                    help_message.with(Color::DarkRed),
+                )]));
             }
             Some(Command::OmittedLocalCommand(..)) | None => {
                 // Nothing to show in this case.
@@ -960,6 +963,18 @@ fn lines_for_command_details(
             .attribute(Attribute::Bold),
     )]));
     lines.extend(Lines::from_colored_multiline_string(&command_failed.stderr));
+
+    if let Some(additional_message) = &command_failed.additional_message {
+        if !additional_message.is_empty() {
+            lines.push(Line::from_iter([Span::new_styled_lossy(
+                "info:"
+                    .to_owned()
+                    .with(Color::DarkRed)
+                    .attribute(Attribute::Bold),
+            )]));
+            lines.extend(Lines::from_colored_multiline_string(additional_message));
+        }
+    }
 }
 
 // Truncates a string to a reasonable number characters, or returns None if it doesn't need truncating.

@@ -621,6 +621,7 @@ pub async fn command_details(
         command_kind,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),
+        additional_message: command.additional_message.clone(),
     }
 }
 

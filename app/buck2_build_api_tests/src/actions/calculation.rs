@@ -538,6 +538,7 @@ async fn test_command_details_omission() {
             stderr: "stderr".to_owned().into_bytes(),
         },
         exit_code: Some(1),
+        additional_message: None,
     };
 
     let proto = command_details(&report, false).await;

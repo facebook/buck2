@@ -662,6 +662,7 @@ impl REClient {
                             action_result_ttl: 0,
                             status: TStatus {
                                 code: TCode::OK,
+                                message: execute_response_grpc.message,
                                 ..Default::default()
                             },
                             cached_result: execute_response_grpc.cached_result,

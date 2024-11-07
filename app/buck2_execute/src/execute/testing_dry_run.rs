@@ -103,6 +103,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 Default::default(),
                 Some(1),
                 CommandExecutionMetadata::default(),
+                None,
             ),
         }
     }

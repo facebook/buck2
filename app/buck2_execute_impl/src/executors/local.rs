@@ -514,6 +514,7 @@ impl LocalExecutor {
                         std_streams,
                         Some(exit_code),
                         *timing,
+                        None,
                     )
                 }
             }
@@ -540,10 +541,11 @@ impl LocalExecutor {
                     },
                     None,
                     *timing,
+                    None,
                 )
             }
             GatherOutputStatus::TimedOut(duration) => {
-                manager.timeout(execution_kind, duration, std_streams, *timing)
+                manager.timeout(execution_kind, duration, std_streams, *timing, None)
             }
             GatherOutputStatus::Cancelled => manager.cancel_claim(),
         }

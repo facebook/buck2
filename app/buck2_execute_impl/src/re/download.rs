@@ -83,6 +83,7 @@ pub async fn download_action_results<'a>(
     action_exit_code: i32,
     artifact_fs: &ArtifactFs,
     materialize_failed_re_action_inputs: bool,
+    additional_message: Option<String>,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, re_use_case, digest_config);
     let std_streams = async {
@@ -107,6 +108,7 @@ pub async fn download_action_results<'a>(
             CommandStdStreams::Remote(std_streams),
             Some(action_exit_code),
             response.timing(),
+            additional_message,
         ));
     }
     let downloader = CasDownloader {
@@ -171,6 +173,7 @@ pub async fn download_action_results<'a>(
                 CommandStdStreams::Remote(std_streams),
                 Some(e),
                 response.timing(),
+                additional_message,
             )
         }
     };

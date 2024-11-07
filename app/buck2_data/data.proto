@@ -1131,6 +1131,7 @@ message CommandExecutionDetails {
 
   CommandExecutionKind command_kind = 5;
   CommandExecutionMetadata metadata = 13;
+  optional string additional_message = 14;
 }
 
 message CommandExecutionKind {

@@ -92,6 +92,7 @@ impl WorkerInitError {
                     std_streams,
                     *exit_code,
                     CommandExecutionMetadata::default(),
+                    None,
                 )
             }
             // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
@@ -105,6 +106,7 @@ impl WorkerInitError {
                     },
                     None,
                     CommandExecutionMetadata::default(),
+                    None,
                 ),
             WorkerInitError::InternalError(error) => {
                 manager.error("get_worker_failed", error.clone())

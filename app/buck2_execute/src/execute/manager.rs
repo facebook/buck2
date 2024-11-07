@@ -37,6 +37,7 @@ trait CommandExecutionManagerLike: Sized {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
     fn execution_kind(&self) -> Option<CommandExecutionKind>;
@@ -101,6 +102,7 @@ impl CommandExecutionManager {
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 
@@ -126,6 +128,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -135,6 +138,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
                 timing,
                 std_streams,
                 exit_code,
+                additional_message,
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -179,6 +183,7 @@ impl CommandExecutionManagerWithClaim {
             std_streams,
             Some(0),
             timing,
+            None,
         )
     }
 
@@ -189,6 +194,7 @@ impl CommandExecutionManagerWithClaim {
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 
@@ -206,6 +212,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         CommandExecutionResult {
             outputs,
@@ -215,6 +222,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
                 timing,
                 std_streams,
                 exit_code,
+                additional_message,
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -239,6 +247,7 @@ pub trait CommandExecutionManagerExt: Sized {
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
     fn timeout(
@@ -247,6 +256,7 @@ pub trait CommandExecutionManagerExt: Sized {
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
     fn error(
@@ -276,6 +286,7 @@ where
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::Failure { execution_kind },
@@ -283,6 +294,7 @@ where
             std_streams,
             exit_code,
             timing,
+            additional_message,
         )
     }
 
@@ -292,6 +304,7 @@ where
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
+        additional_message: Option<String>,
     ) -> CommandExecutionResult {
         self.result(
             CommandExecutionStatus::TimedOut {
@@ -302,6 +315,7 @@ where
             std_streams,
             None,
             timing,
+            additional_message,
         )
     }
 
@@ -323,6 +337,7 @@ where
             Default::default(),
             None,
             CommandExecutionMetadata::default(),
+            None,
         )
     }
 }
