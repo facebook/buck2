@@ -58,6 +58,8 @@ impl SystemdRunner {
             "--scope".to_owned(),
             "--quiet".to_owned(),
             "--collect".to_owned(),
+            #[cfg(fbcode_build)]
+            "--setenv=CHGDISABLE=1".to_owned(),
         ];
         if let Some(memory_max) = &config.memory_max {
             args.push(format!("--property=MemoryMax={}", memory_max.to_owned()));
