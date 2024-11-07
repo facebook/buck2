@@ -273,6 +273,11 @@ async def main() -> int:
             "SYSROOT_MULTIPLEXER_DEBUG",
             # Required on Windows for getpass.getuser() to work.
             "USERNAME",
+            # Option to disable hg pre-fork client.
+            # We might pass it to avoid long-running process created inside a per-action cgroup.
+            # Such long-running process make it impossible to clean up systemd slices.
+            # Context https://fb.workplace.com/groups/mercurialusers/permalink/2901424916673036/
+            "CHGDISABLE",
         ]
         if k in os.environ
     }
