@@ -72,7 +72,8 @@ impl ArtifactTag {
 
 impl fmt::Display for ArtifactTag {
     fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(w, "ArtifactTag({})", self.identity)
+        // Do not include identity into display because it introduces non-determinism for starlark.
+        write!(w, "ArtifactTag(...)")
     }
 }
 
