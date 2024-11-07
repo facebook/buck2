@@ -10,7 +10,7 @@ load(
     "LibOutputStyle",
 )
 load("@prelude//linking:types.bzl", "Linkage")
-load(":groups_types.bzl", "Group", "Traversal")
+load(":groups_types.bzl", "Group", "GroupFilterInfo", "Traversal")
 
 # These are targets or link groups that will be added to .linker.argsfile
 # Targets will be expanded to .o files, link groups will be added to NEEDS
@@ -45,6 +45,8 @@ LinkGroupInfo = provider(
     },
 )
 
+_FILTER_ATTR = attrs.one_of(attrs.dep(providers = [GroupFilterInfo]), attrs.string())
+
 def link_group_inlined_map_attr(root_attr):
     return attrs.list(
         attrs.tuple(
@@ -60,7 +62,7 @@ def link_group_inlined_map_attr(root_attr):
                     attrs.enum(Traversal.values()),
                     # filters, either `None`, a single filter, or a list of filters
                     # (which must all match).
-                    attrs.option(attrs.one_of(attrs.list(attrs.string()), attrs.string())),
+                    attrs.option(attrs.one_of(attrs.list(_FILTER_ATTR), _FILTER_ATTR)),
                     # linkage
                     attrs.option(attrs.enum(Linkage.values())),
                 ),

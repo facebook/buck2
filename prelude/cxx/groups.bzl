@@ -30,7 +30,7 @@ load(
     "Group",
     "GroupAttrs",
     "GroupDefinition",
-    "GroupFilter",
+    "GroupFilterInfo",
     "GroupMapping",
 )
 
@@ -147,7 +147,7 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter(entry: str) -> GroupFilter:
+def _parse_filter(entry: str) -> GroupFilterInfo:
     for prefix in ("label:", "tag:"):
         label_regex = strip_prefix(prefix, entry)
         if label_regex != None:
@@ -163,7 +163,7 @@ def _parse_filter(entry: str) -> GroupFilter:
                         return True
                 return False
 
-            return GroupFilter(
+            return GroupFilterInfo(
                 matches = matches_regex,
                 info = {"regex": str(regex_expr)},
             )
@@ -175,7 +175,7 @@ def _parse_filter(entry: str) -> GroupFilter:
             def matches_regex(t, _labels):
                 return regex_expr.match(str(t.raw_target()))
 
-            return GroupFilter(
+            return GroupFilterInfo(
                 matches = matches_regex,
                 info = {"target_regex": str(regex_expr)},
             )
@@ -187,17 +187,19 @@ def _parse_filter(entry: str) -> GroupFilter:
         def matches_target_pattern(t, _labels):
             return build_target_pattern.matches(t)
 
-        return GroupFilter(
+        return GroupFilterInfo(
             matches = matches_target_pattern,
             info = _make_json_info_for_build_target_pattern(build_target_pattern),
         )
 
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, `target_regex` or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[GroupFilter]:
+def _parse_filter_from_mapping(entry: [list[str | Dependency], str, Dependency, None]) -> list[GroupFilterInfo]:
     if type(entry) == type([]):
-        return [_parse_filter(e) for e in entry]
-    if type(entry) == type(""):
+        return [_parse_filter(e) if isinstance(e, str) else e[GroupFilterInfo] for e in entry]
+    elif isinstance(entry, Dependency):
+        return [entry[GroupFilterInfo]]
+    elif type(entry) == type(""):
         return [_parse_filter(entry)]
     return []
 

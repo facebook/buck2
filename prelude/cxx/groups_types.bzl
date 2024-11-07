@@ -26,12 +26,14 @@ Traversal = enum(
     "intersect_any_roots",
 )
 
-GroupFilter = record(
-    # A function which is given a target label and list[str] and returns whether
-    # it matches.
-    matches = field(typing.Callable[[Label, list[str]], bool]),
-    # What should be dumped in the link-groups-info subtarget.
-    info = field(dict[str, typing.Any]),
+GroupFilterInfo = provider(
+    fields = {
+        # What should be dumped in the link-groups-info subtarget.
+        "info": provider_field(dict[str, typing.Any]),
+        # A function which is given a target label and list[str] and returns whether
+        # it matches.
+        "matches": provider_field(typing.Callable[[Label, list[str]], bool]),
+    },
 )
 
 # Representation of a parsed group mapping
@@ -41,7 +43,7 @@ GroupMapping = record(
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[GroupFilter], []),
+    filters = field(list[GroupFilterInfo], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage, None], None),
 )
