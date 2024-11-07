@@ -41,7 +41,7 @@ impl<T> MaybeCompatible<T> {
     /// Converts to a result. Incompatible values get converted to an error.
     ///
     /// This is just a convenience for treating incompatibility as an error.
-    pub fn require_compatible(self) -> anyhow::Result<T> {
+    pub fn require_compatible(self) -> buck2_error::Result<T> {
         match self {
             MaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
             MaybeCompatible::Compatible(result) => Ok(result),
@@ -85,7 +85,7 @@ pub struct IncompatiblePlatformReason {
 }
 
 impl IncompatiblePlatformReason {
-    pub fn to_err(&self) -> anyhow::Error {
+    pub fn to_err(&self) -> buck2_error::Error {
         CompatibilityErrors::TargetIncompatible(self.clone()).into()
     }
 

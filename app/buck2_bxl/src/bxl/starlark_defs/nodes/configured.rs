@@ -152,7 +152,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] key: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneOr<Value<'v>>> {
-        NodeAttributeGetter::get_attr(this, key, heap)
+        Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
 
     /// Gets the all attributes (not include speical attributes) from the configured target node.
@@ -168,7 +168,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredTargetNode,
         heap: &'v Heap,
     ) -> anyhow::Result<SmallMap<StringValue<'v>, Value<'v>>> {
-        NodeAttributeGetter::get_attrs(this, heap)
+        Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
 
     /// Check if rule has the attribute.
@@ -478,7 +478,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         };
 
         let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
-            async move { ctx.get_cell_resolver().await?.get_cell_path(&path) }.boxed_local()
+            async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)?) }.boxed_local()
         })?;
 
         struct SourceFinder {
@@ -543,7 +543,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn deps<'v>(
         this: &'v StarlarkConfiguredTargetNode,
-        // ) -> anyhow::Result<Vec<StarlarkConfiguredTargetNode>> {
+        // ) -> buck2_error::Result<Vec<StarlarkConfiguredTargetNode>> {
     ) -> anyhow::Result<AllocList<impl IntoIterator<Item = StarlarkConfiguredTargetNode> + 'v>>
     {
         Ok(AllocList(

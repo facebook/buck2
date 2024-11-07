@@ -72,7 +72,7 @@ enum LazyResult {
     Cquery(LazyCqueryResult),
     Join(Box<(LazyResult, LazyResult)>),
     Batch(Vec<LazyResult>),
-    Catch(Box<anyhow::Result<LazyResult>>),
+    Catch(Box<buck2_error::Result<LazyResult>>),
 }
 
 impl LazyResult {
@@ -80,7 +80,7 @@ impl LazyResult {
         self,
         heap: &'v Heap,
         bxl_eval_extra: &BxlEvalExtra,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         match self {
             LazyResult::Analysis(analysis_res) => Ok(heap.alloc(analysis_res)),
             LazyResult::ConfiguredTargetNode(res) => res.into_value(heap, bxl_eval_extra),
@@ -93,7 +93,7 @@ impl LazyResult {
             LazyResult::Batch(res) => Ok(heap.alloc(AllocList(
                 res.into_iter()
                     .map(|v| v.into_value(heap, bxl_eval_extra))
-                    .collect::<anyhow::Result<Vec<_>>>()?,
+                    .collect::<buck2_error::Result<Vec<_>>>()?,
             ))),
             LazyResult::Catch(res) => {
                 let val = match *res {
@@ -112,7 +112,7 @@ impl LazyOperation {
         &self,
         dice: &mut DiceComputations<'_>,
         core_data: &BxlContextCoreData,
-    ) -> anyhow::Result<LazyResult> {
+    ) -> buck2_error::Result<LazyResult> {
         match self {
             LazyOperation::Analysis(label) => {
                 Ok(LazyResult::Analysis(analysis(dice, label).await?))
@@ -185,7 +185,7 @@ impl StarlarkLazy {
 
     pub(crate) fn new_configured_target_node(
         arg: OwnedConfiguredTargetNodeArg,
-        global_cfg_options: anyhow::Result<GlobalCfgOptions>,
+        global_cfg_options: buck2_error::Result<GlobalCfgOptions>,
     ) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::ConfiguredTargetNode {
@@ -233,7 +233,7 @@ impl<'v> StarlarkValue<'v> for StarlarkLazy {
 async fn analysis<'v>(
     dice: &mut DiceComputations<'_>,
     label: &ConfiguredProvidersLabel,
-) -> anyhow::Result<StarlarkAnalysisResult> {
+) -> buck2_error::Result<StarlarkAnalysisResult> {
     let maybe_result = dice.get_analysis_result(label.target()).await?;
     match maybe_result {
         MaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
@@ -255,7 +255,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     fn resolve<'v>(
         this: &StarlarkLazy,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
         let lazy = this.lazy.clone();
         let res = bxl_eval_extra.via_dice(|dice, core_data| {
@@ -263,7 +263,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
         });
 
         let heap = eval.heap();
-        res.and_then(|v| v.into_value(heap, bxl_eval_extra))
+        Ok(res.and_then(|v| v.into_value(heap, bxl_eval_extra))?)
     }
 
     /// Make `Lazy` can be resolved later by catching the error.
@@ -274,7 +274,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     ///     target = ctx.configured_targets("cell//path/to:target")
     ///     analysis_result = ctx.lazy.analysis(target).catch().resolve()
     /// ```
-    fn catch(this: &StarlarkLazy) -> anyhow::Result<StarlarkLazy> {
+    fn catch(this: &StarlarkLazy) -> starlark::Result<StarlarkLazy> {
         let lazy = Arc::new(LazyOperation::Catch(this.lazy.dupe()));
         Ok(StarlarkLazy { lazy })
     }

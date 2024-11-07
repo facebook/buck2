@@ -66,12 +66,6 @@ pub enum QueryError {
     Error(buck2_error::Error),
 }
 
-impl From<anyhow::Error> for QueryError {
-    fn from(err: anyhow::Error) -> Self {
-        QueryError::Error(err.into())
-    }
-}
-
 impl From<buck2_error::Error> for QueryError {
     fn from(err: buck2_error::Error) -> Self {
         QueryError::Error(err)

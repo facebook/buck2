@@ -52,7 +52,10 @@ pub(crate) enum FileSetExpr<'v> {
 }
 
 impl<'a> FileSetExpr<'a> {
-    pub(crate) async fn get(self, bxl: &BxlContextNoDice<'_>) -> anyhow::Result<Cow<'a, FileSet>> {
+    pub(crate) async fn get(
+        self,
+        bxl: &BxlContextNoDice<'_>,
+    ) -> buck2_error::Result<Cow<'a, FileSet>> {
         let set = match self {
             FileSetExpr::Literal(val) => Cow::Owned(FileSet::from_iter([FileNode(
                 bxl.parse_query_file_literal(val)?,
@@ -202,7 +205,7 @@ pub(crate) struct StarlarkReadDirSet {
 starlark_simple_value!(StarlarkReadDirSet);
 
 impl StarlarkReadDirSet {
-    fn children(&self) -> anyhow::Result<Vec<CellPath>> {
+    fn children(&self) -> buck2_error::Result<Vec<CellPath>> {
         let mut result: Vec<CellPath> = Vec::with_capacity(self.included.len());
         result.extend(self.included.iter().filter_map(|e| {
             if !self.dirs_only || e.file_type.is_dir() {

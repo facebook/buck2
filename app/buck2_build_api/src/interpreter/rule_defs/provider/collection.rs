@@ -430,8 +430,8 @@ impl<'v> Freeze for ProviderCollection<'v> {
 }
 
 impl FrozenProviderCollection {
-    pub fn default_info(&self) -> anyhow::Result<FrozenRef<'static, FrozenDefaultInfo>> {
-        self.builtin_provider().internal_error_anyhow(
+    pub fn default_info(&self) -> buck2_error::Result<FrozenRef<'static, FrozenDefaultInfo>> {
+        self.builtin_provider().internal_error(
             "DefaultInfo should always be set for providers returned from rule function",
         )
     }

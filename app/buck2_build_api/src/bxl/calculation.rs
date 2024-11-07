@@ -27,7 +27,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         bxl: BaseDeferredKeyBxl,
-    ) -> anyhow::Result<BxlComputeResult>;
+    ) -> buck2_error::Result<BxlComputeResult>;
 }
 
 #[derive(Allocative, Clone, Dupe)]

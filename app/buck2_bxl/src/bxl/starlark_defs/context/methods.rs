@@ -10,7 +10,6 @@
 use std::iter;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_common::dice::cells::HasCellResolver;
@@ -24,6 +23,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -99,7 +99,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .context(BxlContextDynamicError::Unsupported("output".to_owned()))?
+            .buck_error_context_anyhow(BxlContextDynamicError::Unsupported("output".to_owned()))?
             .output_stream;
         Ok(output_stream)
     }
@@ -112,7 +112,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
+            .buck_error_context_anyhow(BxlContextDynamicError::Unsupported("root".to_owned()))?;
         Ok(this
             .async_ctx
             .borrow()
@@ -132,7 +132,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
+            .buck_error_context_anyhow(BxlContextDynamicError::Unsupported("root".to_owned()))?;
         Ok(this.cell_root_abs().to_owned().to_string())
     }
 
@@ -169,7 +169,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         };
         let global_cfg_options = this.resolve_global_cfg_options(target_platform, cli_modifiers)?;
 
-        this.via_dice(|dice, this| {
+        Ok(this.via_dice(|dice, this| {
             dice.via(|ctx| {
                 async move {
                     let target_expr =
@@ -199,7 +199,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Gets the unconfigured target nodes for the `labels`
@@ -216,7 +216,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         labels: TargetListExprArg<'v>,
     ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
-        this.via_dice(|ctx, this| {
+        Ok(this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async move {
                     let expr = TargetListExpr::<'v, TargetNode>::unpack(labels, this, ctx).await?;
@@ -230,7 +230,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Gets the unconfigured subtargets for the given `labels`
@@ -288,7 +288,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkTargetUniverse<'v>> {
         let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
+        Ok(this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
                     let target_expr = if keep_going {
@@ -313,16 +313,16 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
                     let target_set = filter_incompatible(maybe_compatible_set, this_no_dice)?;
 
-                    StarlarkTargetUniverse::new(this, target_set).await
+                    Ok(StarlarkTargetUniverse::new(this, target_set).await?)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Returns the `uqueryctx` that holds all uquery functions.
     fn uquery<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkUQueryCtx<'v>> {
-        StarlarkUQueryCtx::new(this)
+        Ok(StarlarkUQueryCtx::new(this)?)
     }
 
     /// Returns the `cqueryctx` that holds all the cquery functions.
@@ -337,7 +337,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
         let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
-        StarlarkCQueryCtx::new(this, global_cfg_options)
+        Ok(StarlarkCQueryCtx::new(this, global_cfg_options)?)
     }
 
     /// Returns the `aqueryctx` that holds all the aquery functions.
@@ -350,7 +350,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> anyhow::Result<StarlarkAQueryCtx<'v>> {
-        StarlarkAQueryCtx::new(this, target_platform)
+        Ok(StarlarkAQueryCtx::new(this, target_platform)?)
     }
 
     /// Returns the bxl actions to create and register actions for this
@@ -422,7 +422,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<BxlActions<'v>> {
-        this.via_dice(|ctx, this| {
+        Ok(this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async {
                     let (exec_deps, toolchains) = match &this.context_type {
@@ -508,7 +508,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Runs analysis on the given `labels`, accepting an optional `target_platform` which is the
@@ -554,7 +554,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
         let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        let res: anyhow::Result<_> = this.via_dice(|dice, ctx| {
+        let res: buck2_error::Result<_> = this.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
@@ -616,7 +616,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             ValueTyped<'v, StarlarkBxlBuildResult>,
         >,
     > {
-        build::build(
+        Ok(build::build(
             this,
             labels,
             target_platform,
@@ -624,7 +624,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                 anyhow::anyhow!("Unknown materialization setting `{}`", materializations)
             })?,
             eval,
-        )
+        )?)
     }
 
     /// A struct of the command line args as declared using the [`cli_args`] module.
@@ -641,7 +641,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .context(BxlContextDynamicError::Unsupported("cli_args".to_owned()))?
+            .buck_error_context_anyhow(BxlContextDynamicError::Unsupported("cli_args".to_owned()))?
             .cli_args;
 
         Ok(cli_args)
@@ -655,7 +655,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// Checks if a target label exists. Target label must be a string literal, and an exact target.
     fn target_exists<'v>(this: &'v BxlContext<'v>, label: &'v str) -> anyhow::Result<bool> {
-        this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
+        Ok(this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
                 async move {
                     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
@@ -669,12 +669,12 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                             let target_label = TargetLabel::new(pkg, name.as_ref());
                             Ok(ctx.get_target_node(&target_label).await.ok().is_some())
                         }
-                        _ => Err(anyhow::anyhow!(NotATargetLabelString)),
+                        _ => Err(NotATargetLabelString.into()),
                     }
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Returns the `audit_ctx` that holds all the audit functions.
@@ -695,7 +695,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             })
         })?;
 
-        StarlarkAuditCtx::new(this, working_dir, cell_resolver)
+        Ok(StarlarkAuditCtx::new(this, working_dir, cell_resolver)?)
     }
 
     /// Awaits a promise and returns an optional value of the promise.

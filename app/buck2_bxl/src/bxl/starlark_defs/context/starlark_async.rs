@@ -44,10 +44,10 @@ pub(crate) trait BxlDiceComputations {
         f: Box<
             dyn for<'d> FnOnce(
                     &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, anyhow::Result<()>>
+                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
                 + 'b,
         >,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 
     fn global_data(&self) -> &DiceData;
 
@@ -60,9 +60,11 @@ impl dyn BxlDiceComputations + '_ {
     pub(crate) fn via<'a, T: 'a>(
         &'a mut self,
         // The returned future as a 'a lifetime to allow people to capture things in the future with a matching lifetime to self.
-        f: impl for<'d> FnOnce(&'a mut DiceComputations<'d>) -> LocalBoxFuture<'a, anyhow::Result<T>>
+        f: impl for<'d> FnOnce(
+            &'a mut DiceComputations<'d>,
+        ) -> LocalBoxFuture<'a, buck2_error::Result<T>>
         + 'a,
-    ) -> anyhow::Result<T> {
+    ) -> buck2_error::Result<T> {
         // We can't capture a &mut res here in the closure unfortunately, so we need to do this little dance to get values out.
         let res: Rc<OnceCell<T>> = Rc::new(OnceCell::new());
         let res2 = res.clone();
@@ -83,10 +85,10 @@ impl BxlDiceComputations for BxlSafeDiceComputations<'_, '_> {
         f: Box<
             dyn for<'d> FnOnce(
                     &'a mut DiceComputations<'d>,
-                ) -> LocalBoxFuture<'a, anyhow::Result<()>>
+                ) -> LocalBoxFuture<'a, buck2_error::Result<()>>
                 + 'b,
         >,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dispatcher = self.0.per_transaction_data().get_dispatcher().dupe();
 
         dispatcher.span(BxlDiceInvocationStart {}, || {

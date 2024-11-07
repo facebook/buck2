@@ -112,7 +112,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] key: &str,
         heap: &'v Heap,
     ) -> anyhow::Result<NoneOr<Value<'v>>> {
-        NodeAttributeGetter::get_attr(this, key, heap)
+        Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
 
     /// Gets the all attributes (not include speical attributes) from the unconfigured target node.
@@ -128,7 +128,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkTargetNode,
         heap: &'v Heap,
     ) -> anyhow::Result<SmallMap<StringValue<'v>, Value<'v>>> {
-        NodeAttributeGetter::get_attrs(this, heap)
+        Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
 
     /// Check if rule has the attribute.

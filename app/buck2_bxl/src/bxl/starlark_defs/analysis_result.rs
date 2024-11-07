@@ -52,7 +52,7 @@ impl StarlarkAnalysisResult {
     pub(crate) fn new(
         analysis: AnalysisResult,
         label: ConfiguredProvidersLabel,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // Check that the specified subtarget actually exists
         drop(analysis.lookup_inner(&label)?);
         Ok(Self { analysis, label })

@@ -66,9 +66,9 @@ pub(crate) struct EnsuredArtifactGroupInner {
 pub(crate) async fn visit_artifact_path_without_associated_deduped(
     ags: &[ArtifactGroup],
     abs: bool,
-    mut visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
+    mut visitor: impl FnMut(ArtifactPath, bool) -> buck2_error::Result<()>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // If there's a case where a tset projection returns a projection, we want to make sure
     // we are not reprocessing the nested projection over again. Since we are using
 
@@ -125,9 +125,9 @@ impl<'v> EnsuredArtifactGroup<'v> {
 
     pub(crate) async fn visit_artifact_path_without_associated_deduped(
         &self,
-        visitor: impl FnMut(ArtifactPath, bool) -> anyhow::Result<()>,
+        visitor: impl FnMut(ArtifactPath, bool) -> buck2_error::Result<()>,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         visit_artifact_path_without_associated_deduped(self.inner(), self.abs, visitor, ctx).await
     }
 }
@@ -335,7 +335,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     fn abs_path<'v>(
         this: ValueTyped<'v, EnsuredArtifact>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, EnsuredArtifact>> {
         if this.abs() {
             Ok(this)
         } else {
@@ -374,7 +374,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     fn rel_path<'v>(
         this: ValueTyped<'v, EnsuredArtifact>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, EnsuredArtifact>> {
         if !this.abs() {
             Ok(this)
         } else {
@@ -421,7 +421,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     fn abs_path<'v>(
         this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
         if this.abs {
             Ok(this)
         } else {
@@ -452,7 +452,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     fn rel_path<'v>(
         this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
         if !this.abs {
             Ok(this)
         } else {

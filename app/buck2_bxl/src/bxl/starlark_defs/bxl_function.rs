@@ -12,8 +12,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::bxl::BxlFilePath;
 use cli_args::CliArgs;
@@ -52,7 +53,7 @@ pub(crate) fn register_bxl_prefixed_main_function(builder: &mut GlobalsBuilder) 
         #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         bxl_impl(r#impl, cli_args, doc, eval)
     }
 }
@@ -64,7 +65,7 @@ pub(crate) fn register_bxl_main_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         bxl_impl(r#impl, cli_args, doc, eval)
     }
 }
@@ -74,12 +75,12 @@ fn bxl_impl<'v>(
     cli_args: UnpackDictEntries<&'v str, &'v CliArgs>,
     doc: &str,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> anyhow::Result<Value<'v>> {
+) -> starlark::Result<Value<'v>> {
     let implementation = r#impl.0;
 
     let bxl_path = (*starlark_path_from_build_context(eval)?
         .unpack_bxl_file()
-        .ok_or_else(|| anyhow::anyhow!("`bxl` can only be declared in bxl files"))?)
+        .ok_or_else(|| buck2_error!([], "`bxl` can only be declared in bxl files"))?)
     .clone();
 
     let mut unresolved_cli_args = SmallMap::new();
@@ -88,7 +89,9 @@ fn bxl_impl<'v>(
     for (arg, def) in cli_args.entries {
         if let Some(short) = def.short {
             if short_args.contains(&short) {
-                return Err(CliArgError::DuplicateShort(short.to_owned()).into());
+                let buck2_error: buck2_error::Error =
+                    CliArgError::DuplicateShort(short.to_owned()).into();
+                return Err(buck2_error.into());
             } else {
                 short_args.insert(short.to_owned());
             }
@@ -216,7 +219,7 @@ impl FrozenBxlFunction {
         &self,
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'a>,
-    ) -> anyhow::Result<OrderedMap<String, CliArgValue>> {
+    ) -> buck2_error::Result<OrderedMap<String, CliArgValue>> {
         let mut res = OrderedMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
@@ -228,7 +231,7 @@ impl FrozenBxlFunction {
                 snake_case_args,
                 cli.parse_clap(ArgAccessor::Clap { clap: &clap, arg }, ctx)
                     .await
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!("Error parsing cli flag `{}` for bxl function", arg)
                     })?,
             );

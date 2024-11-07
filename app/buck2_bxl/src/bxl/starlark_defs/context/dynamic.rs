@@ -34,7 +34,8 @@ use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;
@@ -72,7 +73,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
-) -> anyhow::Result<RecordedAnalysisValues> {
+) -> buck2_error::Result<RecordedAnalysisValues> {
     // TODO(wendyy) emit telemetry, support profiler
     let dynamic_key =
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
@@ -124,24 +125,26 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
                 async move {
-                    with_starlark_eval_provider(
+                    Ok(with_starlark_eval_provider(
                         dice_ctx,
                         &mut StarlarkProfilerOpt::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
                         move |provider, dice_ctx| {
-                            tokio::task::block_in_place(|| eval_ctx.do_eval(provider, dice_ctx))
+                            Ok(tokio::task::block_in_place(|| {
+                                eval_ctx.do_eval(provider, dice_ctx)
+                            }))
                         },
                     )
-                    .await
+                    .await?)
                 },
-                || Err(anyhow::anyhow!("cancelled")),
+                || Err(buck2_error!([], "cancelled")),
             )
         })
     }
     .await;
 
     match futs.into_iter().exactly_one() {
-        Ok(res) => res?,
+        Ok(res) => Ok(res???),
         Err(_) => panic!("only spawned one task"),
     }
 }
@@ -165,7 +168,7 @@ impl BxlDynamicOutputEvaluator<'_> {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<RecordedAnalysisValues> {
+    ) -> buck2_error::Result<RecordedAnalysisValues> {
         let env = Module::new();
 
         let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
@@ -226,7 +229,7 @@ impl BxlDynamicOutputEvaluator<'_> {
                 }
                 (None, DynamicLambdaCtxDataSpec::New { .. })
                 | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-                    return Err(internal_error_anyhow!("Inconsistent"));
+                    return Err(internal_error!("Inconsistent"));
                 }
             };
 

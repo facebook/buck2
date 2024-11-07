@@ -362,7 +362,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
             async move {
                 let artifacts =
                     get_template_info_provider_artifacts(ctx, &target, template_name).await?;
-                anyhow::Ok(
+                buck2_error::Ok(
                     artifacts
                         .into_iter()
                         .map(move |artifact| (target.dupe(), artifact)),

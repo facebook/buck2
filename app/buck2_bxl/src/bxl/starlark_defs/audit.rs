@@ -8,12 +8,12 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_build_api::audit_cell::audit_cell;
 use buck2_build_api::audit_output::audit_output;
 use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
@@ -81,7 +81,7 @@ impl<'v> StarlarkAuditCtx<'v> {
         ctx: ValueTyped<'v, BxlContext<'v>>,
         working_dir: ProjectRelativePathBuf,
         cell_resolver: CellResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             ctx,
             working_dir,
@@ -116,7 +116,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<
+    ) -> starlark::Result<
         // TODO(nga): used precise type.
         NoneOr<Value<'v>>,
     > {
@@ -124,7 +124,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             .ctx
             .resolve_global_cfg_options(target_platform, vec![].into())?;
 
-        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async move {
                 let output = audit_output(
                     output_path,
@@ -136,11 +136,11 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                 .await?;
                 match output {
                     None => Ok(NoneOr::None),
-                    Some(result) => anyhow::Ok(NoneOr::Other(match result {
+                    Some(result) => buck2_error::Ok(NoneOr::Other(match result {
                         AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
                             action
                                 .action()
-                                .context("audit_output did not return an action")?
+                                .buck_error_context("audit_output did not return an action")?
                                 .dupe(),
                         )),
                         AuditOutputResult::MaybeRelevant(label) => {
@@ -150,7 +150,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                 }
             }
             .boxed_local()
-        })
+        })?)
     }
 
     /// Query information about the [cells] list in .buckconfig.
@@ -174,8 +174,8 @@ fn audit_methods(builder: &mut MethodsBuilder) {
             String,
         >,
         #[starlark(require = named, default = false)] aliases: bool,
-    ) -> anyhow::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
-        this.ctx.async_ctx.borrow_mut().via(|ctx| {
+    ) -> starlark::Result<AllocDict<impl Iterator<Item = (String, String)>>> {
+        Ok(this.ctx.async_ctx.borrow_mut().via(|ctx| {
             async {
                 let result = audit_cell(
                     ctx,
@@ -190,6 +190,6 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                 ))
             }
             .boxed_local()
-        })
+        })?)
     }
 }

@@ -117,8 +117,8 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkTargetUniverse<'v>,
         targets: TargetListExprArg<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
-        this.ctx.via_dice(|dice, ctx| {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async move {
                     let inputs = &*TargetListExpr::<'v, TargetNode>::unpack(targets, ctx, dice)
@@ -134,6 +134,6 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 }

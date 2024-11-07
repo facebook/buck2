@@ -167,7 +167,7 @@ async fn execute_lambda(
     liveness: CancellationObserver,
 ) -> anyhow::Result<RecordedAnalysisValues> {
     if let BaseDeferredKey::BxlLabel(key) = &lambda.as_ref().static_fields.owner {
-        eval_bxl_for_dynamic_output(
+        Ok(eval_bxl_for_dynamic_output(
             key,
             self_key,
             lambda,
@@ -178,7 +178,7 @@ async fn execute_lambda(
             digest_config,
             liveness,
         )
-        .await
+        .await?)
     } else {
         let proto_rule = "dynamic_lambda".to_owned();
 

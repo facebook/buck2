@@ -52,7 +52,11 @@ pub(crate) struct StarlarkUserEventParser<'v> {
 }
 
 impl<'v> StarlarkUserEventParser<'v> {
-    pub(crate) fn parse(&self, id: &str, metadata: Value<'v>) -> anyhow::Result<StarlarkUserEvent> {
+    pub(crate) fn parse(
+        &self,
+        id: &str,
+        metadata: Value<'v>,
+    ) -> buck2_error::Result<StarlarkUserEvent> {
         Ok(StarlarkUserEvent {
             id: id.to_owned(),
             metadata: self.unpack_metadata_map(metadata)?,
@@ -62,7 +66,7 @@ impl<'v> StarlarkUserEventParser<'v> {
     fn unpack_metadata_map(
         &self,
         metadata: Value<'v>,
-    ) -> anyhow::Result<HashMap<String, StarlarkUserMetadataValue>> {
+    ) -> buck2_error::Result<HashMap<String, StarlarkUserMetadataValue>> {
         let metadata = match DictRef::from_value(metadata) {
             Some(metadata) => metadata,
             None => {
@@ -88,14 +92,14 @@ impl<'v> StarlarkUserEventParser<'v> {
                 let v = self.get_metadata_value(&k, v)?;
                 Ok((k, v))
             })
-            .collect::<anyhow::Result<HashMap<_, _>>>()
+            .collect::<buck2_error::Result<HashMap<_, _>>>()
     }
 
     fn get_metadata_value(
         &self,
         k: &str,
         v: Value<'v>,
-    ) -> anyhow::Result<StarlarkUserMetadataValue> {
+    ) -> buck2_error::Result<StarlarkUserMetadataValue> {
         if let Some(v) = v.unpack_str() {
             Ok(StarlarkUserMetadataValue {
                 value: Some(StringValue(v.into())),
@@ -133,7 +137,7 @@ impl<'v> StarlarkUserEventParser<'v> {
             let list = v
                 .iter()
                 .map(|e| self.get_metadata_value(k, e))
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<buck2_error::Result<Vec<_>>>()?;
             let list = StarlarkUserMetadataListValue { value: list };
             Ok(StarlarkUserMetadataValue {
                 value: Some(ListValue(list)),

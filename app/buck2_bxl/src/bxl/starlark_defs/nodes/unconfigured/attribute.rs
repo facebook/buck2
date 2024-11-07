@@ -107,7 +107,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(attribute)]
     fn r#type<'v>(this: &StarlarkCoercedAttr) -> anyhow::Result<&'v str> {
-        this.0.starlark_type()
+        Ok(this.0.starlark_type()?)
     }
 
     /// Returns the value of this attribute. Limited support of selects, concats, and explicit configuration deps
@@ -120,19 +120,19 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(node.attrs.name.value())
     /// ```
     fn value<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        this.0.to_value(this.1.dupe(), heap)
+        Ok(this.0.to_value(this.1.dupe(), heap)?)
     }
 }
 
 pub(crate) trait CoercedAttrExt {
-    fn starlark_type(&self) -> anyhow::Result<&'static str>;
+    fn starlark_type(&self) -> buck2_error::Result<&'static str>;
 
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>>;
 }
 
 impl CoercedAttrExt for CoercedAttr {
     /// Returns the starlark type of this attr
-    fn starlark_type(&self) -> anyhow::Result<&'static str> {
+    fn starlark_type(&self) -> buck2_error::Result<&'static str> {
         match self {
             CoercedAttr::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
             CoercedAttr::Int(_) => Ok(starlark::values::int::INT_TYPE),
@@ -175,7 +175,7 @@ impl CoercedAttrExt for CoercedAttr {
     }
 
     /// Converts the coerced attr to a starlark value
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
         Ok(match &self {
             CoercedAttr::Bool(v) => heap.alloc(v.0),
             CoercedAttr::Int(v) => heap.alloc(*v),
@@ -235,7 +235,7 @@ impl CoercedAttrExt for CoercedAttr {
                 let map: SmallMap<String, Value> = selector
                     .all_entries()
                     .map(|(k, v)| v.to_value(pkg.dupe(), heap).map(|v| (k.to_string(), v)))
-                    .collect::<anyhow::Result<_>>()?;
+                    .collect::<buck2_error::Result<_>>()?;
                 heap.alloc(StarlarkSelector::new(heap.alloc(map)))
             }
             CoercedAttr::Concat(l) => {

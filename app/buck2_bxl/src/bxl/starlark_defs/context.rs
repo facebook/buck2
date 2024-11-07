@@ -17,7 +17,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -39,6 +38,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::digest_config::DigestConfig;
 use derivative::Derivative;
@@ -121,10 +122,10 @@ pub(crate) enum BxlContextType<'v> {
 }
 
 impl<'v> BxlContextType<'v> {
-    fn unpack_root(&self) -> anyhow::Result<&'v RootBxlContextData> {
+    fn unpack_root(&self) -> buck2_error::Result<&'v RootBxlContextData> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
-            BxlContextType::Dynamic(_) => Err(anyhow::anyhow!("Expected root BXL context type")),
+            BxlContextType::Dynamic(_) => Err(buck2_error!([], "Expected root BXL context type")),
         }
     }
 }
@@ -204,13 +205,16 @@ pub(crate) struct BxlContextCoreData {
 }
 
 impl BxlContextCoreData {
-    pub(crate) async fn new(key: BxlKey, dice: &mut DiceComputations<'_>) -> anyhow::Result<Self> {
+    pub(crate) async fn new(
+        key: BxlKey,
+        dice: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<Self> {
         let label = key.label();
         let cell_resolver = dice.get_cell_resolver().await?;
         let cell = label.bxl_path.cell();
         let bxl_cell = cell_resolver
             .get(cell)
-            .with_context(|| format!("Cell does not exist: `{}`", cell))?
+            .with_buck_error_context(|| format!("Cell does not exist: `{}`", cell))?
             .dupe();
         let cell_name = bxl_cell.name();
         let target_alias_resolver = dice.target_alias_resolver().await?;
@@ -284,13 +288,13 @@ impl BxlContextCoreData {
     /// Working dir for resolving literals.
     /// Note, unlike buck2 command line UI, we resolve targets and literals
     /// against the cell root instead of user working dir.
-    pub(crate) fn working_dir(&self) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub(crate) fn working_dir(&self) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell = self.cell_resolver().get(self.cell_name())?;
         Ok(cell.path().as_project_relative_path().to_owned())
     }
 
-    pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
-        Ok(parse_query_file_literal(
+    pub(crate) fn parse_query_file_literal(&self, literal: &str) -> buck2_error::Result<CellPath> {
+        parse_query_file_literal(
             literal,
             self.cell_alias_resolver(),
             self.cell_resolver(),
@@ -300,20 +304,20 @@ impl BxlContextCoreData {
             //   current directory in `buck2 query`, but relative to cell root in BXL.
             self.cell_root_abs(),
             self.project_root(),
-        )?)
+        )
     }
 
     pub(crate) fn resolve_target_platfrom(
         &self,
         target_platform: ValueAsStarlarkTargetLabel<'_>,
     ) -> anyhow::Result<Option<TargetLabel>> {
-        target_platform.parse_target_platforms(
+        Ok(target_platform.parse_target_platforms(
             self.target_alias_resolver(),
             self.cell_resolver(),
             self.cell_alias_resolver(),
             self.cell_name(),
             &self.global_cfg_options().target_platform,
-        )
+        )?)
     }
 
     pub(crate) fn resolve_global_cfg_options(
@@ -339,7 +343,7 @@ impl<'v> BxlContext<'v> {
         output_sink: Rc<RefCell<dyn Write>>,
         error_sink: Rc<RefCell<dyn Write>>,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let root_data = RootBxlContextData {
             cli_args,
             output_stream: heap.alloc_typed(OutputStream::new(
@@ -377,7 +381,7 @@ impl<'v> BxlContext<'v> {
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
         dynamic_data: DynamicBxlContextData,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             async_ctx,
             data: BxlContextNoDice {
@@ -402,8 +406,8 @@ impl<'v> BxlContext<'v> {
         f: impl for<'x> FnOnce(
             &'x mut dyn BxlDiceComputations,
             &'a BxlContextNoDice<'v>,
-        ) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T>
+        ) -> buck2_error::Result<T>,
+    ) -> buck2_error::Result<T>
     where
         'v: 'a,
     {
@@ -414,7 +418,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> anyhow::Result<(AnalysisRegistry<'v>, IndexSet<ArtifactGroup>)> {
+    ) -> buck2_error::Result<(AnalysisRegistry<'v>, IndexSet<ArtifactGroup>)> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
@@ -461,13 +465,13 @@ impl<'v> BxlContext<'v> {
                 EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
             })
             .flatten_ok()
-            .collect::<anyhow::Result<IndexSet<ArtifactGroup>>>()?;
+            .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
 
         Ok((analysis_registry, artifacts))
     }
 
     /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
-    pub(crate) fn take_state_dynamic(&self) -> anyhow::Result<AnalysisRegistry<'v>> {
+    pub(crate) fn take_state_dynamic(&self) -> buck2_error::Result<AnalysisRegistry<'v>> {
         let state = self.data.state.as_ref();
         state.state()?.assert_no_promises()?;
 
@@ -480,12 +484,12 @@ impl<'v> BxlContext<'v> {
 }
 
 pub(crate) trait ErrorPrinter {
-    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()>;
+    fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()>;
 }
 
 impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
-    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
+    fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {
             BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
             BxlContextType::Dynamic(_) => console_message(msg),

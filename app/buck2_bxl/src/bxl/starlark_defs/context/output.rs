@@ -203,7 +203,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                         &this.project_fs,
                                         &this.artifact_fs,
                                     )?;
-                                    write(&path)
+                                    Ok(write(&path)?)
                                 },
                                 dice,
                             )

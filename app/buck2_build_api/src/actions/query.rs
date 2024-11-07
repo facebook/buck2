@@ -200,8 +200,8 @@ pub struct AnalysisData {
 }
 
 impl AnalysisData {
-    pub fn providers(&self) -> anyhow::Result<FrozenProviderCollectionValue> {
-        self.analysis.lookup_inner(&self.target)
+    pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValue> {
+        Ok(self.analysis.lookup_inner(&self.target)?)
     }
 
     pub fn analysis_result(&self) -> &AnalysisResult {

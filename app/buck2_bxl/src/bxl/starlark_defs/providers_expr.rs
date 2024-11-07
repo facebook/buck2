@@ -145,7 +145,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         global_cfg_options_override: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         match arg {
             AnyProvidersExprArg::One(arg) => Ok(ProvidersExpr::Literal(
                 Self::unpack_literal(arg, global_cfg_options_override, ctx, dice).await?,
@@ -161,7 +161,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
-    ) -> anyhow::Result<ConfiguredProvidersLabel> {
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
         match arg {
             AnyProvidersLabelArg::Configured(arg) => Ok(arg.configured_providers_label()),
             AnyProvidersLabelArg::Unconfigured(arg) => {
@@ -178,7 +178,7 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
         global_cfg_options_override: &'c GlobalCfgOptions,
         ctx: &'c BxlContextNoDice<'_>,
         dice: &'c mut DiceComputations<'_>,
-    ) -> anyhow::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
             AnyProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
                 dice.try_compute_join(s.0.iter(), |dice, node| {
@@ -219,7 +219,7 @@ impl ProvidersExpr<ProvidersLabel> {
     pub(crate) fn unpack<'v>(
         arg: ProvidersExprArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         match arg {
             ProvidersExprArg::One(arg) => Self::unpack_literal(arg, ctx),
             ProvidersExprArg::List(arg) => Self::unpack_iterable(arg, ctx),
@@ -229,14 +229,14 @@ impl ProvidersExpr<ProvidersLabel> {
     fn unpack_literal<'v>(
         value: ProvidersLabelArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self::Literal(Self::unpack_providers_label(value, ctx)?))
     }
 
     fn unpack_iterable<'c, 'v: 'c>(
         arg: ProvidersLabelListArg<'v>,
         ctx: &'c BxlContextNoDice<'_>,
-    ) -> anyhow::Result<ProvidersExpr<ProvidersLabel>> {
+    ) -> buck2_error::Result<ProvidersExpr<ProvidersLabel>> {
         match arg {
             ProvidersLabelListArg::TargetSet(s) => Ok(ProvidersExpr::Iterable(
                 s.0.iter()
@@ -265,7 +265,7 @@ impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
     fn unpack_providers_label<'v>(
         arg: ProvidersLabelArg<'v>,
         ctx: &BxlContextNoDice<'_>,
-    ) -> anyhow::Result<ProvidersLabel> {
+    ) -> buck2_error::Result<ProvidersLabel> {
         match arg {
             ProvidersLabelArg::Str(s) => {
                 Ok(ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(

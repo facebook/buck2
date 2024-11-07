@@ -65,7 +65,7 @@ impl<'e> BxlEvalExtra<'e> {
 
     pub(crate) fn from_context<'v, 'a>(
         eval: &Evaluator<'v, 'a, 'e>,
-    ) -> anyhow::Result<&'a BxlEvalExtra<'e>> {
+    ) -> buck2_error::Result<&'a BxlEvalExtra<'e>> {
         let f = || eval.extra?.downcast_ref::<BxlEvalExtra>();
         f().ok_or_else(|| BxlContextError::UnavailableOutsideBxl.into())
     }
@@ -75,15 +75,15 @@ impl<'e> BxlEvalExtra<'e> {
         f: impl for<'x> FnOnce(
             &'x mut dyn BxlDiceComputations,
             &'a BxlContextCoreData,
-        ) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        ) -> buck2_error::Result<T>,
+    ) -> buck2_error::Result<T> {
         let core = &self.core;
         f(&mut *self.dice.borrow_mut(), core)
     }
 }
 
 impl<'e> ErrorPrinter for BxlEvalExtra<'e> {
-    fn print_to_error_stream(&self, msg: String) -> anyhow::Result<()> {
+    fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.eval_extra_type {
             BxlEvalExtraType::Root { error_sink } => writeln!(error_sink.borrow_mut(), "{}", msg)?,
             BxlEvalExtraType::Dynamic => console_message(msg),

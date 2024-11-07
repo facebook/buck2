@@ -178,7 +178,7 @@ pub(crate) fn build<'v>(
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
     eval: &Evaluator<'v, '_, '_>,
-) -> anyhow::Result<
+) -> buck2_error::Result<
     SmallMap<
         ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
         ValueTyped<'v, StarlarkBxlBuildResult>,
@@ -229,7 +229,7 @@ pub(crate) fn build<'v>(
                     .await;
 
                 // TODO (torozco): support --fail-fast in BXL.
-                BuildTargetResult::collect_stream(
+                Ok(BuildTargetResult::collect_stream(
                     futures::stream::iter(
                         per_spec_results
                             .into_iter()
@@ -238,7 +238,7 @@ pub(crate) fn build<'v>(
                     ),
                     false,
                 )
-                .await
+                .await?)
             }
             .boxed_local()
         })

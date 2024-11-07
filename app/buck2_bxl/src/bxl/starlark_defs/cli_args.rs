@@ -15,13 +15,13 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_core::pattern::pattern::lex_target_pattern;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::load_patterns;
@@ -87,7 +87,7 @@ impl CliArgs {
         doc: &str,
         coercer: CliArgType,
         short: Option<Value<'v>>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let default = match default {
             None => None,
             Some(x) => Some(Arc::new(
@@ -135,7 +135,7 @@ impl CliArgs {
         &self,
         clap: ArgAccessor<'a>,
         ctx: &CliResolutionCtx<'a>,
-    ) -> anyhow::Result<CliArgValue> {
+    ) -> buck2_error::Result<CliArgValue> {
         Ok(match self.coercer.parse_clap(clap, ctx).await? {
             None => (**self.default.as_ref().ok_or(CliArgError::MissingCliArg)?).clone(),
             Some(v) => v,
@@ -384,7 +384,7 @@ pub(crate) enum CliArgError {
 }
 
 impl CliArgType {
-    fn coerce_value<'v>(&self, value: Value<'v>) -> anyhow::Result<CliArgValue> {
+    fn coerce_value<'v>(&self, value: Value<'v>) -> buck2_error::Result<CliArgValue> {
         Ok(match self {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
@@ -423,10 +423,7 @@ impl CliArgType {
                 if vs.contains(&v) {
                     CliArgValue::String(v)
                 } else {
-                    return Err(anyhow::anyhow!(CliArgError::DefaultValueTypeError(
-                        self.dupe(),
-                        v
-                    )));
+                    return Err(CliArgError::DefaultValueTypeError(self.dupe(), v).into());
                 }
             }
             CliArgType::List(inner) => {
@@ -462,19 +459,13 @@ impl CliArgType {
                 CliArgValue::ProvidersLabel((*label.label()).clone())
             }
             CliArgType::TargetExpr => {
-                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
-                    CliArgType::TargetExpr
-                )));
+                return Err(CliArgError::NoDefaultsAllowed(CliArgType::TargetExpr).into());
             }
             CliArgType::SubTargetExpr => {
-                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
-                    CliArgType::SubTargetExpr
-                )));
+                return Err(CliArgError::NoDefaultsAllowed(CliArgType::SubTargetExpr).into());
             }
             CliArgType::Json => {
-                return Err(anyhow::anyhow!(CliArgError::NoDefaultsAllowed(
-                    CliArgType::Json
-                )));
+                return Err(CliArgError::NoDefaultsAllowed(CliArgType::Json).into());
             }
         })
     }
@@ -499,10 +490,10 @@ impl CliArgType {
             CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
                 lex_target_pattern::<TargetPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
-                    .and_then(|parsed| {
+                    .map(|parsed| {
                         parsed
                             .target()
-                            .context(CliArgError::NotALabel(x.to_owned(), "target"))
+                            .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
                             .map(|_| ())
                     })
                     .map(|_| x.to_owned())
@@ -510,10 +501,10 @@ impl CliArgType {
             CliArgType::SubTarget => clap.num_args(1).value_parser(|x: &str| {
                 lex_target_pattern::<ProvidersPatternExtra>(x, false)
                     .and_then(|parsed| parsed.pattern.infer_target())
-                    .and_then(|parsed| {
+                    .map(|parsed| {
                         parsed
                             .target()
-                            .context(CliArgError::NotALabel(x.to_owned(), "target"))
+                            .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
                             .map(|_| ())
                     })
                     .map(|_| x.to_owned())
@@ -528,19 +519,19 @@ impl CliArgType {
         &'a self,
         clap: ArgAccessor<'a>,
         ctx: &'a CliResolutionCtx<'a>,
-    ) -> BoxFuture<'a, anyhow::Result<Option<CliArgValue>>> {
+    ) -> BoxFuture<'a, buck2_error::Result<Option<CliArgValue>>> {
         async move {
             Ok(match self {
                 CliArgType::Bool => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try { CliArgValue::Bool(x.parse::<bool>()?) };
+                    let r: buck2_error::Result<_> = try { CliArgValue::Bool(x.parse::<bool>()?) };
                     r.map(Some)
                 })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try { CliArgValue::Int(x.parse::<BigInt>()?) };
+                    let r: buck2_error::Result<_> = try { CliArgValue::Int(x.parse::<BigInt>()?) };
                     r.map(Some)
                 })?,
                 CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try {
+                    let r: buck2_error::Result<_> = try {
                         CliArgValue::Float({
                             x.parse::<f64>()?;
                             x.to_owned()
@@ -566,7 +557,7 @@ impl CliArgType {
                         }))
                         .await
                         .into_iter()
-                        .collect::<anyhow::Result<_>>()?,
+                        .collect::<buck2_error::Result<_>>()?,
                     )),
                 },
                 CliArgType::Option(inner) => Some(if clap.value_of().is_some() {
@@ -578,7 +569,7 @@ impl CliArgType {
                     CliArgValue::None
                 }),
                 CliArgType::TargetLabel => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try {
+                    let r: buck2_error::Result<_> = try {
                         CliArgValue::TargetLabel(
                             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
@@ -593,7 +584,7 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::SubTarget => clap.value_of().map_or(Ok(None), |x| {
-                    let r: anyhow::Result<_> = try {
+                    let r: buck2_error::Result<_> = try {
                         CliArgValue::ProvidersLabel(
                             ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
                                 &ctx.target_alias_resolver,
@@ -688,8 +679,8 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::string(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(default, doc, CliArgType::string(), short)?)
     }
 
     fn list<'v>(
@@ -697,33 +688,33 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
+    ) -> starlark::Result<CliArgs> {
         let coercer = CliArgType::list(inner.coercer.dupe());
-        CliArgs::new(default, doc, coercer, short)
+        Ok(CliArgs::new(default, doc, coercer, short)?)
     }
 
     fn bool<'v>(
         #[starlark(default = false)] default: Value<'v>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(Some(default), doc, CliArgType::bool(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(Some(default), doc, CliArgType::bool(), short)?)
     }
 
     fn int<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::int(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(default, doc, CliArgType::int(), short)?)
     }
 
     fn float<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(default, doc, CliArgType::float(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(default, doc, CliArgType::float(), short)?)
     }
 
     fn option<'v>(
@@ -731,9 +722,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         #[starlark(default = "")] doc: &str,
         #[starlark(default = NoneType)] default: Value<'v>,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
+    ) -> starlark::Result<CliArgs> {
         let coercer = CliArgType::option(inner.coercer.dupe());
-        CliArgs::new(Some(default), doc, coercer, short)
+        Ok(CliArgs::new(Some(default), doc, coercer, short)?)
     }
 
     fn r#enum<'v>(
@@ -741,51 +732,56 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
+    ) -> starlark::Result<CliArgs> {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
         // it ends up being `Type` which doesn't match the data we see.
-        CliArgs::new(
+        Ok(CliArgs::new(
             default,
             doc,
             CliArgType::enumeration(variants.into_iter().collect()),
             short,
-        )
+        )?)
     }
 
     fn target_label<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::target_label(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(None, doc, CliArgType::target_label(), short)?)
     }
 
     fn sub_target<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::sub_target(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(None, doc, CliArgType::sub_target(), short)?)
     }
 
     fn target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::target_expr(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(None, doc, CliArgType::target_expr(), short)?)
     }
 
     fn sub_target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::sub_target_expr(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(
+            None,
+            doc,
+            CliArgType::sub_target_expr(),
+            short,
+        )?)
     }
 
     fn json<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
-    ) -> anyhow::Result<CliArgs> {
-        CliArgs::new(None, doc, CliArgType::json(), short)
+    ) -> starlark::Result<CliArgs> {
+        Ok(CliArgs::new(None, doc, CliArgType::json(), short)?)
     }
 }
 
@@ -838,7 +834,7 @@ mod tests {
     use crate::bxl::starlark_defs::cli_args::JsonCliArgValueData;
 
     #[test]
-    fn print_cli_arg_list() -> anyhow::Result<()> {
+    fn print_cli_arg_list() -> buck2_error::Result<()> {
         let args = vec![
             CliArgValue::Bool(true),
             CliArgValue::String("test".to_owned()),
@@ -853,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    fn print_cli_arg_json() -> anyhow::Result<()> {
+    fn print_cli_arg_json() -> buck2_error::Result<()> {
         let mut args = OrderedMap::new();
         args.insert("my_bool".to_owned(), JsonCliArgValueData::Bool(true));
         args.insert(
@@ -884,7 +880,7 @@ mod tests {
     }
 
     #[test]
-    fn coerce_starlark() -> anyhow::Result<()> {
+    fn coerce_starlark() -> buck2_error::Result<()> {
         let heap = Heap::new();
 
         assert_eq!(

@@ -77,7 +77,7 @@ pub(crate) enum FileExpr<'v> {
 fn parse_cell_path_as_file_expr_literal(
     val: &str,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<Option<CellPath>> {
+) -> buck2_error::Result<Option<CellPath>> {
     Ok(match maybe_split_cell_alias_and_relative_path(val)? {
         Some((alias, path)) => {
             let cell_name = cell_alias_resolver.resolve(alias.as_str())?;
@@ -95,7 +95,7 @@ impl<'a> FileExpr<'a> {
         self,
         dice: &mut DiceComputations<'_>,
         cell_instance: &CellInstance,
-    ) -> anyhow::Result<CellPath> {
+    ) -> buck2_error::Result<CellPath> {
         match self {
             FileExpr::Literal(val) => {
                 let cell_alias_resolver =
@@ -110,7 +110,7 @@ impl<'a> FileExpr<'a> {
                         } else {
                             Cow::Borrowed(<&ProjectRelativePath>::try_from(val)?)
                         };
-                        dice.get_cell_resolver().await?.get_cell_path(&rel)
+                        Ok(dice.get_cell_resolver().await?.get_cell_path(&rel)?)
                     }
                 }
             }
@@ -130,7 +130,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_cell_path_as_file_expr_literal() -> anyhow::Result<()> {
+    fn test_parse_cell_path_as_file_expr_literal() -> buck2_error::Result<()> {
         let cell1 = CellName::testing_new("cell1");
 
         let map = hashmap![

@@ -85,7 +85,7 @@ impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
 pub(crate) async fn get_cquery_env(
     ctx: &BxlContextNoDice<'_>,
     global_cfg_options_override: &GlobalCfgOptions,
-) -> anyhow::Result<Box<dyn BxlCqueryFunctions>> {
+) -> buck2_error::Result<Box<dyn BxlCqueryFunctions>> {
     (NEW_BXL_CQUERY_FUNCTIONS.get()?)(
         global_cfg_options_override.clone(),
         ctx.project_root().dupe(),
@@ -99,7 +99,7 @@ async fn unpack_targets<'v>(
     this: &StarlarkCQueryCtx<'v>,
     dice: &mut DiceComputations<'_>,
     targets: ConfiguredTargetListExprArg<'v>,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     filter_incompatible(
         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
             targets,
@@ -118,7 +118,7 @@ impl<'v> StarlarkCQueryCtx<'v> {
     pub(crate) fn new(
         ctx: ValueTyped<'v, BxlContext<'v>>,
         global_cfg_options: GlobalCfgOptions,
-    ) -> anyhow::Result<StarlarkCQueryCtx<'v>> {
+    ) -> buck2_error::Result<StarlarkCQueryCtx<'v>> {
         Ok(Self {
             ctx,
             global_cfg_options_override: global_cfg_options,
@@ -140,7 +140,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(move |dice, ctx| {
+        Ok(this.ctx.via_dice(move |dice, ctx| {
             dice.via(|dice| {
                 async move {
                     let filter = filter
@@ -161,7 +161,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     // The somepath query.
@@ -171,7 +171,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|dice, ctx| {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     let filter = filter
@@ -193,7 +193,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The attrfilter query for rule attribute filtering.
@@ -203,17 +203,17 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    Ok(unpack_targets(this, dice, targets)
+                    unpack_targets(this, dice, targets)
                         .await?
                         .attrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)?)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The nattrfilter query for rule attribute filtering.
@@ -224,17 +224,17 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    Ok(unpack_targets(this, dice, targets)
+                    unpack_targets(this, dice, targets)
                         .await?
                         .nattrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)?)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The kind query for filtering targets by rule type.
@@ -250,17 +250,17 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    Ok(unpack_targets(this, dice, targets)
+                    unpack_targets(this, dice, targets)
                         .await?
                         .kind(regex)
-                        .map(StarlarkTargetSet::from)?)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The attrregexfilter query for rule attribute filtering with regex.
@@ -277,17 +277,17 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    Ok(unpack_targets(this, dice, targets)
+                    unpack_targets(this, dice, targets)
                         .await?
                         .attrregexfilter(attribute, value)
-                        .map(StarlarkTargetSet::from)?)
+                        .map(StarlarkTargetSet::from)
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// The owner query for finding targets that own specified files. Note that if you do not pass in a cell
@@ -306,7 +306,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         files: FileSetExpr,
         #[starlark(default = NoneOr::None)] universe: NoneOr<ConfiguredTargetListExprArg<'v>>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -323,7 +324,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The deps query for finding the transitive closure of dependencies.
@@ -340,7 +341,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -363,7 +365,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The filter query for filtering targets by name.
@@ -379,18 +381,19 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
-                        Ok(unpack_targets(this, dice, targets)
+                        unpack_targets(this, dice, targets)
                             .await?
-                            .filter_name(regex)?)
+                            .filter_name(regex)
                     }
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The inputs query for finding input files.
@@ -405,13 +408,14 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
-                    async { Ok(unpack_targets(this, dice, targets).await?.inputs()?) }.boxed_local()
+                    async { unpack_targets(this, dice, targets).await?.inputs() }.boxed_local()
                 })
             })
-            .map(StarlarkFileSet::from)
+            .map(StarlarkFileSet::from)?)
     }
 
     /// The testsof query for listing the tests of the specified targets.
@@ -419,7 +423,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -432,7 +437,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The testsof query for listing the tests of the specified targets. Performs default target platform
@@ -441,7 +446,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -457,7 +463,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// The rdeps query for finding the transitive closure of reverse dependencies.
@@ -475,7 +481,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         depth: Option<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, ctx| {
                 dice.via(|dice| {
                     async {
@@ -498,7 +505,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkTargetSet::from)
+            .map(StarlarkTargetSet::from)?)
     }
 
     /// Evaluates some general query string. `query_args` can be a target_set of unconfigured nodes, or
@@ -526,7 +533,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        this.ctx.via_dice(|dice, ctx| {
+        Ok(this.ctx.via_dice(|dice, ctx| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -548,7 +555,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 }
                 .boxed_local()
             })
-        })
+        })?)
     }
 
     /// Find the build file(s) that defines a target or a target set.
@@ -564,7 +571,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
     ) -> anyhow::Result<StarlarkFileSet> {
-        this.ctx
+        Ok(this
+            .ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
@@ -574,6 +582,6 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     .boxed_local()
                 })
             })
-            .map(StarlarkFileSet::from)
+            .map(StarlarkFileSet::from)?)
     }
 }

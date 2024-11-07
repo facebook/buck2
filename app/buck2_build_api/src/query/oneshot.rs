@@ -29,7 +29,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-    ) -> anyhow::Result<QueryEvaluationResult<TargetNode>>;
+    ) -> buck2_error::Result<QueryEvaluationResult<TargetNode>>;
 
     async fn eval_cquery(
         &self,
@@ -40,7 +40,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
         collect_universes: bool,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         QueryEvaluationResult<ConfiguredTargetNode>,
         Option<Vec<Arc<CqueryUniverse>>>,
     )>;
@@ -52,7 +52,7 @@ pub trait QueryFrontend: Send + Sync + 'static {
         query: &str,
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
-    ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>>;
+    ) -> buck2_error::Result<QueryEvaluationResult<ActionQueryNode>>;
 }
 
 pub static QUERY_FRONTEND: LateBinding<&'static dyn QueryFrontend> =

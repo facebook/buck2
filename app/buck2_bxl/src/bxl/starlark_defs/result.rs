@@ -155,7 +155,7 @@ fn result_methods(builder: &mut MethodsBuilder) {
 }
 
 impl<T> StarlarkResultGen<T> {
-    pub(crate) fn from_result(res: anyhow::Result<T>) -> Self {
+    pub(crate) fn from_result(res: buck2_error::Result<T>) -> Self {
         match res {
             Ok(val) => Self::Ok(val),
             Err(err) => Self::Err(buck2_error::Error::from(err)),

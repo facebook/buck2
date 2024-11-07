@@ -33,7 +33,7 @@ impl BxlCalculationDyn for BxlCalculationImpl {
         &self,
         ctx: &mut DiceComputations<'_>,
         bxl: BaseDeferredKeyBxl,
-    ) -> anyhow::Result<BxlComputeResult> {
+    ) -> buck2_error::Result<BxlComputeResult> {
         eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?).await
     }
 }
@@ -45,10 +45,10 @@ pub(crate) fn init_bxl_calculation_impl() {
 pub(crate) async fn eval_bxl(
     ctx: &mut DiceComputations<'_>,
     bxl: BxlKey,
-) -> anyhow::Result<BxlComputeResult> {
+) -> buck2_error::Result<BxlComputeResult> {
     ctx.compute(&internal::BxlComputeKey(bxl))
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
 }
 
 #[async_trait]

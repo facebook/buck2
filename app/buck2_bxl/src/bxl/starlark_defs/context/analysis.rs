@@ -26,14 +26,14 @@ pub(crate) async fn analysis<'v>(
     ctx: &BxlContextNoDice<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
-) -> anyhow::Result<
+) -> buck2_error::Result<
     Either<Option<StarlarkAnalysisResult>, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
 > {
     let analysis = dice
         .compute_join(expr.labels(), |dice, label| {
             async move {
                 let maybe_result = dice.get_analysis_result(label.target()).await?;
-                anyhow::Ok((label, maybe_result))
+                buck2_error::Ok((label, maybe_result))
             }
             .boxed()
         })
@@ -63,7 +63,7 @@ pub(crate) async fn analysis<'v>(
             Ok(r) => r.map(Ok),
             Err(e) => Some(Err(e)),
         })
-        .collect::<anyhow::Result<Vec<_>>>()?;
+        .collect::<buck2_error::Result<Vec<_>>>()?;
 
     match expr {
         ProvidersExpr::Literal(_) => {

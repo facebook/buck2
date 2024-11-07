@@ -355,7 +355,7 @@ async fn build_configured_label_inner<'a>(
                         .boxed(),
                     )
                 } else {
-                    Err(reason.to_err())
+                    Err(reason.to_err().into())
                 };
             }
             MaybeCompatible::Compatible(v) => v,

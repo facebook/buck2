@@ -294,7 +294,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_default_output_artifact_only(
         &self,
         processor: &mut dyn FnMut(Artifact),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
                 ValueAsArtifactLike::unpack_value_err(value)?
@@ -308,7 +308,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_default_output_other_artifacts_only(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             let others = ValueAsArtifactLike::unpack_value_err(value)?
                 .0
@@ -324,7 +324,7 @@ impl FrozenDefaultInfo {
     pub fn for_each_other_output(
         &self,
         processor: &mut dyn FnMut(ArtifactGroup),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
 
         impl CommandLineArtifactVisitor for Visitor<'_> {
@@ -342,7 +342,10 @@ impl FrozenDefaultInfo {
         })
     }
 
-    pub fn for_each_output(&self, processor: &mut dyn FnMut(ArtifactGroup)) -> anyhow::Result<()> {
+    pub fn for_each_output(
+        &self,
+        processor: &mut dyn FnMut(ArtifactGroup),
+    ) -> buck2_error::Result<()> {
         self.for_each_default_output_artifact_only(&mut |a| processor(ArtifactGroup::Artifact(a)))?;
         self.for_each_default_output_other_artifacts_only(processor)?;
         self.for_each_other_output(processor)
@@ -351,8 +354,8 @@ impl FrozenDefaultInfo {
     fn for_each_in_list(
         &self,
         value: FrozenValue,
-        mut processor: impl FnMut(Value) -> anyhow::Result<()>,
-    ) -> anyhow::Result<()> {
+        mut processor: impl FnMut(Value) -> buck2_error::Result<()>,
+    ) -> buck2_error::Result<()> {
         let outputs_list = ListRef::from_frozen_value(value)
             .unwrap_or_else(|| panic!("expected list, got `{:?}` from info `{:?}`", value, self));
 

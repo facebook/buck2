@@ -47,7 +47,7 @@ pub trait RuleAnalsysisCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>>;
 }
 
 pub static RULE_ANALYSIS_CALCULATION: LateBinding<&'static dyn RuleAnalsysisCalculationImpl> =
@@ -60,7 +60,7 @@ pub trait RuleAnalysisCalculation {
     async fn get_analysis_result(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>>;
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>>;
 
     /// Return the analysis result for a configuration rule `TargetLabel`
     /// (e. g. `constraint_value`).
@@ -87,7 +87,7 @@ impl RuleAnalysisCalculation for DiceComputations<'_> {
     async fn get_analysis_result(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
         RULE_ANALYSIS_CALCULATION
             .get()?
             .get_analysis_result(self, target)

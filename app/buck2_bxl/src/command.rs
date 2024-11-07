@@ -286,7 +286,7 @@ pub(crate) async fn get_bxl_cli_args(
         dice: ctx,
     };
 
-    resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
+    Ok(resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await?)
 }
 
 async fn copy_output<W: Write>(

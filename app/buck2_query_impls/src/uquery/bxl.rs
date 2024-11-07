@@ -80,7 +80,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(uquery_functions()
                 .allpaths(
@@ -100,7 +100,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(uquery_functions()
                 .somepath(
@@ -120,7 +120,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 uquery_functions()
@@ -142,7 +142,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 uquery_functions()
@@ -162,7 +162,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 uquery_functions()
@@ -178,7 +178,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 uquery_functions()
@@ -194,7 +194,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 uquery_functions()

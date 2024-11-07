@@ -71,14 +71,14 @@ mod tests {
             &self,
             _ctx: &mut dyn DeferredCtx,
             _dice: &mut DiceComputations<'_>,
-        ) -> anyhow::Result<DeferredValue<Self::Output>> {
+        ) -> buck2_error::Result<DeferredValue<Self::Output>> {
             self.2.store(true, Ordering::SeqCst);
             Ok(DeferredValue::Ready(FakeDeferredOutput(self.0)))
         }
     }
 
     #[tokio::test]
-    async fn lookup_deferred_from_bxl() -> anyhow::Result<()> {
+    async fn lookup_deferred_from_bxl() -> buck2_error::Result<()> {
         let bxl = BxlKey::new(
             BxlFunctionLabel {
                 bxl_path: BxlFilePath::testing_new("cell", "dir"),

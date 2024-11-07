@@ -21,7 +21,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
     result: QueryEvaluationResult<T>,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> buck2_error::Result<Value<'v>> {
     Ok(match result {
         QueryEvaluationResult::Single(result) => match result {
             QueryEvaluationValue::TargetSet(targets) => {
@@ -52,7 +52,7 @@ pub(crate) fn parse_query_evaluation_result<'v, T: NodeLike>(
                         },
                     ))
                 })
-                .collect::<anyhow::Result<_>>()?,
+                .collect::<buck2_error::Result<_>>()?,
         )),
     })
 }

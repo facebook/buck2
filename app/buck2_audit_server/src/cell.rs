@@ -72,7 +72,7 @@ pub(crate) async fn audit_cell(
     aliases: bool,
     cwd: &ProjectRelativePath,
     fs: &ProjectRoot,
-) -> anyhow::Result<IndexMap<String, AbsNormPathBuf>> {
+) -> buck2_error::Result<IndexMap<String, AbsNormPathBuf>> {
     let cells = ctx.get_cell_resolver().await?;
     let this_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
     let mappings: IndexMap<_, _> = {

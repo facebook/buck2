@@ -126,7 +126,7 @@ impl LazyCqueryOperation {
         &self,
         dice: &mut DiceComputations<'_>,
         core_data: &BxlContextCoreData,
-    ) -> anyhow::Result<LazyCqueryResult> {
+    ) -> buck2_error::Result<LazyCqueryResult> {
         match &self.args {
             LazyCqueryArg::Eval {
                 query,
@@ -155,9 +155,9 @@ impl LazyCqueryOperation {
 }
 
 impl LazyCqueryResult {
-    pub(crate) fn into_value<'v>(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn into_value<'v>(self, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
         match self {
-            LazyCqueryResult::Eval(result) => result.into_value(heap),
+            LazyCqueryResult::Eval(result) => Ok(result.into_value(heap)?),
         }
     }
 }

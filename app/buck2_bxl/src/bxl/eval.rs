@@ -10,7 +10,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use anyhow::Context;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
@@ -24,7 +23,9 @@ use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
+use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::with_dispatcher;
@@ -74,7 +75,7 @@ pub(crate) async fn eval(
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
-) -> anyhow::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -100,7 +101,7 @@ pub(crate) async fn eval(
                     profile_mode_or_instrumentation,
                     liveness,
                 ),
-                || Err(anyhow::anyhow!("cancelled")),
+                || Err(buck2_error!([], "cancelled")),
             )
         })
     }
@@ -125,7 +126,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> anyhow::Result<BxlResult> {
+    ) -> buck2_error::Result<BxlResult> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -149,7 +150,7 @@ impl BxlInnerEvaluator {
         let file = Rc::new(RefCell::new(
             data.project_fs()
                 .create_file(&file_path, false)
-                .context("Failed to create output cache for BXL")?,
+                .buck_error_context("Failed to create output cache for BXL")?,
         ));
 
         let error_stream = mk_stream_cache("error", &key);
@@ -161,7 +162,7 @@ impl BxlInnerEvaluator {
         let error_file = Rc::new(RefCell::new(
             data.project_fs()
                 .create_file(&error_file_path, false)
-                .context("Failed to create error cache for BXL")?,
+                .buck_error_context("Failed to create error cache for BXL")?,
         ));
 
         let (actions, ensured_artifacts) = {
@@ -234,7 +235,7 @@ impl BxlInnerEvaluator {
 
         provider
             .visit_frozen_module(Some(&frozen_module))
-            .context("Profiler heap visitation failed")?;
+            .buck_error_context("Profiler heap visitation failed")?;
 
         Ok(bxl_result)
     }
@@ -246,7 +247,7 @@ async fn eval_bxl_inner(
     key: BxlKey,
     profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
-) -> anyhow::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
@@ -284,7 +285,7 @@ async fn eval_bxl_inner(
         ctx,
         &mut profiler,
         starlark_eval_description,
-        move |provider, ctx| eval_ctx.do_eval(provider, ctx),
+        move |provider, ctx| Ok(eval_ctx.do_eval(provider, ctx)?),
     )
     .await?;
 
@@ -314,18 +315,18 @@ fn eval_bxl<'v>(
     ctx: ValueTyped<'v, BxlContext<'v>>,
     provider: &mut dyn StarlarkEvaluatorProvider,
     force_print_stacktrace: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let bxl_impl = frozen_callable.implementation();
     let result = eval.eval_function(bxl_impl.to_value(), &[ctx.to_value()], &[]);
 
     provider
         .evaluation_complete(eval)
-        .context("Profiler finalization failed")?;
+        .buck_error_context("Profiler finalization failed")?;
 
     let e = match result {
         Ok(v) => {
             if !v.is_none() {
-                return Err(anyhow::anyhow!(NotAValidReturnType(v.get_type())));
+                return Err(NotAValidReturnType(v.get_type()).into());
             }
 
             return Ok(());
@@ -366,10 +367,10 @@ struct NotABxlFunction(String, &'static str);
 pub(crate) fn get_bxl_callable(
     spec: &BxlFunctionLabel,
     bxl_module: &LoadedModule,
-) -> anyhow::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
+) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
     let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
-    callable.downcast_anyhow::<FrozenBxlFunction>()
+    Ok(callable.downcast_anyhow::<FrozenBxlFunction>()?)
 }
 
 pub(crate) struct CliResolutionCtx<'a> {
@@ -390,7 +391,7 @@ pub(crate) async fn resolve_cli_args<'a>(
     cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: &Vec<String>,
     frozen_callable: &'a FrozenBxlFunction,
-) -> anyhow::Result<BxlResolvedCliArgs> {
+) -> buck2_error::Result<BxlResolvedCliArgs> {
     match frozen_callable
         .to_clap(clap::Command::new(&spec.name).no_binary_name(true))
         .try_get_matches_from(bxl_args)

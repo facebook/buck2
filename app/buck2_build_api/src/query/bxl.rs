@@ -36,27 +36,27 @@ pub trait BxlCqueryFunctions: Send {
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn owner(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn deps(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn rdeps(
         &self,
         dice: &mut DiceComputations<'_>,
@@ -64,17 +64,17 @@ pub trait BxlCqueryFunctions: Send {
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn testsof(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn testsof_with_default_target_platform(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>>;
+    ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>>;
 }
 
 #[async_trait]
@@ -85,21 +85,21 @@ pub trait BxlUqueryFunctions: Send {
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<TargetNode>,
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn deps(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn rdeps(
         &self,
         dice: &mut DiceComputations<'_>,
@@ -107,22 +107,22 @@ pub trait BxlUqueryFunctions: Send {
         targets: &TargetSet<TargetNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn testsof(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn owner(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn targets_in_buildfile(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<TargetNode>>;
+    ) -> buck2_error::Result<TargetSet<TargetNode>>;
 }
 
 #[async_trait]
@@ -133,21 +133,21 @@ pub trait BxlAqueryFunctions: Send {
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn somepath(
         &self,
         dice: &mut DiceComputations<'_>,
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn deps(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn rdeps(
         &self,
         dice: &mut DiceComputations<'_>,
@@ -155,32 +155,32 @@ pub trait BxlAqueryFunctions: Send {
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn testsof(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn owner(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn get_target_set(
         &self,
         dice: &mut DiceComputations<'_>,
         configured_labels: Vec<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)>;
+    ) -> buck2_error::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)>;
     async fn all_outputs(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn all_actions(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
 }
 
 pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
@@ -190,7 +190,7 @@ pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
         ProjectRoot,
         CellName,
         CellResolver,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlCqueryFunctions>>>>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Box<dyn BxlCqueryFunctions>>>>>,
 > = LateBinding::new("NEW_BXL_CQUERY_FUNCTIONS");
 
 pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
@@ -198,7 +198,7 @@ pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
         ProjectRoot,
         CellName,
         CellResolver,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlUqueryFunctions>>>>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Box<dyn BxlUqueryFunctions>>>>>,
 > = LateBinding::new("NEW_BXL_UQUERY_FUNCTIONS");
 
 pub static NEW_BXL_AQUERY_FUNCTIONS: LateBinding<
@@ -208,5 +208,5 @@ pub static NEW_BXL_AQUERY_FUNCTIONS: LateBinding<
         ProjectRoot,
         CellName,
         CellResolver,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn BxlAqueryFunctions>>>>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Box<dyn BxlAqueryFunctions>>>>>,
 > = LateBinding::new("NEW_BXL_AQUERY_FUNCTIONS");

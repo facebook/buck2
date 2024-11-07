@@ -100,12 +100,12 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                         },
                         |ctx| {
                             async move {
-                                Ok(get_from_template_placeholder_info(
+                                get_from_template_placeholder_info(
                                     ctx,
                                     self.template_name,
                                     self.targets.iter().duped(),
                                 )
-                                .await?)
+                                .await
                             }
                             .boxed()
                         },

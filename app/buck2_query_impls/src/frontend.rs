@@ -42,7 +42,7 @@ impl QueryFrontend for QueryFrontendImpl {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
-    ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
+    ) -> buck2_error::Result<QueryEvaluationResult<TargetNode>> {
         Ok(ctx
             .with_linear_recompute(|ctx| async move {
                 let evaluator = get_uquery_evaluator(&ctx, working_dir).await?;
@@ -65,7 +65,7 @@ impl QueryFrontend for QueryFrontendImpl {
         global_cfg_options: GlobalCfgOptions,
         target_universe: Option<&[String]>,
         collect_universes: bool,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         QueryEvaluationResult<ConfiguredTargetNode>,
         Option<Vec<Arc<CqueryUniverse>>>,
     )> {
@@ -99,7 +99,7 @@ impl QueryFrontend for QueryFrontendImpl {
         query: &str,
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
-    ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
+    ) -> buck2_error::Result<QueryEvaluationResult<ActionQueryNode>> {
         Ok(ctx
             .with_linear_recompute(|ctx| async move {
                 let evaluator = get_aquery_evaluator(&ctx, working_dir, global_cfg_options).await?;

@@ -36,8 +36,9 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         HashMap<DynamicValue, FrozenProviderCollectionValue>,
         DigestConfig,
         CancellationObserver,
-    )
-        -> Pin<Box<dyn Future<Output = anyhow::Result<RecordedAnalysisValues>> + Send + 'v>>,
+    ) -> Pin<
+        Box<dyn Future<Output = buck2_error::Result<RecordedAnalysisValues>> + Send + 'v>,
+    >,
 > = LateBinding::new("EVAL_BXL_FOR_DYNAMIC_OUTPUT");
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
@@ -50,7 +51,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
-) -> anyhow::Result<RecordedAnalysisValues> {
+) -> buck2_error::Result<RecordedAnalysisValues> {
     (EVAL_BXL_FOR_DYNAMIC_OUTPUT.get()?)(
         base_deferred_key,
         self_key,

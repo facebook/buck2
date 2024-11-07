@@ -94,7 +94,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 buck2_error::Ok(
@@ -120,7 +120,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         from: &TargetSet<ConfiguredTargetNode>,
         to: &TargetSet<ConfiguredTargetNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 buck2_error::Ok(
@@ -145,7 +145,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 let query_delegate = self.setup_dice_query_delegate(&dice).await?;
@@ -161,7 +161,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         targets: &TargetSet<ConfiguredTargetNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 cquery_functions()
@@ -186,7 +186,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         targets: &TargetSet<ConfiguredTargetNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 cquery_functions()
@@ -209,7 +209,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 cquery_functions()
@@ -228,7 +228,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
+    ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 cquery_functions()

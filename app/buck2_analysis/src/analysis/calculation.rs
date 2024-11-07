@@ -103,17 +103,17 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<AnalysisResult>> {
+    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
         ctx.compute(&AnalysisKey(target.dupe()))
             .await?
-            .map_err(anyhow::Error::from)
+            .map_err(buck2_error::Error::from)
     }
 }
 
 pub async fn resolve_queries(
     ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
-) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
+) -> buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
 
     if queries.peek().is_none() {
@@ -134,7 +134,7 @@ async fn resolve_queries_impl(
     ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
-) -> anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
+) -> buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
     let query_results = ctx
         .try_compute_join(
@@ -192,7 +192,7 @@ async fn resolve_queries_impl(
 pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
+) -> buck2_error::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
     KeepGoing::try_compute_join_all(ctx, configured_node.deps(), |ctx, dep| {
         async move {
             let res = ctx

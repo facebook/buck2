@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::iter;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
 use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
@@ -23,6 +22,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::load_patterns;
@@ -71,7 +71,7 @@ pub(crate) enum TargetListExpr<'v, Node: QueryTarget> {
 pub(crate) fn filter_incompatible<T: ErrorPrinter>(
     targets: impl IntoIterator<Item = MaybeCompatible<ConfiguredTargetNode>>,
     error_printer: &T,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
     let mut incompatible_targets = SmallSet::new();
 
@@ -165,7 +165,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     pub(crate) async fn get(
         self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Cow<'v, TargetSet<TargetNode>>> {
+    ) -> buck2_error::Result<Cow<'v, TargetSet<TargetNode>>> {
         let set = ctx
             .try_compute_join(self.iter(), |ctx, node_or_ref| {
                 async move { node_or_ref.get_from_dice(ctx).await }.boxed()
@@ -180,7 +180,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
     pub(crate) async fn get_one(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<TargetNode>> {
+    ) -> buck2_error::Result<Option<TargetNode>> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(node_or_ref.get_from_dice(ctx).await?),
             _ => None,
@@ -221,14 +221,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn get(
         self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
+    ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         dice.compute_join(self.iter(), |ctx, node_or_ref| {
-            async move {
-                Ok(ctx
-                    .get_configured_target_node(node_or_ref.node_ref())
-                    .await?)
-            }
-            .boxed()
+            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
         })
         .await
         .into_iter()
@@ -239,7 +234,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn get_one(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
+    ) -> buck2_error::Result<Option<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(
                 dice.get_configured_target_node(node_or_ref.node_ref())
@@ -261,7 +256,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
             ConfiguredTargetListExprArg::Target(arg) => {
                 Ok(
@@ -284,7 +279,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
     }
 
@@ -293,7 +288,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, true).await
     }
 
@@ -301,7 +296,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         allow_unconfigured: bool,
         unconfigured_label: &str,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if !allow_unconfigured {
             if global_cfg_options.target_platform.is_none() {
                 soft_error!(
@@ -320,7 +315,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
             ConfiguredTargetNodeArg::ConfiguredTargetNode(configured_target) => {
                 Ok(Self::One(TargetExpr::Node(configured_target.0.dupe())))
@@ -354,7 +349,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextNoDice<'v>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
             ConfiguredTargetListExprArg::Target(ConfiguredTargetNodeArg::Str(val)) => {
                 Self::unpack_string_literal(val, global_cfg_options, ctx, dice, true).await
@@ -370,7 +365,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
         keep_going: bool,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
             ctx.target_alias_resolver(),
             // TODO(nga): Parse relaxed relative to cell root is incorrect.
@@ -437,7 +432,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
-    ) -> anyhow::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match value.typed {
             ConfiguredTargetListArg::ConfiguredTargetSet(s) => {
                 return Ok(Self::TargetSet(Cow::Borrowed(s)));
@@ -452,7 +447,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                                 global_cfg_options,
                             )?;
 
-                            anyhow::Ok(TargetExpr::Label(Cow::Owned(
+                            buck2_error::Ok(TargetExpr::Label(Cow::Owned(
                                 dice.get_configured_target(node.label(), global_cfg_options)
                                     .await?,
                             )))
@@ -486,10 +481,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         }
                         .for_each(|t| resolved.push(TargetExpr::Node(t))),
                         _ => {
-                            return Err(anyhow::anyhow!(TargetExprError::NotATarget(
-                                value.value.to_repr()
-                            ))
-                            .context(format!(
+                            let error: buck2_error::Error =
+                                TargetExprError::NotATarget(value.value.to_repr()).into();
+                            return Err(error.context(format!(
                                 "Error resolving list `{}`",
                                 truncate(&value.value.to_repr(), 150)
                             )));
@@ -508,7 +502,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         value: TargetListExprArg<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetListExprArg::Target(x) => Self::unpack_literal(x, ctx, dice).await,
             TargetListExprArg::List(x) => Self::unpack_iterable(x, ctx, dice).await,
@@ -519,7 +513,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         value: TargetNodeOrTargetLabelOrStr<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetNodeOrTargetLabelOrStr::TargetNode(target) => {
                 Ok(TargetListExpr::One(TargetExpr::Node(target.0.dupe())))
@@ -559,7 +553,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         value: TargetSetOrTargetList<'v>,
         ctx: &BxlContextNoDice<'_>,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetListExpr<'v, TargetNode>> {
+    ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
             TargetSetOrTargetList::TargetSet(s) => Ok(Self::TargetSet(Cow::Borrowed(s))),
             TargetSetOrTargetList::TargetList(items) => {
@@ -577,7 +571,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
                         .for_each(|t| resolved.push(TargetExpr::Node(t))),
                         TargetListExpr::Iterable(_) => {
                             return Err(TargetExprError::NotATarget(item.value.to_repr()))
-                                .context("list in a list");
+                                .buck_error_context("list in a list");
                         }
                     }
                 }
@@ -598,7 +592,7 @@ impl SingleOrCompatibleConfiguredTargets {
         self,
         heap: &'v Heap,
         bxl_eval_extra: &BxlEvalExtra,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         match self {
             SingleOrCompatibleConfiguredTargets::Single(node) => {
                 Ok(heap.alloc(StarlarkConfiguredTargetNode(node)))
@@ -616,7 +610,7 @@ async fn unpack_string_literal<'v>(
     global_cfg_options: &GlobalCfgOptions,
     ctx: &BxlContextCoreData,
     dice: &mut DiceComputations<'_>,
-) -> anyhow::Result<SingleOrCompatibleConfiguredTargets> {
+) -> buck2_error::Result<SingleOrCompatibleConfiguredTargets> {
     match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
         ctx.target_alias_resolver(),
         // TODO(nga): Parse relaxed relative to cell root is incorrect.
@@ -683,7 +677,7 @@ impl OwnedTargetNodeOrTargetLabel {
         &self,
         global_cfg_options: &GlobalCfgOptions,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<ConfiguredTargetNode> {
+    ) -> buck2_error::Result<ConfiguredTargetNode> {
         let configured_label = dice
             .get_configured_target(self.label(), global_cfg_options)
             .await?;
@@ -695,7 +689,7 @@ impl OwnedTargetNodeOrTargetLabel {
     pub(crate) async fn to_unconfigured_target_node(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetNode> {
+    ) -> buck2_error::Result<TargetNode> {
         match self {
             OwnedTargetNodeOrTargetLabel::TargetNode(node) => Ok(node.0.dupe()),
             OwnedTargetNodeOrTargetLabel::TargetLabel(label) => Ok(dice
@@ -739,7 +733,7 @@ impl OwnedConfiguredTargetNodeArg {
         global_cfg_options: &GlobalCfgOptions,
         ctx: &BxlContextCoreData,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<SingleOrCompatibleConfiguredTargets> {
+    ) -> buck2_error::Result<SingleOrCompatibleConfiguredTargets> {
         match self {
             OwnedConfiguredTargetNodeArg::ConfiguredTargetNode(node) => {
                 Ok(SingleOrCompatibleConfiguredTargets::Single(node.0.dupe()))
@@ -784,7 +778,7 @@ impl OwnedTargetNodeArg {
         &self,
         ctx: &BxlContextCoreData,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
+    ) -> buck2_error::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
         match self {
             OwnedTargetNodeArg::Unconfigured(unconfigured) => unconfigured
                 .to_unconfigured_target_node(dice)

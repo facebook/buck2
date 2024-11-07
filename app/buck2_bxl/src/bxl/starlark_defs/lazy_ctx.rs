@@ -180,7 +180,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         let owned = OwnedConfiguredTargetNodeArg::from_ref(expr);
         Ok(StarlarkLazy::new_configured_target_node(
             owned,
-            global_cfg_options,
+            Ok(global_cfg_options?),
         ))
     }
 

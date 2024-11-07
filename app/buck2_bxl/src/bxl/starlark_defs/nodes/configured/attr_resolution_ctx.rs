@@ -38,25 +38,30 @@ pub(crate) struct LazyAttrResolutionContext<'v> {
     pub(crate) module: &'v Module,
     pub(crate) configured_node: &'v ConfiguredTargetNode,
     pub(crate) ctx: &'v BxlContext<'v>,
-    pub(crate) dep_analysis_results:
-        OnceLock<anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>>,
-    pub(crate) query_results: OnceLock<anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
+    pub(crate) dep_analysis_results: OnceLock<
+        buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
+    >,
+    pub(crate) query_results:
+        OnceLock<buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>>>,
 }
 
 impl<'v> LazyAttrResolutionContext<'v> {
     pub(crate) fn dep_analysis_results(
         &self,
-    ) -> &anyhow::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+    ) -> &buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
+    {
         self.dep_analysis_results.get_or_init(|| {
-            get_deps_from_analysis_results(self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
-                get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
-            })?)
+            Ok(get_deps_from_analysis_results(
+                self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
+                    get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
+                })?,
+            )?)
         })
     }
 
     pub(crate) fn query_results(
         &self,
-    ) -> &anyhow::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
+    ) -> &buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
         self.query_results.get_or_init(|| {
             self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
                 resolve_queries(dice_ctx, self.configured_node.as_ref()).boxed_local()
@@ -96,8 +101,12 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     fn resolve_query(&self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
         match self.query_results() {
             Ok(res) => resolve_query(res, query, self.module),
-            Err(e) => Err(anyhow::anyhow!("Error resolving query: `{}`", e))
-                .map_err(buck2_error::Error::from),
+            Err(e) => Err(buck2_error::buck2_error!(
+                [],
+                "Error resolving query: `{}`",
+                e
+            ))
+            .map_err(buck2_error::Error::from),
         }
     }
 

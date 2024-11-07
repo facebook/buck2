@@ -71,7 +71,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-) -> anyhow::Result<BxlExecutionResolution> {
+) -> buck2_error::Result<BxlExecutionResolution> {
     // bxl has on transitions
     let resolved_transitions = OrderedMap::new();
 
@@ -128,7 +128,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     let exec_deps_configured = exec_deps.try_map(|e| {
         let label =
             e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
-        anyhow::Ok(label)
+        buck2_error::Ok(label)
     })?;
 
     Ok(BxlExecutionResolution {
@@ -158,11 +158,11 @@ impl BxlExecutionResolution {
 pub(crate) fn validate_action_instantiation(
     this: &BxlContextNoDice<'_>,
     bxl_execution_resolution: &BxlExecutionResolution,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut registry = this.state.state.borrow_mut();
 
     if (*registry).is_some() {
-        return Err(anyhow::anyhow!(BxlActionsError::RegistryAlreadyCreated));
+        return Err(BxlActionsError::RegistryAlreadyCreated.into());
     } else {
         let execution_platform = bxl_execution_resolution.resolved_execution.clone();
         let analysis_registry = AnalysisRegistry::new_from_owner(
@@ -201,7 +201,7 @@ impl<'v> BxlActions<'v> {
         toolchains: Vec<ConfiguredProvidersLabel>,
         eval: &mut Evaluator<'v, '_, '_>,
         ctx: &'c mut DiceComputations<'_>,
-    ) -> anyhow::Result<BxlActions<'v>> {
+    ) -> buck2_error::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, eval, ctx).await?;
         let toolchains = alloc_deps(toolchains, eval, ctx).await?;
         Ok(Self {
@@ -216,7 +216,7 @@ async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     eval: &mut Evaluator<'v, '_, '_>,
     ctx: &'c mut DiceComputations<'_>,
-) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
+) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
         .try_compute_join(deps, |ctx, target| {
             async move {
@@ -224,7 +224,7 @@ async fn alloc_deps<'v, 'c>(
                     .get_analysis_result(target.target())
                     .await?
                     .require_compatible()?;
-                anyhow::Ok((target, res))
+                buck2_error::Ok((target, res))
             }
             .boxed()
         })
@@ -243,7 +243,7 @@ async fn alloc_deps<'v, 'c>(
                 None,
             );
 
-            anyhow::Ok((starlark_label, dependency))
+            buck2_error::Ok((starlark_label, dependency))
         })
         .collect::<Result<_, _>>()?;
 

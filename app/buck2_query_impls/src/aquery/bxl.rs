@@ -100,7 +100,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .allpaths(
@@ -120,7 +120,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         from: &TargetSet<ActionQueryNode>,
         to: &TargetSet<ActionQueryNode>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             Ok(aquery_functions()
                 .somepath(
@@ -140,7 +140,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         targets: &TargetSet<ActionQueryNode>,
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 aquery_functions()
@@ -162,7 +162,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         targets: &TargetSet<ActionQueryNode>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 aquery_functions()
@@ -182,7 +182,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 aquery_functions()
@@ -198,7 +198,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
             .with_linear_recompute(|dice| async move {
                 aquery_functions()
@@ -215,14 +215,14 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         configured_labels: Vec<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
+    ) -> buck2_error::Result<(Vec<ConfiguredTargetLabel>, TargetSet<ActionQueryNode>)> {
         let target_sets = dice
             .try_compute_join(
                 configured_labels,
                 |ctx: &mut DiceComputations,
                  label: ConfiguredProvidersLabel|
                  -> BoxFuture<
-                    anyhow::Result<Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>>,
+                    buck2_error::Result<Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>>,
                 > {
                     async move {
                         let maybe_result = ctx.get_analysis_result(label.target()).await?;
@@ -264,7 +264,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             let query_val = special_aquery_functions()
                 .all_outputs(
@@ -285,7 +285,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         dice.with_linear_recompute(|dice| async move {
             let query_val = special_aquery_functions()
                 .all_actions(

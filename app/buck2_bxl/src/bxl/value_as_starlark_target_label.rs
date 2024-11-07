@@ -39,7 +39,7 @@ impl<'v> ValueAsStarlarkTargetLabel<'v> {
         cell_alias_resolver: &CellAliasResolver,
         cell_name: CellName,
         default_target_platform: &Option<TargetLabel>,
-    ) -> anyhow::Result<Option<TargetLabel>> {
+    ) -> buck2_error::Result<Option<TargetLabel>> {
         match self {
             ValueAsStarlarkTargetLabel::None(_) => Ok(default_target_platform.clone()),
             ValueAsStarlarkTargetLabel::Str(s) => {

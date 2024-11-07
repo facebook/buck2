@@ -291,7 +291,7 @@ pub trait GetStarlarkProfilerInstrumentation {
     async fn get_profile_mode_for_analysis(
         &mut self,
         target_label: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<StarlarkProfileMode>;
+    ) -> buck2_error::Result<StarlarkProfileMode>;
 
     async fn get_profile_mode_for_loading(
         &mut self,
@@ -314,7 +314,7 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
     async fn get_profile_mode_for_analysis(
         &mut self,
         target_label: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<StarlarkProfileMode> {
+    ) -> buck2_error::Result<StarlarkProfileMode> {
         let cfg = self
             .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
             .await?;
