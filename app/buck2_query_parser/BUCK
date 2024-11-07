@@ -6,7 +6,6 @@ rust_library(
     name = "buck2_query_parser",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:enum-map",
         "fbsource//third-party/rust:nom",

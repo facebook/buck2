@@ -236,7 +236,7 @@ fn convert_to_str_error(err: VerboseError<Span>) -> VerboseError<&str> {
 }
 
 /// Parses a query string into a SpannedExpr. Requires that the entire input is consumed.
-pub fn parse_expr(input: &str) -> anyhow::Result<SpannedExpr> {
+pub fn parse_expr(input: &str) -> buck2_error::Result<SpannedExpr> {
     let span = Span::new(input);
     // Parse with fast error (`()`) first,
     // and on error reparse again with `VerboseError` to get detailed errors.
@@ -493,7 +493,7 @@ mod tests {
     }
 
     #[test]
-    fn test_expr() -> anyhow::Result<()> {
+    fn test_expr() -> buck2_error::Result<()> {
         run_tests(
             expr,
             &[
@@ -577,7 +577,7 @@ mod tests {
     }
 
     #[test]
-    fn test_function() -> anyhow::Result<()> {
+    fn test_function() -> buck2_error::Result<()> {
         run_tests(
             expr_function,
             &["a()", "a(a)", "a(a, b, c)", "a(a,   b,   c)"],
@@ -590,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set() -> anyhow::Result<()> {
+    fn test_set() -> buck2_error::Result<()> {
         run_tests(
             expr_set,
             &["set(a)", "set(a b c)", "set(a   b   c)", "set(%s)", "set()"],
@@ -603,7 +603,7 @@ mod tests {
     }
 
     #[test]
-    fn test_word() -> anyhow::Result<()> {
+    fn test_word() -> buck2_error::Result<()> {
         run_tests(
             expr_word,
             &[
@@ -623,13 +623,13 @@ mod tests {
     }
 
     #[test]
-    fn test_integer() -> anyhow::Result<()> {
+    fn test_integer() -> buck2_error::Result<()> {
         run_tests(expr_int, &["0", "1234"], &["w123", ".1", ""], &["0123"]);
         Ok(())
     }
 
     #[test]
-    fn test_trailing_infix() -> anyhow::Result<()> {
+    fn test_trailing_infix() -> buck2_error::Result<()> {
         run_tests(
             trailing_infix,
             &[

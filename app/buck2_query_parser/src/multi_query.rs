@@ -34,7 +34,7 @@ impl MaybeMultiQuery {
     pub fn parse(
         query: &str,
         args: impl IntoIterator<Item = impl AsRef<str>>,
-    ) -> anyhow::Result<MaybeMultiQuery> {
+    ) -> buck2_error::Result<MaybeMultiQuery> {
         if query.contains(QUERY_PERCENT_S_PLACEHOLDER) {
             // We'd really like the query args to only be literals (file or target).
             // If that didn't work, we'd really like query args to be well-formed expressions.
@@ -51,7 +51,7 @@ impl MaybeMultiQuery {
                     let query = query.replace(QUERY_PERCENT_S_PLACEHOLDER, &arg);
                     Ok(MultiQueryItem { arg, query })
                 })
-                .collect::<anyhow::Result<_>>()?;
+                .collect::<buck2_error::Result<_>>()?;
             Ok(MaybeMultiQuery::MultiQuery(queries))
         } else {
             let args: Vec<String> = args.into_iter().map(|q| q.as_ref().to_owned()).collect();
