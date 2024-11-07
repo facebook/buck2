@@ -165,27 +165,13 @@ pub fn emit_event_if_relevant(
             _ => &None,
         };
 
-        emit(parent_span_id, repro, state, data, output, options)?;
+        // Find and format the parent span (if any), then emit the relevant command.
+        let action = parent_span_id.0.and_then(|id| state.get(id));
+
+        emit_what_ran_entry(action, repro, data, output, options)?;
     }
 
     Ok(())
-}
-
-/// Find and format the parent span (if any), then emit the relevant command.
-fn emit(
-    parent_span_id: OptionalSpanId,
-    repro: CommandReproducer<'_>,
-    state: &impl WhatRanState,
-    data: &Option<buck2_data::span_end_event::Data>,
-    output: &mut impl WhatRanOutputWriter,
-    options: &WhatRanOptionsRegex,
-) -> buck2_error::Result<()> {
-    let action = match parent_span_id.0 {
-        None => None,
-        Some(parent_span_id) => state.get(parent_span_id),
-    };
-
-    emit_what_ran_entry(action, repro, data, output, options)
 }
 
 pub fn emit_what_ran_entry(
@@ -378,14 +364,14 @@ pub struct HumanReadableCommandReproducer<'a> {
 impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match &self.command {
-            CommandReproducer::CacheQuery(re_action_cache) => {
-                write!(formatter, "{}", re_action_cache.action_digest)
+            CommandReproducer::CacheQuery(cache_query) => {
+                write!(formatter, "{}", cache_query.action_digest)
             }
-            CommandReproducer::CacheHit(re_action_cache) => {
-                write!(formatter, "{}", re_action_cache.action_digest)
+            CommandReproducer::CacheHit(cache_hit) => {
+                write!(formatter, "{}", cache_hit.action_digest)
             }
-            CommandReproducer::ReExecute(re_action_cache) => {
-                write!(formatter, "{}", re_action_cache.action_digest)
+            CommandReproducer::ReExecute(re_execute) => {
+                write!(formatter, "{}", re_execute.action_digest)
             }
             CommandReproducer::LocalExecute(local_execute) => {
                 if let Some(command) = &local_execute.command {

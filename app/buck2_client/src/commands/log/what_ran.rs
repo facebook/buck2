@@ -228,7 +228,14 @@ impl WhatRanCommandState {
                 _ => {}
             }
         }
-        cmd.emit_remaining(output, options)
+
+        // emit remaining
+        for (_, entry) in cmd.known_actions.iter() {
+            if should_emit_unfinished_action(options) {
+                entry.emit_what_ran_entry(output, &None, options)?;
+            }
+        }
+        Ok(())
     }
 
     /// Receive a new event. We store it if it's relevant and emmit them latter.
@@ -275,19 +282,6 @@ impl WhatRanCommandState {
             }
         }
 
-        Ok(())
-    }
-
-    fn emit_remaining(
-        &self,
-        output: &mut impl WhatRanOutputWriter,
-        options: &WhatRanCommandOptions,
-    ) -> anyhow::Result<()> {
-        for (_, entry) in self.known_actions.iter() {
-            if should_emit_unfinished_action(options) {
-                entry.emit_what_ran_entry(output, &None, options)?;
-            }
-        }
         Ok(())
     }
 }
