@@ -19,6 +19,7 @@ use buck2_downward_api_proto::downward_api_server;
 use buck2_downward_api_proto::ConsoleRequest;
 use buck2_downward_api_proto::ExternalEventRequest;
 use buck2_downward_api_proto::LogRequest;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::make_channel;
@@ -92,8 +93,8 @@ impl TestOrchestratorClient {
 
 #[async_trait::async_trait]
 impl DownwardApi for TestOrchestratorClient {
-    async fn console(&self, level: Level, message: String) -> anyhow::Result<()> {
-        let level = level.try_into().context("Invalid `level`")?;
+    async fn console(&self, level: Level, message: String) -> buck2_error::Result<()> {
+        let level = level.try_into().buck_error_context("Invalid `level`")?;
 
         self.downward_api_client
             .clone()
@@ -106,8 +107,8 @@ impl DownwardApi for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn log(&self, level: Level, message: String) -> anyhow::Result<()> {
-        let level = level.try_into().context("Invalid `level`")?;
+    async fn log(&self, level: Level, message: String) -> buck2_error::Result<()> {
+        let level = level.try_into().buck_error_context("Invalid `level`")?;
 
         self.downward_api_client
             .clone()
@@ -120,7 +121,7 @@ impl DownwardApi for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn external(&self, data: HashMap<String, String>) -> anyhow::Result<()> {
+    async fn external(&self, data: HashMap<String, String>) -> buck2_error::Result<()> {
         let event = data.into();
 
         self.downward_api_client
@@ -499,14 +500,14 @@ where
             let ConsoleRequest { level, message } = request.into_inner();
 
             let level = level
-                .context("Missing `level`")?
+                .buck_error_context("Missing `level`")?
                 .try_into()
-                .context("Invalid `level`")?;
+                .buck_error_context("Invalid `level`")?;
 
             self.inner
                 .console(level, message)
                 .await
-                .context("Failed to console")?;
+                .buck_error_context("Failed to console")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })
@@ -521,14 +522,14 @@ where
             let LogRequest { level, message } = request.into_inner();
 
             let level = level
-                .context("Missing `level`")?
+                .buck_error_context("Missing `level`")?
                 .try_into()
-                .context("Invalid `level`")?;
+                .buck_error_context("Invalid `level`")?;
 
             self.inner
                 .log(level, message)
                 .await
-                .context("Failed to log")?;
+                .buck_error_context("Failed to log")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })
@@ -543,14 +544,14 @@ where
             let ExternalEventRequest { event } = request.into_inner();
 
             let event = event
-                .context("Missing `event`")?
+                .buck_error_context("Missing `event`")?
                 .try_into()
-                .context("Invalid `event`")?;
+                .buck_error_context("Invalid `event`")?;
 
             self.inner
                 .external(event)
                 .await
-                .context("Failed to deliver event")?;
+                .buck_error_context("Failed to deliver event")?;
 
             Ok(buck2_downward_api_proto::Empty {})
         })

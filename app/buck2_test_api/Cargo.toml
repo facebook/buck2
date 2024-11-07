@@ -27,6 +27,7 @@ sorted_vector_map = { workspace = true }
 buck2_core = { workspace = true }
 buck2_downward_api = { workspace = true }
 buck2_downward_api_proto = { workspace = true }
+buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_grpc = { workspace = true }
 buck2_test_proto = { workspace = true }

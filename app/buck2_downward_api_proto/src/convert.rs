@@ -9,13 +9,14 @@
 
 use std::collections::HashMap;
 
-use anyhow::Context as _;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use tracing::Level;
 
 use crate::proto;
 
 impl TryInto<HashMap<String, String>> for proto::Event {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_into(self) -> Result<HashMap<String, String>, Self::Error> {
         use std::collections::hash_map::Entry;
@@ -31,7 +32,7 @@ impl TryInto<HashMap<String, String>> for proto::Event {
                     e.insert(value);
                 }
                 Entry::Occupied(e) => {
-                    return Err(anyhow::anyhow!("Duplicate key: {}", e.key()));
+                    return Err(buck2_error::buck2_error!([], "Duplicate key: {}", e.key()));
                 }
             }
         }
@@ -57,16 +58,16 @@ where
 }
 
 impl TryInto<Level> for proto::LogLevel {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_into(self) -> Result<Level, Self::Error> {
         use proto::log_level::Value;
 
         let proto::LogLevel { value } = self;
-        let value = Value::from_i32(value).context("Invalid `value`")?;
+        let value = Value::from_i32(value).buck_error_context("Invalid `value`")?;
 
         Ok(match value {
-            Value::NotSet => return Err(anyhow::anyhow!("Missing `value`")),
+            Value::NotSet => return Err(buck2_error::buck2_error!([], "Missing `value`")),
             Value::Trace => Level::TRACE,
             Value::Debug => Level::DEBUG,
             Value::Info => Level::INFO,
@@ -77,7 +78,7 @@ impl TryInto<Level> for proto::LogLevel {
 }
 
 impl TryFrom<Level> for proto::LogLevel {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(level: Level) -> Result<proto::LogLevel, Self::Error> {
         use proto::log_level::Value;
@@ -88,7 +89,7 @@ impl TryFrom<Level> for proto::LogLevel {
             v if v == Level::INFO => Value::Info,
             v if v == Level::WARN => Value::Warn,
             v if v == Level::ERROR => Value::Error,
-            v => return Err(anyhow::anyhow!("Unsupported Level: {:?}", v)),
+            v => return Err(buck2_error::buck2_error!([], "Unsupported Level: {:?}", v)),
         };
 
         Ok(proto::LogLevel {

@@ -20,14 +20,14 @@ use tracing::Level;
 #[async_trait::async_trait]
 pub trait DownwardApi {
     /// indicates to print to the console at a specific log level
-    async fn console(&self, level: Level, msg: String) -> anyhow::Result<()>;
+    async fn console(&self, level: Level, msg: String) -> buck2_error::Result<()>;
 
     /// indicates to log at a specified level
     /// TODO consider if we should have structured log instead of a String message
-    async fn log(&self, level: Level, msg: String) -> anyhow::Result<()>;
+    async fn log(&self, level: Level, msg: String) -> buck2_error::Result<()>;
 
     /// reports an externally consumable event containing some data that will be untouched by buck
-    async fn external(&self, data: HashMap<String, String>) -> anyhow::Result<()>;
+    async fn external(&self, data: HashMap<String, String>) -> buck2_error::Result<()>;
 
     // TODO map the StepEvent and TraceEvents in buckv1 to something. Maybe just a single trace event
 }

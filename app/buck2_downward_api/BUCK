@@ -6,8 +6,8 @@ rust_library(
     name = "buck2_downward_api",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:tracing",
+        "//buck2/app/buck2_error:buck2_error",
     ],
 )

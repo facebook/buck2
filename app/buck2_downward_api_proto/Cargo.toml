@@ -7,7 +7,7 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
+buck2_error = { workspace = true }
 prost = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }

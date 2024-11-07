@@ -17,17 +17,17 @@ pub struct BuckTestDownwardApi;
 
 #[async_trait]
 impl DownwardApi for BuckTestDownwardApi {
-    async fn console(&self, _level: Level, msg: String) -> anyhow::Result<()> {
+    async fn console(&self, _level: Level, msg: String) -> buck2_error::Result<()> {
         // TODO(brasselsprouts): use the level and hook it up with our superconsole
         eprintln!("{}", msg);
         Ok(())
     }
 
-    async fn log(&self, _level: Level, _msg: String) -> anyhow::Result<()> {
+    async fn log(&self, _level: Level, _msg: String) -> buck2_error::Result<()> {
         unimplemented!("TODO(bobyf)")
     }
 
-    async fn external(&self, _data: HashMap<String, String>) -> anyhow::Result<()> {
+    async fn external(&self, _data: HashMap<String, String>) -> buck2_error::Result<()> {
         unimplemented!("need buck event stream to implement")
     }
 }
