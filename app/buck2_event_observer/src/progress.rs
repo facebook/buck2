@@ -197,7 +197,7 @@ impl BuildProgressStateTracker {
         &mut self,
         _processed_time: Instant,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let ev = unpack_event(event)?;
 
         self.handle_load(&ev)?;
@@ -258,7 +258,7 @@ impl BuildProgressStateTracker {
         Ok(())
     }
 
-    fn handle_load(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_load(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -290,7 +290,7 @@ impl BuildProgressStateTracker {
         Ok(())
     }
 
-    fn handle_analysis(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_analysis(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -344,7 +344,7 @@ impl BuildProgressStateTracker {
         }
     }
 
-    fn handle_actions(&mut self, ev: &UnpackedBuckEvent) -> anyhow::Result<()> {
+    fn handle_actions(&mut self, ev: &UnpackedBuckEvent) -> buck2_error::Result<()> {
         match ev {
             UnpackedBuckEvent::SpanStart(
                 BuckEvent {
@@ -431,7 +431,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_span_map() -> anyhow::Result<()> {
+    fn test_span_map() -> buck2_error::Result<()> {
         let mut map: SpanMap<u64> = SpanMap::default();
 
         assert_eq!(

@@ -38,7 +38,7 @@ impl StarlarkDebuggerState {
         &mut self,
         _event_time: SystemTime,
         event: &DebugAdapterSnapshot,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.debugger_attached = true;
         self.this_stopped_evals.clear();
         self.other_stopped_evals.clear();

@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn test_completion_no_progress() -> anyhow::Result<()> {
+    fn test_completion_no_progress() -> buck2_error::Result<()> {
         let mut dice = DiceState::new();
         let mut tracker = BuckEventSpanTracker::new();
 
@@ -134,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn test_completion_percentage_build_complete() -> anyhow::Result<()> {
+    fn test_completion_percentage_build_complete() -> buck2_error::Result<()> {
         let mut dice = DiceState::new();
         let mut tracker = BuckEventSpanTracker::new();
 
@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn test_completion_percentage_intermediate_state() -> anyhow::Result<()> {
+    fn test_completion_percentage_intermediate_state() -> buck2_error::Result<()> {
         let mut dice = DiceState::new();
         let mut tracker = BuckEventSpanTracker::new();
 
@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_completion_percentage_invalid_dice_state() -> anyhow::Result<()> {
+    fn test_completion_percentage_invalid_dice_state() -> buck2_error::Result<()> {
         let mut dice = DiceState::new();
         let mut tracker = BuckEventSpanTracker::new();
 
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn test_completion_percentage_empty_span() -> anyhow::Result<()> {
+    fn test_completion_percentage_empty_span() -> buck2_error::Result<()> {
         let mut dice = DiceState::new();
         let tracker = BuckEventSpanTracker::new();
 

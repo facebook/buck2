@@ -447,7 +447,10 @@ impl SuperConsoleState {
         })
     }
 
-    pub async fn update_event_observer(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub async fn update_event_observer(
+        &mut self,
+        event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         self.simple_console.update_event_observer(event).await
     }
 

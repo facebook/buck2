@@ -60,7 +60,11 @@ impl DebugEventsState {
         }
     }
 
-    pub fn handle_event(&mut self, start_time: Instant, event: &BuckEvent) -> anyhow::Result<()> {
+    pub fn handle_event(
+        &mut self,
+        start_time: Instant,
+        event: &BuckEvent,
+    ) -> buck2_error::Result<()> {
         let event_time: SystemTime = event.timestamp();
         let elapsed = start_time.elapsed();
         let events_start_time = match self.events_start_time {

@@ -48,7 +48,7 @@ pub struct WhatRanOptionsRegex<'a> {
     filter_category_regex: Option<Regex>,
 }
 impl<'a> WhatRanOptionsRegex<'a> {
-    pub fn from_options(options: &'a WhatRanOptions) -> anyhow::Result<Self> {
+    pub fn from_options(options: &'a WhatRanOptions) -> buck2_error::Result<Self> {
         let filter_category_regex = match &options.filter_category {
             Some(filter_category) => Some(Regex::new(&format!(r"^{}$", filter_category))?),
             None => None,
@@ -131,7 +131,7 @@ pub enum WhatRanOutputCommandExtra<'a> {
 
 /// Output to log commands that ran. The expectation is that we can use this to print out events.
 pub trait WhatRanOutputWriter {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()>;
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()>;
 }
 
 /// Storage provided for events. The expectations is that any previously event that would qualify
@@ -158,7 +158,7 @@ pub fn emit_event_if_relevant(
     state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptionsRegex,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if let Some(repro) = CommandReproducer::from_buck_data(data, options.options) {
         let data = match data {
             buck2_data::buck_event::Data::SpanEnd(span) => &span.data,
@@ -179,7 +179,7 @@ fn emit(
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptionsRegex,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let action = match parent_span_id.0 {
         None => None,
         Some(parent_span_id) => state.get(parent_span_id),
@@ -194,7 +194,7 @@ pub fn emit_what_ran_entry(
     data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptionsRegex,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let should_emit = options
         .filter_category_regex
         .as_ref()
@@ -476,7 +476,7 @@ pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {
 }
 
 impl WhatRanOutputWriter for SuperConsole {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
         // TODO: Change this API to just produce a String.
         let msg = WhatRanCommandConsoleFormat {
             reason: command.reason,

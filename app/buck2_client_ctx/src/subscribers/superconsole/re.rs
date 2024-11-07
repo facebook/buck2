@@ -27,10 +27,10 @@ impl<'a> Component for ReHeader<'a> {
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {
-        self.re_state.render(
+        Ok(self.re_state.render(
             self.two_snapshots,
             self.super_console_config.enable_detailed_re,
             mode,
-        )
+        )?)
     }
 }

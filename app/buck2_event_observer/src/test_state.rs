@@ -25,7 +25,7 @@ pub struct TestState {
 }
 
 impl TestState {
-    pub(crate) fn update(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {
+    pub(crate) fn update(&mut self, result: &buck2_data::TestResult) -> buck2_error::Result<()> {
         let status = TestStatus::try_from(result.status)?;
         let counter = match status {
             TestStatus::PASS => &mut self.pass,

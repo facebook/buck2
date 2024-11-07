@@ -36,7 +36,10 @@ impl ColdBuildDetector {
         self.first_build_since_rebase
     }
 
-    pub async fn update_merge_base(&mut self, file_watcher: &FileWatcherEnd) -> anyhow::Result<()> {
+    pub async fn update_merge_base(
+        &mut self,
+        file_watcher: &FileWatcherEnd,
+    ) -> buck2_error::Result<()> {
         if let Some(merge_base) = file_watcher
             .stats
             .as_ref()
@@ -56,11 +59,12 @@ impl ColdBuildDetector {
     pub async fn update_parsed_target_patterns(
         &mut self,
         patterns: &ParsedTargetPatterns,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.target_patterns.is_some() {
             soft_error!(
                 "parsed_target_patterns_changed_unexpectedly",
-                anyhow::anyhow!(
+                buck2_error::buck2_error!(
+                    [],
                     "unexpected parsed target patterns update from: {:?} to: {:?}",
                     self.target_patterns,
                     patterns
@@ -74,7 +78,7 @@ impl ColdBuildDetector {
         Ok(())
     }
 
-    async fn try_compute_first_build_since_rebase(&mut self) -> anyhow::Result<()> {
+    async fn try_compute_first_build_since_rebase(&mut self) -> buck2_error::Result<()> {
         if self.first_build_since_rebase.is_some() {
             // This value should be valid for the lifetime of the detector.
             return Ok(());

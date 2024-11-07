@@ -315,7 +315,7 @@ fn should_emit_unfinished_action(options: &WhatRanCommandOptions) -> bool {
 
 /// An output that writes to stdout in a tabulated format.
 impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
         if self.include_std_err
             && self.omit_empty_std_err
             && command.std_err.map_or(false, |s| s.is_empty())

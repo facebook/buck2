@@ -13,7 +13,7 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use buck2_events::span::SpanId;
 use buck2_events::BuckEvent;
 use derivative::Derivative;
@@ -64,7 +64,7 @@ impl<T: SpanTrackable + Dupe> Span<T> {
         }
     }
 
-    fn remove_child(&mut self, child: Span<T>, roots: &mut Roots<T>) -> anyhow::Result<()> {
+    fn remove_child(&mut self, child: Span<T>, roots: &mut Roots<T>) -> buck2_error::Result<()> {
         let removed = self.children.remove(&child.span_id).is_some();
 
         if !removed {
@@ -109,7 +109,7 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
                 .tracker
                 .all
                 .get(c.0)
-                .with_context(|| {
+                .with_buck_error_context(|| {
                     format!(
                         "Invariant violation: span `{:?}` references non-existent child `{}`",
                         self.span.info.event, c.0
@@ -294,7 +294,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
         }
     }
 
-    pub fn start_at(&mut self, event: &T, at: Instant) -> anyhow::Result<()> {
+    pub fn start_at(&mut self, event: &T, at: Instant) -> buck2_error::Result<()> {
         if !event.is_shown() {
             return Ok(());
         }
@@ -329,7 +329,7 @@ impl<T: SpanTrackable + Dupe> SpanTracker<T> {
         Ok(())
     }
 
-    fn end(&mut self, event: &T) -> anyhow::Result<()> {
+    fn end(&mut self, event: &T) -> buck2_error::Result<()> {
         let span_id = event
             .span_id()
             .ok_or_else(|| SpanTrackerError::NonSpanEvent(event.dupe()))?;
@@ -560,7 +560,7 @@ impl BuckEventSpanTracker {
         &mut self,
         receive_time: Instant,
         event: &Arc<BuckEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(_start) = event.span_start_event() {
             self.start_at(event, receive_time)?;
         } else if let Some(_end) = event.span_end_event() {
@@ -670,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn test_boring_via_self() -> anyhow::Result<()> {
+    fn test_boring_via_self() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let boring = TestSpan::new().boring();
@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn test_boring_via_child() -> anyhow::Result<()> {
+    fn test_boring_via_child() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let parent = TestSpan::new();
@@ -755,7 +755,7 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_roots_len() -> anyhow::Result<()> {
+    fn test_iter_roots_len() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let e1 = TestSpan::new();
@@ -788,7 +788,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dice_counts() -> anyhow::Result<()> {
+    fn test_dice_counts() -> buck2_error::Result<()> {
         let t0 = Instant::now();
 
         let foo = TestSpan::new().dice_key_type("foo");

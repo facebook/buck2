@@ -119,7 +119,7 @@ impl ReState {
         &self,
         name: &str,
         stat: u64,
-    ) -> anyhow::Result<Option<Line>> {
+    ) -> buck2_error::Result<Option<Line>> {
         let line = format!(
             "{name:<20}: \
             {stat:>5} bytes"
@@ -133,7 +133,7 @@ impl ReState {
         started: u32,
         finished_successfully: u32,
         finished_with_error: u32,
-    ) -> anyhow::Result<Option<Line>> {
+    ) -> buck2_error::Result<Option<Line>> {
         let in_progress = started
             .saturating_sub(finished_successfully)
             .saturating_sub(finished_with_error);
@@ -149,7 +149,7 @@ impl ReState {
         Ok(Some(Line::unstyled(&line)?))
     }
 
-    fn render_detailed(&self, two_snapshots: &TwoSnapshots) -> anyhow::Result<Vec<Line>> {
+    fn render_detailed(&self, two_snapshots: &TwoSnapshots) -> buck2_error::Result<Vec<Line>> {
         let mut r = Vec::new();
         if let (Some(first), Some((_, last))) = (&self.first_snapshot, &two_snapshots.last) {
             r.extend(self.render_detailed_items(
@@ -208,7 +208,7 @@ impl ReState {
         two_snapshots: &TwoSnapshots,
         detailed: bool,
         draw_mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    ) -> buck2_error::Result<Lines> {
         let header = match self.render_header(two_snapshots, draw_mode) {
             Some(header) => header,
             None => return Ok(Lines::new()),

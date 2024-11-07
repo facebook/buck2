@@ -113,7 +113,7 @@ impl VerbosityLevel {
 }
 
 impl VerbosityItem {
-    fn from(value: &str) -> anyhow::Result<Self> {
+    fn from(value: &str) -> buck2_error::Result<Self> {
         let item = match value {
             "stderr" => Self::Stderr,
             "full_failed_command" => Self::FullFailedCommand,

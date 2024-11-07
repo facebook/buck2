@@ -10,8 +10,8 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -72,7 +72,7 @@ where
         &mut self,
         receive_time: Instant,
         event: &Arc<BuckEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.span_tracker.handle_event(receive_time, event)?;
 
         {
@@ -82,7 +82,11 @@ where
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
-                    match end.data.as_ref().context("Missing `data` in SpanEnd")? {
+                    match end
+                        .data
+                        .as_ref()
+                        .buck_error_context("Missing `data` in SpanEnd")?
+                    {
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
                         }
@@ -100,7 +104,7 @@ where
                     match instant
                         .data
                         .as_ref()
-                        .context("Missing `data` in `Instant`")?
+                        .buck_error_context("Missing `data` in `Instant`")?
                     {
                         ReSession(re_session) => {
                             self.re_state.add_re_session(re_session);
@@ -115,7 +119,7 @@ where
                             match discovery
                                 .data
                                 .as_ref()
-                                .context("Missing `data` in `TestDiscovery`")?
+                                .buck_error_context("Missing `data` in `TestDiscovery`")?
                             {
                                 Session(session) => {
                                     self.session_info.test_session = Some(session.clone());
@@ -206,7 +210,8 @@ where
 pub trait EventObserverExtra: Send {
     fn new() -> Self;
 
-    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()>;
+    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>)
+    -> buck2_error::Result<()>;
 }
 
 /// This has more fields for debug info. We don't always capture those.
@@ -223,7 +228,11 @@ impl EventObserverExtra for DebugEventObserverExtra {
         }
     }
 
-    fn observe(&mut self, receive_time: Instant, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(
+        &mut self,
+        receive_time: Instant,
+        event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         self.debug_events.handle_event(receive_time, event)?;
         self.progress_state.handle_event(receive_time, event)?;
 
@@ -248,7 +257,11 @@ impl EventObserverExtra for NoopEventObserverExtra {
         Self
     }
 
-    fn observe(&mut self, _receive_time: Instant, _event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn observe(
+        &mut self,
+        _receive_time: Instant,
+        _event: &Arc<BuckEvent>,
+    ) -> buck2_error::Result<()> {
         // Noop
         Ok(())
     }

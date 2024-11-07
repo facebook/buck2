@@ -218,7 +218,7 @@ where
     pub(crate) async fn update_event_observer(
         &mut self,
         event: &Arc<BuckEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.observer.observe(Instant::now(), event).await
     }
 
@@ -712,7 +712,7 @@ where
 struct PrintDebugCommandToStderr;
 
 impl WhatRanOutputWriter for PrintDebugCommandToStderr {
-    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> anyhow::Result<()> {
+    fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
         echo!(
             "{}",
             WhatRanCommandConsoleFormat {
