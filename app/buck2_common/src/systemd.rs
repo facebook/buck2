@@ -53,7 +53,6 @@ enum SystemdCreationDecision {
 
 pub struct SystemdRunner {
     fixed_systemd_args: Vec<String>,
-    parent_slice: String,
 }
 
 impl SystemdRunner {
@@ -93,12 +92,12 @@ impl SystemdRunner {
             SystemdPropertySetType::Worker => { // TODO
             }
         }
+        args.push(format!("--slice={}", parent_slice));
         if slice_inherit {
             args.push("--slice-inherit".to_owned());
         }
         Self {
             fixed_systemd_args: args,
-            parent_slice: parent_slice.to_owned(),
         }
     }
 
@@ -158,7 +157,6 @@ impl SystemdRunner {
     ) -> std::process::Command {
         let mut cmd = process::background_command("systemd-run");
         cmd.args(&self.fixed_systemd_args);
-        cmd.arg(format!("--slice={}-{}", self.parent_slice, unit_name));
         cmd.arg(format!("--working-directory={}", working_directory))
             .arg(format!("--unit={}", unit_name));
         cmd.arg(program);

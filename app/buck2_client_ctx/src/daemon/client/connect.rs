@@ -376,22 +376,19 @@ impl<'a> BuckdLifecycle<'a> {
         }));
 
         let daemon_exe = get_daemon_exe()?;
+        let slice_name = format!(
+            "buck2-daemon.{}.{}",
+            project_dir.name().unwrap_or("unknown_project"),
+            self.paths.isolation.as_str()
+        );
         let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
             SystemdPropertySetType::Daemon,
             &daemon_startup_config.resource_control,
-            "buck2",
+            &slice_name,
             false,
         )? {
             systemd_runner
-                .background_command_linux(
-                    daemon_exe,
-                    &format!(
-                        "daemon.{}.{}",
-                        project_dir.name().unwrap_or("unknown_project"),
-                        self.paths.isolation.as_str()
-                    ),
-                    &project_dir.root(),
-                )
+                .background_command_linux(daemon_exe, &slice_name, &project_dir.root())
                 .into()
         } else {
             async_background_command(daemon_exe)
