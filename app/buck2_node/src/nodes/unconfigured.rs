@@ -21,7 +21,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
@@ -219,14 +219,14 @@ impl TargetNode {
         self.as_ref().special_attrs()
     }
 
-    pub fn visibility(&self) -> anyhow::Result<&VisibilitySpecification> {
+    pub fn visibility(&self) -> buck2_error::Result<&VisibilitySpecification> {
         match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
             Some(CoercedAttr::Visibility(v)) => Ok(v),
             Some(a) => {
                 // This code is unreachable: visibility attributes are validated
                 // at the coercion stage. But if we did it wrong,
                 // better error with all the context than panic.
-                Err(internal_error_anyhow!(
+                Err(internal_error!(
                     "`visibility` attribute coerced incorrectly (`{0}`)",
                     a.as_display_no_ctx().to_string(),
                 ))
@@ -238,7 +238,7 @@ impl TargetNode {
         }
     }
 
-    pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
+    pub fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         if self.label().pkg() == target.pkg() {
             return Ok(true);
         }
@@ -274,7 +274,7 @@ impl TargetNode {
         &'a self,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<CoercedAttrFull<'a>>> {
+    ) -> buck2_error::Result<Option<CoercedAttrFull<'a>>> {
         self.as_ref().attr(key, opts)
     }
 
@@ -304,19 +304,19 @@ impl TargetNode {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for TestCollector<'a> {
-            fn input(&mut self, _path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, _path: SourcePathRef) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -324,11 +324,11 @@ impl TargetNode {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -336,7 +336,7 @@ impl TargetNode {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _kind: &PluginKind,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -344,18 +344,18 @@ impl TargetNode {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
             fn configuration_dep(
                 &mut self,
                 _dep: &'a ConfigurationSettingKey,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn label(&mut self, label: &'a ProvidersLabel) -> anyhow::Result<()> {
+            fn label(&mut self, label: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 self.labels.push(label);
                 Ok(())
             }
@@ -388,7 +388,7 @@ impl TargetNode {
     }
 
     #[inline]
-    pub fn metadata(&self) -> anyhow::Result<Option<&MetadataMap>> {
+    pub fn metadata(&self) -> buck2_error::Result<Option<&MetadataMap>> {
         self.as_ref().metadata()
     }
 
@@ -435,7 +435,7 @@ impl<'a> TargetNodeRef<'a> {
         self,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<CoercedAttrFull<'a>>> {
+    ) -> buck2_error::Result<Option<CoercedAttrFull<'a>>> {
         self.0
             .get()
             .rule
@@ -493,20 +493,20 @@ impl<'a> TargetNodeRef<'a> {
         .into_iter()
     }
 
-    pub fn metadata(self) -> anyhow::Result<Option<&'a MetadataMap>> {
+    pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
         self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
-                x => Err(internal_error_anyhow!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
+                x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
             .transpose()
     }
 
-    pub fn target_modifiers(self) -> anyhow::Result<Option<&'a TargetModifiersValue>> {
+    pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
         self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::TargetModifiers(m) => Ok(m),
-                x => Err(internal_error_anyhow!(
+                x => Err(internal_error!(
                     "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
                     x
                 )),
@@ -566,24 +566,24 @@ impl<'a> TargetNodeRef<'a> {
         }
 
         impl<'a> CoercedAttrTraversal<'a> for InputsCollector {
-            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }
 
-            fn dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> anyhow::Result<()> {
+            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -591,7 +591,7 @@ impl<'a> TargetNodeRef<'a> {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _kind: &PluginKind,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -599,7 +599,7 @@ impl<'a> TargetNodeRef<'a> {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -607,14 +607,14 @@ impl<'a> TargetNodeRef<'a> {
                 &mut self,
                 _dep: &'a TargetLabel,
                 _tr: &Arc<TransitionId>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
 
             fn configuration_dep(
                 &mut self,
                 _dep: &'a ConfigurationSettingKey,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Ok(())
             }
         }
@@ -733,7 +733,7 @@ pub mod testing {
         target: &TargetsMap,
         pkg: PackageLabel,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Value> {
+    ) -> buck2_error::Result<Value> {
         let map: Map<String, Value> = target
             .iter()
             .map(|(target_name, values)| {
@@ -748,14 +748,14 @@ pub mod testing {
                             })?,
                         ))
                     })
-                    .collect::<anyhow::Result<Map<String, Value>>>()?;
+                    .collect::<buck2_error::Result<Map<String, Value>>>()?;
                 json_values.insert(
                     "__type__".to_owned(),
                     Value::String(values.rule_type().to_string()),
                 );
                 Ok((target_name.to_string(), Value::from(json_values)))
             })
-            .collect::<anyhow::Result<Map<String, Value>>>()?;
+            .collect::<buck2_error::Result<Map<String, Value>>>()?;
         Ok(Value::from(map))
     }
 }

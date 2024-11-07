@@ -698,10 +698,10 @@ impl OwnedTargetNodeOrTargetLabel {
     ) -> anyhow::Result<TargetNode> {
         match self {
             OwnedTargetNodeOrTargetLabel::TargetNode(node) => Ok(node.0.dupe()),
-            OwnedTargetNodeOrTargetLabel::TargetLabel(label) => dice
+            OwnedTargetNodeOrTargetLabel::TargetLabel(label) => Ok(dice
                 .get_target_node(label.label())
                 .await
-                .map(|node| node.dupe()),
+                .map(|node| node.dupe())?),
         }
     }
 }
@@ -800,9 +800,10 @@ impl OwnedTargetNodeArg {
                 )? {
                     ParsedPattern::Target(pkg, name, TargetPatternExtra) => {
                         let label = TargetLabel::new(pkg, name.as_ref());
-                        dice.get_target_node(&label)
+                        Ok(dice
+                            .get_target_node(&label)
                             .await
-                            .map(|node| Either::Left(StarlarkTargetNode(node)))
+                            .map(|node| Either::Left(StarlarkTargetNode(node)))?)
                     }
                     pattern => {
                         let loaded_patterns =

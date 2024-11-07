@@ -53,7 +53,10 @@ pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
 assert_eq_size!(StringWithMacros<ProvidersLabel>, [usize; 3]);
 
 impl StringWithMacros<ConfiguredProvidersLabel> {
-    pub fn concat(self, items: impl Iterator<Item = anyhow::Result<Self>>) -> anyhow::Result<Self> {
+    pub fn concat(
+        self,
+        items: impl Iterator<Item = buck2_error::Result<Self>>,
+    ) -> buck2_error::Result<Self> {
         let mut parts = Vec::new();
         for x in std::iter::once(Ok(self)).chain(items) {
             match x? {
@@ -74,7 +77,7 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
         pkg: PackageLabel,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::StringPart(..) => {}
             Self::ManyParts(ref parts) => {
@@ -97,7 +100,7 @@ impl StringWithMacros<ProvidersLabel> {
         &self,
         ctx: &dyn AttrConfigurationContext,
         anon_target_compatible: bool,
-    ) -> anyhow::Result<ConfiguredStringWithMacros> {
+    ) -> buck2_error::Result<ConfiguredStringWithMacros> {
         match self {
             Self::StringPart(part) => Ok(ConfiguredStringWithMacros {
                 string_with_macros: StringWithMacros::StringPart(part.clone()),
@@ -116,7 +119,7 @@ impl StringWithMacros<ProvidersLabel> {
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
         pkg: PackageLabel,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::StringPart(..) => {}
             Self::ManyParts(ref parts) => {
@@ -178,7 +181,7 @@ impl MacroBase<ConfiguredProvidersLabel> {
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
         pkg: PackageLabel,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
@@ -205,7 +208,10 @@ impl MacroBase<ConfiguredProvidersLabel> {
 }
 
 impl MacroBase<ProvidersLabel> {
-    pub fn configure(&self, ctx: &dyn AttrConfigurationContext) -> anyhow::Result<ConfiguredMacro> {
+    pub fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> buck2_error::Result<ConfiguredMacro> {
         Ok(match self {
             UnconfiguredMacro::Location(target) => {
                 ConfiguredMacro::Location(ctx.configure_target(target))
@@ -242,7 +248,7 @@ impl MacroBase<ProvidersLabel> {
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
         pkg: PackageLabel,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
                 traversal.dep(l.target())
@@ -335,7 +341,7 @@ impl StringWithMacrosPart<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredStringWithMacrosPart> {
+    ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
         match self {
             StringWithMacrosPart::String(val) => {
                 Ok(ConfiguredStringWithMacrosPart::String(val.clone()))

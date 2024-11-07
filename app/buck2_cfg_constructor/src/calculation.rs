@@ -91,7 +91,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
         rule_type: &RuleType,
-    ) -> anyhow::Result<ConfigurationData> {
+    ) -> buck2_error::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("CfgConstructorInvocationKey")]
         struct CfgConstructorInvocationKey {

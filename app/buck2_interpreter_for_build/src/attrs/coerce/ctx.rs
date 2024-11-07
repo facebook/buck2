@@ -194,7 +194,7 @@ impl BuildAttrCoercionContext {
 }
 
 impl AttrCoercionContext for BuildAttrCoercionContext {
-    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
 
@@ -239,7 +239,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         self.select_interner.intern(value)
     }
 
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath> {
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
         let path = <&PackageRelativePath>::try_from(value)?;
         let (package, listing) = self.require_enclosing_package(value)?;
 
@@ -288,8 +288,8 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     fn coerce_target_pattern(
         &self,
         pattern: &str,
-    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
-        self.parse_pattern(pattern)
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
+        Ok(self.parse_pattern(pattern)?)
     }
 
     fn visit_query_function_literals(
@@ -297,7 +297,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         visitor: &mut dyn QueryLiteralVisitor,
         expr: &Spanned<Expr>,
         query: &str,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         CONFIGURED_GRAPH_QUERY_FUNCTIONS
             .get()?
             .visit_literals(visitor, expr)

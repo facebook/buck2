@@ -16,32 +16,32 @@ use buck2_core::target::label::label::TargetLabel;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 
 pub trait ConfiguredAttrTraversal {
-    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()>;
+    fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()>;
 
     fn dep_with_plugins(
         &mut self,
         dep: &ConfiguredProvidersLabel,
         _plugins: &PluginKindSet,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
     }
 
-    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
     }
 
-    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         // By default, just treat it as a dep. Most things don't care about the distinction.
         self.dep(dep)
     }
 
-    fn configuration_dep(&mut self, _dep: &TargetLabel) -> anyhow::Result<()> {
+    fn configuration_dep(&mut self, _dep: &TargetLabel) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn plugin_dep(&mut self, _dep: &TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
+    fn plugin_dep(&mut self, _dep: &TargetLabel, _kind: &PluginKind) -> buck2_error::Result<()> {
         Ok(())
     }
 
@@ -50,15 +50,15 @@ pub trait ConfiguredAttrTraversal {
         &mut self,
         _query: &str,
         _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn input(&mut self, _path: SourcePathRef) -> anyhow::Result<()> {
+    fn input(&mut self, _path: SourcePathRef) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn label(&mut self, _label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+    fn label(&mut self, _label: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         Ok(())
     }
 }

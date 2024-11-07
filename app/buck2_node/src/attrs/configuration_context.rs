@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
@@ -18,6 +17,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
@@ -38,18 +38,18 @@ pub trait AttrConfigurationContext {
 
     fn cfg(&self) -> ConfigurationNoExec;
 
-    fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec>;
+    fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec>;
 
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     fn toolchain_cfg(&self) -> ConfigurationWithExec;
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData>;
+    fn platform_cfg(&self, label: &TargetLabel) -> buck2_error::Result<ConfigurationData>;
 
     /// Map of transition ids resolved to configurations
     /// using current node configuration as input.
     fn resolved_transitions(
         &self,
-    ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
+    ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         label.configure_pair(self.cfg().cfg_pair().dupe())
@@ -58,7 +58,7 @@ pub trait AttrConfigurationContext {
     fn configure_exec_target(
         &self,
         label: &ProvidersLabel,
-    ) -> anyhow::Result<ConfiguredProvidersLabel> {
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
         Ok(label.configure_pair(self.exec_cfg()?.cfg_pair().dupe()))
     }
 
@@ -74,11 +74,11 @@ pub trait AttrConfigurationContext {
         &self,
         label: &ProvidersLabel,
         tr: &TransitionId,
-    ) -> anyhow::Result<ConfiguredProvidersLabel> {
+    ) -> buck2_error::Result<ConfiguredProvidersLabel> {
         let cfg = self
             .resolved_transitions()?
             .get(tr)
-            .context("internal error: no resolved transition")?;
+            .buck_error_context("internal error: no resolved transition")?;
         Ok(label.configure(cfg.single()?.dupe()))
     }
 
@@ -86,11 +86,11 @@ pub trait AttrConfigurationContext {
         &self,
         label: &ProvidersLabel,
         tr: &TransitionId,
-    ) -> anyhow::Result<SortedMap<String, ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<SortedMap<String, ConfiguredProvidersLabel>> {
         let cfg = self
             .resolved_transitions()?
             .get(tr)
-            .context("internal error: no resolved transition")?;
+            .buck_error_context("internal error: no resolved transition")?;
         let split = cfg.split()?;
         Ok(split
             .iter()
@@ -134,7 +134,7 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         self.resolved_cfg.cfg().dupe()
     }
 
-    fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+    fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
         Ok(self.exec_cfg.dupe())
     }
 
@@ -142,18 +142,16 @@ impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
         self.toolchain_cfg.dupe()
     }
 
-    fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+    fn platform_cfg(&self, label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
         match self.platform_cfgs.get(label) {
             Some(configuration) => Ok(configuration.dupe()),
-            None => Err(anyhow::anyhow!(
-                PlatformConfigurationError::UnknownPlatformTarget(label.dupe())
-            )),
+            None => Err(PlatformConfigurationError::UnknownPlatformTarget(label.dupe()).into()),
         }
     }
 
     fn resolved_transitions(
         &self,
-    ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+    ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
         Ok(self.resolved_transitions)
     }
 }

@@ -16,8 +16,8 @@ use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::buck2_error_anyhow;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use serde::Serialize;
 use serde::Serializer;
@@ -154,7 +154,7 @@ impl ConfiguredAttr {
         &'a self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             ConfiguredAttr::Bool(_) => Ok(()),
             ConfiguredAttr::Int(_) => Ok(()),
@@ -208,8 +208,8 @@ impl ConfiguredAttr {
         }
     }
 
-    fn concat_not_supported(&self, attr_ty: &'static str) -> anyhow::Error {
-        buck2_error_anyhow!(
+    fn concat_not_supported(&self, attr_ty: &'static str) -> buck2_error::Error {
+        buck2_error!(
             [],
             "addition not supported for these attribute type `{}` and value `{}`",
             attr_ty,
@@ -217,22 +217,22 @@ impl ConfiguredAttr {
         )
     }
 
-    fn unpack_oneof(self) -> anyhow::Result<(Self, u32)> {
+    fn unpack_oneof(self) -> buck2_error::Result<(Self, u32)> {
         match self {
             ConfiguredAttr::OneOf(first, first_i) => Ok((*first, first_i)),
-            t => Err(internal_error_anyhow!(
+            t => Err(internal_error!(
                 "expecting oneof variant, got: {}`",
                 t.as_display_no_ctx(),
             )),
         }
     }
 
-    fn unpack_oneof_i(self, expected_i: u32, oneof: &OneOfAttrType) -> anyhow::Result<Self> {
+    fn unpack_oneof_i(self, expected_i: u32, oneof: &OneOfAttrType) -> buck2_error::Result<Self> {
         let (first, i) = self.unpack_oneof()?;
         if i != expected_i {
             let first_t = oneof.get(expected_i)?;
             let next_t = oneof.get(i)?;
-            return Err(buck2_error_anyhow!(
+            return Err(buck2_error!(
                 [],
                 "Cannot concatenate values coerced/configured \
                 to different oneof variants: `{first_t}` and `{next_t}`"
@@ -243,9 +243,9 @@ impl ConfiguredAttr {
 
     fn concat_oneof(
         self,
-        items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
+        items: &mut dyn Iterator<Item = buck2_error::Result<Self>>,
         oneof: &OneOfAttrType,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (first, first_i) = self.unpack_oneof()?;
         let attr = first.concat(
             &oneof.xs[first_i as usize],
@@ -260,8 +260,8 @@ impl ConfiguredAttr {
     pub(crate) fn concat(
         self,
         attr_type: &AttrType,
-        items: &mut dyn Iterator<Item = anyhow::Result<Self>>,
-    ) -> anyhow::Result<Self> {
+        items: &mut dyn Iterator<Item = buck2_error::Result<Self>>,
+    ) -> buck2_error::Result<Self> {
         match &attr_type.0.inner {
             AttrTypeInner::OneOf(xs) => self.concat_oneof(items, xs),
             AttrTypeInner::Option(opt) => {
@@ -270,7 +270,7 @@ impl ConfiguredAttr {
                 self.concat(&opt.inner, items)
             }
             _ => match self {
-                ConfiguredAttr::OneOf(..) => Err(internal_error_anyhow!(
+                ConfiguredAttr::OneOf(..) => Err(internal_error!(
                     "Inconsistent attr value (`{}`) and attr type (`{}`)",
                     self.as_display_no_ctx(),
                     attr_type
@@ -301,7 +301,7 @@ impl ConfiguredAttr {
                                             e.insert(v);
                                         }
                                         small_map::Entry::Occupied(e) => {
-                                            return Err(buck2_error_anyhow!(
+                                            return Err(buck2_error!(
                                                 [],
                                                 "got same key in both sides of dictionary concat (key `{}`)",
                                                 e.key().as_display_no_ctx()
@@ -340,7 +340,7 @@ impl ConfiguredAttr {
                         anon_target_compatible: left.anon_target_compatible,
                     }))
                 }
-                val => Err(buck2_error_anyhow!(
+                val => Err(buck2_error!(
                     [],
                     "addition not supported for this attribute type `{}`",
                     val.as_display_no_ctx()
@@ -349,10 +349,10 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_configuration_dep(self) -> anyhow::Result<ConfigurationSettingKey> {
+    pub(crate) fn try_into_configuration_dep(self) -> buck2_error::Result<ConfigurationSettingKey> {
         match self {
             ConfiguredAttr::ConfigurationDep(d) => Ok(d),
-            s => Err(buck2_error_anyhow!(
+            s => Err(buck2_error!(
                 [],
                 "expecting configuration dep, got `{0}`",
                 s.as_display_no_ctx()
@@ -367,10 +367,10 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_list(self) -> anyhow::Result<Vec<ConfiguredAttr>> {
+    pub(crate) fn try_into_list(self) -> buck2_error::Result<Vec<ConfiguredAttr>> {
         match self {
             ConfiguredAttr::List(list) => Ok(list.to_vec()),
-            a => Err(buck2_error_anyhow!(
+            a => Err(buck2_error!(
                 [],
                 "expecting a list, got `{0}`",
                 a.as_display_no_ctx()

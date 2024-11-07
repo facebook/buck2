@@ -114,7 +114,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     pub fn pack(
         attr: &'a CoercedAttr,
         ty: &'t AttrType,
-    ) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
+    ) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
             (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(c, ty)),
@@ -209,7 +209,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     }
 
     #[inline]
-    fn pack_any(attr: &'a CoercedAttr) -> anyhow::Result<CoercedAttrWithType<'a, 't>> {
+    fn pack_any(attr: &'a CoercedAttr) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match attr {
             CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                 Err(CoercedAttrWithTypeError::Select.into())

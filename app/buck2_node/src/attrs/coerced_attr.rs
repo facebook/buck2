@@ -13,7 +13,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
@@ -21,8 +20,8 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::error::ErrorTag;
-use buck2_error::buck2_error_anyhow;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
@@ -91,16 +90,16 @@ impl CoercedSelector {
     pub fn new(
         entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
-    ) -> anyhow::Result<CoercedSelector> {
+    ) -> buck2_error::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;
         Ok(CoercedSelector { entries, default })
     }
 
     fn check_all_keys_unique(
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
-    ) -> anyhow::Result<()> {
-        fn duplicate_key(key: &ConfigurationSettingKey) -> anyhow::Error {
-            buck2_error_anyhow!([], "duplicate key `{key}` in `select()`")
+    ) -> buck2_error::Result<()> {
+        fn duplicate_key(key: &ConfigurationSettingKey) -> buck2_error::Error {
+            buck2_error!([], "duplicate key `{key}` in `select()`")
         }
 
         // This is possible when select keys are specified like:
@@ -294,7 +293,7 @@ impl CoercedAttr {
     /// things, a lot of the types will be dropped without special handling. For example, an artifact will just end
     /// up as the stringified version of its coerced value (i.e. while `//a:b` might represent some list of targets,
     /// in to_json it just appears as the string "//a:b").
-    pub fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             CoercedAttr::Selector(s) => {
                 let mut map = serde_json::Map::new();
@@ -375,7 +374,7 @@ impl CoercedAttr {
         t: &AttrType,
         pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match CoercedAttrWithType::pack(self, t)? {
             CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 for (condition, value) in entries.iter() {
@@ -430,9 +429,7 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(internal_error_anyhow!(
-                        "Inconsistent number of elements in tuple"
-                    ));
+                    return Err(internal_error!("Inconsistent number of elements in tuple"));
                 }
 
                 for (v, vt) in list.iter().zip(&t.xs) {
@@ -449,7 +446,7 @@ impl CoercedAttr {
             }
 
             CoercedAttrWithType::OneOf(l, i, t) => {
-                let item_type = t.xs.get(i as usize).context("invalid enum")?;
+                let item_type = t.xs.get(i as usize).buck_error_context("invalid enum")?;
                 l.traverse(item_type, pkg, traversal)
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
@@ -490,7 +487,7 @@ impl CoercedAttr {
                 &'a CoercedAttr,
             ),
         >,
-    ) -> anyhow::Result<Option<&'a CoercedAttr>> {
+    ) -> buck2_error::Result<Option<&'a CoercedAttr>> {
         let select_entries_vec = SmallVec::<[_; 17]>::from_iter(select_entries);
 
         let mut select_entries = select_entries_vec.iter().copied();
@@ -527,7 +524,7 @@ impl CoercedAttr {
                 &'a CoercedAttr,
             ); 17],
         >,
-    ) -> anyhow::Result<Option<&'a CoercedAttr>> {
+    ) -> buck2_error::Result<Option<&'a CoercedAttr>> {
         let mut entries =
             SmallVec::<[(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr); 17]>::new();
 
@@ -541,11 +538,11 @@ impl CoercedAttr {
             entries.push((k, d, v));
         }
         match entries.as_slice() {
-            [] => Err(internal_error_anyhow!(
+            [] => Err(internal_error!(
                 "no entries after slow select the most specific"
             )),
             [(.., x)] => Ok(Some(x)),
-            [(x, ..), (y, ..), ..] => Err(buck2_error_anyhow!(
+            [(x, ..), (y, ..), ..] => Err(buck2_error!(
                 [],
                 "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
             )),
@@ -555,7 +552,7 @@ impl CoercedAttr {
     fn select<'a>(
         ctx: &dyn AttrConfigurationContext,
         select: &'a CoercedSelector,
-    ) -> anyhow::Result<&'a CoercedAttr> {
+    ) -> buck2_error::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
         let resolved_cfg_settings = ctx.resolved_cfg_settings();
         let resolved_entries = entries.iter().filter_map(|(k, v)| {
@@ -567,7 +564,7 @@ impl CoercedAttr {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {
-                buck2_error_anyhow!(
+                buck2_error!(
                     [],
                     "None of {} conditions matched configuration `{}` and no default was set:\n{}",
                     entries.len(),
@@ -586,16 +583,15 @@ impl CoercedAttr {
         &self,
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
-        self.configure_inner(ty, ctx)
-            .tag_anyhow(ErrorTag::ConfigureAttr)
+    ) -> buck2_error::Result<ConfiguredAttr> {
+        self.configure_inner(ty, ctx).tag(ErrorTag::ConfigureAttr)
     }
 
     fn configure_inner(
         &self,
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(match CoercedAttrWithType::pack(self, ty)? {
             CoercedAttrWithType::Selector(select, t) => {
                 Self::select(ctx, select)?.configure(t, ctx)?
@@ -603,7 +599,7 @@ impl CoercedAttr {
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
                 let mut it = items.iter().map(|item| item.configure(t, ctx));
-                let first = it.next().internal_error_anyhow("concat with no items")??;
+                let first = it.next().internal_error("concat with no items")??;
                 if singleton {
                     first
                 } else {
@@ -624,7 +620,7 @@ impl CoercedAttr {
                 dict.try_map(|(k, v)| {
                     let k2 = k.configure(AttrType::any_ref(), ctx)?;
                     let v2 = v.configure(AttrType::any_ref(), ctx)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),
@@ -638,22 +634,20 @@ impl CoercedAttr {
             )),
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(internal_error_anyhow!(
-                        "Inconsistent number of elements in tuple"
-                    ));
+                    return Err(internal_error!("Inconsistent number of elements in tuple"));
                 }
                 ConfiguredAttr::Tuple(TupleLiteral(
                     list.iter()
                         .zip(&t.xs)
                         .map(|(v, vt)| v.configure(vt, ctx))
-                        .collect::<anyhow::Result<_>>()?,
+                        .collect::<buck2_error::Result<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
                     let k2 = k.configure(&t.key, ctx)?;
                     let v2 = v.configure(&t.value, ctx)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),

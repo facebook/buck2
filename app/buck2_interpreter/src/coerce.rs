@@ -12,5 +12,5 @@ use buck2_util::late_binding::LateBinding;
 use starlark::eval::Evaluator;
 
 pub static COERCE_TARGET_LABEL_FOR_BZL: LateBinding<
-    fn(&mut Evaluator, &str) -> anyhow::Result<TargetLabel>,
+    fn(&mut Evaluator, &str) -> buck2_error::Result<TargetLabel>,
 > = LateBinding::new("COERCE_TARGET_LABEL");

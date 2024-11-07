@@ -197,7 +197,7 @@ impl AnonTargetDependents {
         struct PromiseArtifactTraversal(Vec<PromiseArtifactAttr>);
 
         impl ConfiguredAttrTraversal for DepTraversal {
-            fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 self.0.push(dep.target().dupe());
                 Ok(())
             }
@@ -206,7 +206,7 @@ impl AnonTargetDependents {
                 &mut self,
                 _query: &str,
                 _resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 Err(AnonTargetsError::QueryMacroNotSupported.into())
             }
         }

@@ -424,11 +424,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             inputs: Vec<StarlarkArtifact>,
         }
         impl ConfiguredAttrTraversal for InputsCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 self.inputs
                     .push(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
                         path.to_owned(),
@@ -486,11 +486,11 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             target: CellPath,
         }
         impl ConfiguredAttrTraversal for SourceFinder {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 if path.to_cell_path() == self.target {
                     self.found = Some(StarlarkArtifact::new(Artifact::from(SourceArtifact::new(
                         path.to_owned(),

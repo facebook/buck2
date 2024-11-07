@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::package::PackageLabel;
+use buck2_error::BuckErrorContext;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -27,14 +27,14 @@ impl<'a> CoercedAttrFull<'a> {
     pub fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttrFull<'a>> {
+    ) -> buck2_error::Result<ConfiguredAttrFull<'a>> {
         Ok(ConfiguredAttrFull {
             name: self.name,
             attr: self.attr,
             value: self
                 .value
                 .configure(self.attr.coercer(), ctx)
-                .with_context(|| format!("configuring attr `{}`", self.name))?,
+                .with_buck_error_context(|| format!("configuring attr `{}`", self.name))?,
         })
     }
 
@@ -42,9 +42,9 @@ impl<'a> CoercedAttrFull<'a> {
         &self,
         pkg: PackageLabel,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.value
             .traverse(self.attr.coercer(), pkg, traversal)
-            .with_context(|| format!("traversing attribute `{}`", self.name))
+            .with_buck_error_context(|| format!("traversing attribute `{}`", self.name))
     }
 }

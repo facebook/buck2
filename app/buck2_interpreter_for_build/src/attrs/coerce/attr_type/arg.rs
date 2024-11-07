@@ -131,7 +131,7 @@ fn get_single_target_arg(
             args
         )));
     }
-    ctx.coerce_providers_label(&args[0])
+    Ok(ctx.coerce_providers_label(&args[0])?)
 }
 
 pub trait UnconfiguredMacroExt {
@@ -165,8 +165,9 @@ pub trait UnconfiguredMacroExt {
             )));
         }
 
-        ctx.coerce_path(&args[0], /* allow_directory */ true)
-            .map(UnconfiguredMacro::Source)
+        Ok(ctx
+            .coerce_path(&args[0], /* allow_directory */ true)
+            .map(UnconfiguredMacro::Source)?)
     }
 
     fn new_user_keyed_placeholder(

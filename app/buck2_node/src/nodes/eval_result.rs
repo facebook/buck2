@@ -170,7 +170,10 @@ impl EvaluationResult {
         self.targets.get(name)
     }
 
-    pub fn resolve_target<'a>(&'a self, path: &TargetNameRef) -> anyhow::Result<TargetNodeRef<'a>> {
+    pub fn resolve_target<'a>(
+        &'a self,
+        path: &TargetNameRef,
+    ) -> buck2_error::Result<TargetNodeRef<'a>> {
         self.get_target(path).ok_or_else(|| {
             MissingTargetError {
                 target: path.to_owned(),

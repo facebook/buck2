@@ -29,7 +29,7 @@ impl ExplicitConfiguredDepAttrType {
     pub(crate) fn configure(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
         Ok(ConfiguredAttr::ExplicitConfiguredDep(Box::new(configured)))
     }
@@ -37,7 +37,7 @@ impl ExplicitConfiguredDepAttrType {
     fn configure_target_with_platform(
         ctx: &dyn AttrConfigurationContext,
         dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<ConfiguredExplicitConfiguredDep> {
+    ) -> buck2_error::Result<ConfiguredExplicitConfiguredDep> {
         let configuration = ctx.platform_cfg(&dep_attr.platform)?;
         let configured_label = dep_attr.label.configure(configuration.dupe());
         Ok(ConfiguredExplicitConfiguredDep::new(
@@ -76,14 +76,14 @@ impl UnconfiguredExplicitConfiguredDep {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         traversal.dep(self.label.target())?;
         traversal.platform_dep(&self.platform)
     }
 }
 
 impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::to_value(self.to_string())?)
     }
 
@@ -96,7 +96,7 @@ impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
 }
 
 impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::to_value([
             self.label.to_string(),
             self.platform.to_string(),

@@ -93,7 +93,7 @@ impl<C: Eq + AnyMatches> AnyMatches for DictLiteral<C> {
 }
 
 impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Value> {
         let mut res: serde_json::Map<String, serde_json::Value> =
             serde_json::Map::with_capacity(self.len());
         for (k, v) in self.iter() {

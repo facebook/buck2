@@ -166,8 +166,9 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
             AnyProvidersLabelArg::Configured(arg) => Ok(arg.configured_providers_label()),
             AnyProvidersLabelArg::Unconfigured(arg) => {
                 let label = Self::unpack_providers_label(arg, ctx)?;
-                dice.get_configured_provider_label(&label, global_cfg_options_override)
-                    .await
+                Ok(dice
+                    .get_configured_provider_label(&label, global_cfg_options_override)
+                    .await?)
             }
         }
     }

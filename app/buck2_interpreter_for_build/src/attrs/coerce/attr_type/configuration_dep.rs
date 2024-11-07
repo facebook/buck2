@@ -31,8 +31,9 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
-        ctx.coerce_target_label(label)
-            .map(|t| CoercedAttr::ConfigurationDep(ConfigurationSettingKey(t)))
+        Ok(ctx
+            .coerce_target_label(label)
+            .map(|t| CoercedAttr::ConfigurationDep(ConfigurationSettingKey(t)))?)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

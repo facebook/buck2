@@ -40,7 +40,7 @@ impl SplitTransitionDepAttrType {
         &self,
         dep: &ProvidersLabel,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         let configured_providers = ctx.configure_split_transition_target(dep, &self.transition)?;
         Ok(ConfiguredAttr::SplitTransitionDep(Box::new(
             ConfiguredSplitTransitionDep {
@@ -53,7 +53,7 @@ impl SplitTransitionDepAttrType {
 
 /// Configured or unconfigured.
 pub trait SplitTransitionDepMaybeConfigured: Display + Allocative {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value>;
     fn any_matches(
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
@@ -81,7 +81,7 @@ impl Display for ConfiguredSplitTransitionDep {
 }
 
 impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         let mut map = serde_json::Map::with_capacity(self.deps.len());
         for (label, target) in &self.deps {
             map.insert(label.clone(), serde_json::to_value(target.to_string())?);
@@ -111,7 +111,7 @@ pub struct SplitTransitionDep {
 }
 
 impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::to_value(self.to_string())?)
     }
 

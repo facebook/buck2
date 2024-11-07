@@ -132,7 +132,7 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
+    fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.is_visible_to(target),
             TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(target),
@@ -265,7 +265,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         // The transitioned target node.
         transitioned_node: ConfiguredTargetNode,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         assert_eq!(
             name.unconfigured(),
             transitioned_node.label().unconfigured(),
@@ -323,7 +323,7 @@ impl ConfiguredTargetNode {
 
     pub fn attr_as_target_compatible_with(
         attr: ConfiguredAttr,
-    ) -> impl Iterator<Item = anyhow::Result<ConfigurationSettingKey>> {
+    ) -> impl Iterator<Item = buck2_error::Result<ConfigurationSettingKey>> {
         let list = match attr.try_into_list() {
             Ok(list) => list,
             Err(e) => return Either::Left(iter::once(Err(e))),
@@ -394,12 +394,12 @@ impl ConfiguredTargetNode {
         }
 
         impl ConfiguredAttrTraversal for TestCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 // ignored.
                 Ok(())
             }
 
-            fn label(&mut self, label: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn label(&mut self, label: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 self.labels.push(label.dupe());
                 Ok(())
             }
@@ -440,7 +440,7 @@ impl ConfiguredTargetNode {
         self.0.target_node.buildfile_path()
     }
 
-    pub fn is_visible_to(&self, target: &TargetLabel) -> anyhow::Result<bool> {
+    pub fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         self.0.target_node.is_visible_to(target)
     }
 
@@ -519,8 +519,8 @@ impl ConfiguredTargetNode {
     }
 
     #[inline]
-    pub fn execution_platform(&self) -> anyhow::Result<&ExecutionPlatform> {
-        self.as_ref().execution_platform_resolution().platform()
+    pub fn execution_platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
+        Ok(self.as_ref().execution_platform_resolution().platform()?)
     }
 
     #[inline]
@@ -731,11 +731,11 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             inputs: Vec<CellPath>,
         }
         impl ConfiguredAttrTraversal for InputsCollector {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn input(&mut self, path: SourcePathRef) -> anyhow::Result<()> {
+            fn input(&mut self, path: SourcePathRef) -> buck2_error::Result<()> {
                 self.inputs.push(path.to_cell_path());
                 Ok(())
             }
@@ -759,7 +759,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             queries: Vec::new(),
         };
         impl ConfiguredAttrTraversal for Traversal {
-            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+            fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
                 // ignored.
                 Ok(())
             }
@@ -768,7 +768,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 &mut self,
                 query: &str,
                 resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 self.queries
                     .push((query.to_owned(), resolved_literals.clone()));
                 Ok(())

@@ -82,7 +82,7 @@ impl SuperPackageValues for SuperPackageValuesImpl {
         self.values.is_empty()
     }
 
-    fn package_values_json(&self) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
+    fn package_values_json(&self) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>> {
         let mut values = SmallMap::with_capacity(self.values.len());
         for (key, value) in &self.values {
             values.insert(key.clone(), value.to_json_value()?);
@@ -97,7 +97,7 @@ impl SuperPackageValues for SuperPackageValuesImpl {
     fn get_package_value_json(
         &self,
         key: &MetadataKeyRef,
-    ) -> anyhow::Result<Option<serde_json::Value>> {
+    ) -> buck2_error::Result<Option<serde_json::Value>> {
         match self.values.get(key) {
             Some(value) => Ok(Some(value.to_json_value()?)),
             None => Ok(None),

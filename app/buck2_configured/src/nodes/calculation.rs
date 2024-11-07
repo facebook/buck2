@@ -49,6 +49,7 @@ use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTarg
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_error::internal_error;
 use buck2_error::internal_error_anyhow;
 use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
@@ -469,8 +470,8 @@ fn unpack_target_compatible_with_attr(
             self.resolved_cfg.cfg().dupe()
         }
 
-        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
-            Err(internal_error_anyhow!(
+        fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
+            Err(internal_error!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
@@ -481,7 +482,7 @@ fn unpack_target_compatible_with_attr(
             unreachable!()
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
             unreachable!(
                 "platform_cfg() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
@@ -491,8 +492,8 @@ fn unpack_target_compatible_with_attr(
 
         fn resolved_transitions(
             &self,
-        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
-            Err(internal_error_anyhow!(
+        ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+            Err(internal_error!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
                 TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
@@ -735,7 +736,7 @@ async fn gather_deps(
     }
 
     impl ConfiguredAttrTraversal for Traversal {
-        fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
             self.deps.entry(dep.dupe()).or_insert_with(SmallSet::new);
             Ok(())
         }
@@ -744,7 +745,7 @@ async fn gather_deps(
             &mut self,
             dep: &ConfiguredProvidersLabel,
             plugin_kinds: &PluginKindSet,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             self.deps
                 .entry(dep.dupe())
                 .or_insert_with(SmallSet::new)
@@ -752,12 +753,12 @@ async fn gather_deps(
             Ok(())
         }
 
-        fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
             self.exec_deps.insert(dep.dupe(), CheckVisibility::Yes);
             Ok(())
         }
 
-        fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> anyhow::Result<()> {
+        fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
             self.toolchain_deps
                 .insert(TargetConfiguredTargetLabel::new_without_exec_cfg(
                     dep.target().dupe(),
@@ -765,7 +766,7 @@ async fn gather_deps(
             Ok(())
         }
 
-        fn plugin_dep(&mut self, dep: &TargetLabel, kind: &PluginKind) -> anyhow::Result<()> {
+        fn plugin_dep(&mut self, dep: &TargetLabel, kind: &PluginKind) -> buck2_error::Result<()> {
             self.plugin_lists
                 .insert(kind.dupe(), dep.dupe(), PluginListElemKind::Direct);
             Ok(())
@@ -863,8 +864,8 @@ async fn resolve_transition_attrs<'a>(
             self.resolved_cfg.cfg().dupe()
         }
 
-        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
-            Err(internal_error_anyhow!(
+        fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
+            Err(internal_error!(
                 "exec_cfg() is not needed in pre transition attribute resolution."
             ))
         }
@@ -873,7 +874,7 @@ async fn resolve_transition_attrs<'a>(
             self.toolchain_cfg.dupe()
         }
 
-        fn platform_cfg(&self, label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+        fn platform_cfg(&self, label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
             match self.platform_cfgs.get(label) {
                 Some(configuration) => Ok(configuration.dupe()),
                 None => Err(PlatformConfigurationError::UnknownPlatformTarget(label.dupe()).into()),
@@ -882,8 +883,8 @@ async fn resolve_transition_attrs<'a>(
 
         fn resolved_transitions(
             &self,
-        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
-            Err(internal_error_anyhow!(
+        ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+            Err(internal_error!(
                 "resolved_transitions() can't be used before transition execution."
             ))
         }

@@ -48,7 +48,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         target: &TargetLabel,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<ConfiguredTargetLabel> {
+    ) -> buck2_error::Result<ConfiguredTargetLabel> {
         let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
         async fn get_platform_configuration(
@@ -69,7 +69,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                 },
             };
 
-            Ok(CFG_CONSTRUCTOR_CALCULATION_IMPL
+            CFG_CONSTRUCTOR_CALCULATION_IMPL
                 .get()?
                 .eval_cfg_constructor(
                     ctx,
@@ -79,7 +79,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     &global_cfg_options.cli_modifiers,
                     node.rule_type(),
                 )
-                .await?)
+                .await
         }
 
         match node.rule_kind() {

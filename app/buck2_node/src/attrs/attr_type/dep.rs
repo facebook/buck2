@@ -69,7 +69,7 @@ impl DepAttr<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &self.attr_type.transition {
             DepAttrTransition::Identity(plugins) if plugins.is_empty() => {
                 traversal.dep(&self.label)
@@ -89,7 +89,7 @@ impl DepAttr<ProvidersLabel> {
         label: &'a ProvidersLabel,
         attr_type: &DepAttrType,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &attr_type.transition {
             DepAttrTransition::Identity(..) => traversal.dep(label.target()),
             DepAttrTransition::Exec => traversal.exec_dep(label.target()),
@@ -111,7 +111,7 @@ impl DepAttrType {
         &self,
         label: &ProvidersLabel,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         let configured_label = match &self.transition {
             DepAttrTransition::Identity(..) => ctx.configure_target(label),
             DepAttrTransition::Exec => ctx.configure_exec_target(label)?,
@@ -127,7 +127,7 @@ impl DepAttrType {
 
 /// Represents both configured and unconfigured forms.
 pub trait ExplicitConfiguredDepMaybeConfigured: Display + Allocative {
-    fn to_json(&self) -> anyhow::Result<serde_json::Value>;
+    fn to_json(&self) -> buck2_error::Result<serde_json::Value>;
     fn any_matches(
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
@@ -138,7 +138,7 @@ impl ConfiguredExplicitConfiguredDep {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         traversal.dep(&self.label)
     }
 }

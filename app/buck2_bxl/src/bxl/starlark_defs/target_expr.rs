@@ -37,7 +37,7 @@ impl<'v> TargetExpr<'v, TargetNode> {
     ) -> anyhow::Result<TargetNode> {
         match self {
             TargetExpr::Node(node) => Ok(node.dupe()),
-            TargetExpr::Label(label) => dice.get_target_node(label).await,
+            TargetExpr::Label(label) => Ok(dice.get_target_node(label).await?),
         }
     }
 }

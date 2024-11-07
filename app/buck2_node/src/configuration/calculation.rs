@@ -23,7 +23,7 @@ pub trait ConfigurationCalculationDyn: Send + Sync + 'static {
         &self,
         dice: &mut DiceComputations<'_>,
         target: &TargetLabel,
-    ) -> anyhow::Result<ConfigurationData>;
+    ) -> buck2_error::Result<ConfigurationData>;
 
     async fn get_resolved_configuration(
         &self,

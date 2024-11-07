@@ -116,9 +116,9 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &'a mut DiceComputations,
         package: PackageLabel,
-    ) -> BoxFuture<'a, anyhow::Result<Arc<EvaluationResult>>> {
+    ) -> BoxFuture<'a, buck2_error::Result<Arc<EvaluationResult>>> {
         ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|v| v?.map_err(anyhow::Error::from))
+            .map(|v| v?.map_err(buck2_error::Error::from))
             .boxed()
     }
 }
@@ -244,7 +244,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<SmallMap<MetadataKey, serde_json::Value>> {
+    ) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>> {
         ctx.eval_package_file(package)
             .await?
             .package_values()

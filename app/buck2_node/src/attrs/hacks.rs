@@ -16,16 +16,22 @@ use buck2_core::package::PackageLabel;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::fmt_context::AttrFmtContext;
 
-pub fn value_to_json(value: &CoercedAttr, pkg: PackageLabel) -> anyhow::Result<serde_json::Value> {
+pub fn value_to_json(
+    value: &CoercedAttr,
+    pkg: PackageLabel,
+) -> buck2_error::Result<serde_json::Value> {
     value.to_json(&AttrFmtContext {
         package: Some(pkg),
         options: Default::default(),
     })
 }
 
-pub fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> anyhow::Result<String> {
+pub fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
     match value_to_json(value, pkg)?.as_str() {
         Some(s) => Ok(s.to_owned()),
-        None => Err(anyhow::Error::msg("Expected a string, did not get one")),
+        None => Err(buck2_error::buck2_error!(
+            [],
+            "Expected a string, did not get one",
+        )),
     }
 }

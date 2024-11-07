@@ -417,8 +417,8 @@ impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
         &self,
         ctx: &mut DiceComputations<'_>,
         target: &TargetLabel,
-    ) -> anyhow::Result<ConfigurationData> {
-        ctx.get_platform_configuration(target).await
+    ) -> buck2_error::Result<ConfigurationData> {
+        Ok(ctx.get_platform_configuration(target).await?)
     }
 
     async fn get_resolved_configuration(

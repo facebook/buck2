@@ -32,7 +32,7 @@ enum AttrCoercionContextError {
 /// The context for attribute coercion. Mostly just contains information about
 /// the current package (to support things like parsing targets from strings).
 pub trait AttrCoercionContext {
-    fn coerce_target_label(&self, value: &str) -> anyhow::Result<TargetLabel> {
+    fn coerce_target_label(&self, value: &str) -> buck2_error::Result<TargetLabel> {
         let label = self.coerce_providers_label(value)?;
 
         match label.name() {
@@ -51,7 +51,7 @@ pub trait AttrCoercionContext {
     }
 
     /// Attempt to convert a string into a label
-    fn coerce_providers_label(&self, value: &str) -> anyhow::Result<ProvidersLabel>;
+    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel>;
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;
@@ -72,17 +72,17 @@ pub trait AttrCoercionContext {
     ) -> ArcSlice<(CoercedAttr, CoercedAttr)>;
 
     /// Attempt to convert a string into a BuckPath
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> anyhow::Result<CoercedPath>;
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath>;
 
     fn coerce_target_pattern(
         &self,
         pattern: &str,
-    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>>;
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>>;
 
     fn visit_query_function_literals(
         &self,
         visitor: &mut dyn QueryLiteralVisitor,
         expr: &Spanned<Expr>,
         query: &str,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }

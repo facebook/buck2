@@ -24,7 +24,6 @@
 //! for `cell//bar/foo/...` has no effect because buck will pick the first matching spec).
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
@@ -32,6 +31,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 
 #[derive(Debug, buck2_error::Error)]
 enum DetectorSpecParseError {
@@ -65,7 +65,7 @@ impl TargetPlatformDetector {
         cell_name: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut detectors = Vec::new();
         for value in spec.split_whitespace() {
             match value.split_once(':') {
@@ -97,7 +97,7 @@ impl TargetPlatformDetector {
                             cell_alias_resolver,
                         )
                         .and_then(|x| x.as_target_label(target))
-                        .context("Error parsing target platform detector spec")?;
+                        .buck_error_context("Error parsing target platform detector spec")?;
                         detectors.push((matcher_package, target))
                     }
                     None => {
@@ -139,7 +139,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_errors() -> anyhow::Result<()> {
+    fn test_parse_errors() -> buck2_error::Result<()> {
         let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
             &[
                 (
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_detect() -> anyhow::Result<()> {
+    fn test_detect() -> buck2_error::Result<()> {
         let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
             &[
                 (

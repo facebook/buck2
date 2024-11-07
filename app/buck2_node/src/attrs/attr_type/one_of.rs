@@ -39,9 +39,9 @@ impl OneOfAttrType {
         self.xs.iter().any(AttrType::supports_concat)
     }
 
-    pub(crate) fn get(&self, i: u32) -> anyhow::Result<&AttrType> {
-        self.xs.get(i as usize).with_internal_error_anyhow(|| {
-            format!("Oneof index ({i}) out of bounds (internal error)")
-        })
+    pub(crate) fn get(&self, i: u32) -> buck2_error::Result<&AttrType> {
+        self.xs
+            .get(i as usize)
+            .with_internal_error(|| format!("Oneof index ({i}) out of bounds (internal error)"))
     }
 }

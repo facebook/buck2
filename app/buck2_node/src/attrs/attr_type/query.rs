@@ -46,7 +46,7 @@ impl QueryAttr<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
     }
 }
@@ -55,7 +55,7 @@ impl QueryAttr<ProvidersLabel> {
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttr<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<QueryAttr<ConfiguredProvidersLabel>> {
         Ok(QueryAttr {
             query: self.query.configure(ctx)?,
             providers: self.providers.dupe(),
@@ -65,7 +65,7 @@ impl QueryAttr<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
     }
 }
@@ -88,7 +88,7 @@ impl QueryMacroBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
     }
 }
@@ -97,14 +97,14 @@ impl QueryMacroBase<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
     }
 
     pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryMacroBase<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<QueryMacroBase<ConfiguredProvidersLabel>> {
         Ok(QueryMacroBase {
             expansion_type: self.expansion_type.clone(),
             query: self.query.configure(ctx)?,
@@ -130,7 +130,7 @@ impl QueryAttrBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // queries have no inputs.
         for dep in self.resolved_literals.0.values() {
             traversal.dep(dep)?;
@@ -144,7 +144,7 @@ impl QueryAttrBase<ProvidersLabel> {
     fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> anyhow::Result<QueryAttrBase<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<QueryAttrBase<ConfiguredProvidersLabel>> {
         Ok(QueryAttrBase {
             query: self.query.clone(),
             resolved_literals: ResolvedQueryLiterals(
@@ -152,12 +152,15 @@ impl QueryAttrBase<ProvidersLabel> {
                     .0
                     .iter()
                     .map(|(key, value)| Ok((key.clone(), ctx.configure_target(value))))
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             ),
         })
     }
 
-    fn traverse<'a>(&'a self, traversal: &mut dyn CoercedAttrTraversal<'a>) -> anyhow::Result<()> {
+    fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> buck2_error::Result<()> {
         // queries don't have any configuration_deps or inputs currently.
         for dep in self.resolved_literals.0.values() {
             traversal.dep(dep.target())?;

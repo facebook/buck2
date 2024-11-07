@@ -286,10 +286,10 @@ impl CfgConstructorImpl for CfgConstructor {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<ConfigurationData>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move {
-            eval_underlying(
+            Ok(eval_underlying(
                 self,
                 ctx,
                 cfg,
@@ -298,7 +298,7 @@ impl CfgConstructorImpl for CfgConstructor {
                 cli_modifiers,
                 rule_type,
             )
-            .await
+            .await?)
         };
         unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
     }

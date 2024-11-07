@@ -20,11 +20,11 @@ enum AnonRuleAttrError {
 
 /// Basic validation that anon target attr types defined in the anon_rule are supported.
 pub trait AnonRuleAttrValidation {
-    fn validate_for_anon_rule(&self) -> anyhow::Result<()>;
+    fn validate_for_anon_rule(&self) -> buck2_error::Result<()>;
 }
 
 impl AnonRuleAttrValidation for AttrType {
-    fn validate_for_anon_rule(&self) -> anyhow::Result<()> {
+    fn validate_for_anon_rule(&self) -> buck2_error::Result<()> {
         match &self.0.inner {
             AttrTypeInner::Any(_) => Ok(()),
             AttrTypeInner::Bool(_) => Ok(()),

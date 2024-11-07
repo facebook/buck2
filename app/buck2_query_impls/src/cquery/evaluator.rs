@@ -183,7 +183,7 @@ async fn build_cquery_universe_from_literals(
     let refs: Vec<_> = universe.map(|v| v.as_str());
     let universe_resolved = query_literals.eval_literals(&refs, ctx).await?;
 
-    Ok(CqueryUniverse::build(&universe_resolved)?)
+    CqueryUniverse::build(&universe_resolved)
 }
 
 // This will first resolve the universe to configured nodes and then gather all

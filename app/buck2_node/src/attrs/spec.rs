@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::soft_error;
+use buck2_error::buck2_error;
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
@@ -102,14 +103,14 @@ impl AttributeSpec {
         usize::from(id.index_in_attribute_spec) < *INTERNAL_ATTR_COUNT
     }
 
-    fn new(attributes: OrderedMap<Box<str>, Attribute>) -> anyhow::Result<AttributeSpec> {
+    fn new(attributes: OrderedMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
         }
         Ok(AttributeSpec { attributes })
     }
 
-    pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> anyhow::Result<Self> {
+    pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> buck2_error::Result<Self> {
         let internal_attrs = internal_attrs();
 
         let mut instances: OrderedMap<Box<str>, Attribute> =
@@ -128,7 +129,7 @@ impl AttributeSpec {
             if name == "metadata" {
                 soft_error!(
                     "metadata_attribute",
-                    anyhow::anyhow!("Rules should not declare an attribute named metadata`").into(),
+                    buck2_error!([], "Rules should not declare an attribute named metadata`"),
                     deprecation: true,
                     quiet: true
                 )?;
@@ -141,13 +142,12 @@ impl AttributeSpec {
                 small_map::Entry::Occupied(e) => {
                     let name: &str = e.key();
                     if internal_attrs.contains_key(name) {
-                        return Err(anyhow::anyhow!(
-                            AttributeSpecError::InternalAttributeRedefined(name.to_owned())
-                        ));
+                        return Err(AttributeSpecError::InternalAttributeRedefined(
+                            name.to_owned(),
+                        )
+                        .into());
                     } else {
-                        return Err(anyhow::anyhow!(AttributeSpecError::DuplicateAttribute(
-                            name.to_owned()
-                        )));
+                        return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
                     }
                 }
             }
@@ -278,7 +278,7 @@ impl AttributeSpec {
         attr_values: &'v AttrValues,
         key: &str,
         opts: AttrInspectOptions,
-    ) -> anyhow::Result<Option<CoercedAttrFull<'v>>> {
+    ) -> buck2_error::Result<Option<CoercedAttrFull<'v>>> {
         if let Some(idx) = self.attribute_id_by_name(key) {
             Ok(self
                 .known_attr_or_none(idx, attr_values, opts)

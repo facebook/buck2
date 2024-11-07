@@ -84,7 +84,7 @@ impl<'a> CqueryUniverseInner<'a> {
 
     fn build_inner(
         universe: &'a TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<CqueryUniverseInner<'a>> {
+    ) -> buck2_error::Result<CqueryUniverseInner<'a>> {
         let mut targets: BTreeMap<
             PackageLabel,
             BTreeMap<&TargetNameRef, BTreeSet<LabelIndexed<ConfiguredTargetNodeRef>>>,
@@ -129,7 +129,9 @@ impl CqueryUniverse {
             .flat_map(|map| map.values().flat_map(|set| set.iter().map(|node| node.0)))
     }
 
-    pub fn build(universe: &TargetSet<ConfiguredTargetNode>) -> anyhow::Result<CqueryUniverse> {
+    pub fn build(
+        universe: &TargetSet<ConfiguredTargetNode>,
+    ) -> buck2_error::Result<CqueryUniverse> {
         span(buck2_data::CqueryUniverseBuildStart {}, || {
             let r = SelfRef::try_new(universe.clone(), |universe| {
                 CqueryUniverseInner::build_inner(universe)

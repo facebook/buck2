@@ -185,7 +185,7 @@ impl AttrType {
         }))
     }
 
-    pub fn enumeration(variants: Vec<String>) -> anyhow::Result<Self> {
+    pub fn enumeration(variants: Vec<String>) -> buck2_error::Result<Self> {
         Ok(Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::Enum(EnumAttrType::new(variants)?),
             may_have_queries: false,

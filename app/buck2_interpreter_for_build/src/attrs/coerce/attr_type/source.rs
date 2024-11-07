@@ -26,7 +26,7 @@ enum SourceLabelCoercionError {
     #[error(
         "Couldn't coerce `{0}` as a source.\n  Error when treated as a target: {1:#}\n  Error when treated as a path: {2:#}"
     )]
-    CoercionFailed(String, anyhow::Error, anyhow::Error),
+    CoercionFailed(String, buck2_error::Error, buck2_error::Error),
 }
 
 /// Try cleaning up irrelevant details users often type
@@ -68,7 +68,9 @@ impl AttrTypeCoerce for SourceAttrType {
                     .into(),
             )
         } else {
-            Err(path_err.context(format!("Coercing `{}` as a source", value.to_str())))
+            Err(path_err
+                .context(format!("Coercing `{}` as a source", value.to_str()))
+                .into())
         }
     }
 

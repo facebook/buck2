@@ -86,7 +86,7 @@ impl<C: Eq + AnyMatches> AnyMatches for TupleLiteral<C> {
 }
 
 impl<C: Eq + ToJsonWithContext> ToJsonWithContext for TupleLiteral<C> {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Value> {
         Ok(to_value(self.try_map(|c| c.to_json(ctx))?)?)
     }
 }

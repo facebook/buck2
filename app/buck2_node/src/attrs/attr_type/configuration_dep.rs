@@ -33,7 +33,7 @@ impl ConfigurationDepAttrType {
     pub(crate) fn configure(
         _ctx: &dyn AttrConfigurationContext,
         label: &ConfigurationSettingKey,
-    ) -> anyhow::Result<ConfiguredAttr> {
+    ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr::ConfigurationDep(label.dupe()))
     }
 }

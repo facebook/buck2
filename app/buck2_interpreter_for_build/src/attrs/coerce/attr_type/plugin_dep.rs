@@ -30,7 +30,7 @@ impl AttrTypeCoerce for PluginDepAttrType {
             .unpack_str()
             .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
 
-        ctx.coerce_target_label(label).map(CoercedAttr::PluginDep)
+        Ok(ctx.coerce_target_label(label).map(CoercedAttr::PluginDep)?)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

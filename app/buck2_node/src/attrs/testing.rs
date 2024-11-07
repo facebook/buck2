@@ -38,7 +38,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.0.dupe())
         }
 
-        fn exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+        fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
             Ok(ConfigurationNoExec::new(self.1.dupe()))
         }
 
@@ -50,13 +50,13 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationWithExec::new(self.0.dupe(), self.1.dupe())
         }
 
-        fn platform_cfg(&self, _label: &TargetLabel) -> anyhow::Result<ConfigurationData> {
+        fn platform_cfg(&self, _label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
             panic!("not used in tests")
         }
 
         fn resolved_transitions(
             &self,
-        ) -> anyhow::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+        ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
             panic!("not used in tests")
         }
     }

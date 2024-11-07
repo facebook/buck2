@@ -24,7 +24,7 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 
 impl ToJsonWithContext for ConfiguredAttr {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             ConfiguredAttr::Bool(v) => Ok(to_value(v)?),
             ConfiguredAttr::Int(v) => Ok(to_value(v)?),
@@ -85,7 +85,7 @@ impl AnyMatches for ConfiguredAttr {
 }
 
 impl ToJsonWithContext for CoercedAttr {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         CoercedAttr::to_json(self, ctx)
     }
 }

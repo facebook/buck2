@@ -115,7 +115,7 @@ enum AnonTargetAttrError {
 }
 
 impl ToJsonWithContext for AnonTargetAttr {
-    fn to_json(&self, ctx: &AttrFmtContext) -> anyhow::Result<serde_json::Value> {
+    fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             AnonTargetAttr::Bool(v) => Ok(to_value(v)?),
             AnonTargetAttr::Int(v) => Ok(to_value(v)?),
@@ -146,7 +146,7 @@ impl AnonTargetAttr {
         &'a self,
         pkg: PackageLabel,
         traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),
             AnonTargetAttr::Int(_) => Ok(()),

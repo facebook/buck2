@@ -18,24 +18,24 @@ use buck2_core::target::label::label::TargetLabel;
 use crate::configuration::resolved::ConfigurationSettingKey;
 
 pub trait CoercedAttrTraversal<'a> {
-    fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
+    fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
+    fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
+    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
     fn transition_dep(
         &mut self,
         dep: &'a TargetLabel,
         tr: &Arc<TransitionId>,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
     fn split_transition_dep(
         &mut self,
         dep: &'a TargetLabel,
         tr: &Arc<TransitionId>,
-    ) -> anyhow::Result<()>;
-    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> anyhow::Result<()>;
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()>;
-    fn plugin_dep(&mut self, dep: &'a TargetLabel, kind: &PluginKind) -> anyhow::Result<()>;
-    fn input(&mut self, input: SourcePathRef) -> anyhow::Result<()>;
-    fn label(&mut self, _label: &'a ProvidersLabel) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()>;
+    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()>;
+    fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
+    fn plugin_dep(&mut self, dep: &'a TargetLabel, kind: &PluginKind) -> buck2_error::Result<()>;
+    fn input(&mut self, input: SourcePathRef) -> buck2_error::Result<()>;
+    fn label(&mut self, _label: &'a ProvidersLabel) -> buck2_error::Result<()> {
         Ok(())
     }
 }

@@ -98,7 +98,7 @@ impl ParsedArg {
 }
 
 /// Parsed a string into a structure with macros and their types and args identified.
-pub fn parse_macros(input: &str) -> anyhow::Result<ParsedArg> {
+pub fn parse_macros(input: &str) -> buck2_error::Result<ParsedArg> {
     match read(input) {
         Ok((value, remaining)) => {
             assert!(
@@ -121,7 +121,8 @@ pub fn parse_macros(input: &str) -> anyhow::Result<ParsedArg> {
             // We'll print a line of `^` to indicate where the processing failed.
             let pointer = error_start - message_start;
 
-            Err(anyhow::anyhow!(
+            Err(buck2_error::buck2_error!(
+                [],
                 "E:{}\n    V:{}\n    M:{}{}\n",
                 err,
                 &input[message_start..message_end],
@@ -514,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_macros() -> anyhow::Result<()> {
+    fn test_parse_macros() -> buck2_error::Result<()> {
         assert_eq!(
             ParsedArg(vec![ArgItem::String("contains no macros".into())]),
             parse_macros(r#"contains no macros"#)?

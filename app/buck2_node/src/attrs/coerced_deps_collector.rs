@@ -111,17 +111,17 @@ impl CoercedDepsCollector {
 }
 
 impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
-    fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
         self.deps.insert(dep.dupe());
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
         self.exec_deps.insert(dep.dupe());
         Ok(())
     }
 
-    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
         self.toolchain_deps.insert(dep.dupe());
         Ok(())
     }
@@ -130,7 +130,7 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         &mut self,
         dep: &'a TargetLabel,
         tr: &Arc<TransitionId>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.transition_deps.insert((dep.dupe(), tr.dupe()));
         Ok(())
     }
@@ -139,27 +139,27 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         &mut self,
         dep: &'a TargetLabel,
         tr: &Arc<TransitionId>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.transition_deps.insert((dep.dupe(), tr.dupe()));
         Ok(())
     }
 
-    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> anyhow::Result<()> {
+    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()> {
         self.configuration_deps.insert(dep.dupe());
         Ok(())
     }
 
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+    fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
         self.platform_deps.insert(dep.dupe());
         Ok(())
     }
 
-    fn plugin_dep(&mut self, dep: &'a TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
+    fn plugin_dep(&mut self, dep: &'a TargetLabel, _kind: &PluginKind) -> buck2_error::Result<()> {
         self.plugin_deps.insert(dep.dupe());
         Ok(())
     }
 
-    fn input(&mut self, _input: SourcePathRef) -> anyhow::Result<()> {
+    fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
         Ok(())
     }
 }

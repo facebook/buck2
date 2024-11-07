@@ -66,7 +66,7 @@ pub(crate) fn check_within_view(
     }
 
     impl<'x> WithinViewCheckTraversal<'x> {
-        fn check_dep_within_view(&self, dep: &TargetLabel) -> anyhow::Result<()> {
+        fn check_dep_within_view(&self, dep: &TargetLabel) -> buck2_error::Result<()> {
             if self.pkg == dep.pkg() || self.within_view.0.matches_target(dep) {
                 Ok(())
             } else {
@@ -79,19 +79,23 @@ pub(crate) fn check_within_view(
     }
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
-        fn dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+        fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
-        fn plugin_dep(&mut self, dep: &'a TargetLabel, _kind: &PluginKind) -> anyhow::Result<()> {
+        fn plugin_dep(
+            &mut self,
+            dep: &'a TargetLabel,
+            _kind: &PluginKind,
+        ) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
-        fn exec_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+        fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
-        fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+        fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
@@ -99,7 +103,7 @@ pub(crate) fn check_within_view(
             &mut self,
             dep: &'a TargetLabel,
             _tr: &Arc<TransitionId>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
@@ -107,27 +111,30 @@ pub(crate) fn check_within_view(
             &mut self,
             dep: &'a TargetLabel,
             _tr: &Arc<TransitionId>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
-        fn configuration_dep(&mut self, _dep: &'a ConfigurationSettingKey) -> anyhow::Result<()> {
+        fn configuration_dep(
+            &mut self,
+            _dep: &'a ConfigurationSettingKey,
+        ) -> buck2_error::Result<()> {
             // Skip configuration deps.
             Ok(())
         }
 
-        fn platform_dep(&mut self, dep: &'a TargetLabel) -> anyhow::Result<()> {
+        fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep)
         }
 
-        fn input(&mut self, _input: SourcePathRef) -> anyhow::Result<()> {
+        fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
             Ok(())
         }
     }
 
-    attr.traverse(
+    Ok(attr.traverse(
         attr_type,
         pkg.dupe(),
         &mut WithinViewCheckTraversal { pkg, within_view },
-    )
+    )?)
 }
