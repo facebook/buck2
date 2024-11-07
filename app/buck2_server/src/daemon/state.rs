@@ -600,7 +600,7 @@ impl DaemonState {
                     section: "buck2",
                     property: "new_style_scratch_path",
                 })?
-                .unwrap_or(false);
+                .unwrap_or(true);
 
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
