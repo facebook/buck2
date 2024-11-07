@@ -48,9 +48,6 @@ struct BuckOutPathData {
 /// This structure contains a target label for generating the base of the path (base
 /// path), and a `ForwardRelativePath` that represents the specific output
 /// location relative to the 'base path'.
-///
-/// For `Eq`/`Hash` we want the equality to be based on the path on disk,
-/// regardless of how the path looks to the user. Therefore we ignore the `hidden` field.
 #[derive(Clone, Dupe, Debug, Display, Hash, PartialEq, Eq, Allocative)]
 pub struct BuckOutPath(Arc<BuckOutPathData>);
 
