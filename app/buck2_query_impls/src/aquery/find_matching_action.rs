@@ -98,7 +98,9 @@ async fn find_matching_action(
                     }
                     ActionKeyMatch::OutputsOf(artifact) => match &maybe_match {
                         Some(maybe) => {
-                            if artifact.get_path().len() < maybe.get_path().len() {
+                            if artifact.get_path().path().as_str().len()
+                                < maybe.get_path().path().as_str().len()
+                            {
                                 maybe_match = Some(artifact.dupe());
                             }
                         }
