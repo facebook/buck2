@@ -669,13 +669,13 @@ impl DaemonState {
         }
     }
 
-    pub fn init_scribe_sink(
+    fn init_scribe_sink(
         fb: FacebookInit,
         buffer_size: usize,
         retry_backoff: Duration,
         retry_attempts: usize,
         message_batch_size: Option<usize>,
-    ) -> anyhow::Result<Option<Arc<dyn EventSinkWithStats>>> {
+    ) -> buck2_error::Result<Option<Arc<dyn EventSinkWithStats>>> {
         facebook_only();
         remote::new_remote_event_sink_if_enabled(
             fb,

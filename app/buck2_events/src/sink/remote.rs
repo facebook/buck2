@@ -20,7 +20,7 @@ mod fbcode {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use buck2_core::buck2_env_anyhow;
+    use buck2_core::buck2_env;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
@@ -59,7 +59,7 @@ mod fbcode {
             retry_backoff: Duration,
             retry_attempts: usize,
             message_batch_size: Option<usize>,
-        ) -> anyhow::Result<RemoteEventSink> {
+        ) -> buck2_error::Result<RemoteEventSink> {
             let client = scribe_client::ScribeClient::new(
                 fb,
                 buffer_size,
@@ -320,12 +320,12 @@ mod fbcode {
         }
     }
 
-    pub fn scribe_category() -> anyhow::Result<String> {
+    pub fn scribe_category() -> buck2_error::Result<String> {
         const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
         // Note that both daemon and client are emitting events, and that changing this variable has
         // no effect on the daemon until buckd is restarted but has effect on the client.
         Ok(
-            buck2_env_anyhow!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
+            buck2_env!("BUCK2_SCRIBE_CATEGORY", applicability = internal)?
                 .unwrap_or(DEFAULT_SCRIBE_CATEGORY)
                 .to_owned(),
         )
@@ -372,7 +372,7 @@ fn new_remote_event_sink_if_fbcode(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<RemoteEventSink>> {
+) -> buck2_error::Result<Option<RemoteEventSink>> {
     #[cfg(fbcode_build)]
     {
         Ok(Some(RemoteEventSink::new(
@@ -403,7 +403,7 @@ pub fn new_remote_event_sink_if_enabled(
     retry_backoff: Duration,
     retry_attempts: usize,
     message_batch_size: Option<usize>,
-) -> anyhow::Result<Option<RemoteEventSink>> {
+) -> buck2_error::Result<Option<RemoteEventSink>> {
     if is_enabled() {
         new_remote_event_sink_if_fbcode(
             fb,

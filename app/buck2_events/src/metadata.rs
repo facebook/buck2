@@ -147,14 +147,14 @@ pub fn ces_id() -> Option<String> {
     }
 }
 
-pub fn username() -> anyhow::Result<Option<String>> {
+pub fn username() -> buck2_error::Result<Option<String>> {
     #[cfg(fbcode_build)]
     {
         Ok(Some(user::current_username()?))
     }
     #[cfg(not(fbcode_build))]
     {
-        Ok::<Option<String>, anyhow::Error>(None)
+        Ok::<Option<String>, buck2_error::Error>(None)
     }
 }
 

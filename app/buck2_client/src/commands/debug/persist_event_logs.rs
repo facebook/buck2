@@ -343,7 +343,7 @@ async fn dispatch_event_to_scribe(
     };
 }
 
-fn create_scribe_sink(ctx: &ClientCommandContext) -> anyhow::Result<Option<RemoteEventSink>> {
+fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {
     new_remote_event_sink_if_enabled(
         ctx.fbinit(),
         /* buffer size */ 100,

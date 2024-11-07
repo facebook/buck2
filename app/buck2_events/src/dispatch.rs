@@ -355,7 +355,7 @@ thread_local! {
 }
 
 use allocative::Allocative;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 
 tokio::task_local! {
     pub static EVENTS: EventDispatcher;
@@ -389,7 +389,7 @@ pub fn get_dispatcher_opt() -> Option<EventDispatcher> {
 }
 
 pub fn get_dispatcher() -> EventDispatcher {
-    let enforce_event_dispatcher_set = buck2_env_anyhow!("ENFORCE_DISPATCHER_SET", bool).unwrap();
+    let enforce_event_dispatcher_set = buck2_env!("ENFORCE_DISPATCHER_SET", bool).unwrap();
 
     match get_dispatcher_opt() {
         Some(dispatcher) => dispatcher,
@@ -398,7 +398,7 @@ pub fn get_dispatcher() -> EventDispatcher {
                 panic!("dispatcher is not set")
             } else {
                 // TODO: This is firing millions of times, needs to fix this up before it's made a soft error.
-                // let _ignored = soft_error!(anyhow::anyhow!("Task local event dispatcher not set."));
+                // let _ignored = soft_error!(buck2_error::buck2_error!([], "Task local event dispatcher not set."));
                 EventDispatcher::null()
             }
         }

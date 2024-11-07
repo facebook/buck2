@@ -39,9 +39,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
+use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
@@ -101,7 +101,7 @@ impl BuckEvent {
         self.timestamp
     }
 
-    pub fn trace_id(&self) -> anyhow::Result<TraceId> {
+    pub fn trace_id(&self) -> buck2_error::Result<TraceId> {
         Ok(TraceId::from_str(&self.event.trace_id)?)
     }
 
@@ -145,14 +145,14 @@ impl BuckEvent {
         }
     }
 
-    pub fn command_start(&self) -> anyhow::Result<Option<&buck2_data::CommandStart>> {
+    pub fn command_start(&self) -> buck2_error::Result<Option<&buck2_data::CommandStart>> {
         match self.span_start_event() {
             None => Ok(None),
             Some(span_start_event) => {
                 match span_start_event
                     .data
                     .as_ref()
-                    .with_context(|| BuckEventError::MissingField(self.clone()))?
+                    .with_buck_error_context(|| BuckEventError::MissingField(self.clone()))?
                 {
                     buck2_data::span_start_event::Data::Command(command_start) => {
                         Ok(Some(command_start))
@@ -171,9 +171,9 @@ impl From<BuckEvent> for Box<buck2_data::BuckEvent> {
 }
 
 impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
-    fn try_from(event: Box<buck2_data::BuckEvent>) -> anyhow::Result<BuckEvent> {
+    fn try_from(event: Box<buck2_data::BuckEvent>) -> buck2_error::Result<BuckEvent> {
         event.data.as_ref().ok_or(BuckEventError::MissingData)?;
         fn new_span_id(num: u64) -> Option<SpanId> {
             NonZeroU64::new(num).map(SpanId)
