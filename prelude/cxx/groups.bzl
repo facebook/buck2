@@ -16,6 +16,7 @@ load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
+load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:strings.bzl",
     "strip_prefix",
@@ -26,14 +27,11 @@ load(
 )
 load(
     ":groups_types.bzl",
-    "BuildTargetFilter",
-    "FilterType",
     "Group",
     "GroupAttrs",
     "GroupDefinition",
+    "GroupFilter",
     "GroupMapping",
-    "LabelFilter",
-    "TargetRegexFilter",
 )
 
 _VALID_ATTRS = [
@@ -149,31 +147,54 @@ def _parse_traversal_from_mapping(entry: str) -> Traversal:
     else:
         fail("Unrecognized group traversal type: " + entry)
 
-def _parse_filter(entry: str) -> [BuildTargetFilter, LabelFilter, TargetRegexFilter]:
+def _parse_filter(entry: str) -> GroupFilter:
     for prefix in ("label:", "tag:"):
         label_regex = strip_prefix(prefix, entry)
         if label_regex != None:
             # We need the anchors "^"" and "$" because experimental_regex match
             # anywhere in the text, while we want full text match for group label
             # text.
-            return LabelFilter(
-                # TODO(nga): fancy is probably not needed here.
-                regex = regex("^{}$".format(label_regex), fancy = True),
+            # TODO(nga): fancy is probably not needed here.
+            regex_expr = regex("^{}$".format(label_regex), fancy = True)
+
+            def matches_regex(_t, labels):
+                for label in labels:
+                    if regex_expr.match(label):
+                        return True
+                return False
+
+            return GroupFilter(
+                matches = matches_regex,
+                info = {"regex": str(regex_expr)},
             )
 
         target_regex = strip_prefix("target_regex:", entry)
         if target_regex != None:
-            return TargetRegexFilter(regex = regex("^{}$".format(target_regex), fancy = True))
+            regex_expr = regex("^{}$".format(target_regex), fancy = True)
+
+            def matches_regex(t, _labels):
+                return regex_expr.match(str(t.raw_target()))
+
+            return GroupFilter(
+                matches = matches_regex,
+                info = {"target_regex": str(regex_expr)},
+            )
 
     pattern = strip_prefix("pattern:", entry)
     if pattern != None:
-        return BuildTargetFilter(
-            pattern = parse_build_target_pattern(pattern),
+        build_target_pattern = parse_build_target_pattern(pattern)
+
+        def matches_target_pattern(t, _labels):
+            return build_target_pattern.matches(t)
+
+        return GroupFilter(
+            matches = matches_target_pattern,
+            info = _make_json_info_for_build_target_pattern(build_target_pattern),
         )
 
     fail("Invalid group mapping filter: {}\nFilter must begin with `label:`, `tag:`, `target_regex` or `pattern:`.".format(entry))
 
-def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]]:
+def _parse_filter_from_mapping(entry: [list[str], str, None]) -> list[GroupFilter]:
     if type(entry) == type([]):
         return [_parse_filter(e) for e in entry]
     if type(entry) == type(""):
@@ -242,31 +263,9 @@ def _find_targets_in_mapping(
     # Else find all dependencies that match the filter.
     matching_targets = {}
 
-    def any_labels_match(regex, labels):
-        # Use a for loop to avoid creating a temporary array in a BFS.
-        for label in labels:
-            if regex.match(label):
-                return True
-        return False
-
-    def matches_target(
-            target,  # "label"
-            labels) -> bool:  # labels: [str]
-        # All filters must match to select this node.
-        for filter in mapping.filters:
-            if filter._type == FilterType("label"):
-                if not any_labels_match(filter.regex, labels):
-                    return False
-            elif filter._type == FilterType("target_regex"):
-                target_str = str(target.raw_target())
-                return filter.regex.match(target_str)
-            elif not filter.pattern.matches(target):
-                return False
-        return True
-
     def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
-        if matches_target(node, graph_node.labels):
+        if not mapping.filters or lazy.is_any(lambda filter: filter.matches(node, graph_node.labels), mapping.filters):
             matching_targets[node] = None
             if mapping.traversal == Traversal("tree"):
                 # We can stop traversing the tree at this point because we've added the
@@ -407,20 +406,12 @@ def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPa
         "path": build_target_pattern.path,
     }
 
-def _make_json_info_for_group_mapping_filters(filters: list[[BuildTargetFilter, LabelFilter]]) -> list[dict[str, typing.Any]]:
-    json_filters = []
-    for filter in filters:
-        if filter._type == FilterType("label"):
-            json_filters += [{"regex": str(filter.regex)}]
-        elif filter._type == FilterType("pattern"):
-            json_filters += [_make_json_info_for_build_target_pattern(filter.pattern)]
-        else:
-            fail("Unknown filter type: " + filter)
-    return json_filters
-
 def _make_json_info_for_group_mapping(group_mapping: GroupMapping) -> dict[str, typing.Any]:
     return {
-        "filters": _make_json_info_for_group_mapping_filters(group_mapping.filters),
+        "filters": [
+            filter.info
+            for filter in group_mapping.filters
+        ],
         "preferred_linkage": group_mapping.preferred_linkage,
         "roots": group_mapping.roots,
         "traversal": group_mapping.traversal,

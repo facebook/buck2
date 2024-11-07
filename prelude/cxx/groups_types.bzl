@@ -6,10 +6,6 @@
 # of this source tree.
 
 load("@prelude//linking:types.bzl", "Linkage")
-load(
-    "@prelude//utils:build_target_pattern.bzl",
-    "BuildTargetPattern",
-)
 
 # Label for special group mapping which makes every target associated with it to be included in all groups
 MATCH_ALL_LABEL = "MATCH_ALL"
@@ -30,29 +26,12 @@ Traversal = enum(
     "intersect_any_roots",
 )
 
-# Optional type of filtering
-FilterType = enum(
-    # Filters for targets with labels matching the regex pattern defined after `label:`.
-    "label",
-    # Filters for targets for the build target pattern defined after "pattern:".
-    "pattern",
-    # Filters for targets matching the regex pattern defined after "target_regex:".
-    "target_regex",
-)
-
-BuildTargetFilter = record(
-    pattern = field(BuildTargetPattern),
-    _type = field(FilterType, FilterType("pattern")),
-)
-
-LabelFilter = record(
-    regex = regex,
-    _type = field(FilterType, FilterType("label")),
-)
-
-TargetRegexFilter = record(
-    regex = regex,
-    _type = field(FilterType, FilterType("target_regex")),
+GroupFilter = record(
+    # A function which is given a target label and list[str] and returns whether
+    # it matches.
+    matches = field(typing.Callable[[Label, list[str]], bool]),
+    # What should be dumped in the link-groups-info subtarget.
+    info = field(dict[str, typing.Any]),
 )
 
 # Representation of a parsed group mapping
@@ -62,7 +41,7 @@ GroupMapping = record(
     # The type of traversal to use.
     traversal = field(Traversal, Traversal("tree")),
     # Optional filter type to apply to the traversal.
-    filters = field(list[[BuildTargetFilter, LabelFilter, TargetRegexFilter]], []),
+    filters = field(list[GroupFilter], []),
     # Preferred linkage for this target when added to a link group.
     preferred_linkage = field([Linkage, None], None),
 )
