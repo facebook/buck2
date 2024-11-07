@@ -11,6 +11,7 @@ use std::fmt::Write;
 
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use dupe::Dupe;
 
 use crate::deferred::key::DeferredHolderKey;
@@ -44,10 +45,10 @@ impl DynamicLambdaResultsKey {
         &self.0
     }
 
-    pub fn action_key(&self) -> String {
+    pub fn action_key(&self) -> DynamicActionsActionKey {
         let mut v = self.0.action_key();
         write!(&mut v, "_{}", self.1).unwrap();
-        v
+        DynamicActionsActionKey::new(&v)
     }
 }
 

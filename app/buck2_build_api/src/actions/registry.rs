@@ -21,6 +21,7 @@ use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::category::Category;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_directory::directory;
@@ -53,7 +54,7 @@ use crate::deferred::calculation::ActionLookup;
 #[derive(Allocative)]
 pub struct ActionsRegistry {
     owner: DeferredHolderKey,
-    dynamic_actions_action_key: Option<Arc<str>>,
+    dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     artifacts: IndexSet<DeclaredArtifact>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
@@ -68,7 +69,7 @@ impl ActionsRegistry {
     pub fn new(
         owner: DeferredHolderKey,
         execution_platform: ExecutionPlatformResolution,
-        dynamic_actions_action_key: Option<Arc<str>>,
+        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> Self {
         Self {
             owner,

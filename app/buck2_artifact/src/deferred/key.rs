@@ -59,7 +59,7 @@ impl DeferredHolderKey {
         // are likely to come up in error messages users might see (e.g. with paths).
         match self {
             DeferredHolderKey::Base(_) => String::new(),
-            DeferredHolderKey::DynamicLambda(lambda) => lambda.action_key(),
+            DeferredHolderKey::DynamicLambda(lambda) => lambda.action_key().as_str().to_owned(),
         }
     }
 }

@@ -21,6 +21,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::internal_error_anyhow;
@@ -112,7 +113,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn new_from_owner_and_deferred(
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
-        dynamic_actions_action_key: Option<Arc<str>>,
+        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> anyhow::Result<Self> {
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(

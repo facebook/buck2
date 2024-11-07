@@ -21,6 +21,7 @@ use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
+use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
@@ -35,7 +36,7 @@ struct BuckOutPathData {
     /// The owner responsible for creating this path.
     owner: BaseDeferredKey,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
-    dynamic_actions_action_key: Option<Arc<str>>,
+    dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     /// The path relative to that target.
     path: Box<ForwardRelativePath>,
 }
@@ -61,7 +62,7 @@ impl BuckOutPath {
     pub fn with_dynamic_actions_action_key(
         owner: BaseDeferredKey,
         path: ForwardRelativePathBuf,
-        dynamic_actions_action_key: Option<Arc<str>>,
+        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> Self {
         BuckOutPath(Arc::new(BuckOutPathData {
             owner,
@@ -74,8 +75,8 @@ impl BuckOutPath {
         &self.0.owner
     }
 
-    pub fn dynamic_actions_action_key(&self) -> Option<&str> {
-        self.0.dynamic_actions_action_key.as_deref()
+    pub fn dynamic_actions_action_key(&self) -> Option<&DynamicActionsActionKey> {
+        self.0.dynamic_actions_action_key.as_ref()
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
@@ -201,7 +202,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner(),
-            path.dynamic_actions_action_key(),
+            path.dynamic_actions_action_key().map(|x| x.as_str()),
             path.path(),
             false,
         )
@@ -211,7 +212,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner(),
-            path.dynamic_actions_action_key(),
+            path.dynamic_actions_action_key().map(|x| x.as_str()),
             path.path(),
             false,
         )
@@ -319,7 +320,6 @@ impl BuckOutPathResolver {
 mod tests {
 
     use std::path::Path;
-    use std::sync::Arc;
 
     use dupe::Dupe;
     use regex::Regex;
@@ -335,6 +335,7 @@ mod tests {
     use crate::fs::buck_out_path::BuckOutPath;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
+    use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
@@ -469,7 +470,7 @@ mod tests {
         let path = BuckOutPath::with_dynamic_actions_action_key(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-            Some(Arc::from("xxx")),
+            Some(DynamicActionsActionKey::new("xxx")),
         );
         let resolved_gen_path = path_resolver.resolve_gen(&path);
 

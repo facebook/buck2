@@ -34,6 +34,7 @@ use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
@@ -68,7 +69,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     self_key: DynamicLambdaResultsKey,
     dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
-    action_key: String,
+    action_key: DynamicActionsActionKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
@@ -156,7 +157,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     dynamic_lambda: OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>,
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
-    action_key: String,
+    action_key: DynamicActionsActionKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: ArtifactFs,
@@ -187,7 +188,7 @@ impl BxlDynamicOutputEvaluator<'_> {
             let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                 self.dynamic_lambda,
                 self.self_key.dupe(),
-                &self.action_key,
+                self.action_key.dupe(),
                 self.input_artifacts_materialized,
                 &self.resolved_dynamic_values,
                 &self.artifact_fs,
