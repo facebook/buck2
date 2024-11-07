@@ -9,8 +9,8 @@
 
 use std::fmt;
 use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
+use std::sync::atomic::AtomicI64;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -44,6 +44,9 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 #[derive(
     Debug,
     Clone,
+    PartialEq,
+    Eq,
+    Hash,
     Dupe,
     Freeze,
     Trace,
@@ -52,35 +55,24 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Allocative
 )]
 pub struct ArtifactTag {
-    #[freeze(identity)]
-    identity: Arc<()>,
+    identity: u64,
 }
 
 impl ArtifactTag {
     pub fn new() -> Self {
-        Self {
-            identity: Arc::new(()),
-        }
+        static LAST: AtomicI64 = AtomicI64::new(0);
+        let identity = LAST.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+        let Ok(identity) = identity.try_into() else {
+            LAST.fetch_sub(1, Ordering::Relaxed);
+            panic!("i64 overflow (should never happen)");
+        };
+        ArtifactTag { identity }
     }
 }
 
 impl fmt::Display for ArtifactTag {
     fn fmt(&self, w: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(w, "ArtifactTag({:x})", Arc::as_ptr(&self.identity) as usize)
-    }
-}
-
-impl PartialEq for ArtifactTag {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.identity, &other.identity)
-    }
-}
-
-impl Eq for ArtifactTag {}
-
-impl Hash for ArtifactTag {
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        hasher.write_usize(Arc::as_ptr(&self.identity) as usize);
+        write!(w, "ArtifactTag({})", self.identity)
     }
 }
 
