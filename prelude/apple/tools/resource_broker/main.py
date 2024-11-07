@@ -21,8 +21,6 @@ from .idb_companion import IdbCompanion
 
 from .ios import ios_booted_simulator, ios_unbooted_simulator, prepare_simulator
 
-from .macos import macos_idb_companions
-
 idb_companions: List[IdbCompanion] = []
 
 
@@ -46,7 +44,6 @@ def _args_parser() -> argparse.ArgumentParser:
             Type of required resources.
             Pass `{_ResourceType.iosUnbootedSimulator}` to get a companion for iOS unbooted simulator.
             Pass `{_ResourceType.iosBootedSimulator}` to get a companion for iOS booted simulator.
-            Pass `{_ResourceType.macosIdbCompanion}` to get MacOS companions.
         """,
     )
     parser.add_argument(
@@ -63,7 +60,6 @@ def _args_parser() -> argparse.ArgumentParser:
 class _ResourceType(str, Enum):
     iosUnbootedSimulator = "ios_unbooted_simulator"
     iosBootedSimulator = "ios_booted_simulator"
-    macosIdbCompanion = "macos_idb_companion"
 
 
 def _exit_gracefully(*args: List[object]) -> None:
@@ -80,11 +76,6 @@ def _check_simulator_manager_exists(simulator_manager: Optional[str]) -> None:
 def main() -> None:
     args = _args_parser().parse_args()
     if args.no_companion:
-        if args.type == _ResourceType.macosIdbCompanion:
-            raise Exception(
-                "No resource brocker is required for MacOS tests without companion"
-            )
-
         booted = args.type == _ResourceType.iosBootedSimulator
         sim = asyncio.run(
             prepare_simulator(simulator_manager=args.simulator_manager, booted=booted)
@@ -111,8 +102,6 @@ def _create_companion(args: argparse.Namespace) -> None:
         idb_companions.extend(
             asyncio.run(ios_unbooted_simulator(args.simulator_manager))
         )
-    elif args.type == _ResourceType.macosIdbCompanion:
-        idb_companions.extend(asyncio.run(macos_idb_companions()))
     pid = os.fork()
     if pid == 0:
         # child

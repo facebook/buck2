@@ -13,7 +13,7 @@ import shlex
 from dataclasses import dataclass
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 from dataclasses_json import dataclass_json
 
