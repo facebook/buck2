@@ -145,7 +145,7 @@ impl StreamingCommand for ExplainCommand {
 
         if let Some(p) = manifold_path {
             buck2_client_ctx::eprintln!(
-                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{}\n",
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{} (requires VPN/lighthouse)\n",
                 p
             )?;
         }
