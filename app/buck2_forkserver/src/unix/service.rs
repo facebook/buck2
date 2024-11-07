@@ -65,8 +65,8 @@ pub struct UnixForkserverService {
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
 
-    /// Systemd for resource control
-    systemd: Option<SystemdContainer>,
+    /// Systemd runner for resource control
+    systemd_runner: Option<SystemdRunner>,
 }
 
 impl UnixForkserverService {
@@ -76,12 +76,18 @@ impl UnixForkserverService {
         resource_control: ResourceControlConfig,
     ) -> anyhow::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let systemd = SystemdContainer::new(&resource_control)?;
-
+        let systemd_runner = SystemdRunner::create_if_enabled(
+            SystemdPropertySetType::Daemon,
+            &resource_control,
+            "forkserver",
+            // we want to create forkserver in the same hierarchy where buck-daemon scope
+            // for this we inherit slice
+            true,
+        )?;
         Ok(Self {
             log_reload_handle,
             miniperf,
-            systemd,
+            systemd_runner,
         })
     }
 }
@@ -138,7 +144,7 @@ impl Forkserver for UnixForkserverService {
                 .context("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
-            let systemd_context = self.systemd.as_ref().zip(action_digest);
+            let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
 
             let (mut cmd, miniperf_output) =
                 match (enable_miniperf, &self.miniperf, &systemd_context) {
@@ -149,8 +155,8 @@ impl Forkserver for UnixForkserverService {
                         cmd.arg(exe.as_ref());
                         (cmd, Some(output_path))
                     }
-                    (_, Some(miniperf), Some((systemd, action_digest))) => {
-                        let mut cmd = systemd.runner.background_command_linux(
+                    (_, Some(miniperf), Some((runner, action_digest))) => {
+                        let mut cmd = runner.background_command_linux(
                             miniperf.miniperf.as_path(),
                             &action_digest,
                             &AbsNormPath::new(cwd)?,
@@ -306,25 +312,5 @@ impl MiniperfContainer {
         let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
         self.output_dir
             .join(ForwardRelativePath::unchecked_new(&name))
-    }
-}
-
-struct SystemdContainer {
-    runner: SystemdRunner,
-}
-
-impl SystemdContainer {
-    const SLICE_NAME: &'static str = "forkserver";
-
-    fn new(resource_control: &ResourceControlConfig) -> anyhow::Result<Option<Self>> {
-        let runner = SystemdRunner::create_if_enabled(
-            SystemdPropertySetType::Daemon,
-            &resource_control,
-            Self::SLICE_NAME,
-            // we want to create forkserver in the same hierarchy where buck-daemon scope
-            // for this we inherit slice
-            true,
-        )?;
-        Ok(runner.map(|runner| Self { runner }))
     }
 }
