@@ -83,7 +83,7 @@ impl LiteralParser {
     fn parse_target_pattern(
         &self,
         value: &str,
-    ) -> anyhow::Result<ParsedPattern<TargetPatternExtra>> {
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
         let providers_pattern = self.parse_providers_pattern(value)?;
         let target_pattern = match providers_pattern {
             ParsedPattern::Target(package, target_name, ProvidersPatternExtra { providers }) => {
@@ -110,17 +110,17 @@ impl LiteralParser {
     pub(crate) fn parse_providers_pattern(
         &self,
         value: &str,
-    ) -> anyhow::Result<ParsedPattern<ProvidersPatternExtra>> {
-        ParsedPattern::parse_relative(
+    ) -> buck2_error::Result<ParsedPattern<ProvidersPatternExtra>> {
+        Ok(ParsedPattern::parse_relative(
             &self.target_alias_resolver,
             self.working_dir.as_ref(),
             value,
             &self.cell_resolver,
             &self.cell_alias_resolver,
-        )
+        )?)
     }
 
-    fn parse_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
+    fn parse_file_literal(&self, literal: &str) -> buck2_error::Result<CellPath> {
         parse_query_file_literal(
             literal,
             &self.cell_alias_resolver,
@@ -151,7 +151,7 @@ impl DiceQueryData {
         working_dir: &ProjectRelativePath,
         project_root: ProjectRoot,
         target_alias_resolver: BuckConfigTargetAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let cell_path = cell_resolver.get_cell_path(working_dir)?;
 
         let working_dir_abs = project_root.resolve(working_dir);
@@ -200,7 +200,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     // get the list of potential buildfile names for each cell
     async fn get_buildfile_names_by_cell(
         &self,
-    ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>> {
+    ) -> buck2_error::Result<HashMap<CellName, Arc<[FileNameBuf]>>> {
         let mut ctx = self.ctx.get();
         let resolver = ctx.get_cell_resolver().await?;
         let buildfiles = ctx
@@ -220,14 +220,17 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn resolve_target_patterns(
         &self,
         patterns: &[&str],
-    ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>> {
+    ) -> buck2_error::Result<ResolvedPattern<TargetPatternExtra>> {
         let parsed_patterns =
             patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
-        ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await
+        Ok(ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await?)
     }
 
     // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>> {
+    async fn get_enclosing_packages(
+        &self,
+        path: &CellPath,
+    ) -> buck2_error::Result<Vec<PackageLabel>> {
         // Without package boundary violations, there is only 1 owning package for a path.
         // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
         if let Some(enclosing_violation_path) = self
@@ -249,7 +252,7 @@ impl<'c, 'd> UqueryDelegate for DiceQueryDelegate<'c, 'd> {
         Ok(vec![package])
     }
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         let cell_path = self.query_data.literal_parser.parse_file_literal(literal)?;
         Ok(FileSet::new(indexset![FileNode(cell_path)]))
     }
@@ -272,7 +275,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn get_node_for_configured_target(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetNode> {
+    ) -> buck2_error::Result<ConfiguredTargetNode> {
         Ok(self
             .ctx
             .get()
@@ -284,7 +287,7 @@ impl<'c, 'd> CqueryDelegate for DiceQueryDelegate<'c, 'd> {
     async fn get_node_for_default_configured_target(
         &self,
         target: &TargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self.ctx.get().get_default_configured_target(target).await?;
         self.ctx.get().get_configured_target_node(&target).await
     }
@@ -300,15 +303,15 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         &self,
         literals: &[&str],
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        load_compatible_patterns(
+        Ok(load_compatible_patterns(
             ctx,
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,
         )
-        .await
+        .await?)
     }
 }
 
@@ -318,7 +321,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
         &self,
         literals: &[&str],
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetSet<TargetNode>> {
+    ) -> buck2_error::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
         let loaded_patterns =
             load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
@@ -334,7 +337,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<DiceQueryDelegate<'c, 'd>> {
+) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get().get_cell_resolver().await?;
     let cell_alias_resolver = ctx
         .get()

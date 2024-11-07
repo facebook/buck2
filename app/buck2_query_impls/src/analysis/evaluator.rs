@@ -9,8 +9,9 @@
 
 //! Implementation of common cquery/uquery pieces.
 
-use anyhow::Context;
 use buck2_common::scope::scope_and_collect_with_dispatcher;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_query::query::environment::QueryEnvironment;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
@@ -26,14 +27,14 @@ use futures::Future;
 pub(crate) async fn eval_query<
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    Fut: Future<Output = anyhow::Result<Env>> + Send,
+    Fut: Future<Output = buck2_error::Result<Env>> + Send,
 >(
     dispatcher: EventDispatcher,
     functions: &F,
     query: &str,
     query_args: &[String],
     environment: impl Fn(Vec<String>) -> Fut + Send + Sync,
-) -> anyhow::Result<QueryEvaluationResult<Env::Target>> {
+) -> buck2_error::Result<QueryEvaluationResult<Env::Target>> {
     let query = MaybeMultiQuery::parse(query, query_args)?;
     match query {
         MaybeMultiQuery::MultiQuery(queries) => {
@@ -50,16 +51,16 @@ pub(crate) async fn eval_query<
 async fn eval_single_query<
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    Fut: Future<Output = anyhow::Result<Env>>,
+    Fut: Future<Output = buck2_error::Result<Env>>,
 >(
     functions: &F,
     query: &str,
     environment: impl Fn(Vec<String>) -> Fut,
-) -> anyhow::Result<QueryEvaluationValue<<Env as QueryEnvironment>::Target>>
+) -> buck2_error::Result<QueryEvaluationValue<<Env as QueryEnvironment>::Target>>
 where
     F: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    Fut: Future<Output = anyhow::Result<Env>>,
+    Fut: Future<Output = buck2_error::Result<Env>>,
 {
     let literals = extract_target_literals(functions, query)?;
     let env = environment(literals).await?;
@@ -71,11 +72,11 @@ async fn process_multi_query<Env, EnvFut, Qf>(
     functions: &Qf,
     env: impl Fn(Vec<String>) -> EnvFut + Send + Sync,
     queries: &[MultiQueryItem],
-) -> anyhow::Result<MultiQueryResult<Env::Target>>
+) -> buck2_error::Result<MultiQueryResult<Env::Target>>
 where
     Qf: QueryFunctions<Env = Env>,
     Env: QueryEnvironment,
-    EnvFut: Future<Output = anyhow::Result<Env>> + Send,
+    EnvFut: Future<Output = buck2_error::Result<Env>> + Send,
 {
     // SAFETY: it is safe as long as we don't forget the future. We don't do that.
     let ((), future_results) = unsafe {
@@ -95,7 +96,7 @@ where
                             i,
                             arg_1,
                             Err::<_, buck2_error::Error>(
-                                anyhow::anyhow!("future was cancelled").into(),
+                                buck2_error::buck2_error!([], "future was cancelled").into(),
                             ),
                         )
                     },
@@ -107,7 +108,7 @@ where
 
     let mut results = Vec::with_capacity(future_results.len());
     for query_result in future_results {
-        let (i, query, result) = query_result.context("scope_and_collect failed")?;
+        let (i, query, result) = query_result.buck_error_context("scope_and_collect failed")?;
         results.push((i, query, result));
     }
     results.sort_by_key(|(i, _, _)| *i);

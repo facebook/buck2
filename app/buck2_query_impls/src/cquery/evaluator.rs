@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use buck2_common::events::HasEvents;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_node::configured_universe::CqueryUniverse;
@@ -39,7 +39,7 @@ pub(crate) async fn eval_cquery(
     query_args: &[String],
     target_universe: Option<&[String]>,
     collect_universes: bool,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     QueryEvaluationResult<ConfiguredTargetNode>,
     Option<Vec<Arc<CqueryUniverse>>>,
 )> {
@@ -79,7 +79,7 @@ pub(crate) async fn eval_cquery(
     {
         universes_tx_value
             .send(target_universe.dupe())
-            .internal_error_anyhow("Must be open")?;
+            .internal_error("Must be open")?;
     }
 
     let universes_tx = universes_tx_value.as_ref();
@@ -114,7 +114,7 @@ pub(crate) async fn eval_cquery(
                     let universe = Arc::new(universe);
 
                     if let Some(universes_tx) = universes_tx {
-                        universes_tx.send(universe.dupe()).internal_error_anyhow("Must be open")?;
+                        universes_tx.send(universe.dupe()).internal_error("Must be open")?;
                     }
 
                     (
@@ -143,9 +143,9 @@ pub(crate) async fn eval_cquery(
     let universes = if let Some(universes_rx) = universes_rx {
         let universes: Vec<Arc<CqueryUniverse>> = universes_rx.try_iter().collect();
         match universes_rx.try_recv() {
-            Ok(_) => return Err(internal_error_anyhow!("tx must be closed at this moment")),
+            Ok(_) => return Err(internal_error!("tx must be closed at this moment")),
             Err(std::sync::mpsc::TryRecvError::Empty) => {
-                return Err(internal_error_anyhow!("tx must be closed at this moment"));
+                return Err(internal_error!("tx must be closed at this moment"));
             }
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {}
         }
@@ -161,7 +161,7 @@ pub(crate) async fn preresolve_literals_and_build_universe(
     dice_query_delegate: &DiceQueryDelegate<'_, '_>,
     dice_query_data: &DiceQueryData,
     literals: &[String],
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     CqueryUniverse,
     PreresolvedQueryLiterals<ConfiguredTargetNode>,
 )> {
@@ -179,11 +179,11 @@ async fn build_cquery_universe_from_literals(
     universe: &[String],
     query_literals: &DiceQueryData,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<CqueryUniverse> {
+) -> buck2_error::Result<CqueryUniverse> {
     let refs: Vec<_> = universe.map(|v| v.as_str());
     let universe_resolved = query_literals.eval_literals(&refs, ctx).await?;
 
-    CqueryUniverse::build(&universe_resolved)
+    Ok(CqueryUniverse::build(&universe_resolved)?)
 }
 
 // This will first resolve the universe to configured nodes and then gather all
@@ -192,7 +192,7 @@ async fn resolve_literals_in_universe(
     dice_query_delegate: &DiceQueryDelegate<'_, '_>,
     literals: &[String],
     universe: &CqueryUniverse,
-) -> anyhow::Result<PreresolvedQueryLiterals<ConfiguredTargetNode>> {
+) -> buck2_error::Result<PreresolvedQueryLiterals<ConfiguredTargetNode>> {
     // TODO(cjhopman): We should probably also resolve the literals to TargetNode so that
     // we can get errors for packages or targets that don't exist or fail to load.
 
@@ -205,7 +205,7 @@ async fn resolve_literals_in_universe(
     let resolution_futs: FuturesUnordered<_> = literals
         .iter()
         .map(|lit| async move {
-            let result: anyhow::Result<_> = try {
+            let result: buck2_error::Result<_> = try {
                 let resolved_pattern = dice_query_delegate
                     .resolve_target_patterns(&[lit.as_str()])
                     .await?;

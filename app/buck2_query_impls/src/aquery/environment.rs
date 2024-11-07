@@ -41,18 +41,18 @@ pub(crate) trait AqueryDelegate: Send + Sync {
 
     fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 
-    async fn get_node(&self, key: &ActionKey) -> anyhow::Result<ActionQueryNode>;
+    async fn get_node(&self, key: &ActionKey) -> buck2_error::Result<ActionQueryNode>;
 
     async fn expand_artifacts(
         &self,
         artifacts: &[ArtifactGroup],
-    ) -> anyhow::Result<Vec<ActionQueryNode>>;
+    ) -> buck2_error::Result<Vec<ActionQueryNode>>;
 
     async fn get_target_set_from_analysis(
         &self,
         configured_label: &ConfiguredProvidersLabel,
         analysis: AnalysisResult,
-    ) -> anyhow::Result<TargetSet<ActionQueryNode>>;
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
 }
 
 pub(crate) struct AqueryEnvironment<'c> {
@@ -68,7 +68,7 @@ impl<'c> AqueryEnvironment<'c> {
         Self { delegate, literals }
     }
 
-    async fn get_node(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
+    async fn get_node(&self, label: &ActionQueryNodeRef) -> buck2_error::Result<ActionQueryNode> {
         // We do not allow traversing edges in targets in aquery
         self.delegate.get_node(label.require_action()?).await
     }
@@ -88,27 +88,30 @@ impl<'c> AqueryEnvironment<'c> {
 impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
     type Target = ActionQueryNode;
 
-    async fn get_node(&self, node_ref: &ActionQueryNodeRef) -> anyhow::Result<Self::Target> {
+    async fn get_node(&self, node_ref: &ActionQueryNodeRef) -> buck2_error::Result<Self::Target> {
         AqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         _node_ref: &ActionQueryNodeRef,
-    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
         Err(QueryError::FunctionUnimplemented(
             "get_node_for_default_configured_target() only for CqueryEnvironment",
         )
         .into())
     }
 
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         self.literals
             .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         self.delegate
             .cquery_delegate()
             .uquery_delegate()
@@ -120,8 +123,8 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
         &self,
         root: &TargetSet<Self::Target>,
         traversal_delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
-    ) -> anyhow::Result<()> {
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
         // TODO(cjhopman): The query nodes deps are going to flatten the tset structure for its deps. In a typical
         // build graph, a traversal over just the graph of ActionQueryNode ends up being an `O(n)` operation at each
         // node and ends up with an `O(n^2)` cost. If instead we were to not flatten the structure and traverse the
@@ -144,9 +147,9 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO(cjhopman): See above.
         async_depth_limited_traversal(
             &AqueryNodeLookup {
@@ -161,14 +164,14 @@ impl<'c> QueryEnvironment for AqueryEnvironment<'c> {
         .await
     }
 
-    async fn owner(&self, _paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
         Err(QueryError::NotAvailableInContext("owner").into())
     }
 
     async fn targets_in_buildfile(
         &self,
         _paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         Err(QueryError::NotAvailableInContext("targets_in_buildfile").into())
     }
 }
@@ -180,7 +183,7 @@ struct AqueryNodeLookup<'a, 'c> {
 
 #[async_trait]
 impl<'a, 'c> AsyncNodeLookup<ActionQueryNode> for AqueryNodeLookup<'a, 'c> {
-    async fn get(&self, label: &ActionQueryNodeRef) -> anyhow::Result<ActionQueryNode> {
+    async fn get(&self, label: &ActionQueryNodeRef) -> buck2_error::Result<ActionQueryNode> {
         // Lookup the node in `roots` first since `env.get_node` isn't capable of looking up
         // analysis nodes, and while won't find new analysis nodes while doing a DFS, we might pass
         // in roots that *are* analysis nodes.

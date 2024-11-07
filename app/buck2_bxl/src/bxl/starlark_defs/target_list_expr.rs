@@ -223,7 +223,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations<'_>,
     ) -> anyhow::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         dice.compute_join(self.iter(), |ctx, node_or_ref| {
-            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
+            async move {
+                Ok(ctx
+                    .get_configured_target_node(node_or_ref.node_ref())
+                    .await?)
+            }
+            .boxed()
         })
         .await
         .into_iter()
@@ -391,14 +396,14 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                             Err(e) => Err(e),
                         }
                     }
-                    Err(e) => Err(e),
+                    Err(e) => Err(e.into()),
                 };
 
                 result.or_else(|e| {
                     if keep_going {
                         Ok(TargetListExpr::Iterable(Vec::new()))
                     } else {
-                        Err(e)
+                        Err(e.into())
                     }
                 })
             }

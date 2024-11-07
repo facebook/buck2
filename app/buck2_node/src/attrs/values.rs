@@ -111,7 +111,10 @@ impl TargetModifiersValue {
 }
 
 impl AnyMatches for TargetModifiersValue {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         self.0.any_matches(filter)
     }
 }

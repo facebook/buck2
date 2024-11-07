@@ -49,12 +49,12 @@ pub(crate) trait CqueryDelegate: Send + Sync {
     async fn get_node_for_configured_target(
         &self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetNode>;
+    ) -> buck2_error::Result<ConfiguredTargetNode>;
 
     async fn get_node_for_default_configured_target(
         &self,
         target: &TargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
     fn ctx<'a>(&'a self) -> DiceComputations<'a>;
 }
@@ -94,20 +94,20 @@ impl<'c> CqueryEnvironment<'c> {
     async fn get_node(
         &self,
         label: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<ConfiguredTargetNode> {
+    ) -> buck2_error::Result<ConfiguredTargetNode> {
         self.delegate.get_node_for_configured_target(label).await
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         label: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         self.delegate
             .get_node_for_default_configured_target(label.unconfigured())
             .await
     }
 
-    fn owner_correct(&self, path: &CellPath) -> anyhow::Result<Vec<ConfiguredTargetNode>> {
+    fn owner_correct(&self, path: &CellPath) -> buck2_error::Result<Vec<ConfiguredTargetNode>> {
         let universe = self
             .universe
             .as_ref()
@@ -120,24 +120,30 @@ impl<'c> CqueryEnvironment<'c> {
 impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     type Target = ConfiguredTargetNode;
 
-    async fn get_node(&self, node_ref: &ConfiguredTargetLabel) -> anyhow::Result<Self::Target> {
+    async fn get_node(
+        &self,
+        node_ref: &ConfiguredTargetLabel,
+    ) -> buck2_error::Result<Self::Target> {
         CqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         node_ref: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
         CqueryEnvironment::get_node_for_default_configured_target(self, node_ref).await
     }
 
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn eval_literals(
+        &self,
+        literals: &[&str],
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         self.literals
             .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         self.delegate
             .uquery_delegate()
             .eval_file_literal(literal)
@@ -148,8 +154,8 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         &self,
         root: &TargetSet<Self::Target>,
         traversal_delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
-    ) -> anyhow::Result<()> {
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
         async_depth_first_postorder_traversal(
             &QueryEnvironmentAsNodeLookup { env: self },
             root.iter_names(),
@@ -163,9 +169,9 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         async_depth_limited_traversal(
             &QueryEnvironmentAsNodeLookup { env: self },
             root.iter_names(),
@@ -176,15 +182,22 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         .await
     }
 
-    async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
+    async fn allbuildfiles(
+        &self,
+        universe: &TargetSet<Self::Target>,
+    ) -> buck2_error::Result<FileSet> {
         return allbuildfiles(universe, self.delegate.uquery_delegate()).await;
     }
 
-    async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
+    async fn rbuildfiles(
+        &self,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet> {
         return rbuildfiles(universe, argset, self.delegate.uquery_delegate()).await;
     }
 
-    async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn owner(&self, paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
         let mut result = TargetSet::new();
 
         for path in paths.iter() {
@@ -200,7 +213,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
     async fn targets_in_buildfile(
         &self,
         _paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         Err(QueryError::FunctionUnimplemented("targets_in_buildfile").into())
     }
 
@@ -209,7 +222,7 @@ impl<'c> QueryEnvironment for CqueryEnvironment<'c> {
         targets: &TargetSet<Self::Target>,
         depth: Option<i32>,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         if depth.is_none() && filter.is_none() {
             // TODO(nga): fast lookup with depth too.
 

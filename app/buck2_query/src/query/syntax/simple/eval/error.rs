@@ -63,12 +63,18 @@ pub enum QueryError {
     /// (ex. target parsing). That inner error won't have span information and so the innermost span information will be the one
     /// attached to this error.
     #[error("{0}")]
-    Anyhow(anyhow::Error),
+    Error(buck2_error::Error),
 }
 
 impl From<anyhow::Error> for QueryError {
     fn from(err: anyhow::Error) -> Self {
-        QueryError::Anyhow(err)
+        QueryError::Error(err.into())
+    }
+}
+
+impl From<buck2_error::Error> for QueryError {
+    fn from(err: buck2_error::Error) -> Self {
+        QueryError::Error(err)
     }
 }
 
@@ -79,30 +85,30 @@ impl From<Spanned<QueryError>> for QueryError {
 }
 
 impl QueryError {
-    pub fn drop_spans(err: Spanned<Self>) -> anyhow::Error {
+    pub fn drop_spans(err: Spanned<Self>) -> buck2_error::Error {
         match err.value {
-            Self::Anyhow(inner) => inner,
+            Self::Error(inner) => inner.into(),
             Self::Inner(inner) => Self::drop_spans(*inner),
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
                 // out how to keep that.
-                anyhow::anyhow!(e)
+                e.into()
             }
         }
     }
-    pub fn convert_error(err: Spanned<Self>, input: &str) -> anyhow::Error {
+    pub fn convert_error(err: Spanned<Self>, input: &str) -> buck2_error::Error {
         let context = err.get_err_context(input);
 
         match err.value {
-            Self::Anyhow(inner) => {
-                inner.context(format!("Error evaluating expression:{}", context))
-            }
+            Self::Error(inner) => inner
+                .context(format!("Error evaluating expression:{}", context))
+                .into(),
             Self::Inner(inner) => Self::convert_error(*inner, input)
                 .context(format!("Error evaluating expression:{}", context)),
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
                 // out how to keep that.
-                anyhow::anyhow!("{}:{}", e, context)
+                buck2_error::buck2_error!([], "{}:{}", e, context)
             }
         }
     }

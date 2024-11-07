@@ -35,7 +35,7 @@ impl UqueryEvaluator<'_, '_> {
         &self,
         query: &str,
         query_args: &[String],
-    ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
+    ) -> buck2_error::Result<QueryEvaluationResult<TargetNode>> {
         eval_query(
             self.dice_query_delegate
                 .ctx()
@@ -67,7 +67,7 @@ impl UqueryEvaluator<'_, '_> {
 pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a, 'd>(
     ctx: &'c LinearRecomputeDiceComputations<'d>,
     working_dir: &'a ProjectRelativePath,
-) -> anyhow::Result<UqueryEvaluator<'c, 'd>> {
+) -> buck2_error::Result<UqueryEvaluator<'c, 'd>> {
     let dice_query_delegate =
         get_dice_query_delegate(ctx, working_dir, GlobalCfgOptions::default()).await?;
     let functions = DefaultQueryFunctionsModule::new();

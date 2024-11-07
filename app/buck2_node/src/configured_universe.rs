@@ -46,7 +46,8 @@ pub static UNIVERSE_FROM_LITERALS: LateBinding<
         &'c ProjectRelativePath,
         &'c [String],
         GlobalCfgOptions,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<CqueryUniverse>> + Send + 'c>>,
+    )
+        -> Pin<Box<dyn Future<Output = buck2_error::Result<CqueryUniverse>> + Send + 'c>>,
 > = LateBinding::new("UNIVERSE_FROM_LITERALS");
 
 #[derive(Debug)]

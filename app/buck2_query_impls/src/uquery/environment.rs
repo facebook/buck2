@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
@@ -24,6 +23,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -79,20 +79,23 @@ enum RBuildFilesError {
 pub(crate) trait UqueryDelegate: Send + Sync {
     async fn get_buildfile_names_by_cell(
         &self,
-    ) -> anyhow::Result<HashMap<CellName, Arc<[FileNameBuf]>>>;
+    ) -> buck2_error::Result<HashMap<CellName, Arc<[FileNameBuf]>>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(
         &self,
         pattern: &[&str],
-    ) -> anyhow::Result<ResolvedPattern<TargetPatternExtra>>;
+    ) -> buck2_error::Result<ResolvedPattern<TargetPatternExtra>>;
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet>;
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet>;
 
     // Get all enclosing packages needed to compute owner function.
     // This always includes the immediate enclosing package of the path but can also include
     // all parent packages if the package matches `project.package_boundary_exceptions` buckconfig.
-    async fn get_enclosing_packages(&self, path: &CellPath) -> anyhow::Result<Vec<PackageLabel>>;
+    async fn get_enclosing_packages(
+        &self,
+        path: &CellPath,
+    ) -> buck2_error::Result<Vec<PackageLabel>>;
 
     fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_>;
 
@@ -105,7 +108,7 @@ pub(crate) trait QueryLiterals<T: QueryTarget>: Send + Sync {
         &self,
         literals: &[&str],
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetSet<T>>;
+    ) -> buck2_error::Result<TargetSet<T>>;
 }
 
 pub(crate) struct UqueryEnvironment<'c> {
@@ -142,7 +145,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     }
 
     /// All the literals, or error if resolution of any failed.
-    pub(crate) fn literals(&self) -> anyhow::Result<TargetSet<T>> {
+    pub(crate) fn literals(&self) -> buck2_error::Result<TargetSet<T>> {
         let mut literals = TargetSet::new();
         for result in self.resolved_literals.values() {
             literals.extend(result.as_ref().map_err(|e| e.dupe())?);
@@ -157,7 +160,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
         &self,
         literals: &[&str],
         _: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<TargetSet<T>> {
+    ) -> buck2_error::Result<TargetSet<T>> {
         let mut targets = TargetSet::new();
         for lit in literals {
             let resolved = match self
@@ -189,13 +192,13 @@ impl<'c> UqueryEnvironment<'c> {
         }
     }
 
-    async fn get_node(&self, target: &TargetLabel) -> anyhow::Result<TargetNode> {
+    async fn get_node(&self, target: &TargetLabel) -> buck2_error::Result<TargetNode> {
         let package = self
             .delegate
             .ctx()
             .get_interpreter_results(target.pkg())
             .await
-            .with_context(|| format!("Error looking up `{}``", target))?;
+            .with_buck_error_context(|| format!("Error looking up `{}``", target))?;
         let node = package.resolve_target(target.name())?;
         Ok(node.to_owned())
     }
@@ -205,27 +208,27 @@ impl<'c> UqueryEnvironment<'c> {
 impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     type Target = TargetNode;
 
-    async fn get_node(&self, node_ref: &TargetLabel) -> anyhow::Result<Self::Target> {
+    async fn get_node(&self, node_ref: &TargetLabel) -> buck2_error::Result<Self::Target> {
         UqueryEnvironment::get_node(self, node_ref).await
     }
 
     async fn get_node_for_default_configured_target(
         &self,
         _node_ref: &TargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<Self::Target>> {
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
         Err(QueryError::FunctionUnimplemented(
             "get_node_for_default_configured_target() only for CqueryEnvironment",
         )
         .into())
     }
 
-    async fn eval_literals(&self, literals: &[&str]) -> anyhow::Result<TargetSet<TargetNode>> {
+    async fn eval_literals(&self, literals: &[&str]) -> buck2_error::Result<TargetSet<TargetNode>> {
         self.literals
             .eval_literals(literals, &mut self.delegate.ctx())
             .await
     }
 
-    async fn eval_file_literal(&self, literal: &str) -> anyhow::Result<FileSet> {
+    async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         self.delegate.eval_file_literal(literal).await
     }
 
@@ -233,8 +236,8 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         &self,
         root: &TargetSet<TargetNode>,
         traversal_delegate: impl AsyncChildVisitor<TargetNode>,
-        visit: impl FnMut(TargetNode) -> anyhow::Result<()> + Send,
-    ) -> anyhow::Result<()> {
+        visit: impl FnMut(TargetNode) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
         async_depth_first_postorder_traversal(
             &QueryEnvironmentAsNodeLookup { env: self },
             root.iter_names(),
@@ -248,9 +251,9 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         &self,
         root: &TargetSet<Self::Target>,
         delegate: impl AsyncChildVisitor<Self::Target>,
-        visit: impl FnMut(Self::Target) -> anyhow::Result<()> + Send,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         async_depth_limited_traversal(
             &QueryEnvironmentAsNodeLookup { env: self },
             root.iter_names(),
@@ -261,15 +264,22 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
         .await
     }
 
-    async fn allbuildfiles(&self, universe: &TargetSet<Self::Target>) -> anyhow::Result<FileSet> {
+    async fn allbuildfiles(
+        &self,
+        universe: &TargetSet<Self::Target>,
+    ) -> buck2_error::Result<FileSet> {
         return allbuildfiles(universe, self.delegate).await;
     }
 
-    async fn rbuildfiles(&self, universe: &FileSet, argset: &FileSet) -> anyhow::Result<FileSet> {
+    async fn rbuildfiles(
+        &self,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet> {
         return rbuildfiles(universe, argset, self.delegate).await;
     }
 
-    async fn owner(&self, paths: &FileSet) -> anyhow::Result<TargetSet<Self::Target>> {
+    async fn owner(&self, paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
         let mut result: TargetSet<Self::Target> = TargetSet::new();
         for path in paths.iter() {
             // need to explicitly track this rather than checking for changes to result set since the owner might
@@ -300,7 +310,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
                                 None
                             })
                             .collect();
-                        anyhow::Ok(owner_targets)
+                        buck2_error::Ok(owner_targets)
                     });
 
                     for nodes in futures::future::join_all(package_futs).await.into_iter() {
@@ -329,7 +339,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
     async fn targets_in_buildfile(
         &self,
         paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Self::Target>> {
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
         let mut result: TargetSet<Self::Target> = TargetSet::new();
 
         let compute = &mut self.delegate.ctx();
@@ -373,7 +383,7 @@ impl<'c> QueryEnvironment for UqueryEnvironment<'c> {
 pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
     universe: &TargetSet<T>,
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<FileSet> {
+) -> buck2_error::Result<FileSet> {
     let mut paths = IndexSet::<FileNode>::new();
 
     let mut top_level_imports = Vec::<ImportPath>::new();
@@ -404,7 +414,7 @@ pub(crate) async fn rbuildfiles<'c>(
     universe: &FileSet,
     argset: &FileSet,
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<FileSet> {
+) -> buck2_error::Result<FileSet> {
     let universe_paths: Vec<ArcCellPath> =
         universe.iter().map(|file| Arc::new(file.clone())).collect();
     // step 1: split the build files and bzl files
@@ -453,7 +463,7 @@ pub(crate) async fn rbuildfiles<'c>(
 
     #[async_trait]
     impl AsyncNodeLookup<Node> for Lookup {
-        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+        async fn get(&self, label: &NodeRef) -> buck2_error::Result<Node> {
             Ok(Node(Arc::new(label.0.clone())))
         }
     }
@@ -489,7 +499,7 @@ pub(crate) async fn rbuildfiles<'c>(
             &self,
             node: &Node,
             mut func: impl ChildVisitor<Node>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             for import in self
                 .first_order_import_map
                 .get(node.import_path())
@@ -548,14 +558,18 @@ pub(crate) async fn rbuildfiles<'c>(
 async fn split_universe_files<'c>(
     universe: &[ArcCellPath],
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
+) -> buck2_error::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
     let mut buildfiles = Vec::<ArcCellPath>::new();
     let mut bzlfiles = Vec::<ArcCellPath>::new();
     let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell().await?;
     for file in universe {
         let buildfile_names_for_file =
             buildfile_names_by_cell.get(&file.cell()).ok_or_else(|| {
-                anyhow::anyhow!(RBuildFilesError::CellMissingBuildFileNames(file.cell()))
+                buck2_error::buck2_error!(
+                    [],
+                    "{}",
+                    RBuildFilesError::CellMissingBuildFileNames(file.cell()).to_string()
+                )
             })?;
 
         if let Some(name) = file.path().file_name() {
@@ -578,7 +592,7 @@ async fn top_level_imports_by_build_file<'c>(
     buildfiles: &[ArcCellPath],
     bzlfiles: &[ArcCellPath],
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<HashMap<ArcCellPath, Vec<ImportPath>>> {
+) -> buck2_error::Result<HashMap<ArcCellPath, Vec<ImportPath>>> {
     let mut top_level_import_by_build_file = HashMap::<ArcCellPath, Vec<ImportPath>>::new();
 
     for file in bzlfiles {
@@ -618,7 +632,7 @@ async fn top_level_imports_by_build_file<'c>(
 async fn first_order_imports<'c>(
     all_top_level_imports: &[ImportPath],
     delegate: &'c dyn UqueryDelegate,
-) -> anyhow::Result<HashMap<ImportPath, Vec<ImportPath>>> {
+) -> buck2_error::Result<HashMap<ImportPath, Vec<ImportPath>>> {
     let all_imports = get_transitive_loads(
         all_top_level_imports.to_vec(),
         delegate.linear_dice_computations(),
@@ -645,7 +659,7 @@ async fn first_order_imports<'c>(
 pub(crate) async fn get_transitive_loads(
     top_level_imports: Vec<ImportPath>,
     ctx: &LinearRecomputeDiceComputations<'_>,
-) -> anyhow::Result<Vec<ImportPath>> {
+) -> buck2_error::Result<Vec<ImportPath>> {
     #[derive(Clone, Dupe)]
     struct Node(Arc<ImportPath>);
 
@@ -673,7 +687,7 @@ pub(crate) async fn get_transitive_loads(
 
     #[async_trait]
     impl AsyncNodeLookup<Node> for Lookup {
-        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+        async fn get(&self, label: &NodeRef) -> buck2_error::Result<Node> {
             Ok(Node(Arc::new(label.0.clone())))
         }
     }
@@ -694,7 +708,7 @@ pub(crate) async fn get_transitive_loads(
             &self,
             target: &Node,
             mut func: impl ChildVisitor<Node>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             for import in self
                 .ctx
                 .get()

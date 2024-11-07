@@ -286,9 +286,9 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                 async {
                     let targets = unpack_action_nodes(this, dice, targets).await?;
 
-                    targets
+                    Ok(targets
                         .attrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })

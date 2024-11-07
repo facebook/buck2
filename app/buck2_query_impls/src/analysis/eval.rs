@@ -31,7 +31,7 @@ async fn eval_analysis_query(
     ctx: &mut DiceComputations<'_>,
     query: &str,
     resolved_literals: HashMap<String, ConfiguredTargetNode>,
-) -> anyhow::Result<TargetSet<ConfiguredGraphNodeRef>> {
+) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
     ctx.with_linear_recompute(|ctx| async move {
         let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx: &ctx });
         let delegate = AnalysisConfiguredGraphQueryDelegate {

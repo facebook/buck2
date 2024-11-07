@@ -186,9 +186,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
-                    targets
+                    Ok(targets
                         .attrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -212,7 +212,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
-                        targets.inputs()
+                        Ok(targets.inputs()?)
                     }
                     .boxed_local()
                 })
@@ -237,7 +237,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
-                    targets.kind(regex).map(StarlarkTargetSet::from)
+                    Ok(targets.kind(regex).map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -345,7 +345,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
-                        targets.filter_name(regex)
+                        Ok(targets.filter_name(regex)?)
                     }
                     .boxed_local()
                 })
@@ -481,9 +481,9 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             dice.via(|dice| {
                 async {
                     let targets = unpack_targets(this, dice, targets).await?;
-                    targets
+                    Ok(targets
                         .attrregexfilter(attribute, value)
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })

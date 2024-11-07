@@ -206,10 +206,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    unpack_targets(this, dice, targets)
+                    Ok(unpack_targets(this, dice, targets)
                         .await?
                         .attrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -227,10 +227,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    unpack_targets(this, dice, targets)
+                    Ok(unpack_targets(this, dice, targets)
                         .await?
                         .nattrfilter(attr, &|v| Ok(v == value))
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -253,10 +253,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    unpack_targets(this, dice, targets)
+                    Ok(unpack_targets(this, dice, targets)
                         .await?
                         .kind(regex)
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -280,10 +280,10 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
-                    unpack_targets(this, dice, targets)
+                    Ok(unpack_targets(this, dice, targets)
                         .await?
                         .attrregexfilter(attribute, value)
-                        .map(StarlarkTargetSet::from)
+                        .map(StarlarkTargetSet::from)?)
                 }
                 .boxed_local()
             })
@@ -383,9 +383,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(|dice, _| {
                 dice.via(|dice| {
                     async {
-                        unpack_targets(this, dice, targets)
+                        Ok(unpack_targets(this, dice, targets)
                             .await?
-                            .filter_name(regex)
+                            .filter_name(regex)?)
                     }
                     .boxed_local()
                 })
@@ -408,7 +408,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this.ctx
             .via_dice(|dice, _| {
                 dice.via(|dice| {
-                    async { unpack_targets(this, dice, targets).await?.inputs() }.boxed_local()
+                    async { Ok(unpack_targets(this, dice, targets).await?.inputs()?) }.boxed_local()
                 })
             })
             .map(StarlarkFileSet::from)

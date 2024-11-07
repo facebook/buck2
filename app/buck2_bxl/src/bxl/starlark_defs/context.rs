@@ -290,7 +290,7 @@ impl BxlContextCoreData {
     }
 
     pub(crate) fn parse_query_file_literal(&self, literal: &str) -> anyhow::Result<CellPath> {
-        parse_query_file_literal(
+        Ok(parse_query_file_literal(
             literal,
             self.cell_alias_resolver(),
             self.cell_resolver(),
@@ -300,7 +300,7 @@ impl BxlContextCoreData {
             //   current directory in `buck2 query`, but relative to cell root in BXL.
             self.cell_root_abs(),
             self.project_root(),
-        )
+        )?)
     }
 
     pub(crate) fn resolve_target_platfrom(

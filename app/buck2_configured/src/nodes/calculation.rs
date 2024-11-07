@@ -642,15 +642,15 @@ enum CheckVisibility {
 
 #[derive(Default)]
 struct ErrorsAndIncompatibilities {
-    errs: Vec<anyhow::Error>,
+    errs: Vec<buck2_error::Error>,
     incompats: Vec<Arc<IncompatiblePlatformReason>>,
 }
 
 impl ErrorsAndIncompatibilities {
-    pub fn unpack_dep_into(
+    fn unpack_dep_into(
         &mut self,
         target_label: &TargetConfiguredTargetLabel,
-        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+        result: buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>,
         check_visibility: CheckVisibility,
         list: &mut Vec<ConfiguredTargetNode>,
     ) {
@@ -660,7 +660,7 @@ impl ErrorsAndIncompatibilities {
     fn unpack_dep(
         &mut self,
         target_label: &TargetConfiguredTargetLabel,
-        result: anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>,
+        result: buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>,
         check_visibility: CheckVisibility,
     ) -> Option<ConfiguredTargetNode> {
         match result {
@@ -691,7 +691,7 @@ impl ErrorsAndIncompatibilities {
                         );
                     }
                     Err(e) => {
-                        self.errs.push(e);
+                        self.errs.push(e.into());
                     }
                 }
             }
@@ -706,7 +706,7 @@ impl ErrorsAndIncompatibilities {
             return Some(Ok(MaybeCompatible::Incompatible(incompat)));
         }
         if let Some(err) = self.errs.pop() {
-            return Some(Err(err));
+            return Some(Err(err.into()));
         }
         None
     }
@@ -1418,7 +1418,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
         check_dependency_incompatibility: bool,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let maybe_compatible_node = ctx
             .compute(&ConfiguredTargetNodeKey(target.dupe()))
             .await??;
@@ -1429,7 +1429,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     &IncompatiblePlatformReasonCause::Dependency(_)
                 ) {
                     if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
-                        return Err(reason.to_err());
+                        return Err(reason.to_err().into());
                     } else {
                         soft_error!(
                             "dep_only_incompatible_version_two", reason.to_err().into(),

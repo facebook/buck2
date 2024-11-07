@@ -43,11 +43,12 @@ impl QueryFrontend for QueryFrontendImpl {
         query: &str,
         query_args: &[String],
     ) -> anyhow::Result<QueryEvaluationResult<TargetNode>> {
-        ctx.with_linear_recompute(|ctx| async move {
-            let evaluator = get_uquery_evaluator(&ctx, working_dir).await?;
-            evaluator.eval_query(query, query_args).await
-        })
-        .await
+        Ok(ctx
+            .with_linear_recompute(|ctx| async move {
+                let evaluator = get_uquery_evaluator(&ctx, working_dir).await?;
+                evaluator.eval_query(query, query_args).await
+            })
+            .await?)
     }
 
     /// Evaluate a cquery query.
@@ -68,26 +69,27 @@ impl QueryFrontend for QueryFrontendImpl {
         QueryEvaluationResult<ConfiguredTargetNode>,
         Option<Vec<Arc<CqueryUniverse>>>,
     )> {
-        ctx.with_linear_recompute(|ctx| async move {
-            let dice_query_delegate =
-                get_dice_query_delegate(&ctx, working_dir, global_cfg_options).await?;
+        Ok(ctx
+            .with_linear_recompute(|ctx| async move {
+                let dice_query_delegate =
+                    get_dice_query_delegate(&ctx, working_dir, global_cfg_options).await?;
 
-            // TODO(nga): this should support configured target patterns
-            //   similarly to what we do for `build` command.
-            //   Something like this should work:
-            //   ```
-            //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
-            //   ```
-            eval_cquery(
-                dice_query_delegate,
-                query,
-                query_args,
-                target_universe.as_ref().map(|v| &v[..]),
-                collect_universes,
-            )
-            .await
-        })
-        .await
+                // TODO(nga): this should support configured target patterns
+                //   similarly to what we do for `build` command.
+                //   Something like this should work:
+                //   ```
+                //   buck2 cquery --target-universe android//:binary 'deps("some//:lib (<arm32>)")'
+                //   ```
+                eval_cquery(
+                    dice_query_delegate,
+                    query,
+                    query_args,
+                    target_universe.as_ref().map(|v| &v[..]),
+                    collect_universes,
+                )
+                .await
+            })
+            .await?)
     }
 
     async fn eval_aquery(
@@ -98,11 +100,12 @@ impl QueryFrontend for QueryFrontendImpl {
         query_args: &[String],
         global_cfg_options: GlobalCfgOptions,
     ) -> anyhow::Result<QueryEvaluationResult<ActionQueryNode>> {
-        ctx.with_linear_recompute(|ctx| async move {
-            let evaluator = get_aquery_evaluator(&ctx, working_dir, global_cfg_options).await?;
-            evaluator.eval_query(query, query_args).await
-        })
-        .await
+        Ok(ctx
+            .with_linear_recompute(|ctx| async move {
+                let evaluator = get_aquery_evaluator(&ctx, working_dir, global_cfg_options).await?;
+                evaluator.eval_query(query, query_args).await
+            })
+            .await?)
     }
 }
 
@@ -111,7 +114,7 @@ async fn universe_from_literals(
     cwd: &ProjectRelativePath,
     literals: &[String],
     global_cfg_options: GlobalCfgOptions,
-) -> anyhow::Result<CqueryUniverse> {
+) -> buck2_error::Result<CqueryUniverse> {
     ctx.with_linear_recompute(|ctx| async move {
         let query_delegate = get_dice_query_delegate(&ctx, cwd, global_cfg_options).await?;
         Ok(preresolve_literals_and_build_universe(

@@ -9,11 +9,17 @@
 
 /// Check if any of the values in this literal or attribute matches the predicate.
 pub trait AnyMatches {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool>;
 }
 
 impl AnyMatches for serde_json::Value {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         match self {
             Self::Null => {}
             Self::Bool(..) => {}

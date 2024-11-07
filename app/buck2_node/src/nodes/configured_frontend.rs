@@ -23,7 +23,7 @@ pub trait ConfiguredTargetNodeCalculationImpl: Send + Sync + 'static {
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
         check_dependency_incompatibility: bool,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 pub static CONFIGURED_TARGET_NODE_CALCULATION: LateBinding<
@@ -36,7 +36,7 @@ pub trait ConfiguredTargetNodeCalculation {
     async fn get_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 
     /// Same as `get_configured_target_node` except it doesn't error/soft-error on
     /// configured target that is transitively incompatible. This should only be used
@@ -46,7 +46,7 @@ pub trait ConfiguredTargetNodeCalculation {
     async fn get_internal_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
 }
 
 #[async_trait]
@@ -54,7 +54,7 @@ impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     async fn get_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         CONFIGURED_TARGET_NODE_CALCULATION
             .get()?
             .get_configured_target_node(self, target, true)
@@ -64,7 +64,7 @@ impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     async fn get_internal_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> anyhow::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         CONFIGURED_TARGET_NODE_CALCULATION
             .get()?
             .get_configured_target_node(self, target, false)

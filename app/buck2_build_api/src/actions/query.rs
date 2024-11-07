@@ -320,8 +320,8 @@ impl QueryTarget for ActionQueryNode {
 
     fn attr_any_matches(
         attr: &Self::Attr<'_>,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         filter(&attr.0)
     }
 
@@ -453,7 +453,7 @@ pub static FIND_MATCHING_ACTION: LateBinding<
         // path_after_target_name
         ForwardRelativePathBuf,
     ) -> Pin<
-        Box<dyn Future<Output = anyhow::Result<Option<ActionQueryNode>>> + Send + 'c>,
+        Box<dyn Future<Output = buck2_error::Result<Option<ActionQueryNode>>> + Send + 'c>,
     >,
 > = LateBinding::new("FIND_MATCHING_ACTION");
 

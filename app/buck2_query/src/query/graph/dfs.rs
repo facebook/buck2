@@ -21,16 +21,16 @@ use crate::query::graph::visited::VisitedNodes;
 pub fn dfs_postorder<N: Eq + Hash + Dupe>(
     roots: impl IntoIterator<Item = N>,
     successors: impl GraphSuccessors<N>,
-    visit: impl FnMut(N) -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
+    visit: impl FnMut(N) -> buck2_error::Result<()>,
+) -> buck2_error::Result<()> {
     dfs_postorder_impl::<_, UnorderedSet<N>>(roots, successors, visit)
 }
 
 pub(crate) fn dfs_postorder_impl<N: Dupe, V: VisitedNodes<N>>(
     roots: impl IntoIterator<Item = N>,
     successors: impl GraphSuccessors<N>,
-    mut visit: impl FnMut(N) -> anyhow::Result<()>,
-) -> anyhow::Result<()> {
+    mut visit: impl FnMut(N) -> buck2_error::Result<()>,
+) -> buck2_error::Result<()> {
     // This implementation simply performs a dfs. We maintain a work stack here.
     // When visiting a node, we first add an item to the work stack to call
     // post_visit for that node, and then add items to visit all the

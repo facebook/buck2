@@ -35,7 +35,10 @@ impl Display for BoolLiteral {
 }
 
 impl AnyMatches for BoolLiteral {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         Ok(filter(if self.0 { "True" } else { "False" })?
             || filter(if self.0 { "true" } else { "false" })?)
     }

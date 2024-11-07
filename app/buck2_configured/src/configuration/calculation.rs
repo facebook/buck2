@@ -242,7 +242,7 @@ async fn check_execution_platform(
         };
     }
     if let Some(e) = errs.pop() {
-        return Err(e);
+        return Err(e.into());
     }
 
     Ok(Ok(()))

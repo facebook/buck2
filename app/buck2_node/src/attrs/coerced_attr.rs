@@ -698,8 +698,8 @@ impl CoercedAttr {
     /// contained item matches the filter.
     pub fn any_matches(
         &self,
-        filter: &dyn Fn(&str) -> anyhow::Result<bool>,
-    ) -> anyhow::Result<bool> {
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         match self {
             CoercedAttr::Selector(s) => {
                 for value in s.all_values() {

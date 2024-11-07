@@ -53,7 +53,10 @@ impl ToJsonWithContext for ConfiguredAttr {
 }
 
 impl AnyMatches for ConfiguredAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         match self {
             ConfiguredAttr::String(v) | ConfiguredAttr::EnumVariant(v) => filter(v),
             ConfiguredAttr::List(vals) => vals.any_matches(filter),
@@ -88,7 +91,10 @@ impl ToJsonWithContext for CoercedAttr {
 }
 
 impl AnyMatches for CoercedAttr {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         CoercedAttr::any_matches(self, filter)
     }
 }

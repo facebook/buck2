@@ -23,13 +23,17 @@ pub trait AsyncChildVisitor<N: LabeledNode>: Send + Sync {
         &self,
         node: &N,
         children: impl ChildVisitor<N>,
-    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+    ) -> impl Future<Output = buck2_error::Result<()>> + Send;
 }
 
 impl<'a, N: LabeledNode, A: AsyncChildVisitor<N> + ?Sized + Send + Sync> AsyncChildVisitor<N>
     for &'a A
 {
-    async fn for_each_child(&self, node: &N, children: impl ChildVisitor<N>) -> anyhow::Result<()> {
+    async fn for_each_child(
+        &self,
+        node: &N,
+        children: impl ChildVisitor<N>,
+    ) -> buck2_error::Result<()> {
         (**self).for_each_child(node, children).await
     }
 }

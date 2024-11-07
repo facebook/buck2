@@ -125,7 +125,10 @@ impl Display for VisibilityPatternList {
 }
 
 impl AnyMatches for VisibilityPatternList {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         match self {
             VisibilityPatternList::Public => filter(VisibilityPattern::PUBLIC),
             VisibilityPatternList::List(patterns) => {
@@ -203,13 +206,19 @@ impl Display for WithinViewSpecification {
 }
 
 impl AnyMatches for VisibilitySpecification {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         self.0.any_matches(filter)
     }
 }
 
 impl AnyMatches for WithinViewSpecification {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         self.0.any_matches(filter)
     }
 }

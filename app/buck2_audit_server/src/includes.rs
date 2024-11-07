@@ -97,7 +97,7 @@ async fn get_transitive_includes(
 
     #[async_trait]
     impl AsyncNodeLookup<Node> for Lookup<'_, '_> {
-        async fn get(&self, label: &NodeRef) -> anyhow::Result<Node> {
+        async fn get(&self, label: &NodeRef) -> buck2_error::Result<Node> {
             Ok(Node(
                 self.ctx
                     .get()
@@ -120,7 +120,7 @@ async fn get_transitive_includes(
             &self,
             target: &Node,
             mut func: impl ChildVisitor<Node>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             for import in target.0.imports() {
                 func.visit(&NodeRef(import.clone()))?;
             }

@@ -41,7 +41,7 @@ pub mod docs;
 pub mod helpers;
 
 pub trait QueryLiteralVisitor {
-    fn target_pattern(&mut self, pattern: &str) -> anyhow::Result<()>;
+    fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()>;
 }
 
 pub trait HasModuleDescription {
@@ -609,7 +609,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.attrfilter(attr, &|v| Ok(v == value))
     }
 
@@ -618,7 +618,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.nattrfilter(attr, &|v| Ok(v == value))
     }
 
@@ -627,7 +627,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         attr: &str,
         value: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.attrregexfilter(attr, value)
     }
 
@@ -639,7 +639,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         universe: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<FileSet> {
+    ) -> buck2_error::Result<FileSet> {
         env.allbuildfiles(universe).await
     }
 
@@ -648,7 +648,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         env: &Env,
         universe: &FileSet,
         argset: &FileSet,
-    ) -> anyhow::Result<FileSet> {
+    ) -> buck2_error::Result<FileSet> {
         env.rbuildfiles(universe, argset).await
     }
 
@@ -659,7 +659,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         DepsFunction::<Env> {
             _marker: PhantomData,
         }
@@ -672,15 +672,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         regex: &str,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         targets.filter_name(regex)
     }
 
-    pub fn filter_file_set(&self, regex: &str, files: &FileSet) -> anyhow::Result<FileSet> {
+    pub fn filter_file_set(&self, regex: &str, files: &FileSet) -> buck2_error::Result<FileSet> {
         files.filter_name(regex)
     }
 
-    pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> anyhow::Result<FileSet> {
+    pub fn inputs(&self, targets: &TargetSet<Env::Target>) -> buck2_error::Result<FileSet> {
         targets.inputs()
     }
 
@@ -696,7 +696,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         files: &FileSet,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.owner(files).await
     }
 
@@ -704,7 +704,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         paths: &FileSet,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.targets_in_buildfile(paths).await
     }
 
@@ -716,7 +716,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         targets: &TargetSet<Env::Target>,
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         DepsFunction::<Env> {
             _marker: PhantomData,
         }
@@ -728,7 +728,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<TargetSet<Env::Target>> {
+    ) -> buck2_error::Result<TargetSet<Env::Target>> {
         env.testsof(targets).await
     }
 
@@ -736,7 +736,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         &self,
         env: &Env,
         targets: &TargetSet<Env::Target>,
-    ) -> anyhow::Result<Vec<MaybeCompatible<Env::Target>>> {
+    ) -> buck2_error::Result<Vec<MaybeCompatible<Env::Target>>> {
         env.testsof_with_default_target_platform(targets).await
     }
 

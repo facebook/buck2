@@ -79,7 +79,10 @@ impl<C: Eq> FromIterator<(C, C)> for DictLiteral<C> {
 }
 
 impl<C: Eq + AnyMatches> AnyMatches for DictLiteral<C> {
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         for (k, v) in self.0.iter() {
             if k.any_matches(filter)? || v.any_matches(filter)? {
                 return Ok(true);

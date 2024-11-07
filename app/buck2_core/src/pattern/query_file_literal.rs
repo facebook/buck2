@@ -23,7 +23,7 @@ pub fn parse_query_file_literal(
     cell_resolver: &CellResolver,
     working_dir_abs: &AbsNormPath,
     project_root: &ProjectRoot,
-) -> anyhow::Result<CellPath> {
+) -> buck2_error::Result<CellPath> {
     match maybe_split_cell_alias_and_relative_path(literal)? {
         Some((alias, path)) => {
             let cell_name = cell_alias_resolver.resolve(alias.as_str())?;
@@ -37,7 +37,7 @@ pub fn parse_query_file_literal(
             // Note if the path is absolute, this `join` is a no-op.
             let path_abs = working_dir_abs.as_abs_path().join(path);
             let project_path = project_root.relativize_any(path_abs)?;
-            cell_resolver.get_cell_path(&project_path)
+            Ok(cell_resolver.get_cell_path(&project_path)?)
         }
     }
 }

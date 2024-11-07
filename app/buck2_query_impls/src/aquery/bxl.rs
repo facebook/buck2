@@ -61,7 +61,7 @@ impl BxlAqueryFunctionsImpl {
     async fn aquery_delegate<'c, 'd>(
         &self,
         dice: &'c LinearRecomputeDiceComputations<'d>,
-    ) -> anyhow::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
+    ) -> buck2_error::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
         let cell_alias_resolver = dice
             .get()
@@ -86,7 +86,7 @@ impl BxlAqueryFunctionsImpl {
     async fn aquery_env<'c, 'd>(
         &self,
         delegate: &Arc<DiceAqueryDelegate<'c, 'd>>,
-    ) -> anyhow::Result<AqueryEnvironment<'c>> {
+    ) -> buck2_error::Result<AqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
         Ok(AqueryEnvironment::new(delegate.dupe(), literals))
     }
@@ -141,18 +141,19 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         deps: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .deps(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    &DefaultQueryFunctionsModule::new(),
-                    targets,
-                    deps,
-                    captured_expr,
-                )
-                .await
-        })
-        .await
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .deps(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        targets,
+                        deps,
+                        captured_expr,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn rdeps(
         &self,
@@ -162,49 +163,52 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .rdeps(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    &DefaultQueryFunctionsModule::new(),
-                    universe,
-                    targets,
-                    depth,
-                    captured_expr,
-                )
-                .await
-        })
-        .await
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .rdeps(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        universe,
+                        targets,
+                        depth,
+                        captured_expr,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn testsof(
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .testsof(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    targets,
-                )
-                .await
-        })
-        .await
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .testsof(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        targets,
+                    )
+                    .await
+            })
+            .await?)
     }
     async fn owner(
         &self,
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> anyhow::Result<TargetSet<ActionQueryNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            aquery_functions()
-                .owner(
-                    &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
-                    file_set,
-                )
-                .await
-        })
-        .await
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                aquery_functions()
+                    .owner(
+                        &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
+                        file_set,
+                    )
+                    .await
+            })
+            .await?)
     }
 
     async fn get_target_set(

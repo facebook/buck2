@@ -54,7 +54,10 @@ impl SplitTransitionDepAttrType {
 /// Configured or unconfigured.
 pub trait SplitTransitionDepMaybeConfigured: Display + Allocative {
     fn to_json(&self) -> anyhow::Result<serde_json::Value>;
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool>;
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool>;
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative)]
@@ -86,7 +89,10 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
         Ok(serde_json::Value::Object(map))
     }
 
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         for (label, target) in &self.deps {
             if filter(label)? || filter(&target.to_string())? {
                 return Ok(true);
@@ -109,7 +115,10 @@ impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
         Ok(serde_json::to_value(self.to_string())?)
     }
 
-    fn any_matches(&self, filter: &dyn Fn(&str) -> anyhow::Result<bool>) -> anyhow::Result<bool> {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
         filter(&self.to_string())
     }
 }

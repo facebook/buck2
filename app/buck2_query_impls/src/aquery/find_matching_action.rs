@@ -36,7 +36,7 @@ enum ActionKeyMatch<'v> {
 fn check_output_path<'v>(
     build_artifact: &'v BuildArtifact,
     path_to_check: &ForwardRelativePathBuf,
-) -> anyhow::Result<Option<ActionKeyMatch<'v>>> {
+) -> buck2_error::Result<Option<ActionKeyMatch<'v>>> {
     let path = build_artifact.get_path().path();
 
     debug!(
@@ -61,7 +61,7 @@ async fn find_matching_action(
     global_cfg_options: &GlobalCfgOptions,
     analysis: &AnalysisResult,
     path_after_target_name: ForwardRelativePathBuf,
-) -> anyhow::Result<Option<ActionQueryNode>> {
+) -> buck2_error::Result<Option<ActionQueryNode>> {
     ctx.with_linear_recompute(|ctx| async move {
         let dice_aquery_delegate =
             get_dice_aquery_delegate(&ctx, working_dir, global_cfg_options.dupe()).await?;
