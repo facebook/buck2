@@ -221,6 +221,9 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
     # The compilation databases produced by Buck have paths relative to the root of
     # fbsource. This isn't compatible with RE.
     "uses_compilation_database",
+
+    # Uses checkpolicy which is not on RE
+    "uses_checkpolicy",
 ]}
 
 def genrule_labels_require_local(labels):
