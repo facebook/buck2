@@ -10,6 +10,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load(
     "@prelude//java:java_providers.bzl",
+    "ClasspathSnapshotGranularity",
     "JavaCompileOutputs",  # @unused Used as type
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
@@ -441,7 +442,7 @@ def _create_jar_artifact(
     has_postprocessor = hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor
     final_jar = postprocess_jar(ctx.actions, java_toolchain.zip_scrubber, ctx.attrs.jar_postprocessor[RunInfo], java_toolchain.postprocessor_runner[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
 
-    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, abi or final_jar, actions_identifier)
+    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), abi or final_jar, actions_identifier)
     return make_compile_outputs(
         full_library = final_jar,
         preprocessed_library = jar_out,

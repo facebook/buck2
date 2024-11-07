@@ -7,6 +7,7 @@
 
 load(
     "@prelude//java:java_providers.bzl",
+    "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
     "generate_java_classpath_snapshot",
@@ -330,7 +331,7 @@ def create_jar_artifact_javacd(
             define_action = define_javacd_action,
         )
 
-        abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -344,7 +345,7 @@ def create_jar_artifact_javacd(
             abi_jar_snapshot = abi_jar_snapshot,
         )
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,

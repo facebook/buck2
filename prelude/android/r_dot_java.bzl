@@ -8,7 +8,7 @@
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
-load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps", "generate_java_classpath_snapshot")
+load("@prelude//java:java_providers.bzl", "ClasspathSnapshotGranularity", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps", "generate_java_classpath_snapshot")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
 
@@ -199,7 +199,7 @@ def _generate_and_compile_r_dot_java(
     )
 
     # Extracting an abi is unnecessary as there's not really anything to strip.
-    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._java_toolchain[JavaToolchainInfo].cp_snapshot_generator, r_dot_java_out, identifier)
+    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._java_toolchain[JavaToolchainInfo].cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), r_dot_java_out, identifier)
     library_output = JavaClasspathEntry(
         full_library = r_dot_java_out,
         abi = r_dot_java_out,

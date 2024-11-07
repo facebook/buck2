@@ -7,6 +7,7 @@
 
 load(
     "@prelude//java:java_providers.bzl",
+    "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
     "JavaLibraryInfo",
@@ -408,7 +409,7 @@ def create_jar_artifact_kotlincd(
             encode_abi_command = encode_abi_command,
             define_action = define_kotlincd_action,
         )
-        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -422,7 +423,7 @@ def create_jar_artifact_kotlincd(
             abi_jar_snapshot = abi_jar_snapshot,
         ), proto
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,

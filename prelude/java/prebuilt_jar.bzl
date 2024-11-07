@@ -9,6 +9,7 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load("@prelude//java/utils:java_utils.bzl", "get_classpath_subtarget")
 load(
     ":java_providers.bzl",
+    "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",
     "create_abi",
     "create_java_library_providers",
@@ -47,7 +48,13 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     if not prebuilt_jar_toolchain.is_bootstrap_toolchain:
         if ctx.attrs.generate_abi:
             abi = create_abi(ctx.actions, prebuilt_jar_toolchain.class_abi_generator, output)
-    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].cp_snapshot_generator, abi or output, "")
+    jar_snapshot = generate_java_classpath_snapshot(
+        ctx.actions,
+        ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].cp_snapshot_generator,
+        ClasspathSnapshotGranularity("CLASS_LEVEL"),
+        abi or output,
+        "",
+    )
 
     library_output_classpath_entry = JavaClasspathEntry(
         full_library = output,
