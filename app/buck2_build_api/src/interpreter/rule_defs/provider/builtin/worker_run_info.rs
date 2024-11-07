@@ -16,8 +16,10 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
+use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
 use starlark::values::Trace;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -38,7 +40,7 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[repr(C)]
 pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
     // Configuration needed to spawn a new worker
-    worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
+    worker: ValueOfUncheckedGeneric<V, NoneOr<FrozenWorkerInfo>>,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
     exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
@@ -48,22 +50,33 @@ pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
 fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenWorkerRunInfo)]
     fn WorkerRunInfo<'v>(
-        #[starlark(require = named)] worker: ValueOf<'v, &'v WorkerInfo<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] worker: NoneOr<
+            ValueOf<'v, &'v WorkerInfo<'v>>,
+        >,
         #[starlark(require = named, default = AllocList::EMPTY)] exe: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<WorkerRunInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
+
+        let worker = match worker {
+            NoneOr::None => ValueOfUnchecked::new(Value::new_none()),
+            NoneOr::Other(worker) => ValueOfUnchecked::new(worker.to_value()),
+        };
+
         Ok(WorkerRunInfo {
-            worker: ValueOfUnchecked::new(worker.to_value()),
+            worker,
             exe: ValueOfUnchecked::new(heap.alloc(valid_exe)),
         })
     }
 }
 
 impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
-    pub fn worker(&self) -> ValueTypedComplex<'v, WorkerInfo<'v>> {
-        ValueTypedComplex::new(self.worker.get().to_value()).expect("validated at construction")
+    pub fn worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
+        let value = self.worker.get().to_value();
+        NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
+            .expect("validated at construction")
+            .into_option()
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {

@@ -22,7 +22,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -42,7 +41,6 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::StringValue;
 use starlark::values::UnpackAndDiscard;
 use starlark::values::ValueOf;
-use starlark::values::ValueTypedComplex;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
@@ -241,12 +239,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         // TODO(nga): we should not accept output artifacts in worker.
         let (starlark_exe, starlark_worker) = match exe {
             Some(Either::Left(worker_run)) => {
-                let worker: ValueTypedComplex<WorkerInfo> = worker_run.typed.worker();
+                let worker = worker_run.typed.worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, Some(worker))
+                (starlark_exe, worker)
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
