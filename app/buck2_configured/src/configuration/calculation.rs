@@ -8,7 +8,6 @@
  */
 
 use std::sync::Arc;
-use anyhow::Context;
 
 use itertools::Itertools;
 use allocative::Allocative;
@@ -16,7 +15,6 @@ use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provid
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
-use buck2_error::AnyhowContextForError;
 use buck2_core::cells::name::CellName;
 use futures::FutureExt;
 use starlark_map::unordered_map::UnorderedMap;
@@ -33,6 +31,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
+use buck2_error::BuckErrorContext;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
@@ -156,10 +155,13 @@ async fn compute_execution_platforms(
         .provider_collection()
         .builtin_provider::<FrozenExecutionPlatformRegistrationInfo>()
         .ok_or_else(|| {
-            anyhow::anyhow!(
+            buck2_error::buck2_error!(
+                [],
+                "{}",
                 ConfigurationError::MissingExecutionPlatformRegistrationInfo(
                     execution_platforms_target.dupe()
                 )
+                .to_string()
             )
         })?;
 
@@ -183,7 +185,7 @@ async fn check_execution_platform(
     exec_deps: &[TargetLabel],
     exec_platform: &ExecutionPlatform,
     toolchain_allows: &[ToolchainConstraints],
-) -> anyhow::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
     let resolved_platform_configuration = ctx
         .get_resolved_configuration(
             exec_platform.cfg(),
@@ -250,10 +252,10 @@ async fn check_execution_platform(
 
 async fn get_execution_platforms_enabled(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<ExecutionPlatforms> {
+) -> buck2_error::Result<ExecutionPlatforms> {
     ctx.get_execution_platforms()
         .await?
-        .context("Execution platforms are not enabled")
+        .buck_error_context("Execution platforms are not enabled")
 }
 
 async fn resolve_execution_platform_from_constraints(
@@ -292,10 +294,9 @@ async fn resolve_execution_platform_from_constraints(
         ExecutionPlatformFallback::UseUnspecifiedExec => {
             Ok(ExecutionPlatformResolution::new(None, skipped))
         }
-        ExecutionPlatformFallback::Error => Err(anyhow::anyhow!(
-            ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped))
-        )
-        .into()),
+        ExecutionPlatformFallback::Error => {
+            Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped).into()).into())
+        }
         ExecutionPlatformFallback::Platform(platform) => Ok(ExecutionPlatformResolution::new(
             Some(platform.dupe()),
             skipped,
@@ -373,7 +374,7 @@ pub(crate) trait ConfigurationCalculation {
     async fn get_platform_configuration(
         &mut self,
         target: &TargetLabel,
-    ) -> anyhow::Result<ConfigurationData>;
+    ) -> buck2_error::Result<ConfigurationData>;
 
     async fn get_resolved_configuration<
         'a,
@@ -440,7 +441,7 @@ pub(crate) fn init_configuration_calculation() {
 async fn compute_platform_configuration_no_label_check(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
-) -> anyhow::Result<ConfigurationData> {
+) -> buck2_error::Result<ConfigurationData> {
     let platform_info = (&ctx
         // TODO(T198223238): Not supporting platforms being supplied via subtargets for now
         .get_configuration_analysis_result(&ProvidersLabel::default_for(target.dupe()))
@@ -448,14 +449,14 @@ async fn compute_platform_configuration_no_label_check(
         .provider_collection()
         .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?;
-    platform_info.to_configuration()
+    Ok(platform_info.to_configuration()?)
 }
 
 /// Basically, evaluate `platform()` rule.
 async fn compute_platform_configuration(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
-) -> anyhow::Result<ConfigurationData> {
+) -> buck2_error::Result<ConfigurationData> {
     let configuration_data = compute_platform_configuration_no_label_check(ctx, target).await?;
 
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -468,7 +469,9 @@ async fn compute_platform_configuration(
         &cell_resolver,
         &cell_alias_resolver,
     )
-    .context("`PlatformInfo` label for `platform()` rule should be a valid target label")?;
+    .buck_error_context(
+        "`PlatformInfo` label for `platform()` rule should be a valid target label",
+    )?;
 
     if target != &parsed_target {
         // `target` may be an `alias` target. In this case we evaluate the label
@@ -479,7 +482,7 @@ async fn compute_platform_configuration(
             &parsed_target,
         )
         .await
-        .context(
+        .buck_error_context(
             "Checking whether label of returned `PlatformInfo` resolves to the same configuration",
         )?;
         if cfg_again != configuration_data {
@@ -583,7 +586,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     async fn get_platform_configuration(
         &mut self,
         target: &TargetLabel,
-    ) -> anyhow::Result<ConfigurationData> {
+    ) -> buck2_error::Result<ConfigurationData> {
         #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
         struct PlatformConfigurationKey(TargetLabel);
 
@@ -611,7 +614,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
         self.compute(&PlatformConfigurationKey(target.dupe()))
             .await?
-            .map_err(anyhow::Error::from)
+            .map_err(buck2_error::Error::from)
     }
 
     async fn get_default_platform(
@@ -660,7 +663,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             cfg_target: cfg_target.dupe(),
         })
         .await?
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Error getting configuration node of `{}` within the `{}` configuration",
                 cfg_target, target_cfg,
