@@ -427,6 +427,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         "swift-interface": [swift_interface],
         "swiftmodule": [DefaultInfo(default_output = None)],
     }
+    if swift_compile and swift_compile.compiled_underlying_pcm_artifact:
+        subtargets["underlying-pcm"] = [DefaultInfo(default_output = swift_compile.compiled_underlying_pcm_artifact)]
+
     if swift_compile:
         subtargets["swift-compilation-database"] = [
             DefaultInfo(

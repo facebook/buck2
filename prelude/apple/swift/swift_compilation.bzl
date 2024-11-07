@@ -130,6 +130,7 @@ SwiftCompilationOutput = record(
     index_store = field(Artifact),
     # A list of artifacts of the swiftdeps files produced during incremental compilation.
     swiftdeps = field(list[Artifact]),
+    compiled_underlying_pcm_artifact = field(Artifact | None),
 )
 
 SwiftDebugInfo = record(
@@ -359,6 +360,7 @@ def compile_swift(
         object_files = object_output.object_files,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
+        compiled_underlying_pcm_artifact = compiled_underlying_pcm.output_artifact if compiled_underlying_pcm else None,
         dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
