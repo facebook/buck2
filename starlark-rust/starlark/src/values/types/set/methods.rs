@@ -103,10 +103,14 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: &'v Heap,
     ) -> starlark::Result<SetData<'v>> {
-        let it = other.get().iterate(heap)?;
-        // TODO(romanp) omptimize if this is empty
+        if this.aref.content.is_empty() {
+            let other_set = SetFromValue::from_value(other, heap)?;
+            return Ok(SetData {
+                content: other_set.into_set(),
+            });
+        }
         let mut data = this.aref.content.clone();
-        for elem in it {
+        for elem in other.get().iterate(heap)? {
             let hashed = elem.get_hashed()?;
             data.insert_hashed(hashed);
         }
