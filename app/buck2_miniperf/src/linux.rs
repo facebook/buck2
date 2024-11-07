@@ -8,14 +8,16 @@
  */
 
 use std::env;
-use std::io;
+use std::fs;
 use std::os::unix::process::ExitStatusExt;
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::Context as _;
 use buck2_miniperf_proto::MiniperfCounter;
 use buck2_miniperf_proto::MiniperfCounters;
 use buck2_miniperf_proto::MiniperfOutput;
+use buck2_util::cgroup_info::CGroupInfo;
 use perf_event::events::Hardware;
 use perf_event::Builder;
 use smallvec::SmallVec;
@@ -29,7 +31,7 @@ struct Counters {
 #[error("Error at {}: {}", stage, error)]
 struct CounterError {
     stage: &'static str,
-    error: io::Error,
+    error: anyhow::Error,
 }
 
 impl Counters {
@@ -42,7 +44,7 @@ impl Counters {
             .build()
             .map_err(|error| CounterError {
                 stage: "open user",
-                error,
+                error: error.into(),
             })?;
 
         let kernel_counter = Builder::new()
@@ -54,7 +56,7 @@ impl Counters {
             .build()
             .map_err(|error| CounterError {
                 stage: "open kernel",
-                error,
+                error: error.into(),
             })?;
 
         Ok(Self {
@@ -69,7 +71,7 @@ impl Counters {
             .read_count_and_time()
             .map_err(|error| CounterError {
                 stage: "collect user",
-                error,
+                error: error.into(),
             })?;
 
         let kernel_value =
@@ -77,8 +79,19 @@ impl Counters {
                 .read_count_and_time()
                 .map_err(|error| CounterError {
                     stage: "collect kernel",
-                    error,
+                    error: error.into(),
                 })?;
+
+        let memory_peak = if let Ok(s) = env::var("MINIPERF_READ_CGROUP")
+            && s == "1"
+        {
+            Some(read_memory_peak().map_err(|error| CounterError {
+                stage: "collect memory peak",
+                error,
+            })?)
+        } else {
+            None
+        };
 
         Ok(MiniperfCounters {
             user_instructions: MiniperfCounter {
@@ -91,8 +104,21 @@ impl Counters {
                 time_enabled: kernel_value.time_enabled,
                 time_running: kernel_value.time_running,
             },
+            memory_peak,
         })
     }
+}
+
+fn read_memory_peak() -> anyhow::Result<u64> {
+    let cgroup_info = CGroupInfo::read()?;
+    let cgroup_path = Path::new(&cgroup_info.path).join("memory.peak");
+    fs::read_to_string(&cgroup_path)
+        .context("Failed to read memory.peak")?
+        .lines()
+        .next()
+        .context("Failed to get first line from memory.peak")?
+        .parse()
+        .context("Failed to parse memory.peak")
 }
 
 /// First argument is an output path to write output data into. The rest is the command to execute.

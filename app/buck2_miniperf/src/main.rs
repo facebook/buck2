@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![feature(let_chains)]
+
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(not(target_os = "linux"), path = "unsupported.rs")]
 mod impl_;
