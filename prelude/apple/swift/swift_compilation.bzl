@@ -365,7 +365,7 @@ def compile_swift(
         exported_swift_header = exported_swift_header.artifact,
         argsfiles = object_output.argsfiles,
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
-        clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers),
+        clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers, [compiled_underlying_pcm.output_artifact] if compiled_underlying_pcm else []),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,

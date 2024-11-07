@@ -246,7 +246,7 @@ def _compile_swiftinterface(
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
-        artifacts = [swift_compiled_module.output_artifact],
+        artifacts = [swift_compiled_module.output_artifact, compiled_underlying_pcm.output_artifact],
         children = get_external_debug_info_tsets(ctx.attrs.deps),
         label = ctx.label,
         tags = [ArtifactInfoTag("swiftmodule")],
