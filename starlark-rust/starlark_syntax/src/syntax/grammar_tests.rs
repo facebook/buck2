@@ -92,7 +92,7 @@ fn test_top_level_comment() {
 
 #[test]
 fn test_top_level_load() {
-    let want = "load(\"//top/level/load.bzl\"top-level = \"top-level\")\n";
+    let want = "load(\"//top/level/load.bzl\", top-level = \"top-level\")\n";
     assert_eq!(
         parse("\nload(\"//top/level/load.bzl\", \"top-level\")\n"),
         want
