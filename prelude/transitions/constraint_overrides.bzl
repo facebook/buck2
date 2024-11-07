@@ -9,20 +9,29 @@
 #       hard-coded here. We use a read_config to avoid hard-coding these repo-specific
 #       constraints into the prelude.
 
-def _platform_overrides() -> list[str]:
-    config = read_root_config("buck2", "platform_overrides", "")
-    return [override.strip() for override in config.split(",") if override.strip()]
+def _platforms() -> list[str]:
+    platforms = []
+    config = read_root_config("buck2", "platforms", "")
+    platforms.extend(
+        [platform.strip() for platform in config.split(",") if platform.strip()],
+    )
+    config = read_root_config("buck2", "generated_platforms", "")
+    platforms.extend(
+        [platform.strip() for platform in config.split(",") if platform.strip()],
+    )
+    return platforms
 
-def _constraint_overrides() -> list[str]:
-    overrides = read_root_config("buck2", "constraint_overrides", "")
-    return [override.strip() for override in overrides.split(",") if override.strip()]
-
-def _constraint_passthroughs() -> list[str]:
-    passthroughs = read_root_config("buck2", "constraint_passthroughs", "")
-    return [passthrough.strip() for passthrough in passthroughs.split(",") if passthrough.strip()]
-
-_overrides = _platform_overrides() + _constraint_overrides()
-_passthroughs = _constraint_passthroughs()
+def _constraints() -> list[str]:
+    constraints = []
+    config = read_root_config("buck2", "constraints", "")
+    constraints.extend(
+        [constraint.strip() for constraint in config.split(",") if constraint.strip()],
+    )
+    config = read_root_config("buck2", "generated_constraints", "")
+    constraints.extend(
+        [constraint.strip() for constraint in config.split(",") if constraint.strip()],
+    )
+    return constraints
 
 def _resolve(
         refs: struct,
@@ -64,11 +73,6 @@ def _apply(
         constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
     # Store passthrough constraint values.
     old_constraints = []
-    for constraint in _passthroughs:
-        if constraint in old_platform.configuration.constraints:
-            old_constraints.append(
-                old_platform.configuration.constraints[constraint],
-            )
 
     # Switch target platform.
     platform = platform or old_platform
@@ -96,7 +100,7 @@ def _apply(
 def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
     return _apply(platform, **_resolve(refs, attrs))
 
-_refs = {override: override for override in _overrides}
+_refs = {override: override for override in _platforms() + _constraints()}
 
 _attributes = {
     "constraint_overrides": attrs.list(attrs.string(), default = []),
