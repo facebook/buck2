@@ -137,6 +137,8 @@ def apple_test_extra_attrs():
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
+        # Apply enable-testing to the link group deps too.
+        "link_group_map": attrs.option(attrs.transition_dep(cfg = enable_testing_transition), default = None),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
