@@ -126,7 +126,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
                                 ),
                                 userspace_events: Some(counters.user_instructions.to_proto()),
                                 kernel_events: Some(counters.kernel_instructions.to_proto()),
-                                memory_peak: None,
+                                memory_peak: counters.memory_peak,
                             });
 
                     if let Err(e) = execution_stats.as_ref() {

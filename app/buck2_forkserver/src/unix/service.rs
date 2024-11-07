@@ -184,6 +184,11 @@ impl Forkserver for UnixForkserverService {
                 }
             }
 
+            // we set env var to enable reading peak memory from cgroup in miniperf
+            if systemd_context.is_some() {
+                cmd.env("MINIPERF_READ_CGROUP", "1");
+            }
+
             let stream_stdio = std_redirects.is_none();
             let mut cmd = ProcessCommand::new(cmd);
             if let Some(std_redirects) = std_redirects {
