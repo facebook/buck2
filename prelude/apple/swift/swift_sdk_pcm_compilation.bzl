@@ -48,6 +48,11 @@ def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
         # the SDK module. I don't think this is actually avoidable or removable until the next xcode major version
         "-Xcc",
         "-Wno-error=#warnings",
+        # When compiling PCMs with the new Swift driver, we need to manually set -file-compilation-dir.
+        # If not defined, the driver will append this path automatically,
+        # resulting in the emission of absolute paths in the PCMs.
+        "-file-compilation-dir",
+        ".",
     ])
 
     cmd.add(get_disable_pch_validation_flags())
