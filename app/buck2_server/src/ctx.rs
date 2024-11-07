@@ -356,19 +356,21 @@ impl<'a> ServerCommandContext<'a> {
             .map(|opts| opts.skip_cache_write)
             .unwrap_or_default();
 
-        let mut run_action_knobs = RunActionKnobs {
+        let eager_dep_files = if let Some(build_options) = self.build_options.as_ref() {
+            build_options.eager_dep_files
+        } else {
+            false
+        };
+
+        let run_action_knobs = RunActionKnobs {
             hash_all_commands: self.base_context.daemon.hash_all_commands,
             use_network_action_output_cache: self
                 .base_context
                 .daemon
                 .use_network_action_output_cache,
             new_style_scratch_path: self.base_context.daemon.new_style_scratch_path,
-            ..Default::default()
+            eager_dep_files,
         };
-
-        if let Some(build_options) = self.build_options.as_ref() {
-            run_action_knobs.eager_dep_files = build_options.eager_dep_files;
-        }
 
         let concurrency = self
             .build_options
