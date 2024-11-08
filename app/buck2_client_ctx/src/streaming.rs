@@ -154,14 +154,26 @@ pub trait StreamingCommand: Sized + Send + Sync {
 }
 
 /// Just provides a common interface for buck subcommands for us to interact with here.
+#[allow(async_fn_in_trait)]
 pub trait BuckSubcommand {
     fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult;
+
+    /// A version of `exec` that allows the caller to control when the runtime is entered.
+    async fn exec_async(
+        self,
+        matches: &clap::ArgMatches,
+        ctx: ClientCommandContext<'_>,
+    ) -> ExitResult;
 }
 
 impl<T: StreamingCommand> BuckSubcommand for T {
     /// Actual call that runs a `StreamingCommand`.
     /// Handles all of the business of setting up a runtime, server, and subscribers.
-    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    async fn exec_async(
+        self,
+        matches: &clap::ArgMatches,
+        mut ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         let buck_log_dir = &ctx.paths()?.log_dir();
         let command_report_path = &self
             .event_log_opts()
@@ -169,56 +181,58 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             .as_ref()
             .map(|path| path.resolve(&ctx.working_dir));
 
-        ctx.with_runtime(|mut ctx| async move {
-            let work = async {
-                let constraints = if T::existing_only() {
-                    BuckdConnectConstraints::ExistingOnly
-                } else {
-                    let mut req =
-                        DaemonConstraintsRequest::new(ctx.immediate_config, T::trace_io(&self))?;
-                    ctx.restarter.apply_to_constraints(&mut req);
-                    BuckdConnectConstraints::Constraints(req)
-                };
-
-                let mut connect_options = BuckdConnectOptions {
-                    subscribers: default_subscribers(&self, &ctx)?,
-                    constraints,
-                };
-
-                let buckd = match ctx.start_in_process_daemon.take() {
-                    None => ctx.connect_buckd(connect_options).await,
-                    Some(start_in_process_daemon) => {
-                        // Start in-process daemon, wait until it is ready to accept connections.
-                        start_in_process_daemon()?;
-
-                        // Do not attempt to spawn a daemon if connect failed.
-                        // Connect should not fail.
-                        connect_options.constraints = BuckdConnectConstraints::ExistingOnly;
-
-                        ctx.connect_buckd(connect_options).await
-                    }
-                };
-
-                let mut buckd = match buckd {
-                    Ok(buckd) => buckd,
-                    Err(e) => {
-                        return ExitResult::err_with_exit_code(e, ExitCode::ConnectError);
-                    }
-                };
-
-                let command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
-
-                ctx.restarter.observe(&buckd);
-
-                command_result
+        let work = async {
+            let constraints = if T::existing_only() {
+                BuckdConnectConstraints::ExistingOnly
+            } else {
+                let mut req =
+                    DaemonConstraintsRequest::new(ctx.immediate_config, T::trace_io(&self))?;
+                ctx.restarter.apply_to_constraints(&mut req);
+                BuckdConnectConstraints::Constraints(req)
             };
 
-            let result = with_simple_sigint_handler(work)
-                .await
-                .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
+            let mut connect_options = BuckdConnectOptions {
+                subscribers: default_subscribers(&self, &ctx)?,
+                constraints,
+            };
 
-            result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
-            result
-        })
+            let buckd = match ctx.start_in_process_daemon.take() {
+                None => ctx.connect_buckd(connect_options).await,
+                Some(start_in_process_daemon) => {
+                    // Start in-process daemon, wait until it is ready to accept connections.
+                    start_in_process_daemon()?;
+
+                    // Do not attempt to spawn a daemon if connect failed.
+                    // Connect should not fail.
+                    connect_options.constraints = BuckdConnectConstraints::ExistingOnly;
+
+                    ctx.connect_buckd(connect_options).await
+                }
+            };
+
+            let mut buckd = match buckd {
+                Ok(buckd) => buckd,
+                Err(e) => {
+                    return ExitResult::err_with_exit_code(e, ExitCode::ConnectError);
+                }
+            };
+
+            let command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
+
+            ctx.restarter.observe(&buckd);
+
+            command_result
+        };
+
+        let result = with_simple_sigint_handler(work)
+            .await
+            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
+
+        result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
+        result
+    }
+
+    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+        ctx.with_runtime(|ctx| self.exec_async(matches, ctx))
     }
 }
