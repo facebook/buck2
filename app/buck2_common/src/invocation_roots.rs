@@ -17,11 +17,15 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
+use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use once_cell::sync::Lazy;
 
+use crate::invocation_paths::InvocationPaths;
+use crate::invocation_paths_result::InvocationPathsResult;
+
 #[derive(Debug, buck2_error::Error)]
-pub enum BuckCliError {
+enum BuckCliError {
     #[error(
         "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.display()
     )]
@@ -72,7 +76,7 @@ impl InvocationRoots {
 /// Doing this without those requirements (i.e. doing it correctly), would require us to
 /// parse the buckconfig files (including all file includes). It's unclear if we'll ever
 /// do that within the buckd client dir.
-pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
+fn get_roots(from: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
     let mut cell_root = None;
     let mut project_root = None;
 
@@ -96,12 +100,30 @@ pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
             break;
         }
     }
-    match (project_root, cell_root) {
+
+    (project_root, cell_root)
+}
+
+pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
+    match get_roots(from) {
         (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
             cell_root: AbsNormPathBuf::try_from(cell_root)?,
             project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
         }),
         _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
+    }
+}
+
+pub fn get_invocation_paths_result(from: &Path, isolation: FileNameBuf) -> InvocationPathsResult {
+    match get_roots(from) {
+        (Some(project_root), Some(cell_root)) => InvocationPathsResult::Paths(InvocationPaths {
+            roots: InvocationRoots {
+                cell_root: AbsNormPathBuf::try_from(cell_root)?,
+                project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
+            },
+            isolation,
+        }),
+        _ => InvocationPathsResult::OutsideOfRepo(BuckCliError::NoBuckRoot(from.to_owned()).into()),
     }
 }
 

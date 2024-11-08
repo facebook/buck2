@@ -50,10 +50,8 @@ use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
-use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
-use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_common::invocation_roots::BuckCliError;
+use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_event_observer::verbosity::Verbosity;
@@ -295,21 +293,11 @@ impl CommandKind {
         argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
-        let roots = find_invocation_roots(process.working_dir.path());
-        let paths_anyhow = roots.map(|r| InvocationPaths {
-            roots: r,
-            isolation: common_opts.isolation_dir.clone(),
-        });
+        let paths_result = get_invocation_paths_result(
+            process.working_dir.path(),
+            common_opts.isolation_dir.clone(),
+        );
 
-        let paths_result = match paths_anyhow {
-            Ok(paths) => InvocationPathsResult::Paths(paths.clone()),
-            Err(err) => match err.downcast_ref::<BuckCliError>() {
-                Some(BuckCliError::NoBuckRoot(_)) => {
-                    InvocationPathsResult::OutsideOfRepo(buck2_error::Error::from(err))
-                }
-                None => InvocationPathsResult::OtherError(buck2_error::Error::from(err)),
-            },
-        };
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.
         #[cfg(not(client_only))]

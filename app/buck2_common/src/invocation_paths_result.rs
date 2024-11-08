@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::convert::Infallible;
+use std::ops::FromResidual;
+
 use crate::invocation_paths::InvocationPaths;
 
 #[derive(Clone)]
@@ -22,6 +25,17 @@ impl InvocationPathsResult {
             InvocationPathsResult::OtherError(e) => Err(e.into()),
             InvocationPathsResult::Paths(paths) => Ok(paths),
             InvocationPathsResult::OutsideOfRepo(e) => Err(e.into()),
+        }
+    }
+}
+
+impl<E: Into<::buck2_error::Error>> FromResidual<Result<Infallible, E>> for InvocationPathsResult {
+    #[track_caller]
+    fn from_residual(residual: Result<Infallible, E>) -> InvocationPathsResult {
+        match residual {
+            Ok(infallible) => match infallible {},
+            // E -> buck2_error::Error -> InvocationPathsResult
+            Err(e) => InvocationPathsResult::OtherError(e.into()),
         }
     }
 }
