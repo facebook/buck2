@@ -64,10 +64,92 @@ def _next_word(val, start, delimiter):
 
     return -1
 
+# Below are some utilities to log and track `read_config` calls
+# You can enable this with `-c buckconfig.log=<a single key>`, ex. `-c buckconfig.log=build.use_limited_hybrid`.
+# To print in json, use `-c buckconfig.log_json=build.use_limited_hybrid`.
+# This will print a stacktrace on stderr for every `read_config` call of `build.use_limited_hybrid`.
+# Would recommend piping the stderr to file because otherwise printing to stderr can be slow and hard to read.
+# You can also print a record for all keys with `-c buckconfig.log_all_in_json=true`. This prints all `read_config` calls
+# without stacktraces, where each entry is a JSON that includes the cell, section, and key.
+# NOTE: even without stacktraces, log all mode is extremely slow and memory hungry, often 20-40x slower and more
+# memory hungry than the equivalent run without, so only use it on small graphs or when absolutely necessary.
+
+def _buck_config_log_keys(json: bool) -> set[(str, str)]:
+    log_section_and_key = read_root_config("buckconfig", "log_json" if json else "log")
+    if not log_section_and_key:
+        return set()
+
+    # Unfortunately, due to buckconfigs allowing `.`, it's possible to have multiple
+    # ambiguous section/key for a single buckconfig, so check for that here.
+    result = set()
+    splits = log_section_and_key.split(".")
+    for i in range(1, len(splits)):
+        section = ".".join(splits[:i])
+        key = ".".join(splits[i:])
+        result.add((section, key))
+    return result
+
+_BUCKCONFIG_LOG_KEYS = _buck_config_log_keys(json = False)
+_BUCKCONFIG_LOG_JSON_KEYS = _buck_config_log_keys(json = True)
+_BUCKCONFIG_LOG_ALL = read_root_config("buckconfig", "log_all_in_json") in ("True", "true")
+LOG_BUCKCONFIGS = bool(_BUCKCONFIG_LOG_KEYS or _BUCKCONFIG_LOG_JSON_KEYS or _BUCKCONFIG_LOG_ALL)
+
+def _log_read_config(section: str, key: str):
+    if _BUCKCONFIG_LOG_ALL:
+        output = {
+            "starlark_log_all_buckconfigs": {
+                "cell": get_cell_name(),
+                "key": key,
+                "section": section,
+            },
+        }
+
+        # This only prints if buckconfig is set
+        # buildifier: disable=print
+        print(json.encode(output))
+
+    if _BUCKCONFIG_LOG_JSON_KEYS:
+        if (section, key) in _BUCKCONFIG_LOG_JSON_KEYS:
+            output = {
+                "starlark_log_buckconfig": {
+                    "call_stack": call_stack(),
+                    "cell": get_cell_name(),
+                },
+            }
+
+            # This only prints if buckconfig is set
+            # buildifier: disable=print
+            print(json.encode(output))
+
+    if _BUCKCONFIG_LOG_KEYS:
+        if (section, key) in _BUCKCONFIG_LOG_KEYS:
+            # This only prints if buckconfig is set
+            # Need to do everything in one print statement because otherwise lines from parallel print
+            # invocations at load time will get interlaced
+            # buildifier: disable=print
+            print("========starlark_log_buckconfig========\n{}\n".format(call_stack()))
+
+def read_config_with_logging(
+        section: str,
+        key: str,
+        default = None):
+    _log_read_config(section, key)
+    return read_config(section, key, default)
+
+def read_root_config_with_logging(
+        section: str,
+        key: str,
+        default = None):
+    _log_read_config(section, key)
+    return read_root_config(section, key, default)
+
+_read_config = read_config_with_logging if LOG_BUCKCONFIGS else read_config
+_read_root_config = read_root_config_with_logging if LOG_BUCKCONFIGS else read_root_config
+
 def read(section, field, default = None, root_cell = False):
     """Read a `string` from `.buckconfig`."""
 
-    read_config_func = read_root_config if root_cell else read_config
+    read_config_func = _read_root_config if root_cell else _read_config
     return read_config_func(section, field, default)
 
 # Alias for `read` that's explicit about the type being returned.

@@ -24,6 +24,7 @@ load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
 load("@prelude//rust:rust_library.bzl", "rust_library_macro_wrapper")
 load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
+load("@prelude//utils:buckconfig.bzl", _read_config = "read_config_with_logging", _read_root_config = "read_root_config_with_logging", log_buckconfigs = "LOG_BUCKCONFIGS")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:selects.bzl", "selects")
 load(":is_full_meta_repo.bzl", "is_full_meta_repo")
@@ -483,7 +484,13 @@ __extra_rules__ = {
     "versioned_alias": _versioned_alias_macro_stub,
 }
 
+__overridden_builtins__ = {
+    "read_config": _read_config,
+    "read_root_config": _read_root_config,
+} if log_buckconfigs else {}
+
 __shimmed_native__ = __struct_to_dict(__buck2_builtins__)
+__shimmed_native__.update(__overridden_builtins__)
 __shimmed_native__.update(__rules__)
 __shimmed_native__.update(_user_rules)
 
