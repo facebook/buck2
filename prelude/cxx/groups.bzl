@@ -267,7 +267,7 @@ def _find_targets_in_mapping(
 
     def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
-        if not mapping.filters or lazy.is_any(lambda filter: filter.matches(node, graph_node.labels), mapping.filters):
+        if not mapping.filters or lazy.is_all(lambda filter: filter.matches(node, graph_node.labels), mapping.filters):
             matching_targets[node] = None
             if mapping.traversal == Traversal("tree"):
                 # We can stop traversing the tree at this point because we've added the
