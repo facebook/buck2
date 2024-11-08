@@ -207,6 +207,37 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
+    /// Update the set by adding items from an iterable.
+    /// ```
+    /// # starlark::assert::is_true(r#"
+    /// x = set([1, 3, 2])
+    /// x.update([4, 3])
+    /// list(x) == [1, 3, 2, 4]
+    /// # "#);
+    /// ```
+    fn update<'v>(
+        this: Value<'v>,
+        #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
+        heap: &'v Heap,
+    ) -> starlark::Result<NoneType> {
+        let is_self_ptr = other.get().ptr_eq(this);
+        let mut this = SetMut::from_value(this)?;
+        if is_self_ptr {
+            return Ok(NoneType);
+        }
+
+        if this.aref.content.is_empty() {
+            this.aref.content = SetFromValue::from_value(other, heap)?.into_set();
+        } else {
+            for elem in other.get().iterate(heap)? {
+                let hashed = elem.get_hashed()?;
+                this.aref.add_hashed(hashed);
+            }
+        }
+
+        Ok(NoneType)
+    }
+
     /// Remove the item from the set. It raises an error if there is no such item.
     ///
     /// `remove` fails if the key is unhashable or if the dictionary is
@@ -401,6 +432,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
 #[cfg(test)]
 mod tests {
     use crate::assert;
+    use crate::assert::Assert;
 
     #[test]
     fn test_empty() {
@@ -648,5 +680,39 @@ mod tests {
     #[test]
     fn test_is_subset_iter() {
         assert::is_true("set([1, 2]).issubset([1, 3, 2])")
+    }
+
+    #[test]
+    fn test_update() {
+        assert::eq(
+            "x = set([1, 3, 2]); x.update([4, 3]); list(x)",
+            "[1, 3, 2, 4]",
+        )
+    }
+
+    #[test]
+    fn test_update_empty() {
+        assert::eq("x = set([1, 3, 2]); x.update([]); list(x)", "[1, 3, 2]");
+        assert::eq("x = set(); x.update(set([4, 3])); list(x)", "[4, 3]");
+        assert::eq("x = set(); x.update([]); x", "set()");
+    }
+
+    #[test]
+    fn test_update_self() {
+        assert::eq("x = set([1, 3, 2]); x.update(x); list(x)", "[1, 3, 2]")
+    }
+
+    #[test]
+    fn test_update_frozen_set_cannot_be_updated_with_self() {
+        let mut a = Assert::new();
+        a.module("s.star", "S = set([1, 2, 3])");
+        a.fail(
+            r#"
+load('s.star', 'S')
+
+S.update(S)
+"#,
+            "Immutable",
+        );
     }
 }
