@@ -22,6 +22,7 @@ load(
 )
 load(
     "@prelude//cxx:groups_types.bzl",
+    "GroupFilterInfo",
     "GroupMapping",  # @unused Used as a type
     "Traversal",
 )
@@ -107,7 +108,7 @@ registration_spec = RuleRegistrationSpec(
                     attrs.tuple(
                         attrs.one_of(attrs.dep(), attrs.list(attrs.dep())),
                         attrs.enum(Traversal.values()),
-                        attrs.option(attrs.string()),
+                        attrs.option(attrs.one_of(attrs.dep(providers = [GroupFilterInfo]), attrs.string())),
                     ),
                 ),
             ),
