@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dupe::Dupe;
 
@@ -53,13 +54,13 @@ impl DeferredHolderKey {
 
     /// Create action_key information from the ids, uniquely
     /// identifying this action within this target.
-    pub fn action_key(&self) -> String {
+    pub fn action_key(&self) -> Option<DynamicActionsActionKey> {
         // FIXME(ndmitchell): We'd like to have some kind of user supplied name/category here,
         // rather than using the usize ids, so things are a bit more stable and as these strings
         // are likely to come up in error messages users might see (e.g. with paths).
         match self {
-            DeferredHolderKey::Base(_) => String::new(),
-            DeferredHolderKey::DynamicLambda(lambda) => lambda.action_key().as_str().to_owned(),
+            DeferredHolderKey::Base(_) => None,
+            DeferredHolderKey::DynamicLambda(lambda) => Some(lambda.action_key()),
         }
     }
 }

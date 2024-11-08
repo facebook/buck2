@@ -74,8 +74,11 @@ impl ActionKey {
         self.parent.owner()
     }
 
-    pub fn action_key(&self) -> String {
-        let mut v = self.parent.action_key();
+    fn action_key(&self) -> String {
+        let mut v = match self.parent.action_key() {
+            Some(v) => v.as_str().to_owned(),
+            None => String::new(),
+        };
         write!(&mut v, "_{}", self.id).unwrap();
         v
     }
