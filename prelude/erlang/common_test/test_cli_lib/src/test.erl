@@ -205,7 +205,7 @@ run(RegExOrId) ->
     end.
 
 %% @doc restarts the test node, enabling a clean test state
--spec reset() -> ok | {error, debugger_mode}.
+-spec reset() -> ok | {error, term()}.
 reset() ->
     case is_debug_session() of
         true ->
@@ -213,7 +213,8 @@ reset() ->
         false ->
             Type = ct_daemon_node:get_domain_type(),
             NodeName = ct_daemon_node:stop(),
-            ct_daemon:start(#{
+            #test_info{erl_cmd = ErlCmd} = get_provided_test_info(),
+            ct_daemon:start(ErlCmd, #{
                 type => Type, name => NodeName, cookie => erlang:get_cookie(), options => []
             })
     end.
