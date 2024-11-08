@@ -336,18 +336,14 @@ impl RegisteredAction {
     }
 
     /// Gets the action key, uniquely identifying this action in a target.
-    pub fn action_key(&self, new_style: bool) -> String {
-        if new_style {
-            // We want the action key to not cause instability in the RE action.
-            // As an artifact can only be bound as an output to one action, we know it uniquely identifies the action and we can
-            // derive the scratch path from that and that will be no unstable than the artifact already is.
-            let output_path = self.action.first_output().get_path();
-            match output_path.dynamic_actions_action_key() {
-                Some(k) => format!("{}/{}", k, output_path.path()),
-                None => output_path.path().to_string(),
-            }
-        } else {
-            self.key.action_key()
+    pub fn action_key(&self) -> String {
+        // We want the action key to not cause instability in the RE action.
+        // As an artifact can only be bound as an output to one action, we know it uniquely identifies the action and we can
+        // derive the scratch path from that and that will be no unstable than the artifact already is.
+        let output_path = self.action.first_output().get_path();
+        match output_path.dynamic_actions_action_key() {
+            Some(k) => format!("{}/{}", k, output_path.path()),
+            None => output_path.path().to_string(),
         }
     }
 

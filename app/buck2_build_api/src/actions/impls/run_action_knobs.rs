@@ -24,9 +24,6 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
-
-    /// TODO(cjhopman): Modifies action digest, remove after migration
-    pub new_style_scratch_path: bool,
 }
 
 pub trait HasRunActionKnobs {

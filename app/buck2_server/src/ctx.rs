@@ -368,7 +368,6 @@ impl<'a> ServerCommandContext<'a> {
                 .base_context
                 .daemon
                 .use_network_action_output_cache,
-            new_style_scratch_path: self.base_context.daemon.new_style_scratch_path,
             eager_dep_files,
         };
 
