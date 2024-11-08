@@ -32,7 +32,7 @@ use crate::provider::label::ProvidersName;
 
 #[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
 #[display("({})/{}", owner, path.as_str())]
-struct BuckOutPathData {
+struct BuildArtifactPathData {
     /// The owner responsible for creating this path.
     owner: BaseDeferredKey,
     /// The unique identifier for this action (only set for outputs inside dynamic actions)
@@ -49,9 +49,9 @@ struct BuckOutPathData {
 /// path), and a `ForwardRelativePath` that represents the specific output
 /// location relative to the 'base path'.
 #[derive(Clone, Dupe, Debug, Display, Hash, PartialEq, Eq, Allocative)]
-pub struct BuckOutPath(Arc<BuckOutPathData>);
+pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
-impl BuckOutPath {
+impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
         Self::with_dynamic_actions_action_key(owner, path, None)
     }
@@ -61,7 +61,7 @@ impl BuckOutPath {
         path: ForwardRelativePathBuf,
         dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> Self {
-        BuckOutPath(Arc::new(BuckOutPathData {
+        BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
             dynamic_actions_action_key,
             path: path.into_box(),
@@ -191,7 +191,7 @@ impl BuckOutPathResolver {
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
     /// directory, target and cell.
-    pub fn resolve_gen(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_gen(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner(),
@@ -201,7 +201,7 @@ impl BuckOutPathResolver {
         )
     }
 
-    pub fn resolve_offline_cache(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_offline_cache(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner(),
@@ -297,7 +297,7 @@ impl BuckOutPathResolver {
     /// This function returns the exact location of the symlink of a given target.
     /// Note that it (deliberately) ignores the configuration and takes no action_key information.
     /// A `None` implies there is no unhashed location.
-    pub fn unhashed_gen(&self, path: &BuckOutPath) -> Option<ProjectRelativePathBuf> {
+    pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
                 self.0.as_ref(),
@@ -325,9 +325,9 @@ mod tests {
     use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
     use crate::fs::artifact_path_resolver::ArtifactFs;
-    use crate::fs::buck_out_path::BuckOutPath;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
+    use crate::fs::buck_out_path::BuildArtifactPath;
     use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -398,7 +398,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
         ));
@@ -446,7 +446,7 @@ mod tests {
         let cfg_target = target.configure(ConfigurationData::testing_new());
         let owner = BaseDeferredKey::TargetLabel(cfg_target);
 
-        let resolved_gen_path = path_resolver.resolve_gen(&BuckOutPath::new(
+        let resolved_gen_path = path_resolver.resolve_gen(&BuildArtifactPath::new(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
         ));
@@ -460,7 +460,7 @@ mod tests {
             resolved_gen_path
         );
 
-        let path = BuckOutPath::with_dynamic_actions_action_key(
+        let path = BuildArtifactPath::with_dynamic_actions_action_key(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
             Some(DynamicActionsActionKey::new("xxx").unwrap()),

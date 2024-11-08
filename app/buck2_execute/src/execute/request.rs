@@ -16,9 +16,9 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -73,7 +73,7 @@ impl ActionMetadataBlobData {
 pub struct ActionMetadataBlob {
     pub data: PathsWithDigestBlobData,
     pub digest: TrackedFileDigest,
-    pub path: BuckOutPath,
+    pub path: BuildArtifactPath,
 }
 
 pub enum CommandExecutionInput {
@@ -601,7 +601,7 @@ impl OutputType {
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
-        path: &'a BuckOutPath,
+        path: &'a BuildArtifactPath,
         output_type: OutputType,
     },
     TestPath {
@@ -645,7 +645,7 @@ impl<'a> CommandExecutionOutputRef<'a> {
 #[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutput {
     BuildArtifact {
-        path: BuckOutPath,
+        path: BuildArtifactPath,
         output_type: OutputType,
     },
     TestPath {

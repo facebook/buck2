@@ -20,7 +20,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_artifact::deferred::key::DeferredHolderKey;
 use buck2_core::category::Category;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -187,7 +187,7 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path = BuckOutPath::with_dynamic_actions_action_key(
+        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(
             self.owner.owner().dupe(),
             path,
             self.dynamic_actions_action_key.dupe(),

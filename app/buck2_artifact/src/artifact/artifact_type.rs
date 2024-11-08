@@ -20,7 +20,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -289,7 +289,7 @@ pub struct DeclaredArtifact {
 
 impl DeclaredArtifact {
     pub fn new(
-        path: BuckOutPath,
+        path: BuildArtifactPath,
         output_type: OutputType,
         hidden_components_count: usize,
     ) -> DeclaredArtifact {
@@ -491,7 +491,7 @@ impl Deref for OutputArtifact {
 
 #[derive(Clone, Dupe, Debug, Display, Allocative)]
 #[display("{}", self.0)]
-pub struct UnboundArtifact(BuckOutPath, OutputType);
+pub struct UnboundArtifact(BuildArtifactPath, OutputType);
 
 impl UnboundArtifact {
     fn bind(self, key: ActionKey) -> anyhow::Result<BuildArtifact> {
@@ -501,7 +501,7 @@ impl UnboundArtifact {
 
 pub mod testing {
     use buck2_core::base_deferred_key::BaseDeferredKey;
-    use buck2_core::fs::buck_out_path::BuckOutPath;
+    use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
@@ -558,7 +558,7 @@ pub mod testing {
             id: ActionIndex,
         ) -> BuildArtifact {
             BuildArtifact::new(
-                BuckOutPath::new(
+                BuildArtifactPath::new(
                     BaseDeferredKey::TargetLabel(target.dupe()),
                     ForwardRelativePath::new(path).unwrap().to_buf(),
                 ),
@@ -582,8 +582,8 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-    use buck2_core::fs::buck_out_path::BuckOutPath;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
+    use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -613,7 +613,7 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
-            BuckOutPath::new(
+            BuildArtifactPath::new(
                 BaseDeferredKey::TargetLabel(target.dupe()),
                 ForwardRelativePathBuf::unchecked_new("bar.out".into()),
             ),

@@ -12,8 +12,8 @@ use dupe::Dupe;
 
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::CellResolver;
-use crate::fs::buck_out_path::BuckOutPath;
 use crate::fs::buck_out_path::BuckOutPathResolver;
+use crate::fs::buck_out_path::BuildArtifactPath;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::package::source_path::SourcePathRef;
@@ -38,11 +38,14 @@ impl ArtifactFs {
         }
     }
 
-    pub fn retrieve_unhashed_location(&self, path: &BuckOutPath) -> Option<ProjectRelativePathBuf> {
+    pub fn retrieve_unhashed_location(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> Option<ProjectRelativePathBuf> {
         self.buck_out_path_resolver.unhashed_gen(path)
     }
 
-    pub fn resolve_build(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_build(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
         self.buck_out_path_resolver.resolve_gen(path)
     }
 
@@ -70,7 +73,10 @@ impl ArtifactFs {
         }
     }
 
-    pub fn resolve_offline_output_cache_path(&self, path: &BuckOutPath) -> ProjectRelativePathBuf {
+    pub fn resolve_offline_output_cache_path(
+        &self,
+        path: &BuildArtifactPath,
+    ) -> ProjectRelativePathBuf {
         self.buck_out_path_resolver.resolve_offline_cache(path)
     }
 

@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::ToProtoMessage;
 use buck2_error::internal_error_anyhow;
 use buck2_execute::execute::request::OutputType;
@@ -25,7 +25,7 @@ use crate::actions::key::ActionKey;
 #[derivative(PartialEq, Eq, Hash)]
 #[display("`{}`, action: {}", path, key)]
 pub struct BuildArtifact {
-    path: BuckOutPath,
+    path: BuildArtifactPath,
     key: ActionKey,
     output_type: OutputType,
 }
@@ -33,7 +33,11 @@ pub struct BuildArtifact {
 assert_eq_size!(BuildArtifact, [usize; 6]);
 
 impl BuildArtifact {
-    pub fn new(path: BuckOutPath, key: ActionKey, output_type: OutputType) -> anyhow::Result<Self> {
+    pub fn new(
+        path: BuildArtifactPath,
+        key: ActionKey,
+        output_type: OutputType,
+    ) -> anyhow::Result<Self> {
         if key.holder_key().owner() != path.owner() {
             return Err(internal_error_anyhow!("BaseDeferredKey mismatch"));
         }
@@ -44,7 +48,7 @@ impl BuildArtifact {
         })
     }
 
-    pub fn get_path(&self) -> &BuckOutPath {
+    pub fn get_path(&self) -> &BuildArtifactPath {
         &self.path
     }
 

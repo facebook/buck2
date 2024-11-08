@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use indexmap::IndexSet;
 
 use crate::analysis::registry::RecordedAnalysisValues;
@@ -20,14 +20,14 @@ use crate::bxl::build_result::BxlBuildResult;
 pub enum BxlResult {
     /// represents that the bxl function has no built results
     None {
-        output_loc: BuckOutPath,
-        error_loc: BuckOutPath,
+        output_loc: BuildArtifactPath,
+        error_loc: BuildArtifactPath,
         analysis_values: RecordedAnalysisValues,
     },
     /// a bxl that deals with builds
     BuildsArtifacts {
-        output_loc: BuckOutPath,
-        error_loc: BuckOutPath,
+        output_loc: BuildArtifactPath,
+        error_loc: BuildArtifactPath,
         built: Vec<BxlBuildResult>,
         artifacts: Vec<ArtifactGroup>,
         analysis_values: RecordedAnalysisValues,
@@ -36,8 +36,8 @@ pub enum BxlResult {
 
 impl BxlResult {
     pub fn new(
-        output_loc: BuckOutPath,
-        error_loc: BuckOutPath,
+        output_loc: BuildArtifactPath,
+        error_loc: BuildArtifactPath,
         ensured_artifacts: IndexSet<ArtifactGroup>,
         analysis_values: RecordedAnalysisValues,
     ) -> Self {
@@ -69,14 +69,14 @@ impl BxlResult {
         }
     }
 
-    pub fn get_output_loc(&self) -> &BuckOutPath {
+    pub fn get_output_loc(&self) -> &BuildArtifactPath {
         match self {
             BxlResult::None { output_loc, .. } => output_loc,
             BxlResult::BuildsArtifacts { output_loc, .. } => output_loc,
         }
     }
 
-    pub fn get_error_loc(&self) -> &BuckOutPath {
+    pub fn get_error_loc(&self) -> &BuildArtifactPath {
         match self {
             BxlResult::None { error_loc, .. } => error_loc,
             BxlResult::BuildsArtifacts { error_loc, .. } => error_loc,

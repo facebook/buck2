@@ -25,7 +25,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::execute::request::OutputType;
@@ -47,14 +47,14 @@ fn declaring_artifacts() -> anyhow::Result<()> {
         None,
     );
     let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
-    let buckout1 = BuckOutPath::new(base.dupe(), out1.clone());
+    let buckout1 = BuildArtifactPath::new(base.dupe(), out1.clone());
     let declared1 = actions.declare_artifact(None, out1.clone(), OutputType::File, None)?;
     declared1
         .get_path()
         .with_full_path(|p| assert_eq!(p, buckout1.path()));
 
     let out2 = ForwardRelativePathBuf::unchecked_new("bar2.out".into());
-    let buckout2 = BuckOutPath::new(base, out2.clone());
+    let buckout2 = BuildArtifactPath::new(base, out2.clone());
     let declared2 = actions.declare_artifact(None, out2, OutputType::File, None)?;
     declared2
         .get_path()

@@ -32,7 +32,7 @@ use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
@@ -292,7 +292,7 @@ pub(crate) async fn get_bxl_cli_args(
 async fn copy_output<W: Write>(
     mut output: W,
     dice: &mut DiceComputations<'_>,
-    output_loc: &BuckOutPath,
+    output_loc: &BuildArtifactPath,
 ) -> anyhow::Result<()> {
     let loc = dice.global_data().get_io_provider().project_root().resolve(
         &dice

@@ -39,7 +39,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Fro
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
@@ -441,7 +441,8 @@ impl RunAction {
         let mut extra_env = Vec::new();
 
         if let Some(metadata_param) = &self.inner.metadata_param {
-            let path = BuckOutPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
+            let path =
+                BuildArtifactPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
             let env = cli_ctx
                 .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
                 .into_string();

@@ -17,7 +17,7 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
@@ -298,8 +298,8 @@ async fn eval_bxl_inner(
 // cache up to date. `BxlDynamicKey` requires an execution platform. We set the execution platform to be unspecified here
 // because BXL functions do not have execution platform resolutions. exec_deps, toolchains, target_platform, and exec_compatible_with
 // are empty here for the same reason.
-pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuckOutPath {
-    BuckOutPath::new(
+pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuildArtifactPath {
+    BuildArtifactPath::new(
         key.dupe()
             .into_base_deferred_key(BxlExecutionResolution::unspecified()),
         ForwardRelativePathBuf::unchecked_new(format!(

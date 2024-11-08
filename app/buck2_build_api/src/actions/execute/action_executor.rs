@@ -22,7 +22,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::buck_out_path::BuckOutPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -105,7 +105,7 @@ impl OutputSize for ActionOutputs {
 #[derive(Derivative, Debug, Allocative)]
 #[derivative(PartialEq, Eq)]
 struct ActionOutputsData {
-    outputs: IndexMap<BuckOutPath, ArtifactValue>,
+    outputs: IndexMap<BuildArtifactPath, ArtifactValue>,
 }
 
 /// Metadata associated with the execution of this action.
@@ -193,19 +193,19 @@ impl ActionExecutionKind {
 }
 
 impl ActionOutputs {
-    pub fn new(outputs: IndexMap<BuckOutPath, ArtifactValue>) -> Self {
+    pub fn new(outputs: IndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
         Self(Arc::new(ActionOutputsData { outputs }))
     }
 
-    pub fn from_single(artifact: BuckOutPath, value: ArtifactValue) -> Self {
+    pub fn from_single(artifact: BuildArtifactPath, value: ArtifactValue) -> Self {
         Self::new(indexmap! {artifact => value})
     }
 
-    pub fn get(&self, artifact: &BuckOutPath) -> Option<&ArtifactValue> {
+    pub fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
         self.0.outputs.get(artifact)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&BuckOutPath, &ArtifactValue)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&BuildArtifactPath, &ArtifactValue)> {
         self.0.outputs.iter()
     }
 
