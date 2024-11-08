@@ -52,6 +52,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerMemoryPressure => rank!(environment),
         // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
         ErrorTag::ServerStderrEmpty => rank!(environment),
+        // Note: This is only true internally due to buckwrapper
+        ErrorTag::NoBuckRoot => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),

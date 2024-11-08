@@ -107,6 +107,8 @@ enum ErrorTag {
   NO_VALID_CERTS = 25;
   // Build failed during materialization
   MATERIALIZATION_ERROR = 26;
+  // Could not find buck project root
+  NO_BUCK_ROOT = 27;
 
   // Errors during buck2 install.
   INSTALL = 200;

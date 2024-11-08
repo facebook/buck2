@@ -25,6 +25,7 @@ pub enum BuckCliError {
     #[error(
         "Couldn't find a buck project root for directory `{}`. Expected to find a .buckconfig file.", _0.display()
     )]
+    #[buck2(tag = NoBuckRoot)]
     NoBuckRoot(PathBuf),
 }
 
