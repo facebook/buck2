@@ -97,16 +97,13 @@ if fbcode_linux_only():
         out = [line.strip() for line in out.stdout.splitlines()]
         out = [json.loads(line) for line in out if line]
         out = [repro for repro in out if repro.get("reason", "").startswith("test.")]
-        assert len(out) <= 2, "out should have at most 2 test lines: `{}`".format(out)
+        assert len(out) == 2, "out should have 2 test lines: `{}`".format(out)
 
         repros = {repro["reason"]: repro for repro in out}
 
         # test discovery
         discovery = repros["test.discovery"]
-        # TODO(T205964663)
-        if discovery is not None:
-            assert discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
-            assert discovery["reproducer"]["executor"] == "Local"
+        assert discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
 
         # test running
         repro = repros["test.run"]
@@ -126,17 +123,12 @@ if fbcode_linux_only():
             zip(header, header)
         ), "ensure that first entry in csv is the header"
         out = [repro for repro in out if repro.get("reason", "").startswith("test.")]
-        assert len(out) <= 2, "out should have at most 2 test lines: `{}`".format(out)
-
+        assert len(out) == 2, "out should have 2 test lines: `{}`".format(out)
         repros = {repro["reason"]: repro for repro in out}
 
         # test discovery
         discovery = repros["test.discovery"]
-        # TODO(T205964663)
-        assert (
-            discovery is None
-            or discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
-        )
+        assert discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
 
         # test running
         repro = repros["test.run"]
