@@ -10,6 +10,9 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load(":mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
+    if not MockingbirdLibraryInfo in ctx.attrs.module:
+        fail("This module does not contain any swift files. Mockingbird only creates generated mock files for swift code.")
+
     mockingbird_info = ctx.attrs.module[MockingbirdLibraryInfo]
 
     dep_names = [dep[MockingbirdLibraryInfo].name for dep in ctx.attrs.deps]
