@@ -205,3 +205,29 @@ fn test_correct_transparent() {
     let t: crate::Error = T(E).into();
     assert_eq!(t.get_tier(), Some(crate::Tier::Tier0));
 }
+
+#[test]
+fn test_recovery_through_transparent() {
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("base_display")]
+    struct BaseError;
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error(transparent)]
+    enum PartiallyStructured {
+        #[error(transparent)]
+        Other(anyhow::Error),
+    }
+
+    let base: crate::Error = crate::Error::new(BaseError).tag([crate::ErrorTag::StarlarkFail]);
+    let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone().into()).into();
+    let wrapped_recovery: crate::Error =
+        anyhow::Error::from(PartiallyStructured::Other(base.into())).into();
+
+    assert!(format!("{:?}", wrapped_direct).contains("base_display"));
+    assert!(format!("{:?}", wrapped_recovery).contains("base_display"));
+
+    // FIXME(JakobDegen): Bug: Should be `&[crate::ErrorTag::StarlarkFail]`
+    assert_eq!(&wrapped_direct.tags()[..], &[]);
+    assert_eq!(&wrapped_recovery.tags()[..], &[]);
+}
