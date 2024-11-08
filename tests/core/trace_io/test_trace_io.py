@@ -45,6 +45,10 @@ def assert_buck_out_paths_materialized(buck_cwd: str, paths: list[str]) -> None:
 
 def hg_init(cwd: Path) -> None:
     subprocess.run(["hg", "init"], check=True, cwd=cwd)
+    hg_config_reponame(cwd)
+
+
+def hg_config_reponame(cwd: Path) -> None:
     subprocess.run(
         ["hg", "config", "remotefilelog.reponame", "--local", "no-repo"],
         check=True,
@@ -146,6 +150,8 @@ async def test_multiple_builds(buck: Buck) -> None:
 # Symlinks should show up in the *_symlinks attributes of the manifest.
 @buck_test(setup_eden=True, skip_for_os=["windows"])
 async def test_symlinks(buck: Buck) -> None:
+    hg_config_reponame(cwd=buck.cwd)
+
     def symlink(link: str, target: str) -> None:
         """
         Symlinks link --> target. Assumes we're based in the buck cwd, so link must be relative.

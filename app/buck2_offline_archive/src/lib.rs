@@ -133,17 +133,18 @@ where
     S: AsRef<OsStr>,
     P: AsRef<Path>,
 {
-    let result = background_command("hg")
+    let mut cmd = background_command("hg");
+    let cmd = cmd
         .args(args)
         .current_dir(path.as_ref())
-        .env("HGPLAIN", "1")
-        .output()
-        .context("failed to dispatch hg command")?;
+        .env("HGPLAIN", "1");
+
+    let result = cmd.output().context("failed to dispatch hg command")?;
     if result.status.success() {
         let out = String::from_utf8(result.stdout).context("hg stdout to string")?;
         let out = out.trim();
         if out.is_empty() {
-            Err(anyhow::anyhow!("expected to be run in hg repository"))
+            Err(anyhow::anyhow!("expected output from `{:?}`", cmd))
         } else {
             Ok(out.to_owned())
         }
