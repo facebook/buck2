@@ -463,7 +463,7 @@ mod tests {
         let path = BuckOutPath::with_dynamic_actions_action_key(
             owner.dupe(),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-            Some(DynamicActionsActionKey::new("xxx")),
+            Some(DynamicActionsActionKey::new("xxx").unwrap()),
         );
         let resolved_gen_path = path_resolver.resolve_gen(&path);
 

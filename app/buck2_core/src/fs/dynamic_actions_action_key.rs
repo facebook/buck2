@@ -7,10 +7,12 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
+use buck2_error::BuckErrorContext;
+use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
+
+use crate::fs::paths::file_name::FileName;
 
 /// The unique identifier for this action within dynamic actions.
 #[derive(
@@ -25,18 +27,17 @@ use dupe::Dupe;
 )]
 #[display("{}", key)]
 pub struct DynamicActionsActionKey {
-    key: Arc<str>,
+    key: ArcS<FileName>,
 }
 
 impl DynamicActionsActionKey {
-    pub fn new(key: &str) -> DynamicActionsActionKey {
-        DynamicActionsActionKey {
-            // TODO(nga): validate something.
-            key: Arc::from(key),
-        }
+    pub fn new(key: &str) -> buck2_error::Result<DynamicActionsActionKey> {
+        Ok(DynamicActionsActionKey {
+            key: ArcS::try_from(key).internal_error("Action key must be a valid file name")?,
+        })
     }
 
     pub fn as_str(&self) -> &str {
-        &self.key
+        self.key.as_str()
     }
 }

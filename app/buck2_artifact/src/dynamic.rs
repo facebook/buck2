@@ -48,7 +48,7 @@ impl DynamicLambdaResultsKey {
     pub fn action_key(&self) -> DynamicActionsActionKey {
         let mut v = self.0.action_key();
         write!(&mut v, "_{}", self.1).unwrap();
-        DynamicActionsActionKey::new(&v)
+        DynamicActionsActionKey::new(&v).unwrap()
     }
 }
 

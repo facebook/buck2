@@ -15,6 +15,7 @@ use std::ops::Deref;
 use std::path::Path;
 
 use allocative::Allocative;
+use buck2_util::arc_str::StringInside;
 use compact_str::CompactString;
 use derive_more::Display;
 use ref_cast::RefCast;
@@ -59,6 +60,16 @@ fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
 #[repr(transparent)]
 #[derive(Display, Debug, RefCast, PartialOrd, Ord, Eq)]
 pub struct FileName(str);
+
+impl StringInside for FileName {
+    fn as_str(wrapper: &Self) -> &str {
+        &wrapper.0
+    }
+
+    fn from_str(s: &str) -> &Self {
+        FileName::unchecked_new(s)
+    }
+}
 
 impl PartialEq<str> for FileName {
     #[inline]
@@ -334,6 +345,15 @@ impl AsRef<ForwardRelativePath> for FileNameBuf {
     #[inline]
     fn as_ref(&self) -> &ForwardRelativePath {
         ForwardRelativePath::unchecked_new(self.0.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for &'a FileName {
+    type Error = buck2_error::Error;
+
+    #[inline]
+    fn try_from(value: &'a str) -> buck2_error::Result<&'a FileName> {
+        Ok(FileName::new(value)?)
     }
 }
 
