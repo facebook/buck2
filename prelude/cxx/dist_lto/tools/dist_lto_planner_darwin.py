@@ -72,14 +72,20 @@ class BitcodeMergeState(str, Enum):
     NOT_LOADED = "NOT_LOADED"
 
 
+LLVM_BITCODE_WRAPPER_FILE_MAGIC = 0xDEC0170B
+
+
+def is_file_llvm_bitcode_wrapper_file(filepath: str) -> bool:
+    with open(filepath, "rb") as f:
+        file_magic = int.from_bytes(f.read(4), "big")
+        return file_magic == LLVM_BITCODE_WRAPPER_FILE_MAGIC
+
+
 def read_merged_bitcode_file(merged_bitcode_path) -> BitcodeMergeState:
     if os.path.getsize(merged_bitcode_path) == 0:
         return BitcodeMergeState.NOT_LOADED
 
-    result = subprocess.check_output(
-        f"file {merged_bitcode_path}", shell=True, text=True
-    )
-    if "LLVM bitcode" in result:
+    if is_file_llvm_bitcode_wrapper_file(merged_bitcode_path):
         return BitcodeMergeState.ROOT
 
     with open(merged_bitcode_path) as merged_bitcode_file:
