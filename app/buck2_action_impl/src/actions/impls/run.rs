@@ -196,6 +196,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
+    pub(crate) remote_worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
 }
@@ -208,6 +209,7 @@ pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) env:
         Option<FrozenValueOfUnchecked<'static, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
+    pub(crate) remote_worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
     pub(crate) category: FrozenStringValue,
     pub(crate) identifier: Option<FrozenStringValue>,
 }
@@ -228,6 +230,7 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             args,
             env,
             worker,
+            remote_worker,
             category,
             identifier,
         } = self;
@@ -236,6 +239,7 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)?,
             env: env.freeze(freezer)?,
             worker: worker.freeze(freezer)?,
+            remote_worker: remote_worker.freeze(freezer)?,
             category: category.freeze(freezer)?,
             identifier: identifier.freeze(freezer)?,
         })

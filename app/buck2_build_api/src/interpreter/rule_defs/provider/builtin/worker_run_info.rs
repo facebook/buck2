@@ -39,8 +39,11 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
-    // Configuration needed to spawn a new worker
+    // Configuration needed to spawn a new local worker
     worker: ValueOfUncheckedGeneric<V, NoneOr<FrozenWorkerInfo>>,
+
+    // Configuration needed to spawn a new remote worker
+    remote_worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
     exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
@@ -51,6 +54,9 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenWorkerRunInfo)]
     fn WorkerRunInfo<'v>(
         #[starlark(require = named, default = NoneOr::None)] worker: NoneOr<
+            ValueOf<'v, &'v WorkerInfo<'v>>,
+        >,
+        #[starlark(require = named, default = NoneOr::None)] remote_worker: NoneOr<
             ValueOf<'v, &'v WorkerInfo<'v>>,
         >,
         #[starlark(require = named, default = AllocList::EMPTY)] exe: Value<'v>,
@@ -64,8 +70,14 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
             NoneOr::Other(worker) => ValueOfUnchecked::new(worker.to_value()),
         };
 
+        let remote_worker = match remote_worker {
+            NoneOr::None => ValueOfUnchecked::new(Value::new_none()),
+            NoneOr::Other(remote_worker) => ValueOfUnchecked::new(remote_worker.to_value()),
+        };
+
         Ok(WorkerRunInfo {
             worker,
+            remote_worker,
             exe: ValueOfUnchecked::new(heap.alloc(valid_exe)),
         })
     }
@@ -74,6 +86,13 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
 impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
     pub fn worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
         let value = self.worker.get().to_value();
+        NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
+            .expect("validated at construction")
+            .into_option()
+    }
+
+    pub fn remote_worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
+        let value = self.remote_worker.get().to_value();
         NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()

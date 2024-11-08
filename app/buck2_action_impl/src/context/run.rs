@@ -237,21 +237,22 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
         // TODO(nga): we should not accept output artifacts in worker.
-        let (starlark_exe, starlark_worker) = match exe {
+        let (starlark_exe, starlark_worker, starlark_remote_worker) = match exe {
             Some(Either::Left(worker_run)) => {
                 let worker = worker_run.typed.worker();
+                let remote_worker = worker_run.typed.remote_worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, worker)
+                (starlark_exe, worker, remote_worker)
             }
             Some(Either::Right(exe)) => {
                 let starlark_exe = StarlarkCmdArgs::try_from_value(*exe)?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
-                (starlark_exe, None)
+                (starlark_exe, None, None)
             }
-            None => (StarlarkCmdArgs::default(), None),
+            None => (StarlarkCmdArgs::default(), None, None),
         };
 
         let weight = match (weight, weight_percentage) {
@@ -338,6 +339,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             args: heap.alloc_typed(starlark_args),
             env: starlark_env,
             worker: starlark_worker,
+            remote_worker: starlark_remote_worker,
             category: {
                 CategoryRef::new(category.as_str())?;
                 category

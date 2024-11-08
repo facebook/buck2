@@ -2,4 +2,5 @@
 
 # WorkerRunInfo
 ## WorkerRunInfo.exe
+## WorkerRunInfo.remote\_worker
 ## WorkerRunInfo.worker
