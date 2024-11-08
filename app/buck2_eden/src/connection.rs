@@ -18,6 +18,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context as _;
+use buck2_certs::validate::validate_certs;
 use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -490,6 +491,16 @@ impl From<edenfs::EdenError> for EdenError {
                     error,
                     code: error_code,
                 };
+            }
+        } else if error.errorType == EdenErrorType::GENERIC_ERROR {
+            // TODO(minglunli): Hacky solution to check if Eden errors are cert related
+            if let Err(e) = futures::executor::block_on(validate_certs()) {
+                let eden_err = edenfs::EdenError {
+                    message: format!("{}", e),
+                    ..error
+                };
+
+                return Self::ServiceError { error: eden_err };
             }
         }
 
