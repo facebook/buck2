@@ -89,7 +89,7 @@ pub struct BuckOutScratchPath {
     /// The path relative to that target.
     path: ForwardRelativePathBuf,
     /// The unique identifier for this action
-    action_key: String,
+    action_key: ForwardRelativePathBuf,
 }
 
 impl BuckOutScratchPath {
@@ -99,7 +99,7 @@ impl BuckOutScratchPath {
         owner: BaseDeferredKey,
         category: CategoryRef,
         identifier: Option<&str>,
-        action_key: String,
+        action_key: ForwardRelativePathBuf,
     ) -> anyhow::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
@@ -239,7 +239,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
-            Some(&path.action_key),
+            Some(&path.action_key.as_str()),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
@@ -417,7 +417,7 @@ mod tests {
                 owner,
                 CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
-                "1_2".to_owned(),
+                ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
             )
             .unwrap(),
         );
@@ -484,7 +484,10 @@ mod tests {
                 Some(&String::from(
                     "xxx_some_crazy_long_file_name_that_causes_it_to_be_hashed_xxx.txt",
                 )),
-                "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
+                ForwardRelativePathBuf::new(
+                    "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
+                )
+                .unwrap(),
             )
             .unwrap(),
         );
@@ -516,7 +519,7 @@ mod tests {
             BaseDeferredKey::TargetLabel(cfg_target.dupe()),
             category,
             None,
-            "1_2".to_owned(),
+            ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
         )
         .unwrap();
 
@@ -525,7 +528,7 @@ mod tests {
                 BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                 category,
                 Some(s),
-                "3_4".to_owned(),
+                ForwardRelativePathBuf::new("3_4".to_owned()).unwrap(),
             )
             .unwrap()
             .path
@@ -568,7 +571,7 @@ mod tests {
                         BaseDeferredKey::TargetLabel(cfg_target.dupe()),
                         CategoryRef::new("category").unwrap(),
                         Some(id),
-                        s.to_owned(),
+                        ForwardRelativePathBuf::new(s.to_owned()).unwrap(),
                     )
                     .unwrap(),
                 )
