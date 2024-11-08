@@ -40,4 +40,8 @@ impl DynamicActionsActionKey {
     pub fn as_str(&self) -> &str {
         self.key.as_str()
     }
+
+    pub fn as_file_name(&self) -> &FileName {
+        &self.key
+    }
 }

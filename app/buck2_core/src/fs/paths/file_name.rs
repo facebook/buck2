@@ -167,6 +167,11 @@ impl FileName {
         &self.0
     }
 
+    #[inline]
+    pub fn as_forward_rel_path(&self) -> &ForwardRelativePath {
+        ForwardRelativePath::unchecked_new(&self.0)
+    }
+
     /// Extracts the stem (non-extension) portion of [`self.file_name`].
     ///
     /// The stem is:
