@@ -110,8 +110,10 @@ pub mod __for_macro {
     use std::error::Error as StdError;
 
     pub use anyhow;
+    use ref_cast::RefCast;
     pub use thiserror;
 
+    use crate::any::CrateAsStdError;
     pub use crate::context_value::ContextValue;
 
     pub trait AsDynError {
@@ -127,6 +129,12 @@ pub mod __for_macro {
     impl<T: StdError + 'static> AsDynError for T {
         fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static) {
             self
+        }
+    }
+
+    impl AsDynError for crate::Error {
+        fn as_dyn_error<'a>(&'a self) -> &'a (dyn StdError + 'static) {
+            CrateAsStdError::ref_cast(self)
         }
     }
 }

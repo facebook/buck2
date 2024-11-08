@@ -231,3 +231,29 @@ fn test_recovery_through_transparent() {
     assert_eq!(&wrapped_direct.tags()[..], &[]);
     assert_eq!(&wrapped_recovery.tags()[..], &[]);
 }
+
+#[test]
+fn test_recovery_through_transparent_buck2_error() {
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("base_display")]
+    struct BaseError;
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error(transparent)]
+    enum PartiallyStructured {
+        #[error(transparent)]
+        Other(buck2_error::Error),
+    }
+
+    let base: crate::Error = crate::Error::new(BaseError).tag([crate::ErrorTag::StarlarkFail]);
+    let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone()).into();
+    let wrapped_recovery: crate::Error =
+        anyhow::Error::from(PartiallyStructured::Other(base)).into();
+
+    assert!(format!("{:?}", wrapped_direct).contains("base_display"));
+    assert!(format!("{:?}", wrapped_recovery).contains("base_display"));
+
+    // FIXME(JakobDegen): Bug: Should be `&[crate::ErrorTag::StarlarkFail]`
+    assert_eq!(&wrapped_direct.tags()[..], &[]);
+    assert_eq!(&wrapped_recovery.tags()[..], &[]);
+}
