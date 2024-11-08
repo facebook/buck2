@@ -213,6 +213,13 @@ export const sidebars: SidebarsConfig = {
         'developers/windows_cheat_sheet',
       ].flatMap(x => x !== null ? [x] : []),
     },
+    {
+      type: 'category',
+      label: 'Insights and Knowledge',
+      items: [
+        'insights_and_knowledge/modern_dice',
+      ],
+    }
   ],
   apiSidebar: [
     {
