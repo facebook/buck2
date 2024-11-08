@@ -33,6 +33,10 @@ def _constraints() -> list[str]:
     )
     return constraints
 
+def _passthrough_constraints() -> list[str]:
+    config = read_root_config("buck2", "passthrough_constraints", "")
+    return [constraint.strip() for constraint in config.split(",") if constraint.strip()]
+
 def _resolve(
         refs: struct,
         attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
@@ -72,7 +76,15 @@ def _apply(
         platform: PlatformInfo | None = None,
         constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
     # Store passthrough constraint values.
-    old_constraints = []
+    old_constraints = {
+        str(setting): constraint
+        for setting, constraint in old_platform.configuration.constraints.items()
+    }
+    old_constraints = [
+        old_constraints[setting]
+        for setting in _passthrough_constraints()
+        if setting in old_constraints
+    ]
 
     # Switch target platform.
     platform = platform or old_platform
