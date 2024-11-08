@@ -71,20 +71,19 @@ def _elp_config(ctx):
         else:
             includes = _get_includes(ctx, includes)
 
-        if ctx.cli_args.deps_includes:
-            if deps:
-                for dep in deps.value():
-                    if dep in dep_includes_cache:
-                        dep_includes = dep_includes_cache[dep]
-                    else:
-                        dep_includes = _dep_includes(ctx, dep, target_universe)
-                        dep_includes_cache[dep] = dep_includes
-                    includes = includes + dep_includes
-            apps = target.attrs_lazy().get("applications")
+        if deps:
+            for dep in deps.value():
+                if dep in dep_includes_cache:
+                    dep_includes = dep_includes_cache[dep]
+                else:
+                    dep_includes = _dep_includes(ctx, dep, target_universe)
+                    dep_includes_cache[dep] = dep_includes
+                includes = includes + dep_includes
+        apps = target.attrs_lazy().get("applications")
 
-            if apps:
-                for app in apps.value():
-                    includes.append(_as_path(str(_file_node_to_path(cells, app.path))))
+        if apps:
+            for app in apps.value():
+                includes.append(_as_path(str(_file_node_to_path(cells, app.path))))
 
         srcs = target.attrs_lazy().get("srcs")
         if not srcs:
@@ -138,7 +137,6 @@ def _as_target(src):
 elp_config = bxl_main(
     impl = _elp_config,
     cli_args = {
-        "deps_includes": cli_args.bool(False, doc = "Use include paths from the dependencies too."),
         "deps_target": cli_args.option(cli_args.string(), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"),
         "included_targets": cli_args.list(cli_args.string(), doc = "Targets to include in the query. See corresponding field in .elp.toml"),
     },
@@ -147,4 +145,3 @@ elp_config = bxl_main(
 # Run with `buck2 bxl prelude//erlang/elp.bxl:elp_config`
 # e.g.
 # buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//...
-# buck2 bxl prelude//erlang/elp.bxl:elp_config -- --included_targets cell//... --deps_includes true
