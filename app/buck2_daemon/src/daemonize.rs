@@ -54,8 +54,8 @@ impl From<File> for Stdio {
 /// process.
 #[derive(Debug)]
 enum Outcome {
-    Parent(anyhow::Result<()>),
-    Child(anyhow::Result<()>),
+    Parent(buck2_error::Result<()>),
+    Child(buck2_error::Result<()>),
 }
 
 /// Daemonization options.
@@ -118,7 +118,7 @@ impl Daemonize {
     }
     /// Start daemonization process, terminate parent after first fork, returns privileged action
     /// result to the child.
-    pub(crate) fn start(self) -> anyhow::Result<()> {
+    pub(crate) fn start(self) -> buck2_error::Result<()> {
         match self.execute() {
             Outcome::Parent(Ok(_)) => unsafe { libc::_exit(0) },
             Outcome::Parent(Err(err)) => Err(err),
@@ -141,7 +141,7 @@ impl Daemonize {
         }
     }
 
-    fn execute_child(self) -> anyhow::Result<()> {
+    fn execute_child(self) -> buck2_error::Result<()> {
         unsafe {
             set_sid()?;
 
@@ -159,12 +159,12 @@ impl Daemonize {
     }
 }
 
-unsafe fn perform_fork() -> anyhow::Result<Option<libc::pid_t>> {
+unsafe fn perform_fork() -> buck2_error::Result<Option<libc::pid_t>> {
     let pid = check_err(libc::fork(), ErrorKind::Fork)?;
     if pid == 0 { Ok(None) } else { Ok(Some(pid)) }
 }
 
-unsafe fn set_sid() -> anyhow::Result<()> {
+unsafe fn set_sid() -> buck2_error::Result<()> {
     check_err(libc::setsid(), ErrorKind::DetachSession)?;
     Ok(())
 }
@@ -173,7 +173,7 @@ unsafe fn redirect_standard_streams(
     stdin: Stdio,
     stdout: Stdio,
     stderr: Stdio,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let devnull_fd = check_err(
         libc::open(b"/dev/null\0" as *const [u8; 10] as _, libc::O_RDWR),
         ErrorKind::OpenDevnull,
@@ -297,7 +297,7 @@ impl Num for isize {
     }
 }
 
-fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> anyhow::Result<N> {
+fn check_err<N: Num, F: FnOnce(Errno) -> ErrorKind>(ret: N, f: F) -> buck2_error::Result<N> {
     if ret.is_err() {
         Err(f(errno()).into())
     } else {

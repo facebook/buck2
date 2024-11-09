@@ -336,6 +336,16 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
     }
 }
 
+// TODO(minglunli): Temporary change, all the froms above should be changed to buck2_error instead
+impl From<buck2_error::Result<()>> for ExitResult {
+    fn from(e: buck2_error::Result<()>) -> Self {
+        match e {
+            Ok(()) => Self::success(),
+            Err(e) => Self::err(e.into()),
+        }
+    }
+}
+
 /// Implementing Termination lets us set the exit code for the process.
 impl ExitResultVariant {
     pub fn report(self) -> ! {

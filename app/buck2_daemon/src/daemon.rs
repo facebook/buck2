@@ -15,7 +15,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
@@ -24,10 +23,13 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
+#[cfg(windows)]
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -101,7 +103,7 @@ impl DaemonCommand {
     }
 }
 
-pub(crate) fn init_listener() -> anyhow::Result<(std::net::TcpListener, ConnectionType)> {
+pub(crate) fn init_listener() -> buck2_error::Result<(std::net::TcpListener, ConnectionType)> {
     let (endpoint, listener) = create_listener()?;
 
     tracing::info!("Listener created on {}", &endpoint);
@@ -112,13 +114,13 @@ pub(crate) fn init_listener() -> anyhow::Result<(std::net::TcpListener, Connecti
 pub(crate) fn write_process_info(
     daemon_dir: &DaemonDir,
     process_info: &DaemonProcessInfo,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let file = File::create(daemon_dir.buckd_info())?;
     serde_json::to_writer(&file, &process_info)?;
     Ok(())
 }
 
-fn verify_current_daemon(daemon_dir: &DaemonDir) -> anyhow::Result<()> {
+fn verify_current_daemon(daemon_dir: &DaemonDir) -> buck2_error::Result<()> {
     let file = daemon_dir.buckd_pid();
     let my_pid = process::id();
 
@@ -149,7 +151,7 @@ fn terminate_on_panic() {
     }));
 }
 
-fn verify_buck_out_dir(paths: &InvocationPaths) -> anyhow::Result<()> {
+fn verify_buck_out_dir(paths: &InvocationPaths) -> buck2_error::Result<()> {
     let path = paths.buck_out_path();
     fs_util::create_dir_all(path.clone())?;
 
@@ -175,13 +177,13 @@ impl DaemonCommand {
         paths: InvocationPaths,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
 
         let server_init_ctx = BuckdServerInitPreferences {
-            detect_cycles: buck2_env_anyhow!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
-            which_dice: buck2_env_anyhow!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
+            detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
+            which_dice: buck2_env!("WHICH_DICE_UNSTABLE", type=WhichDice)?,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -291,17 +293,19 @@ impl DaemonCommand {
         let mut builder = new_tokio_runtime("buck2-rt");
         builder.enable_all();
 
-        if let Some(threads) = buck2_env_anyhow!("BUCK2_RUNTIME_THREADS", type=usize)? {
+        if let Some(threads) = buck2_env!("BUCK2_RUNTIME_THREADS", type=usize)? {
             builder.worker_threads(threads);
         }
 
-        if let Some(threads) = buck2_env_anyhow!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
+        if let Some(threads) = buck2_env!("BUCK2_MAX_BLOCKING_THREADS", type=usize)? {
             builder.max_blocking_threads(threads);
         }
 
         tracing::info!("Starting tokio runtime...");
 
-        let rt = builder.build().context("Error creating Tokio runtime")?;
+        let rt = builder
+            .build()
+            .buck_error_context("Error creating Tokio runtime")?;
         let handle = rt.handle().clone();
 
         let rt = new_tokio_runtime("buck2-tn")
@@ -310,9 +314,9 @@ impl DaemonCommand {
             .worker_threads(2)
             .max_blocking_threads(2)
             .build()
-            .context("Error creating Tonic Tokio runtime")?;
+            .buck_error_context("Error creating Tonic Tokio runtime")?;
 
-        rt.block_on(async move {
+        Ok(rt.block_on(async move {
             // Once any item is received on the hard_shutdown_receiver, the daemon process will exit immediately.
             let (hard_shutdown_sender, mut hard_shutdown_receiver) = mpsc::unbounded();
 
@@ -384,10 +388,10 @@ impl DaemonCommand {
                 reason = shutdown_future => {
                     let reason = reason.as_deref().unwrap_or("no reason available");
                     tracing::info!("server forced shutdown: {}", reason);
-                    anyhow::Ok(())
+                    Ok(())
                 },
             }
-        })
+        })?)
     }
 
     /// We start a dedicated thread to periodically check that the files in the daemon
@@ -431,7 +435,7 @@ impl DaemonCommand {
         paths: InvocationPaths,
         in_process: bool,
         listener_created: impl FnOnce() + Send,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         daemon_lower_priority(self.skip_macos_qos)?;
 
         let project_root = paths.project_root();
@@ -452,7 +456,7 @@ impl DaemonCommand {
     }
 
     #[cfg(unix)]
-    fn redirect_output(stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn redirect_output(stdout: File, stderr: File) -> buck2_error::Result<()> {
         use std::os::unix::io::AsRawFd;
 
         nix::unistd::dup2(stdout.as_raw_fd(), nix::libc::STDOUT_FILENO)?;
@@ -461,14 +465,15 @@ impl DaemonCommand {
     }
 
     #[cfg(windows)]
-    fn redirect_output(stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn redirect_output(stdout: File, stderr: File) -> buck2_error::Result<()> {
         use std::os::windows::io::AsRawHandle;
 
         unsafe {
             let stdout_fd = libc::open_osfhandle(stdout.as_raw_handle() as isize, libc::O_RDWR);
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
             if stdout_fd == -1 || stderr_fd == -1 {
-                return Err(anyhow::Error::msg(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "Can't get file descriptors for output files",
                 ));
             }
@@ -476,14 +481,17 @@ impl DaemonCommand {
             let stdout_exit_code = libc::dup2(stdout_fd, 1);
             let stderr_exit_code = libc::dup2(stderr_fd, 2);
             if stdout_exit_code == -1 || stderr_exit_code == -1 {
-                return Err(anyhow::Error::msg("Failed to redirect daemon output"));
+                return Err(buck2_error::buck2_error!(
+                    [],
+                    "Failed to redirect daemon output"
+                ));
             }
         }
         Ok(())
     }
 
     #[cfg(unix)]
-    fn daemonize(stdout: File, stderr: File) -> anyhow::Result<()> {
+    fn daemonize(stdout: File, stderr: File) -> buck2_error::Result<()> {
         // TODO(cjhopman): Daemonize is pretty un-maintained. We may need to move
         // to something else or just do it ourselves.
         let daemonize = crate::daemonize::Daemonize::new()
@@ -495,8 +503,8 @@ impl DaemonCommand {
 
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
-    fn daemonize(_stdout: File, _stderr: File) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!("Cannot daemonize on Windows"))
+    fn daemonize(_stdout: File, _stderr: File) -> buck2_error::Result<()> {
+        Err(buck2_error::buck2_error!([], "Cannot daemonize on Windows"))
     }
 }
 
@@ -506,7 +514,6 @@ mod tests {
     use std::time::Duration;
 
     use allocative::Allocative;
-    use anyhow::Context;
     use buck2_cli_proto::DaemonProcessInfo;
     use buck2_cli_proto::KillRequest;
     use buck2_cli_proto::PingRequest;
@@ -518,6 +525,7 @@ mod tests {
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::logging::LogConfigurationReloadHandle;
+    use buck2_error::BuckErrorContext;
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
     use buck2_server::daemon::server::BuckdServerDelegate;
@@ -612,7 +620,7 @@ mod tests {
                     ..PingRequest::default()
                 })
                 .await
-                .context(format!("req_size={}", req_size))
+                .buck_error_context(format!("req_size={}", req_size))
                 .unwrap();
         }
 
@@ -623,7 +631,7 @@ mod tests {
                     ..PingRequest::default()
                 })
                 .await
-                .context(format!("resp_size={}", resp_size))
+                .buck_error_context(format!("resp_size={}", resp_size))
                 .unwrap();
         }
 

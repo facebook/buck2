@@ -50,7 +50,7 @@ pub struct ClientCommandContext<'a> {
     /// The function returns `Ok` when daemon successfully started
     /// and ready to accept connections.
     pub(crate) start_in_process_daemon:
-        Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
+        Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
     pub(crate) argv: Argv,
     pub trace_id: TraceId,
     async_cleanup: AsyncCleanupContext<'a>,
@@ -70,7 +70,7 @@ impl<'a> ClientCommandContext<'a> {
         paths: InvocationPathsResult,
         working_dir: WorkingDir,
         verbosity: Verbosity,
-        start_in_process_daemon: Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>,
+        start_in_process_daemon: Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
         argv: Argv,
         trace_id: TraceId,
         async_cleanup: AsyncCleanupContext<'a>,

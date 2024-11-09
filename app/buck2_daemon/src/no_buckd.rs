@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
@@ -15,6 +14,8 @@ use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_util::threads::thread_spawn;
 
 use crate::daemon::DaemonCommand;
@@ -23,7 +24,7 @@ pub fn start_in_process_daemon(
     daemon_startup_config: &DaemonStartupConfig,
     paths: InvocationPaths,
     runtime: &tokio::runtime::Runtime,
-) -> anyhow::Result<Option<Box<dyn FnOnce() -> anyhow::Result<()> + Send + Sync>>> {
+) -> buck2_error::Result<Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>> {
     let daemon_dir = paths.daemon_dir()?;
     // Using --no-buckd must kill the existing daemon if there is one running.
     // This adds a few extra prints to stderr for killing the daemon, but that should be
@@ -34,7 +35,7 @@ pub fn start_in_process_daemon(
             StartupDeadline::duration_from_now(buckd_startup_timeout()?)?,
         )
         .await
-        .with_context(|| "Error locking buckd lifecycle.lock")?;
+        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
 
         kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
     })?;
@@ -71,7 +72,8 @@ pub fn start_in_process_daemon(
         // Wait for listener to start (or to fail).
         match rx.recv() {
             Ok(r) => r,
-            Err(_) => Err(anyhow::anyhow!(
+            Err(_) => Err(buck2_error!(
+                [],
                 "In-process daemon failed to start and we don't know why"
             )),
         }

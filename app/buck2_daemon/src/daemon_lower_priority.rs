@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 
 /// Buck2 sets priority class = utility on macOS.
 ///
@@ -15,11 +15,11 @@ use buck2_core::buck2_env_anyhow;
 ///
 /// To experiment with other priority classes, set this variable to `true`,
 /// and start `buck2` daemon like `taskpolicy -c utility buck2 ...`.
-fn enable_macos_qos() -> anyhow::Result<bool> {
-    Ok(!buck2_env_anyhow!("BUCK2_DISABLE_MACOS_QOS", bool)?)
+fn enable_macos_qos() -> buck2_error::Result<bool> {
+    Ok(!buck2_env!("BUCK2_DISABLE_MACOS_QOS", bool)?)
 }
 
-pub(crate) fn daemon_lower_priority(skip_macos_qos_flag: bool) -> anyhow::Result<()> {
+pub(crate) fn daemon_lower_priority(skip_macos_qos_flag: bool) -> buck2_error::Result<()> {
     if skip_macos_qos_flag {
         // Either:
         // * we already lowered priority or
@@ -50,7 +50,7 @@ pub(crate) fn daemon_lower_priority(skip_macos_qos_flag: bool) -> anyhow::Result
 ///
 /// This function never return `Ok`.
 #[cfg(target_os = "macos")]
-fn do_lower_priority() -> anyhow::Result<()> {
+fn do_lower_priority() -> buck2_error::Result<()> {
     use std::env;
     use std::ffi::CString;
     use std::io;
@@ -59,7 +59,7 @@ fn do_lower_priority() -> anyhow::Result<()> {
     use std::os::unix::ffi::OsStrExt;
     use std::ptr;
 
-    use anyhow::Context;
+    use buck2_error::BuckErrorContext;
 
     extern "C" {
         // https://github.com/rust-lang/libc/pull/3128
@@ -87,12 +87,13 @@ fn do_lower_priority() -> anyhow::Result<()> {
     }
 
     impl Spawnattr {
-        fn new() -> anyhow::Result<Spawnattr> {
+        fn new() -> buck2_error::Result<Spawnattr> {
             unsafe {
                 let mut spawnattr = MaybeUninit::zeroed();
                 let r = libc::posix_spawnattr_init(spawnattr.as_mut_ptr());
                 if r != 0 {
-                    return Err(io::Error::from_raw_os_error(r)).context("posix_spawnattr_init");
+                    return Err(io::Error::from_raw_os_error(r))
+                        .buck_error_context("posix_spawnattr_init");
                 }
                 Ok(Spawnattr(spawnattr.assume_init()))
             }
@@ -104,7 +105,7 @@ fn do_lower_priority() -> anyhow::Result<()> {
     let mut argv: Vec<CString> = env::args()
         .map(|s| Ok(CString::new(s)?))
         .chain(iter::once(Ok(CString::new("--skip-macos-qos")?)))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+        .collect::<buck2_error::Result<Vec<_>>>()?;
     let argv: Vec<*mut libc::c_char> = argv
         .iter_mut()
         .map(|s| s.as_ptr() as *mut libc::c_char)
@@ -118,7 +119,8 @@ fn do_lower_priority() -> anyhow::Result<()> {
             libc::POSIX_SPAWN_SETEXEC as libc::c_short,
         );
         if r != 0 {
-            return Err(io::Error::from_raw_os_error(r)).context("posix_spawnattr_setflags");
+            return Err(io::Error::from_raw_os_error(r))
+                .buck_error_context("posix_spawnattr_setflags");
         }
 
         let r = posix_spawnattr_set_qos_class_np(
@@ -128,7 +130,7 @@ fn do_lower_priority() -> anyhow::Result<()> {
 
         if r != 0 {
             return Err(io::Error::from_raw_os_error(r))
-                .context("posix_spawnattr_set_qos_class_np");
+                .buck_error_context("posix_spawnattr_set_qos_class_np");
         }
 
         let environ = *_NSGetEnviron();
@@ -143,7 +145,7 @@ fn do_lower_priority() -> anyhow::Result<()> {
             environ,
         );
         if r != 0 {
-            return Err(io::Error::from_raw_os_error(r)).context("posix_spawnp");
+            return Err(io::Error::from_raw_os_error(r)).buck_error_context("posix_spawnp");
         }
     }
 

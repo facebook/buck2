@@ -6,7 +6,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 clap = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
