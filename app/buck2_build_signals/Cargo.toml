@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
+buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_util = { workspace = true }
 cmp_any = { workspace = true }

@@ -9,7 +9,6 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
@@ -31,7 +30,7 @@ use crate::NodeKey;
 /// An implementation of critical path that uses a longest-paths graph in order to produce
 /// potential savings in addition to the critical path.
 pub(crate) struct LongestPathGraphBackend {
-    builder: anyhow::Result<GraphBuilder<NodeKey, NodeData>>,
+    builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
     top_level_analysis: Vec<VisibilityEdge>,
 }
 
@@ -78,7 +77,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             e @ PushError::Overflow => Err(e.into()),
             e @ PushError::DuplicateKey { .. } => {
                 soft_error!("critical_path_duplicate_key", e.into(), quiet: true)?;
-                anyhow::Ok(())
+                Ok(())
             }
         });
 
@@ -99,7 +98,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         })
     }
 
-    fn finish(self) -> anyhow::Result<BuildInfo> {
+    fn finish(self) -> buck2_error::Result<BuildInfo> {
         let (graph, keys, mut data) = {
             let (graph, keys, data) = self.builder?.finish();
 
@@ -158,7 +157,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
             let graph = graph
                 .add_edges(&first_analysis, n)
-                .context("Error adding first_analysis edges to graph")?;
+                .buck_error_context("Error adding first_analysis edges to graph")?;
 
             (graph, keys, data)
         };
@@ -168,7 +167,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .critical_path_duration()
                 .as_micros()
                 .try_into()
-                .context("Duration `as_micros()` exceeds u64")
+                .buck_error_context("Duration `as_micros()` exceeds u64")
         })?;
 
         let (critical_path, critical_path_cost, replacement_durations) =

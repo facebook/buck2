@@ -13,10 +13,10 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::soft_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -60,7 +60,7 @@ pub enum CriticalPathBackendName {
 }
 
 impl FromStr for CriticalPathBackendName {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "longest-path-graph" {
@@ -75,7 +75,11 @@ impl FromStr for CriticalPathBackendName {
             return Ok(Self::Logging);
         }
 
-        Err(anyhow::anyhow!("Invalid backend name: `{}`", s))
+        Err(buck2_error::buck2_error!(
+            [],
+            "Invalid backend name: `{}`",
+            s
+        ))
     }
 }
 
@@ -101,7 +105,7 @@ pub trait DeferredBuildSignals: Send {
 /// Returned by DeferredBuildSignals once started. Lets us report that we finished.
 #[async_trait]
 pub trait FinishBuildSignals: Send {
-    async fn finish(self: Box<Self>) -> anyhow::Result<()>;
+    async fn finish(self: Box<Self>) -> buck2_error::Result<()>;
 }
 
 /// Start the backend for a DeferredBuildSignals instance.
@@ -133,7 +137,7 @@ where
     let res = handle
         .finish()
         .await
-        .context("Error computing critical path");
+        .buck_error_context("Error computing critical path");
     if let Err(e) = res {
         soft_error!("critical_path_computation_failed", e.into())?;
     }

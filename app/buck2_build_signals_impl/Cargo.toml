@@ -8,7 +8,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 buck2_analysis = { workspace = true }
 buck2_artifact = { workspace = true }

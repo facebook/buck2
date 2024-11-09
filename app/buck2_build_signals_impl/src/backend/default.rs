@@ -13,10 +13,10 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
+use buck2_error::BuckErrorContext;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
@@ -39,7 +39,7 @@ struct CriticalPathNode<TKey: Eq, TValue> {
 
 fn extract_critical_path<TKey: Hash + Eq, TValue>(
     predecessors: &HashMap<TKey, CriticalPathNode<TKey, TValue>>,
-) -> anyhow::Result<Vec<(&TKey, &TValue, Duration)>>
+) -> buck2_error::Result<Vec<(&TKey, &TValue, Duration)>>
 where
     TKey: Display,
 {
@@ -53,7 +53,8 @@ where
 
     while let Some(v) = tail.take() {
         if !visited.insert(v) {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "Cycle in critical path: visited {} twice",
                 v
             ));
@@ -139,9 +140,9 @@ impl BuildListenerBackend for DefaultBackend {
     ) {
     }
 
-    fn finish(self) -> anyhow::Result<BuildInfo> {
+    fn finish(self) -> buck2_error::Result<BuildInfo> {
         let critical_path = extract_critical_path(&self.predecessors)
-            .context("Error extracting critical path")?
+            .buck_error_context("Error extracting critical path")?
             .into_map(|(key, data, _duration)| (key.dupe(), data.clone(), None));
 
         Ok(BuildInfo {

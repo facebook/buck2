@@ -63,7 +63,7 @@ impl BuildListenerBackend for LoggingBackend {
     ) {
     }
 
-    fn finish(self) -> anyhow::Result<BuildInfo> {
+    fn finish(self) -> buck2_error::Result<BuildInfo> {
         Ok(BuildInfo {
             critical_path: Vec::new(),
             num_nodes: 0,

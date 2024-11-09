@@ -17,7 +17,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
@@ -42,6 +41,7 @@ use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
@@ -342,17 +342,17 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
 
 pub(crate) struct FinishBuildSignalsImpl {
     sender: Arc<BuildSignalSender>,
-    handle: JoinHandle<anyhow::Result<()>>,
+    handle: JoinHandle<buck2_error::Result<()>>,
 }
 
 #[async_trait]
 impl FinishBuildSignals for FinishBuildSignalsImpl {
-    async fn finish(self: Box<Self>) -> anyhow::Result<()> {
+    async fn finish(self: Box<Self>) -> buck2_error::Result<()> {
         let _ignored = self.sender.sender.send(BuildSignal::BuildFinished);
 
         self.handle
             .await
-            .context("Error joining critical path task")?
+            .buck_error_context("Error joining critical path task")?
     }
 }
 
@@ -361,7 +361,7 @@ fn start_backend(
     receiver: UnboundedReceiver<BuildSignal>,
     backend: impl BuildListenerBackend + Send + 'static,
     ctx: BuildSignalsContext,
-) -> JoinHandle<anyhow::Result<()>> {
+) -> JoinHandle<buck2_error::Result<()>> {
     let listener = BuildSignalReceiver::new(receiver, backend);
     tokio::spawn(with_dispatcher_async(events.dupe(), async move {
         listener.run_and_log(ctx).await
@@ -389,7 +389,7 @@ where
         }
     }
 
-    pub(crate) async fn run_and_log(mut self, ctx: BuildSignalsContext) -> anyhow::Result<()> {
+    pub(crate) async fn run_and_log(mut self, ctx: BuildSignalsContext) -> buck2_error::Result<()> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
@@ -485,7 +485,7 @@ where
             })
             .chain(std::iter::once(meta_entry))
             .map(|(entry, data, potential_improvement)| {
-                anyhow::Ok(buck2_data::CriticalPathEntry2 {
+                buck2_error::Ok(buck2_data::CriticalPathEntry2 {
                     span_ids: data
                         .span_ids
                         .iter()
@@ -574,7 +574,7 @@ where
     fn process_top_level_target(
         &mut self,
         top_level: TopLevelTargetSignal,
-    ) -> Result<(), anyhow::Error> {
+    ) -> buck2_error::Result<()> {
         self.backend.process_top_level_target(
             NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
             top_level.artifacts.map(|k| match k {
@@ -591,7 +591,7 @@ where
     fn process_final_materialization(
         &mut self,
         materialization: FinalMaterializationSignal,
-    ) -> Result<(), anyhow::Error> {
+    ) -> buck2_error::Result<()> {
         let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
 
         self.backend.process_node(

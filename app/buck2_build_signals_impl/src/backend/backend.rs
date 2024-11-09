@@ -32,7 +32,7 @@ pub(crate) trait BuildListenerBackend {
         artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
-    fn finish(self) -> anyhow::Result<BuildInfo>;
+    fn finish(self) -> buck2_error::Result<BuildInfo>;
 
     fn name() -> CriticalPathBackendName;
 }
