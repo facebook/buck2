@@ -47,7 +47,7 @@ pub static GET_PROMISED_ARTIFACT: LateBinding<
     for<'c> fn(
         &'c PromiseArtifact,
         &'c mut DiceComputations,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<Artifact>> + Send + 'c>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Artifact>> + Send + 'c>>,
 > = LateBinding::new("GET_PROMISED_ARTIFACT");
 
 async fn lookup_deferred_inner(

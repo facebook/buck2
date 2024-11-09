@@ -56,7 +56,7 @@ impl PromiseArtifactRegistry {
         &mut self,
         location: Option<FileSpan>,
         id: PromiseArtifactId,
-    ) -> anyhow::Result<PromiseArtifact> {
+    ) -> buck2_error::Result<PromiseArtifact> {
         let artifact: PromiseArtifact =
             PromiseArtifact::new(Arc::new(OnceLock::new()), Arc::new(id));
 

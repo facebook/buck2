@@ -57,13 +57,13 @@ pub trait AnonTargetAttrResolution {
         &self,
         pkg: PackageLabel,
         ctx: &AnonTargetAttrResolutionContext<'v>,
-    ) -> anyhow::Result<Vec<Value<'v>>>;
+    ) -> buck2_error::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
         ctx: &AnonTargetAttrResolutionContext<'v>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 }
 
 impl AnonTargetAttrResolution for AnonTargetAttr {
@@ -77,7 +77,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
         &self,
         pkg: PackageLabel,
         ctx: &AnonTargetAttrResolutionContext<'v>,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> buck2_error::Result<Vec<Value<'v>>> {
         Ok(vec![self.resolve_single(pkg, ctx)?])
     }
 
@@ -87,7 +87,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
         &self,
         pkg: PackageLabel,
         anon_resolution_ctx: &AnonTargetAttrResolutionContext<'v>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let ctx = &anon_resolution_ctx.rule_analysis_attr_resolution_ctx;
         match self {
             AnonTargetAttr::Bool(v) => Ok(Value::new_bool(v.0)),
@@ -123,9 +123,9 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
             }
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),
-            AnonTargetAttr::Dep(d) => DepAttrType::resolve_single(ctx, d),
+            AnonTargetAttr::Dep(d) => Ok(DepAttrType::resolve_single(ctx, d)?),
             AnonTargetAttr::Artifact(d) => Ok(ctx.heap().alloc(StarlarkArtifact::new(d.clone()))),
-            AnonTargetAttr::Arg(a) => a.resolve(ctx, pkg),
+            AnonTargetAttr::Arg(a) => Ok(a.resolve(ctx, pkg)?),
             AnonTargetAttr::PromiseArtifact(promise_artifact_attr) => {
                 let promise_id = promise_artifact_attr.id.clone();
                 // We validated that the analysis contains the promise artifact id earlier
@@ -138,7 +138,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 if let Some(expected_short_path) = &promise_artifact_attr.short_path {
                     artifact.get_path().with_short_path(|artifact_short_path| {
                         if artifact_short_path != expected_short_path {
-                            Err(anyhow::Error::from(
+                            Err(buck2_error::Error::from(
                                 PromiseArtifactResolveError::ShortPathMismatch(
                                     expected_short_path.clone(),
                                     artifact_short_path.to_string(),
@@ -186,13 +186,16 @@ pub(crate) struct AnonTargetDependentAnalysisResults<'v> {
 }
 
 pub(crate) trait AnonTargetAttrTraversal {
-    fn promise_artifact(&mut self, promise_artifact: &PromiseArtifactAttr) -> anyhow::Result<()>;
+    fn promise_artifact(
+        &mut self,
+        promise_artifact: &PromiseArtifactAttr,
+    ) -> buck2_error::Result<()>;
 }
 
 impl AnonTargetDependents {
     pub(crate) fn get_dependents(
         anon_target: &AnonTargetKey,
-    ) -> anyhow::Result<AnonTargetDependents> {
+    ) -> buck2_error::Result<AnonTargetDependents> {
         struct DepTraversal(Vec<ConfiguredTargetLabel>);
         struct PromiseArtifactTraversal(Vec<PromiseArtifactAttr>);
 
@@ -215,7 +218,7 @@ impl AnonTargetDependents {
             fn promise_artifact(
                 &mut self,
                 promise_artifact: &PromiseArtifactAttr,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 self.0.push(promise_artifact.clone());
                 Ok(())
             }
@@ -236,7 +239,7 @@ impl AnonTargetDependents {
     pub(crate) async fn get_analysis_results<'v>(
         &'v self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<AnonTargetDependentAnalysisResults<'v>> {
+    ) -> buck2_error::Result<AnonTargetDependentAnalysisResults<'v>> {
         let dep_analysis_results =
             KeepGoing::try_compute_join_all(dice, self.deps.iter(), |ctx, dep| {
                 async move {

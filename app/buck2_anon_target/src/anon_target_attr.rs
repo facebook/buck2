@@ -185,7 +185,7 @@ impl AnonTargetAttr {
     pub fn traverse_anon_attr<'a>(
         &'a self,
         traversal: &mut dyn AnonTargetAttrTraversal,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             AnonTargetAttr::Bool(_) => Ok(()),
             AnonTargetAttr::Int(_) => Ok(()),
@@ -233,7 +233,10 @@ impl AnonTargetAttr {
     // Note that non-primitives, such as dep/source, will result in an error.
 
     // TODO(@wendyy) - find a way to coerce attr defaults used in anon targets directly to AnonTargetAttr
-    pub fn from_coerced_attr(attr: &CoercedAttr, ty: &AttrType) -> anyhow::Result<AnonTargetAttr> {
+    pub fn from_coerced_attr(
+        attr: &CoercedAttr,
+        ty: &AttrType,
+    ) -> buck2_error::Result<AnonTargetAttr> {
         Ok(match CoercedAttrWithType::pack(attr, ty)? {
             CoercedAttrWithType::AnyList(list) => AnonTargetAttr::List(ListLiteral(
                 list.try_map(|v| AnonTargetAttr::from_coerced_attr(v, ty))?
@@ -248,7 +251,7 @@ impl AnonTargetAttr {
                 dict.try_map(|(k, v)| {
                     let k2 = AnonTargetAttr::from_coerced_attr(k, ty)?;
                     let v2 = AnonTargetAttr::from_coerced_attr(v, ty)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),
@@ -269,14 +272,14 @@ impl AnonTargetAttr {
                     list.iter()
                         .zip(&t.xs)
                         .map(|(v, vt)| AnonTargetAttr::from_coerced_attr(v, vt))
-                        .collect::<anyhow::Result<_>>()?,
+                        .collect::<buck2_error::Result<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => AnonTargetAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
                     let k2 = AnonTargetAttr::from_coerced_attr(k, &t.key)?;
                     let v2 = AnonTargetAttr::from_coerced_attr(v, &t.value)?;
-                    anyhow::Ok((k2, v2))
+                    buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),

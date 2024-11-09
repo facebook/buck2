@@ -72,7 +72,7 @@ impl<'v> StarlarkAnonTarget<'v> {
         frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings>,
         key: AnonTargetKey,
         registry: &mut AnonTargetsRegistry<'v>,
-    ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
+    ) -> buck2_error::Result<StarlarkAnonTarget<'v>> {
         let mut artifacts_map = SmallMap::new();
         if let Some(artifacts) = frozen_artifact_mappings {
             for (id, name) in artifacts.mappings.keys().enumerate() {
@@ -150,14 +150,18 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAnonTarget<'v>,
         name: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         match this.artifacts.get(name) {
             Some(v) => Ok(eval.heap().alloc(StarlarkPromiseArtifact::new(
                 eval.call_stack_top_location(),
                 v.clone(),
                 None,
             ))),
-            None => Err(AnonTargetsError::ArtifactNotFound(name.to_owned()).into()),
+            None => {
+                let buck2_error: buck2_error::Error =
+                    AnonTargetsError::ArtifactNotFound(name.to_owned()).into();
+                Err(buck2_error.into())
+            }
         }
     }
 
@@ -251,20 +255,20 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attrs: UnpackDictEntries<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAnonTarget<'v>> {
+    ) -> starlark::Result<StarlarkAnonTarget<'v>> {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state()?;
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let key = registry.anon_target_key(rule, attrs)?;
         registry.register_one(anon_target_promise, key.clone())?;
 
-        StarlarkAnonTarget::new(
+        Ok(StarlarkAnonTarget::new(
             eval.call_stack_top_location(),
             anon_target_promise,
             rule.artifact_promise_mappings(),
             key,
             registry,
-        )
+        )?)
     }
 
     /// Generate a series of anonymous targets.
@@ -276,7 +280,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
             UnpackDictEntries<&'v str, Value<'v>>,
         )>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAnonTargets<'v>> {
+    ) -> starlark::Result<StarlarkAnonTargets<'v>> {
         let mut this = this.state()?;
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
@@ -300,7 +304,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
             anon_targets.push(anon_target);
 
-            anyhow::Ok(key)
+            buck2_error::Ok(key)
         })?;
 
         Ok(StarlarkAnonTargets {
@@ -320,7 +324,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         // TODO(nga): this should be either positional or named, not both.
         artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
         short_path: &'v str,
-    ) -> anyhow::Result<StarlarkPromiseArtifact> {
+    ) -> starlark::Result<StarlarkPromiseArtifact> {
         let mut this = this.state()?;
         let promise = artifact.artifact.clone();
 

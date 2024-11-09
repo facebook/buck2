@@ -18,5 +18,5 @@ pub trait AnonPromisesDyn<'v>: 'v {
         dice: &mut DiceComputations,
         eval: &mut Evaluator<'v, '_, '_>,
         description: String,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }

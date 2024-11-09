@@ -272,7 +272,7 @@ impl<'v> AnalysisRegistry<'v> {
     }
 
     pub fn assert_no_promises(&self) -> anyhow::Result<()> {
-        self.anon_targets.assert_no_promises()
+        Ok(self.anon_targets.assert_no_promises()?)
     }
 
     pub fn num_declared_actions(&self) -> u64 {

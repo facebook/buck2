@@ -13,7 +13,6 @@ use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::get_deps_from_analysis_results;
@@ -143,12 +142,12 @@ impl Key for AnonTargetKey {
 }
 
 impl AnonTargetKey {
-    fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> anyhow::Result<Self> {
+    fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> buck2_error::Result<Self> {
         Ok(AnonTargetKey(
             key.into_any()
                 .downcast()
                 .ok()
-                .internal_error_anyhow("Expecting AnonTarget")?,
+                .internal_error("Expecting AnonTarget")?,
         ))
     }
 
@@ -156,7 +155,7 @@ impl AnonTargetKey {
         execution_platform: &ExecutionPlatformResolution,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut name = None;
         let internal_attrs = internal_attrs();
 
@@ -178,7 +177,7 @@ impl AnonTargetKey {
                 attrs.insert(
                     k.to_owned(),
                     Self::coerce_to_anon_target_attr(attr.coercer(), v, &anon_attr_ctx)
-                        .with_context(|| format!("Error coercing attribute `{}`", k))?,
+                        .with_buck_error_context(|| format!("Error coercing attribute `{}`", k))?,
                 );
             }
         }
@@ -213,9 +212,10 @@ impl AnonTargetKey {
     /// We need to parse a TargetLabel from a String, but it doesn't matter if the pieces aren't
     /// valid targets in the context of this build (e.g. if the package really exists),
     /// just that it is syntactically valid.
-    fn parse_target_label(x: &str) -> anyhow::Result<TargetLabel> {
+    fn parse_target_label(x: &str) -> buck2_error::Result<TargetLabel> {
         let err = || AnonTargetsError::NotTargetLabel(x.to_owned());
-        let lex = lex_target_pattern::<TargetPatternExtra>(x, false).with_context(err)?;
+        let lex =
+            lex_target_pattern::<TargetPatternExtra>(x, false).with_buck_error_context(err)?;
         // TODO(nga): `CellName` contract requires it refers to declared cell name.
         //   This `unchecked_new` violates it.
         let cell =
@@ -233,14 +233,14 @@ impl AnonTargetKey {
         }
     }
 
-    fn create_name(rule_name: &str) -> anyhow::Result<TargetLabel> {
+    fn create_name(rule_name: &str) -> buck2_error::Result<TargetLabel> {
         // TODO(nga): this creates non-existing cell reference.
         let cell_name = CellName::unchecked_new("anon")?;
         let pkg = PackageLabel::new(cell_name, CellRelativePath::empty());
         Ok(TargetLabel::new(pkg, TargetNameRef::new(rule_name)?))
     }
 
-    fn coerce_name(x: Value) -> anyhow::Result<TargetLabel> {
+    fn coerce_name(x: Value) -> buck2_error::Result<TargetLabel> {
         if let Some(x) = StarlarkConfiguredProvidersLabel::from_value(x) {
             Ok(x.label().target().unconfigured().dupe())
         } else if let Some(x) = x.unpack_str() {
@@ -258,28 +258,28 @@ impl AnonTargetKey {
         attr: &AttrType,
         x: Value,
         ctx: &AnonAttrCtx,
-    ) -> anyhow::Result<AnonTargetAttr> {
+    ) -> buck2_error::Result<AnonTargetAttr> {
         attr.coerce_item(ctx, x)
     }
 
     fn coerced_to_anon_target_attr(
         x: &CoercedAttr,
         ty: &AttrType,
-    ) -> anyhow::Result<AnonTargetAttr> {
+    ) -> buck2_error::Result<AnonTargetAttr> {
         AnonTargetAttr::from_coerced_attr(x, ty)
     }
 
     pub(crate) async fn resolve(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<AnalysisResult> {
-        Ok(dice.compute(self).await??)
+    ) -> buck2_error::Result<AnalysisResult> {
+        dice.compute(self).await?
     }
 
     fn run_analysis<'a>(
         &'a self,
         dice: &'a mut DiceComputations<'_>,
-    ) -> BoxFuture<'a, anyhow::Result<AnalysisResult>> {
+    ) -> BoxFuture<'a, buck2_error::Result<AnalysisResult>> {
         let fut = async move { self.run_analysis_impl(dice).await };
         Box::pin(unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) })
     }
@@ -287,7 +287,7 @@ impl AnonTargetKey {
     async fn run_analysis_impl(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<AnalysisResult> {
+    ) -> buck2_error::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
         let validations_from_deps = dependents_analyses
@@ -401,7 +401,7 @@ impl AnonTargetKey {
                 };
 
                 let res = ValueTypedComplex::new(res)
-                    .internal_error_anyhow("Just allocated the provider collection")?;
+                    .internal_error("Just allocated the provider collection")?;
 
                 // Pull the ctx object back out, and steal ctx.action's state back
                 let analysis_registry = ctx.take_state();
@@ -446,7 +446,7 @@ impl AnonTargetKey {
         promise_artifact_mappings: SmallMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<HashMap<PromiseArtifactId, Artifact>> {
+    ) -> buck2_error::Result<HashMap<PromiseArtifactId, Artifact>> {
         let mut fulfilled_artifact_mappings = HashMap::new();
 
         for (id, func) in promise_artifact_mappings.values().enumerate() {
@@ -493,8 +493,9 @@ impl AnonAttrCtx {
 }
 
 pub(crate) fn init_eval_anon_target() {
-    EVAL_ANON_TARGET
-        .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
+    EVAL_ANON_TARGET.init(|ctx, key| {
+        Box::pin(async move { Ok(AnonTargetKey::downcast(key)?.resolve(ctx).await?) })
+    });
 }
 
 pub(crate) fn init_get_promised_artifact() {
@@ -508,7 +509,7 @@ pub(crate) fn init_get_promised_artifact() {
 pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
     promise_id: &'v PromiseArtifactId,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Artifact> {
+) -> buck2_error::Result<Artifact> {
     let owner = promise_id.owner();
     let analysis_result = match owner {
         BaseDeferredKey::AnonTarget(anon_target) => {
@@ -525,13 +526,13 @@ pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
         }
     };
 
-    analysis_result
+    Ok(analysis_result
         .promise_artifact_map()
         .get(promise_id)
-        .context(PromiseArtifactResolveError::NotFoundInAnalysis(
+        .buck_error_context(PromiseArtifactResolveError::NotFoundInAnalysis(
             promise_id.clone(),
-        ))
-        .cloned()
+        ))?
+        .clone())
 }
 
 pub(crate) fn init_anon_target_registry_new() {
@@ -547,11 +548,11 @@ pub(crate) fn init_anon_target_registry_new() {
 impl<'v> AnonTargetsRegistry<'v> {
     pub(crate) fn downcast_mut(
         registry: &mut dyn AnonTargetsRegistryDyn<'v>,
-    ) -> anyhow::Result<&'v mut AnonTargetsRegistry<'v>> {
+    ) -> buck2_error::Result<&'v mut AnonTargetsRegistry<'v>> {
         let registry: &mut AnonTargetsRegistry = registry
             .as_any_mut()
             .downcast_mut::<AnonTargetsRegistry>()
-            .internal_error_anyhow("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")?;
+            .internal_error("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")?;
         unsafe {
             // It is hard or impossible to express this safely with the borrow checker.
             // Has something to do with 'v being invariant.
@@ -566,7 +567,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         &self,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
-    ) -> anyhow::Result<AnonTargetKey> {
+    ) -> buck2_error::Result<AnonTargetKey> {
         AnonTargetKey::new(&self.execution_platform, rule, attributes)
     }
 
@@ -574,7 +575,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         &mut self,
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         key: AnonTargetKey,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.promises.push_one(promise, key);
 
         Ok(())
@@ -585,7 +586,7 @@ impl<'v> AnonTargetsRegistry<'v> {
         location: Option<FileSpan>,
         anon_target_key: AnonTargetKey,
         id: usize,
-    ) -> anyhow::Result<PromiseArtifact> {
+    ) -> buck2_error::Result<PromiseArtifact> {
         let anon_target_key = BaseDeferredKey::AnonTarget(anon_target_key.0.dupe());
         let id = PromiseArtifactId::new(anon_target_key, id);
         self.promise_artifact_registry.register(location, id)
@@ -621,7 +622,7 @@ impl<'v> AnonTargetsRegistryDyn<'v> for AnonTargetsRegistry<'v> {
     }
     */
 
-    fn assert_no_promises(&self) -> anyhow::Result<()> {
+    fn assert_no_promises(&self) -> buck2_error::Result<()> {
         if self.promises.is_empty() {
             Ok(())
         } else {
