@@ -22,7 +22,6 @@ rust_protobuf_library(
         "fbsource//third-party/rust:tokio",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",

@@ -23,6 +23,7 @@ use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_error::BuckErrorContext;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -81,7 +82,7 @@ impl StreamingCommand for SubscribeCommand {
             .and_then(|bytes| {
                 futures::future::ready(
                     SubscriptionRequest::decode_length_delimited(bytes)
-                        .context("Error decoding SubscriptionRequest"),
+                        .buck_error_context("Error decoding SubscriptionRequest"),
                 )
             })
             .map(|res| match res {

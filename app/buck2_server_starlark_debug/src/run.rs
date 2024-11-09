@@ -78,7 +78,7 @@ async fn run_dap_server(
         select! {
             request = req.next() => {
                 let request = match request {
-                    Some(Err(e)) => return Err(e),
+                    Some(Err(e)) => return Err(e.into()),
                     Some(Ok(v)) => v,
                     None => {
                         // client disconnected.

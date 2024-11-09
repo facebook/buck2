@@ -31,7 +31,7 @@ struct Pending {
 }
 
 #[pin_project]
-pub struct Replayer<T = BoxStream<'static, anyhow::Result<StreamValue>>> {
+pub struct Replayer<T = BoxStream<'static, buck2_error::Result<StreamValue>>> {
     #[pin]
     events: T,
     was_complete: bool,
@@ -101,9 +101,9 @@ impl Syncher {
 
 impl<T> Stream for Replayer<T>
 where
-    T: Stream<Item = anyhow::Result<StreamValue>>,
+    T: Stream<Item = buck2_error::Result<StreamValue>>,
 {
-    type Item = anyhow::Result<StreamValue>;
+    type Item = buck2_error::Result<StreamValue>;
 
     fn poll_next(
         self: Pin<&mut Self>,

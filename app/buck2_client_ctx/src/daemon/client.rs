@@ -22,6 +22,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use fs4::FileExt;
 use futures::future::BoxFuture;
@@ -161,7 +162,7 @@ enum GrpcToStreamError {
 /// Convert tonic error to our error.
 ///
 /// This function **must** be used explicitly to convert the error, because we want a tag.
-pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
+pub(crate) fn tonic_status_to_error(status: tonic::Status) -> buck2_error::Error {
     let mut tags = vec![ErrorTag::ClientGrpc];
     if status.code() == tonic::Code::ResourceExhausted {
         // The error looks like this:
@@ -183,8 +184,8 @@ pub(crate) fn tonic_status_to_error(status: tonic::Status) -> anyhow::Error {
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC
 /// event stream.
 fn grpc_to_stream(
-    response: anyhow::Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>>,
-) -> impl Stream<Item = anyhow::Result<StreamValue>> {
+    response: buck2_error::Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>>,
+) -> impl Stream<Item = buck2_error::Result<StreamValue>> {
     let stream = match response {
         Ok(response) => response.into_inner(),
         Err(e) => return futures::stream::once(futures::future::ready(Err(e))).left_stream(),
@@ -192,7 +193,7 @@ fn grpc_to_stream(
 
     let stream = stream
         .map_err(tonic_status_to_error)
-        .map_ok(|e| stream::iter(e.messages.into_iter().map(anyhow::Ok)))
+        .map_ok(|e| stream::iter(e.messages.into_iter().map(buck2_error::Ok)))
         .try_flatten();
 
     stream::unfold(stream, |mut stream| async {
@@ -250,7 +251,7 @@ impl<'a> BuckdClient<'a> {
         let response = command(client, Request::new(request))
             .await
             .map_err(tonic_status_to_error)
-            .context("Error dispatching request");
+            .buck_error_context("Error dispatching request");
         let stream = grpc_to_stream(response);
         pin_mut!(stream);
         events_ctx

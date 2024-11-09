@@ -99,7 +99,7 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> anyhow::Result<BuildInfo> {
         let res = match filtered_events.try_next().await {
             Ok(Some(event)) => extract_info(&mut info, event),
             Ok(None) => break,
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         };
         if let Err(e) = res {
             buck2_client_ctx::eprintln!("Error found when iterating through logs: {:#}", e)?;

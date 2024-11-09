@@ -9,6 +9,7 @@
 
 use std::io::Cursor;
 
+use buck2_error::buck2_error;
 use bytes::BytesMut;
 use tokio_util::codec::Decoder;
 
@@ -17,7 +18,7 @@ pub struct ProtobufSplitter;
 
 impl Decoder for ProtobufSplitter {
     type Item = BytesMut;
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let orig_len = src.len();
@@ -27,7 +28,7 @@ impl Decoder for ProtobufSplitter {
             Err(..) => {
                 // 10 bytes is the largest length of an encoded size
                 if orig_len > 10 {
-                    return Err(anyhow::anyhow!("Corrupted stream"));
+                    return Err(buck2_error!([], "Corrupted stream"));
                 } else {
                     return Ok(None);
                 }
@@ -46,7 +47,7 @@ impl Decoder for ProtobufSplitter {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context as _;
+    use buck2_error::BuckErrorContext;
     use futures::stream::StreamExt;
     use prost::Message;
     use tokio_util::codec::FramedRead;
@@ -61,7 +62,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_split() -> anyhow::Result<()> {
+    async fn test_split() -> buck2_error::Result<()> {
         let mut buffer = Vec::new();
 
         let foo = TestMessage {
@@ -84,11 +85,15 @@ mod tests {
 
         let mut stream = FramedRead::new(stream, ProtobufSplitter);
         assert_eq!(
-            TestMessage::decode_length_delimited(stream.next().await.context("Missing `foo`")??)?,
+            TestMessage::decode_length_delimited(
+                stream.next().await.buck_error_context("Missing `foo`")??
+            )?,
             foo
         );
         assert_eq!(
-            TestMessage::decode_length_delimited(stream.next().await.context("Missing `bar`")??)?,
+            TestMessage::decode_length_delimited(
+                stream.next().await.buck_error_context("Missing `bar`")??
+            )?,
             bar
         );
         assert!(stream.next().await.is_none());

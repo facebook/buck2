@@ -8,7 +8,6 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
-anyhow = { workspace = true }
 async-compression = { workspace = true }
 chrono = { workspace = true }
 dupe = { workspace = true }

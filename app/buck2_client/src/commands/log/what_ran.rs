@@ -216,7 +216,7 @@ impl WhatRanState for WhatRanCommandState {
 
 impl WhatRanCommandState {
     async fn execute(
-        mut events: impl Stream<Item = anyhow::Result<StreamValue>> + Unpin + Send,
+        mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
     ) -> anyhow::Result<()> {

@@ -191,7 +191,7 @@ impl EventLogPathBuf {
     async fn unpack_stream_json<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
-    ) -> buck2_error::Result<(Invocation, BoxStream<'a, anyhow::Result<StreamValue>>)> {
+    ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Json);
 
         let log_file = self.open(stats).await?;
@@ -207,9 +207,9 @@ impl EventLogPathBuf {
         let invocation = Invocation::parse_json_line(&header)?;
 
         let events = LinesStream::new(log_lines).map(|line| {
-            let line = line.buck_error_context_anyhow("Error reading next line")?;
+            let line = line.buck_error_context("Error reading next line")?;
             serde_json::from_str::<StreamValue>(&line)
-                .with_buck_error_context_anyhow(|| format!("Invalid line: {}", line.trim_end()))
+                .with_buck_error_context(|| format!("Invalid line: {}", line.trim_end()))
         });
 
         Ok((invocation, events.boxed()))
@@ -218,7 +218,7 @@ impl EventLogPathBuf {
     async fn unpack_stream_protobuf<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
-    ) -> buck2_error::Result<(Invocation, BoxStream<'a, anyhow::Result<StreamValue>>)> {
+    ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Protobuf);
 
         let log_file = self.open(stats).await?;
@@ -251,7 +251,7 @@ impl EventLogPathBuf {
                 Some(command_progress::Progress::PartialResult(result)) => {
                     Ok(StreamValue::PartialResult(result))
                 }
-                None => Err(anyhow::anyhow!("Event type not recognized")),
+                None => Err(buck2_error::buck2_error!([], "Event type not recognized")),
             }
         });
 
@@ -263,7 +263,7 @@ impl EventLogPathBuf {
         stats: Option<&'a ReaderStats>,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = anyhow::Result<StreamValue>> + 'a,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + 'a,
     )> {
         match self.encoding.mode {
             LogMode::Json => self.unpack_stream_json(stats).await,
@@ -277,7 +277,7 @@ impl EventLogPathBuf {
         stats: &'a ReaderStats,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = anyhow::Result<StreamValue>> + 'a,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + 'a,
     )> {
         self.unpack_stream_inner(Some(stats)).await
     }
@@ -286,7 +286,7 @@ impl EventLogPathBuf {
         &self,
     ) -> buck2_error::Result<(
         Invocation,
-        impl Stream<Item = anyhow::Result<StreamValue>> + 'static,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + 'static,
     )> {
         self.unpack_stream_inner(None).await
     }

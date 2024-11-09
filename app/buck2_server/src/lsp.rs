@@ -815,7 +815,7 @@ async fn recv_from_lsp(
 ///     - `Err` if a payload could not be decoded.
 fn handle_incoming_lsp_message(
     from_client: &crossbeam_channel::Sender<Message>,
-    message: anyhow::Result<LspRequest>,
+    message: buck2_error::Result<LspRequest>,
 ) -> anyhow::Result<Option<LspResponse>> {
     if let Ok(m) = message {
         let message = serde_json::from_str(&m.lsp_json)?;

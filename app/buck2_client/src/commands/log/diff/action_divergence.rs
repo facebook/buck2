@@ -87,7 +87,7 @@ fn get_action_execution_data<'a>(
 }
 
 async fn get_digest_map(
-    mut events: impl Stream<Item = anyhow::Result<StreamValue>> + Unpin + Send,
+    mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
 ) -> anyhow::Result<LinkedHashMap<ActionKey, ActionExecutionData>> {
     let mut out = LinkedHashMap::new();
 

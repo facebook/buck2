@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
 use buck2_cli_proto::CommandResult;
+use buck2_error::AnyhowContextForError;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use futures::stream;
@@ -128,7 +129,7 @@ impl<'a> EventsCtx<'a> {
     async fn handle_stream_next<Handler>(
         &mut self,
         partial_result_handler: &mut Handler,
-        next: Option<Vec<anyhow::Result<StreamValue>>>,
+        next: Option<Vec<buck2_error::Result<StreamValue>>>,
         shutdown: &mut Option<buck2_data::DaemonShutdown>,
     ) -> anyhow::Result<ControlFlow<Box<CommandResult>, ()>>
     where
@@ -189,7 +190,7 @@ impl<'a> EventsCtx<'a> {
         mut console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandResult>
     where
-        S: Stream<Item = anyhow::Result<StreamValue>>,
+        S: Stream<Item = buck2_error::Result<StreamValue>>,
         Handler: PartialResultHandler,
     {
         let mut noop_console_interaction = NoopSuperConsoleInteraction;
@@ -277,7 +278,7 @@ impl<'a> EventsCtx<'a> {
         console_interaction: Option<ConsoleInteractionStream<'_>>,
     ) -> anyhow::Result<CommandOutcome<Res>>
     where
-        S: Stream<Item = anyhow::Result<StreamValue>>,
+        S: Stream<Item = buck2_error::Result<StreamValue>>,
         Res: TryFrom<command_result::Result, Error = command_result::Result>,
         Handler: PartialResultHandler,
     {
