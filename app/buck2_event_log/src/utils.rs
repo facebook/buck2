@@ -7,16 +7,15 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use itertools::Itertools;
 use serde::Deserialize;
 use serde::Serialize;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Debug, buck2_error::Error)]
 pub(crate) enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
@@ -89,7 +88,7 @@ pub(crate) const KNOWN_ENCODINGS: &[Encoding] = &[
     Encoding::PROTO_ZSTD,
 ];
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub(crate) enum EventLogInferenceError {
     #[error("Event log at path {} has no filename", .0.display())]
     NoFilename(AbsPathBuf),
@@ -151,9 +150,9 @@ impl Invocation {
             .expect("Null byte unexpected")
     }
 
-    pub(crate) fn parse_json_line(json: &str) -> anyhow::Result<Invocation> {
+    pub(crate) fn parse_json_line(json: &str) -> buck2_error::Result<Invocation> {
         serde_json::from_str::<Invocation>(json)
-            .with_context(|| format!("Invalid header: {}", json.trim_end()))
+            .with_buck_error_context(|| format!("Invalid header: {}", json.trim_end()))
     }
 }
 

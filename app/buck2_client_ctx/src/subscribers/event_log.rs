@@ -59,7 +59,7 @@ impl<'a> EventLog<'a> {
 #[async_trait]
 impl<'a> EventSubscriber for EventLog<'a> {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
-        self.writer.write_events(events).await
+        Ok(self.writer.write_events(events).await?)
     }
 
     async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
@@ -80,13 +80,13 @@ impl<'a> EventSubscriber for EventLog<'a> {
         &mut self,
         result: &buck2_cli_proto::CommandResult,
     ) -> anyhow::Result<()> {
-        self.writer.write_result(result).await
+        Ok(self.writer.write_result(result).await?)
     }
 
     /// Flush all log files during on tick to avoid buffering data in memory which we might lose if
     /// we hit an error.
     async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()> {
-        self.writer.flush_files().await
+        Ok(self.writer.flush_files().await?)
     }
 
     async fn exit(&mut self) -> anyhow::Result<()> {

@@ -63,7 +63,7 @@ impl EventLogOptions {
     pub(crate) async fn get(
         &self,
         ctx: &ClientCommandContext<'_>,
-    ) -> anyhow::Result<EventLogPathBuf> {
+    ) -> buck2_error::Result<EventLogPathBuf> {
         if let Some(path) = &self.path {
             EventLogPathBuf::infer(path.resolve(&ctx.working_dir))
         } else if let Some(id) = &self.trace_id {

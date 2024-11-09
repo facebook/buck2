@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
@@ -28,7 +28,7 @@ pub(crate) fn get_logfile_name(
     event: &BuckEvent,
     encoding: Encoding,
     command_name: &str,
-) -> anyhow::Result<FileNameBuf> {
+) -> buck2_error::Result<FileNameBuf> {
     let time_str = {
         let datetime: DateTime<Utc> = event.timestamp().into();
         datetime.format("%Y%m%d-%H%M%S").to_string()
@@ -38,9 +38,9 @@ pub(crate) fn get_logfile_name(
     let extension = encoding.extensions[0];
 
     // Sort order matters here: earliest builds are lexicographically first and deleted first.
-    FileNameBuf::try_from(format!(
+    Ok(FileNameBuf::try_from(format!(
         "{time_str}_{command_name}_{trace_id}_events{extension}"
-    ))
+    ))?)
 }
 
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
@@ -58,14 +58,14 @@ pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {
 }
 
 /// List files in logdir, ordered from oldest to newest.
-fn get_files_in_log_dir(logdir: &AbsNormPath) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+fn get_files_in_log_dir(logdir: &AbsNormPath) -> buck2_error::Result<Vec<AbsNormPathBuf>> {
     Ok(fs_util::read_dir_if_exists(logdir)?
         .map(sort_logs)
         .unwrap_or_default())
 }
 
 /// List logs in logdir, ordered from oldest to newest.
-pub fn get_local_logs(logdir: &AbsNormPath) -> anyhow::Result<Vec<EventLogPathBuf>> {
+pub fn get_local_logs(logdir: &AbsNormPath) -> buck2_error::Result<Vec<EventLogPathBuf>> {
     Ok(get_files_in_log_dir(logdir)?
         .into_iter()
         .filter_map(|path| EventLogPathBuf::infer(path.into_abs_path_buf()).ok())
@@ -90,7 +90,7 @@ fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
 pub fn find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
-) -> anyhow::Result<Option<EventLogPathBuf>> {
+) -> buck2_error::Result<Option<EventLogPathBuf>> {
     let trace_id = trace_id.to_string();
     Ok(get_local_logs(log_dir)?.into_iter().rev().find(|log| {
         let log_name = log.path.file_name().unwrap();
@@ -102,14 +102,14 @@ pub fn find_log_by_trace_id(
 pub fn do_find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
-) -> anyhow::Result<EventLogPathBuf> {
-    find_log_by_trace_id(log_dir, trace_id)?.context("Error finding log by trace id")
+) -> buck2_error::Result<EventLogPathBuf> {
+    find_log_by_trace_id(log_dir, trace_id)?.buck_error_context("Error finding log by trace id")
 }
 
 pub fn retrieve_nth_recent_log(
     paths: &InvocationPaths,
     n: usize,
-) -> anyhow::Result<EventLogPathBuf> {
+) -> buck2_error::Result<EventLogPathBuf> {
     let log_dir = paths.log_dir();
     let mut logfiles = get_local_logs(&log_dir)?;
     logfiles.reverse(); // newest first
@@ -123,7 +123,7 @@ pub fn retrieve_nth_recent_log(
     Ok(chosen.clone())
 }
 
-pub fn retrieve_all_logs(paths: &InvocationPaths) -> anyhow::Result<Vec<EventLogPathBuf>> {
+pub fn retrieve_all_logs(paths: &InvocationPaths) -> buck2_error::Result<Vec<EventLogPathBuf>> {
     let log_dir = paths.log_dir();
     get_local_logs(&log_dir)
 }

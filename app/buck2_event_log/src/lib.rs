@@ -8,14 +8,15 @@
  */
 
 #![feature(used_with_arg)]
+#![feature(error_generic_member_access)]
 
 use std::io;
 use std::process;
 use std::time::Duration;
 
-use anyhow::Context as _;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::ci::is_ci;
+use buck2_error::BuckErrorContext;
 use tokio::process::Child;
 use tokio::task::JoinHandle;
 
@@ -28,37 +29,35 @@ pub mod utils;
 pub mod write;
 pub mod writer;
 
-pub fn should_upload_log() -> anyhow::Result<bool> {
+pub fn should_upload_log() -> buck2_error::Result<bool> {
     if buck2_core::is_open_source() {
         return Ok(false);
     }
-    Ok(!buck2_env_anyhow!(
+    Ok(!buck2_env!(
         "BUCK2_TEST_DISABLE_LOG_UPLOAD",
         bool,
         applicability = testing
     )?)
 }
 
-pub fn should_block_on_log_upload() -> anyhow::Result<bool> {
+pub fn should_block_on_log_upload() -> buck2_error::Result<bool> {
     // `BUCK2_TEST_BLOCK_ON_UPLOAD` is used by our tests.
-    Ok(
-        is_ci()?
-            || buck2_env_anyhow!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool, applicability = internal)?,
-    )
+    Ok(is_ci()? || buck2_env!("BUCK2_TEST_BLOCK_ON_UPLOAD", bool, applicability = internal)?)
 }
 
 /// Wait for the child to finish. Assume its stderr was piped.
 pub async fn wait_for_child_and_log(child: FutureChildOutput, reason: &str) {
-    async fn inner(child: FutureChildOutput) -> anyhow::Result<()> {
+    async fn inner(child: FutureChildOutput) -> buck2_error::Result<()> {
         let res = tokio::time::timeout(Duration::from_secs(20), child.task)
             .await
-            .context("Timed out")?
-            .context("Task failed")?
-            .context("Process failed")?;
+            .buck_error_context("Timed out")?
+            .buck_error_context("Task failed")?
+            .buck_error_context("Process failed")?;
 
         if !res.status.success() {
             let stderr = String::from_utf8_lossy(&res.stderr);
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "Upload exited with status `{}`. Stderr: `{}`",
                 res.status,
                 stderr.trim(),
